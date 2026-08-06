@@ -1,6 +1,7 @@
 //! Runtime host contract, backend, and profile normalization helpers.
 
-use crate::*;
+use serde_json::Value;
+use std::collections::BTreeSet;
 
 /// The current high-level runtime host contract selected for execution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,8 +70,8 @@ pub(crate) fn parse_runtime_backend_label(label: &str) -> Option<RuntimeBackend>
     }
 }
 
-pub(crate) fn parse_optional_runtime_host_contract_label(
-    value: Option<&serde_json::Value>,
+pub fn parse_optional_runtime_host_contract_label(
+    value: Option<&Value>,
 ) -> Option<RuntimeHostContract> {
     let label = value?.as_str()?.trim();
     if label.is_empty() {
@@ -80,8 +81,8 @@ pub(crate) fn parse_optional_runtime_host_contract_label(
     parse_runtime_host_contract_label(label)
 }
 
-pub(crate) fn parse_optional_runtime_backend_label(
-    value: Option<&serde_json::Value>,
+pub fn parse_optional_runtime_backend_label(
+    value: Option<&Value>,
 ) -> Option<RuntimeBackend> {
     let label = value?.as_str()?.trim();
     if label.is_empty() {

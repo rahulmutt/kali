@@ -15,6 +15,7 @@ members = [
     "crates/kali_optimize",
     "crates/kali_sandbox",
     "crates/kali_runtime",
+    "crates/kali_runtime_contract",
     "crates/kali_api_deno",
     "crates/kali_api_node",
     "crates/kali_api_web",
@@ -50,6 +51,7 @@ kali_codegen = { path = "crates/kali_codegen" }
 kali_optimize = { path = "crates/kali_optimize" }
 kali_sandbox = { path = "crates/kali_sandbox" }
 kali_runtime = { path = "crates/kali_runtime" }
+kali_runtime_contract = { path = "crates/kali_runtime_contract" }
 kali_api_deno = { path = "crates/kali_api_deno" }
 kali_api_node = { path = "crates/kali_api_node" }
 kali_api_web = { path = "crates/kali_api_web" }

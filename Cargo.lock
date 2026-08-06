@@ -1594,6 +1594,7 @@ dependencies = [
  "kali_api_web",
  "kali_common",
  "kali_error",
+ "kali_runtime_contract",
  "kali_sandbox",
  "kali_test_support",
  "reqwest",
@@ -1603,6 +1604,16 @@ dependencies = [
  "url",
  "wasmtime",
  "wat",
+]
+
+[[package]]
+name = "kali_runtime_contract"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "kali_error",
+ "kali_test_support",
+ "serde_json",
 ]
 
 [[package]]

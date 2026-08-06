@@ -7,9 +7,10 @@ mod outcome;
 pub use outcome::RuntimeOutcome;
 mod state;
 pub use state::{KaliHostState, ScheduledTimer};
-mod profiles;
-pub(crate) use profiles::*;
-pub use profiles::{normalize_runtime_profiles, RuntimeBackend, RuntimeHostContract};
+pub(crate) use kali_runtime_contract::*;
+pub use kali_runtime_contract::{
+    normalize_runtime_profiles, RuntimeBackend, RuntimeHostContract,
+};
 mod host;
 pub(crate) use host::{diagnostics::*, enforce::*, io::*, memory::*};
 pub(crate) use host::{imports_default::*, imports_node::*};
