@@ -178,8 +178,11 @@ name = "c"
 }
 
 // A known key with the wrong TOML value type must fail cleanly through the
-// hand-written `toml::Value::Table(rest).try_into::<Step>()` conversion,
-// not silently coerce, drop the field, or panic.
+// hand-written `toml::Value::Table(rest).try_into::<RawStep>()` conversion,
+// not silently coerce, drop the field, or panic -- and the error must name
+// the offending field, the same guarantee as the unknown-key tests above.
+// `toml`'s error `Display` puts the field path on its own line ("in
+// `args`"), which is what these assertions pin.
 #[test]
 fn an_inline_field_with_the_wrong_value_type_is_a_hard_error() {
     let text = r#"
@@ -188,7 +191,7 @@ name = "c"
 args = "run"
 "#;
     let err = parse_case_file(text).expect_err("must reject args as a string, not a list");
-    assert!(!err.is_empty());
+    assert!(err.contains("args"), "error must name the field: {err}");
 }
 
 #[test]
@@ -200,12 +203,13 @@ args = ["run", "main.js"]
 exit = true
 "#;
     let err = parse_case_file(text).expect_err("must reject a boolean exit value");
-    assert!(!err.is_empty());
+    assert!(err.contains("exit"), "error must name the field: {err}");
 }
 
 // The same wrong-type check on the `[[case.step]]` path, which goes through
 // ordinary (non-flatten) struct deserialization rather than the manual
-// conversion -- confirming both paths reject bad input the same way.
+// conversion -- confirming both paths reject bad input the same way, and
+// both name the field.
 #[test]
 fn a_step_list_entry_with_the_wrong_value_type_is_a_hard_error() {
     let text = r#"
@@ -216,43 +220,143 @@ name = "c"
   args = "run"
 "#;
     let err = parse_case_file(text).expect_err("must reject args as a string, not a list");
-    assert!(!err.is_empty());
+    assert!(err.contains("args"), "error must name the field: {err}");
 }
 
-// The manual conversion (`toml::Value::Table(rest).try_into::<Step>()`) is
-// hand-written, unlike everything else in this module, so it carries its
-// own risk: a converter that silently drops a field would make every case
-// file that relies on that field assert nothing, which is the exact class
-// of bug this whole format exists to prevent. This pins every one of
-// `Step`'s fourteen fields through the inline (flatten + manual convert)
-// path, not just the two or three any individual test above happens to
-// touch.
+// Task 9 derives libtest trial ids from case names; two cases sharing a name
+// would make a failure report ambiguous about which case actually failed.
 #[test]
-fn every_step_field_round_trips_through_the_inline_conversion() {
+fn duplicate_case_names_are_a_hard_error() {
     let text = r#"
 [[case]]
-name = "kitchen_sink"
+name = "dup"
+args = ["run", "a.js"]
+
+[[case]]
+name = "dup"
+args = ["run", "b.js"]
+"#;
+    let err = parse_case_file(text).expect_err("must reject duplicate case names");
+    assert!(err.contains("dup"), "error must name the duplicate: {err}");
+}
+
+// `Step` is flat and every field is independently optional, so nothing
+// stops an author from writing an assertion that the step's `kind` can
+// never evaluate -- e.g. `stdout_contains` on a `file_json` step, which
+// never runs a process and so never produces stdout. That parses clean
+// today unless `parse_case_file` cross-checks fields against `kind`; this
+// is the exact case the reviewer found parsing successfully.
+#[test]
+fn a_file_json_step_rejects_process_output_assertions_naming_the_field() {
+    let text = r#"
+[[case]]
+name = "c"
 kind = "file_json"
+path = "o.json"
+stdout_contains = ["never checked?"]
+"#;
+    let err = parse_case_file(text)
+        .expect_err("must reject stdout_contains on a file_json step, which has no stdout");
+    assert!(
+        err.contains("stdout_contains"),
+        "error must name the field: {err}"
+    );
+    assert!(err.contains("c"), "error must name the case: {err}");
+}
+
+// Same guarantee, but with kind given explicitly and a cli-inapplicable
+// field (`path`) present -- confirms the applicability check fires even
+// when `kind` isn't defaulted.
+#[test]
+fn a_cli_step_rejects_file_json_only_fields() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "cli"
+args = ["run", "main.js"]
+path = "o.json"
+"#;
+    let err = parse_case_file(text).expect_err("must reject path on a cli step");
+    assert!(err.contains("path"), "error must name the field: {err}");
+}
+
+#[test]
+fn a_browser_bundle_harness_step_rejects_cli_only_fields() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "browser_bundle_harness"
+entry = "app"
+body = "await mod.f();"
+args = ["run", "main.js"]
+"#;
+    let err = parse_case_file(text).expect_err("must reject args on a browser_bundle_harness step");
+    assert!(err.contains("args"), "error must name the field: {err}");
+}
+
+// `kind` defaults to `cli` -- but only when no kind-specific field is
+// present. An author who writes `entry`/`body` (browser_bundle_harness-only
+// fields) and forgets `kind = "browser_bundle_harness"` must get an error,
+// not a silently-misinterpreted `cli` step that ignores `entry`/`body`
+// entirely. This is the reviewer's second reported case.
+#[test]
+fn a_step_with_browser_only_fields_and_no_explicit_kind_is_a_hard_error() {
+    let text = r#"
+[[case]]
+name = "c"
+entry = "app"
+body = "await mod.f();"
+stdout_contains = ["1"]
+"#;
+    let err = parse_case_file(text).expect_err("must reject entry/body without an explicit kind");
+    assert!(err.contains("kind"), "error must explain: {err}");
+}
+
+// Symmetric case: `path`/`fields` (file_json-only fields) without an
+// explicit `kind`.
+#[test]
+fn a_step_with_file_json_only_fields_and_no_explicit_kind_is_a_hard_error() {
+    let text = r#"
+[[case]]
+name = "c"
+path = "o.json"
+fields.ok = true
+"#;
+    let err = parse_case_file(text).expect_err("must reject path/fields without an explicit kind");
+    assert!(err.contains("kind"), "error must explain: {err}");
+}
+
+// The manual conversion (`toml::Value::Table(rest).try_into::<RawStep>()`)
+// is hand-written, unlike everything else in this module, so it carries its
+// own risk: a converter that silently drops a field would make every case
+// file that relies on that field assert nothing, which is the exact class
+// of bug this whole format exists to prevent. These three tests pin every
+// one of `Step`'s fourteen fields through the inline (flatten + manual
+// convert) path, split one case per `kind` since `finalize_step` now
+// rejects kind-inapplicable fields -- a single case can no longer carry
+// every field the way the original all-in-one version did.
+#[test]
+fn every_cli_step_field_round_trips_through_the_inline_conversion() {
+    let text = r#"
+[[case]]
+name = "cli_kitchen_sink"
+kind = "cli"
 args = ["run", "main.js"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
-exit = "failure"
+exit = "success"
 stdout = "out\n"
 stdout_contains = ["a"]
 stdout_absent = ["b"]
 stderr_contains = ["c"]
 stderr_absent = ["d"]
 json.schemaVersion = 1
-path = "out.json"
-fields.ok = true
-entry = "app"
-body = "await mod.f();"
 "#;
     let parsed = parse_case_file(text).expect("parse");
     let step = parsed.case[0].inline.as_ref().expect("inline step");
-    assert_eq!(step.kind, StepKind::FileJson);
+    assert_eq!(step.kind, StepKind::Cli);
     assert_eq!(step.args, vec!["run", "main.js"]);
     assert_eq!(step.env["KALI_BROWSER_BUNDLE_HARNESS_COMMAND"], "node");
-    assert_eq!(step.exit, Some(Exit::FAILURE));
+    assert_eq!(step.exit, Some(Exit::SUCCESS));
     assert_eq!(step.stdout.as_deref(), Some("out\n"));
     assert_eq!(step.stdout_contains, vec!["a"]);
     assert_eq!(step.stdout_absent, vec!["b"]);
@@ -262,8 +366,55 @@ body = "await mod.f();"
         step.json.as_ref().unwrap()["schemaVersion"].as_integer(),
         Some(1)
     );
+}
+
+#[test]
+fn every_file_json_step_field_round_trips_through_the_inline_conversion() {
+    let text = r#"
+[[case]]
+name = "file_json_kitchen_sink"
+kind = "file_json"
+path = "out.json"
+fields.ok = true
+"#;
+    let parsed = parse_case_file(text).expect("parse");
+    let step = parsed.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(step.kind, StepKind::FileJson);
     assert_eq!(step.path.as_deref(), Some("out.json"));
     assert_eq!(step.fields.as_ref().unwrap()["ok"].as_bool(), Some(true));
+}
+
+#[test]
+fn every_browser_bundle_harness_step_field_round_trips_through_the_inline_conversion() {
+    let text = r#"
+[[case]]
+name = "browser_kitchen_sink"
+kind = "browser_bundle_harness"
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+stdout = "out\n"
+stdout_contains = ["a"]
+stdout_absent = ["b"]
+stderr_contains = ["c"]
+stderr_absent = ["d"]
+json.schemaVersion = 2
+entry = "app"
+body = "await mod.f();"
+"#;
+    let parsed = parse_case_file(text).expect("parse");
+    let step = parsed.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(step.kind, StepKind::BrowserBundleHarness);
+    assert_eq!(step.env["KALI_BROWSER_BUNDLE_HARNESS_COMMAND"], "node");
+    assert_eq!(step.exit, Some(Exit::FAILURE));
+    assert_eq!(step.stdout.as_deref(), Some("out\n"));
+    assert_eq!(step.stdout_contains, vec!["a"]);
+    assert_eq!(step.stdout_absent, vec!["b"]);
+    assert_eq!(step.stderr_contains, vec!["c"]);
+    assert_eq!(step.stderr_absent, vec!["d"]);
+    assert_eq!(
+        step.json.as_ref().unwrap()["schemaVersion"].as_integer(),
+        Some(2)
+    );
     assert_eq!(step.entry.as_deref(), Some("app"));
     assert_eq!(step.body.as_deref(), Some("await mod.f();"));
 }

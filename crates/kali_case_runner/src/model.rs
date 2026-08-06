@@ -32,14 +32,18 @@
 //! The fix here routes around the derive machinery instead of relying on
 //! it: `RawCase` flattens the residual (non-`name`/`rationale`/`ignore`/
 //! `step`) keys into a raw `toml::Table`, and `parse_case_file` converts
-//! that table into `Step` with `toml::Value::Table(rest).try_into::<Step>()`
-//! -- a plain `Deserialize` call, outside the flatten `Content` buffer,
-//! which *does* honor `Step`'s `deny_unknown_fields`. That conversion is
-//! the only hand-written part of this module; everything else is ordinary
-//! derived `Deserialize`. Its correctness (every `Step` field actually
-//! carried through, unknown keys in both the inline and `[[case.step]]`
-//! forms rejected, wrong-typed known keys rejected without panicking) is
-//! covered directly in `model_tests.rs`, not just via the happy path.
+//! that table into `RawStep` with
+//! `toml::Value::Table(rest).try_into::<RawStep>()` -- a plain `Deserialize`
+//! call, outside the flatten `Content` buffer, which *does* honor
+//! `RawStep`'s `deny_unknown_fields`. `finalize_step` then turns a `RawStep`
+//! into the public `Step`, resolving its default `kind` and rejecting
+//! fields that don't apply to that kind (see its doc comment). Both the
+//! manual conversion and `finalize_step` are hand-written, unlike the rest
+//! of this module; their correctness (every `Step` field actually carried
+//! through, unknown keys in both the inline and `[[case.step]]` forms
+//! rejected, wrong-typed known keys rejected without panicking,
+//! kind-inapplicable fields rejected) is covered directly in
+//! `model_tests.rs`, not just via the happy path.
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -71,7 +75,7 @@ struct RawCase {
     ignore: bool,
     /// Multi-step form: `[[case.step]]`.
     #[serde(default)]
-    step: Vec<Step>,
+    step: Vec<RawStep>,
     /// Everything else written directly on `[[case]]` -- the single-step
     /// shorthand's raw material, converted to `Step` in `parse_case_file`.
     #[serde(flatten)]
@@ -97,13 +101,25 @@ pub struct Case {
     pub inline: Option<Step>,
 }
 
-#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum StepKind {
     #[default]
     Cli,
     FileJson,
     BrowserBundleHarness,
+}
+
+impl StepKind {
+    /// The spelling an author would write in a case file, used in error
+    /// messages so they read like the TOML the author wrote.
+    fn as_str(self) -> &'static str {
+        match self {
+            StepKind::Cli => "cli",
+            StepKind::FileJson => "file_json",
+            StepKind::BrowserBundleHarness => "browser_bundle_harness",
+        }
+    }
 }
 
 // `Exit` is `#[serde(untagged)]` so both `exit = "success"` and `exit = 2`
@@ -134,41 +150,206 @@ pub enum ExitStatusWord {
     Failure,
 }
 
+// `kind` is `Option` here, not defaulted straight to `StepKind::Cli` the way
+// the public `Step` below has it. `finalize_step` is what applies the
+// default -- and only when no kind-specific field (`path`/`fields`/
+// `entry`/`body`) is present. That distinction is what turns "a step sets
+// `entry`/`body` but forgot `kind = \"browser_bundle_harness\"`" into a hard
+// error instead of a silently-misinterpreted `cli` step: see `finalize_step`.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawStep {
+    #[serde(default)]
+    kind: Option<StepKind>,
+    #[serde(default)]
+    args: Vec<String>,
+    #[serde(default)]
+    env: BTreeMap<String, String>,
+    #[serde(default)]
+    exit: Option<Exit>,
+    #[serde(default)]
+    stdout: Option<String>,
+    #[serde(default)]
+    stdout_contains: Vec<String>,
+    #[serde(default)]
+    stdout_absent: Vec<String>,
+    #[serde(default)]
+    stderr_contains: Vec<String>,
+    #[serde(default)]
+    stderr_absent: Vec<String>,
+    #[serde(default)]
+    json: Option<toml::Value>,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    fields: Option<toml::Value>,
+    #[serde(default)]
+    entry: Option<String>,
+    #[serde(default)]
+    body: Option<String>,
+}
+
+#[derive(Debug)]
 pub struct Step {
-    #[serde(default)]
     pub kind: StepKind,
-    #[serde(default)]
     pub args: Vec<String>,
-    #[serde(default)]
     pub env: BTreeMap<String, String>,
-    #[serde(default)]
     pub exit: Option<Exit>,
-    #[serde(default)]
     pub stdout: Option<String>,
-    #[serde(default)]
     pub stdout_contains: Vec<String>,
-    #[serde(default)]
     pub stdout_absent: Vec<String>,
-    #[serde(default)]
     pub stderr_contains: Vec<String>,
-    #[serde(default)]
     pub stderr_absent: Vec<String>,
-    #[serde(default)]
     pub json: Option<toml::Value>,
     /// `file_json` only.
-    #[serde(default)]
     pub path: Option<String>,
     /// `file_json` only.
-    #[serde(default)]
     pub fields: Option<toml::Value>,
     /// `browser_bundle_harness` only.
-    #[serde(default)]
     pub entry: Option<String>,
     /// `browser_bundle_harness` only.
-    #[serde(default)]
     pub body: Option<String>,
+}
+
+/// Resolves a `RawStep`'s effective `kind` and rejects fields that don't
+/// apply to it.
+///
+/// Two failure modes this closes, both first reported against a real case
+/// file rather than anticipated up front:
+///
+/// - A `file_json` step (reads a file, asserts on it) declaring `stdout*`,
+///   `exit`, or other process-output assertions: the step never runs a
+///   process, so those assertions would never be evaluated -- parses clean,
+///   asserts nothing, exactly the degradation this format exists to close.
+/// - A step setting `entry`/`body` (`browser_bundle_harness`-only fields)
+///   or `path`/`fields` (`file_json`-only fields) without an explicit
+///   `kind`: `kind` defaults to `cli`, so a forgotten `kind =
+///   "browser_bundle_harness"` silently becomes a `cli` step that ignores
+///   `entry`/`body` entirely. `kind` therefore only defaults to `cli` when
+///   *no* kind-specific field is present; otherwise it must be spelled out.
+fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
+    let wants_file_json = raw.path.is_some() || raw.fields.is_some();
+    let wants_browser = raw.entry.is_some() || raw.body.is_some();
+
+    let kind = match raw.kind {
+        Some(kind) => kind,
+        None if wants_file_json && wants_browser => {
+            return Err(format!(
+                "case `{case_name}`: step sets both `path`/`fields` (file_json-only) and \
+                 `entry`/`body` (browser_bundle_harness-only) without an explicit `kind`"
+            ));
+        }
+        None if wants_file_json => {
+            return Err(format!(
+                "case `{case_name}`: step sets `path` or `fields`, which requires an explicit \
+                 `kind = \"file_json\"` -- `kind` only defaults to `cli` when no kind-specific \
+                 field is set"
+            ));
+        }
+        None if wants_browser => {
+            return Err(format!(
+                "case `{case_name}`: step sets `entry` or `body`, which requires an explicit \
+                 `kind = \"browser_bundle_harness\"` -- `kind` only defaults to `cli` when no \
+                 kind-specific field is set"
+            ));
+        }
+        None => StepKind::default(),
+    };
+
+    // Field applicability by kind: `cli` and `browser_bundle_harness` both
+    // run a process and can assert on its exit/stdout/stderr; `file_json`
+    // reads a file off disk and never runs anything, so none of that
+    // applies to it. `args` is `cli`-only (it's the argv passed to `kali`).
+    // `path`/`fields` are `file_json`-only; `entry`/`body` are
+    // `browser_bundle_harness`-only.
+    let mut inapplicable: Vec<&'static str> = Vec::new();
+    match kind {
+        StepKind::Cli => {
+            if raw.path.is_some() {
+                inapplicable.push("path");
+            }
+            if raw.fields.is_some() {
+                inapplicable.push("fields");
+            }
+            if raw.entry.is_some() {
+                inapplicable.push("entry");
+            }
+            if raw.body.is_some() {
+                inapplicable.push("body");
+            }
+        }
+        StepKind::FileJson => {
+            if !raw.args.is_empty() {
+                inapplicable.push("args");
+            }
+            if !raw.env.is_empty() {
+                inapplicable.push("env");
+            }
+            if raw.exit.is_some() {
+                inapplicable.push("exit");
+            }
+            if raw.stdout.is_some() {
+                inapplicable.push("stdout");
+            }
+            if !raw.stdout_contains.is_empty() {
+                inapplicable.push("stdout_contains");
+            }
+            if !raw.stdout_absent.is_empty() {
+                inapplicable.push("stdout_absent");
+            }
+            if !raw.stderr_contains.is_empty() {
+                inapplicable.push("stderr_contains");
+            }
+            if !raw.stderr_absent.is_empty() {
+                inapplicable.push("stderr_absent");
+            }
+            if raw.json.is_some() {
+                inapplicable.push("json");
+            }
+            if raw.entry.is_some() {
+                inapplicable.push("entry");
+            }
+            if raw.body.is_some() {
+                inapplicable.push("body");
+            }
+        }
+        StepKind::BrowserBundleHarness => {
+            if !raw.args.is_empty() {
+                inapplicable.push("args");
+            }
+            if raw.path.is_some() {
+                inapplicable.push("path");
+            }
+            if raw.fields.is_some() {
+                inapplicable.push("fields");
+            }
+        }
+    }
+    if !inapplicable.is_empty() {
+        return Err(format!(
+            "case `{case_name}`: step (kind = \"{}\") sets field(s) that do not apply to that \
+             kind: {}",
+            kind.as_str(),
+            inapplicable.join(", ")
+        ));
+    }
+
+    Ok(Step {
+        kind,
+        args: raw.args,
+        env: raw.env,
+        exit: raw.exit,
+        stdout: raw.stdout,
+        stdout_contains: raw.stdout_contains,
+        stdout_absent: raw.stdout_absent,
+        stderr_contains: raw.stderr_contains,
+        stderr_absent: raw.stderr_absent,
+        json: raw.json,
+        path: raw.path,
+        fields: raw.fields,
+        entry: raw.entry,
+        body: raw.body,
+    })
 }
 
 pub fn parse_case_file(text: &str) -> Result<CaseFile, String> {
@@ -183,19 +364,33 @@ pub fn parse_case_file(text: &str) -> Result<CaseFile, String> {
     }
 
     let mut cases = Vec::with_capacity(raw.case.len());
+    let mut seen_names = std::collections::BTreeSet::new();
     for raw_case in raw.case {
-        let inline = if raw_case.rest.is_empty() {
+        if !seen_names.insert(raw_case.name.clone()) {
+            return Err(format!("duplicate case name `{}`", raw_case.name));
+        }
+
+        let inline_raw: Option<RawStep> = if raw_case.rest.is_empty() {
             None
         } else {
-            let step: Step = toml::Value::Table(raw_case.rest)
+            let raw_step: RawStep = toml::Value::Table(raw_case.rest)
                 .try_into()
                 .map_err(|error| format!("case `{}`: {error}", raw_case.name))?;
-            Some(step)
+            Some(raw_step)
         };
-        if raw_case.step.is_empty() && inline.is_none() {
+
+        let mut step = Vec::with_capacity(raw_case.step.len());
+        for raw_step in raw_case.step {
+            step.push(finalize_step(raw_step, &raw_case.name)?);
+        }
+        let inline = inline_raw
+            .map(|raw_step| finalize_step(raw_step, &raw_case.name))
+            .transpose()?;
+
+        if step.is_empty() && inline.is_none() {
             return Err(format!("case `{}` declares no step", raw_case.name));
         }
-        if !raw_case.step.is_empty() && inline.is_some() {
+        if !step.is_empty() && inline.is_some() {
             return Err(format!(
                 "case `{}` mixes [[case.step]] with inline step fields",
                 raw_case.name
@@ -205,7 +400,7 @@ pub fn parse_case_file(text: &str) -> Result<CaseFile, String> {
             name: raw_case.name,
             rationale: raw_case.rationale,
             ignore: raw_case.ignore,
-            step: raw_case.step,
+            step,
             inline,
         });
     }
