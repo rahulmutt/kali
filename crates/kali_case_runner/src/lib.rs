@@ -4,5 +4,7 @@
 //! a test compiles nothing. See
 //! `docs/superpowers/specs/2026-07-29-test-binary-consolidation-design.md`.
 
+mod expand;
 mod model;
+pub use expand::{expand, Trial};
 pub use model::{parse_case_file, Case, CaseFile, Exit, ExitStatusWord, Step, StepKind};

@@ -1,0 +1,289 @@
+use super::*;
+use crate::parse_case_file;
+
+#[test]
+fn a_case_file_with_no_matrix_yields_one_trial_per_case() {
+    let file = parse_case_file(
+        r#"
+[source]
+"main.js" = "console.log(1);\n"
+
+[[case]]
+name = "run"
+args = ["run", "main.js"]
+
+[[case]]
+name = "check"
+args = ["check", "main.js"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("string/x", &file).expect("expand");
+    let ids: Vec<&str> = trials.iter().map(|t| t.id.as_str()).collect();
+    assert_eq!(ids, vec!["string/x::run", "string/x::check"]);
+}
+
+#[test]
+fn a_matrix_axis_substitutes_into_source_names_bodies_and_argv() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js", "ts"]
+
+[source]
+"app.${ext}" = "// ${ext}\nconsole.log(1);\n"
+
+[[case]]
+name = "build"
+args = ["build", "app.${ext}"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("browser/y", &file).expect("expand");
+    assert_eq!(trials.len(), 2);
+    assert_eq!(trials[0].id, "browser/y[ext=js]::build");
+    assert!(trials[0].source.contains_key("app.js"));
+    assert_eq!(trials[0].source["app.js"], "// js\nconsole.log(1);\n");
+    assert_eq!(trials[0].steps[0].args, vec!["build", "app.js"]);
+    assert_eq!(trials[1].id, "browser/y[ext=ts]::build");
+    assert!(trials[1].source.contains_key("app.ts"));
+}
+
+#[test]
+fn two_axes_form_a_cartesian_product_with_axes_sorted_by_name() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js", "ts"]
+api = ["browser", "node"]
+
+[[case]]
+name = "build"
+args = ["build", "--api", "${api}", "app.${ext}"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("browser/z", &file).expect("expand");
+    assert_eq!(trials.len(), 4);
+    // `api` sorts before `ext`.
+    assert_eq!(trials[0].id, "browser/z[api=browser,ext=js]::build");
+    assert_eq!(trials[3].id, "browser/z[api=node,ext=ts]::build");
+}
+
+#[test]
+fn constants_substitute_into_expected_strings() {
+    let file = parse_case_file(
+        r#"
+[constants]
+RULE_1 = "the discriminant is not a proven integer or string"
+
+[[case]]
+name = "float_discriminant"
+args = ["run", "main.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${RULE_1}"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("switch/fail_closed", &file).expect("expand");
+    assert_eq!(
+        trials[0].steps[0].stderr_contains,
+        vec![
+            "E5506",
+            "the discriminant is not a proven integer or string"
+        ]
+    );
+}
+
+// An unresolved placeholder must never survive into a comparison, or the test
+// silently asserts a literal `${...}` nobody will ever emit.
+#[test]
+fn an_unresolved_placeholder_is_a_hard_error_naming_it() {
+    let file = parse_case_file(
+        r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+stderr_contains = ["${NOPE}"]
+"#,
+    )
+    .expect("parse");
+    let err = expand("x/y", &file).expect_err("must reject unresolved");
+    assert!(
+        err.contains("NOPE"),
+        "error must name the placeholder: {err}"
+    );
+}
+
+#[test]
+fn substitution_reaches_multi_step_cases_and_env_values() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[constants]
+CMD = "node"
+
+[[case]]
+name = "harness"
+
+  [[case.step]]
+  kind = "cli"
+  args = ["run", "main.${ext}"]
+  env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "${CMD}" }
+"#,
+    )
+    .expect("parse");
+    let trials = expand("browser/w", &file).expect("expand");
+    assert_eq!(trials[0].steps[0].args, vec!["run", "main.js"]);
+    assert_eq!(
+        trials[0].steps[0].env["KALI_BROWSER_BUNDLE_HARNESS_COMMAND"],
+        "node"
+    );
+}
+
+#[test]
+fn the_ignore_flag_and_rationale_carry_onto_every_expanded_trial() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js", "ts"]
+
+[[case]]
+name = "c"
+rationale = "why this exists"
+ignore = true
+args = ["run", "main.${ext}"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert!(trials.iter().all(|t| t.ignore));
+    assert!(trials
+        .iter()
+        .all(|t| t.rationale.as_deref() == Some("why this exists")));
+}
+
+// The brief's own tests exercise `args`, `env` values, and `stderr_contains`.
+// The remaining string-bearing `Step` fields -- `env` keys, `stdout`,
+// `stdout_absent`, `stderr_absent`, and (on the other two `kind`s) `path`,
+// `entry`, and `body` -- are just as capable of carrying a `${...}` that a
+// forgetful `substitute_step` would silently leave untouched. Each of these
+// is checked on its own, against the specific `kind` that actually accepts
+// the field (see `finalize_step` in `model.rs`), so a regression in any one
+// field is pinpointed rather than only detected in aggregate.
+
+#[test]
+fn substitution_reaches_stdout_and_stdout_absent() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+args = ["run", "main.${ext}"]
+stdout = "built main.${ext}\n"
+stdout_absent = ["warning: main.${ext}"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert_eq!(
+        trials[0].steps[0].stdout.as_deref(),
+        Some("built main.js\n")
+    );
+    assert_eq!(trials[0].steps[0].stdout_absent, vec!["warning: main.js"]);
+}
+
+#[test]
+fn substitution_reaches_stderr_absent() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+args = ["run", "main.${ext}"]
+stderr_absent = ["error: main.${ext}"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert_eq!(trials[0].steps[0].stderr_absent, vec!["error: main.js"]);
+}
+
+#[test]
+fn substitution_reaches_env_keys_as_well_as_values() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+
+  [[case.step]]
+  kind = "cli"
+  args = ["run", "main.js"]
+  env = { "KALI_${ext}_FLAG" = "on" }
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert_eq!(trials[0].steps[0].env["KALI_js_FLAG"], "on");
+}
+
+#[test]
+fn substitution_reaches_file_json_path() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+
+  [[case.step]]
+  kind = "file_json"
+  path = "dist/app.${ext}.manifest.json"
+  fields = { apiSurface = "browser" }
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert_eq!(
+        trials[0].steps[0].path.as_deref(),
+        Some("dist/app.js.manifest.json")
+    );
+}
+
+#[test]
+fn substitution_reaches_browser_bundle_harness_entry_and_body() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[constants]
+CALL = "mixedRootExpLog"
+
+[[case]]
+name = "c"
+
+  [[case.step]]
+  kind = "browser_bundle_harness"
+  entry = "app_${ext}"
+  body = "await mod.${CALL}();"
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert_eq!(trials[0].steps[0].entry.as_deref(), Some("app_js"));
+    assert_eq!(
+        trials[0].steps[0].body.as_deref(),
+        Some("await mod.mixedRootExpLog();")
+    );
+}
