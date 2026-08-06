@@ -15,14 +15,14 @@ mod host;
 pub(crate) use host::{diagnostics::*, enforce::*, io::*, memory::*};
 pub(crate) use host::{imports_default::*, imports_node::*};
 mod browser;
-pub(crate) use browser::{command::*, contract::*, summary::*};
+pub(crate) use browser::{command::*, summary::*};
 mod execute;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 pub use browser::command::{
     browser_harness_command_parts, browser_harness_command_parts_checked,
     browser_harness_command_parts_for, split_command_spec,
 };
-pub use browser::contract::{
+pub use kali_runtime_contract::{
     browser_runtime_contract_value, browser_runtime_request_context,
     browser_runtime_unavailable_diagnostic, BrowserRuntimeContract,
     BrowserRuntimeContractDescriptor, BROWSER_HARNESS_COMMAND_ENV,
@@ -51,8 +51,10 @@ use kali_api_web::{
 };
 use kali_error::{
     _error_codes::{e4, e5},
-    Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
+    Diagnostic, DiagnosticContextOrigin,
 };
+#[cfg(test)]
+use kali_error::DiagnosticContext;
 use kali_sandbox::{HostOperation, SandboxPolicy};
 use reqwest::blocking;
 use std::{

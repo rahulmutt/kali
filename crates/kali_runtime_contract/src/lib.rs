@@ -14,3 +14,13 @@ pub use profiles::{
     normalize_runtime_profiles, parse_optional_runtime_backend_label,
     parse_optional_runtime_host_contract_label, RuntimeBackend, RuntimeHostContract,
 };
+
+mod browser;
+#[cfg(test)]
+pub(crate) use browser::contract::*;
+pub use browser::contract::{
+    browser_runtime_contract_value, browser_runtime_request_context,
+    browser_runtime_unavailable_diagnostic, BrowserRuntimeContract,
+    BrowserRuntimeContractDescriptor, BROWSER_HARNESS_COMMAND_ENV,
+    BROWSER_HARNESS_SUMMARY_FILE_ENV,
+};

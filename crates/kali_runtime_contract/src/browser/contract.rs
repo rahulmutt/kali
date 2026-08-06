@@ -1,5 +1,10 @@
 //! Browser runtime contract, descriptor, and unavailability helpers.
-use crate::*;
+use crate::{RuntimeBackend, RuntimeHostContract};
+use kali_error::{
+    _error_codes::e5, Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
+};
+use serde_json::{json, Value};
+use std::collections::BTreeSet;
 
 /// Canonical metadata for the later standalone browser runtime contract.
 ///
@@ -58,14 +63,14 @@ pub(crate) fn browser_runtime_contract_descriptor_is_canonical(
 }
 
 /// Canonical JSON fixture for the later standalone browser runtime contract.
-pub fn browser_runtime_contract_value() -> serde_json::Value {
+pub fn browser_runtime_contract_value() -> Value {
     let descriptor = BrowserRuntimeContract::descriptor();
     assert!(
         browser_runtime_contract_descriptor_is_canonical(&descriptor),
         "browser runtime contract descriptor must stay canonical"
     );
 
-    serde_json::json!({
+    json!({
         "hostLabel": descriptor.host_label,
         "hostDescription": descriptor.host_description,
         "hostDescriptionNote": descriptor.host_description_note,
@@ -81,7 +86,7 @@ pub fn browser_runtime_contract_value() -> serde_json::Value {
 pub const BROWSER_HARNESS_COMMAND_ENV: &str = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND";
 
 /// Environment variable used to request deterministic browser-harness summary capture.
-pub(crate) const BROWSER_HARNESS_SUMMARY_FILE_ENV: &str = "KALI_BROWSER_HARNESS_SUMMARY_FILE";
+pub const BROWSER_HARNESS_SUMMARY_FILE_ENV: &str = "KALI_BROWSER_HARNESS_SUMMARY_FILE";
 
 impl BrowserRuntimeContract {
     /// The command family the future browser runtime contract will own.
