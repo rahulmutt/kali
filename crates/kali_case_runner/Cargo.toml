@@ -1,0 +1,13 @@
+[package]
+name = "kali_case_runner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kali_runtime_contract = { workspace = true }
+libtest-mimic = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+toml = { workspace = true }

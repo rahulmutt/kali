@@ -15,5 +15,5 @@ kali_npm = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-tempfile = "3.10"
+tempfile = { workspace = true }
 kali_test_support = { workspace = true }

@@ -16,9 +16,9 @@ reqwest = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }
 ryu-js = { workspace = true }
-tempfile = "3.10"
+tempfile = { workspace = true }
 
 [dev-dependencies]
 kali_test_support = { workspace = true }
 wat = "1"
-tempfile = "3.10"
+tempfile = { workspace = true }

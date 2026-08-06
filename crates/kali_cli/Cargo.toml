@@ -48,5 +48,5 @@ base64 = { workspace = true }
 flate2 = { workspace = true }
 kali_runtime_contract = { workspace = true }
 tar = { workspace = true }
-tempfile = "3.10"
+tempfile = { workspace = true }
 tungstenite = { workspace = true, features = ["handshake"] }
