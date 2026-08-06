@@ -103,7 +103,7 @@ fn assert_browser_bundle_frozen_math_expm1_log1p(filename: &str, json_output: bo
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -112,7 +112,7 @@ await mod.frozenMathExpm1Log1pIdentities();
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),

@@ -82,7 +82,7 @@ fn assert_browser_harness_generator_rejection_with_expected_messages(
 
     let mut cli = Command::new(kali_bin());
     cli.current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
     if json_output {
         cli.arg("--output").arg("json");
     }

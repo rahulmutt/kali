@@ -73,7 +73,7 @@ fn assert_browser_bundle_atan2_trailing_argument_evaluation(filename: &str, json
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -82,7 +82,7 @@ await mod.atan2TrailingArgumentEvaluation();
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),

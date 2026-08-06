@@ -55,7 +55,7 @@ fn assert_browser_harness_array_callback_identity_succeeds(
     .expect("write source");
 
     let mut cli = Command::new(kali_bin());
-    cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+    cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         cli.arg("--output").arg("json");

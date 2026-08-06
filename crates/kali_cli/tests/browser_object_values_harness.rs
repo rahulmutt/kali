@@ -212,7 +212,7 @@ fn assert_browser_harness_object_values(
 
     let mut output = Command::new(kali_bin());
     output
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         output.arg("--output").arg("json");
@@ -246,7 +246,7 @@ fn assert_browser_harness_object_values_spread(
 
     let mut output = Command::new(kali_bin());
     output
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         output.arg("--output").arg("json");
@@ -713,7 +713,7 @@ fn run_supports_frozen_object_values_spread_iteration_when_browser_harness_is_co
             .expect("write source");
 
             let mut cmd = Command::new(kali_bin());
-            cmd.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            cmd.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
                 .current_dir(dir.path());
             if json_output {
                 cmd.arg("--output").arg("json");
@@ -780,7 +780,7 @@ fn test_supports_frozen_object_values_spread_iteration_when_browser_harness_is_c
             .expect("write source");
 
             let mut cmd = Command::new(kali_bin());
-            cmd.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            cmd.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
                 .current_dir(dir.path());
             if json_output {
                 cmd.arg("--output").arg("json");

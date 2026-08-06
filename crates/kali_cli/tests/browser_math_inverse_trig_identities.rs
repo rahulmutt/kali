@@ -30,7 +30,7 @@ fn assert_browser_harness_math_inverse_trig(command: &str, filename: &str, sourc
 
         let mut output = Command::new(kali_bin());
         output
-            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path());
         if output_json {
             output.arg("--output").arg("json");

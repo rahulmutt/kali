@@ -96,7 +96,7 @@ fn assert_browser_runtime_rejection(
 
     let mut output = Command::new(kali_bin());
     output
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         output.arg("--output").arg("json");
@@ -138,7 +138,7 @@ fn assert_browser_runtime_rejection_inherited(
 
     let mut output = Command::new(kali_bin());
     output
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         output.arg("--output").arg("json");
@@ -177,7 +177,7 @@ fn assert_browser_runtime_rejection_without_browser_harness(
 
     let mut output = Command::new(kali_bin());
     output
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path());
     if json_output {
         output.arg("--output").arg("json");
@@ -219,7 +219,7 @@ fn assert_browser_runtime_rejection_inherited_without_browser_harness(
 
     let mut output = Command::new(kali_bin());
     output
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path());
     if json_output {
         output.arg("--output").arg("json");

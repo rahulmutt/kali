@@ -159,7 +159,7 @@ fn assert_browser_harness_object_keys_entries_spread(
 
     let mut output = Command::new(kali_bin());
     output
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         output.arg("--output").arg("json");

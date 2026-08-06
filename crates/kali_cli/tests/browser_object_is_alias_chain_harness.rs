@@ -49,7 +49,7 @@ fn assert_browser_harness_object_is_alias_chain(command: &str, filename: &str, j
     fs::write(&source_path, browser_object_is_alias_chain_source(command)).expect("write source");
 
     let mut cli = Command::new(kali_bin());
-    cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+    cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         cli.arg("--output").arg("json");

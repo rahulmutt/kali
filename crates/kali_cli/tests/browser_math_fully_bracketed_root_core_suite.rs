@@ -98,7 +98,7 @@ fn assert_browser_bundle_fully_bracketed_global_this_math_core_suite(
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -107,7 +107,7 @@ await mod.fullyBracketedGlobalThisMathCoreSuite();
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),
@@ -234,7 +234,7 @@ fn run_and_test_supports_fully_bracketed_global_this_math_core_suite_when_browse
 
             let mut output = Command::new(kali_bin());
             output
-                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
                 .current_dir(dir.path());
             if output_json {
                 output.arg("--output").arg("json");

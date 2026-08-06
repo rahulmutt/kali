@@ -28,7 +28,7 @@ fn assert_empty_thread_topology_when_browser_api_is_explicit(
     fs::write(&source_path, source).expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")

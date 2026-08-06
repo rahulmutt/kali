@@ -91,7 +91,7 @@ fn run_rejects_browser_api_surface_with_sandbox_in_ts_input_when_browser_harness
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("run")
         .arg("--api")
@@ -118,7 +118,7 @@ fn json_run_rejects_browser_api_surface_with_sandbox_in_ts_input_when_browser_ha
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -148,7 +148,7 @@ fn test_rejects_inherited_browser_api_surface_with_sandbox_in_ts_input_when_brow
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--sandbox")
@@ -174,7 +174,7 @@ fn json_test_rejects_inherited_browser_api_surface_with_sandbox_in_ts_input_when
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -202,7 +202,7 @@ fn run_rejects_inherited_browser_api_surface_with_sandbox_in_ts_input_when_brows
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("run")
         .arg("--sandbox")
@@ -228,7 +228,7 @@ fn json_run_rejects_inherited_browser_api_surface_with_sandbox_in_ts_input_when_
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -254,7 +254,7 @@ fn test_rejects_browser_api_surface_with_sandbox_in_ts_input_when_browser_harnes
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -281,7 +281,7 @@ fn json_test_rejects_browser_api_surface_with_sandbox_in_ts_input_when_browser_h
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -309,7 +309,7 @@ fn run_rejects_browser_api_surface_with_sandbox_in_ts_input_without_browser_harn
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("run")
         .arg("--api")
@@ -335,7 +335,7 @@ fn json_run_rejects_browser_api_surface_with_sandbox_in_ts_input_without_browser
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -364,7 +364,7 @@ fn test_rejects_inherited_browser_api_surface_with_sandbox_in_ts_input_without_b
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("test")
         .arg("--sandbox")
@@ -390,7 +390,7 @@ fn json_test_rejects_inherited_browser_api_surface_with_sandbox_in_ts_input_with
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")

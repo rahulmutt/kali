@@ -60,7 +60,7 @@ fn run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browse
 
             let mut output = Command::new(kali_bin());
             output
-                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
                 .current_dir(dir.path());
             if output_json {
                 output.arg("--output").arg("json");
@@ -136,7 +136,7 @@ fn run_and_test_supports_bracketed_global_this_math_atan2_as_const_wrapper_when_
 
             let mut output = Command::new(kali_bin());
             output
-                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
                 .current_dir(dir.path());
             if output_json {
                 output.arg("--output").arg("json");
@@ -212,7 +212,7 @@ fn run_and_test_supports_bracketed_global_this_math_atan2_satisfies_wrapper_when
 
             let mut output = Command::new(kali_bin());
             output
-                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
                 .current_dir(dir.path());
             if output_json {
                 output.arg("--output").arg("json");
@@ -300,7 +300,7 @@ fn run_and_test_supports_bracketed_global_this_math_atan2_bracketed_method_when_
 
             let mut output = Command::new(kali_bin());
             output
-                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
                 .current_dir(dir.path());
             if output_json {
                 output.arg("--output").arg("json");
@@ -413,7 +413,7 @@ fn run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_br
 
             let mut output = Command::new(kali_bin());
             output
-                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
                 .current_dir(dir.path());
             if output_json {
                 output.arg("--output").arg("json");

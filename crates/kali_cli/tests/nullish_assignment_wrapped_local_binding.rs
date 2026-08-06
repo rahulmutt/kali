@@ -43,7 +43,7 @@ fn assert_wrapped_nullish_assignment(
     let mut cli = Command::new(kali_bin());
     cli.current_dir(dir.path());
     if browser_harness {
-        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+        cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
     }
     if json_output {
         cli.arg("--output").arg("json");

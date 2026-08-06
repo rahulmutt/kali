@@ -1,6 +1,6 @@
 use std::{fs, process::Command};
 
-use kali_runtime::BROWSER_HARNESS_COMMAND_ENV;
+use kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV;
 use serde_json::Value;
 use tempfile::tempdir;
 

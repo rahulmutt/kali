@@ -3946,7 +3946,7 @@ fn browser_bundle_event_lane_executes() {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir_name,
         false,
         "const mod = await import(bundleJs.href);\nawait mod.eventLaneSmoke(1n, 2n);\n",
@@ -4798,7 +4798,7 @@ fn build_emits_browser_bundle_boolean_logic_semantics() {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -4866,7 +4866,7 @@ fn build_emits_browser_bundle_boolean_logic_semantics_in_js_input() {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -4955,7 +4955,7 @@ fn json_build_emits_browser_bundle_boolean_logic_semantics() {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -5044,7 +5044,7 @@ fn json_build_emits_browser_bundle_boolean_logic_semantics_in_js_input() {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -7700,7 +7700,7 @@ fn build_emits_browser_bundle_console_level_routing_in_js_input() {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-console-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir_name,
         false,
         r#"const mod = await import(bundleJs.href);
@@ -7803,7 +7803,7 @@ fn build_emits_browser_bundle_console_level_routing_in_js_input_in_json_output()
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-console-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir_name,
         false,
         r#"const mod = await import(bundleJs.href);
@@ -7905,7 +7905,7 @@ fn build_emits_browser_bundle_console_assert_routing_in_js_input() {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-console-assert-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir_name,
         false,
         r#"const mod = await import(bundleJs.href);
@@ -7982,7 +7982,7 @@ fn build_emits_browser_bundle_console_level_routing_in_ts_input() {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-console-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir_name,
         false,
         r#"const mod = await import(bundleJs.href);
@@ -8085,7 +8085,7 @@ fn build_emits_browser_bundle_console_level_routing_in_ts_input_in_json_output()
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-console-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir_name,
         false,
         r#"const mod = await import(bundleJs.href);
@@ -8166,7 +8166,7 @@ fn build_emits_browser_bundle_console_assert_routing_in_ts_input() {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-console-assert-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir_name,
         false,
         r#"const mod = await import(bundleJs.href);

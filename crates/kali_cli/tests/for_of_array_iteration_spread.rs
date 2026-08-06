@@ -226,7 +226,7 @@ fn assert_browser_harness_array_from_iteration_spread(
     fs::write(&source_path, source.as_ref()).expect("write source");
 
     let mut cli = Command::new(kali_bin());
-    cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+    cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         cli.arg("--output").arg("json");
@@ -324,7 +324,7 @@ fn assert_browser_harness_array_from_iteration_spread_fails_closed(
     fs::write(&source_path, source.as_ref()).expect("write source");
 
     let mut cli = Command::new(kali_bin());
-    cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+    cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         cli.arg("--output").arg("json");

@@ -20,7 +20,7 @@ fn assert_browser_harness_unsupported_math_rejection(
 
     let mut cli = Command::new(kali_bin());
     cli.current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
     if json_output {
         cli.arg("--output").arg("json");
     }
@@ -79,7 +79,7 @@ fn assert_browser_harness_math_sqrt_success(
 
     let mut cli = Command::new(kali_bin());
     cli.current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
     if json_output {
         cli.arg("--output").arg("json");
     }

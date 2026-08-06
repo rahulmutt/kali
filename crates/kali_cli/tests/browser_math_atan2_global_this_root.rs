@@ -151,7 +151,7 @@ fn assert_browser_bundle_global_this_math_atan2_await_wrapped(filename: &str, js
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -160,7 +160,7 @@ await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),
@@ -248,14 +248,14 @@ fn assert_browser_bundle_global_this_math_atan2_source(
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         &format!("const mod = await import(bundleJs.href);\nawait mod.{export_name}();\n"),
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),
@@ -291,7 +291,7 @@ fn assert_browser_harness_global_this_math_atan2(
     let mut output = Command::new(kali_bin());
     output
         .current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
     if json_output {
         output.arg("--output").arg("json");
     }

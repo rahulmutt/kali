@@ -35,7 +35,7 @@ fn assert_browser_harness_atan2_trailing_argument_evaluation(command: &str, file
 
     for output_json in [false, true] {
         let mut cli = Command::new(kali_bin());
-        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path());
         if output_json {
             cli.arg("--output").arg("json");

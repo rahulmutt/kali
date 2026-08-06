@@ -31,7 +31,7 @@ fn assert_reduce_succeeds(command: &str, extension: &str, browser: bool, json_ou
     let mut cli = Command::new(kali_bin());
     cli.current_dir(dir.path());
     if browser {
-        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+        cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
     }
     if json_output {
         cli.arg("--output").arg("json");

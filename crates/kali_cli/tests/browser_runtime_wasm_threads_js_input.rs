@@ -51,7 +51,7 @@ fn assert_browser_wasm_threads_acceptance_for_command(
         }
 
         let mut cli = Command::new(kali_bin());
-        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path());
         if json_output {
             cli.arg("--output").arg("json");

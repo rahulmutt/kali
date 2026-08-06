@@ -42,6 +42,7 @@ kali_capi = { workspace = true }
 [dev-dependencies]
 base64 = { workspace = true }
 flate2 = { workspace = true }
+kali_runtime_contract = { workspace = true }
 tar = { workspace = true }
 tempfile = "3.10"
 tungstenite = { workspace = true, features = ["handshake"] }

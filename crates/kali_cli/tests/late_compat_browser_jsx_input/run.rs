@@ -14,7 +14,7 @@ fn run_and_test_reject_generator_function_lowering_in_browser_api_surface_jsx_in
 
                 let mut cli = Command::new(kali_bin());
                 cli.current_dir(dir.path())
-                    .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+                    .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
                 if output_json {
                     cli.arg("--output").arg("json");
                 }
@@ -74,7 +74,7 @@ fn run_and_test_reject_late_network_members_in_browser_api_surface_jsx_input() {
 
             let mut cli = Command::new(kali_bin());
             cli.current_dir(dir.path())
-                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+                .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
             if output_json {
                 cli.arg("--output").arg("json");
             }
@@ -117,7 +117,7 @@ fn run_and_test_reject_late_process_control_members_in_browser_api_surface_jsx_i
 
             let mut cli = Command::new(kali_bin());
             cli.current_dir(dir.path())
-                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+                .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
             if output_json {
                 cli.arg("--output").arg("json");
             }
@@ -179,7 +179,7 @@ fn run_and_test_reject_generator_and_async_generator_class_expressions_in_browse
 
                 let mut cli = Command::new(kali_bin());
                 cli.current_dir(dir.path())
-                    .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+                    .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
                 if output_json {
                     cli.arg("--output").arg("json");
                 }
@@ -238,7 +238,7 @@ fn run_and_test_reject_late_object_model_members_in_browser_api_surface_jsx_inpu
 
             let mut cli = Command::new(kali_bin());
             cli.current_dir(dir.path())
-                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+                .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
             if output_json {
                 cli.arg("--output").arg("json");
             }

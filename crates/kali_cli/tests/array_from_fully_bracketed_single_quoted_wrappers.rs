@@ -3,7 +3,7 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
-use kali_runtime::{
+use kali_runtime_contract::{
     browser_bundle_harness_script, browser_harness_command_parts_for, BROWSER_HARNESS_COMMAND_ENV,
 };
 

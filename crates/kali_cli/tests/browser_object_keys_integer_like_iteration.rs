@@ -84,7 +84,7 @@ fn assert_integer_like_object_keys_iteration(filename: &str, json_output: bool) 
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -93,7 +93,7 @@ await mod.browserIntegerLikeObjectKeysIteration();
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),
@@ -199,7 +199,7 @@ fn assert_browser_harness_integer_like_object_keys_iteration(
 
     let mut output = Command::new(kali_bin());
     output
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         output.arg("--output").arg("json");

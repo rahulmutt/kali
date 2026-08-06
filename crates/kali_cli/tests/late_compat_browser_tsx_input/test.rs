@@ -14,7 +14,7 @@ fn test_rejects_late_network_members_in_tsx_input() {
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -43,7 +43,7 @@ fn test_rejects_late_network_members_in_tsx_input_in_json() {
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -78,7 +78,7 @@ fn test_rejects_late_browser_compatibility_forms_in_tsx_input() {
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -107,7 +107,7 @@ fn test_rejects_late_browser_compatibility_forms_in_tsx_input_in_json() {
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")

@@ -1414,6 +1414,7 @@ dependencies = [
  "kali_optimize",
  "kali_parser",
  "kali_runtime",
+ "kali_runtime_contract",
  "kali_sandbox",
  "kali_types",
  "semver",

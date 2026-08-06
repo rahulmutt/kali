@@ -35,7 +35,7 @@ fn assert_browser_requested_promise_all(command: &str, filename: &str, json_outp
     let mut command_line = Command::new(kali_bin());
     command_line
         .current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
     if json_output {
         command_line.arg("--output").arg("json");
     }

@@ -38,7 +38,7 @@ fn assert_browser_requested_accepts_zero_spawned_process_budget(
         write_browser_api_surface_manifest(&dir);
 
         let mut cli = Command::new(kali_bin());
-        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path());
         if json_output {
             cli.arg("--output").arg("json");
@@ -108,7 +108,7 @@ fn assert_explicit_browser_api_surface_accepts_zero_spawned_process_budget(
         fs::write(&source_path, source).expect("write source");
 
         let mut cli = Command::new(kali_bin());
-        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path());
         if json_output {
             cli.arg("--output").arg("json");
@@ -180,7 +180,7 @@ fn assert_browser_requested_rejects_positive_spawned_process_budget(
         fs::write(&source_path, source).expect("write source");
 
         let mut cli = Command::new(kali_bin());
-        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path());
         if json_output {
             cli.arg("--output").arg("json");
@@ -247,7 +247,7 @@ fn assert_explicit_browser_api_surface_rejects_positive_spawned_process_budget(
         fs::write(&source_path, source).expect("write source");
 
         let mut cli = Command::new(kali_bin());
-        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path());
         if json_output {
             cli.arg("--output").arg("json");
