@@ -38,6 +38,43 @@ fn substitute(text: &str, bindings: &BTreeMap<String, String>) -> Result<String,
     Ok(out)
 }
 
+/// Substitute string leaves (both keys and values) throughout a `toml::Value`
+/// tree, recursing through tables and arrays. Non-string leaves (integers,
+/// booleans, floats, datetimes) pass through untouched.
+///
+/// `json` and `fields` are two of the eight assertion keys (design spec
+/// §5.4), and §5.10's unresolved-placeholder hard-failure rule applies to
+/// them exactly as it does to every other string-bearing field -- a `${...}`
+/// in a `json`/`fields` key is the more dangerous case, since it would
+/// otherwise silently produce a JSON path that never matches anything,
+/// letting the assertion pass while asserting nothing.
+fn substitute_value(
+    value: &toml::Value,
+    bindings: &BTreeMap<String, String>,
+) -> Result<toml::Value, String> {
+    match value {
+        toml::Value::String(text) => Ok(toml::Value::String(substitute(text, bindings)?)),
+        toml::Value::Array(items) => {
+            let items = items
+                .iter()
+                .map(|item| substitute_value(item, bindings))
+                .collect::<Result<Vec<toml::Value>, String>>()?;
+            Ok(toml::Value::Array(items))
+        }
+        toml::Value::Table(table) => {
+            let mut out = toml::Table::new();
+            for (key, value) in table {
+                out.insert(
+                    substitute(key, bindings)?,
+                    substitute_value(value, bindings)?,
+                );
+            }
+            Ok(toml::Value::Table(out))
+        }
+        other => Ok(other.clone()),
+    }
+}
+
 fn substitute_step(step: &Step, bindings: &BTreeMap<String, String>) -> Result<Step, String> {
     let list = |values: &Vec<String>| -> Result<Vec<String>, String> {
         values.iter().map(|v| substitute(v, bindings)).collect()
@@ -46,6 +83,12 @@ fn substitute_step(step: &Step, bindings: &BTreeMap<String, String>) -> Result<S
         value
             .as_deref()
             .map(|v| substitute(v, bindings))
+            .transpose()
+    };
+    let opt_value = |value: &Option<toml::Value>| -> Result<Option<toml::Value>, String> {
+        value
+            .as_ref()
+            .map(|v| substitute_value(v, bindings))
             .transpose()
     };
     let mut env = BTreeMap::new();
@@ -62,9 +105,9 @@ fn substitute_step(step: &Step, bindings: &BTreeMap<String, String>) -> Result<S
         stdout_absent: list(&step.stdout_absent)?,
         stderr_contains: list(&step.stderr_contains)?,
         stderr_absent: list(&step.stderr_absent)?,
-        json: step.json.clone(),
+        json: opt_value(&step.json)?,
         path: opt(&step.path)?,
-        fields: step.fields.clone(),
+        fields: opt_value(&step.fields)?,
         entry: opt(&step.entry)?,
         body: opt(&step.body)?,
     })

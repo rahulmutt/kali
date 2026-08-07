@@ -287,3 +287,175 @@ name = "c"
         Some("await mod.mixedRootExpLog();")
     );
 }
+
+// Minor from fix round 1: `stdout_contains` is the only `list`-routed field
+// (same code path as `stdout_absent`/`stderr_contains`/`stderr_absent`) that
+// had no field-specific test of its own, despite being one of the most-used
+// assertion keys.
+#[test]
+fn substitution_reaches_stdout_contains() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+args = ["run", "main.${ext}"]
+stdout_contains = ["compiled main.${ext}"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert_eq!(trials[0].steps[0].stdout_contains, vec!["compiled main.js"]);
+}
+
+// Fix round 1 (Important): the plan's `expand.rs` left `json`/`fields`
+// unsubstituted (`step.json.clone()`), which spec §5.4 names as 2 of the 8
+// assertion keys and §5.10's unresolved-placeholder invariant applies to
+// unqualified. A matrix cell reusing one `.toml` case file must not leave a
+// literal `${ext}` inside a `json`/`fields` expectation. Each test below
+// targets one specific behaviour of the recursive substitution.
+
+#[test]
+fn a_matrix_axis_substitutes_into_a_json_expectation_per_cell() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js", "ts"]
+
+[[case]]
+name = "build"
+args = ["--output", "json", "build", "app.${ext}"]
+json.payload.entry = "app.${ext}"
+"#,
+    )
+    .expect("parse");
+    let trials = expand("browser/y", &file).expect("expand");
+    assert_eq!(trials.len(), 2);
+    let json0 = trials[0].steps[0].json.as_ref().expect("json");
+    assert_eq!(
+        json0.get("payload").and_then(|p| p.get("entry")),
+        Some(&toml::Value::String("app.js".to_string()))
+    );
+    let json1 = trials[1].steps[0].json.as_ref().expect("json");
+    assert_eq!(
+        json1.get("payload").and_then(|p| p.get("entry")),
+        Some(&toml::Value::String("app.ts".to_string()))
+    );
+}
+
+#[test]
+fn a_matrix_axis_substitutes_into_a_file_json_fields_expectation() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+
+  [[case.step]]
+  kind = "file_json"
+  path = "dist/app.json"
+  fields = { entry = "app.${ext}" }
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let fields = trials[0].steps[0].fields.as_ref().expect("fields");
+    assert_eq!(
+        fields.get("entry"),
+        Some(&toml::Value::String("app.js".to_string()))
+    );
+}
+
+#[test]
+fn an_unresolved_placeholder_inside_json_is_a_hard_error_naming_it() {
+    let file = parse_case_file(
+        r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+json.payload.entry = "${NOPE}"
+"#,
+    )
+    .expect("parse");
+    let err = expand("x/y", &file).expect_err("must reject unresolved");
+    assert!(
+        err.contains("NOPE"),
+        "error must name the placeholder: {err}"
+    );
+}
+
+#[test]
+fn a_placeholder_in_a_json_key_substitutes_correctly() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+json."entry_${ext}" = "ok"
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let json = trials[0].steps[0].json.as_ref().expect("json");
+    assert_eq!(
+        json.get("entry_js"),
+        Some(&toml::Value::String("ok".to_string()))
+    );
+    assert_eq!(json.get("entry_${ext}"), None);
+}
+
+#[test]
+fn a_placeholder_nested_in_a_table_inside_an_array_substitutes() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+json.payload.artifacts = [ { name = "app.${ext}" }, { name = "other" } ]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let json = trials[0].steps[0].json.as_ref().expect("json");
+    let artifacts = json
+        .get("payload")
+        .and_then(|p| p.get("artifacts"))
+        .and_then(|a| a.as_array())
+        .expect("artifacts array");
+    assert_eq!(
+        artifacts[0].get("name"),
+        Some(&toml::Value::String("app.js".to_string()))
+    );
+    assert_eq!(
+        artifacts[1].get("name"),
+        Some(&toml::Value::String("other".to_string()))
+    );
+}
+
+#[test]
+fn non_string_json_leaves_survive_substitution_untouched() {
+    let file = parse_case_file(
+        r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+json.schemaVersion = 1
+json.success = true
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let json = trials[0].steps[0].json.as_ref().expect("json");
+    assert_eq!(json.get("schemaVersion"), Some(&toml::Value::Integer(1)));
+    assert_eq!(json.get("success"), Some(&toml::Value::Boolean(true)));
+}
