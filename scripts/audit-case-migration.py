@@ -133,8 +133,39 @@ TEST_FN = re.compile(r'#\[test\][^\n]*\n(?:\s*#\[[^\]]*\]\s*\n)*\s*(?:async\s+)?
 # unescaped interior quotes -- routine in a JS/TS fixture body, e.g.
 # `globalThis["String"]["fromCharCode"]` -- don't prematurely end the match.
 # `re.DOTALL` lets `.` cross the newlines every multi-line fixture body has.
-# See `_blank_raw_strings` for why JSON_KEY, and only JSON_KEY, needs this.
-_RAW_STRING = re.compile(r'r(#*)"(?:.*?)"\1', re.DOTALL)
+#
+# `(?<![A-Za-z0-9_])` in front of the `r` is load-bearing, not decorative:
+# without it, this pattern fires on *any* `r` immediately preceding a `"`,
+# including the last letter of an ordinary word inside a *plain* string
+# literal that happens to end in `r` -- `"unsupported operato r"` reads as
+# `...operato` + a spurious raw-string open at the final `r"`. That
+# spuriously-opened "raw string" then runs until the next `"` + matching
+# `#`-count it finds, which is very often the *next* real literal in the
+# file -- e.g. in `assert!(stderr.contains("unsupported
+# operator")); assert_eq!(json["errors"][0]["code"], "E5506");`, it
+# consumes through to the `"` opening `"errors"`, blanking the `["` of
+# `json["errors"]` and silently dropping that key from the audit. Measured
+# directly against all 307 files in crates/kali_cli/tests/*.rs before this
+# anchor existed: 1,509 spurious raw-string matches, 93 real JSON keys lost
+# across 92 files (mostly `stderr`, plus e.g. `artifactKind` in
+# `browser_find_family_bundle.rs`) -- i.e. an unanchored version of this
+# fix reintroduces a strictly *larger* instance of the exact false-negative
+# failure mode it exists to close (see `_blank_raw_strings`'s doc comment
+# on why a false negative here is worse than the false positive being
+# fixed). The lookbehind requires the character before `r` to be anything
+# other than an identifier character (or nothing, i.e. start-of-string),
+# which is exactly "a new token is starting here" for every real raw-string
+# literal in this corpus, and is what closes the false match above (the
+# `r` in `operator` is preceded by `o`, an identifier character, so the
+# lookbehind rejects it).
+#
+# Known residual, not fixed here: `(?:.*?)` still cannot tell a genuine
+# `r#"` token start from the same three characters appearing inside a line
+# comment, a block comment, or the interior of an unrelated plain string --
+# this is a regex approximation, not a real Rust lexer. Not present
+# anywhere in the corpus at time of writing; acceptable for that reason,
+# not because it is impossible in principle.
+_RAW_STRING = re.compile(r'(?<![A-Za-z0-9_])r(#*)"(?:.*?)"\1', re.DOTALL)
 
 
 def _blank_raw_strings(source: str) -> str:
@@ -179,6 +210,15 @@ def _blank_raw_strings(source: str) -> str:
     keys off *where the text lives* (inside vs. outside a raw-string span),
     which is what actually distinguishes fixture source from real Rust
     assertion code, and needs no knowledge of receiver names at all.
+
+    That "where the text lives" judgment is only as correct as `_RAW_STRING`'s
+    own left anchor. Getting the span boundary wrong is not a cosmetic bug:
+    an over-eager span swallows real code (and the JSON keys in it) the same
+    way an unmasked fixture swallows a phantom claim, just in the opposite,
+    more dangerous direction -- a false negative on this side means the
+    audit reports OK while a real claim silently vanished. See the
+    `(?<![A-Za-z0-9_])` comment on `_RAW_STRING` above for the concrete case
+    that was previously getting this wrong.
     """
     return _RAW_STRING.sub(lambda m: " " * len(m.group(0)), source)
 
