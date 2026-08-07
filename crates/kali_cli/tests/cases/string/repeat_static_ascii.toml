@@ -1,0 +1,109 @@
+# Migrated from tests/string_repeat_static_ascii.rs.
+#
+# 4 of that file's 7 #[test] functions are represented below (7 case blocks,
+# since `browser_bundle_accepts_static_ascii_string_repeat_across_source_classes`
+# loops 4 source extensions and is expressed as 4 sibling [[case]] blocks per
+# spec 5.6, not a [matrix] axis -- a matrix axis is file-level and would have
+# fanned every other case out across all 4 extensions too).
+#
+# The remaining 3 -- check_gates_string_repeat_dynamic_count,
+# check_gates_string_repeat_negative_count, and
+# check_gates_non_ascii_static_string_repeat_receiver -- are intentionally NOT
+# migrated here. Each asserts `json["errors"][0]["code"] == "E5506"`: one
+# field of one element of a JSON array. This format cannot express that:
+#
+#   1. Dotted `json.*` paths address object keys only; there is no array-index
+#      syntax (`errors.0.code` looks up the literal object key "0", which
+#      never exists on an array -- see assertions.rs's
+#      `missing_path_message` and its pinning test in assertions_tests.rs).
+#   2. The only other route is asserting the *whole* `errors` array via
+#      `values_equal`, which requires an exact key-for-key table match. Every
+#      diagnostic `kali_cli` emits always includes `"fix": null`
+#      (output/serialize.rs hard-codes it, unconditionally, for every
+#      diagnostic), and TOML has no null literal -- confirmed dead-end by
+#      jsonpath_tests.rs's own
+#      `a_json_null_matches_nothing_expressible_in_toml`. No TOML value can
+#      ever equal that key, so a full-array match can never succeed.
+#
+# `exit = "failure"` and `json.success = false` remain fully expressible and
+# are not weakened; only the error-code identity claim itself has no path
+# through the current format. See task-12-report.md for the full writeup and
+# proposed fix (array-index support in jsonpath.rs). The three tests remain
+# in tests/string_repeat_static_ascii.rs, unmigrated, until that is resolved.
+
+[source]
+"main.js" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"main.ts" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"string-repeat.js" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"string-repeat.ts" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"string-repeat.jsx" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"string-repeat.tsx" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+
+[[case]]
+name = "run"
+rationale = "`.repeat()` on an ASCII literal folds at compile time."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "hahaha\n\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_js"
+rationale = "The static-ASCII `.repeat()` fold holds across every supported source class, not just plain JS -- js source."
+args = ["build", "--api", "browser", "--bundle", "string-repeat.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_ts"
+rationale = "The static-ASCII `.repeat()` fold holds across every supported source class, not just plain JS -- ts source."
+args = ["build", "--api", "browser", "--bundle", "string-repeat.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_jsx"
+rationale = "The static-ASCII `.repeat()` fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["build", "--api", "browser", "--bundle", "string-repeat.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_tsx"
+rationale = "The static-ASCII `.repeat()` fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["build", "--api", "browser", "--bundle", "string-repeat.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_browser_bundle_tsx"
+rationale = "Same tsx browser bundle, asserting the JSON output envelope rather than a bare success exit."
+args = ["--output", "json", "build", "--api", "browser", "--bundle", "string-repeat.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.errors = []

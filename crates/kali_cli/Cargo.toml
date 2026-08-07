@@ -13,6 +13,11 @@ path = "src/bin/kali.rs"
 name = "inprocess"
 path = "tests/inprocess.rs"
 
+[[test]]
+name = "cases"
+path = "tests/cases.rs"
+harness = false
+
 [dependencies]
 clap = { workspace = true }
 kali_common = { workspace = true }
@@ -46,6 +51,7 @@ kali_capi = { workspace = true }
 [dev-dependencies]
 base64 = { workspace = true }
 flate2 = { workspace = true }
+kali_case_runner = { workspace = true }
 kali_runtime_contract = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }

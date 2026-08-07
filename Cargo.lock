@@ -1419,6 +1419,7 @@ dependencies = [
  "ignore",
  "kali_ast",
  "kali_capi",
+ "kali_case_runner",
  "kali_codegen",
  "kali_common",
  "kali_error",
