@@ -93,10 +93,48 @@ fn run_browser_bundle_harness(dir: &Path, step: &Step) -> Result<(), String> {
     check(step, &captured)
 }
 
+/// Reject a `[source]` key that would write outside the trial's temp dir:
+/// an absolute path (`Path::join` discards the base entirely when the joined
+/// operand is absolute), or a relative path with any `..` component
+/// (`Path::join` does not normalise those, so the OS resolves the escape at
+/// write time).
+///
+/// This must run against the *substituted* key -- the one already sitting in
+/// `trial.source` -- not just the raw text in the case file. A key like
+/// `"${dir}/main.js"` is harmless as written but can expand to `../x.js`
+/// once a matrix axis or constant is substituted in; `run_trial` is the last
+/// point every source key funnels through before it is joined onto the temp
+/// dir, regardless of how the `Trial` was constructed, so checking here
+/// (rather than only at parse time) is what actually closes the escape.
+///
+/// Rejects rather than normalises: silently rewriting a case author's path
+/// out from under them is its own surprise, and a case that meant to write
+/// inside the trial dir should fail loudly, not succeed somewhere else.
+fn validate_source_key(name: &str) -> Result<(), String> {
+    let path = Path::new(name);
+    if path.is_absolute() {
+        return Err(format!(
+            "source key `{name}` is an absolute path -- source files must be written relative \
+             to the trial directory"
+        ));
+    }
+    if path
+        .components()
+        .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(format!(
+            "source key `{name}` escapes the trial directory via a `..` component -- rewrite \
+             it to a path relative to the trial root"
+        ));
+    }
+    Ok(())
+}
+
 pub fn run_trial(config: &RunnerConfig, trial: &Trial) -> Result<(), String> {
     let dir = tempfile::tempdir().map_err(|error| format!("tempdir: {error}"))?;
 
     for (name, body) in &trial.source {
+        validate_source_key(name)?;
         let path = dir.path().join(name);
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)

@@ -158,18 +158,32 @@ name = "c"
 // lines (`  rationale:`, `  | `, `  argv:`, `  env:`). scripts/test-gate.sh
 // parses `^    [A-Za-z_]` (a bare four-space indent) as a failed-test name, so
 // the *composed* message -- not just run_trial's own lines -- must never
-// produce one. This exercises a failure that carries a rationale, non-empty
-// argv, non-empty env, and a `check`-produced stdout/stderr detail, so every
-// piece that gets concatenated is present at once.
+// produce one. This exercises the worst case: a multi-line rationale whose
+// own continuation line is four-space indented, and captured stdout/stderr
+// whose own lines are four-space indented too, alongside non-empty argv and
+// env -- every piece that gets concatenated, in the shape most likely to
+// trip the regex if the pipe-prefix argument ever stopped holding.
 #[test]
 fn the_composed_failure_text_never_uses_the_four_space_name_indent() {
     let home = tempfile::tempdir().expect("tempdir");
-    let bin = stub_bin(home.path(), "echo wrong 1>&2\n");
+    let bin = stub_bin(
+        home.path(),
+        r#"printf 'wrong
+    indented stdout line
+'
+printf 'stderr line
+    indented stderr line
+' 1>&2
+"#,
+    );
     let file = parse_case_file(
         r#"
 [[case]]
 name = "run"
-rationale = "pins the folded literal"
+rationale = """
+pins the folded literal
+    with an indented continuation line
+"""
 args = ["run", "main.js"]
 env = { KALI_TEST_MARKER = "seen" }
 stdout = "right\n"
@@ -188,4 +202,120 @@ stdout = "right\n"
             "line would be misparsed by test-gate.sh: {line:?}\nfull message:\n{err}"
         );
     }
+    // Sanity: the worst-case inputs actually made it into the composed text,
+    // so the loop above proved something rather than vacuously passing.
+    assert!(err.contains("indented continuation line"), "{err}");
+    assert!(err.contains("indented stdout line"), "{err}");
+    assert!(err.contains("indented stderr line"), "{err}");
+}
+
+// Targets a writable absolute path (not e.g. `/etc/...`) so this reproduces
+// the reviewer's actual hazard -- `std::fs::write` succeeding through the
+// escape -- rather than merely tripping over an unrelated permission error,
+// which would pass for the wrong reason with the guard removed.
+#[test]
+fn an_absolute_source_key_fails_the_trial_without_writing_through() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let victim_dir = tempfile::tempdir().expect("tempdir");
+    let victim_path = victim_dir.path().join("victim.txt");
+    std::fs::write(&victim_path, "original\n").expect("seed victim");
+    let victim_display = victim_path.display().to_string();
+    let bin = stub_bin(home.path(), "true\n");
+    let file = parse_case_file(&format!(
+        r#"
+[source]
+"{victim_display}" = "clobbered\n"
+
+[[case]]
+name = "run"
+args = ["run"]
+"#
+    ))
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let err = run_trial(&config_for(bin), &trials[0]).expect_err("must fail");
+    assert!(
+        err.contains(&victim_display),
+        "must name the offending key: {err}"
+    );
+    let contents = std::fs::read_to_string(&victim_path).expect("victim still readable");
+    assert_eq!(
+        contents, "original\n",
+        "must not have written through the absolute path"
+    );
+}
+
+#[test]
+fn a_relative_source_key_with_a_dotdot_component_fails_the_trial() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let bin = stub_bin(home.path(), "true\n");
+    let file = parse_case_file(
+        r#"
+[source]
+"../escape.js" = "clobbered\n"
+
+[[case]]
+name = "run"
+args = ["run"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let err = run_trial(&config_for(bin), &trials[0]).expect_err("must fail");
+    assert!(
+        err.contains("../escape.js"),
+        "must name the offending key: {err}"
+    );
+}
+
+// The check above the parse-time key alone would miss this: `${dir}` is
+// harmless in the case file and only becomes `../` once the `dir` constant
+// is substituted in during `expand`. This is what proves validation runs
+// against the substituted key, not just the literal text an author wrote.
+#[test]
+fn a_source_key_that_only_escapes_after_substitution_fails() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let bin = stub_bin(home.path(), "true\n");
+    let file = parse_case_file(
+        r#"
+[constants]
+dir = ".."
+
+[source]
+"${dir}/escape.js" = "clobbered\n"
+
+[[case]]
+name = "run"
+args = ["run"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let err = run_trial(&config_for(bin), &trials[0]).expect_err("must fail");
+    assert!(
+        err.contains("../escape.js"),
+        "must name the offending key: {err}"
+    );
+}
+
+#[test]
+fn an_ordinary_nested_relative_source_key_still_writes_normally() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let bin = stub_bin(home.path(), "cat src/main.js\n");
+    let file = parse_case_file(
+        r#"
+[source]
+"src/main.js" = "hello\n"
+
+[[case]]
+name = "run"
+args = ["run", "src/main.js"]
+exit = "success"
+stdout = "hello\n"
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    run_trial(&config_for(bin), &trials[0])
+        .expect("trial should pass -- nested subdirectories are legitimate");
 }
