@@ -29,6 +29,24 @@ either as a basic string with a `\n` escape (matches the first spelling) or as
 a `'''...'''` literal block with a real newline (matches the second). A claim
 counts as present if *either* spelling appears anywhere in the new text.
 
+Before that search runs, prose is stripped out of the new case text: `#`
+comment lines, and `rationale = "..."`/`rationale = '''...'''` field values.
+House convention (see cases/string/repeat_static_ascii.toml) explains a
+pinned value in a header comment and in each case's `rationale`, because
+`rationale` prints on failure. Without stripping, that convention is a hole
+big enough to drive the whole point of this script through: a case's
+`json.errors.0.code` can be silently changed from `"E5506"` to `"E9999"` and
+the audit still reports every claim present, because "E5506" is still true
+of the file as a whole -- it's just sitting in a comment and in three
+`rationale` strings, never in an assertion. Whole-file substring search
+cannot tell prose from an assertion, so the fix is to remove the prose
+before searching, not to make the search smarter. This means the better a
+case documents *why* it pins a value, the more that documentation used to
+disarm the very check protecting the pin -- which is backwards, so don't
+reintroduce it by turning this back into a whole-file search. A claim that
+now appears only in a comment or a `rationale` is correctly reported
+missing: a value that matters belongs in an assertion.
+
 This is a coverage check, not a proof of equivalence. It catches wholesale drops
 and quiet weakenings (a rule constant vanishing while `contains("E5506")`
 survives). It cannot catch a claim that was rewritten to be weaker while keeping
@@ -61,6 +79,16 @@ JSON_KEY = re.compile(r'\[\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\]')
 # .arg("token")
 ARG = re.compile(r'\.arg\(\s*"([^"]*)"\s*\)')
 TEST_FN = re.compile(r'#\[test\][^\n]*\n(?:\s*#\[[^\]]*\]\s*\n)*\s*(?:async\s+)?fn\s+([a-z0-9_]+)')
+
+# Prose that can quote a claim's literal without asserting it -- see the
+# module docstring. Stripped from new-file text before the substring search
+# runs, so a comment or a rationale can no longer stand in for an assertion.
+# A whole `#`-prefixed line, anywhere (not just top-of-file):
+COMMENT_LINE = re.compile(r'(?m)^[ \t]*#.*$')
+# A `rationale = "..."` or `rationale = '''...'''` field, value and all:
+RATIONALE_FIELD = re.compile(
+    r'(?ms)^[ \t]*rationale[ \t]*=[ \t]*(?:"(?:[^"\\]|\\.)*"|\'\'\'.*?\'\'\')'
+)
 
 # String-literal claim kinds, each checked in both spellings (see module docstring).
 LITERAL_KINDS: dict[str, re.Pattern[str]] = {
@@ -141,6 +169,16 @@ def claims(source: str) -> dict[str, dict[str, frozenset[str]]]:
     return out
 
 
+def strip_prose(text: str) -> str:
+    """Remove comment lines and rationale field values, so the substring
+    search below can't be satisfied by a claim that's only quoted in prose.
+    Deliberately a small regex pass, not a TOML parser, and deliberately
+    biased toward stripping too much rather than too little: a false AUDIT
+    FAILED just costs someone a look, a false AUDIT OK is the bug this
+    exists to prevent. See the module docstring."""
+    return RATIONALE_FIELD.sub("", COMMENT_LINE.sub("", text))
+
+
 def main() -> int:
     if len(sys.argv) < 3:
         print(__doc__, file=sys.stderr)
@@ -150,7 +188,7 @@ def main() -> int:
     new_paths = [Path(p) for p in sys.argv[2:]]
 
     old_source = old_path.read_text()
-    new_text = "\n".join(p.read_text() for p in new_paths)
+    new_text = strip_prose("\n".join(p.read_text() for p in new_paths))
 
     old_claims = claims(old_source)
 
