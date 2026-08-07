@@ -8,20 +8,33 @@
 #     `browser_bundle_accepts_..._across_source_classes`'s 4-extension loop.
 #   - `check_gates_dynamic_argument`/`non_ascii_argument`/
 #     `fractional_argument`: the 3 E5506 fail-closed gate tests, 1:1 with
-#     their source tests. Unlike the source .rs, these gate cases *do*
-#     assert the exact diagnostic message (obtained by running the built
-#     `kali` binary) even though the original test only checked the E5506
-#     code. This is a deliberate strengthening, not required by the source
-#     test: the fixture text contains `globalThis["String"]["fromCharCode"]`
-#     (bracket property access, exercised by `run`), and
-#     scripts/audit-case-migration.py's JSON_KEY regex sweeps the *whole*
-#     old .rs file for any `["identifier"]` pattern, not just ones inside a
-#     real `json[...]` assertion -- so it reports "String" and
-#     "fromCharCode" as claims even though they are JS fixture syntax, not
-#     an assertion the old test made. Adding the true, verified message text
-#     is a supplement (never a substitute for a dropped claim) that happens
-#     to satisfy the audit's literal-text requirement honestly rather than
-#     by gaming it.
+#     their source tests.
+#
+# DISCLOSURE: the 3 gate cases below (`check_gates_string_from_char_code_
+# dynamic_argument`/`non_ascii_argument`/`fractional_argument`, each via a
+# `json.errors.0.message = "..."` assertion) deliberately assert MORE than
+# their source `#[test]` fn did -- the original `assert_check_gates_unsupported_
+# string_from_char_code` helper only checked `json["success"] == false` and
+# `json["errors"][0]["code"] == "E5506"`, never the message text. Do not
+# read this as audit-driven noise and strip it back to match the source
+# 1:1: this was originally added as a workaround for a real
+# scripts/audit-case-migration.py bug (its JSON_KEY regex swept the whole
+# old .rs file, including JS fixture text, so `globalThis["String"]
+# ["fromCharCode"]` in the `run` fixture below registered two phantom
+# "String"/"fromCharCode" JSON-path claims that no case file could ever
+# satisfy short of fabricating an assertion) -- that bug is now fixed
+# (JSON_KEY no longer reads inside raw-string spans, see
+# scripts/audit-case-migration.py's `_blank_raw_strings`), so the workaround
+# is no longer *required* to pass the audit. It is being kept anyway,
+# deliberately: this branch has twice shipped a fail-closed test that
+# degraded to asserting "some E5506" (see Task 17, which exists to close
+# that failure mode structurally), and pinning the full exact diagnostic
+# text -- verified genuine, not fabricated, by running the built `kali`
+# binary against each gate case's exact source, and cross-checked against
+# the format string at crates/kali_types/src/static_analysis/string.rs:275
+# -- is the discipline this branch wants going forward. A future reader
+# should treat this as intentional over-assertion, not something to prune
+# back to the letter of the source test.
 #
 # [source] uses one "main.<ext>" file per extension, shared by every case
 # that needs that extension, plus one distinct file per gate case.

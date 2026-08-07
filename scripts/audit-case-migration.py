@@ -128,6 +128,61 @@ JSON_KEY = re.compile(r'\[\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\]')
 ARG = re.compile(r'\.arg\(\s*"([^"]*)"\s*\)')
 TEST_FN = re.compile(r'#\[test\][^\n]*\n(?:\s*#\[[^\]]*\]\s*\n)*\s*(?:async\s+)?fn\s+([a-z0-9_]+)')
 
+# A raw-string literal (`r"..."`, `r#"..."#`, `r##"..."##`, ...), fence-aware
+# via a backreference on the captured `#` run so a raw string's genuinely
+# unescaped interior quotes -- routine in a JS/TS fixture body, e.g.
+# `globalThis["String"]["fromCharCode"]` -- don't prematurely end the match.
+# `re.DOTALL` lets `.` cross the newlines every multi-line fixture body has.
+# See `_blank_raw_strings` for why JSON_KEY, and only JSON_KEY, needs this.
+_RAW_STRING = re.compile(r'r(#*)"(?:.*?)"\1', re.DOTALL)
+
+
+def _blank_raw_strings(source: str) -> str:
+    """`source` with every raw-string literal's entire span (delimiters and
+    interior alike) replaced by spaces of the same length. Used only to
+    build a search text for `JSON_KEY`, so that JS/TS fixture source --
+    always written in this corpus as a raw string precisely because a raw
+    string's interior can hold unescaped quotes (a
+    `fn supported_source() -> &'static str { r#"..."# }` body, an
+    `fs::write(&path, r#"..."#)` argument) -- cannot masquerade as a real
+    `json["key"]`/`envelope["key"]`/`harness["key"]` assertion. Confirmed
+    concretely: `string_from_char_code_static_ascii.rs`'s fixture contains
+    `globalThis["String"]["fromCharCode"](65)` inside an `r#"..."#` body,
+    which the unmasked `JSON_KEY` regex reads as two JSON-path claims
+    ("String", "fromCharCode") that no case file could ever satisfy short
+    of fabricating an assertion, because `[source]` is deliberately excluded
+    from the new side's claim search (see this script's module docstring).
+
+    Only raw strings need masking. A *plain* (non-raw) Rust string literal
+    used for the same purpose must escape any embedded quote as `\\"` (two
+    characters: backslash then quote) -- and `JSON_KEY`'s
+    `\\[\\s*"ident"\\s*\\]` requires a bare `"` immediately after `[`, so an
+    escaped `\\"` never matches it to begin with. `string_search.rs`'s
+    plain-string fixture (`"console.log(\\"hello\\".includes(...))"`) is
+    confirmed harmless this way without any masking, and a genuine
+    top-level claim like `"schemaVersion"` in `json["schemaVersion"]` is
+    itself a plain string (no `r` prefix), so this function never touches
+    it either.
+
+    An identifier-allowlist approach (only count `["key"]` when it
+    immediately follows a known JSON-value receiver name, e.g. `json`) was
+    considered and rejected: the receiver name is not a small closed set in
+    this corpus today (`json`, `envelope`, `metadata`, `payload`,
+    `contract`, `meta`, `harness`, `value`, `test_json`, `source_map`, ... —
+    confirmed by grepping crates/kali_cli/tests, not hypothetical), and a
+    real claim can be reached with no `let NAME = ...` binding to discover
+    at all -- e.g. `array_concat_static.rs`'s
+    `json["errors"].as_array()...iter().any(|error| { error["code"] ==
+    "E5506" && ... })`, where `error` is a closure parameter. Enumerating
+    receivers would have silently under-counted that claim (a false
+    negative -- worse than the false positive being fixed here). Masking
+    keys off *where the text lives* (inside vs. outside a raw-string span),
+    which is what actually distinguishes fixture source from real Rust
+    assertion code, and needs no knowledge of receiver names at all.
+    """
+    return _RAW_STRING.sub(lambda m: " " * len(m.group(0)), source)
+
+
 # String-literal claim kinds, each checked in both spellings (see module
 # docstring), each backed by one or more patterns whose matches are unioned.
 LITERAL_KINDS: dict[str, list[re.Pattern[str]]] = {
@@ -200,7 +255,7 @@ def claims(source: str) -> dict[str, dict[str, frozenset[str]]]:
                 canonical = unquote(token)
                 bucket[canonical] = bucket.get(canonical, frozenset()) | literal_variants(token)
 
-    for key in JSON_KEY.findall(source):
+    for key in JSON_KEY.findall(_blank_raw_strings(source)):
         out["json keys"][key] = frozenset({key})
 
     for tok in ARG.findall(source):
