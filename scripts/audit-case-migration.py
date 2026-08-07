@@ -63,14 +63,20 @@ every key inside `json`/`fields`, and `[constants]` values (referenced into
 assertions via `${NAME}`, so a rule constant vanishing from `[constants]`
 matters exactly like it did in the old `const NAME: &str` form). Both the
 inline single-step shorthand and `[[case.step]]` lists are read. `name`,
-`rationale`, `ignore`, `kind`, `path`/`entry` (file references, not claims),
-and everything under `[source]` (program text, not an assertion about
-program behavior) are excluded *by construction* -- there's no set of keys
-left to enumerate them out of, so a sixth prose home can't quietly appear
-the way a sixth spelling could keep appearing against a blacklist. A claim
-that exists only in `rationale`/a comment/a case name/a fixture is correctly
-reported missing: a value that matters belongs in an assertion, not next to
-one.
+`rationale`, `ignore`, `kind`, and `path`/`entry` carry no claim (they are
+file references), so they don't affect assertions. `body` and everything
+under `[source]` are program text, not claims about behavior. `exit` asserts
+exit status -- a real assertion, but not a string literal, so it's out of
+scope for a literal-coverage audit specifically. `matrix` is axis data: its
+values are substituted into `args`/`stdout_contains`/etc. via `${...}` before
+assertions are read (`crates/kali_case_runner/src/expand.rs`), the same way
+`[constants]` values are, so a matrix value's claim is audited in the field
+it substitutes into, not at its own declaration site. Together, these are
+excluded *by construction* -- there's no set of keys left to enumerate them
+out of, so a sixth prose home can't quietly appear the way a sixth spelling
+could keep appearing against a blacklist. A claim that exists only in
+`rationale`/a comment/a case name/a fixture is correctly reported missing: a
+value that matters belongs in an assertion, not next to one.
 
 A useful side effect of parsing instead of pattern-matching: `tomllib`
 resolves `"a\nb"` and a `'''`/`\"\"\"` literal block to the identical Python
@@ -205,10 +211,12 @@ def claims(source: str) -> dict[str, dict[str, frozenset[str]]]:
 
 # The keys the case runner (crates/kali_case_runner/src/model.rs) actually
 # turns into assertions, on a single resolved Step. Anything not named here
-# — name, rationale, ignore, kind, path, entry, and all of [source] — is
+# — name, rationale, ignore, kind, path, entry (file references, not claims),
+# matrix (axis data, audited in the fields it substitutes into), body and all
+# of [source] (program text), exit (non-literal assertion: exit status) — is
 # excluded by never being read, not by being pattern-matched away. Keep this
-# in sync with `Step`/`RawStep` in model.rs; a field added there that
-# carries a literal claim (a new assertion key) needs a line here too.
+# in sync with `Step`/`RawStep` in model.rs; a field added there that carries
+# a string-literal claim (a new assertion key) needs a line here too.
 _STEP_LIST_KEYS = ("args", "stdout_contains", "stdout_absent", "stderr_contains", "stderr_absent")
 _STEP_SCALAR_KEYS = ("stdout",)
 _STEP_JSON_KEYS = ("json", "fields")
