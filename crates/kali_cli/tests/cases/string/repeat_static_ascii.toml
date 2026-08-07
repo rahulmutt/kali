@@ -1,35 +1,21 @@
-# Migrated from tests/string_repeat_static_ascii.rs.
+# Migrated from tests/string_repeat_static_ascii.rs -- all 7 #[test]
+# functions, as 10 case blocks:
 #
-# 4 of that file's 7 #[test] functions are represented below (7 case blocks,
-# since `browser_bundle_accepts_static_ascii_string_repeat_across_source_classes`
-# loops 4 source extensions and is expressed as 4 sibling [[case]] blocks per
-# spec 5.6, not a [matrix] axis -- a matrix axis is file-level and would have
-# fanned every other case out across all 4 extensions too).
-#
-# The remaining 3 -- check_gates_string_repeat_dynamic_count,
-# check_gates_string_repeat_negative_count, and
-# check_gates_non_ascii_static_string_repeat_receiver -- are intentionally NOT
-# migrated here. Each asserts `json["errors"][0]["code"] == "E5506"`: one
-# field of one element of a JSON array. This format cannot express that:
-#
-#   1. Dotted `json.*` paths address object keys only; there is no array-index
-#      syntax (`errors.0.code` looks up the literal object key "0", which
-#      never exists on an array -- see assertions.rs's
-#      `missing_path_message` and its pinning test in assertions_tests.rs).
-#   2. The only other route is asserting the *whole* `errors` array via
-#      `values_equal`, which requires an exact key-for-key table match. Every
-#      diagnostic `kali_cli` emits always includes `"fix": null`
-#      (output/serialize.rs hard-codes it, unconditionally, for every
-#      diagnostic), and TOML has no null literal -- confirmed dead-end by
-#      jsonpath_tests.rs's own
-#      `a_json_null_matches_nothing_expressible_in_toml`. No TOML value can
-#      ever equal that key, so a full-array match can never succeed.
-#
-# `exit = "failure"` and `json.success = false` remain fully expressible and
-# are not weakened; only the error-code identity claim itself has no path
-# through the current format. See task-12-report.md for the full writeup and
-# proposed fix (array-index support in jsonpath.rs). The three tests remain
-# in tests/string_repeat_static_ascii.rs, unmigrated, until that is resolved.
+#   - `run`, `json_check`: 1:1 with their source tests.
+#   - `browser_bundle_js`/`ts`/`jsx`/`tsx`: sibling [[case]] blocks, not a
+#     [matrix] axis, for `browser_bundle_accepts_static_ascii_string_repeat_
+#     across_source_classes`'s 4-extension loop -- a matrix axis is
+#     file-level and would have fanned every other case in this file out
+#     across all 4 extensions too (spec 5.6).
+#   - `json_browser_bundle_tsx`: 1:1 with its source test.
+#   - `check_gates_dynamic_count`/`negative_count`/`non_ascii`: the 3 E5506
+#     fail-closed gate tests, each pinning `errors.0.code = "E5506"` via
+#     dotted-path array indexing (jsonpath.rs). Whole-array equality is not
+#     an option here: every diagnostic `kali_cli` emits hard-codes
+#     `"fix": null` (output/serialize.rs), and TOML has no null literal that
+#     can ever match it -- confirmed by jsonpath_tests.rs's own
+#     `a_json_null_matches_nothing_expressible_in_toml`. Indexing just the
+#     one field that matters is what makes these three expressible at all.
 
 [source]
 "main.js" = '''
@@ -55,6 +41,15 @@ console.log("x".repeat(0));
 "string-repeat.tsx" = '''
 console.log("ha".repeat(3));
 console.log("x".repeat(0));
+'''
+"dynamic_count.js" = '''
+function repeat(count) { return 'ha'.repeat(count); }
+'''
+"negative_count.js" = '''
+console.log('ha'.repeat(-1));
+'''
+"non_ascii.js" = '''
+console.log('hé'.repeat(2));
 '''
 
 [[case]]
@@ -107,3 +102,27 @@ json.schemaVersion = 1
 json.command = "build"
 json.success = true
 json.errors = []
+
+[[case]]
+name = "check_gates_dynamic_count"
+rationale = "`.repeat()` only folds for a statically-known count; a dynamic count must fail closed with E5506, not silently fall through to an unsupported runtime path."
+args = ["--output", "json", "check", "dynamic_count.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_negative_count"
+rationale = "A statically-known but negative count is still outside the supported 0..=1024 range and must fail closed with E5506."
+args = ["--output", "json", "check", "negative_count.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_receiver"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('hé') must fail closed with E5506 rather than silently folding incorrectly."
+args = ["--output", "json", "check", "non_ascii.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
