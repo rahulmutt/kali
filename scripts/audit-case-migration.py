@@ -58,7 +58,7 @@ the moment someone is being thorough, which is worse than no gate.
 So this parses each new case file with `tomllib` (stdlib) and only *searches
 the fields the case runner (`kali_case_runner::model`) actually turns into
 assertions*: a step's `args`, `env` values, `stdout`, `stdout_contains`,
-`stdout_absent`, `stderr_contains`, `stderr_absent`, every string leaf and
+`stdout_absent`, `stderr`, `stderr_contains`, `stderr_absent`, every string leaf and
 every key inside `json`/`fields`, and `[constants]` values (referenced into
 assertions via `${NAME}`, so a rule constant vanishing from `[constants]`
 matters exactly like it did in the old `const NAME: &str` form). Both the
@@ -352,7 +352,7 @@ _STEP_LIST_KEYS = (
     "stderr_absent",
     "json_null",
 )
-_STEP_SCALAR_KEYS = ("stdout",)
+_STEP_SCALAR_KEYS = ("stdout", "stderr")
 _STEP_JSON_KEYS = ("json", "fields")
 # Keys inside a case's non-step namespace (name/rationale/ignore/step) that
 # are never assertion-bearing and must not be treated as the inline step.
