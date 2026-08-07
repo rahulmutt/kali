@@ -73,6 +73,29 @@ pub fn discover(cases_dir: &Path) -> Result<Vec<(String, CaseFile)>, String> {
     }
     paths.sort_by(|a, b| a.0.cmp(&b.0));
 
+    // `file_stem` (Minor 1) and case-insensitive extension matching
+    // (Minor 2) are each correct alone, but together they reopen the
+    // collision Minor 1 closed by a different route: `pad.toml` and
+    // `pad.TOML` both stem to `pad`. That is the same failure class Task 8
+    // made a hard parse error for duplicate `[[case]]` names within one
+    // file -- ambiguous `--exact` filtering, an ambiguous gate failure
+    // report that can't say which file broke -- just across files instead
+    // of within one. Enforce the uniqueness explicitly here rather than
+    // leaving it to emerge (or not) from how `collect`'s two matching rules
+    // happen to interact; sorted-adjacency makes any duplicate a `windows(2)`
+    // check away.
+    for window in paths.windows(2) {
+        let (stem_a, path_a) = &window[0];
+        let (stem_b, path_b) = &window[1];
+        if stem_a == stem_b {
+            return Err(format!(
+                "duplicate case-file stem `{stem_a}`: {} and {}",
+                path_a.display(),
+                path_b.display()
+            ));
+        }
+    }
+
     let mut files = Vec::with_capacity(paths.len());
     for (stem, path) in paths {
         let text = std::fs::read_to_string(&path)

@@ -94,3 +94,19 @@ fn a_case_directory_that_is_actually_a_file_is_a_hard_error_naming_it() {
     assert!(!err.contains("does not exist"), "{err}");
     assert!(err.contains("not a directory"), "{err}");
 }
+
+// `file_stem` (Minor 1) and case-insensitive extension matching (Minor 2)
+// are each correct alone, but together they reopen the exact collision
+// Minor 1 closed, by a different route: `pad.toml` and `pad.TOML` both stem
+// to `pad`. Must be a hard error naming both paths, not a silent duplicate
+// trial id.
+#[test]
+fn a_case_insensitive_extension_collision_is_a_hard_error_naming_both_paths() {
+    let root = tempfile::tempdir().expect("tempdir");
+    write(root.path(), "string/pad.toml", MINIMAL);
+    write(root.path(), "string/pad.TOML", MINIMAL);
+    let err = discover(root.path()).expect_err("must reject the duplicate stem");
+    assert!(err.contains("string/pad"), "{err}");
+    assert!(err.contains("pad.toml"), "{err}");
+    assert!(err.contains("pad.TOML"), "{err}");
+}
