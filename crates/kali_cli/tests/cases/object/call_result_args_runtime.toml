@@ -1,0 +1,78 @@
+# Migrated from tests/object_call_result_args_runtime.rs -- all 5
+# #[test] functions, as 5 case blocks, 1:1 with their source tests. None
+# of the 5 loop over anything, so no [matrix]/sibling-fanout question
+# arises here.
+#
+# `[source]` judgment call: every one of the 5 original tests writes its
+# fixture to a filename literally called "main.ts" (via
+# `write_temp_source`), but each in its own unique temp dir (per
+# `unique_fixture_slug`) with different content -- a same-filename,
+# different-content collision once folded into one file-level [source]
+# table (per this task's instructions). Renamed each entry after the
+# `label` argument the original test passed to `write_temp_source`
+# ("call_result_arg", "e5506_inline_nested_read", etc.) so the new
+# filenames still trace back to their originals; the filename itself
+# carries no claim the audit script tracks.
+#
+# Every `//` explanatory comment from the source `.rs` is carried into
+# the matching case's `rationale` below, not dropped as a stripped `#`
+# TOML comment.
+
+[source]
+"call_result_arg.ts" = '''
+function bottomUpTree(depth) {
+  if (depth > 0) {
+    return { left: bottomUpTree(depth - 1), right: bottomUpTree(depth - 1) };
+  }
+  return { left: null, right: null };
+}
+function itemCheck(t) {
+  if (t.left === null) {
+    return 1;
+  }
+  return 1 + itemCheck(t.left) + itemCheck(t.right);
+}
+function main() {
+  console.log(itemCheck(bottomUpTree(10)));
+}
+main();
+'''
+"inline_nested_read.ts" = "const t = { left: { v: 5 }, right: null };\nconsole.log(t.left.v);\n"
+"inline_nested_cmp.ts" = "const t = { left: { v: 5 }, right: null };\nconsole.log(t.left === null);\n"
+"array_elem_field.ts" = "const leaf = { v: 42 };\nconst arr = [leaf];\nconst t = { left: arr[0], right: null };\nconsole.log(t.left.v);\n"
+"backstop.ts" = "const leafA = { left: null, right: null };\nconst leafB = { left: null, right: null };\nconst t = { left: leafA, right: leafB };\nconsole.log(t.left === null);\n"
+
+[[case]]
+name = "object_call_result_passed_directly_as_argument_is_correct"
+rationale = "No bound-identifier call site anywhere: the param shape must come from the call-result argument itself. Depth 10 => itemCheck = 2^11 - 1."
+args = ["run", "call_result_arg.ts"]
+exit = "success"
+stdout = "2047\n"
+
+[[case]]
+name = "inline_nested_literal_field_read_is_rejected_not_miscompiled"
+rationale = "`t.left` folds to the inline nested literal `{ v: 5 }`, whose emission lands in the drop-only aggregate fallback (placeholder 0) -- so `.v` reads 0, a silent wrong answer. Must reject with E5506 instead."
+args = ["run", "inline_nested_read.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "inline_nested_literal_field_comparison_is_rejected_not_miscompiled"
+rationale = "Same base as above, but the nested field value is compared to null: the placeholder 0 makes `t.left === null` print `true` (a wrong answer). Must reject with E5506 instead."
+args = ["run", "inline_nested_cmp.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "array_literal_element_field_value_read_is_rejected_not_miscompiled"
+rationale = "The object field's value is `arr[0]` -- a static index into a const-bound array literal whose element aliases another object literal. The fold lane resolves the element to `leaf`, which emits as the placeholder 0, so `.v` reads 0. Must reject with E5506 instead."
+args = ["run", "array_elem_field.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "unclassified_object_shape_member_read_is_rejected_not_miscompiled"
+rationale = "A backstop case with no explanatory comment in the source: an unclassified object-shape member read must still fail closed with E5506 rather than silently miscompile."
+args = ["run", "backstop.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]

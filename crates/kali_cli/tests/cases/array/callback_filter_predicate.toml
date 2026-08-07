@@ -1,0 +1,148 @@
+# Migrated from tests/array_callback_filter_predicate.rs -- all 6
+# #[test] functions, as 16 sibling case blocks, matching the original 16
+# loop-iteration assertions exactly:
+#
+#   - check_js/ts, build_js/ts: `assert_filter_predicate_succeeds("check"|
+#     "build", ext)` for ext in [js, ts] -- success only (the helper's
+#     stdout checks are gated on `command == "run"`/`"test"`, so check/
+#     build assert nothing beyond exit success).
+#   - run_js/ts: same helper with command "run" -- success plus exact
+#     `stdout` equality (`assert_eq!`).
+#   - test_js/ts: same helper with command "test" -- success plus
+#     `stdout_contains` (`.contains()`).
+#   - browser_check_js/ts/jsx/tsx, browser_build_js/ts/jsx/tsx:
+#     `assert_filter_predicate_browser_check_build_succeeds("check"|
+#     "build", ext)` for ext in [js, ts, jsx, tsx] -- success only, via
+#     `--api browser` (and `--bundle` for build).
+#
+# No `[matrix]` here: the two groups above loop over different extension
+# sets (js/ts only for the plain group, js/ts/jsx/tsx for the browser
+# group), so a single file-level extension axis would either exempt cases
+# from jsx/tsx incorrectly or fan the plain group out across extensions it
+# never runs against -- the two-axis rule's stated reason to prefer
+# siblings. Sibling blocks, one per original loop iteration, avoid that.
+#
+# `[constants]` factors the one fixture body (`filter_predicate_source()`,
+# a fixed string with no command-dependent branching) shared byte-for-byte
+# across all 6 `[source]` filenames.
+#
+# No `//` comments existed in the source file to carry into `rationale`.
+
+[constants]
+program = '''
+function main() {
+  const values = [0, 1, 2, 3];
+  for (const item of values.filter((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+'''
+
+[source]
+"smoke.test.js" = "${program}"
+"smoke.test.ts" = "${program}"
+"main.js" = "${program}"
+"main.ts" = "${program}"
+"main.jsx" = "${program}"
+"main.tsx" = "${program}"
+
+[[case]]
+name = "check_js"
+rationale = "`check` accepts the static array `.filter()` predicate fixture -- js source."
+args = ["check", "smoke.test.js"]
+exit = "success"
+
+[[case]]
+name = "check_ts"
+rationale = "`check` accepts the static array `.filter()` predicate fixture -- ts source."
+args = ["check", "smoke.test.ts"]
+exit = "success"
+
+[[case]]
+name = "build_js"
+rationale = "`build` accepts the static array `.filter()` predicate fixture -- js source."
+args = ["build", "smoke.test.js"]
+exit = "success"
+
+[[case]]
+name = "build_ts"
+rationale = "`build` accepts the static array `.filter()` predicate fixture -- ts source."
+args = ["build", "smoke.test.ts"]
+exit = "success"
+
+[[case]]
+name = "run_js"
+rationale = "`run` accepts the static array `.filter()` predicate fixture and prints the filtered elements -- js source."
+args = ["run", "smoke.test.js"]
+exit = "success"
+stdout = "2\n3\n"
+
+[[case]]
+name = "run_ts"
+rationale = "`run` accepts the static array `.filter()` predicate fixture and prints the filtered elements -- ts source."
+args = ["run", "smoke.test.ts"]
+exit = "success"
+stdout = "2\n3\n"
+
+[[case]]
+name = "test_js"
+rationale = "`test` accepts the static array `.filter()` predicate fixture and its stdout includes the filtered elements -- js source."
+args = ["test", "smoke.test.js"]
+exit = "success"
+stdout_contains = ["2\n3\n"]
+
+[[case]]
+name = "test_ts"
+rationale = "`test` accepts the static array `.filter()` predicate fixture and its stdout includes the filtered elements -- ts source."
+args = ["test", "smoke.test.ts"]
+exit = "success"
+stdout_contains = ["2\n3\n"]
+
+[[case]]
+name = "browser_check_js"
+rationale = "`check --api browser` accepts the static array `.filter()` predicate fixture across every supported source class -- js source."
+args = ["check", "--api", "browser", "main.js"]
+exit = "success"
+
+[[case]]
+name = "browser_check_ts"
+rationale = "`check --api browser` accepts the static array `.filter()` predicate fixture across every supported source class -- ts source."
+args = ["check", "--api", "browser", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_check_jsx"
+rationale = "`check --api browser` accepts the static array `.filter()` predicate fixture across every supported source class -- jsx source."
+args = ["check", "--api", "browser", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_check_tsx"
+rationale = "`check --api browser` accepts the static array `.filter()` predicate fixture across every supported source class -- tsx source."
+args = ["check", "--api", "browser", "main.tsx"]
+exit = "success"
+
+[[case]]
+name = "browser_build_js"
+rationale = "`build --bundle --api browser` accepts the static array `.filter()` predicate fixture across every supported source class -- js source."
+args = ["build", "--bundle", "--api", "browser", "main.js"]
+exit = "success"
+
+[[case]]
+name = "browser_build_ts"
+rationale = "`build --bundle --api browser` accepts the static array `.filter()` predicate fixture across every supported source class -- ts source."
+args = ["build", "--bundle", "--api", "browser", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_build_jsx"
+rationale = "`build --bundle --api browser` accepts the static array `.filter()` predicate fixture across every supported source class -- jsx source."
+args = ["build", "--bundle", "--api", "browser", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_build_tsx"
+rationale = "`build --bundle --api browser` accepts the static array `.filter()` predicate fixture across every supported source class -- tsx source."
+args = ["build", "--bundle", "--api", "browser", "main.tsx"]
+exit = "success"

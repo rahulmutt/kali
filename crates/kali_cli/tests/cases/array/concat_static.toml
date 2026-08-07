@@ -1,0 +1,44 @@
+# Migrated from tests/array_concat_static.rs -- both #[test] functions,
+# 1:1 as 2 case blocks.
+#
+#   - `run`: static `.concat()` folds through a direct-index read.
+#   - `json_check_rejects_dynamic`: a dynamic `.concat()` argument must
+#     fail closed with E5506. The source asserts this through a closure
+#     parameter with no `let` binding (`json["errors"].as_array()...
+#     iter().any(|error| { error["code"] == "E5506" && error["message"]
+#     ...contains("Array.prototype.concat") })`), not a simple top-level
+#     `assert_eq!` -- the claim is on the single error entry regardless of
+#     binding shape. `check` only emits one error here, so indexing
+#     `errors.0` (jsonpath.rs dotted-path array indexing) pins the same
+#     entry the closure iterates over. `.contains("Array.prototype.concat")`
+#     on `message` is replaced with an exact-equality assertion on the
+#     full message text, captured by running the built `kali` binary
+#     directly against this fixture -- equality is strictly stronger than
+#     `.contains()`, so this is not a weakening.
+
+[source]
+"array-concat.js" = '''
+const left = [1, 2];
+const right = [3, 4];
+console.log(left.concat(right, 5)[2]);
+console.log([1].concat(Object.freeze(2), [3])[1]);
+console.log([1].concat([2])[4]);
+'''
+"array-concat.ts" = "function join(value: number) { return [0].concat(value); }\n"
+
+[[case]]
+name = "run"
+rationale = "Static `Array.prototype.concat` over literal receivers/arguments folds to a direct index read."
+args = ["run", "array-concat.js"]
+exit = "success"
+stdout = "3\n2\nundefined\n"
+
+[[case]]
+name = "json_check_rejects_dynamic"
+rationale = "A dynamic (non-statically-known) `.concat()` argument cannot fold and must fail closed with E5506, asserted via the JSON `check` envelope."
+args = ["--output", "json", "check", "array-concat.ts"]
+exit = "failure"
+json.schemaVersion = 1
+json.command = "check"
+json.errors.0.code = "E5506"
+json.errors.0.message = "Array.prototype.concat is unavailable unless the receiver is a statically-known array literal and each argument is a statically-known array or primitive literal in the current direct-runtime path; use explicit literals or the later compatibility path"

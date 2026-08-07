@@ -1,0 +1,62 @@
+# Migrated from tests/array_is_array.rs -- both #[test] functions, 1:1 with
+# their source tests, no loops:
+#
+#   - `run_json`: `Array.isArray()` on a statically-known argument folds at
+#     compile time across a bare identifier, a bracketed `Array["isArray"]`
+#     call, a `globalThis["Array"]["isArray"]` lookup, `Array.from(...)`,
+#     `new Set(...)`, `new globalThis["Map"](...)`, and a non-array string
+#     literal -- asserted against the full `--output json run` envelope
+#     (`schemaVersion`/`command`/`success`/`stdout`/`errors`), 1:1 with the
+#     old test's `assert_eq!`/`.is_empty()` calls on the same fields.
+#   - `check_rejects_dynamic_argument`: an argument whose value is not
+#     statically known must fail closed with E5506. The old test's
+#     `.contains("Array.isArray is unavailable unless the argument is a
+#     statically-known array, object, or primitive literal in the current
+#     phase")` on `json["errors"][0]["message"]` is strengthened here to the
+#     full, exact `json.errors.0.message` equality, confirmed by running the
+#     built `kali` binary against the fixture (`/workspace/.cache/cargo-
+#     target/debug/kali --output json check dynamic.js`). Equality is
+#     strictly stronger than the substring check it replaces.
+#
+# [source]: both old tests wrote to a file named `main.js`, but with
+# different content (a source-class-covering script for `run_json`, a
+# dynamic-argument function for `check_rejects_dynamic_argument`) -- a
+# same-filename collision per the migration house style. The second is
+# renamed to `dynamic.js` here; the filename itself carries no claim tracked
+# by the audit script.
+
+[source]
+"main.js" = '''
+
+const arr = [1, 2];
+const obj = { a: 1 };
+const frozen = Object.freeze([3]);
+console.log(Array.isArray(arr));
+console.log(Array["isArray"](obj));
+console.log(globalThis["Array"]["isArray"](frozen));
+console.log(globalThis.Array.isArray(Array.from([4])));
+console.log(Array.isArray(new Set([1, 2, 1])));
+console.log(globalThis.Array.isArray(new globalThis["Map"]([[1, 2]])));
+console.log(Array.isArray("x"));
+'''
+"dynamic.js" = "function accepts(value) { return Array.isArray(value); }\n"
+
+[[case]]
+name = "run_json"
+rationale = "`Array.isArray()` on a statically-known argument folds at compile time across a bare identifier, a bracketed lookup, a `globalThis`-qualified lookup, `Array.from(...)`, `new Set(...)`, `new globalThis[\"Map\"](...)`, and a non-array primitive literal, asserted on the full JSON output envelope."
+args = ["--output", "json", "run", "main.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "1\n0\n1\n1\n0\n0\n0\n"
+json.errors = []
+
+[[case]]
+name = "check_rejects_dynamic_argument"
+rationale = "`Array.isArray()` only folds when the argument is a statically-known array, object, or primitive literal; a dynamic argument must fail closed with E5506."
+args = ["--output", "json", "check", "dynamic.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "Array.isArray is unavailable unless the argument is a statically-known array, object, or primitive literal in the current phase; use explicit literals or the later compatibility path"

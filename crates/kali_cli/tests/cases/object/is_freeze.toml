@@ -1,0 +1,197 @@
+# Migrated from tests/object_is_freeze.rs -- all 8 #[test] functions, as
+# 16 case blocks.
+#
+#   - `run_supports_..._in_js_input`, `json_run_supports_..._in_js_input`,
+#     `test_supports_..._in_js_input`, `json_test_supports_..._in_js_input`:
+#     1:1 with their source tests, each a single fixed `extension = "js"`
+#     call into the shared `assert_..._in_input(extension, json_output)`
+#     helper.
+#   - `run_supports_..._in_ts_jsx_and_tsx_input`,
+#     `json_run_supports_..._in_ts_jsx_and_tsx_input`,
+#     `test_supports_..._in_ts_jsx_and_tsx_input`,
+#     `json_test_supports_..._in_ts_jsx_and_tsx_input`: each a
+#     `for extension in ["ts", "jsx", "tsx"]` loop over the same helper,
+#     become 3 sibling [[case]] blocks apiece.
+#
+# No [matrix]: the "extension" axis is real but not file-level-uniform --
+# half this file's tests pin `extension = "js"` only, the other half loop
+# over `["ts", "jsx", "tsx"]` only, and no test in this file ever covers all
+# 4 extensions together. A `[matrix]` axis fans out *every* case in the
+# file, which would incorrectly run the js-only cases 4 times (via
+# substitution) or force the ts/jsx/tsx-only cases to also cover js. Sibling
+# [[case]] blocks are the only way to keep each case's real extension set.
+#
+# Two distinct fixture bodies (`object_is_freeze_same_reference_source()`
+# for `run`, `object_is_freeze_same_reference_test_source()` for `test`),
+# each used byte-for-byte identically under all 4 extensions
+# (`main.<ext>` / `smoke.test.<ext>`) -- both factored into [constants] once
+# and referenced from every extension's [source] entry, per house style.
+# Verified directly against the built binary across ts/jsx/tsx (not just
+# the js case already pinned by the plain-stdout assertion) that the exact
+# stdout/JSON shape is identical across all 4 extensions.
+
+[constants]
+run_source = '''
+const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis.Object.is(frozen, object)); console.log(Object["is"](frozen, object));
+'''
+test_source = '''
+Kali.test('object is freeze same reference', () => { const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis.Object.is(frozen, object)); console.log(Object["is"](frozen, object)); });
+'''
+
+[source]
+"main.js" = "${run_source}"
+"main.ts" = "${run_source}"
+"main.jsx" = "${run_source}"
+"main.tsx" = "${run_source}"
+"smoke.test.js" = "${test_source}"
+"smoke.test.ts" = "${test_source}"
+"smoke.test.jsx" = "${test_source}"
+"smoke.test.tsx" = "${test_source}"
+
+[[case]]
+name = "run_supports_object_is_through_object_freeze_same_reference_in_js_input"
+rationale = "Object.is(frozen, object) is a reference-identity check: freezing an object never changes its identity, so both the alias returned by Object.freeze and every bracket/dot spelling of Object.is must agree it's the same reference."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "1\n1\n1\n1\n"
+
+[[case]]
+name = "json_run_supports_object_is_through_object_freeze_same_reference_in_js_input"
+rationale = "Same freeze-identity check, asserting the JSON output envelope from `--output json run` rather than raw stdout."
+args = ["--output", "json", "run", "main.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "1\n1\n1\n1\n"
+json.errors = []
+
+[[case]]
+name = "run_supports_object_is_through_object_freeze_same_reference_in_ts_input"
+rationale = "Same freeze-identity check holds across every supported source class, not just plain JS -- ts source."
+args = ["run", "main.ts"]
+exit = "success"
+stdout = "1\n1\n1\n1\n"
+
+[[case]]
+name = "run_supports_object_is_through_object_freeze_same_reference_in_jsx_input"
+rationale = "Same freeze-identity check holds across every supported source class, not just plain JS -- jsx source."
+args = ["run", "main.jsx"]
+exit = "success"
+stdout = "1\n1\n1\n1\n"
+
+[[case]]
+name = "run_supports_object_is_through_object_freeze_same_reference_in_tsx_input"
+rationale = "Same freeze-identity check holds across every supported source class, not just plain JS -- tsx source."
+args = ["run", "main.tsx"]
+exit = "success"
+stdout = "1\n1\n1\n1\n"
+
+[[case]]
+name = "json_run_supports_object_is_through_object_freeze_same_reference_in_ts_input"
+rationale = "Same freeze-identity check, ts source, asserting the JSON output envelope."
+args = ["--output", "json", "run", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "1\n1\n1\n1\n"
+json.errors = []
+
+[[case]]
+name = "json_run_supports_object_is_through_object_freeze_same_reference_in_jsx_input"
+rationale = "Same freeze-identity check, jsx source, asserting the JSON output envelope."
+args = ["--output", "json", "run", "main.jsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "1\n1\n1\n1\n"
+json.errors = []
+
+[[case]]
+name = "json_run_supports_object_is_through_object_freeze_same_reference_in_tsx_input"
+rationale = "Same freeze-identity check, tsx source, asserting the JSON output envelope."
+args = ["--output", "json", "run", "main.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "1\n1\n1\n1\n"
+json.errors = []
+
+[[case]]
+name = "test_supports_object_is_through_object_freeze_same_reference_in_js_input"
+rationale = "Same freeze-identity check, run through `Kali.test(...)` via the `test` command instead of `run`."
+args = ["test", "smoke.test.js"]
+exit = "success"
+stdout_contains = ["1\n1\n1\n", "ok 1"]
+
+[[case]]
+name = "json_test_supports_object_is_through_object_freeze_same_reference_in_js_input"
+rationale = "Same Kali.test freeze-identity check, asserting the JSON output envelope from `--output json test`."
+args = ["--output", "json", "test", "smoke.test.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.passed = 1
+json.payload.failed = 0
+json.errors = []
+
+[[case]]
+name = "test_supports_object_is_through_object_freeze_same_reference_in_ts_input"
+rationale = "Same Kali.test freeze-identity check holds across every supported source class -- ts source."
+args = ["test", "smoke.test.ts"]
+exit = "success"
+stdout_contains = ["1\n1\n1\n", "ok 1"]
+
+[[case]]
+name = "test_supports_object_is_through_object_freeze_same_reference_in_jsx_input"
+rationale = "Same Kali.test freeze-identity check holds across every supported source class -- jsx source."
+args = ["test", "smoke.test.jsx"]
+exit = "success"
+stdout_contains = ["1\n1\n1\n", "ok 1"]
+
+[[case]]
+name = "test_supports_object_is_through_object_freeze_same_reference_in_tsx_input"
+rationale = "Same Kali.test freeze-identity check holds across every supported source class -- tsx source."
+args = ["test", "smoke.test.tsx"]
+exit = "success"
+stdout_contains = ["1\n1\n1\n", "ok 1"]
+
+[[case]]
+name = "json_test_supports_object_is_through_object_freeze_same_reference_in_ts_input"
+rationale = "Same Kali.test freeze-identity check, ts source, asserting the JSON output envelope."
+args = ["--output", "json", "test", "smoke.test.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.passed = 1
+json.payload.failed = 0
+json.errors = []
+
+[[case]]
+name = "json_test_supports_object_is_through_object_freeze_same_reference_in_jsx_input"
+rationale = "Same Kali.test freeze-identity check, jsx source, asserting the JSON output envelope."
+args = ["--output", "json", "test", "smoke.test.jsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.passed = 1
+json.payload.failed = 0
+json.errors = []
+
+[[case]]
+name = "json_test_supports_object_is_through_object_freeze_same_reference_in_tsx_input"
+rationale = "Same Kali.test freeze-identity check, tsx source, asserting the JSON output envelope."
+args = ["--output", "json", "test", "smoke.test.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.passed = 1
+json.payload.failed = 0
+json.errors = []

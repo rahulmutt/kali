@@ -1,0 +1,59 @@
+# Migrated from tests/object_computed_numeric_keys_runtime.rs -- all 4
+# #[test] functions, as 2 sibling case blocks fanned across a file-level
+# `[matrix]` extension axis (js/ts) = 4 trials, matching the original 4
+# #[test] fns exactly (2 helper functions x {js, ts}).
+#
+# This file's 4 #[test] fns are already a uniform cross product of two
+# axes -- extension (js/ts) and fixture variant (plain unary computed
+# keys vs. await-wrapped computed keys) -- with identical assertion shape
+# in every cell (both helper functions run the same `stdout.contains(...)`
+# triple regardless of extension). `[matrix]` is the correct tool here
+# because the whole file is uniform in that axis: every case below is
+# meant to run at both extensions, with no case exempted (see
+# `array/callback_number_predicates_browser_harness.toml` for the same
+# pattern from a prior migration).
+#
+# `[source]` judgment call: both `assert_computed_numeric_object_keys_run`
+# and `assert_computed_numeric_object_keys_run_with_await_wrappers` are
+# called with the *same* filenames ("main.js"/"main.ts") in the original
+# `.rs`, but write different fixture bodies -- a same-filename,
+# different-content collision (see this task's instructions on `[source]`
+# collisions). Renamed to "unary.${extension}" and
+# "await_wrapped.${extension}" in the new `[source]` table to avoid the
+# collision; the filename itself carries no claim the audit script tracks.
+#
+# No `//` comments existed in the source file to carry into `rationale`.
+
+[matrix]
+extension = ["js", "ts"]
+
+[source]
+"unary.${extension}" = '''
+const obj = { [-1]: 'neg', [+2]: 'pos', [(-0)]: 'zero' };
+console.log(obj[-1]);
+console.log(obj[2]);
+console.log(obj[0]);
+'''
+"await_wrapped.${extension}" = '''
+async function computedNumericObjectKeysWithAwaitWrappers() {
+  const obj = { [await 1]: 'neg', [+(await 2)]: 'pos', [(0, await 0)]: 'zero' };
+  console.log(obj[1]);
+  console.log(obj[2]);
+  console.log(obj[0]);
+}
+computedNumericObjectKeysWithAwaitWrappers();
+'''
+
+[[case]]
+name = "unary_numeric_computed_keys"
+rationale = "Unary-prefixed numeric computed object keys (`[-1]`, `[+2]`, `[(-0)]`) must be supported by `run`, coercing to the same property names as their non-computed equivalents, across every supported source class."
+args = ["run", "unary.${extension}"]
+exit = "success"
+stdout_contains = ["neg\n", "pos\n", "zero\n"]
+
+[[case]]
+name = "await_wrapped_numeric_computed_keys"
+rationale = "Numeric computed object keys wrapped in `await` expressions (`[await 1]`, `[+(await 2)]`, `[(0, await 0)]`) must still resolve to the same property names as their unwrapped equivalents, across every supported source class."
+args = ["run", "await_wrapped.${extension}"]
+exit = "success"
+stdout_contains = ["neg\n", "pos\n", "zero\n"]

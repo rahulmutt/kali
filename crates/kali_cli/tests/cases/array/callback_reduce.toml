@@ -1,0 +1,347 @@
+# Migrated from tests/array_callback_reduce.rs -- all 3 #[test]
+# functions, as 32 sibling case blocks, matching the original 32
+# loop-iteration assertions exactly:
+#
+#   - `check_build_run_and_test_support_numeric_reduce_slices` loops
+#     command in [check, build, run, test] x extension in [js, ts]
+#     (non-browser, non-json) -> check_js/ts, build_js/ts, run_js/ts,
+#     test_js/ts (8 cases).
+#   - `browser_check_and_bundle_support_numeric_reduce_slices` loops
+#     command in [check, build] x extension in [js, ts, jsx, tsx]
+#     (browser, non-json) -> browser_check_js/ts/jsx/tsx,
+#     browser_build_js/ts/jsx/tsx (8 cases).
+#   - `browser_harness_run_and_test_support_numeric_reduce_slices` loops
+#     command in [run, test] x extension in [js, ts, jsx, tsx], each
+#     iteration calling the helper twice (json_output = false, then true)
+#     -> browser_run_js/ts/jsx/tsx, browser_test_js/ts/jsx/tsx (8, plain)
+#     plus json_browser_run_js/ts/jsx/tsx, json_browser_test_js/ts/jsx/tsx
+#     (8, `--output json`) (16 cases).
+#
+# No `[matrix]`: the first group loops only js/ts while the other two loop
+# js/ts/jsx/tsx -- a subset mismatch, so per the two-axis rule this stays
+# sibling blocks (one per original loop iteration) rather than a
+# file-level extension axis that would either exempt the first group's
+# missing jsx/tsx cells incorrectly or fan it out across extensions it
+# never actually runs against.
+#
+# `assert_reduce_succeeds`'s helper always names the file
+# "reduce.test.{extension}" regardless of command, but its *content*
+# (`reduce_source(command)`) differs: plain for check/build/run, wrapped
+# in `Kali.test(...)` only for command == "test" -- a same-filename,
+# different-content collision at every extension (see this task's
+# instructions on `[source]` collisions). Resolved the same way
+# `object/computed_numeric_keys_runtime.toml` resolved its own such
+# collision: renamed the plain-content variant to "reduce.${extension}"
+# (dropping the ".test." infix, which carries no behavioral meaning for
+# check/build/run) and kept "reduce.test.${extension}" for the
+# `Kali.test`-wrapped variant actually run via the `test` command.
+# `[constants]` factors each body once, referenced by every filename that
+# needs it.
+#
+# `stdout`/`stdout_contains` claims are kept as `.contains()` exactly as
+# written in the original (not strengthened to exact equality, even
+# though direct runs of the built `kali` binary against every one of
+# these fixture/command/browser combinations showed stdout is always
+# exactly "6\n-6\n6\n0\n" with nothing else -- `stdout_contains` alone is
+# a faithful, unweakened migration of a `.contains()` claim, so
+# strengthening it is optional, not required). The one place strengthening
+# *is* required rather than optional: `json.stdout` in the JSON cases,
+# since `json`/`fields` values only support equality (jsonpath.rs), never
+# `.contains()` -- verified via the same real binary runs (`--output json`
+# against both plain and `Kali.test`-wrapped fixtures, browser and
+# non-browser) that `stdout` is exactly "6\n-6\n6\n0\n" there too, so
+# `json.stdout = "6\n-6\n6\n0\n"` is the real, verified value, not a guess.
+#
+# No `//` comments existed in the source file to carry into `rationale`.
+
+[constants]
+plain_body = '''
+function reduceSlices() {
+  console.log([1, 2, 3].reduce((acc, value) => acc + value, 0));
+  console.log([1, 2, 3].reduceRight((acc, value) => acc - value, 0));
+  console.log([1, 2, 3].reduce((acc, value) => acc + value));
+  console.log([1, 2, 3].reduceRight((acc, value) => acc - value));
+}
+reduceSlices();
+'''
+test_body = '''
+Kali.test('reduce slices', () => {
+function reduceSlices() {
+  console.log([1, 2, 3].reduce((acc, value) => acc + value, 0));
+  console.log([1, 2, 3].reduceRight((acc, value) => acc - value, 0));
+  console.log([1, 2, 3].reduce((acc, value) => acc + value));
+  console.log([1, 2, 3].reduceRight((acc, value) => acc - value));
+}
+reduceSlices();
+});
+'''
+
+[source]
+"reduce.js" = "${plain_body}"
+"reduce.ts" = "${plain_body}"
+"reduce.jsx" = "${plain_body}"
+"reduce.tsx" = "${plain_body}"
+"reduce.test.js" = "${test_body}"
+"reduce.test.ts" = "${test_body}"
+"reduce.test.jsx" = "${test_body}"
+"reduce.test.tsx" = "${test_body}"
+
+[[case]]
+name = "check_js"
+rationale = "`check` accepts the numeric reduce/reduceRight (with and without an initial value) fixture -- js source."
+args = ["check", "reduce.js"]
+exit = "success"
+
+[[case]]
+name = "check_ts"
+rationale = "`check` accepts the numeric reduce/reduceRight (with and without an initial value) fixture -- ts source."
+args = ["check", "reduce.ts"]
+exit = "success"
+
+[[case]]
+name = "build_js"
+rationale = "`build` accepts the numeric reduce/reduceRight fixture -- js source."
+args = ["build", "reduce.js"]
+exit = "success"
+
+[[case]]
+name = "build_ts"
+rationale = "`build` accepts the numeric reduce/reduceRight fixture -- ts source."
+args = ["build", "reduce.ts"]
+exit = "success"
+
+[[case]]
+name = "run_js"
+rationale = "`run` accepts the numeric reduce/reduceRight fixture and its stdout includes each computed slice -- js source."
+args = ["run", "reduce.js"]
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "run_ts"
+rationale = "`run` accepts the numeric reduce/reduceRight fixture and its stdout includes each computed slice -- ts source."
+args = ["run", "reduce.ts"]
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "test_js"
+rationale = "`test` accepts the `Kali.test`-wrapped numeric reduce/reduceRight fixture and its stdout includes each computed slice -- js source."
+args = ["test", "reduce.test.js"]
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "test_ts"
+rationale = "`test` accepts the `Kali.test`-wrapped numeric reduce/reduceRight fixture and its stdout includes each computed slice -- ts source."
+args = ["test", "reduce.test.ts"]
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "browser_check_js"
+rationale = "`check --api browser` accepts the numeric reduce/reduceRight fixture across every supported source class -- js source."
+args = ["check", "--api", "browser", "reduce.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "browser_check_ts"
+rationale = "`check --api browser` accepts the numeric reduce/reduceRight fixture across every supported source class -- ts source."
+args = ["check", "--api", "browser", "reduce.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "browser_check_jsx"
+rationale = "`check --api browser` accepts the numeric reduce/reduceRight fixture across every supported source class -- jsx source."
+args = ["check", "--api", "browser", "reduce.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "browser_check_tsx"
+rationale = "`check --api browser` accepts the numeric reduce/reduceRight fixture across every supported source class -- tsx source."
+args = ["check", "--api", "browser", "reduce.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "browser_build_js"
+rationale = "`build --bundle --api browser` accepts the numeric reduce/reduceRight fixture across every supported source class -- js source."
+args = ["build", "--bundle", "--api", "browser", "reduce.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "browser_build_ts"
+rationale = "`build --bundle --api browser` accepts the numeric reduce/reduceRight fixture across every supported source class -- ts source."
+args = ["build", "--bundle", "--api", "browser", "reduce.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "browser_build_jsx"
+rationale = "`build --bundle --api browser` accepts the numeric reduce/reduceRight fixture across every supported source class -- jsx source."
+args = ["build", "--bundle", "--api", "browser", "reduce.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "browser_build_tsx"
+rationale = "`build --bundle --api browser` accepts the numeric reduce/reduceRight fixture across every supported source class -- tsx source."
+args = ["build", "--bundle", "--api", "browser", "reduce.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "browser_run_js"
+rationale = "`run --api browser` with a configured browser harness command supports the numeric reduce/reduceRight fixture -- js source."
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "browser_run_ts"
+rationale = "`run --api browser` with a configured browser harness command supports the numeric reduce/reduceRight fixture -- ts source."
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "browser_run_jsx"
+rationale = "`run --api browser` with a configured browser harness command supports the numeric reduce/reduceRight fixture -- jsx source."
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "browser_run_tsx"
+rationale = "`run --api browser` with a configured browser harness command supports the numeric reduce/reduceRight fixture -- tsx source."
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "browser_test_js"
+rationale = "`test --api browser` with a configured browser harness command supports the `Kali.test`-wrapped numeric reduce/reduceRight fixture -- js source."
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.test.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "browser_test_ts"
+rationale = "`test --api browser` with a configured browser harness command supports the `Kali.test`-wrapped numeric reduce/reduceRight fixture -- ts source."
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.test.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "browser_test_jsx"
+rationale = "`test --api browser` with a configured browser harness command supports the `Kali.test`-wrapped numeric reduce/reduceRight fixture -- jsx source."
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.test.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "browser_test_tsx"
+rationale = "`test --api browser` with a configured browser harness command supports the `Kali.test`-wrapped numeric reduce/reduceRight fixture -- tsx source."
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.test.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["6\n-6\n6\n0\n"]
+
+[[case]]
+name = "json_browser_run_js"
+rationale = "Same `run --api browser` fixture through `--output json`, asserting the JSON output envelope -- js source."
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "6\n-6\n6\n0\n"
+
+[[case]]
+name = "json_browser_run_ts"
+rationale = "Same `run --api browser` fixture through `--output json`, asserting the JSON output envelope -- ts source."
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "6\n-6\n6\n0\n"
+
+[[case]]
+name = "json_browser_run_jsx"
+rationale = "Same `run --api browser` fixture through `--output json`, asserting the JSON output envelope -- jsx source."
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "6\n-6\n6\n0\n"
+
+[[case]]
+name = "json_browser_run_tsx"
+rationale = "Same `run --api browser` fixture through `--output json`, asserting the JSON output envelope -- tsx source."
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "6\n-6\n6\n0\n"
+
+[[case]]
+name = "json_browser_test_js"
+rationale = "Same `test --api browser` `Kali.test`-wrapped fixture through `--output json`, asserting the JSON output envelope -- js source."
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.test.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.stdout = "6\n-6\n6\n0\n"
+
+[[case]]
+name = "json_browser_test_ts"
+rationale = "Same `test --api browser` `Kali.test`-wrapped fixture through `--output json`, asserting the JSON output envelope -- ts source."
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.test.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.stdout = "6\n-6\n6\n0\n"
+
+[[case]]
+name = "json_browser_test_jsx"
+rationale = "Same `test --api browser` `Kali.test`-wrapped fixture through `--output json`, asserting the JSON output envelope -- jsx source."
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.test.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.stdout = "6\n-6\n6\n0\n"
+
+[[case]]
+name = "json_browser_test_tsx"
+rationale = "Same `test --api browser` `Kali.test`-wrapped fixture through `--output json`, asserting the JSON output envelope -- tsx source."
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "reduce.test.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.stdout = "6\n-6\n6\n0\n"

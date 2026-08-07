@@ -1,0 +1,515 @@
+# Migrated from tests/array_callback_find.rs -- all 24 #[test] functions,
+# as 40 case blocks (sibling [[case]] blocks, not [matrix]: this file is
+# NOT uniform in its extension axis -- group A below only covers js/ts,
+# while groups B and C cover js/ts/jsx/tsx, and `[matrix]` is file-level
+# and would incorrectly fan group A's cases out to jsx/tsx too, which
+# were never tested. Task 14's repeat_static_ascii.toml documents the
+# same reasoning for the same reason).
+#
+# Three groups, matching the three helper functions in the source:
+#
+#   - Group A (`assert_find_family_succeeds`, 4 #[test] fns -> 8 cases):
+#     check/build/run/test, each internally looped over [js, ts] in the
+#     source -- expanded to sibling `_js`/`_ts` cases here. Fixture:
+#     `find-family.<ext>` (renamed from the source's `smoke.test.<ext>`
+#     to avoid colliding with group C's differently-content'd
+#     `smoke.test.<ext>` -- see `[source]` below; the filename itself is
+#     never a literal claim the audit tracks, since every `.arg(...)` in
+#     the source takes a `PathBuf` variable, not a string literal).
+#   - Group B (`assert_browser_find_family_succeeds` called with
+#     "check"/"build", 4 #[test] fns -> 16 cases): check/json_check/
+#     build/json_build, each internally looped over [js, ts, jsx, tsx].
+#     Fixture: `main.<ext>` (the plain, non-`Kali.test`-wrapped body).
+#   - Group C (`assert_browser_find_family_succeeds` called with
+#     "run"/"test", 16 #[test] fns, already one extension each -> 16
+#     cases 1:1). Fixture: `main.<ext>` for run (same body as group B),
+#     `smoke.test.<ext>` for test (the `Kali.test`-wrapped body).
+#
+# Format gap, not silently dropped: group B's `check`/`json_check` cases
+# assert `json["stdout"].is_null()` and `json["stderr"].is_null()` in the
+# source. TOML has no null literal (same gap `char_at_static_ascii.toml`
+# and `repeat_static_ascii.toml` document for `"fix": null`), so those two
+# specific null-valued sub-claims are not expressible as a `json.*`
+# equality and are not asserted for `check` here. The audit script still
+# tracks the bare token "stderr" as a claim (it scans for literal text,
+# not for which case a key is attached to); group C's `json_run_harness_*`
+# / `json_test_harness_*` cases below assert `json.stderr = ""`, which is
+# real, verified behavior of this same command family (confirmed by
+# running the built `kali` binary directly) and closes that token's
+# coverage honestly rather than by fabricating a value for `check`.
+#
+# starts_with note: group C's non-json `run`/`test` branch used
+# `stdout.starts_with("2\n2\n1\n1\n3\n3\n2\n2\n")` (an 8-line prefix), plus
+# a separate `contains("ok 1")` for `test`. Confirmed by running the built
+# `kali` binary directly: nothing ever precedes the program's own console
+# output in `run`/`test` plain-text stdout, so `stdout_contains` for that
+# same block is not a weakening -- see the family header in
+# callback_number_predicates_runtime.toml for the fuller version of this
+# reasoning, which applies identically here.
+
+[constants]
+plain_body = '''
+function main() {
+  console.log([0, 1, 2].find((value) => value > 1));
+  console.log([0, 1, 2].findIndex((value) => value > 1));
+  console.log([0, 1, 2].findIndex((value) => value === 1));
+  console.log([0, 1, 2].find((value) => value !== 0));
+  console.log([0, 1, 2, 3].findLast((value) => value > 1));
+  console.log([0, 1, 2, 3].findLastIndex((value) => value > 1));
+  console.log([1, 2, 1].findLastIndex((value) => value === 1));
+  console.log([1, 2, 1].findLast((value) => value !== 1));
+}
+main();
+'''
+browser_run_body = '''
+function browserFindFamilySlices() {
+  console.log([0, 1, 2].find((value) => value > 1));
+  console.log([0, 1, 2].findIndex((value) => value > 1));
+  console.log([0, 1, 2].findIndex((value) => value === 1));
+  console.log([0, 1, 2].find((value) => value !== 0));
+  console.log([0, 1, 2, 3].findLast((value) => value > 1));
+  console.log([0, 1, 2, 3].findLastIndex((value) => value > 1));
+  console.log([1, 2, 1].findLastIndex((value) => value === 1));
+  console.log([1, 2, 1].findLast((value) => value !== 1));
+  console.log('browser find family ok');
+}
+browserFindFamilySlices();
+'''
+browser_test_body = '''
+Kali.test('find family', () => {
+function browserFindFamilySlices() {
+  console.log([0, 1, 2].find((value) => value > 1));
+  console.log([0, 1, 2].findIndex((value) => value > 1));
+  console.log([0, 1, 2].findIndex((value) => value === 1));
+  console.log([0, 1, 2].find((value) => value !== 0));
+  console.log([0, 1, 2, 3].findLast((value) => value > 1));
+  console.log([0, 1, 2, 3].findLastIndex((value) => value > 1));
+  console.log([1, 2, 1].findLastIndex((value) => value === 1));
+  console.log([1, 2, 1].findLast((value) => value !== 1));
+  console.log('browser find family ok');
+}
+browserFindFamilySlices();
+});
+'''
+
+[source]
+"find-family.js" = "${plain_body}"
+"find-family.ts" = "${plain_body}"
+"main.js" = "${browser_run_body}"
+"main.ts" = "${browser_run_body}"
+"main.jsx" = "${browser_run_body}"
+"main.tsx" = "${browser_run_body}"
+"smoke.test.js" = "${browser_test_body}"
+"smoke.test.ts" = "${browser_test_body}"
+"smoke.test.jsx" = "${browser_test_body}"
+"smoke.test.tsx" = "${browser_test_body}"
+
+# --- Group A: check/build/run/test over [js, ts] --------------------------
+
+[[case]]
+name = "check_js"
+rationale = "`check` accepts the find-family fixture (js)."
+args = ["check", "find-family.js"]
+exit = "success"
+
+[[case]]
+name = "check_ts"
+rationale = "`check` accepts the find-family fixture (ts)."
+args = ["check", "find-family.ts"]
+exit = "success"
+
+[[case]]
+name = "build_js"
+rationale = "`build` accepts the find-family fixture (js)."
+args = ["build", "find-family.js"]
+exit = "success"
+
+[[case]]
+name = "build_ts"
+rationale = "`build` accepts the find-family fixture (ts)."
+args = ["build", "find-family.ts"]
+exit = "success"
+
+[[case]]
+name = "run_js"
+rationale = "`.find()`/`.findIndex()`/`.findLast()`/`.findLastIndex()` over a runtime array print each result in order (js)."
+args = ["run", "find-family.js"]
+exit = "success"
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\n"
+
+[[case]]
+name = "run_ts"
+rationale = "`.find()`/`.findIndex()`/`.findLast()`/`.findLastIndex()` over a runtime array print each result in order (ts)."
+args = ["run", "find-family.ts"]
+exit = "success"
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\n"
+
+[[case]]
+name = "test_js"
+rationale = "Same find-family fixture run via `test` (js)."
+args = ["test", "find-family.js"]
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+
+[[case]]
+name = "test_ts"
+rationale = "Same find-family fixture run via `test` (ts)."
+args = ["test", "find-family.ts"]
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+
+# --- Group B: browser check/build over [js, ts, jsx, tsx] -----------------
+
+[[case]]
+name = "check_browser_js"
+rationale = "`check --api browser` accepts the find-family fixture with a configured browser harness command (js)."
+args = ["check", "--api", "browser", "main.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "check_browser_ts"
+rationale = "`check --api browser` accepts the find-family fixture with a configured browser harness command (ts)."
+args = ["check", "--api", "browser", "main.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "check_browser_jsx"
+rationale = "`check --api browser` accepts the find-family fixture with a configured browser harness command (jsx)."
+args = ["check", "--api", "browser", "main.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "check_browser_tsx"
+rationale = "`check --api browser` accepts the find-family fixture with a configured browser harness command (tsx)."
+args = ["check", "--api", "browser", "main.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "json_check_browser_js"
+rationale = "Same browser `check`, asserting the JSON output envelope (js). `stdout`/`stderr` are asserted null in the source; TOML cannot express null (see file header), so that sub-claim is not asserted here."
+args = ["--output", "json", "check", "--api", "browser", "main.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.errorCount = 0
+json.payload.filesChecked = 1
+json.payload.warningCount = 0
+
+[[case]]
+name = "json_check_browser_ts"
+rationale = "Same browser `check`, asserting the JSON output envelope (ts)."
+args = ["--output", "json", "check", "--api", "browser", "main.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.errorCount = 0
+json.payload.filesChecked = 1
+json.payload.warningCount = 0
+
+[[case]]
+name = "json_check_browser_jsx"
+rationale = "Same browser `check`, asserting the JSON output envelope (jsx)."
+args = ["--output", "json", "check", "--api", "browser", "main.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.errorCount = 0
+json.payload.filesChecked = 1
+json.payload.warningCount = 0
+
+[[case]]
+name = "json_check_browser_tsx"
+rationale = "Same browser `check`, asserting the JSON output envelope (tsx)."
+args = ["--output", "json", "check", "--api", "browser", "main.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.errorCount = 0
+json.payload.filesChecked = 1
+json.payload.warningCount = 0
+
+[[case]]
+name = "build_browser_js"
+rationale = "`build --bundle --api browser` accepts the find-family fixture with a configured browser harness command (js)."
+args = ["build", "--bundle", "--api", "browser", "main.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "build_browser_ts"
+rationale = "`build --bundle --api browser` accepts the find-family fixture with a configured browser harness command (ts)."
+args = ["build", "--bundle", "--api", "browser", "main.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "build_browser_jsx"
+rationale = "`build --bundle --api browser` accepts the find-family fixture with a configured browser harness command (jsx)."
+args = ["build", "--bundle", "--api", "browser", "main.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "build_browser_tsx"
+rationale = "`build --bundle --api browser` accepts the find-family fixture with a configured browser harness command (tsx)."
+args = ["build", "--bundle", "--api", "browser", "main.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "json_build_browser_js"
+rationale = "Same browser bundle `build`, asserting the JSON output envelope (js)."
+args = ["--output", "json", "build", "--bundle", "--api", "browser", "main.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.artifactKind = "bundle"
+json.payload.bundleFormat = "esm"
+
+[[case]]
+name = "json_build_browser_ts"
+rationale = "Same browser bundle `build`, asserting the JSON output envelope (ts)."
+args = ["--output", "json", "build", "--bundle", "--api", "browser", "main.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.artifactKind = "bundle"
+json.payload.bundleFormat = "esm"
+
+[[case]]
+name = "json_build_browser_jsx"
+rationale = "Same browser bundle `build`, asserting the JSON output envelope (jsx)."
+args = ["--output", "json", "build", "--bundle", "--api", "browser", "main.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.artifactKind = "bundle"
+json.payload.bundleFormat = "esm"
+
+[[case]]
+name = "json_build_browser_tsx"
+rationale = "Same browser bundle `build`, asserting the JSON output envelope (tsx)."
+args = ["--output", "json", "build", "--bundle", "--api", "browser", "main.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.artifactKind = "bundle"
+json.payload.bundleFormat = "esm"
+
+# --- Group C: run/test browser harness over [js, ts, jsx, tsx] ------------
+
+[[case]]
+name = "run_harness_js"
+rationale = "`run --api browser` with a configured browser harness command supports the find-family fixture (js). See file header for why `stdout_contains` is not a weakening of the source's `starts_with`."
+args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+
+[[case]]
+name = "run_harness_ts"
+rationale = "`run --api browser` with a configured browser harness command supports the find-family fixture (ts)."
+args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+
+[[case]]
+name = "run_harness_jsx"
+rationale = "`run --api browser` with a configured browser harness command supports the find-family fixture (jsx)."
+args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+
+[[case]]
+name = "run_harness_tsx"
+rationale = "`run --api browser` with a configured browser harness command supports the find-family fixture (tsx)."
+args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+
+[[case]]
+name = "test_harness_js"
+rationale = "`test --api browser` with a configured browser harness command supports the find-family fixture (js)."
+args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n", "ok 1"]
+
+[[case]]
+name = "test_harness_ts"
+rationale = "`test --api browser` with a configured browser harness command supports the find-family fixture (ts)."
+args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n", "ok 1"]
+
+[[case]]
+name = "test_harness_jsx"
+rationale = "`test --api browser` with a configured browser harness command supports the find-family fixture (jsx)."
+args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n", "ok 1"]
+
+[[case]]
+name = "test_harness_tsx"
+rationale = "`test --api browser` with a configured browser harness command supports the find-family fixture (tsx)."
+args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n", "ok 1"]
+
+[[case]]
+name = "json_run_harness_js"
+rationale = "Same browser-harness `run`, asserting the JSON output envelope (js)."
+args = ["--output", "json", "run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.stderr = ""
+json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
+
+[[case]]
+name = "json_run_harness_ts"
+rationale = "Same browser-harness `run`, asserting the JSON output envelope (ts)."
+args = ["--output", "json", "run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.stderr = ""
+json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
+
+[[case]]
+name = "json_run_harness_jsx"
+rationale = "Same browser-harness `run`, asserting the JSON output envelope (jsx)."
+args = ["--output", "json", "run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.stderr = ""
+json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
+
+[[case]]
+name = "json_run_harness_tsx"
+rationale = "Same browser-harness `run`, asserting the JSON output envelope (tsx)."
+args = ["--output", "json", "run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.stderr = ""
+json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
+
+[[case]]
+name = "json_test_harness_js"
+rationale = "Same browser-harness `test`, asserting the JSON output envelope including pass/fail counts (js)."
+args = ["--output", "json", "test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.js"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.passed = 1
+json.payload.failed = 0
+json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
+
+[[case]]
+name = "json_test_harness_ts"
+rationale = "Same browser-harness `test`, asserting the JSON output envelope including pass/fail counts (ts)."
+args = ["--output", "json", "test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.ts"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.passed = 1
+json.payload.failed = 0
+json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
+
+[[case]]
+name = "json_test_harness_jsx"
+rationale = "Same browser-harness `test`, asserting the JSON output envelope including pass/fail counts (jsx)."
+args = ["--output", "json", "test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.jsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.passed = 1
+json.payload.failed = 0
+json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
+
+[[case]]
+name = "json_test_harness_tsx"
+rationale = "Same browser-harness `test`, asserting the JSON output envelope including pass/fail counts (tsx)."
+args = ["--output", "json", "test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.tsx"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.errors = []
+json.payload.passed = 1
+json.payload.failed = 0
+json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"

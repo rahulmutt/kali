@@ -1,0 +1,166 @@
+# Migrated from tests/array_callback_iteration_gates.rs -- all 4 #[test]
+# functions, as 8 sibling case blocks fanned across a file-level `[matrix]`
+# command axis (run/test/check/build) = 32 trials, matching the original
+# 32 assertion instances exactly (4 #[test] fns, each looping over the
+# same fixed list of 8 source variants via
+# `array_callback_iteration_sources()`).
+#
+# Two axes are present -- command (run/test/check/build) and iteration
+# method variant (find/findIndex/findLast/findLastIndex/some/every/reduce/
+# reduceRight) -- and both are uniform across the whole file: every
+# #[test] fn loops over the exact same 8 sources, and every (command,
+# source) pair asserts the identical fail-closed shape (exit code 1,
+# stderr containing both "E5506" and "for-of array iteration lowering is
+# unavailable"). `[matrix]` is used for the command axis because
+# substituting it into `args` never changes which assertions apply (spec:
+# a matrix axis is for uniform substitution, not assertion-varying
+# behavior). The method-variant axis is expressed as 8 sibling `[[case]]`
+# blocks instead of a second matrix axis: each variant needs genuinely
+# different `[source]` fixture *content* (a different receiver method,
+# and reduce/reduceRight's callback bodies differ from the others, not
+# just a method-name swap), so it does not reduce to one clean
+# `${...}`-substitutable token -- sibling blocks with their own named
+# fixture keep every variant's real program text explicit rather than
+# building a matrix-axis value out of a JS expression fragment (mirrors
+# `object/computed_numeric_keys_runtime.toml`'s extension-matrix +
+# fixture-variant-siblings split).
+#
+# `exit = 1` (not the `"failure"` word) because the original asserts the
+# exact exit code (`assert_eq!(output.status.code(), Some(1))`), not just
+# non-success -- an integer `exit` is strictly more precise and still
+# implies `!success`.
+#
+# No `//` comments existed in the source file to carry into `rationale`.
+
+[matrix]
+command = ["run", "test", "check", "build"]
+
+[source]
+"find.js" = '''
+function main() {
+  const values = [1, 2];
+  for (const item of values.find((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+'''
+"find_index.js" = '''
+function main() {
+  const values = [1, 2];
+  for (const item of values.findIndex((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+'''
+"find_last.js" = '''
+function main() {
+  const values = [1, 2];
+  for (const item of values.findLast((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+'''
+"find_last_index.js" = '''
+function main() {
+  const values = [1, 2];
+  for (const item of values.findLastIndex((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+'''
+"some.js" = '''
+function main() {
+  const values = [1, 2];
+  for (const item of values.some((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+'''
+"every.js" = '''
+function main() {
+  const values = [1, 2];
+  for (const item of values.every((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+'''
+"reduce.js" = '''
+function main() {
+  const values = [1, 2];
+  for (const item of values.reduce((acc, value) => acc + value, 0)) {
+    console.log(item);
+  }
+}
+main();
+'''
+"reduce_right.js" = '''
+function main() {
+  const values = [1, 2];
+  for (const item of values.reduceRight((acc, value) => acc - value, 0)) {
+    console.log(item);
+  }
+}
+main();
+'''
+
+[[case]]
+name = "find"
+rationale = "`.find()` returns a single element (or undefined), not an iterable -- `for...of` over its result must fail closed with E5506 rather than silently accepting a non-iterable."
+args = ["${command}", "find.js"]
+exit = 1
+stderr_contains = ["E5506", "for-of array iteration lowering is unavailable"]
+
+[[case]]
+name = "find_index"
+rationale = "`.findIndex()` returns a number, not an iterable -- `for...of` over its result must fail closed with E5506."
+args = ["${command}", "find_index.js"]
+exit = 1
+stderr_contains = ["E5506", "for-of array iteration lowering is unavailable"]
+
+[[case]]
+name = "find_last"
+rationale = "`.findLast()` returns a single element (or undefined), not an iterable -- `for...of` over its result must fail closed with E5506."
+args = ["${command}", "find_last.js"]
+exit = 1
+stderr_contains = ["E5506", "for-of array iteration lowering is unavailable"]
+
+[[case]]
+name = "find_last_index"
+rationale = "`.findLastIndex()` returns a number, not an iterable -- `for...of` over its result must fail closed with E5506."
+args = ["${command}", "find_last_index.js"]
+exit = 1
+stderr_contains = ["E5506", "for-of array iteration lowering is unavailable"]
+
+[[case]]
+name = "some"
+rationale = "`.some()` returns a boolean, not an iterable -- `for...of` over its result must fail closed with E5506."
+args = ["${command}", "some.js"]
+exit = 1
+stderr_contains = ["E5506", "for-of array iteration lowering is unavailable"]
+
+[[case]]
+name = "every"
+rationale = "`.every()` returns a boolean, not an iterable -- `for...of` over its result must fail closed with E5506."
+args = ["${command}", "every.js"]
+exit = 1
+stderr_contains = ["E5506", "for-of array iteration lowering is unavailable"]
+
+[[case]]
+name = "reduce"
+rationale = "`.reduce()` returns its accumulated value, not an iterable -- `for...of` over its result must fail closed with E5506."
+args = ["${command}", "reduce.js"]
+exit = 1
+stderr_contains = ["E5506", "for-of array iteration lowering is unavailable"]
+
+[[case]]
+name = "reduce_right"
+rationale = "`.reduceRight()` returns its accumulated value, not an iterable -- `for...of` over its result must fail closed with E5506."
+args = ["${command}", "reduce_right.js"]
+exit = 1
+stderr_contains = ["E5506", "for-of array iteration lowering is unavailable"]
