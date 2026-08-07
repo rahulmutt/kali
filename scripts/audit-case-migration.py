@@ -246,6 +246,22 @@ BORING: dict[str, set[str]] = {
 }
 
 
+# A Rust `\u{XXXX}` unicode escape (1-6 hex digits), not preceded by another
+# backslash (so an already-escaped literal backslash-u, i.e. `\\u{...}` in the
+# source meaning a literal `\` followed by the four characters `u{...}`, is
+# left alone rather than double-decoded -- not observed in this corpus at
+# time of writing, but cheap to guard against). `unquote()` was missing this
+# case entirely: `"6\nh\u{e9}llo"` canonicalized to text that still contained
+# the literal six characters `\`, `u`, `{`, `e`, `9`, `}`, so it could never
+# match a migrated case's real, correct UTF-8 assertion (`héllo`) -- a false
+# "claim missing" that would have forced choosing between fabricating a wrong
+# assertion (the literal escape sequence, which is not what the program
+# prints) and leaving a real claim unaudited. This mirrors the `JSON_KEY`
+# raw-string anchor fix and the `json_null` key sync: the tool's
+# canonicalization was incomplete, not the migrated file's assertion.
+_UNICODE_ESCAPE = re.compile(r'(?<!\\)\\u\{([0-9a-fA-F]{1,6})\}')
+
+
 def unquote(raw: str) -> str:
     """Turn a Rust string literal token into its fully-unescaped text."""
     raw = raw.strip()
@@ -254,12 +270,13 @@ def unquote(raw: str) -> str:
         hashes = len(raw) - len(raw.lstrip("#"))
         return raw[hashes + 1 : len(raw) - hashes - 1]
     body = raw[1:-1]
-    return (
+    body = (
         body.replace('\\"', '"')
         .replace("\\n", "\n")
         .replace("\\t", "\t")
         .replace("\\\\", "\\")
     )
+    return _UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), body)
 
 
 def raw_body(raw: str) -> str:
