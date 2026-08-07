@@ -42,8 +42,8 @@ fn substitute(text: &str, bindings: &BTreeMap<String, String>) -> Result<String,
 /// tree, recursing through tables and arrays. Non-string leaves (integers,
 /// booleans, floats, datetimes) pass through untouched.
 ///
-/// `json` and `fields` are two of the nine assertion keys (design spec
-/// §5.4, plus `json_null`), and §5.10's unresolved-placeholder hard-failure
+/// `json` and `fields` are two of the ten assertion keys (design spec
+/// §5.4), and §5.10's unresolved-placeholder hard-failure
 /// rule applies to them exactly as it does to every other string-bearing
 /// field -- a `${...}` in a `json`/`fields` key is the more dangerous case,
 /// since it would otherwise silently produce a JSON path that never matches
@@ -106,6 +106,7 @@ fn substitute_step(step: &Step, bindings: &BTreeMap<String, String>) -> Result<S
         stdout: opt(&step.stdout)?,
         stdout_contains: list(&step.stdout_contains)?,
         stdout_absent: list(&step.stdout_absent)?,
+        stderr: opt(&step.stderr)?,
         stderr_contains: list(&step.stderr_contains)?,
         stderr_absent: list(&step.stderr_absent)?,
         json: opt_value(&step.json)?,

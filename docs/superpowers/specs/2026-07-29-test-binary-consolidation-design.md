@@ -257,13 +257,14 @@ A case file has four optional top-level sections and one required one:
 
 ### 5.4 Assertion keys
 
-Nine assertion keys on a step, covering the full measured vocabulary of §1.2:
+Ten assertion keys on a step, covering the full measured vocabulary of §1.2:
 
 ```toml
 exit = "success" | "failure" | 2        # status class or exact code
 stdout = "hahaha\n\n"                   # exact equality
 stdout_contains = ["1\n", "0\n"]
 stdout_absent   = ["E5506"]
+stderr = ""                             # exact equality, symmetric with stdout
 stderr_contains = ["..."]
 stderr_absent   = ["..."]
 json.payload.artifactKind = "bundle"    # dotted path into the stdout JSON envelope
@@ -304,6 +305,20 @@ either dropping the claim or asserting it on an unrelated case -- both
 rejected. Because every diagnostic's `"fix"` key (previous paragraph) is
 the same class of gap, `json_null` is expected to see broader use across
 the remaining families in Tasks 16-19, not just this one site.
+
+`stderr` was added during Task 16 batch 4's review round for the same
+reason `json_null` was added during Task 15's: `stderr_contains` and
+`stderr_absent` are both substring claims, and neither can express "stderr
+is exactly this string" -- in particular "stderr is exactly empty," which
+`soundness_block_arrows.rs`'s `anonymous_export_default_function_compiles_
+and_runs` asserts directly (`stderr.is_empty()`, "expected no diagnostics").
+A stray unrelated diagnostic on stderr would satisfy every `stderr_absent`
+needle the source never wrote and still pass, silently weakening that
+assertion during migration. `stderr` is exact equality against the step's
+captured stderr, evaluated the same way `stdout` is; `file_json` steps
+reject it for the same reason they reject `stdout` (they never run a
+process). Symmetric with `stdout`'s existing exact-equality key, not a new
+kind of claim.
 
 Two non-assertion keys live on a `[[case]]`, not a step: `name` and `rationale`,
 plus `ignore = true` to run only under `--ignored` (the 9 currently-ignored
@@ -436,7 +451,7 @@ expected around 10 MB.
 4. **run** — per trial: temp dir, write `[source]`, execute steps in order.
    `kali` is located via `env!("CARGO_BIN_EXE_kali")`, which Cargo sets for
    `harness = false` test targets as for ordinary ones.
-5. **assert** — evaluate the nine keys; the first failure ends the trial.
+5. **assert** — evaluate the ten keys; the first failure ends the trial.
 
 `libtest-mimic` provides filtering, `--ignored`, parallel execution across
 trials, and `--format terse|pretty`. Each trial owns its temp dir, so

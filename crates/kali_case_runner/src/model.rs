@@ -174,6 +174,8 @@ struct RawStep {
     #[serde(default)]
     stdout_absent: Vec<String>,
     #[serde(default)]
+    stderr: Option<String>,
+    #[serde(default)]
     stderr_contains: Vec<String>,
     #[serde(default)]
     stderr_absent: Vec<String>,
@@ -200,6 +202,16 @@ pub struct Step {
     pub stdout: Option<String>,
     pub stdout_contains: Vec<String>,
     pub stdout_absent: Vec<String>,
+    /// Exact stderr equality, symmetric with `stdout` above. Added when a
+    /// migrated source assertion (`stderr.is_empty()`, or any exact-stderr
+    /// claim) had no expressible form: `stderr_contains`/`stderr_absent`
+    /// are substring claims, neither of which can pin "stderr is exactly
+    /// this string" (in particular "stderr is exactly empty" -- a stray
+    /// unrelated diagnostic on stderr would satisfy every `stderr_absent`
+    /// needle the source never wrote and still pass). See `check`'s doc
+    /// comment for why this is a separate field from `stderr_contains`
+    /// rather than an overload of it.
+    pub stderr: Option<String>,
     pub stderr_contains: Vec<String>,
     pub stderr_absent: Vec<String>,
     pub json: Option<toml::Value>,
@@ -308,6 +320,9 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             if !raw.stdout_absent.is_empty() {
                 inapplicable.push("stdout_absent");
             }
+            if raw.stderr.is_some() {
+                inapplicable.push("stderr");
+            }
             if !raw.stderr_contains.is_empty() {
                 inapplicable.push("stderr_contains");
             }
@@ -356,6 +371,7 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
         stdout: raw.stdout,
         stdout_contains: raw.stdout_contains,
         stdout_absent: raw.stdout_absent,
+        stderr: raw.stderr,
         stderr_contains: raw.stderr_contains,
         stderr_absent: raw.stderr_absent,
         json: raw.json,

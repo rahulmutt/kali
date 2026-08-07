@@ -60,6 +60,39 @@ exit = 2
     assert_eq!(inline.exit, Some(Exit::Code(2)));
 }
 
+// `stderr` is exact-equality, symmetric with `stdout` (see `Step::stderr`'s
+// doc comment for why it exists as a separate key from `stderr_contains`/
+// `stderr_absent`).
+#[test]
+fn stderr_parses_as_an_exact_string() {
+    let text = r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+stderr = ""
+"#;
+    let parsed = parse_case_file(text).expect("parse");
+    let inline = parsed.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(inline.stderr.as_deref(), Some(""));
+}
+
+// `stderr` shares `stdout`'s field-applicability rule (both read the
+// step's captured process output, so both are `cli`/`browser_bundle_
+// harness`-only) -- this pins that a `file_json` step, which never runs a
+// process, rejects it the same way it already rejects `stdout`.
+#[test]
+fn a_file_json_step_rejects_stderr() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "file_json"
+path = "o.json"
+stderr = ""
+"#;
+    let err = parse_case_file(text).expect_err("must reject stderr on a file_json step");
+    assert!(err.contains("stderr"), "error must name the field: {err}");
+}
+
 #[test]
 fn json_null_parses_as_a_list_of_dotted_paths() {
     let text = r#"
@@ -364,7 +397,7 @@ fields.ok = true
 // own risk: a converter that silently drops a field would make every case
 // file that relies on that field assert nothing, which is the exact class
 // of bug this whole format exists to prevent. These three tests pin every
-// one of `Step`'s fifteen fields through the inline (flatten + manual
+// one of `Step`'s sixteen fields through the inline (flatten + manual
 // convert) path, split one case per `kind` since `finalize_step` now
 // rejects kind-inapplicable fields -- a single case can no longer carry
 // every field the way the original all-in-one version did.
@@ -380,6 +413,7 @@ exit = "success"
 stdout = "out\n"
 stdout_contains = ["a"]
 stdout_absent = ["b"]
+stderr = "err\n"
 stderr_contains = ["c"]
 stderr_absent = ["d"]
 json.schemaVersion = 1
@@ -394,6 +428,7 @@ json_null = ["stderr"]
     assert_eq!(step.stdout.as_deref(), Some("out\n"));
     assert_eq!(step.stdout_contains, vec!["a"]);
     assert_eq!(step.stdout_absent, vec!["b"]);
+    assert_eq!(step.stderr.as_deref(), Some("err\n"));
     assert_eq!(step.stderr_contains, vec!["c"]);
     assert_eq!(step.stderr_absent, vec!["d"]);
     assert_eq!(
@@ -430,6 +465,7 @@ exit = "failure"
 stdout = "out\n"
 stdout_contains = ["a"]
 stdout_absent = ["b"]
+stderr = "err\n"
 stderr_contains = ["c"]
 stderr_absent = ["d"]
 json.schemaVersion = 2
@@ -445,6 +481,7 @@ body = "await mod.f();"
     assert_eq!(step.stdout.as_deref(), Some("out\n"));
     assert_eq!(step.stdout_contains, vec!["a"]);
     assert_eq!(step.stdout_absent, vec!["b"]);
+    assert_eq!(step.stderr.as_deref(), Some("err\n"));
     assert_eq!(step.stderr_contains, vec!["c"]);
     assert_eq!(step.stderr_absent, vec!["d"]);
     assert_eq!(

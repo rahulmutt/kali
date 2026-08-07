@@ -1,4 +1,4 @@
-//! Evaluate a step's nine assertion keys against captured process output.
+//! Evaluate a step's ten assertion keys against captured process output.
 //!
 //! Failure messages are indented with two spaces, never four. `scripts/test-gate.sh`
 //! parses `^    [A-Za-z_]` as a failed-test name, and a four-space-indented
@@ -92,6 +92,16 @@ pub fn check(step: &Step, captured: &Captured) -> Result<(), String> {
             return Err(fail(format!("stdout must not contain {needle:?}")));
         }
     }
+
+    if let Some(expected) = &step.stderr {
+        if &captured.stderr != expected {
+            return Err(fail(format!(
+                "stderr mismatch\n  expected: {expected:?}\n  actual:   {:?}",
+                captured.stderr
+            )));
+        }
+    }
+
     for needle in &step.stderr_contains {
         if !captured.stderr.contains(needle.as_str()) {
             return Err(fail(format!("stderr missing {needle:?}")));

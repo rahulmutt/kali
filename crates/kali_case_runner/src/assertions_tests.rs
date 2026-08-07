@@ -11,6 +11,7 @@ fn blank_step() -> Step {
         stdout: None,
         stdout_contains: Vec::new(),
         stdout_absent: Vec::new(),
+        stderr: None,
         stderr_contains: Vec::new(),
         stderr_absent: Vec::new(),
         json: None,
@@ -66,6 +67,23 @@ fn contains_and_absent_are_both_enforced() {
     check(&step, &captured(true, 0, "1\n0\n", "")).expect("contains+absent claims must both hold");
     assert!(check(&step, &captured(true, 0, "0\n", "")).is_err());
     assert!(check(&step, &captured(true, 0, "1\nE5506", "")).is_err());
+}
+
+// `stderr` mirrors `stdout`'s exact-equality check (the field it is added
+// symmetric with) -- pinned the same way `exact_stdout_must_match_byte_for_byte`
+// pins `stdout`. Added because `stderr_contains`/`stderr_absent` are both
+// substring claims: neither can express "stderr is exactly empty," which a
+// stray unrelated diagnostic on stderr would satisfy every `stderr_absent`
+// needle for while still not being what the source actually asserted.
+#[test]
+fn exact_stderr_must_match_byte_for_byte() {
+    let mut step = blank_step();
+    step.stderr = Some("".to_string());
+    check(&step, &captured(true, 0, "ok\n", "")).expect("exact empty stderr must pass");
+    let err = check(&step, &captured(true, 0, "ok\n", "warning: spurious\n"))
+        .expect_err("non-empty stderr must fail an exact-empty claim");
+    assert!(err.contains("stderr mismatch"), "{err}");
+    assert!(err.contains("spurious"), "{err}");
 }
 
 #[test]

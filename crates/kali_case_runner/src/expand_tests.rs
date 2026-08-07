@@ -198,6 +198,27 @@ stdout_absent = ["warning: main.${ext}"]
 }
 
 #[test]
+fn substitution_reaches_stderr() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+args = ["run", "main.${ext}"]
+stderr = "warning: main.${ext}\n"
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert_eq!(
+        trials[0].steps[0].stderr.as_deref(),
+        Some("warning: main.js\n")
+    );
+}
+
+#[test]
 fn substitution_reaches_stderr_absent() {
     let file = parse_case_file(
         r#"
