@@ -14,6 +14,7 @@ fn blank_step() -> Step {
         stderr_contains: Vec::new(),
         stderr_absent: Vec::new(),
         json: None,
+        json_null: Vec::new(),
         path: None,
         fields: None,
         entry: None,
@@ -100,6 +101,61 @@ artifactKind = "bundle"
     let bad = r#"{"schemaVersion":2,"success":true,"payload":{"artifactKind":"bundle"}}"#;
     let err = check(&step, &captured(true, 0, bad, "")).expect_err("must fail");
     assert!(err.contains("schemaVersion"), "{err}");
+}
+
+// `json_null` exists because TOML has no null literal (see `Step::json_null`'s
+// doc comment) -- these pin its three outcomes: matching null passes, a
+// present-but-non-null value fails, and (like every other path lookup in
+// this module) an absent path fails rather than passing vacuously.
+#[test]
+fn json_null_passes_when_the_path_resolves_to_null() {
+    let mut step = blank_step();
+    step.json_null = vec!["stdout".to_string(), "stderr".to_string()];
+    check(
+        &step,
+        &captured(true, 0, r#"{"stdout":null,"stderr":null}"#, ""),
+    )
+    .expect("both null paths must pass");
+}
+
+#[test]
+fn json_null_fails_when_the_path_resolves_to_a_non_null_value() {
+    let mut step = blank_step();
+    step.json_null = vec!["stdout".to_string()];
+    let err = check(&step, &captured(true, 0, r#"{"stdout":""}"#, "")).expect_err("must fail");
+    assert!(err.contains("stdout"), "{err}");
+    assert!(err.contains("null"), "{err}");
+}
+
+#[test]
+fn json_null_fails_when_the_path_is_absent_rather_than_passing_vacuously() {
+    let mut step = blank_step();
+    step.json_null = vec!["payload.missing".to_string()];
+    let err = check(&step, &captured(true, 0, r#"{"payload":{}}"#, "")).expect_err("must fail");
+    assert!(err.contains("payload.missing"), "{err}");
+}
+
+// `json` and `json_null` must be checked together against the same parsed
+// document without one silently short-circuiting the other -- this is the
+// case that motivated restructuring `check`'s single `if let Some(expected)
+// = &step.json` guard into one that also parses when only `json_null` is
+// set.
+#[test]
+fn json_and_json_null_are_both_enforced_on_the_same_step() {
+    let mut step = blank_step();
+    step.json = Some(toml::from_str(r#"schemaVersion = 1"#).expect("toml"));
+    step.json_null = vec!["stderr".to_string()];
+    check(
+        &step,
+        &captured(true, 0, r#"{"schemaVersion":1,"stderr":null}"#, ""),
+    )
+    .expect("both claims must pass together");
+    let err = check(
+        &step,
+        &captured(true, 0, r#"{"schemaVersion":1,"stderr":""}"#, ""),
+    )
+    .expect_err("json_null must still be enforced even though json passed");
+    assert!(err.contains("stderr"), "{err}");
 }
 
 #[test]

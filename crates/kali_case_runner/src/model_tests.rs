@@ -61,6 +61,39 @@ exit = 2
 }
 
 #[test]
+fn json_null_parses_as_a_list_of_dotted_paths() {
+    let text = r#"
+[[case]]
+name = "c"
+args = ["--output", "json", "check", "main.js"]
+json_null = ["stdout", "stderr"]
+"#;
+    let parsed = parse_case_file(text).expect("parse");
+    let inline = parsed.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(inline.json_null, vec!["stdout", "stderr"]);
+}
+
+// `json_null` shares `json`'s field-applicability rule (both read the
+// step's captured process stdout, so both are `cli`/`browser_bundle_
+// harness`-only) -- this pins that a `file_json` step, which never runs a
+// process, rejects it the same way it already rejects `json`.
+#[test]
+fn a_file_json_step_rejects_json_null() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "file_json"
+path = "o.json"
+json_null = ["stderr"]
+"#;
+    let err = parse_case_file(text).expect_err("must reject json_null on a file_json step");
+    assert!(
+        err.contains("json_null"),
+        "error must name the field: {err}"
+    );
+}
+
+#[test]
 fn dotted_json_keys_parse_into_a_nested_table() {
     let text = r#"
 [[case]]
@@ -331,7 +364,7 @@ fields.ok = true
 // own risk: a converter that silently drops a field would make every case
 // file that relies on that field assert nothing, which is the exact class
 // of bug this whole format exists to prevent. These three tests pin every
-// one of `Step`'s fourteen fields through the inline (flatten + manual
+// one of `Step`'s fifteen fields through the inline (flatten + manual
 // convert) path, split one case per `kind` since `finalize_step` now
 // rejects kind-inapplicable fields -- a single case can no longer carry
 // every field the way the original all-in-one version did.
@@ -350,6 +383,7 @@ stdout_absent = ["b"]
 stderr_contains = ["c"]
 stderr_absent = ["d"]
 json.schemaVersion = 1
+json_null = ["stderr"]
 "#;
     let parsed = parse_case_file(text).expect("parse");
     let step = parsed.case[0].inline.as_ref().expect("inline step");
@@ -366,6 +400,7 @@ json.schemaVersion = 1
         step.json.as_ref().unwrap()["schemaVersion"].as_integer(),
         Some(1)
     );
+    assert_eq!(step.json_null, vec!["stderr"]);
 }
 
 #[test]
@@ -398,6 +433,7 @@ stdout_absent = ["b"]
 stderr_contains = ["c"]
 stderr_absent = ["d"]
 json.schemaVersion = 2
+json_null = ["stdout"]
 entry = "app"
 body = "await mod.f();"
 "#;
@@ -415,6 +451,7 @@ body = "await mod.f();"
         step.json.as_ref().unwrap()["schemaVersion"].as_integer(),
         Some(2)
     );
+    assert_eq!(step.json_null, vec!["stdout"]);
     assert_eq!(step.entry.as_deref(), Some("app"));
     assert_eq!(step.body.as_deref(), Some("await mod.f();"));
 }

@@ -442,6 +442,28 @@ json.payload.artifacts = [ { name = "app.${ext}" }, { name = "other" } ]
     );
 }
 
+// `json_null` is a plain `Vec<String>` of dotted paths, not a JSON tree, so
+// it goes through the same `list()` helper as `stdout_contains` rather than
+// `substitute_value` -- this is the field-specific test for that path,
+// matching the pattern the other `list`-routed fields already have above.
+#[test]
+fn substitution_reaches_json_null() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js"]
+
+[[case]]
+name = "c"
+args = ["--output", "json", "check", "main.${ext}"]
+json_null = ["payload.${ext}Stdout"]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert_eq!(trials[0].steps[0].json_null, vec!["payload.jsStdout"]);
+}
+
 #[test]
 fn non_string_json_leaves_survive_substitution_untouched() {
     let file = parse_case_file(

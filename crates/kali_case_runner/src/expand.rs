@@ -42,12 +42,15 @@ fn substitute(text: &str, bindings: &BTreeMap<String, String>) -> Result<String,
 /// tree, recursing through tables and arrays. Non-string leaves (integers,
 /// booleans, floats, datetimes) pass through untouched.
 ///
-/// `json` and `fields` are two of the eight assertion keys (design spec
-/// §5.4), and §5.10's unresolved-placeholder hard-failure rule applies to
-/// them exactly as it does to every other string-bearing field -- a `${...}`
-/// in a `json`/`fields` key is the more dangerous case, since it would
-/// otherwise silently produce a JSON path that never matches anything,
-/// letting the assertion pass while asserting nothing.
+/// `json` and `fields` are two of the nine assertion keys (design spec
+/// §5.4, plus `json_null`), and §5.10's unresolved-placeholder hard-failure
+/// rule applies to them exactly as it does to every other string-bearing
+/// field -- a `${...}` in a `json`/`fields` key is the more dangerous case,
+/// since it would otherwise silently produce a JSON path that never matches
+/// anything, letting the assertion pass while asserting nothing.
+/// `json_null`'s dotted-path *strings* go through the plain `list()` helper
+/// in `substitute_step`, not this function -- they are path expressions,
+/// not JSON tree leaves.
 fn substitute_value(
     value: &toml::Value,
     bindings: &BTreeMap<String, String>,
@@ -106,6 +109,7 @@ fn substitute_step(step: &Step, bindings: &BTreeMap<String, String>) -> Result<S
         stderr_contains: list(&step.stderr_contains)?,
         stderr_absent: list(&step.stderr_absent)?,
         json: opt_value(&step.json)?,
+        json_null: list(&step.json_null)?,
         path: opt(&step.path)?,
         fields: opt_value(&step.fields)?,
         entry: opt(&step.entry)?,

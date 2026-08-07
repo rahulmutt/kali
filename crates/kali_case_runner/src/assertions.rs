@@ -1,4 +1,4 @@
-//! Evaluate a step's eight assertion keys against captured process output.
+//! Evaluate a step's nine assertion keys against captured process output.
 //!
 //! Failure messages are indented with two spaces, never four. `scripts/test-gate.sh`
 //! parses `^    [A-Za-z_]` as a failed-test name, and a four-space-indented
@@ -103,13 +103,36 @@ pub fn check(step: &Step, captured: &Captured) -> Result<(), String> {
         }
     }
 
-    if let Some(expected) = &step.json {
+    if step.json.is_some() || !step.json_null.is_empty() {
         let actual: serde_json::Value = serde_json::from_str(&captured.stdout)
             .map_err(|error| fail(format!("stdout is not valid json: {error}")))?;
-        check_json(expected, &actual).map_err(fail)?;
+        if let Some(expected) = &step.json {
+            check_json(expected, &actual).map_err(fail)?;
+        }
+        for path in &step.json_null {
+            check_json_null(path, &actual).map_err(fail)?;
+        }
     }
 
     Ok(())
+}
+
+/// A `json_null` path claim: `Step::json_null`'s doc comment explains why
+/// this is a separate key from `json` rather than a `toml::Value` leaf --
+/// TOML has no null literal, so `values_equal` (jsonpath.rs) can never match
+/// one no matter how `json` is spelled.
+///
+/// A path absent from `actual` is a hard failure here for the same reason
+/// `check_json` treats it as one (see that function's doc comment): "not
+/// found" is not "null," and treating it as a pass would let a case go
+/// green having verified nothing.
+fn check_json_null(path: &str, actual: &serde_json::Value) -> Result<(), String> {
+    let label = describe_path(path);
+    match lookup(actual, path) {
+        None => Err(missing_path_message(&label, actual, path)),
+        Some(serde_json::Value::Null) => Ok(()),
+        Some(found) => Err(format!("{label} expected null\n  actual:   {found}")),
+    }
 }
 
 /// Shared by the `json` key and by `file_json`'s `fields` key.

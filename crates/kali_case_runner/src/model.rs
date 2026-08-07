@@ -180,6 +180,8 @@ struct RawStep {
     #[serde(default)]
     json: Option<toml::Value>,
     #[serde(default)]
+    json_null: Vec<String>,
+    #[serde(default)]
     path: Option<String>,
     #[serde(default)]
     fields: Option<toml::Value>,
@@ -201,6 +203,14 @@ pub struct Step {
     pub stderr_contains: Vec<String>,
     pub stderr_absent: Vec<String>,
     pub json: Option<toml::Value>,
+    /// Dotted paths (jsonpath.rs) that must resolve to a JSON `null` in the
+    /// step's captured stdout. TOML has no null literal, so a claim like
+    /// `json["stderr"].is_null()` cannot be written inside `json` (a
+    /// `toml::Value` expectation) at all -- `values_equal` in jsonpath.rs
+    /// hard-rejects every TOML type against a JSON null by construction.
+    /// This is that claim's only expressible form; see `check`'s doc
+    /// comment on why it is deliberately not folded into `json` itself.
+    pub json_null: Vec<String>,
     /// `file_json` only.
     pub path: Option<String>,
     /// `file_json` only.
@@ -257,10 +267,11 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
     };
 
     // Field applicability by kind: `cli` and `browser_bundle_harness` both
-    // run a process and can assert on its exit/stdout/stderr; `file_json`
-    // reads a file off disk and never runs anything, so none of that
-    // applies to it. `args` is `cli`-only (it's the argv passed to `kali`).
-    // `path`/`fields` are `file_json`-only; `entry`/`body` are
+    // run a process and can assert on its exit/stdout/stderr (including
+    // `json`/`json_null`, both read from that process's captured stdout);
+    // `file_json` reads a file off disk and never runs anything, so none of
+    // that applies to it. `args` is `cli`-only (it's the argv passed to
+    // `kali`). `path`/`fields` are `file_json`-only; `entry`/`body` are
     // `browser_bundle_harness`-only.
     let mut inapplicable: Vec<&'static str> = Vec::new();
     match kind {
@@ -306,6 +317,9 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             if raw.json.is_some() {
                 inapplicable.push("json");
             }
+            if !raw.json_null.is_empty() {
+                inapplicable.push("json_null");
+            }
             if raw.entry.is_some() {
                 inapplicable.push("entry");
             }
@@ -345,6 +359,7 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
         stderr_contains: raw.stderr_contains,
         stderr_absent: raw.stderr_absent,
         json: raw.json,
+        json_null: raw.json_null,
         path: raw.path,
         fields: raw.fields,
         entry: raw.entry,
