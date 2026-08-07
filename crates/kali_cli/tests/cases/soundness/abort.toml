@@ -1,0 +1,961 @@
+# Migrated from tests/soundness_abort.rs — 57 of the file's 58 #[test]
+# functions become case blocks here (sibling [[case]] blocks throughout; no
+# [matrix] — every case runs a distinct, one-off JS program via `kali run
+# <file>.js`, matching the soundness/textcodec.toml precedent). The 58th,
+# `acceptance_web_baseline_prefix_matches_node_byte_for_byte`, asserts kali's
+# stdout is BYTE-FOR-BYTE IDENTICAL to a live `node <file>` invocation on the
+# same fixture — a genuine dual-process comparison the case-runner format
+# cannot express (a `cli` step always runs the fixed `kali` binary from
+# `config.kali_bin`; there is no field to name a second program, and no
+# code anywhere in kali_case_runner spawns two processes and diffs their
+# output — confirmed against steps.rs/assertions.rs/model.rs). Kept
+# hand-written per spec 5.11's "outliers" bucket, trimmed to just that one
+# test plus the `node_output`/`kali_bin` helpers it needs; not deleted.
+#
+# Every comment in the source is moved into the rationale of the case(s) it
+# explains, verbatim, following the same bottom-up method as the pilot's fix
+# round 1: every `//`/`///` block sitting directly above a case-producing
+# statement is prose that must land in some case's rationale, whether or not
+# it carries `--- Title ---` decoration. Section paragraphs with a
+# decorated banner and a body (Task 6, Task 8 wave 1, Task 8 round 2, Task 8
+# t4-m1, Stage P5 T-new-D) are prepended to the rationale of EVERY case in
+# the batch they introduce; Task 6's group (22 cases) also keeps its banner
+# as a `#` divider since it exceeds ~15 cases (pilot review's guidance for
+# staying navigable). Pure one-line dividers with no paragraph of their own
+# (Task 4's) stay only as a `#` divider, carrying no claim of their own to
+# move. The file's own opening `//!` doc (2 paragraphs) is prepended to
+# every case. Each of the three helper functions' doc comments
+# (`run_kali_run`, `run_kali_run_expect_error`, `assert_e5506_containing`)
+# is appended to the rationale of every case that helper produced. 13 cases
+# had no comment in the source at all (and inherit no shared-group
+# paragraph either); their rationale is a plain factual restatement of the
+# claim, matching Task 14/15's convention for uncommented tests.
+#
+# Every stdout/stderr/exit assertion below was captured by running the real
+# built `kali` binary against the exact fixture text (never retyped from the
+# source's own trimmed `assert_eq!`/`.contains()` expectations) — 0
+# discrepancies across all 57 migrated assertions. `stderr_contains` lists
+# only the needle(s) the source itself checked (usually just "E5506"; a few
+# add a second lane-specific needle via `assert_e5506_containing`, or
+# "instanceof" for the four `run_kali`-direct instanceof-trap cases) --
+# never the full stderr text, so as not to add a claim the source did not
+# make. No `#[test]` in this file bundles multiple independent programs, so
+# no fn required sibling-splitting.
+#
+# [constants] used for exactly one purpose: `dollar = "$"`, so
+# `abort_handle_template_interpolation_fails_closed`'s genuine JS template
+# literal (`` `v=${c}` ``) can be spelled `${dollar}{c}` — expand.rs
+# hard-fails on any unresolved `${...}`, so the literal form cannot appear
+# in [source] directly (rule 9's documented workaround). No fixture body in
+# this file is byte-identical to another's, so no fixture-sharing
+# [constants] entries were needed (confirmed: 0 duplicate `let src = ...`
+# bodies across the file's 57 migrated tests).
+
+[constants]
+dollar = "$"
+
+[source]
+"abort_flips_nothing_visible_but_runs.js" = "const c = new AbortController();\nc.abort();\nconsole.log(\"ok\");\n"
+"abort_handle_raw_print_fails_closed.js" = "const c = new AbortController();\nconsole.log(c);\n"
+"unknown_method_on_abort_handle_fails_closed.js" = "const c = new AbortController();\nc.reset();\n"
+"let_declared_controller_fails_closed_on_abort.js" = "let c = new AbortController();\nc.abort();\n"
+"captured_abort_handle_in_deferred_callback_runs.js" = "function m() {\n  const c = new AbortController();\n  setTimeout(function() { c.abort(); console.log(\"cb\"); }, 0);\n}\nm();\n"
+"captured_plain_object_still_fails_closed.js" = "function m() {\n  const o = { x: 4 };\n  setTimeout(function() { console.log(\"x=\" + o.x); }, 0);\n}\nm();\n"
+"loop_allocated_controllers_each_get_a_fresh_cell.js" = "for (let i = 0; i < 3; i = i + 1) {\n  const c = new AbortController();\n  c.abort();\n}\nconsole.log(\"done\");\n"
+"aborted_flag_reads_zero_then_one.js" = "const c = new AbortController();\nconsole.log(c.signal.aborted);\nc.abort();\nconsole.log(c.signal.aborted);\n"
+"signal_alias_reads_shared_cell.js" = "const c = new AbortController();\nconst s = c.signal;\nc.abort();\nconsole.log(s.aborted);\n"
+"aborted_in_boolean_position_branches.js" = "const c = new AbortController();\nc.abort();\nif (c.signal.aborted) { console.log(\"yes\"); } else { console.log(\"no\"); }\n"
+"signal_raw_print_fails_closed.js" = "const c = new AbortController();\nconsole.log(c.signal);\n"
+"aborted_write_fails_closed.js" = "const c = new AbortController();\nc.signal.aborted = 1;\n"
+"signal_field_write_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nc.signal = s;\n"
+"add_event_listener_on_signal_fails_closed.js" = "const c = new AbortController();\nc.signal.addEventListener(\"abort\", function() { console.log(\"x\"); });\n"
+"captured_handle_full_roundtrip_in_listener.js" = "function m() {\n  const c = new AbortController();\n  const t = new EventTarget();\n  let count = 0;\n  t.addEventListener(\"tick\", function() { count += 1; c.abort(); });\n  t.dispatchEvent(new CustomEvent(\"tick\"));\n  console.log(\"count=\" + count);\n  console.log(\"aborted=\" + c.signal.aborted);\n}\nm();\n"
+"sibling_closures_capture_distinct_controllers.js" = "function a() {\n  const c = new AbortController();\n  c.abort();\n  console.log(\"a=\" + c.signal.aborted);\n}\nfunction b() {\n  const c = new AbortController();\n  console.log(\"b=\" + c.signal.aborted);\n}\na();\nb();\n"
+"module_scope_captured_abort_write_fails_closed.js" = "const controller = new AbortController();\nsetTimeout(function() { controller.abort(); }, 0);\nconsole.log(\"aborted=\" + controller.signal.aborted);\n"
+"module_scope_captured_abort_read_already_fails_closed.js" = "const controller = new AbortController();\nsetTimeout(function() { console.log(\"aborted=\" + controller.signal.aborted); }, 0);\n"
+"module_scope_loop_captured_abort_fails_closed.js" = "for (let i = 0; i < 1; i = i + 1) {\n  const c = new AbortController();\n  setTimeout(function() { c.abort(); console.log(\"cb\" + c.signal.aborted); }, 0);\n}\n"
+"module_scope_for_of_captured_abort_fails_closed.js" = "for (const x of [0]) {\n  const c = new AbortController();\n  setTimeout(function() { c.abort(); console.log(\"cb\" + c.signal.aborted); }, 0);\n}\n"
+"module_scope_while_captured_abort_fails_closed.js" = "let n = 1;\nwhile (n > 0) {\n  n = n - 1;\n  const c = new AbortController();\n  setTimeout(function() { c.abort(); console.log(\"cb\" + c.signal.aborted); }, 0);\n}\n"
+"module_scope_loop_captured_aborted_read_fails_closed.js" = "for (let i = 0; i < 1; i = i + 1) {\n  const c = new AbortController();\n  c.abort();\n  setTimeout(function() { if (c.signal.aborted) { console.log(\"yes\"); } else { console.log(\"no\"); } }, 0);\n}\n"
+"module_scope_loop_captured_raw_print_fails_closed.js" = "for (let i = 0; i < 1; i = i + 1) {\n  const c = new AbortController();\n  c.abort();\n  setTimeout(function() { console.log(c); }, 0);\n}\n"
+"module_scope_loop_captured_read_only_fails_closed.js" = "for (let i = 0; i < 1; i = i + 1) {\n  const c = new AbortController();\n  setTimeout(function() { console.log(\"x\" + c.signal.aborted); }, 0);\n}\n"
+"aborted_compound_assign_fails_closed.js" = "const c = new AbortController();\nc.aborted += 1;\n"
+"signal_aborted_compound_assign_fails_closed.js" = "const c = new AbortController();\nc.signal.aborted += 1;\n"
+"unknown_field_on_handle_fails_closed.js" = "const c = new AbortController();\nconsole.log(c.reason2);\n"
+"signal_instanceof_abort_signal_folds_true.js" = "const c = new AbortController();\nconsole.log(c.signal instanceof AbortSignal ? 1 : 0);\nconst s = c.signal;\nconsole.log(s instanceof AbortSignal ? 1 : 0);\n"
+"instanceof_with_shadowed_abort_signal_stays_trapped.js" = "function AbortSignal() { return 1; }\nconst c = new AbortController();\nconsole.log(c.signal instanceof AbortSignal ? 1 : 0);\n"
+"unproven_left_operand_instanceof_stays_trapped.js" = "const x = 1;\nconsole.log(x instanceof AbortSignal ? 1 : 0);\n"
+"array_wrapped_signal_left_operand_instanceof_stays_trapped.js" = "const c = new AbortController();\nconsole.log([c.signal] instanceof AbortSignal ? 1 : 0);\n"
+"controller_instanceof_abort_controller_stays_trapped.js" = "const c = new AbortController();\nconsole.log(c instanceof AbortController ? 1 : 0);\n"
+"abort_handle_string_concat_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(\"v=\" + c);\n"
+"abort_handle_template_interpolation_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(`v=${dollar}{c}`);\n"
+"abort_handle_arithmetic_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(c + 1);\n"
+"abort_handle_identity_compare_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(c === c ? 1 : 0);\n"
+"signal_identity_compare_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(s === c.signal ? 1 : 0);\n"
+"abort_handle_json_stringify_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(JSON.stringify(c));\n"
+"abort_handle_return_position_fails_closed.js" = "function f() { const k = new AbortController(); return k; }\nf();\n"
+"abort_handle_argument_position_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nfunction f(x) { return 1; }\nf(c);\n"
+"abort_handle_object_literal_field_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconst o = { h: c };\n"
+"abort_handle_array_element_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconst a = [c];\n"
+"abort_handle_growable_push_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconst a = [];\na.push(c);\n"
+"abort_handle_computed_member_read_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconst k = \"abort\";\nc[k]();\n"
+"abort_handle_computed_member_write_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nc[0] = 1;\n"
+"signal_onabort_member_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(s.onabort);\n"
+"signal_reason_member_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(s.reason);\n"
+"signal_throw_if_aborted_fails_closed.js" = "const c = new AbortController();\nconst s = c.signal;\ns.throwIfAborted();\n"
+"abort_signal_static_timeout_fails.js" = "const s = AbortSignal.timeout(5);\nconsole.log(1);\n"
+"abort_signal_static_abort_fails.js" = "const s = AbortSignal.abort();\nconsole.log(1);\n"
+"abort_signal_static_computed_literal_fails.js" = "const s = AbortSignal[\"timeout\"](5);\nconsole.log(\"ran:\" + s);\n"
+"abort_signal_static_computed_var_fails.js" = "const k = \"timeout\";\nconst s = AbortSignal[k](5);\nconsole.log(\"ran:\" + s);\n"
+"abort_signal_static_call_with_shadowed_receiver_not_denied.js" = "const AbortSignal = 5;\nconst s = AbortSignal.timeout(5);\nconsole.log(\"ran:\" + s);\n"
+"abort_handle_inline_new_in_arg_position.js" = "function f(x) { return 1; }\nf(new AbortController());\nconsole.log(\"ok\");\n"
+"abort_handle_shadowed_by_for_of_binding_fails_closed.js" = "const c = new AbortController();\nfor (const c of ['aa']) { c.abort(); }\nconsole.log('aborted=' + c.signal.aborted);\n"
+"abort_handle_redeclared_in_an_inner_block_fails_closed.js" = "const c = new AbortController();\n{ const c = 5; console.log(c); }\nconsole.log('aborted=' + c.signal.aborted);\n"
+"for_of_binding_without_abort_shadow_is_unaffected.js" = "const c = new AbortController();\nfor (const x of ['aa','bb']) { console.log(x.length); }\nc.abort();\nconsole.log('aborted=' + c.signal.aborted);\n"
+
+[[case]]
+name = "abort_flips_nothing_visible_but_runs"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Calling `.abort()` on a controller flips no visible state in this program but the build still compiles and runs to completion.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "abort_flips_nothing_visible_but_runs.js"]
+exit = "success"
+stdout = """ok
+"""
+
+[[case]]
+name = "abort_handle_raw_print_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Printing the raw AbortController handle is not an admitted read position and fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_raw_print_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "unknown_method_on_abort_handle_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Calling an unrecognized method on an AbortController handle fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "unknown_method_on_abort_handle_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "let_declared_controller_fails_closed_on_abort"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+A `let`-declared (not `const`) controller has no abort lowering and fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "let_declared_controller_fails_closed_on_abort.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "captured_abort_handle_in_deferred_callback_runs"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Allowlist entry 3: the handle is an i64 pointer to a never-reclaimed global cell — by-value restore is sound after the owner frame dies.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "captured_abort_handle_in_deferred_callback_runs.js"]
+exit = "success"
+stdout = """cb
+"""
+
+[[case]]
+name = "captured_plain_object_still_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+b2 stays red-proof: entry 3 must not widen to arena-backed objects.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "captured_plain_object_still_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "loop_allocated_controllers_each_get_a_fresh_cell"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Each iteration of a loop that allocates a new AbortController gets its own fresh cell; the loop runs to completion.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "loop_allocated_controllers_each_get_a_fresh_cell.js"]
+exit = "success"
+stdout = """done
+"""
+
+[[case]]
+name = "aborted_flag_reads_zero_then_one"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Dynamic booleans render 1/0 (ratified P2 convention; node prints true/false — documented divergence, never used in byte-for-byte acceptance fixtures).
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "aborted_flag_reads_zero_then_one.js"]
+exit = "success"
+stdout = """0
+1
+"""
+
+# --- Task 4: `.signal` identity, `.aborted` read, signal alias ---------------
+
+[[case]]
+name = "signal_alias_reads_shared_cell"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+A `const s = c.signal` alias reads the same underlying cell as `c.signal` itself.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "signal_alias_reads_shared_cell.js"]
+exit = "success"
+stdout = """1
+"""
+
+[[case]]
+name = "aborted_in_boolean_position_branches"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+`c.signal.aborted` in an `if` condition branches correctly on the controller's abort state.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "aborted_in_boolean_position_branches.js"]
+exit = "success"
+stdout = """yes
+"""
+
+[[case]]
+name = "signal_raw_print_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Printing the raw AbortSignal handle is not an admitted read position and fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "signal_raw_print_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "aborted_write_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Writing to `c.signal.aborted` is not supported and fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "aborted_write_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "signal_field_write_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Writing to `c.signal` itself is not supported and fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "signal_field_write_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "add_event_listener_on_signal_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Calling `addEventListener` on an AbortSignal is not supported in the current phase and fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "add_event_listener_on_signal_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "captured_handle_full_roundtrip_in_listener"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+The acceptance-listener shape end-to-end: capture, abort inside a synchronously-dispatched listener, observe the flag outside.
+
+`"aborted=" + <boolean>` renders `true`/`false` (node-verified). This previously pinned `aborted=1`, which was the boolean-concat rendering defect, not the abort behavior under test.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "captured_handle_full_roundtrip_in_listener.js"]
+exit = "success"
+stdout = """count=1
+aborted=true
+"""
+
+[[case]]
+name = "sibling_closures_capture_distinct_controllers"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Env-safety probe (Stage C sibling-extent lesson): two controllers in sibling scopes must not share a cell.
+
+Re-pinned with the boolean-concat fix: node prints `a=true` / `b=false`. The sibling-extent property under test (distinct cells) is unchanged — only the rendering of the observed boolean is.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "sibling_closures_capture_distinct_controllers.js"]
+exit = "success"
+stdout = """a=true
+b=false
+"""
+
+[[case]]
+name = "module_scope_captured_abort_write_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Controller decision (Task 7 acceptance follow-up): a MODULE-scope `const controller = new AbortController()` captured by a closure that calls `controller.abort()` is NOT the ratified capture lane — that lane is FUNCTION-scoped (owner-keyed captured handle, entry 3). The local / depth-1-captured `is_abort_handle` proof does not admit a module binding, so before this gate the call fell THROUGH to the generic undefined-call fallback and was silently dropped through an E3100 zero placeholder: the abort became a no-op (node aborts; kali did not) — a semantic miscompile on P3's own value class. It now denies fail-closed, mirroring the read-position `module_binding_names` gate, keyed on the module-level (`_start`) repr being `AbortHandle`.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "module_scope_captured_abort_write_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "module_scope_captured_abort_read_already_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+The read-position twin of `module_scope_captured_abort_write_fails_closed`, pinned so the write/read asymmetry cannot silently return. Reading a module-scope binding from a closure was ALREADY fail-closed (the identifier choke point's `module_binding_names` E5506 gate); this asserts that stays true alongside the new write-position deny.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "module_scope_captured_abort_read_already_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "module_scope_loop_captured_abort_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 8 whole-stage-review fix wave: `_start` loop/block-body captured abort handles must fail closed (CRITICAL)
+
+A `const c = new AbortController()` declared inside a `_start` (module-scope) LOOP or block body binds `c` as a plain `_start` LOCAL via the declarator intercept's `LocalSet`, never populating the captured env cell. Before the fix `is_abort_handle`'s capture branch admitted the depth-1 `_start`-owned handle, so a deferred `setTimeout(function(){ c.abort(); ... })` built and the callback read a STALE/ZERO cell — `c.abort()` silently no-op'd (`cb0`; node aborts → `cbtrue`). The fix denies `_start`-owned captured handles fail-closed at the CHOKE POINTS: `is_abort_handle` excludes the `_start` owner (so the abort dispatch never stores through the wrong cell), and `is_module_scope_abort_handle` denies both the method call (`emit/call.rs`) and every read position (`emit/control_flow.rs` identifier + abort member-read arms) with E5506. (The capture ITSELF is admitted by host.rs ALLOWLIST 1 as a by-value scalar; the whole-program deny is what the choke-point diagnostics produce.) Function-scoped loops (owner is a real function) stay SOUND — see `loop_allocated_controllers_each_get_a_fresh_cell` and the roundtrip pins.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "module_scope_loop_captured_abort_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "module_scope_for_of_captured_abort_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 8 whole-stage-review fix wave: `_start` loop/block-body captured abort handles must fail closed (CRITICAL)
+
+A `const c = new AbortController()` declared inside a `_start` (module-scope) LOOP or block body binds `c` as a plain `_start` LOCAL via the declarator intercept's `LocalSet`, never populating the captured env cell. Before the fix `is_abort_handle`'s capture branch admitted the depth-1 `_start`-owned handle, so a deferred `setTimeout(function(){ c.abort(); ... })` built and the callback read a STALE/ZERO cell — `c.abort()` silently no-op'd (`cb0`; node aborts → `cbtrue`). The fix denies `_start`-owned captured handles fail-closed at the CHOKE POINTS: `is_abort_handle` excludes the `_start` owner (so the abort dispatch never stores through the wrong cell), and `is_module_scope_abort_handle` denies both the method call (`emit/call.rs`) and every read position (`emit/control_flow.rs` identifier + abort member-read arms) with E5506. (The capture ITSELF is admitted by host.rs ALLOWLIST 1 as a by-value scalar; the whole-program deny is what the choke-point diagnostics produce.) Function-scoped loops (owner is a real function) stay SOUND — see `loop_allocated_controllers_each_get_a_fresh_cell` and the roundtrip pins.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "module_scope_for_of_captured_abort_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "module_scope_while_captured_abort_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 8 whole-stage-review fix wave: `_start` loop/block-body captured abort handles must fail closed (CRITICAL)
+
+A `const c = new AbortController()` declared inside a `_start` (module-scope) LOOP or block body binds `c` as a plain `_start` LOCAL via the declarator intercept's `LocalSet`, never populating the captured env cell. Before the fix `is_abort_handle`'s capture branch admitted the depth-1 `_start`-owned handle, so a deferred `setTimeout(function(){ c.abort(); ... })` built and the callback read a STALE/ZERO cell — `c.abort()` silently no-op'd (`cb0`; node aborts → `cbtrue`). The fix denies `_start`-owned captured handles fail-closed at the CHOKE POINTS: `is_abort_handle` excludes the `_start` owner (so the abort dispatch never stores through the wrong cell), and `is_module_scope_abort_handle` denies both the method call (`emit/call.rs`) and every read position (`emit/control_flow.rs` identifier + abort member-read arms) with E5506. (The capture ITSELF is admitted by host.rs ALLOWLIST 1 as a by-value scalar; the whole-program deny is what the choke-point diagnostics produce.) Function-scoped loops (owner is a real function) stay SOUND — see `loop_allocated_controllers_each_get_a_fresh_cell` and the roundtrip pins.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "module_scope_while_captured_abort_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "module_scope_loop_captured_aborted_read_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 8 round-2: `_start` loop captured abort handle READ positions
+
+The read-position twin of the three write pins above (reviewer verification reopened round-1: the method/write side denied, but the read side fell open — and `raw_print` was a REGRESSION the owner-`_start` exclusion introduced by removing the read from the `is_abort_handle` choke point). All three must E5506 with NO silent output, via the read-side `is_module_scope_abort_handle` gates (identifier + abort member-read arms in `emit/control_flow.rs`).
+
+Truthiness-branch shape: `c.signal.aborted` read in the deferred callback (pre-round-2: printed `no` exit 0; node prints `yes`).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "module_scope_loop_captured_aborted_read_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "module_scope_loop_captured_raw_print_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 8 round-2: `_start` loop captured abort handle READ positions
+
+The read-position twin of the three write pins above (reviewer verification reopened round-1: the method/write side denied, but the read side fell open — and `raw_print` was a REGRESSION the owner-`_start` exclusion introduced by removing the read from the `is_abort_handle` choke point). All three must E5506 with NO silent output, via the read-side `is_module_scope_abort_handle` gates (identifier + abort member-read arms in `emit/control_flow.rs`).
+
+The REGRESSION shape: a bare `console.log(c)` of the captured handle in the deferred callback (pre-round-2: printed `0` exit 0). Denies via the identifier-choke-point `is_module_scope_abort_handle` gate.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "module_scope_loop_captured_raw_print_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "module_scope_loop_captured_read_only_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 8 round-2: `_start` loop captured abort handle READ positions
+
+The read-position twin of the three write pins above (reviewer verification reopened round-1: the method/write side denied, but the read side fell open — and `raw_print` was a REGRESSION the owner-`_start` exclusion introduced by removing the read from the `is_abort_handle` choke point). All three must E5506 with NO silent output, via the read-side `is_module_scope_abort_handle` gates (identifier + abort member-read arms in `emit/control_flow.rs`).
+
+Read-only capture (NO abort call anywhere): `c.signal.aborted` read in the deferred callback (pre-round-2: printed `x0` exit 0, and produced no E5506 at all — proving the round-1 registration-site claim was falsified).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "module_scope_loop_captured_read_only_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "aborted_compound_assign_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 8 t4-m1: compound-assign on abort fields fails closed
+
+`c.aborted += 1` / `c.signal.aborted += 1` route through the generic compound-assign gate (a compound assign to a proven-handle member has no lowering) — pinned so the read-modify-write asymmetry cannot silently return.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "aborted_compound_assign_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "signal_aborted_compound_assign_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 8 t4-m1: compound-assign on abort fields fails closed
+
+`c.aborted += 1` / `c.signal.aborted += 1` route through the generic compound-assign gate (a compound assign to a proven-handle member has no lowering) — pinned so the read-modify-write asymmetry cannot silently return.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "signal_aborted_compound_assign_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "unknown_field_on_handle_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+t3-m2 closure: an unrecognized field on a proven handle must E5506 (default-deny at the identifier choke point), never silently print 0.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "unknown_field_on_handle_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "signal_instanceof_abort_signal_folds_true"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+`c.signal instanceof AbortSignal` folds to true for both the receiver expression and an aliased `const s = c.signal` binding.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "signal_instanceof_abort_signal_folds_true.js"]
+exit = "success"
+stdout = """1
+1
+"""
+
+[[case]]
+name = "instanceof_with_shadowed_abort_signal_stays_trapped"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+p03c precedent: a user binding shadowing the builtin must not hit the allow lane; the blanket runtime trap fires instead."""
+args = ["run", "instanceof_with_shadowed_abort_signal_stays_trapped.js"]
+exit = "failure"
+stderr_contains = ["instanceof"]
+
+[[case]]
+name = "unproven_left_operand_instanceof_stays_trapped"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+An `instanceof AbortSignal` check whose left operand is not a proven handle stays trapped at runtime rather than being statically resolved."""
+args = ["run", "unproven_left_operand_instanceof_stays_trapped.js"]
+exit = "failure"
+
+[[case]]
+name = "array_wrapped_signal_left_operand_instanceof_stays_trapped"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Reject-don't-miscompile: `[c.signal]` is a JS array, NOT an AbortSignal, so `[c.signal] instanceof AbortSignal` is `false` in JS. The left-proof must NOT tunnel the single-element array literal (structurally a textless one-child Value, like a grouping wrapper) into `c.signal` and wrongly fold to true — it falls through to the runtime trap instead."""
+args = ["run", "array_wrapped_signal_left_operand_instanceof_stays_trapped.js"]
+exit = "failure"
+stderr_contains = ["instanceof"]
+
+[[case]]
+name = "controller_instanceof_abort_controller_stays_trapped"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Inventoried for P3b, deliberately NOT implemented this stage."""
+args = ["run", "controller_instanceof_abort_controller_stays_trapped.js"]
+exit = "failure"
+
+# --- Task 6: fail-closed enumeration wave (store sites + generic sinks) ----
+
+[[case]]
+name = "abort_handle_string_concat_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_string_concat_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_template_interpolation_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_template_interpolation_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_arithmetic_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_arithmetic_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_identity_compare_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_identity_compare_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "signal_identity_compare_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "signal_identity_compare_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_json_stringify_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_json_stringify_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_return_position_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_return_position_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_argument_position_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_argument_position_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_object_literal_field_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_object_literal_field_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_array_element_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_array_element_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_growable_push_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_growable_push_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_computed_member_read_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_computed_member_read_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_handle_computed_member_write_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_handle_computed_member_write_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "signal_onabort_member_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "signal_onabort_member_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "signal_reason_member_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "signal_reason_member_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "signal_throw_if_aborted_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "signal_throw_if_aborted_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_signal_static_timeout_fails"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Leak found by this wave: before the Task 6 fix, an unrecognized `AbortSignal.timeout(...)` call reached the generic "undefined call target" fallback (`emitter.rs::push_placeholder_fallback_diagnostic`), which is WARNING-only — the build exited 0 printing "1", silently discarding the construct. Fixed at the choke point: `emit_call` now denies any static method call on the unshadowed `AbortSignal` builtin (`is_abort_signal_static_call`) before it can reach that fallback. Observed stderr post-fix: "error[E5506]: AbortSignal static methods (timeout/abort/any) are unavailable in the current phase: ..."."""
+args = ["run", "abort_signal_static_timeout_fails.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_signal_static_abort_fails"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Same leak/fix as `abort_signal_static_timeout_fails` (see its comment): observed stderr post-fix carries the same "error[E5506]: AbortSignal static methods (timeout/abort/any) are unavailable ..." text."""
+args = ["run", "abort_signal_static_abort_fails.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_signal_static_computed_literal_fails"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Reviewer follow-up (Task 6 review): the dot-shape fix (`is_abort_signal_static_call`) only matched a 1-child callee with a known property `text`, so the COMPUTED shape `AbortSignal["timeout"](5)` bypassed it entirely and hit the same silent generic-fallback leak the dot-shape fix closed (verified pre-fix: exit 0, prints "ran:0"). The recognizer now also matches the 2-child computed-member callee shape (`[receiver, key]`, non-operator text) keyed on the receiver alone — the property text/key value is irrelevant to the deny.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_signal_static_computed_literal_fails.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_signal_static_computed_var_fails"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Same leak/fix as `abort_signal_static_computed_literal_fails`, with the computed key sourced from a variable instead of a literal — the recognizer keys on the receiver's identity, not the key's shape, so this must deny identically.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "abort_signal_static_computed_var_fails.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "abort_signal_static_call_with_shadowed_receiver_not_denied"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Shadow regression pin (reviewer follow-up; mirrors the sibling `instanceof_with_shadowed_abort_signal_stays_trapped` pin for the `instanceof` lane, which this static-call lane lacked). A user binding named `AbortSignal` must take the normal user-value lane, NOT the builtin deny — `is_abort_signal_static_call` refutes on the same five-namespace shadow guard `instanceof_right_is_unshadowed` uses. Observed pre-existing (and unchanged post-widening) behavior: this reaches the generic "undefined call target" WARNING-only placeholder fallback (`AbortSignal.timeout` is not a real member of the number `5`), so the build still exits 0 printing "ran:0" — NOT E5506. Pinned as-is (out of scope to also close the generic fallback here) so this specific shadow invariant cannot silently regress.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "abort_signal_static_call_with_shadowed_receiver_not_denied.js"]
+exit = "success"
+stdout = """ran:0
+"""
+
+[[case]]
+name = "abort_handle_inline_new_in_arg_position"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
+
+Leak-shape triage (brief Step 2, second shape): a `new AbortController()` that never becomes a `const` declarator init never reaches the declarator-scoped real-cell lowering (`emit/control_flow.rs`'s `is_const` intercept, which is the ONLY site that calls `__alloc_global` for a real abort cell) — it falls through the generic text-less aggregate path (`emit_aggregate_literal`), whose unresolved `AbortController()` call target resolves through the warning-only zero-placeholder fallback and is dropped. No real cell is ever allocated, so there is no handle to leak: `f` receives a plain placeholder `0`, not a raw abort-cell pointer. Confirmed sound as-is — no fix needed, this pins the placeholder path against regression.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "abort_handle_inline_new_in_arg_position.js"]
+exit = "success"
+stdout = """ok
+"""
+
+[[case]]
+name = "abort_handle_shadowed_by_for_of_binding_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
+
+`abort_handle_locals` is name-keyed and flat and had NO arm at either binding choke. Measured on parent e14c40004: `const c = new AbortController(); for (const c of ['aa']) { c.abort(); }` fired the REAL abort side effect through the shadowed name (`aborted=true`, exit 0) where node v26.5.0 throws `TypeError: c.abort is not a function`.
+
+T-new-D, for-of choke (NEW) — the SIDE-EFFECT row: measured pre-fix `aborted=true`, exit 0.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
+
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
+args = ["run", "abort_handle_shadowed_by_for_of_binding_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to an AbortController/AbortSignal"]
+
+[[case]]
+name = "abort_handle_redeclared_in_an_inner_block_fails_closed"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
+
+`abort_handle_locals` is name-keyed and flat and had NO arm at either binding choke. Measured on parent e14c40004: `const c = new AbortController(); for (const c of ['aa']) { c.abort(); }` fired the REAL abort side effect through the shadowed name (`aborted=true`, exit 0) where node v26.5.0 throws `TypeError: c.abort is not a function`.
+
+T-new-D, declarator choke (NEW): the abort lane had no C-4-style arm, so a block redeclaration left the handle recorded and a later `c.abort()` / `c.signal.aborted` answered from the stale cell.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
+
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
+args = ["run", "abort_handle_redeclared_in_an_inner_block_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506", "redeclaring a name bound to an AbortController/AbortSignal"]
+
+[[case]]
+name = "for_of_binding_without_abort_shadow_is_unaffected"
+rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+
+The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
+
+Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
+
+`abort_handle_locals` is name-keyed and flat and had NO arm at either binding choke. Measured on parent e14c40004: `const c = new AbortController(); for (const c of ['aa']) { c.abort(); }` fired the REAL abort side effect through the shadowed name (`aborted=true`, exit 0) where node v26.5.0 throws `TypeError: c.abort is not a function`.
+
+T-new-D no-over-deny control: normal abort usage plus a for-of binding whose name does not shadow the handle. node v26.5.0: "2\\n2\\naborted=true\\n".
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "for_of_binding_without_abort_shadow_is_unaffected.js"]
+exit = "success"
+stdout = """2
+2
+aborted=true
+"""

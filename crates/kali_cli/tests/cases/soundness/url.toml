@@ -1,0 +1,980 @@
+# Migrated from tests/soundness_url.rs -- 63 case blocks from the file's 59
+# #[test] functions (sibling [[case]] blocks throughout; no [matrix] -- every
+# case runs a distinct, one-off JS program via `kali run <file>.js`, matching
+# the soundness/textcodec.toml precedent). 4 #[test] fns bundle multiple
+# independent assertions over distinct one-off programs (not a loop over one
+# program's output) and are split into sibling cases, the same pattern
+# Task 14/15/16-batch1 use: `url_searchparams_composition_mutation_fails_closed`
+# (a `for method_call in [...]` loop, 2 siblings), `url_binding_name_shadowing_
+# fails_closed` (2 independent assertions, 2 siblings), `usp_get_in_condition_
+# fails_closed` (a `for src in [...]` loop, 3 siblings), `url_binding_
+# reassignment_fails_closed` (2 independent assertions, 2 siblings).
+# 63 = 55 base 1:1 fns + (2+2+3+2) sibling cases from the 4 split fns.
+#
+# The file's 59th #[test], `acceptance_web_baseline_with_url_matches_node_
+# byte_for_byte`, asserts kali's stdout is BYTE-FOR-BYTE IDENTICAL to a live
+# `node <file>` invocation on the same fixture -- a genuine dual-process
+# comparison the case-runner format cannot express (a `cli` step always runs
+# the fixed `kali` binary from `config.kali_bin`; there is no field to name a
+# second program, and no code anywhere in kali_case_runner spawns two
+# processes and diffs their output). Kept hand-written per spec 5.11's
+# "outliers" bucket, trimmed to just that test plus the `node_output`/
+# `kali_bin` helpers it needs; not deleted (same treatment as
+# soundness_abort.rs's sibling acceptance test).
+#
+# Every comment in the source is moved into the rationale of the case(s) it
+# explains, verbatim, following the bottom-up method (every `//`/`///` block
+# directly above a case-producing statement is prose that must land in some
+# case's rationale, decorated or not). Section paragraphs with a banner AND a
+# body (Task 6, Task 6 review-fix wave, Stage P5 T-new-D) are prepended to the
+# rationale of every case in the batch they introduce; Task 6's group (15
+# cases) also keeps its banner as a `#` divider since it is at the ~15-case
+# threshold (pilot review's guidance for staying navigable). Pure dividers
+# with no paragraph of their own (Task 4, Task 5, Task 8 fix wave, Task 7)
+# stay only as a `#` divider. The file's own opening `//!` doc is prepended to
+# every case. Each helper's doc comment (`run_kali_run`, `run_kali_run_expect_
+# error`, `sink_src`, `assert_e5506_containing`) is appended to the rationale
+# of every case that helper produced. 9 cases had no comment in the source at
+# all (and inherit no shared-group paragraph either); their rationale is a
+# plain factual restatement of the claim.
+#
+# Every stdout/stderr/exit assertion below was captured by running the real
+# built `kali` binary against the exact fixture text -- 0 discrepancies across
+# all 63 migrated assertions. `stderr_contains` lists only the needle(s) the
+# source itself checked (usually just "E5506"; `usp_json_stringify_fails_
+# closed` additionally checks the URL/USP-specific identifier-choke message,
+# and the 5 `assert_e5506_containing` cases each check a second lane-specific
+# needle) -- never the full stderr text.
+#
+# [constants] used for exactly one purpose: `dollar = "$"`, so
+# `url_template_interp_fails_closed`'s genuine JS template literal
+# (`` `v=${u}` ``) can be spelled `${dollar}{u}` (rule 9's documented
+# workaround). No fixture body in this file is byte-identical to another's, so
+# no fixture-sharing [constants] entries were needed (confirmed: 0 duplicate
+# fixture bodies across the file's 63 migrated cases).
+
+[constants]
+dollar = "$"
+
+[source]
+"url_pathname_reads_the_parsed_component.js" = "const u = new URL('https://example.com/browser?alpha=1#fragment');\nconsole.log(u.pathname);\n"
+"url_origin_search_hash_href_read_parsed_components.js" = "const u = new URL('https://example.com/browser?alpha=1#fragment');\nconsole.log(u.origin);\nconsole.log(u.search);\nconsole.log(u.hash);\nconsole.log(u.href);\n"
+"usp_construction_builds_and_runs.js" = "const q = new URLSearchParams('alpha=1&beta=two+words');\nconsole.log('ok');\n"
+"url_raw_print_fails_closed.js" = "const u = new URL('https://x/');\nconsole.log(u);\n"
+"usp_raw_print_fails_closed.js" = "const q = new URLSearchParams('a=1');\nconsole.log(q);\n"
+"usp_from_url_searchParams_raw_print_fails_closed.js" = "const u = new URL('https://example.com/p?a=1');\nconsole.log(u.searchParams);\n"
+"non_literal_url_arg_fails_closed.js" = "const s = 'https://x/';\nconst u = new URL(s);\nconsole.log(u.href);\n"
+"usp_get_returns_first_value.js" = "const q = new URLSearchParams('alpha=1&beta=two+words');\nconsole.log(q.get('alpha'));\nconsole.log(q.get('beta'));\n"
+"usp_set_replaces_and_get_reflects_dynamic_value.js" = "let count = 7;\nconst q = new URLSearchParams('alpha=1&beta=x');\nq.set('beta', '' + count);\nconsole.log(q.get('beta'));\nconsole.log(q.getAll('beta').length);\n"
+"usp_append_and_has.js" = "const q = new URLSearchParams('alpha=1');\nq.append('gamma', 'g');\nconsole.log(q.has('gamma'));\nconsole.log(q.has('nope'));\n"
+"url_search_params_composition_get.js" = "const u = new URL('https://example.com/browser?alpha=1#fragment');\nconsole.log(u.searchParams.get('alpha'));\n"
+"usp_set_result_does_not_leak_the_store_handle.js" = "const q = new URLSearchParams('a=1');\nconsole.log(q.set('a', 'b'));\nconsole.log(q.get('a'));\n"
+"usp_tostring_serializes_form_urlencoded.js" = "const q = new URLSearchParams('alpha=1&beta=two+words');\nconsole.log(q.toString());\n"
+"usp_tostring_after_mutation.js" = "const q = new URLSearchParams('alpha=1');\nq.append('g', 'a b');\nconsole.log(q.toString());\n"
+"unknown_method_on_usp_fails_closed.js" = "const q = new URLSearchParams('a=1');\nq.sort();\n"
+"url_string_concat_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconsole.log(\"v=\" + u);\n"
+"usp_string_concat_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconsole.log(\"v=\" + q);\n"
+"url_template_interp_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconsole.log(`v=${dollar}{u}`);\n"
+"url_arithmetic_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconsole.log(u + 1);\n"
+"url_identity_compare_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconsole.log(u === u ? 1 : 0);\n"
+"usp_json_stringify_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconsole.log(JSON.stringify(q));\n"
+"url_return_position_fails_closed.js" = "function f() { const u = new URL('https://x/'); return u; }\nf();\n"
+"usp_argument_position_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nfunction f(x) { return 1; }\nf(q);\n"
+"url_object_literal_field_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconst o = { h: u };\n"
+"usp_array_element_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconst a = [q];\n"
+"usp_growable_push_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconst a = [];\na.push(q);\n"
+"url_computed_member_read_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconst k = \"pathname\";\nconsole.log(u[k]);\n"
+"url_member_write_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nu.pathname = \"/x\";\n"
+"usp_captured_in_deferred_callback_fails_closed.js" = "function m() { const q = new URLSearchParams('a=1'); setTimeout(function() { q.get('a'); }, 0); }\nm();\n"
+"url_unknown_member_read_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\nconsole.log(u.protocol);\n"
+"url_computed_searchparams_method_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nconsole.log(u['searchParams'].get('alpha'));\n"
+"url_computed_searchparams_method_from_fn_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nfunction f() { console.log(u['searchParams'].get('alpha')); }\nf();\n"
+"url_computed_searchparams_method_captured_fails_closed.js" = "function m() { const u = new URL('https://example.com/browser?alpha=1'); setTimeout(function() { console.log(u['searchParams'].get('alpha')); }, 0); }\nm();\n"
+"url_two_hop_member_method_fails_closed.js" = "const u = new URL('https://example.com/browser?alpha=1');\nfunction f() { console.log(u.searchParams.x.get('alpha')); }\nf();\n"
+"usp_getall_binding_fails_closed.js" = "const q = new URLSearchParams('a=1&a=2');\nconst a = q.getAll('a');\nconsole.log(a.length);\n"
+"inline_url_construct_in_argument_position_is_placeholder_zero.js" = "function f(x) { return x; }\nconsole.log(f(new URL('https://x/')));\n"
+"let_url_construct_fails_closed.js" = "let u = new URL('https://x/p');\nconsole.log(u.pathname);\n"
+"inline_url_member_read_fails_closed.js" = "console.log(new URL('https://x/p').pathname);\n"
+"url_searchparams_composition_mutation_fails_closed_set.js" = "const u = new URL('https://example.com/p?a=1');\nu.searchParams.set('a', '2');\nconsole.log(u.search);\n"
+"url_searchparams_composition_mutation_fails_closed_append.js" = "const u = new URL('https://example.com/p?a=1');\nu.searchParams.append('b', 'z');\nconsole.log(u.search);\n"
+"usp_leading_question_mark_stripped.js" = "const q = new URLSearchParams('?a=1');\nconsole.log(q.get('a'));\nconsole.log(q.toString());\n"
+"usp_append_evaluates_args_before_mutation.js" = "const q = new URLSearchParams('a=1');\nq.append('b', q.has('b') ? 'yes' : 'no');\nconsole.log(q.get('b'));\nconsole.log(q.toString());\n"
+"url_binding_name_shadowing_fails_closed_shadow_over_url.js" = "const u = new URL('https://x/first');\n{\n  const u = { pathname: 7 };\n  console.log(u.pathname);\n}\n"
+"url_binding_name_shadowing_fails_closed_url_over_generic.js" = "const u = { pathname: 7 };\n{\n  const u = new URL('https://x/first');\n  console.log(u.pathname);\n}\n"
+"usp_get_absent_prints_null.js" = "const q = new URLSearchParams('a=1');\nconsole.log(q.get('nope'));\nconsole.log(q.get('a'));\n"
+"usp_get_absent_concat_renders_null.js" = "const q = new URLSearchParams('a=1');\nconsole.log('v=' + q.get('a'));\nconsole.log('v=' + q.get('nope'));\n"
+"usp_get_result_length_fails_closed.js" = "const q = new URLSearchParams('a=1');\nconsole.log(q.get('a').length);\n"
+"usp_getall_element_read_fails_closed.js" = "const q = new URLSearchParams('a=1&a=22');\nconsole.log(q.getAll('a')[0]);\n"
+"usp_get_in_condition_fails_closed_if_else.js" = "const q = new URLSearchParams('a=');\nif (q.get('a')) { console.log('t'); } else { console.log('f'); }\n"
+"usp_get_in_condition_fails_closed_ternary.js" = "const q = new URLSearchParams('a=');\nconsole.log(q.get('a') ? 1 : 0);\n"
+"usp_get_in_condition_fails_closed_while.js" = "const q = new URLSearchParams('a=');\nwhile (q.get('a')) { console.log('x'); }\n"
+"url_binding_reassignment_fails_closed_url.js" = "const u = new URL('https://example.com/p');\nu = 5;\nconsole.log(u.pathname);\n"
+"url_binding_reassignment_fails_closed_usp.js" = "const q = new URLSearchParams('a=1');\nq = 5;\nconsole.log(q.get('a'));\n"
+"usp_null_get_result_stored_as_null_string.js" = "const q = new URLSearchParams('a=1');\nq.append('x', q.get('x'));\nconsole.log(q.toString());\nconsole.log(q.get('x'));\nconst r = new URLSearchParams('a=1');\nr.set('a', r.get('nope'));\nconsole.log(r.toString());\n"
+"usp_tostring_multibyte_percent_encoding.js" = "const q = new URLSearchParams('a=caf%C3%A9&sym=%26%3D');\nconsole.log(q.toString());\nconsole.log(q.get('a'));\n"
+"usp_get_after_dynamic_set_content_equality.js" = "let n = 1;\nconst q = new URLSearchParams('a=x');\nq.set('a', '' + n);\nif (q.get('a') === '1') { console.log('eq'); } else { console.log('ne'); }\nif (q.get('a') !== '1') { console.log('ne2'); } else { console.log('eq2'); }\n"
+"usp_dynamic_append_and_tostring_content_equality.js" = "let n = 1;\nconst q = new URLSearchParams('a=x');\nq.append('g', '' + n);\nif (q.get('g') === '1') { console.log('append-eq'); }\nif (q.toString() === 'a=x&g=1') { console.log('tostring-eq'); }\n"
+"url_shadowed_by_for_of_binding_fails_closed.js" = "const u = new URL('https://e.com/p');\nfor (const u of ['aa']) { console.log(u.pathname); }\n"
+"url_shadowed_by_for_of_binding_inside_a_function_fails_closed.js" = "function f(){ const u = new URL('https://e.com/p'); for (const u of ['aa']) { return u.pathname; } return 'x'; }\nconsole.log(f());\n"
+"url_search_params_shadowed_by_for_of_binding_fails_closed.js" = "const q = new URLSearchParams('alpha=1');\nfor (const q of ['aa']) { console.log(q.get('alpha')); }\n"
+"url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js" = "const u = new URL('https://e.com/p');\n{ const u = { pathname: 'x' }; console.log(u.pathname); }\n"
+"url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js" = "const q = new URLSearchParams('alpha=1');\n{ const q = 5; console.log(q); }\n"
+"for_of_binding_without_url_shadow_is_unaffected.js" = "const u = new URL('https://e.com/p');\nconst q = new URLSearchParams('alpha=1');\nfor (const x of ['aa','bb']) { console.log(x.length); }\nconsole.log(u.pathname);\nconsole.log(q.get('alpha'));\n"
+
+[[case]]
+name = "url_pathname_reads_the_parsed_component"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Reading `.pathname` off a `new URL(...)` returns the parsed path component.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "url_pathname_reads_the_parsed_component.js"]
+exit = "success"
+stdout = """/browser
+"""
+
+[[case]]
+name = "url_origin_search_hash_href_read_parsed_components"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Reading `.origin`/`.search`/`.hash`/`.href` off a `new URL(...)` returns their parsed components.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "url_origin_search_hash_href_read_parsed_components.js"]
+exit = "success"
+stdout = """https://example.com
+?alpha=1
+#fragment
+https://example.com/browser?alpha=1#fragment
+"""
+
+[[case]]
+name = "usp_construction_builds_and_runs"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+USP methods land in Task 4; here we only prove construction compiles/runs.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_construction_builds_and_runs.js"]
+exit = "success"
+stdout = """ok
+"""
+
+[[case]]
+name = "url_raw_print_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Printing a raw URL handle is not an admitted read position and fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_raw_print_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_raw_print_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Printing a raw URLSearchParams handle is not an admitted read position and fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_raw_print_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_from_url_searchParams_raw_print_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Printing the `.searchParams` handle read off a URL is not an admitted read position and fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_from_url_searchParams_raw_print_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "non_literal_url_arg_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Constructing `new URL(s)` from a non-literal (runtime string) argument fails closed."""
+args = ["run", "non_literal_url_arg_fails_closed.js"]
+exit = "failure"
+
+# --- Task 4: URLSearchParams query/mutation methods + composition -----------
+
+[[case]]
+name = "usp_get_returns_first_value"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+`.get(key)` on URLSearchParams returns the first value for a repeated or present key.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_get_returns_first_value.js"]
+exit = "success"
+stdout = """1
+two words
+"""
+
+[[case]]
+name = "usp_set_replaces_and_get_reflects_dynamic_value"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Brief authored this with `String(count)`, but `String(x)` is fail-closed on this branch (the G6 value-builtin deny-set: `{String,Boolean,toString,split,JSON.stringify}` — a deliberate, shipped deny). The runtime int→string concat coercion `'' + count` is the equivalent SUPPORTED dynamic-string primitive: it produces the same runtime-computed string "7" (not a const-fold — `q.set`/`q.get` are runtime scans), preserving the test's intent (a dynamic value flows through `set` and `get` reflects it, and a duplicate-free single entry via `getAll(...).length == 1`). Verified byte-for-byte against `node`.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_set_replaces_and_get_reflects_dynamic_value.js"]
+exit = "success"
+stdout = """7
+1
+"""
+
+[[case]]
+name = "usp_append_and_has"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Dynamic booleans render `1`/`0` (the P3-ratified convention — see `soundness_abort::aborted_flag_reads_zero_then_one`; node prints true/false, a documented divergence never used in byte-for-byte acceptance). `.has` flows through the same boolean-print lane as `.aborted`, so it renders `1`/`0` too.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_append_and_has.js"]
+exit = "success"
+stdout = """1
+0
+"""
+
+[[case]]
+name = "url_search_params_composition_get"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+`.searchParams.get(...)` composed off a URL handle reads the parsed query component.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "url_search_params_composition_get.js"]
+exit = "success"
+stdout = """1
+"""
+
+[[case]]
+name = "usp_set_result_does_not_leak_the_store_handle"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+`.set` returns undefined (WHATWG); `__usp_set` carries the live tagged store handle internally, but the call site drops it and renders the void-method placeholder `0` — the raw i64 handle must NEVER escape as an observable value (the Global Constraint). A leak would print a tagged handle integer >= 2^62 here, not `0`.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_set_result_does_not_leak_the_store_handle.js"]
+exit = "success"
+stdout = """0
+b
+"""
+
+# --- Task 5: URLSearchParams.toString() serialization ------------------------
+
+[[case]]
+name = "usp_tostring_serializes_form_urlencoded"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+application/x-www-form-urlencoded: space -> '+', pairs joined by '&'.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_tostring_serializes_form_urlencoded.js"]
+exit = "success"
+stdout = """alpha=1&beta=two+words
+"""
+
+[[case]]
+name = "usp_tostring_after_mutation"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_tostring_after_mutation.js"]
+exit = "success"
+stdout = """alpha=1&g=a+b
+"""
+
+[[case]]
+name = "unknown_method_on_usp_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Calling an unrecognized method on a URLSearchParams handle fails closed with E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "unknown_method_on_usp_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+# --- Task 6: fail-closed enumeration wave (store sites + generic sinks) ----
+
+[[case]]
+name = "url_string_concat_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_string_concat_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_string_concat_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_string_concat_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_template_interp_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_template_interp_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_arithmetic_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_arithmetic_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_identity_compare_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_identity_compare_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_json_stringify_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Dual deny: the G6 value-builtin deny-set rejects `JSON.stringify` for ALL inputs, so E5506 alone would pass even if the URL/USP gate regressed. Assert the URL/USP-specific identifier-choke message TOO, so the URL gate cannot hide behind G6.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_json_stringify_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506", "URL/URLSearchParams handle cannot be read in this position"]
+
+[[case]]
+name = "url_return_position_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_return_position_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_argument_position_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_argument_position_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_object_literal_field_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Store-site gating: the deny must fire even though the object is never observed afterwards — a silent green compile here IS the leak.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_object_literal_field_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_array_element_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_array_element_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_growable_push_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_growable_push_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_computed_member_read_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_computed_member_read_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_member_write_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_member_write_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_captured_in_deferred_callback_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_captured_in_deferred_callback_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_unknown_member_read_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6: fail-closed enumeration wave (store sites + generic sinks)
+
+The standing lesson from 6 prior stages executed up front: pin EVERY store site and generic value sink for BOTH handle classes NOW. Each pin proves the Task-3 position gate (allowlist at the identifier/member choke point) denies the position; any leak is fixed AT the choke, never per-sink.
+
+Shared two-binding prelude for the sink pins (one URL, one USP).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_unknown_member_read_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_computed_searchparams_method_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6 review-fix wave: receiver-path shapes + getAll binding
+
+Review probes falsified the member-receiver arm's "ANY method denies" claim: the generic call fallback DROPS the receiver (never emits it), so a receiver path the recognizers don't admit reached the placeholder terminals with NO choke firing — silent 0. Closed by ROOT PROVENANCE at the terminal choke: the member chain (dot AND computed, any depth) is walked to its root identifier; a URL/USP root denies by construction.
+
+Computed receiver at plain `_start` scope: `u['searchParams'].get(...)` silently printed 0 pre-fix (node prints 1).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_computed_searchparams_method_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_computed_searchparams_method_from_fn_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6 review-fix wave: receiver-path shapes + getAll binding
+
+Review probes falsified the member-receiver arm's "ANY method denies" claim: the generic call fallback DROPS the receiver (never emits it), so a receiver path the recognizers don't admit reached the placeholder terminals with NO choke firing — silent 0. Closed by ROOT PROVENANCE at the terminal choke: the member chain (dot AND computed, any depth) is walked to its root identifier; a URL/USP root denies by construction.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_computed_searchparams_method_from_fn_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_computed_searchparams_method_captured_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6 review-fix wave: receiver-path shapes + getAll binding
+
+Review probes falsified the member-receiver arm's "ANY method denies" claim: the generic call fallback DROPS the receiver (never emits it), so a receiver path the recognizers don't admit reached the placeholder terminals with NO choke firing — silent 0. Closed by ROOT PROVENANCE at the terminal choke: the member chain (dot AND computed, any depth) is walked to its root identifier; a URL/USP root denies by construction.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_computed_searchparams_method_captured_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_two_hop_member_method_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6 review-fix wave: receiver-path shapes + getAll binding
+
+Review probes falsified the member-receiver arm's "ANY method denies" claim: the generic call fallback DROPS the receiver (never emits it), so a receiver path the recognizers don't admit reached the placeholder terminals with NO choke firing — silent 0. Closed by ROOT PROVENANCE at the terminal choke: the member chain (dot AND computed, any depth) is walked to its root identifier; a URL/USP root denies by construction.
+
+2-hop dot chain over a URL root from inside a fn: silently 0'd pre-fix.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_two_hop_member_method_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_getall_binding_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6 review-fix wave: receiver-path shapes + getAll binding
+
+Review probes falsified the member-receiver arm's "ANY method denies" claim: the generic call fallback DROPS the receiver (never emits it), so a receiver path the recognizers don't admit reached the placeholder terminals with NO choke firing — silent 0. Closed by ROOT PROVENANCE at the terminal choke: the member chain (dot AND computed, any depth) is walked to its root identifier; a URL/USP root denies by construction.
+
+Review IMPORTANT: `const a = q.getAll('a'); a.length` silently printed 0 (node prints 2) — the binding loses the growable classification at the declarator. Denied at the declarator choke; the direct `q.getAll(k).length` composition keeps working (see `usp_set_replaces_and_get_reflects_dynamic_value`).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_getall_binding_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "inline_url_construct_in_argument_position_is_placeholder_zero"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6 review-fix wave: receiver-path shapes + getAll binding
+
+Review probes falsified the member-receiver arm's "ANY method denies" claim: the generic call fallback DROPS the receiver (never emits it), so a receiver path the recognizers don't admit reached the placeholder terminals with NO choke firing — silent 0. Closed by ROOT PROVENANCE at the terminal choke: the member chain (dot AND computed, any depth) is walked to its root identifier; a URL/USP root denies by construction.
+
+DELIBERATE PIN FLIP (stage-review F10, adjudicated deny-now): this was the Task-6 HONEST-BEHAVIOR pin recording that an inline value-position `new URL(...)` lowered to the silent `0` placeholder. The fix-wave upgraded the class from placeholder-zero to E5506 at the `emit_call` ctor choke (a deny upgrade — silent-wrong → fail-closed), so the pin now asserts the deny. Name kept so the flip is visible in history.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "inline_url_construct_in_argument_position_is_placeholder_zero.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "let_url_construct_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6 review-fix wave: receiver-path shapes + getAll binding
+
+Review probes falsified the member-receiver arm's "ANY method denies" claim: the generic call fallback DROPS the receiver (never emits it), so a receiver path the recognizers don't admit reached the placeholder terminals with NO choke firing — silent 0. Closed by ROOT PROVENANCE at the terminal choke: the member chain (dot AND computed, any depth) is walked to its root identifier; a URL/USP root denies by construction.
+
+Stage-review F10: a `let`/`var` declarator is outside the admitted `const` intercept; its init falls to the generic call path where the ctor deny fires (previously: bound `0`, `u.pathname` printed 0; node prints `/p`).
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "let_url_construct_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "inline_url_member_read_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task 6 review-fix wave: receiver-path shapes + getAll binding
+
+Review probes falsified the member-receiver arm's "ANY method denies" claim: the generic call fallback DROPS the receiver (never emits it), so a receiver path the recognizers don't admit reached the placeholder terminals with NO choke firing — silent 0. Closed by ROOT PROVENANCE at the terminal choke: the member chain (dot AND computed, any depth) is walked to its root identifier; a URL/USP root denies by construction.
+
+Stage-review F10: an inline member read over an un-bound construction (`new URL(s).pathname`) previously printed 0 with zero diagnostics.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "inline_url_member_read_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+# --- Task 8 fix wave: stage-review findings (C-1..I-9, F11) ------------------
+
+[[case]]
+name = "url_searchparams_composition_mutation_fails_closed_set"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review C-1: mutating through the composition (`u.searchParams.set/append`) desyncs the compile-time-frozen `u.search`/`u.href` slots from the live store (kali read stale `?a=1` where node reads `?a=2&b=z`). Composition is read-only this phase — both mutators deny E5506; standalone-USP mutation is unchanged.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_searchparams_composition_mutation_fails_closed_set.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_searchparams_composition_mutation_fails_closed_append"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review C-1: mutating through the composition (`u.searchParams.set/append`) desyncs the compile-time-frozen `u.search`/`u.href` slots from the live store (kali read stale `?a=1` where node reads `?a=2&b=z`). Composition is read-only this phase — both mutators deny E5506; standalone-USP mutation is unchanged.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_searchparams_composition_mutation_fails_closed_append.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_leading_question_mark_stripped"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review C-2 (WHATWG): exactly one leading `?` is stripped by the constructor. Before the fix `get('a')` missed (null sentinel printed 0) and toString rendered `%3Fa=1`. Node oracle: `1` / `a=1`.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_leading_question_mark_stripped.js"]
+exit = "success"
+stdout = """1
+a=1
+"""
+
+[[case]]
+name = "usp_append_evaluates_args_before_mutation"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review C-3: `append` must evaluate BOTH argument expressions before mutating the store (JS argument-evaluation order). The reentrant value expression observes the PRE-append state: node prints `no` / `a=1&b=no`; the old inline two-push lowering pushed the key first and printed `yes`. Closed by the single `__usp_append(store, key, val)` synthetic (mirrors `.set`'s already-atomic shape).
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_append_evaluates_args_before_mutation.js"]
+exit = "success"
+stdout = """no
+a=1&b=no
+"""
+
+[[case]]
+name = "url_binding_name_shadowing_fails_closed_shadow_over_url"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review C-4: URL/USP provenance is name-keyed and FLAT (no block scoping). A block-scoped shadow of a URL binding read 0 where node reads the shadow's value (7). Denied at the declarator choke; the REVERSE order (generic binding first, URL shadow second) is refused at the intercept and falls to the F10 ctor deny — both directions E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_binding_name_shadowing_fails_closed_shadow_over_url.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_binding_name_shadowing_fails_closed_url_over_generic"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review C-4: URL/USP provenance is name-keyed and FLAT (no block scoping). A block-scoped shadow of a URL binding read 0 where node reads the shadow's value (7). Denied at the declarator choke; the REVERSE order (generic binding first, URL shadow second) is refused at the intercept and falls to the F10 ctor deny — both directions E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_binding_name_shadowing_fails_closed_url_over_generic.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_get_absent_prints_null"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review I-5 (materialization): `q.get(absent)` returns the 0 null-sentinel; the print lane substitutes the interned `"null"` handle at runtime, so kali prints node's `null` (previously `0`). The present key stays a plain handle pass-through (flagship admitted surface).
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_get_absent_prints_null.js"]
+exit = "success"
+stdout = """null
+1
+"""
+
+[[case]]
+name = "usp_get_absent_concat_renders_null"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review I-5 (concat lane): `'v=' + q.get(absent)` must render node's `v=null`, not `v=` (the 0 sentinel concatenated as empty).
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_get_absent_concat_renders_null.js"]
+exit = "success"
+stdout = """v=1
+v=null
+"""
+
+[[case]]
+name = "usp_get_result_length_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review I-6: `q.get(k).length` statically rendered the CALL node's child count (2; node prints the value's length, 1 here). No static or ASCII-provable runtime length exists for a USP string result — the static render bails and the member arm denies E5506.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_get_result_length_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_getall_element_read_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review I-7: `q.getAll('a')[0]` silently printed 0 (node prints `1`). Element reads of the fresh growable result are unsupported this phase — denied at the computed-member arm keyed on the same `is_usp_getall_call` recognizer as the admitted `.length` composition.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_getall_element_read_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_get_in_condition_fails_closed_if_else"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review I-8: a bare `q.get(k)` result in condition position tested HANDLE truthiness — `'a='` (empty-string value) was truthy where node is falsy (and the absent-key case matched node only by the sentinel coincidence). Denied at the shared condition choke (`reject_string_condition`), which covers if/while/for/ternary at once.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_get_in_condition_fails_closed_if_else.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_get_in_condition_fails_closed_ternary"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review I-8: a bare `q.get(k)` result in condition position tested HANDLE truthiness — `'a='` (empty-string value) was truthy where node is falsy (and the absent-key case matched node only by the sentinel coincidence). Denied at the shared condition choke (`reject_string_condition`), which covers if/while/for/ternary at once.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_get_in_condition_fails_closed_ternary.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_get_in_condition_fails_closed_while"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review I-8: a bare `q.get(k)` result in condition position tested HANDLE truthiness — `'a='` (empty-string value) was truthy where node is falsy (and the absent-key case matched node only by the sentinel coincidence). Denied at the shared condition choke (`reject_string_condition`), which covers if/while/for/ternary at once.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "usp_get_in_condition_fails_closed_while.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_binding_reassignment_fails_closed_url"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review I-9: `u = 5` overwrote the binding's handle local; the admitted `u.pathname` read then wild-loaded from address 5+16 and printed 0 (node throws on const reassignment). Denied at the identifier-assignment choke keyed on all four URL/USP provenance classifiers — the write-position twin of the member-write gate.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_binding_reassignment_fails_closed_url.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "url_binding_reassignment_fails_closed_usp"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review I-9: `u = 5` overwrote the binding's handle local; the admitted `u.pathname` read then wild-loaded from address 5+16 and printed 0 (node throws on const reassignment). Denied at the identifier-assignment choke keyed on all four URL/USP provenance classifiers — the write-position twin of the member-write gate.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
+args = ["run", "url_binding_reassignment_fails_closed_usp.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "usp_null_get_result_stored_as_null_string"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review W-1 (re-verification follow-up): a null-sentinel `q.get(absent)` result in a mutator-ARGUMENT position must store as the STRING "null" (node coerces before storing), not as the raw 0 sentinel (which `__usp_tostring` serialized as EMPTY: kali `a=1&x=` vs node `a=1&x=null`). Materialized at the single `emit_usp_method_argument` choke, so append values, set values, and key positions are covered at once. Node oracle (verified 2026-07-21): `a=1&x=null` / `null` / `a=null`.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_null_get_result_stored_as_null_string.js"]
+exit = "success"
+stdout = """a=1&x=null
+null
+a=null
+"""
+
+[[case]]
+name = "usp_tostring_multibyte_percent_encoding"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage-review F11 (adjudicated pin-now, free pin): multibyte and reserved-character percent-encoding is already node-identical. Node oracle (verified 2026-07-21): `a=caf%C3%A9&sym=%26%3D` / `café` — the `é` round-trips (decode at parse, re-encode in toString) and the reserved `&`/`=` in the VALUE stay encoded.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_tostring_multibyte_percent_encoding.js"]
+exit = "success"
+stdout = """a=caf%C3%A9&sym=%26%3D
+café
+"""
+
+# --- Task 7: acceptance (byte-for-byte vs node) ------------------------------
+
+[[case]]
+name = "usp_get_after_dynamic_set_content_equality"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Task-7 acceptance fix, pinned: `q.get(k)` / `q.toString()` results admitted into the `__streq` CONTENT-equality lane (`is_usp_string_call`, mirroring the env-get precedent). Before the fix the usp-vs-literal compare fell through Stage 1's both-proven-string lane to a raw `i64.eq` HANDLE-IDENTITY compare — every Task 4-6 pin passed only because parse-time/literal-set values and the compared literal dedup to the SAME interned handle, while a DYNAMICALLY-set value (`q.set(k, '' + n)`) gets a fresh `string_concat` handle: equal content, different handle, silently-wrong branch (observed as the acceptance fixture's untaken USP throw firing). Node-oracle: node prints ok for every line here.
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_get_after_dynamic_set_content_equality.js"]
+exit = "success"
+stdout = """eq
+eq2
+"""
+
+[[case]]
+name = "usp_dynamic_append_and_tostring_content_equality"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Sibling pin: `.append` with a dynamic value, plus `.toString()` in the equality lane (a `__usp_tostring` result is ALWAYS a fresh global-heap handle, so identity compare would be wrong for it on every path, not just the dynamic-set one).
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "usp_dynamic_append_and_tostring_content_equality.js"]
+exit = "success"
+stdout = """append-eq
+tostring-eq
+"""
+
+[[case]]
+name = "url_shadowed_by_for_of_binding_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
+
+The URL/USP side-tables are name-keyed and flat. The DECLARATOR choke has guarded them since stage-review C-4, but a for-of LOOP BINDING never passes through that choke, so the same hijack was live one lowering away: measured on parent e14c40004, `for (const u of ['aa']) console.log(u.pathname)` printed the OUTER url's `/p` (exit 0) where node v26.5.0 prints `undefined`, and the USP twin printed `1` where node throws a TypeError.
+
+T-new-D, for-of choke (NEW): measured pre-fix `/p`, exit 0; node prints `undefined`.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
+
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
+args = ["run", "url_shadowed_by_for_of_binding_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to a URL/URLSearchParams"]
+
+[[case]]
+name = "url_shadowed_by_for_of_binding_inside_a_function_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
+
+The URL/USP side-tables are name-keyed and flat. The DECLARATOR choke has guarded them since stage-review C-4, but a for-of LOOP BINDING never passes through that choke, so the same hijack was live one lowering away: measured on parent e14c40004, `for (const u of ['aa']) console.log(u.pathname)` printed the OUTER url's `/p` (exit 0) where node v26.5.0 prints `undefined`, and the USP twin printed `1` where node throws a TypeError.
+
+T-new-D, for-of choke (NEW), FUNCTION scope — the tables are per-emitter, so the hazard is not confined to `_start`. Measured pre-fix `/p`, exit 0.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
+
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
+args = ["run", "url_shadowed_by_for_of_binding_inside_a_function_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to a URL/URLSearchParams"]
+
+[[case]]
+name = "url_search_params_shadowed_by_for_of_binding_fails_closed"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
+
+The URL/USP side-tables are name-keyed and flat. The DECLARATOR choke has guarded them since stage-review C-4, but a for-of LOOP BINDING never passes through that choke, so the same hijack was live one lowering away: measured on parent e14c40004, `for (const u of ['aa']) console.log(u.pathname)` printed the OUTER url's `/p` (exit 0) where node v26.5.0 prints `undefined`, and the USP twin printed `1` where node throws a TypeError.
+
+T-new-D, for-of choke (NEW), USP twin: measured pre-fix `1`, exit 0; node throws `TypeError: q.get is not a function`.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
+
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
+args = ["run", "url_search_params_shadowed_by_for_of_binding_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to a URL/URLSearchParams"]
+
+[[case]]
+name = "url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
+
+The URL/USP side-tables are name-keyed and flat. The DECLARATOR choke has guarded them since stage-review C-4, but a for-of LOOP BINDING never passes through that choke, so the same hijack was live one lowering away: measured on parent e14c40004, `for (const u of ['aa']) console.log(u.pathname)` printed the OUTER url's `/p` (exit 0) where node v26.5.0 prints `undefined`, and the USP twin printed `1` where node throws a TypeError.
+
+T-new-D requirement 2 — PRE-EXISTING COVERAGE pin (passes before and after): the declarator route was already denied by the C-4 guard, which this task folded into the unified helper. The pin exists so a future refactor cannot silently drop one of the two call sites.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
+
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
+args = ["run", "url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js"]
+exit = "failure"
+stderr_contains = ["E5506", "redeclaring a name bound to a URL/URLSearchParams"]
+
+[[case]]
+name = "url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
+
+The URL/USP side-tables are name-keyed and flat. The DECLARATOR choke has guarded them since stage-review C-4, but a for-of LOOP BINDING never passes through that choke, so the same hijack was live one lowering away: measured on parent e14c40004, `for (const u of ['aa']) console.log(u.pathname)` printed the OUTER url's `/p` (exit 0) where node v26.5.0 prints `undefined`, and the USP twin printed `1` where node throws a TypeError.
+
+PRE-EXISTING COVERAGE pin, USP twin.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
+
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
+args = ["run", "url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js"]
+exit = "failure"
+stderr_contains = ["E5506", "redeclaring a name bound to a URL/URLSearchParams"]
+
+[[case]]
+name = "for_of_binding_without_url_shadow_is_unaffected"
+rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
+
+Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
+
+The URL/USP side-tables are name-keyed and flat. The DECLARATOR choke has guarded them since stage-review C-4, but a for-of LOOP BINDING never passes through that choke, so the same hijack was live one lowering away: measured on parent e14c40004, `for (const u of ['aa']) console.log(u.pathname)` printed the OUTER url's `/p` (exit 0) where node v26.5.0 prints `undefined`, and the USP twin printed `1` where node throws a TypeError.
+
+T-new-D no-over-deny control: a for-of binding whose name does NOT shadow a handle keeps its ordinary lane, and the handle's own reads still work. node v26.5.0: "2\\n2\\n/p\\n1\\n".
+
+Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+args = ["run", "for_of_binding_without_url_shadow_is_unaffected.js"]
+exit = "success"
+stdout = """2
+2
+/p
+1
+"""
