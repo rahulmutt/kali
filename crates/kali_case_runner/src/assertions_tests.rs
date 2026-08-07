@@ -34,7 +34,7 @@ fn captured(success: bool, code: i32, stdout: &str, stderr: &str) -> Captured {
 fn exit_success_passes_on_success_and_fails_on_failure() {
     let mut step = blank_step();
     step.exit = Some(Exit::Status(ExitStatusWord::Success));
-    assert!(check(&step, &captured(true, 0, "", "")).is_ok());
+    check(&step, &captured(true, 0, "", "")).expect("a successful exit must pass");
     let err = check(&step, &captured(false, 1, "", "")).expect_err("must fail");
     assert!(err.contains("exit"), "{err}");
 }
@@ -43,7 +43,7 @@ fn exit_success_passes_on_success_and_fails_on_failure() {
 fn an_exact_exit_code_must_match() {
     let mut step = blank_step();
     step.exit = Some(Exit::Code(2));
-    assert!(check(&step, &captured(false, 2, "", "")).is_ok());
+    check(&step, &captured(false, 2, "", "")).expect("exit code 2 must match `exit = 2`");
     let err = check(&step, &captured(false, 1, "", "")).expect_err("must fail");
     assert!(err.contains("code 2"), "{err}");
     assert!(err.contains("Some(1)"), "{err}");
@@ -53,7 +53,7 @@ fn an_exact_exit_code_must_match() {
 fn exact_stdout_must_match_byte_for_byte() {
     let mut step = blank_step();
     step.stdout = Some("hahaha\n\n".to_string());
-    assert!(check(&step, &captured(true, 0, "hahaha\n\n", "")).is_ok());
+    check(&step, &captured(true, 0, "hahaha\n\n", "")).expect("exact stdout match must pass");
     assert!(check(&step, &captured(true, 0, "hahaha\n", "")).is_err());
 }
 
@@ -62,7 +62,7 @@ fn contains_and_absent_are_both_enforced() {
     let mut step = blank_step();
     step.stdout_contains = vec!["1\n".to_string()];
     step.stdout_absent = vec!["E5506".to_string()];
-    assert!(check(&step, &captured(true, 0, "1\n0\n", "")).is_ok());
+    check(&step, &captured(true, 0, "1\n0\n", "")).expect("contains+absent claims must both hold");
     assert!(check(&step, &captured(true, 0, "0\n", "")).is_err());
     assert!(check(&step, &captured(true, 0, "1\nE5506", "")).is_err());
 }
@@ -72,7 +72,7 @@ fn stderr_claims_are_checked_against_stderr() {
     let mut step = blank_step();
     step.stderr_contains = vec!["E5506".to_string()];
     step.stderr_absent = vec!["is used as both a string and a number".to_string()];
-    assert!(check(&step, &captured(false, 1, "", "E5506 denied")).is_ok());
+    check(&step, &captured(false, 1, "", "E5506 denied")).expect("stderr claims must both hold");
     let err = check(
         &step,
         &captured(false, 1, "", "E5506 is used as both a string and a number"),
@@ -96,7 +96,7 @@ artifactKind = "bundle"
         .expect("toml"),
     );
     let good = r#"{"schemaVersion":1,"success":true,"payload":{"artifactKind":"bundle"}}"#;
-    assert!(check(&step, &captured(true, 0, good, "")).is_ok());
+    check(&step, &captured(true, 0, good, "")).expect("matching json fields must pass");
     let bad = r#"{"schemaVersion":2,"success":true,"payload":{"artifactKind":"bundle"}}"#;
     let err = check(&step, &captured(true, 0, bad, "")).expect_err("must fail");
     assert!(err.contains("schemaVersion"), "{err}");
@@ -123,7 +123,8 @@ fn a_nested_empty_table_expectation_is_enforced() {
         toml::from_str("schemaVersion = 1\n[payload]\n[payload.diagnostics]\n").expect("toml"),
     );
     let good = r#"{"schemaVersion":1,"payload":{"diagnostics":{}}}"#;
-    assert!(check(&step, &captured(true, 0, good, "")).is_ok());
+    check(&step, &captured(true, 0, good, ""))
+        .expect("a matching empty-table expectation must pass");
 
     let missing_key = r#"{"schemaVersion":1,"payload":{"errorCount":9}}"#;
     let err = check(&step, &captured(true, 0, missing_key, "")).expect_err("must fail");
@@ -140,7 +141,7 @@ fn a_nested_empty_table_expectation_is_enforced() {
 #[test]
 fn a_top_level_empty_table_expectation_is_enforced_via_check_json() {
     let expected: toml::Value = toml::from_str("").expect("toml");
-    assert!(check_json(&expected, &serde_json::json!({})).is_ok());
+    check_json(&expected, &serde_json::json!({})).expect("a matching empty document must pass");
     let err = check_json(&expected, &serde_json::json!({"other": 1})).expect_err("must fail");
     assert!(err.contains("top-level"), "{err}");
 }
@@ -189,11 +190,11 @@ fn a_scalar_top_level_json_claim_reports_a_labelled_mismatch() {
 fn an_indexed_array_path_resolves_and_is_checked() {
     let mut step = blank_step();
     step.json = Some(toml::from_str(r#"errors."0".code = "E5506""#).expect("toml"));
-    assert!(check(
+    check(
         &step,
-        &captured(true, 0, r#"{"errors":[{"code":"E5506"}]}"#, "")
+        &captured(true, 0, r#"{"errors":[{"code":"E5506"}]}"#, ""),
     )
-    .is_ok());
+    .expect("errors.0.code must resolve and match");
     let err = check(
         &step,
         &captured(true, 0, r#"{"errors":[{"code":"E1234"}]}"#, ""),
@@ -259,7 +260,8 @@ fn a_negative_looking_array_segment_hard_fails() {
 fn a_numeric_segment_against_an_object_is_a_plain_key_not_an_index() {
     let mut step = blank_step();
     step.json = Some(toml::from_str(r#"payload.0 = "x""#).expect("toml"));
-    assert!(check(&step, &captured(true, 0, r#"{"payload":{"0":"x"}}"#, "")).is_ok());
+    check(&step, &captured(true, 0, r#"{"payload":{"0":"x"}}"#, ""))
+        .expect("a numeric segment against an object must be a plain key lookup");
 }
 
 // Defense in depth: an unresolved `${...}` placeholder should be caught by

@@ -16,6 +16,16 @@
 #     can ever match it -- confirmed by jsonpath_tests.rs's own
 #     `a_json_null_matches_nothing_expressible_in_toml`. Indexing just the
 #     one field that matters is what makes these three expressible at all.
+#
+# `[source]` is file-level: every trial in this file writes all 9 entries
+# below into its temp dir, unlike the original tests, each of which had a
+# tempdir containing exactly one file. This is deliberate, not an oversight
+# -- each case's `args` names the one file it acts on, and `check`/`build`
+# only touch the named argument, so the extra files are inert. It does mean
+# a passing case is sensitive to files it never mentions (a case's outcome
+# depends on the whole file-level `[source]` table, not just what it names)
+# -- worth knowing before copying this file as a template for the other
+# ~300 migrations.
 
 [source]
 "main.js" = '''

@@ -139,6 +139,27 @@ fn a_numeric_looking_key_on_an_object_is_a_plain_key_not_an_index() {
     );
 }
 
+// The other half of the numeric-key ambiguity: a numeric-looking segment
+// against an object that has no such key is an ordinary absence, not an
+// index lookup and not a different failure mode -- `step` never treats a
+// non-array node's numeric segment as an index, so this is exactly as
+// `payload.missing` would behave.
+#[test]
+fn lookup_rejects_a_numeric_segment_against_an_object_missing_that_key() {
+    let actual: serde_json::Value = serde_json::json!({"payload": {"other": "y"}});
+    assert!(lookup(&actual, "payload.0").is_none());
+}
+
+// Indexing only ever applies to a JSON array; a numeric segment with more
+// path left to walk against a scalar or `null` is a hard `None`, not a
+// panic and not a vacuous match.
+#[test]
+fn lookup_rejects_indexing_into_a_scalar_or_null() {
+    let actual: serde_json::Value = serde_json::json!({"count": 5, "missing": null});
+    assert!(lookup(&actual, "count.0").is_none());
+    assert!(lookup(&actual, "missing.0").is_none());
+}
+
 // An empty path addresses the whole document -- this is what
 // `flatten_expected` emits for a top-level `json = {}`. `"".split('.')`
 // would otherwise look for a JSON key literally named `""`, which is never

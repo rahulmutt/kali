@@ -252,7 +252,7 @@ A case file has four optional top-level sections and one required one:
 | `kind` | behavior |
 | --- | --- |
 | `cli` (default) | run `kali` with `args` in the trial dir |
-| `file_json` | read `path` relative to the trial dir, assert dotted JSON paths in `fields` |
+| `file_json` | read `path` relative to the trial dir, assert dotted JSON paths (numeric segments index arrays -- see §5.4) in `fields` |
 | `browser_bundle_harness` | generate the harness `.mjs` via `kali_runtime_contract::browser_bundle_harness_script(entry, ..., body)`, run it under the command from `browser_harness_command_parts_for`, assert on its output |
 
 ### 5.4 Assertion keys
@@ -267,8 +267,24 @@ stdout_absent   = ["E5506"]
 stderr_contains = ["..."]
 stderr_absent   = ["..."]
 json.payload.artifactKind = "bundle"    # dotted path into the stdout JSON envelope
+json.errors.0.code = "E5506"            # a numeric segment indexes a JSON array
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 ```
+
+A dotted-path segment that parses as a non-negative integer fitting a
+`usize` indexes into a JSON array (`errors.0.code` reads `errors[0].code`);
+against anything else -- an object, including one with a numeric-looking key
+like `{"0": "x"}`, or a scalar -- a segment is always a plain key lookup,
+numeric-looking or not. This is closed dotted-path indexing, not an
+expression language: no slices, no wildcards, no negative-from-end indexing,
+no filters, and only one segment is consumed per `.`. It exists specifically
+so a case can pin *which* diagnostic is first (`errors.0.code = "E5506"`)
+without asserting the rest of the diagnostic object, which is unmatchable in
+this format -- every diagnostic carries a `"fix"` key that is unconditionally
+JSON `null`, and TOML has no null literal capable of matching it, so whole-
+array equality can never succeed. An out-of-range index, a non-numeric or
+negative-looking segment against an array, and any other unresolvable
+segment are all hard failures, never a silent skip.
 
 Two non-assertion keys live on a `[[case]]`, not a step: `name` and `rationale`,
 plus `ignore = true` to run only under `--ignored` (the 9 currently-ignored

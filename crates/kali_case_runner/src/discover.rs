@@ -25,8 +25,20 @@ fn collect(dir: &Path, prefix: &str, out: &mut Vec<(String, PathBuf)>) -> Result
                 format!("{prefix}/{name}")
             };
             collect(&path, &nested, out)?;
-        } else if path.extension().is_some_and(|ext| ext == "toml") {
-            let stem = name.trim_end_matches(".toml").to_string();
+        } else if path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("toml"))
+        {
+            // `file_stem`, not `trim_end_matches(".toml")`: the latter strips
+            // every trailing `.toml` it finds, so `pad.toml` and
+            // `pad.toml.toml` would both stem to `pad` -- a silent trial-id
+            // collision (the same failure class Task 8 closed for duplicate
+            // `[[case]]` names within one file, just across files here).
+            // `file_stem` only ever strips the last extension.
+            let stem = path
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+                .unwrap_or(name);
             let full = if prefix.is_empty() {
                 stem
             } else {
@@ -39,9 +51,15 @@ fn collect(dir: &Path, prefix: &str, out: &mut Vec<(String, PathBuf)>) -> Result
 }
 
 pub fn discover(cases_dir: &Path) -> Result<Vec<(String, CaseFile)>, String> {
-    if !cases_dir.is_dir() {
+    if !cases_dir.exists() {
         return Err(format!(
             "case directory {} does not exist",
+            cases_dir.display()
+        ));
+    }
+    if !cases_dir.is_dir() {
+        return Err(format!(
+            "case directory {} is not a directory (found a file)",
             cases_dir.display()
         ));
     }
