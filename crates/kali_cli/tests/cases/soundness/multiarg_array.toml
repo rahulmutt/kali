@@ -76,6 +76,7 @@ stdout = "3\n2\n"
 
 [[case]]
 name = "multiarg_new_array_call_is_array_literal"
+rationale = """No source comment: this fn carries no `//`/`///` doc in soundness_multiarg_array.rs."""
 args = ["run", "multiarg_new_array_call_is_array_literal.ts"]
 exit = "success"
 stdout = "6\n"

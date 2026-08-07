@@ -1,11 +1,25 @@
 # Migrated from tests/soundness_console_multiarg.rs -- 10 #[test]
-# functions become 18 cases: `multi_arg_all_literals_still_prints_all`
-# calls `assert_stdout_line` FOUR independent times over four distinct
-# fixtures, `multi_arg_unshaped_boolean_renders_one_but_keeps_every_argument`
-# calls it TWICE, and `every_console_sink_prints_all_arguments` loops over
-# FIVE sinks, each an independent assertion per rule 5, so all three are
-# split into siblings; the other seven fns are 1:1. No [matrix] -- each
+# functions: 9 migrate to 17 cases here, 1 stays hand-written.
+# `multi_arg_all_literals_still_prints_all` calls `assert_stdout_line` FOUR
+# independent times over four distinct fixtures,
+# `multi_arg_unshaped_boolean_renders_one_but_keeps_every_argument` calls it
+# TWICE, and `every_console_sink_prints_all_arguments` loops over FIVE
+# sinks, each an independent assertion per rule 5, so all three are split
+# into siblings; the other six migrated fns are 1:1. No [matrix] -- each
 # case runs a distinct one-off TS program via `kali run <file>.ts`.
+#
+# `multi_arg_never_exits_zero_with_a_dropped_argument` is NOT migrated here
+# -- it stays hand-written in `soundness_console_multiarg.rs` (trimmed to
+# just that test and its two helpers) per spec 5.11. Its source assertion
+# is a genuine disjunction (`if out.status.success() { assert full line }
+# else { assert combined stdout+stderr contains "E5506" }`); pinning only
+# the currently-observed success branch would either drop the source's
+# E5506 alternative (a weakening) or require asserting `stderr_absent =
+# ["E5506"]` against a literal that lives only in the untaken branch's code
+# (a fabricated claim a first draft of this migration added and review
+# rejected -- see that file's `//!` doc for the full reasoning). Both an
+# audit-exception mechanism and a reachability analysis to justify that
+# shape were explicitly rejected.
 #
 # The file's opening `//!` doc is prepended verbatim to every case's
 # rationale. `assert_stdout_line`'s own `///` doc (explaining why
@@ -39,12 +53,6 @@
 # on stdout, `error`/`warn` on stderr) each sink actually uses, and
 # pinned to that SPECIFIC stream via `stdout_contains`/`stderr_contains`,
 # strictly stronger than the source's "either stream" check.
-# `multi_arg_never_exits_zero_with_a_dropped_argument`'s body branches on
-# `out.status.success()` in source -- verified against the real built
-# kali binary: it takes the SUCCESS branch with the full undropped line,
-# so `exit = "success"` + exact `stdout` is pinned as the exact,
-# currently-observed branch, per rule 11's disjunction-resolution
-# principle.
 
 [source]
 "multi_arg_literal_then_runtime_concat_prints_both.ts" = """console.log(5, "y=" + 6);
@@ -92,9 +100,6 @@ console.info("S", v);
 """
 "every_console_sink_prints_all_arguments_debug.ts" = """const v = "y=" + 6;
 console.debug("S", v);
-"""
-"multi_arg_never_exits_zero_with_a_dropped_argument.ts" = """function f(x) { return x + 1; }
-console.log("head", f(1), "tail-should-print");
 """
 
 [[case]]
@@ -439,23 +444,3 @@ Every affected console sink shares the one lowering choke point, so each one mus
 args = ["run", "every_console_sink_prints_all_arguments_debug.ts"]
 exit = "success"
 stdout_contains = ["S y=6"]
-
-[[case]]
-name = "multi_arg_never_exits_zero_with_a_dropped_argument"
-rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
-
-The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
-
-This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
-
-The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
-
-Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
-
-The no-silent-loss invariant stated directly: whatever the runtime can or cannot render, a multi-argument call must either print every argument or fail closed with a diagnostic. It must never exit 0 having printed a strict prefix of its arguments.
-
-Migration note: the source's else-branch checks combined.contains("E5506") for the fail-closed alternative; verified against the real built kali binary, THIS fixture takes the success branch (the full undropped line prints), so E5506 never appears in its stderr -- stderr_absent = ["E5506"] records that verified, true fact (a genuine strengthening, not a fabricated claim) so the untaken branch's literal, which the audit script's regex sees regardless of which branch a fixture takes, is honestly accounted for."""
-args = ["run", "multi_arg_never_exits_zero_with_a_dropped_argument.ts"]
-exit = "success"
-stdout = "head 2 tail-should-print\n"
-stderr_absent = ["E5506"]

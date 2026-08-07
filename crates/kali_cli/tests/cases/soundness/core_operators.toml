@@ -124,7 +124,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 1: `&&` / `||` short-circuit ---------------------------------------------------------------------------
+---- Defect 1: `&&` / `||` short-circuit ----
 
 The minimal reported repro: a false `&&` LHS and a true `||` LHS must both skip their right-hand operand entirely, so `boom()` never runs. Pre-fix this printed `calls=2` — the branch outcomes were already right, only the side effects leaked."""
 args = ["run", "short_circuit_skips_right_operand_in_condition_position.ts"]
@@ -143,7 +143,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 1: `&&` / `||` short-circuit ---------------------------------------------------------------------------
+---- Defect 1: `&&` / `||` short-circuit ----
 
 Same short-circuit, but entirely inside a function body and mixing a short-circuited `&&` with a genuinely-taken branch, so the fix is pinned in a local-slot context as well as at module scope."""
 args = ["run", "short_circuit_in_function_body_with_taken_branch.ts"]
@@ -162,7 +162,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 1: `&&` / `||` short-circuit ---------------------------------------------------------------------------
+---- Defect 1: `&&` / `||` short-circuit ----
 
 Value position: JS `&&`/`||` yield an OPERAND, not a normalized boolean, and the skipped operand's side effect never happens. `false || bump()` and `true && bump()` each run `bump` exactly once and evaluate to its `7`. Pre-fix: `n` was `4` here (both operands of both logicals evaluated)."""
 args = ["run", "short_circuit_value_position_evaluates_right_operand_exactly_once.ts"]
@@ -181,7 +181,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 1: `&&` / `||` short-circuit ---------------------------------------------------------------------------
+---- Defect 1: `&&` / `||` short-circuit ----
 
 The `const x = a || b` value-position form from the brief. This asserts the VALUES only, deliberately not the call count: a `const` bound to a call-valued init is re-emitted at every read by the `const` fold-alias lane, which double-evaluates the call. That is a separate PRE-EXISTING defect — it reproduces on a clean tree with no logical operator in sight (`const a = bump(); console.log(a); console.log(n)` prints `7` then `2`) — and is out of scope here. The values themselves are correct."""
 args = ["run", "short_circuit_const_binding_yields_right_operand_value.ts"]
@@ -200,7 +200,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 1: `&&` / `||` short-circuit ---------------------------------------------------------------------------
+---- Defect 1: `&&` / `||` short-circuit ----
 
 Chained logicals: `ff() && t() && t()` must call `ff` once and stop; `t() || ff() || ff()` must call `t` once and stop. The `n` total (`101`) proves exactly one call landed on each chain, and the branch outcomes prove the chains still evaluate to the right truthiness. Pre-fix `n` was `303`."""
 args = ["run", "chained_logicals_short_circuit_after_first_decisive_operand.ts"]
@@ -219,7 +219,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 1: `&&` / `||` short-circuit ---------------------------------------------------------------------------
+---- Defect 1: `&&` / `||` short-circuit ----
 
 Nested/mixed logicals in condition position: the `||` inside a short-circuited `&&` must not run at all, and a nested `&&` inside a taken `||` arm must."""
 args = ["run", "nested_logicals_short_circuit.ts"]
@@ -241,7 +241,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 2: boolean rendering in string position ---------------------------------------------------------------------------
+---- Defect 2: boolean rendering in string position ----
 
 The minimal reported repro. `console.log(true)` on a bare literal was already correct (static render path); concatenation in EITHER direction, and a function-local `const` boolean, all rendered `0`/`1` pre-fix."""
 args = ["run", "booleans_render_as_true_false_in_string_concatenation.ts"]
@@ -260,7 +260,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 2: boolean rendering in string position ---------------------------------------------------------------------------
+---- Defect 2: boolean rendering in string position ----
 
 Comparison and negation results are booleans and must stringify as such. Pre-fix these were `eq=1 / ne=0 / lt=1 / not=0`."""
 args = ["run", "comparison_results_render_as_true_false_in_concatenation.ts"]
@@ -279,7 +279,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 2: boolean rendering in string position ---------------------------------------------------------------------------
+---- Defect 2: boolean rendering in string position ----
 
 String `+=` is a second stringify site with the same coercion helper, so it carries the same defect and needs the same pin. Pre-fix: `10`."""
 args = ["run", "booleans_render_as_true_false_in_string_compound_assignment.ts"]
@@ -298,7 +298,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 2: boolean rendering in string position ---------------------------------------------------------------------------
+---- Defect 2: boolean rendering in string position ----
 
 Documents the CURRENT (still-wrong) behavior of the sibling stringify choke point that this change deliberately does NOT touch, so the residual is pinned and visible rather than forgotten.
 
@@ -321,7 +321,7 @@ Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `conso
 
 Every golden in this file was verified against node v26.
 
---------------------------------------------------------------------------- Defect 2: boolean rendering in string position ---------------------------------------------------------------------------
+---- Defect 2: boolean rendering in string position ----
 
 A boolean must NOT poison the numeric lane: arithmetic on comparison results still coerces to 0/1 the way JS does, and non-boolean scalars must keep rendering as numbers. Guards the fix against over-applying the boolean arm."""
 args = ["run", "boolean_rendering_does_not_leak_into_numeric_lane.ts"]

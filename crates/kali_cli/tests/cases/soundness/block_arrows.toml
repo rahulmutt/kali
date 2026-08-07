@@ -43,6 +43,16 @@
 # rationale) -- per rule 1, NOT run against the real binary; `stdout` is
 # pinned to the literal the source asserts ("42\n"), faithful to what
 # the test is supposed to prove once un-ignored, matching `ignore = true`.
+# `anonymous_export_default_function_compiles_and_runs` asserts
+# `stderr.is_empty()` in source ("expected no diagnostics") -- exact
+# stderr equality, which had no expressible form until this review round
+# added `Step::stderr` to kali_case_runner (symmetric with `stdout`;
+# `stderr_contains`/`stderr_absent` are both substring claims and neither
+# can express "stderr is exactly empty" -- a stray unrelated diagnostic
+# would satisfy every `stderr_absent` needle while still not being what
+# the source asserted). Verified against the real built kali binary:
+# stderr is empty, so `stderr = ""` is pinned, the exact claim the source
+# made.
 # Every other case compares RAW (untrimmed) stdout via `assert_eq!`
 # directly -- no `.trim()` -- so `stdout` is a direct copy of the
 # literal.
@@ -187,6 +197,7 @@ rationale = """Task 3 (B): an anonymous `export default function () {}` must com
 args = ["run", "anonymous_export_default_function_compiles_and_runs.js"]
 exit = "success"
 stdout = "ok\n"
+stderr = ""
 
 [[case]]
 name = "class_method_bodies_return_their_value"
