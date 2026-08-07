@@ -5,11 +5,19 @@
 # fan the run/test-harness cases out to ts/jsx/tsx too, which were never
 # tested).
 #
-# Unlike from_bracketed_root_wrappers.toml and its two siblings, this
+# Unlike `array_from_bracketed_root_wrappers.rs`,
+# `array_from_fully_bracketed_single_quoted_wrappers.rs`,
+# `array_from_global_this_dot_root_wrappers.rs`, and
+# `array_from_set_map_dot_root_aliases.rs` -- which stayed hand-written
+# (fix-round review, Finding 3, Class A: their shared helpers' `if
+# json_output {...}` branches are dead code no call site ever reaches, so
+# migrating them either left real audit tokens unaddressed or required
+# inventing coverage for unreachable code; per the human-partner ruling,
+# those four join the spec §5.11 keep list rather than either) -- this
 # file's #[test] fns DO call the shared helpers with `json_output=true`
 # at real, explicit call sites (`json_run_supports_...`,
 # `json_test_supports_...`, `json_build_emits_...`), so no extra
-# "reachable but unexercised" coverage cases are needed here -- every
+# "reachable but unexercised" coverage cases were needed here -- every
 # json case below maps 1:1 (or 1:2, for the jsx/tsx loop that calls both
 # json and non-json per iteration) to a real #[test].
 #

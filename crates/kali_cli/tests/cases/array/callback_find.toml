@@ -25,27 +25,45 @@
 #     cases 1:1). Fixture: `main.<ext>` for run (same body as group B),
 #     `smoke.test.<ext>` for test (the `Kali.test`-wrapped body).
 #
-# Format gap, not silently dropped: group B's `check`/`json_check` cases
-# assert `json["stdout"].is_null()` and `json["stderr"].is_null()` in the
-# source. TOML has no null literal (same gap `char_at_static_ascii.toml`
-# and `repeat_static_ascii.toml` document for `"fix": null`), so those two
-# specific null-valued sub-claims are not expressible as a `json.*`
-# equality and are not asserted for `check` here. The audit script still
-# tracks the bare token "stderr" as a claim (it scans for literal text,
-# not for which case a key is attached to); group C's `json_run_harness_*`
-# / `json_test_harness_*` cases below assert `json.stderr = ""`, which is
-# real, verified behavior of this same command family (confirmed by
-# running the built `kali` binary directly) and closes that token's
-# coverage honestly rather than by fabricating a value for `check`.
+# Format gap (Class B -- real, reachable claim, TOML genuinely cannot
+# express it): group B's `check`/`json_check` cases assert
+# `json["stdout"].is_null()` and `json["stderr"].is_null()` in the source,
+# for the `check` command specifically (`json_check_supports_find_family_
+# in_browser_api_surface_js_ts_jsx_and_tsx_input` really does call with
+# `json_output = true`, so this is reachable, not dead code). TOML has no
+# null literal (same gap `char_at_static_ascii.toml` documents for
+# `"fix": null`), so this was previously worked around by asserting
+# `json.stderr = ""` on the unrelated `json_run_harness_*`/
+# `json_test_harness_*` cases below purely to satisfy the audit's bare
+# "stderr" token -- that was wrong (fix-round review, Finding 3): those
+# cases never made that claim in the source, so asserting it there was
+# inventing a claim to satisfy the gate, not preserving one. Removed.
+# The real claim is now expressed with `json_null = ["stdout", "stderr"]`
+# on the `json_check_browser_*` cases below, using the `json_null` step
+# key added in this fix round specifically to close this class of gap
+# (crates/kali_case_runner/src/model.rs). Note: `scripts/audit-case-
+# migration.py` does not yet recognize `json_null` as a claim-bearing
+# key (out of scope for that round per explicit instruction), so its
+# mechanical scan will still report the "stdout"/"stderr" tokens as
+# missing even though they are now genuinely, verifiably asserted --
+# a known, disclosed limitation of the audit script, not of this file.
 #
-# starts_with note: group C's non-json `run`/`test` branch used
-# `stdout.starts_with("2\n2\n1\n1\n3\n3\n2\n2\n")` (an 8-line prefix), plus
-# a separate `contains("ok 1")` for `test`. Confirmed by running the built
-# `kali` binary directly: nothing ever precedes the program's own console
-# output in `run`/`test` plain-text stdout, so `stdout_contains` for that
-# same block is not a weakening -- see the family header in
-# callback_number_predicates_runtime.toml for the fuller version of this
-# reasoning, which applies identically here.
+# starts_with note (fix-round review, Finding 1): group C's non-json
+# `run`/`test` branch used `stdout.starts_with("2\n2\n1\n1\n3\n3\n2\n2\n")`
+# (an 8-line prefix) plus a separate `contains("ok 1")` for `test`. The
+# original migration downgraded this to `stdout_contains`, reasoning that
+# nothing precedes program output in practice -- but that is a claim about
+# today's binary, not about the assertion, and `contains` drops the
+# position-0 anchor `starts_with` was checking (a regression that
+# prepends a banner would fail the old test and pass the new one). Fixed:
+# the real full-line stdout for both `run` and `test` was confirmed
+# byte-exact against the built `kali` binary
+# (`2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n`, plus `ok 1\n` for
+# `test`), so `run_harness_*`/`test_harness_*` below now assert exact
+# `stdout`, which is strictly stronger than `starts_with` and not a
+# weakening. Group A's `test_js`/`test_ts` cases are unaffected: their
+# source assertion was already `.contains()`, not `starts_with()`, so
+# `stdout_contains` there was correct from the start.
 
 [constants]
 plain_body = '''
@@ -190,7 +208,7 @@ exit = "success"
 
 [[case]]
 name = "json_check_browser_js"
-rationale = "Same browser `check`, asserting the JSON output envelope (js). `stdout`/`stderr` are asserted null in the source; TOML cannot express null (see file header), so that sub-claim is not asserted here."
+rationale = "Same browser `check`, asserting the JSON output envelope (js), including that `stdout`/`stderr` are JSON null via json_null -- TOML cannot express null as a `json.*` equality (see file header for why this needed a runner format extension)."
 args = ["--output", "json", "check", "--api", "browser", "main.js"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"
@@ -202,6 +220,7 @@ json.errors = []
 json.payload.errorCount = 0
 json.payload.filesChecked = 1
 json.payload.warningCount = 0
+json_null = ["stdout", "stderr"]
 
 [[case]]
 name = "json_check_browser_ts"
@@ -217,6 +236,7 @@ json.errors = []
 json.payload.errorCount = 0
 json.payload.filesChecked = 1
 json.payload.warningCount = 0
+json_null = ["stdout", "stderr"]
 
 [[case]]
 name = "json_check_browser_jsx"
@@ -232,6 +252,7 @@ json.errors = []
 json.payload.errorCount = 0
 json.payload.filesChecked = 1
 json.payload.warningCount = 0
+json_null = ["stdout", "stderr"]
 
 [[case]]
 name = "json_check_browser_tsx"
@@ -247,6 +268,7 @@ json.errors = []
 json.payload.errorCount = 0
 json.payload.filesChecked = 1
 json.payload.warningCount = 0
+json_null = ["stdout", "stderr"]
 
 [[case]]
 name = "build_browser_js"
@@ -340,7 +362,7 @@ rationale = "`run --api browser` with a configured browser harness command suppo
 args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.js"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"
-stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
 
 [[case]]
 name = "run_harness_ts"
@@ -348,7 +370,7 @@ rationale = "`run --api browser` with a configured browser harness command suppo
 args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.ts"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"
-stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
 
 [[case]]
 name = "run_harness_jsx"
@@ -356,7 +378,7 @@ rationale = "`run --api browser` with a configured browser harness command suppo
 args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.jsx"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"
-stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
 
 [[case]]
 name = "run_harness_tsx"
@@ -364,7 +386,7 @@ rationale = "`run --api browser` with a configured browser harness command suppo
 args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.tsx"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"
-stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n"]
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
 
 [[case]]
 name = "test_harness_js"
@@ -372,7 +394,7 @@ rationale = "`test --api browser` with a configured browser harness command supp
 args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.js"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"
-stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n", "ok 1"]
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\nok 1\n"
 
 [[case]]
 name = "test_harness_ts"
@@ -380,7 +402,7 @@ rationale = "`test --api browser` with a configured browser harness command supp
 args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.ts"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"
-stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n", "ok 1"]
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\nok 1\n"
 
 [[case]]
 name = "test_harness_jsx"
@@ -388,7 +410,7 @@ rationale = "`test --api browser` with a configured browser harness command supp
 args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.jsx"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"
-stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n", "ok 1"]
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\nok 1\n"
 
 [[case]]
 name = "test_harness_tsx"
@@ -396,7 +418,7 @@ rationale = "`test --api browser` with a configured browser harness command supp
 args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.tsx"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"
-stdout_contains = ["2\n2\n1\n1\n3\n3\n2\n2\n", "ok 1"]
+stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\nok 1\n"
 
 [[case]]
 name = "json_run_harness_js"
@@ -409,7 +431,6 @@ json.command = "run"
 json.success = true
 json.exitCode = 0
 json.errors = []
-json.stderr = ""
 json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
 
 [[case]]
@@ -423,7 +444,6 @@ json.command = "run"
 json.success = true
 json.exitCode = 0
 json.errors = []
-json.stderr = ""
 json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
 
 [[case]]
@@ -437,7 +457,6 @@ json.command = "run"
 json.success = true
 json.exitCode = 0
 json.errors = []
-json.stderr = ""
 json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
 
 [[case]]
@@ -451,7 +470,6 @@ json.command = "run"
 json.success = true
 json.exitCode = 0
 json.errors = []
-json.stderr = ""
 json.stdout = "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
 
 [[case]]

@@ -1,20 +1,18 @@
 # Migrated from tests/array_callback_number_predicates_runtime.rs -- all 4
 # #[test] functions, 1:1 as 4 case blocks.
 #
-# Controller pre-check ruling on this file's one `starts_with` use
-# (test_supports_number_predicates_in_js_input, non-json branch):
-# `stdout.starts_with("1\n0\n1\n0\n1\n1\n")` is a full-line prefix (the
-# needle ends on a newline boundary) immediately followed only by the
-# `test` command's own "ok 1" footer -- confirmed by running the built
-# `kali` binary directly against this fixture: `test`'s plain-text stdout
-# is exactly "1\n0\n1\n0\n1\n1\nok 1\n", nothing else. `stdout_contains`
-# for that same six-line block, plus the file's own separate
-# `stdout.contains("ok 1")` assertion, therefore verifies the identical
-# real behavior `starts_with` did -- the "prefix, not just present
-# somewhere" guarantee `starts_with` adds is not independently meaningful
-# here, since nothing in `test`'s output model can print before the
-# program's own console output. Maps cleanly onto `stdout_contains`; kept
-# in the case files, not on the hand-written keep list.
+# Fix-round review, Finding 1: this file's one `starts_with` use
+# (test_supports_number_predicates_in_js_input, non-json branch),
+# `stdout.starts_with("1\n0\n1\n0\n1\n1\n")`, was originally downgraded to
+# `stdout_contains` on the reasoning that nothing precedes program output
+# in `test`'s plain-text stdout today -- but that is a claim about
+# today's binary, not about the assertion: a regression that ever
+# prepended a banner would fail the old test and pass the new one, which
+# is exactly the position-0 anchor `starts_with` existed to catch.
+# Confirmed by running the built `kali` binary directly against this
+# fixture that the real full stdout is exactly "1\n0\n1\n0\n1\n1\nok 1\n",
+# so `test_supports` below now asserts exact `stdout`, which is strictly
+# stronger than `starts_with` and not a weakening.
 
 [constants]
 # The source .rs file's `number_predicates_source()` and
@@ -60,10 +58,10 @@ json.errors = []
 
 [[case]]
 name = "test_supports"
-rationale = "The same number predicates inside a `Kali.test` block, run via `test`. The original assertion used `starts_with` on this six-line block followed by a separate `contains(\"ok 1\")` check -- see this file's header for why `stdout_contains` is not a weakening here."
+rationale = "The same number predicates inside a `Kali.test` block, run via `test`. The original assertion combined `starts_with` on this six-line block with a separate `contains(\"ok 1\")` check; both are subsumed by the exact `stdout` equality below (verified against the real binary -- see file header)."
 args = ["test", "smoke.test.js"]
 exit = "success"
-stdout_contains = ["1\n0\n1\n0\n1\n1\n", "ok 1"]
+stdout = "1\n0\n1\n0\n1\n1\nok 1\n"
 
 [[case]]
 name = "json_test_supports"
