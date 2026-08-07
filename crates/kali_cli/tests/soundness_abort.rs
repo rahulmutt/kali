@@ -6,13 +6,19 @@
 //! keeps exactly `acceptance_web_baseline_prefix_matches_node_byte_for_byte`,
 //! because it asserts kali's stdout is BYTE-FOR-BYTE IDENTICAL to a live
 //! `node <file>` invocation on the same fixture -- a genuine dual-process
-//! comparison the case-runner format cannot express. Confirmed directly
+//! COMPARISON the case-runner format cannot express. Confirmed directly
 //! against `crates/kali_case_runner/src/{steps,assertions,model}.rs`: a
-//! `cli` step always runs the fixed `config.kali_bin` (no field to name a
-//! second program), and no code anywhere in the crate spawns two processes
-//! and diffs their output -- every assertion checks exactly one process's
-//! own captured `Captured { code, success, stdout, stderr }`. Kept
-//! hand-written per spec 5.11's "outliers" bucket (the `starts_with`/
+//! step (whichever of the three kinds -- `cli` runs the fixed
+//! `config.kali_bin`; `browser_bundle_harness` runs a second, separately
+//! resolved executable via `browser_harness_command_parts_checked`, itself
+//! `env`-overridable; `file_json` runs nothing at all) is captured and
+//! checked exactly once, against ONE `Captured { code, success, stdout,
+//! stderr }` (`steps.rs`'s `capture`/`run_cli`/`run_browser_bundle_harness`,
+//! each followed by a single `check`/`check_json` call). No step spawns two
+//! processes and compares their outputs against EACH OTHER the way this
+//! test compares kali against `node` -- that is the capability gap this
+//! file exists to document, not "no code here ever spawns a process."
+//! Kept hand-written per spec 5.11's "outliers" bucket (the `starts_with`/
 //! `lines()` sites' sibling category: "if they do not fit S5.4"), trimmed
 //! to just this test and the two helpers it needs.
 

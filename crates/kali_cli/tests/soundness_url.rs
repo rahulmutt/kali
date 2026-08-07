@@ -6,8 +6,12 @@
 //! keeps exactly `acceptance_web_baseline_with_url_matches_node_byte_for_byte`,
 //! because it asserts kali's stdout is BYTE-FOR-BYTE IDENTICAL to a live
 //! `node <file>` invocation on the same fixture -- a genuine dual-process
-//! comparison the case-runner format cannot express (see
-//! `soundness_abort.rs`'s matching residual for the full confirmation against
+//! COMPARISON the case-runner format cannot express: every step (`cli`,
+//! `browser_bundle_harness`, or `file_json`) is captured and checked exactly
+//! once, against ONE `Captured { code, success, stdout, stderr }`; no step
+//! spawns two processes and compares their outputs against EACH OTHER the
+//! way this test compares kali against `node` (see `soundness_abort.rs`'s
+//! matching residual for the full confirmation against
 //! `crates/kali_case_runner/src/{steps,assertions,model}.rs`). Kept
 //! hand-written per spec 5.11's "outliers" bucket, trimmed to just this test
 //! and the two helpers it needs.
