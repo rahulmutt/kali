@@ -389,6 +389,8 @@ args = ["test", "deferred_test_callback_runs_with_its_env.test.js"]
 exit = "success"
 stdout_contains = ["a=41", "b=7"]
 
+# --- Phase C4 — fail-closed boundaries (brief Steps 1-2) ---
+
 [[case]]
 name = "array_callback_capture_fails_closed"
 rationale = """Stage C (closures) C1 — synchronous scalar capture end-to-end.
@@ -468,7 +470,7 @@ These pin the boundaries around the lowered closure surface. Every case below wa
 
 F-AB-2 danger NOT reachable: a STRING capture in an exotic-position body fails closed (E3200) rather than silently lowering the string handle to i64. This is the concrete "string-element in an exotic body would silently lower to i64" scenario the F-AB-2 note warns about — pinned as fail-closed.
 
-F-AB-2 danger NOT reachable: a STRING capture in an exotic-position body fails closed (E3200) rather than silently lowering the string handle to i64. This is the concrete "string-element in an exotic body would silently lower to i64" scenario the F-AB-2 note warns about — pinned as fail-closed. The source asserts `stderr.contains("E3200") || stderr.contains("E5506")`, a disjunction the case format cannot express as an OR; verified against the real built kali binary, this program currently emits E3200 (not E5506) -- pinned as the exact, strictly stronger, currently-observed code rather than left as an untranslated OR."""
+The source asserts `stderr.contains("E3200") || stderr.contains("E5506")`, a disjunction the case format cannot express as an OR; verified against the real built kali binary, this program currently emits E3200 (not E5506) -- pinned as the exact, strictly stronger, currently-observed code rather than left as an untranslated OR."""
 args = ["run", "exotic_string_capture_in_array_element_fails_closed.js"]
 exit = "failure"
 stderr_contains = ["E3200"]
@@ -489,6 +491,8 @@ Assert the program is REJECTED with `E5506` (the reject-don't-miscompile contrac
 args = ["run", "exotic_growable_capture_in_array_element_fails_closed.js"]
 exit = "failure"
 stderr_contains = ["E5506"]
+
+# --- Task 8 — adversarial whole-stage sweep (brief Step 3 + controller amendments) ---
 
 [[case]]
 name = "recursion_distinct_envs_fails_closed"
@@ -559,6 +563,8 @@ Run a `*.test.js` fixture through the `kali test` harness. Registered `Kali.test
 args = ["test", "deferred_drain_cleanliness_post_drain_capture_resolves.test.js"]
 exit = "success"
 stdout_contains = ["a=41", "b=7", "c=2"]
+
+# --- Deferred-surface fail-closed pins (rows o/p/q — Concern-2 fix). ---
 
 [[case]]
 name = "deferred_queue_microtask_capturing_callback_now_runs"
@@ -720,6 +726,8 @@ args = ["run", "deferred_reassigned_callback_provenance_fails_closed.js"]
 exit = "failure"
 stderr_contains = ["E5506"]
 
+# --- Stage-review fix wave (2026-07-16) — dynamic-env safety gate (CRITICAL) + scheduling-surface default-deny (IMPORTANT-1) + Kali.test fallback (IMPORTANT-2). ---
+
 [[case]]
 name = "dynamic_env_sibling_write_capturer_fails_closed"
 rationale = """Stage C (closures) C1 — synchronous scalar capture end-to-end.
@@ -850,6 +858,8 @@ Stage D: a CAPTURING microtask callback runs with its owner's env record (the C3
 args = ["run", "deferred_queue_microtask_capturing_callback_runs_with_env.js"]
 exit = "success"
 stdout = "sync=5\nmt=6\n"
+
+# --- Stage D task D2 — timer lanes (setTimeout / setInterval / clearTimeout / clearInterval). ---
 
 [[case]]
 name = "deferred_queue_microtask_bound_return_value_runs_callback_once"

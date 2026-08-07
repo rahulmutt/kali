@@ -75,6 +75,8 @@
 "write_materialized_bool_stays_untouched.js" = "var o = { f: false }; o.f = true; console.log(o.f);"
 "mixed_bool_numeric_field_over_denies_e5506.js" = "var o = { f: 7, g: true }; console.log(o.f);"
 
+# --- Green pins: read-only mutable object literals materialize correctly ---
+
 [[case]]
 name = "var_object_numeric_field_reads_value"
 rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
@@ -120,6 +122,8 @@ Compile+run, assert fail-closed with E5506."""
 args = ["run", "var_object_bool_field_reads_value.js"]
 exit = "failure"
 stderr_contains = ["E5506"]
+
+# --- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ---
 
 [[case]]
 name = "bool_via_variable_fails_closed"
@@ -214,6 +218,8 @@ args = ["run", "var_object_negative_field_reads_value.js"]
 exit = "success"
 stdout = "-7\n"
 
+# --- Unary-on-string pins (task review round 4, 2026-07-24) ---
+
 [[case]]
 name = "unary_plus_on_nonnumeric_string_fails_closed"
 rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
@@ -278,7 +284,9 @@ The unary +/- arm of `object_field_value_is_safe_for_materialization` used to re
 
 R-06-R4 (root cause corrected on task review 2026-07-24): this is a pre-existing multi-arg `console.log` SINK bug, not a field-repr gap. A single-arg `console.log(o.s)` reads a String field correctly ("hi"), which disproves "object fields have no Repr::String axis" — the field itself is fine. The corruption is specific to a String field being a NON-SOLE argument of a multi-arg `console.log` call: `const o={n:7,s:"hi"}; console.log(o.n,o.s)` corrupts IDENTICALLY, and `const` never materializes / never touches R-06 at all, proving this is a pre-existing downstream sink bug outside R-06's scope. R-06 merely routes the read-only var object to the same already-broken sink. See task-1-report.md.
 
-Compile+run, assert success, return trimmed stdout."""
+Compile+run, assert success, return trimmed stdout.
+
+Migration note: this case is `ignore = true` (matching the source's own `#[ignore]`), so it is not run against today's known-broken binary; `stdout` is pinned to the source's literal "7 hi" WITHOUT a trailing newline, unlike every sibling case in this file (which pin the raw untrimmed stdout, e.g. "7\\n", "6\\n", ...). Whoever removes the `ignore` should expect a spurious trailing-newline failure against the raw (untrimmed) stdout the runner actually captures, and will need to either trim the comparison or repin to the untrimmed value at that time."""
 ignore = true
 args = ["run", "var_object_mixed_fields_read.js"]
 exit = "success"
@@ -312,6 +320,8 @@ args = ["run", "const_object_still_folds.js"]
 exit = "success"
 stdout = "7\n"
 
+# --- Fail-closed pins: shapes the materialized lane cannot store ---
+
 [[case]]
 name = "var_object_nested_field_fails_closed"
 rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
@@ -337,6 +347,8 @@ Compile+run, assert fail-closed with E5506."""
 args = ["run", "var_object_unknown_field_fails_closed.js"]
 exit = "failure"
 stderr_contains = ["E5506"]
+
+# --- Residual guards (out of scope): must be NO WORSE than main. ---
 
 [[case]]
 name = "returned_object_member_read_no_worse"
@@ -369,6 +381,8 @@ Verified against the real built kali binary: this program currently exits succes
 args = ["run", "object_literal_reassignment_no_worse.js"]
 exit = "success"
 stdout = "1\n0\n"
+
+# --- Regression pins (Task 1 review): lock in R-06 soundness invariants ---
 
 [[case]]
 name = "write_materialized_bool_stays_untouched"

@@ -18,8 +18,8 @@
 # batch-2 lesson that a bare banner-grep silently drops this class.
 # `assert_fails_closed`'s own `///` doc comment ("A call-through-a-value must
 # fail closed with `E5506`...") is claim prose, not boilerplate, and is
-# appended to the rationale of every case that helper produced (14 of the
-# 20); `assert_stdout` has no doc comment, so nothing is appended for its 6
+# appended to the rationale of every case that helper produced (17 of the
+# 20); `assert_stdout` has no doc comment, so nothing is appended for its 3
 # cases.
 #
 # No [constants]: no `const NAME: &str` rule-literal declarations, no
@@ -134,6 +134,8 @@ console.log(direct());
 console.log("sum=" + add(2, 3));
 """
 
+# --- The controller-verified repro: a returned closure. ---
+
 [[case]]
 name = "calling_a_returned_closure_fails_closed"
 rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
@@ -158,6 +160,8 @@ A call-through-a-value must fail closed with `E5506` — never exit 0 having sil
 args = ["run", "calling_a_returned_closure_fails_closed.ts"]
 exit = "failure"
 stderr_contains = ["E5506", "first-class function value"]
+
+# --- The rest of the family. ---
 
 [[case]]
 name = "calling_a_function_alias_fails_closed"
@@ -259,6 +263,8 @@ args = ["run", "calling_a_function_held_in_an_object_field_fails_closed.ts"]
 exit = "failure"
 stderr_contains = ["E5506", "first-class function value"]
 
+# --- A silently-skipped call is worse than a wrong value: it takes the wrong branch. ---
+
 [[case]]
 name = "a_call_through_a_value_never_silently_skips_its_side_effect"
 rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
@@ -333,6 +339,8 @@ A call-through-a-value must fail closed with `E5506` — never exit 0 having sil
 args = ["run", "calling_a_const_bound_arrow_by_name_fails_closed.ts"]
 exit = "failure"
 stderr_contains = ["E5506", "first-class function value"]
+
+# --- Sibling SPELLINGS. ---
 
 [[case]]
 name = "calling_a_function_named_by_an_object_property_fails_closed"
@@ -507,6 +515,8 @@ args = ["run", "a_parenthesized_direct_call_still_runs.ts"]
 exit = "success"
 stdout = "d=7\n"
 
+# --- Array-callback consistency. ---
+
 [[case]]
 name = "for_each_with_a_callback_fails_closed"
 rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
@@ -581,6 +591,8 @@ A call-through-a-value must fail closed with `E5506` — never exit 0 having sil
 args = ["run", "map_with_a_callback_still_fails_closed.ts"]
 exit = "failure"
 stderr_contains = ["E5506"]
+
+# --- Regression guard: the shipped closure lane. ---
 
 [[case]]
 name = "direct_sibling_capture_still_runs"

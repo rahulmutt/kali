@@ -53,6 +53,13 @@
 # the negative assertion it replaces, with the source's assert_ne! shape
 # recorded in the rationale. Every fixture was independently re-run against
 # the real built kali binary; 0 discrepancies.
+#
+# Migration note: the module doc quoted above claims the file's first test
+# "is `#[ignore]`d here" -- no `#[ignore]` attribute exists anywhere in the
+# source as of this migration (verified by grep across all three
+# occurrences, all inside comments); the claim is stale. Moved verbatim per
+# the rule (move prose, don't silently correct it); flagged here and in
+# every affected case's rationale. None of the 38 cases carry `ignore = true`.
 
 # --- M-3 (case-free; preserved verbatim, covers no #[test] -- see header) ---
 # M-3 (inventory only, no product code): the NAMED-growable `===` lane (`a === b` over two named growable bindings) currently compares the raw i64 tagged handles directly (the scalar `===` arm), which is COINCIDENTALLY correct for pointer identity (equal handles ⇔ same header) but is NOT routed through the Lane-3 same-shape allowlist the FIELD pair uses (`both_growable_field` in operators.rs `emit_binary`). It is sound today only because a growable handle IS its identity; if the handle encoding ever gains non-identity bits (e.g. a generation tag), the named lane must be re-pinned to the allowlisted compare. Field-pair `===` is already gated (Lane 3).
@@ -230,6 +237,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 5 pin (currently RED — enable by removing `#[ignore]` once Task 5's growable-array dispatch accepts a field-read receiver): `o.values` is an object field carrying a `Repr::GrowableArrayI64` handle (Task 3 interns it); `.join(',')` over that field should read the handle through `emit_object_field_read` and route to the growable-array join lane. node v26.5.0 prints "1,2,3"; kali today has no dispatch for a field-read receiver and prints "0" (or errors), per probe p2e."""
 args = ["run", "object_array_field_read_only_join_round_trips.js"]
 exit = "success"
@@ -240,6 +249,8 @@ name = "object_array_field_push_join_length_round_trip"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 5: `.push` / `.join` / `.length` over a `GrowableArrayI64` object field.
 
@@ -256,6 +267,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 5: index read `o.values[i]` and `for (const x of o.values)` over a `GrowableArrayI64` object field. (Single-argument `console.log` per value — see `object_array_field_push_join_length_round_trip` for why the brief's multi-arg form is not used.)
 
 Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
@@ -268,6 +281,8 @@ name = "multi_arg_console_with_growable_field_fails_closed"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 5 soundness pin: a growable-array FIELD read inside a MULTI-argument `console.log` fails closed E5506 (not a silent argument drop) — the field twin of the named-binding `multi_arg_console_log_with_growable_read_fails_closed` contract. This is why the two tests above log each value on its own line.
 
@@ -282,6 +297,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 5 Lane 1 tripwire: a STRING-element array field must NOT dispatch through the i64 growable lane — Task 3 conflicts a string array field to E5506 (fail closed), never a silent miscompile.
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
@@ -294,6 +311,8 @@ name = "same_shape_object_identity_alias_is_true"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 6 (Lane 3): same-shape object identity. `q = p` is aliasing (same heap pointer); `r` is a separately-allocated same-shape object. `p === q` must be real pointer identity (true); `p === r` must be false (distinct allocations), proving the allow lane does real pointer comparison, not a blanket true.
 
@@ -314,6 +333,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 6 (Lane 3): cross-shape `===` still fails closed. This may pass "by accident" even before the allow lane exists (the pre-existing blanket object-misuse gate already E5506s any object-involving `===`) — the alias test above is what actually proves the allow lane exists. This test guards against a future regression where the allow lane is loosened to admit cross-shape comparisons.
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
@@ -326,6 +347,8 @@ name = "object_identity_against_unknown_repr_fails_closed"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 6 (Lane 3) soundness pin: closes the p2a fail-open. One operand (`o`) has a proven object shape; the other (`u`, an unknown-repr parameter) does not. The allow lane requires BOTH operands proven same-shape — an unknown-repr operand must not slip through to a scalar `===` arm (which would silently compare a raw heap pointer against a scalar, or vice versa). Falls to the blanket gate → E5506.
 
@@ -340,6 +363,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 6 (Lane 3): `!==` must not be inverted relative to `===`. The brief's tests only cover `===`; this pins `!==` on the same alias/distinct pair — `p !== q` (alias) is false, `p !== r` (distinct same-shape) is true. Single-argument `console.log` per comparison, raw `0`/`1` output — see `same_shape_object_identity_alias_is_true`'s doc comment for both deviations (multi-arg console.log drop; dynamic-boolean 1/0 rendering).
 
 Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
@@ -352,6 +377,8 @@ name = "structured_clone_deep_clones_scalar_and_array_object"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 8 (Lane 2b): `structuredClone` of an in-envelope object (every field a scalar or a `GrowableArrayI64` array) DEEP-CLONES it — the clone shares no mutable storage with the source, so a later `push` into the SOURCE's array does not appear in the clone.
 
@@ -370,6 +397,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 8 (Lane 2b): the clone is a DISTINCT allocation — `cloned === original` is false. `cloned.values === original.values` is likewise false (the array storage was deep-copied into a fresh handle).
 
 DEVIATION FROM THE BRIEF (documented; same two pre-existing limits as `same_shape_object_identity_alias_is_true`): dynamic booleans render as `1`/`0` (the runtime console lane has no Boolean arm), and multi-argument `console.log` drops trailing arguments — so each comparison is logged alone and the raw `0` (false) is asserted. `cloned === original` is genuine runtime pointer identity (real allocations, not a static fold), which is exactly what proves the clone is not the source object.
@@ -385,6 +414,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 8 (Lane 2b) soundness pin: `structuredClone` of an argument whose shape is NOT provable (an unknown-repr parameter) fails closed E5506 — never a silent shallow copy or a zero placeholder that misreports the clone. The call sits in an uncalled function; codegen still emits its body, so the dispatch fires and denies.
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
@@ -397,6 +428,8 @@ name = "structured_clone_object_pointer_field_identity_fails_closed"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 8 review CRITICAL fix: an object-POINTER field via an IDENTIFIER (`{ a: 1, inner: inner }` where `inner` is object-shaped) must FAIL CLOSED E5506, not intern as a plain `I64` pointer slot. Without the fix, the field passed the clone envelope and the clone verbatim-copied the pointer — SHALLOW-SHARING the nested object: `cloned.inner === original.inner` printed `1` (node: `false`). The rejection is at the inference field-repr choke point (`repr_infer.rs` `resolve_objects`), so it closes the class for ANY consumer; `structuredClone` here is what materializes `original` and unmasks the shape. The inline-literal twin (`{ inner: { b: 2 } }`) is already rejected at record time — this pins the identifier-RHS twin.
 
@@ -411,6 +444,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 8 review CRITICAL fix (read form): the same object-pointer-field program read through the nested property (`cloned.inner.b`) must also FAIL CLOSED E5506 — without the fix it printed `0` (node: `2`), a silent miscompile of the shallow-shared nested object.
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
@@ -423,6 +458,8 @@ name = "structured_clone_scalar_identifier_field_still_clones"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 8 review positive control (NO over-closure): a SCALAR-identifier field (`{ a: n }` where `n` solves to a number) must still clone correctly — the clone-safety allowlist admits a field whose source proves non-object, so a scalar identifier is never flagged. The growable `values` field forces materialization (so the runtime clone lane, not the fold lane, is exercised).
 
@@ -437,6 +474,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 8 re-review CRITICAL (class closure): the clone envelope is a PROVEN-SOURCE ALLOWLIST — a field whose source is a CALL RETURN of an object (`{ inner: mk() }`) is an object pointer that would shallow-share, so the clone fails closed E5506. (Without the allowlist: `cloned.inner === original.inner` → `1` / node `false`.) The rejection is at the clone choke-point clone-safety bit (NOT at materialization), so a call-return object field remains usable by non-clone consumers (e.g. binary-trees' `{ left: bottomUpTree(d) }`, which never clones).
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
@@ -449,6 +488,8 @@ name = "structured_clone_call_return_object_field_nested_read_fails_closed"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 8 re-review CRITICAL (read form): the same call-return object field read through the nested property (`cloned.inner.b`) must also fail closed E5506 (without the allowlist it printed `0` / node `2`).
 
@@ -463,6 +504,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 8 re-review CRITICAL (index-source form): a field whose source is an array element (`{ inner: arr[0] }` over an object-element array) is likewise an object pointer → fail closed E5506 (without the allowlist: `1` / node `false`). Closes the `arr[i]` source shape alongside identifier and call.
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
@@ -475,6 +518,8 @@ name = "structured_clone_call_return_growable_inner_mutation_fails_closed"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 8 re-review CRITICAL (growable-mutation probe): a call-returned inner object carrying a growable array, mutated through the SOURCE after the clone, must fail closed E5506 — a shallow-shared inner would let the clone observe the push (node deep-clones and does not). The clone-safety allowlist denies the whole object (its `inner` field is an object pointer) before any of this can be observed.
 
@@ -489,6 +534,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 8 corpus-regression fix: the package-corpus re-clone shape (`const b = structuredClone(new Blob(['x'])); structuredClone(b);`) must keep BUILDING. `b` is a `const` bound to a `structuredClone` of a zero-placeholder construct (`new Blob`), so it has PROVABLE placeholder provenance and the re-clone stays on the warn-build lane. (Before the fix the identifier arg hit Lane 3 E5506 and 18 corpus builds failed.)
 
 Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
@@ -501,6 +548,8 @@ name = "structured_clone_of_placeholder_const_chain_builds"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 8 corpus-regression fix: placeholder provenance CHAINS through `const` bindings (`const a = new Blob(...); const b = a; structuredClone(b);`) — `b` aliases a const placeholder construct, so it too warn-builds.
 
@@ -515,6 +564,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 8 corpus-regression NEGATIVE control (const-only, no `let` chasing): a `let` binding REASSIGNED to a scalar is NOT placeholder-provable (only `const` single-init bindings qualify), so `structuredClone(b)` must NOT be admitted to the placeholder lane — with a scalar `b` it provably fails closed E5506 via Lane 3. If a future change wrongly admitted mutable bindings to the placeholder lane, this would build (exit 0) and the test would go red.
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
@@ -527,6 +578,8 @@ name = "structured_clone_of_reassigned_let_object_builds_via_lane1"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 8 corpus-regression NEGATIVE control (reviewer's exact shape): a `let` reassigned to an OBJECT LITERAL. It provably does NOT take the placeholder lane (const-only) — instead the in-envelope reassignment `{ x: 1 }` makes it a Lane-1 clone, so it BUILDS (per the contract, Lane 1 here is acceptable; what matters is the mutable binding is never chased into the placeholder lane). Documented deviation: `b.x` is a pre-existing 0 (the placeholder-init-then-object-reassign pattern mis-reprs `b` independently of cloning), so only build-success is asserted.
 
@@ -541,6 +594,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 9 (Lane 2 tripwire): the corpus shape `structuredClone(new Blob([...]))` (see `package_corpus.rs`'s `write_browser_string_web_baseline_package` and `package_corpus/browser_corpus.rs`'s inline `structuredClone(new Blob(['browser corpus']))` fixtures) must keep BUILDING under `kali build --bundle` (Task 8's Lane 2 warn-and-placeholder entry). `Blob` has no real construct lowering (`declarator_init_is_placeholder_construct`, `crates/kali_codegen/src/lower.rs`, treats any bare `new X()` other than `Array`/`Uint8Array`/`EventTarget` as a zero-placeholder), so `structuredClone` of it takes entry 2 (warn + keep the placeholder-0 lowering) rather than entry 3 (fail closed E5506). This test pins that the corpus-shaped program still builds; it must go RED if entry 2 is ever tightened to deny placeholder-construct arguments, since that would break the corpus's `structuredClone(new Blob(...))` / `new File(...)` pins.
 
 Corpus shape: structuredClone(new Blob([...])) must BUILD (check/bundle).
@@ -554,6 +609,8 @@ name = "structured_clone_of_placeholder_construct_tripwire"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Task 9 (Lane 2): CURRENT-RENDERING PIN, not a guard. This asserts what `console.log(typeof b)` prints TODAY for `const b = structuredClone(new Blob(['x']))` — kali's placeholder-0 lowering renders as `"0"`, which happens to differ from node's real `"object"`. It does NOT reliably detect Blob gaining a real construct lowering: review (Task 9) stress-tested the claim and found kali's `typeof <non-literal binding>` prints the raw scalar value for ANY binding, including a real, successfully-cloned in-envelope object (`typeof` only hits a type-name fold lane for a literal operand, e.g. `typeof 5` prints `"number"`; `let x = 5; console.log(typeof x);` prints `"5"`, not `"number"`, and the same holds for an object binding). So this assertion would keep passing even after Blob gained a real lowering, as long as the result still isn't a literal — it has no discriminating power over that event. The REAL forward guard is `structured_clone_of_placeholder_construct_emits_e8001_warning` below, which asserts the Lane-2 warn diagnostic itself, not a rendering side-effect of it. This test is kept only as a current-behavior pin (useful for noticing an unrelated `typeof`-rendering change), with its guard claim removed.
 
@@ -572,6 +629,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Task 9 review fix: THE REAL forward guard for the Blob placeholder-construct lane. Review found the `typeof`-divergence test above cannot discriminate Blob gaining a real lowering (see its doc comment). The actual signal that `structuredClone(new Blob(...))` took the Lane-2 warn-build path — i.e., that `Blob` is STILL in the zero-placeholder exclusion set — is the **E8001** "no-op placeholder" diagnostic (`crates/kali_codegen/src/emit/call.rs`, pushed right before the Lane-2 warn-build return). That diagnostic is emitted IFF `declarator_init_is_placeholder_construct` (or its placeholder-provenance identifier extension, `a0770edce`) matches the argument — it disappears the day `Blob` is removed from the exclusion list (a real lowering routes through Lane 1, a dedicated Blob lane, or Lane 3 instead, none of which emit this warning). THIS is the guard: it goes RED (E8001 stops appearing) exactly when Blob's exclusion-list membership changes, forcing the decision the tripwire exists to force.
 
 Why this is paired with an UNRELATED, independently-established fail-closed case (`structured_clone_of_unproven_argument_fails_closed`'s exact `function f(u) { return structuredClone(u); }` shape) rather than asserted on a standalone successful build: `kali build`'s SUCCESS path structurally never returns warnings (see `build_bundle_output`'s doc comment) — verified empirically that a program which demonstrably executes the Lane-2 codegen branch (its `kali run` output is the placeholder value) still reports zero warnings via `kali build`/`run`/ `check`, in both plain-text stderr and `--output json`'s `"warnings"` array. Pairing with an unrelated failure routes the SAME diagnostics list (E8001 for the Blob line, accumulated during the same codegen pass) through the CLI's failure path, which is the only path that returns it. The two structuredClone call sites are independent (different arguments, different lanes), so the E8001 assertion is scoped precisely to the Blob line and is not a side effect of the unrelated E5506.
@@ -583,11 +642,15 @@ args = ["build", "--bundle", "--api", "browser", "structured_clone_of_placeholde
 exit = "failure"
 stderr_contains = ["E5506", "E8001", "no-op placeholder"]
 
+# --- Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3). ---
+
 [[case]]
 name = "growable_field_reassignment_fails_closed"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3). Every soundness rule is ALLOWLIST-at-choke-point / default-deny: an out-of-envelope growable-array-field use is E5506 (fail closed), NEVER a silent miscompile or a raw-handle escape.
 
@@ -604,6 +667,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3). Every soundness rule is ALLOWLIST-at-choke-point / default-deny: an out-of-envelope growable-array-field use is E5506 (fail closed), NEVER a silent miscompile or a raw-handle escape.
 
 C-1b (silent drop close): an element WRITE through a `GrowableArrayI64` field (`o.values[0] = 9`) must FAIL CLOSED E5506, mirroring the named-lane twin (`a[0] = 9`, which already E5506s). RED before the fix: the write was silently DROPPED (`o.values.join(',')` printed `1,2,3`; node prints `9,2,3`).
@@ -618,6 +683,8 @@ name = "growable_field_bare_read_fails_closed"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3). Every soundness rule is ALLOWLIST-at-choke-point / default-deny: an out-of-envelope growable-array-field use is E5506 (fail closed), NEVER a silent miscompile or a raw-handle escape.
 
@@ -634,6 +701,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3). Every soundness rule is ALLOWLIST-at-choke-point / default-deny: an out-of-envelope growable-array-field use is E5506 (fail closed), NEVER a silent miscompile or a raw-handle escape.
 
 C-2 (raw-handle escape close, arithmetic position): `o.values + 1` must FAIL CLOSED E5506. RED before the fix: printed `handle + 1` (`4611686018427392017`), arithmetic on the raw tagged handle.
@@ -649,6 +718,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3). Every soundness rule is ALLOWLIST-at-choke-point / default-deny: an out-of-envelope growable-array-field use is E5506 (fail closed), NEVER a silent miscompile or a raw-handle escape.
 
 I-3 (growable-field aliasing declarator deny): `const a = o.values` binds a raw growable handle in a non-allowlisted value position, so C-2's position gate already fails it closed E5506 (verified: no second gate needed). RED before the fix: `a.length` printed `0`; node prints `3`.
@@ -663,6 +734,8 @@ name = "named_growable_alias_is_broken_tripwire"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3). Every soundness rule is ALLOWLIST-at-choke-point / default-deny: an out-of-envelope growable-array-field use is E5506 (fail closed), NEVER a silent miscompile or a raw-handle escape.
 
@@ -681,6 +754,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3). Every soundness rule is ALLOWLIST-at-choke-point / default-deny: an out-of-envelope growable-array-field use is E5506 (fail closed), NEVER a silent miscompile or a raw-handle escape.
 
 I-2 (structuredClone-scoped member-on-call close): a member read on an UNBOUND `structuredClone(...)` result (`structuredClone(o).count`) must FAIL CLOSED E5506, directing the user to bind the result first. RED before the fix: printed `0` (the pre-existing member-on-call placeholder hole — `is_structured_clone_result` only promotes const declarators). Scoped strictly to a `structuredClone` callee; the general member-on-call class is pre-existing and inventoried, untouched here.
@@ -696,6 +771,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3). Every soundness rule is ALLOWLIST-at-choke-point / default-deny: an out-of-envelope growable-array-field use is E5506 (fail closed), NEVER a silent miscompile or a raw-handle escape.
 
 I-1: DELIBERATE TRIPWIRE (pre-existing object-reassignment gap, out of stage). `let o = {v:[1,2]}; o = {v:3}; console.log(o.v)` — node prints `3`; kali cannot do object reassignment. BEFORE this fix-wave it printed a silent `0` (reassignment zeroed reads). C-2's growable-field position gate now UPGRADES this to fail-closed E5506: `v` is inferred `GrowableArrayI64` (from the first literal; the `kali_types` `repr_infer.rs` `record_object_array_field` AND-merge only demotes array-vs-array, so the array-vs-scalar reassignment does NOT demote `v` to scalar), and reading `o.v` in a bare `console.log` position is not an allowlisted growable receiver — so it denies rather than silently reads 0. Strictly more sound than the prior silent `0`. This pin documents the CURRENT (post-C-2) masked behavior; if object reassignment ever lands a real lowering, the `GrowableArrayI64`-vs-scalar intern confusion named above must be revisited before the gate is relaxed.
@@ -709,11 +786,15 @@ args = ["run", "object_reassignment_field_read_fails_closed_tripwire.js"]
 exit = "failure"
 stderr_contains = ["E5506"]
 
+# --- Stage P2 review RIDERS (R1, R2): named/field write-and-join asymmetries. ---
+
 [[case]]
 name = "growable_field_length_write_fails_closed"
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Stage P2 review RIDERS (R1, R2): named/field write-and-join asymmetries.
 
@@ -730,6 +811,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Stage P2 review RIDERS (R1, R2): named/field write-and-join asymmetries.
 
 R2 (NUL-garbage close): a growable-array FIELD `join` with a separator that is NOT string-provable (`o.values.join(o.values.length)` — an i64 length) must FAIL CLOSED E5506. RED before the fix: the field arm skipped the separator string-proof the named lane enforces (in `kali_types`, keyed on an Identifier receiver — a field receiver is a MemberExpression, so it slipped the gate); the raw i64 separator was read as a string handle → NUL-bearing garbage stdout (`31 00 00 00 32 00 00 00 33 0a`); node prints `13233`. The named twin (`a.join(a.length)`) already E5506s.
@@ -745,6 +828,8 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
 
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
+
 Stage P2 review RIDERS (R1, R2): named/field write-and-join asymmetries.
 
 R2 positive control (allowlist's green side — reviewer-verified correct today, must NOT regress): a growable-field `join` with a STRING-binding separator round-trips, and an OMITTED separator (default ",") round-trips.
@@ -759,6 +844,8 @@ name = "growable_field_join_string_and_omitted_separator_stay_green_omitted_sepa
 rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: field-read produces a growable-array handle.
 
 `object_field_is_growable_array` (crates/kali_codegen/src/emit/object.rs) lets downstream growable-array dispatch (push/join/length/index/for-of, Task 5) accept a `base.field` receiver, not only a named binding. This file's first test pins the pre-Task-5 (still-fail-closed) behavior: a `.join` call on an object field that holds a growable i64 array has no dispatch yet, so kali does not print the joined string. The test is `#[ignore]`d here (a deliberate deviation from the brief — see the Task 4 report) so the workspace gate stays 0-newly-red; Task 5 removes the `#[ignore]` once the dispatch lands.
+
+Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
 Stage P2 review RIDERS (R1, R2): named/field write-and-join asymmetries.
 

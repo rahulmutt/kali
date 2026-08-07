@@ -224,6 +224,8 @@ console.log(o.a ?? 9);
 "nullish_coalescing_boolean_result_loses_shape_in_multi_arg_console_is_a_known_residual.ts" = """console.log("x:", Object.is(1, 1) ?? 9);
 """
 
+# --- The controller-verified repro. ---
+
 [[case]]
 name = "zero_is_not_strictly_equal_to_null_or_false"
 rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
@@ -238,6 +240,8 @@ The controller-verified repro."""
 args = ["run", "zero_is_not_strictly_equal_to_null_or_false.ts"]
 exit = "success"
 stdout = "zero===null:false zero===false:false zero===0:true\n"
+
+# --- Full literal truth table across the eight primitive literals kali supports. ---
 
 [[case]]
 name = "strict_equality_literal_truth_table_matches_node"
@@ -273,6 +277,8 @@ args = ["run", "strict_equality_through_const_bindings_matches_node.ts"]
 exit = "success"
 stdout = "a:false b:false c:false\nd:false e:true f:false\ng:true h:false i:true\n"
 
+# --- Control flow, not just the printed form. ---
+
 [[case]]
 name = "null_guard_does_not_fire_for_zero"
 rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
@@ -303,6 +309,8 @@ args = ["run", "one_is_not_true_in_a_guard.ts"]
 exit = "success"
 stdout = "GOOD\nGOOD2\n"
 
+# --- The unary forms that produce a provable class (`!x` is boolean, `void x` is undefined) must keep comparing correctly — these are pinned elsewhere in the... ---
+
 [[case]]
 name = "unary_derived_classes_compare_correctly"
 rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
@@ -317,6 +325,8 @@ The unary forms that produce a provable class (`!x` is boolean, `void x` is unde
 args = ["run", "unary_derived_classes_compare_correctly.ts"]
 exit = "success"
 stdout = "a:true b:false c:false\nd:true e:false f:false\n"
+
+# --- Fail-closed lane: a `null` / `undefined` / boolean operand against an operand whose type class kali cannot prove. ---
 
 [[case]]
 name = "unprovable_operand_against_null_fails_closed"
@@ -369,6 +379,8 @@ args = ["run", "unprovable_operand_against_number_literal_is_a_known_residual.ts
 exit = "success"
 stdout = "111\n"
 
+# --- Object-reference-vs-`null` stays on the runtime pointer path: a live fixed-shape object pointer is a nonzero heap address and `null` is `0`, so `i64.eq` is the CORRECT test. ---
+
 [[case]]
 name = "object_field_against_null_still_compares_at_runtime"
 rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
@@ -384,6 +396,8 @@ args = ["run", "object_field_against_null_still_compares_at_runtime.ts"]
 exit = "success"
 stdout = "leaf:1\ndepth2:7\n"
 
+# --- Loose equality. ---
+
 [[case]]
 name = "loose_equality_literals_match_node"
 rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
@@ -398,6 +412,8 @@ Loose equality."""
 args = ["run", "loose_equality_literals_match_node.ts"]
 exit = "success"
 stdout = "l1:false\nl2:true\nl3:true\nl4:true\nl5:true\nl6:false\nl7:false\nl8:false\n"
+
+# --- `??` nullish tests: only `null` / `undefined` are nullish. ---
 
 [[case]]
 name = "nullish_coalescing_does_not_treat_falsy_as_nullish"
@@ -428,6 +444,8 @@ Every expected value in this file was captured from node v26.
 args = ["run", "nullish_coalescing_through_const_bindings.ts"]
 exit = "success"
 stdout = "a:0 b:false c:9\n"
+
+# --- RESIDUAL, pinned honestly — these four record CURRENT (WRONG) behaviour, not a correctness claim. ---
 
 [[case]]
 name = "nullish_coalescing_over_let_binding_is_a_known_residual"
@@ -529,6 +547,8 @@ args = ["run", "nullish_coalescing_over_call_return_is_a_known_residual.ts"]
 exit = "success"
 stdout = "9\n"
 
+# --- RESIDUAL, pinned honestly — FAMILY (a) of the same mechanism above, one level indirect: a `const` binding whose initializer chain does NOT bottom out at a compile-time literal. ---
+
 [[case]]
 name = "nullish_coalescing_over_const_bound_call_result_is_a_known_residual"
 rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
@@ -589,6 +609,8 @@ args = ["run", "nullish_coalescing_over_const_bound_member_read_is_a_known_resid
 exit = "success"
 stdout = "9\n"
 
+# --- RESIDUAL, pinned honestly — FAMILY (b), SINGLE-ARGUMENT `console.log` ONLY (scope corrected 2026-07-19, round 4 — see FAMILY (c) below for the part of this... ---
+
 [[case]]
 name = "nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual"
 rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
@@ -634,6 +656,8 @@ Do not route these pins through string concatenation (`"n:" + (false ?? 9)`) —
 args = ["run", "nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual.ts"]
 exit = "success"
 stdout = "0\n"
+
+# --- RESIDUAL, pinned honestly — FAMILY (c) (NEW 2026-07-19, round 4 — split out of what round 3 wrongly retired as "the same as FAMILY (b) / R-30, closes when... ---
 
 [[case]]
 name = "nullish_coalescing_boolean_result_loses_shape_in_concat_is_a_known_residual"
