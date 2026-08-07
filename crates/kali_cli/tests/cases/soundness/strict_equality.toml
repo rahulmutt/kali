@@ -1,0 +1,687 @@
+# Migrated from tests/soundness_strict_equality.rs -- all 25 #[test]
+# functions, 1:1 to a case (no fn bundles multiple independent programs; no
+# [matrix] -- every case runs a distinct one-off TS program via `kali run
+# <file>.ts`; [source] filenames end `.ts` since this file's own `run_source`
+# writes every fixture to `main.ts`, not `main.js`).
+#
+# The file's opening `//!` doc is prepended verbatim to every case's
+# rationale. 12 `// ---...---` section banners (paired top/bottom dividers
+# bracketing a paragraph, blank-line-separated from the #[test]s they
+# introduce) are prepended to every case in the fn-range they cover --
+# contiguous, non-overlapping, monotonic, verified programmatically; the
+# largest zone (4 cases) is well under the ~15-case threshold, so none needs
+# an additional `#` divider. Two cases
+# (`unprovable_operand_against_boolean_is_a_known_residual`,
+# `unprovable_operand_against_number_literal_is_a_known_residual`) carry a
+# direct `///` doc comment immediately above their own `#[test]` (zero-gap,
+# not a shared banner). `strict_equality_literal_truth_table_matches_node`
+# additionally carries the `///` doc comment on the `LITERALS` const array and
+# on the `label` helper fn it alone uses -- both are claim prose about how
+# that one test's fixture/expected text is derived, not boilerplate.
+#
+# strict_equality_literal_truth_table_matches_node's fixture and expected
+# stdout are NOT literals in the source -- the source builds them at test time
+# with a nested `for left in 0..8 { for right in 0..8 { ... } }` loop over the
+# `LITERALS` truth table (`format!` calls with no doubled braces anywhere in
+# this file, confirmed by grep, so no brace-unescape step applies). Resolved
+# here by an independent Python transliteration of that exact loop body
+# (`strictly_equal`/`label` reimplemented line-for-line), producing 64
+# `console.log(...)` lines and their 64 expected output lines; then verified
+# byte-for-byte against the real built kali binary's actual stdout for that
+# exact generated program (0 discrepancies -- see the task report). This is
+# the one file-level `format!`-resolution site in this batch's non-brace-
+# doubling files; ${...} substitution and Rust's `{{`/`}}` unescape do not
+# apply here since the templates never contain a literal brace.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across two different #[test]s, no `${...}`
+# JS template literal anywhere in this file (`LITERALS` is a Rust const, not
+# a JS template).
+#
+# `assert_stdout` compares RAW (untrimmed) stdout via `assert_eq!` directly --
+# no `.trim()` -- so `stdout` is a direct copy of the literal expected string.
+# `assert_fails_closed` (used exactly once in this file) requires E5506 AND a
+# specific needle in stderr; maps to `stderr_contains = ["E5506", needle]`.
+# Every fixture (including the generated truth-table program) was
+# independently re-run against the real built kali binary; 0 discrepancies.
+
+[source]
+"zero_is_not_strictly_equal_to_null_or_false.ts" = """function f() {
+  const zero = 0;
+  return "zero===null:" + (zero === null) + " zero===false:" + (zero === false) + " zero===0:" + (zero === 0);
+}
+console.log(f());
+"""
+"strict_equality_literal_truth_table_matches_node.ts" = """console.log('0===0:' + (0 === 0) + ' 0!==0:' + (0 !== 0));
+console.log('0===1:' + (0 === 1) + ' 0!==1:' + (0 !== 1));
+console.log('0===QQ:' + (0 === "") + ' 0!==QQ:' + (0 !== ""));
+console.log('0===QaQ:' + (0 === "a") + ' 0!==QaQ:' + (0 !== "a"));
+console.log('0===null:' + (0 === null) + ' 0!==null:' + (0 !== null));
+console.log('0===undefined:' + (0 === undefined) + ' 0!==undefined:' + (0 !== undefined));
+console.log('0===true:' + (0 === true) + ' 0!==true:' + (0 !== true));
+console.log('0===false:' + (0 === false) + ' 0!==false:' + (0 !== false));
+console.log('1===0:' + (1 === 0) + ' 1!==0:' + (1 !== 0));
+console.log('1===1:' + (1 === 1) + ' 1!==1:' + (1 !== 1));
+console.log('1===QQ:' + (1 === "") + ' 1!==QQ:' + (1 !== ""));
+console.log('1===QaQ:' + (1 === "a") + ' 1!==QaQ:' + (1 !== "a"));
+console.log('1===null:' + (1 === null) + ' 1!==null:' + (1 !== null));
+console.log('1===undefined:' + (1 === undefined) + ' 1!==undefined:' + (1 !== undefined));
+console.log('1===true:' + (1 === true) + ' 1!==true:' + (1 !== true));
+console.log('1===false:' + (1 === false) + ' 1!==false:' + (1 !== false));
+console.log('QQ===0:' + ("" === 0) + ' QQ!==0:' + ("" !== 0));
+console.log('QQ===1:' + ("" === 1) + ' QQ!==1:' + ("" !== 1));
+console.log('QQ===QQ:' + ("" === "") + ' QQ!==QQ:' + ("" !== ""));
+console.log('QQ===QaQ:' + ("" === "a") + ' QQ!==QaQ:' + ("" !== "a"));
+console.log('QQ===null:' + ("" === null) + ' QQ!==null:' + ("" !== null));
+console.log('QQ===undefined:' + ("" === undefined) + ' QQ!==undefined:' + ("" !== undefined));
+console.log('QQ===true:' + ("" === true) + ' QQ!==true:' + ("" !== true));
+console.log('QQ===false:' + ("" === false) + ' QQ!==false:' + ("" !== false));
+console.log('QaQ===0:' + ("a" === 0) + ' QaQ!==0:' + ("a" !== 0));
+console.log('QaQ===1:' + ("a" === 1) + ' QaQ!==1:' + ("a" !== 1));
+console.log('QaQ===QQ:' + ("a" === "") + ' QaQ!==QQ:' + ("a" !== ""));
+console.log('QaQ===QaQ:' + ("a" === "a") + ' QaQ!==QaQ:' + ("a" !== "a"));
+console.log('QaQ===null:' + ("a" === null) + ' QaQ!==null:' + ("a" !== null));
+console.log('QaQ===undefined:' + ("a" === undefined) + ' QaQ!==undefined:' + ("a" !== undefined));
+console.log('QaQ===true:' + ("a" === true) + ' QaQ!==true:' + ("a" !== true));
+console.log('QaQ===false:' + ("a" === false) + ' QaQ!==false:' + ("a" !== false));
+console.log('null===0:' + (null === 0) + ' null!==0:' + (null !== 0));
+console.log('null===1:' + (null === 1) + ' null!==1:' + (null !== 1));
+console.log('null===QQ:' + (null === "") + ' null!==QQ:' + (null !== ""));
+console.log('null===QaQ:' + (null === "a") + ' null!==QaQ:' + (null !== "a"));
+console.log('null===null:' + (null === null) + ' null!==null:' + (null !== null));
+console.log('null===undefined:' + (null === undefined) + ' null!==undefined:' + (null !== undefined));
+console.log('null===true:' + (null === true) + ' null!==true:' + (null !== true));
+console.log('null===false:' + (null === false) + ' null!==false:' + (null !== false));
+console.log('undefined===0:' + (undefined === 0) + ' undefined!==0:' + (undefined !== 0));
+console.log('undefined===1:' + (undefined === 1) + ' undefined!==1:' + (undefined !== 1));
+console.log('undefined===QQ:' + (undefined === "") + ' undefined!==QQ:' + (undefined !== ""));
+console.log('undefined===QaQ:' + (undefined === "a") + ' undefined!==QaQ:' + (undefined !== "a"));
+console.log('undefined===null:' + (undefined === null) + ' undefined!==null:' + (undefined !== null));
+console.log('undefined===undefined:' + (undefined === undefined) + ' undefined!==undefined:' + (undefined !== undefined));
+console.log('undefined===true:' + (undefined === true) + ' undefined!==true:' + (undefined !== true));
+console.log('undefined===false:' + (undefined === false) + ' undefined!==false:' + (undefined !== false));
+console.log('true===0:' + (true === 0) + ' true!==0:' + (true !== 0));
+console.log('true===1:' + (true === 1) + ' true!==1:' + (true !== 1));
+console.log('true===QQ:' + (true === "") + ' true!==QQ:' + (true !== ""));
+console.log('true===QaQ:' + (true === "a") + ' true!==QaQ:' + (true !== "a"));
+console.log('true===null:' + (true === null) + ' true!==null:' + (true !== null));
+console.log('true===undefined:' + (true === undefined) + ' true!==undefined:' + (true !== undefined));
+console.log('true===true:' + (true === true) + ' true!==true:' + (true !== true));
+console.log('true===false:' + (true === false) + ' true!==false:' + (true !== false));
+console.log('false===0:' + (false === 0) + ' false!==0:' + (false !== 0));
+console.log('false===1:' + (false === 1) + ' false!==1:' + (false !== 1));
+console.log('false===QQ:' + (false === "") + ' false!==QQ:' + (false !== ""));
+console.log('false===QaQ:' + (false === "a") + ' false!==QaQ:' + (false !== "a"));
+console.log('false===null:' + (false === null) + ' false!==null:' + (false !== null));
+console.log('false===undefined:' + (false === undefined) + ' false!==undefined:' + (false !== undefined));
+console.log('false===true:' + (false === true) + ' false!==true:' + (false !== true));
+console.log('false===false:' + (false === false) + ' false!==false:' + (false !== false));
+"""
+"strict_equality_through_const_bindings_matches_node.ts" = """const zero = 0;
+const one = 1;
+const nul = null;
+const undef = undefined;
+const yes = true;
+const no = false;
+console.log("a:" + (zero === nul) + " b:" + (zero === no) + " c:" + (one === yes));
+console.log("d:" + (nul === undef) + " e:" + (nul === nul) + " f:" + (yes === no));
+console.log("g:" + (zero !== nul) + " h:" + (undef !== undef) + " i:" + (no === no));
+"""
+"null_guard_does_not_fire_for_zero.ts" = """const z = 0;
+if (z === null) { console.log("BAD-then"); } else { console.log("GOOD-else"); }
+if (z === undefined) { console.log("BAD-then2"); } else { console.log("GOOD-else2"); }
+if (z === false) { console.log("BAD-then3"); } else { console.log("GOOD-else3"); }
+if (z !== null) { console.log("GOOD-then4"); } else { console.log("BAD-else4"); }
+"""
+"one_is_not_true_in_a_guard.ts" = """const one = 1;
+if (one === true) { console.log("BAD"); } else { console.log("GOOD"); }
+const yes = true;
+if (yes === true) { console.log("GOOD2"); } else { console.log("BAD2"); }
+"""
+"unary_derived_classes_compare_correctly.ts" = """const notTrue = !true;
+console.log("a:" + (notTrue === false) + " b:" + (notTrue !== false) + " c:" + (notTrue === 0));
+const v = void (1 + 2);
+console.log("d:" + (v === undefined) + " e:" + (v === null) + " f:" + (v === 0));
+"""
+"unprovable_operand_against_null_fails_closed.ts" = """function id(n) { return n; }
+const x = id(0);
+if (x === null) { console.log("then"); } else { console.log("else"); }
+"""
+"unprovable_operand_against_boolean_is_a_known_residual.ts" = """function id(n) { return n; }
+const x = id(1);
+console.log("kali:" + (x === true));
+"""
+"unprovable_operand_against_number_literal_is_a_known_residual.ts" = """function f(b) { return b; }
+if (f(false) === 0) { console.log(111); } else { console.log(222); }
+"""
+"object_field_against_null_still_compares_at_runtime.ts" = """function bottomUpTree(depth) {
+  if (depth > 0) {
+    return { left: bottomUpTree(depth - 1), right: bottomUpTree(depth - 1) };
+  }
+  return { left: null, right: null };
+}
+function itemCheck(t) {
+  if (t.left === null) {
+    return 1;
+  }
+  return 1 + itemCheck(t.left) + itemCheck(t.right);
+}
+console.log("leaf:" + itemCheck(bottomUpTree(0)));
+console.log("depth2:" + itemCheck(bottomUpTree(2)));
+"""
+"loose_equality_literals_match_node.ts" = """console.log("l1:" + (0 == null));
+console.log("l2:" + (0 == false));
+console.log("l3:" + (null == undefined));
+console.log("l4:" + (1 == true));
+console.log("l5:" + (0 != null));
+console.log("l6:" + (null != undefined));
+console.log("l7:" + (null == 0));
+console.log("l8:" + (undefined == false));
+"""
+"nullish_coalescing_does_not_treat_falsy_as_nullish.ts" = """console.log("n1:" + (0 ?? 9));
+console.log("n2:[" + ("" ?? "x") + "]");
+console.log("n3:" + (false ?? true));
+console.log("n4:" + (null ?? 7));
+console.log("n5:" + (undefined ?? 8));
+"""
+"nullish_coalescing_through_const_bindings.ts" = """const zero = 0;
+const no = false;
+const nul = null;
+console.log("a:" + (zero ?? 9) + " b:" + (no ?? 9) + " c:" + (nul ?? 9));
+"""
+"nullish_coalescing_over_let_binding_is_a_known_residual.ts" = """let a = 0;
+console.log(a ?? 9);
+"""
+"nullish_coalescing_over_var_binding_is_a_known_residual.ts" = """var v = 0;
+console.log(v ?? 9);
+"""
+"nullish_coalescing_over_parameter_is_a_known_residual.ts" = """function opt(n) { return n ?? 10; }
+console.log(opt(0));
+"""
+"nullish_coalescing_over_call_return_is_a_known_residual.ts" = """function zero() { return 0; }
+console.log(zero() ?? 9);
+"""
+"nullish_coalescing_over_const_bound_call_result_is_a_known_residual.ts" = """function zero() { return 0; }
+const c1 = zero();
+console.log(c1 ?? 9);
+"""
+"nullish_coalescing_over_const_bound_folded_expression_is_a_known_residual.ts" = """const c2 = 1 - 1;
+console.log(c2 ?? 9);
+"""
+"nullish_coalescing_over_const_bound_let_alias_is_a_known_residual.ts" = """let d = 0;
+const c3 = d;
+console.log(c3 ?? 9);
+"""
+"nullish_coalescing_over_const_bound_member_read_is_a_known_residual.ts" = """const o = { a: 0 };
+console.log(o.a ?? 9);
+"""
+"nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual.ts" = """console.log(false ?? 9);
+"""
+"nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual.ts" = """console.log(null ?? false);
+"""
+"nullish_coalescing_boolean_result_loses_shape_in_concat_is_a_known_residual.ts" = """console.log("w:" + (Number.isInteger(5) ?? 9));
+"""
+"nullish_coalescing_boolean_result_loses_shape_in_multi_arg_console_is_a_known_residual.ts" = """console.log("x:", Object.is(1, 1) ?? 9);
+"""
+
+[[case]]
+name = "zero_is_not_strictly_equal_to_null_or_false"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+The controller-verified repro."""
+args = ["run", "zero_is_not_strictly_equal_to_null_or_false.ts"]
+exit = "success"
+stdout = "zero===null:false zero===false:false zero===0:true\n"
+
+[[case]]
+name = "strict_equality_literal_truth_table_matches_node"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+Full literal truth table across the eight primitive literals kali supports.
+
+The eight literal source forms, paired with the JS type class node assigns them. Two literals are `===` iff their classes match AND their values match (with `null === null` and `undefined === undefined` both `true`).
+
+`"` is not legal inside the single-quoted label strings this test emits, so labels render `"` as `Q`."""
+args = ["run", "strict_equality_literal_truth_table_matches_node.ts"]
+exit = "success"
+stdout = "0===0:true 0!==0:false\n0===1:false 0!==1:true\n0===QQ:false 0!==QQ:true\n0===QaQ:false 0!==QaQ:true\n0===null:false 0!==null:true\n0===undefined:false 0!==undefined:true\n0===true:false 0!==true:true\n0===false:false 0!==false:true\n1===0:false 1!==0:true\n1===1:true 1!==1:false\n1===QQ:false 1!==QQ:true\n1===QaQ:false 1!==QaQ:true\n1===null:false 1!==null:true\n1===undefined:false 1!==undefined:true\n1===true:false 1!==true:true\n1===false:false 1!==false:true\nQQ===0:false QQ!==0:true\nQQ===1:false QQ!==1:true\nQQ===QQ:true QQ!==QQ:false\nQQ===QaQ:false QQ!==QaQ:true\nQQ===null:false QQ!==null:true\nQQ===undefined:false QQ!==undefined:true\nQQ===true:false QQ!==true:true\nQQ===false:false QQ!==false:true\nQaQ===0:false QaQ!==0:true\nQaQ===1:false QaQ!==1:true\nQaQ===QQ:false QaQ!==QQ:true\nQaQ===QaQ:true QaQ!==QaQ:false\nQaQ===null:false QaQ!==null:true\nQaQ===undefined:false QaQ!==undefined:true\nQaQ===true:false QaQ!==true:true\nQaQ===false:false QaQ!==false:true\nnull===0:false null!==0:true\nnull===1:false null!==1:true\nnull===QQ:false null!==QQ:true\nnull===QaQ:false null!==QaQ:true\nnull===null:true null!==null:false\nnull===undefined:false null!==undefined:true\nnull===true:false null!==true:true\nnull===false:false null!==false:true\nundefined===0:false undefined!==0:true\nundefined===1:false undefined!==1:true\nundefined===QQ:false undefined!==QQ:true\nundefined===QaQ:false undefined!==QaQ:true\nundefined===null:false undefined!==null:true\nundefined===undefined:true undefined!==undefined:false\nundefined===true:false undefined!==true:true\nundefined===false:false undefined!==false:true\ntrue===0:false true!==0:true\ntrue===1:false true!==1:true\ntrue===QQ:false true!==QQ:true\ntrue===QaQ:false true!==QaQ:true\ntrue===null:false true!==null:true\ntrue===undefined:false true!==undefined:true\ntrue===true:true true!==true:false\ntrue===false:false true!==false:true\nfalse===0:false false!==0:true\nfalse===1:false false!==1:true\nfalse===QQ:false false!==QQ:true\nfalse===QaQ:false false!==QaQ:true\nfalse===null:false false!==null:true\nfalse===undefined:false false!==undefined:true\nfalse===true:false false!==true:true\nfalse===false:true false!==false:false\n"
+
+[[case]]
+name = "strict_equality_through_const_bindings_matches_node"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+Full literal truth table across the eight primitive literals kali supports."""
+args = ["run", "strict_equality_through_const_bindings_matches_node.ts"]
+exit = "success"
+stdout = "a:false b:false c:false\nd:false e:true f:false\ng:true h:false i:true\n"
+
+[[case]]
+name = "null_guard_does_not_fire_for_zero"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+Control flow, not just the printed form."""
+args = ["run", "null_guard_does_not_fire_for_zero.ts"]
+exit = "success"
+stdout = "GOOD-else\nGOOD-else2\nGOOD-else3\nGOOD-then4\n"
+
+[[case]]
+name = "one_is_not_true_in_a_guard"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+Control flow, not just the printed form."""
+args = ["run", "one_is_not_true_in_a_guard.ts"]
+exit = "success"
+stdout = "GOOD\nGOOD2\n"
+
+[[case]]
+name = "unary_derived_classes_compare_correctly"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+The unary forms that produce a provable class (`!x` is boolean, `void x` is undefined) must keep comparing correctly — these are pinned elsewhere in the suite and must not regress into the fail-closed lane."""
+args = ["run", "unary_derived_classes_compare_correctly.ts"]
+exit = "success"
+stdout = "a:true b:false c:false\nd:true e:false f:false\n"
+
+[[case]]
+name = "unprovable_operand_against_null_fails_closed"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+Fail-closed lane: a `null` / `undefined` / boolean operand against an operand whose type class kali cannot prove."""
+args = ["run", "unprovable_operand_against_null_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "'==='"]
+
+[[case]]
+name = "unprovable_operand_against_boolean_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+Fail-closed lane: a `null` / `undefined` / boolean operand against an operand whose type class kali cannot prove.
+
+RESIDUAL, pinned honestly. An unprovable operand against a BOOLEAN literal keeps the pre-existing `i64.eq` lowering rather than failing closed: kali's boolean repr IS the integers 0/1, so that compare is correct for every genuinely boolean-producing operand (`Object.is(a, b) !== true`, `delete o.k !== true`, and 33 other pinned corpus programs), and kali cannot prove "this call returns a boolean" for a user function without a `Repr::Boolean` axis. The cost is this case: a function returning the NUMBER `1` still compares equal to `true`. node prints `false`."""
+args = ["run", "unprovable_operand_against_boolean_is_a_known_residual.ts"]
+exit = "success"
+stdout = "kali:true\n"
+
+[[case]]
+name = "unprovable_operand_against_number_literal_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+Fail-closed lane: a `null` / `undefined` / boolean operand against an operand whose type class kali cannot prove.
+
+RESIDUAL, pinned honestly — records CURRENT (WRONG) behaviour, not a correctness claim. This is CRITICAL-2 from the semantic-core whole-stage review: an unprovable operand against a proven NUMBER (including a number LITERAL like `0`) never arms the type-directed decision table at all, because `EqClass::arms_the_gate` only recognizes `null`/`undefined`/ boolean. The pair falls straight through to the pre-existing bit-pattern `i64.eq`, which is unsound because `false` also lowers to the bit pattern `0`. Unlike the boolean residual above (which at least reaches the decision table and is a deliberate, reasoned trade-off), this case never engages the fix at all.
+
+node prints `222` (the `else` branch: `false !== 0`); kali prints `111` (the `then` branch), i.e. WRONG CONTROL FLOW, not merely a wrong printed value, and exits 0 with no diagnostic. When the real fix (a `Repr::Boolean` axis, out of scope for soundness-batch1-pra) lands, this assertion must go RED — that is the intended signal to update this pin."""
+args = ["run", "unprovable_operand_against_number_literal_is_a_known_residual.ts"]
+exit = "success"
+stdout = "111\n"
+
+[[case]]
+name = "object_field_against_null_still_compares_at_runtime"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+Object-reference-vs-`null` stays on the runtime pointer path: a live fixed-shape object pointer is a nonzero heap address and `null` is `0`, so `i64.eq` is the CORRECT test. This is the binary-trees `t.left === null` shape and must not regress into the fail-closed lane."""
+args = ["run", "object_field_against_null_still_compares_at_runtime.ts"]
+exit = "success"
+stdout = "leaf:1\ndepth2:7\n"
+
+[[case]]
+name = "loose_equality_literals_match_node"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+Loose equality."""
+args = ["run", "loose_equality_literals_match_node.ts"]
+exit = "success"
+stdout = "l1:false\nl2:true\nl3:true\nl4:true\nl5:true\nl6:false\nl7:false\nl8:false\n"
+
+[[case]]
+name = "nullish_coalescing_does_not_treat_falsy_as_nullish"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+`??` nullish tests: only `null` / `undefined` are nullish. `0`, `""` and `false` are NOT."""
+args = ["run", "nullish_coalescing_does_not_treat_falsy_as_nullish.ts"]
+exit = "success"
+stdout = "n1:0\nn2:[]\nn3:false\nn4:7\nn5:8\n"
+
+[[case]]
+name = "nullish_coalescing_through_const_bindings"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+`??` nullish tests: only `null` / `undefined` are nullish. `0`, `""` and `false` are NOT."""
+args = ["run", "nullish_coalescing_through_const_bindings.ts"]
+exit = "success"
+stdout = "a:0 b:false c:9\n"
+
+[[case]]
+name = "nullish_coalescing_over_let_binding_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — these four record CURRENT (WRONG) behaviour, not a correctness claim.
+
+THE MECHANISM (the actual proof condition, not a list of shapes): `??` decides its branch at compile time, correctly, if and only if `static_equality_class` (`crates/kali_codegen/src/emit/equality.rs:228`) returns `Some(class)` for the left operand AND that class arms `??`'s check (`is_nullish_class`/`is_never_nullish`, `operators.rs:2181-2208`).
+
+CORRECTED 2026-07-19 (third addendum round): an earlier restatement of this condition as "exactly two cases" (a literal, or a literal-terminated `const` chain) was itself an UNDER-claim, falsified on a freshly built binary — `(a < b) ?? 9` over two function PARAMETERS and `(a - a) ?? 9` over a `let`-bound float both agree with node, and neither operand is a literal or `const`-bound. Reading `equality.rs:228-329` end to end, `static_equality_class` returns `Some` for considerably more: a literal or literal-terminated `const` chain; an operand-INDEPENDENT operator form (`void`, `!`, `typeof`, `delete`, unary `-`/`~`, AND any relational or equality operator `< <= > >= == != === !== in instanceof`, which are always `Boolean` regardless of their operands — this is why the parameter example above is proven); a statically-folded CALL result; a bare global identifier (`undefined`, `NaN`, `Infinity`); or a REPR-BACKED proof that holds over a genuine runtime value with no literal or `const` in sight — an object shape, a bigint-literal-valued node, a float-valued node, a string-valued node, or a `Deno.env.get(...)` result (this is why the float example above is proven).
+
+CORRECTED 2026-07-19 (round 4): there are THREE places `Some` does NOT mean "arms the gate", not one. `is_never_nullish` covers only `Number | BigInt | Boolean | String` and `is_nullish_class` only `Null | Undefined` (`equality.rs:140-152`), so besides `Some(EqClass::UntypedObjectField)` (a `base.field` read whose shape-table repr is the untyped `I64` default), `Some(EqClass::ObjectOrNull)` (an object-shaped operand) and `Some(EqClass::EnvGetResult)` (a `Deno.env.get(...)` result) are ALSO proven-but-non-arming. All three fall through to the runtime `i64.eqz` test exactly as if `static_equality_class` had returned `None`. The OUTCOME only diverges for `UntypedObjectField`, though: the zero-test is independently exact for a live object pointer (`ObjectOrNull`) and for `Deno.env.get`'s unset-`0` result (`EnvGetResult`), so no miscompile follows for those two — see the const-bound-member-read illustration in the next section for the one that does.
+
+Anything else — any operand read back from a runtime storage slot that isn't one of the above (a plain `let`/`var`/parameter/call-return binding with no repr proof, or an untyped-`I64` object field) — returns `None` (or the non-arming `Some(UntypedObjectField)`) and falls through to the pre-existing `i64.eqz` bit-pattern test, which conflates a runtime `0`/`false` with nullish (`??` degrades to `||`).
+
+The four shapes pinned below (`let`, `var`, a function parameter, a call's return value) are ILLUSTRATIONS of that rule, not the boundary itself — see the next section for further illustrations (a `const` whose initializer chain does NOT bottom out at a literal) that are equally uncovered for the identical reason. When the real fix (the `Repr::Boolean`/null axis) lands, every assertion in both sections must go RED — that is the intended signal to update these pins."""
+args = ["run", "nullish_coalescing_over_let_binding_is_a_known_residual.ts"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "nullish_coalescing_over_var_binding_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — these four record CURRENT (WRONG) behaviour, not a correctness claim.
+
+THE MECHANISM (the actual proof condition, not a list of shapes): `??` decides its branch at compile time, correctly, if and only if `static_equality_class` (`crates/kali_codegen/src/emit/equality.rs:228`) returns `Some(class)` for the left operand AND that class arms `??`'s check (`is_nullish_class`/`is_never_nullish`, `operators.rs:2181-2208`).
+
+CORRECTED 2026-07-19 (third addendum round): an earlier restatement of this condition as "exactly two cases" (a literal, or a literal-terminated `const` chain) was itself an UNDER-claim, falsified on a freshly built binary — `(a < b) ?? 9` over two function PARAMETERS and `(a - a) ?? 9` over a `let`-bound float both agree with node, and neither operand is a literal or `const`-bound. Reading `equality.rs:228-329` end to end, `static_equality_class` returns `Some` for considerably more: a literal or literal-terminated `const` chain; an operand-INDEPENDENT operator form (`void`, `!`, `typeof`, `delete`, unary `-`/`~`, AND any relational or equality operator `< <= > >= == != === !== in instanceof`, which are always `Boolean` regardless of their operands — this is why the parameter example above is proven); a statically-folded CALL result; a bare global identifier (`undefined`, `NaN`, `Infinity`); or a REPR-BACKED proof that holds over a genuine runtime value with no literal or `const` in sight — an object shape, a bigint-literal-valued node, a float-valued node, a string-valued node, or a `Deno.env.get(...)` result (this is why the float example above is proven).
+
+CORRECTED 2026-07-19 (round 4): there are THREE places `Some` does NOT mean "arms the gate", not one. `is_never_nullish` covers only `Number | BigInt | Boolean | String` and `is_nullish_class` only `Null | Undefined` (`equality.rs:140-152`), so besides `Some(EqClass::UntypedObjectField)` (a `base.field` read whose shape-table repr is the untyped `I64` default), `Some(EqClass::ObjectOrNull)` (an object-shaped operand) and `Some(EqClass::EnvGetResult)` (a `Deno.env.get(...)` result) are ALSO proven-but-non-arming. All three fall through to the runtime `i64.eqz` test exactly as if `static_equality_class` had returned `None`. The OUTCOME only diverges for `UntypedObjectField`, though: the zero-test is independently exact for a live object pointer (`ObjectOrNull`) and for `Deno.env.get`'s unset-`0` result (`EnvGetResult`), so no miscompile follows for those two — see the const-bound-member-read illustration in the next section for the one that does.
+
+Anything else — any operand read back from a runtime storage slot that isn't one of the above (a plain `let`/`var`/parameter/call-return binding with no repr proof, or an untyped-`I64` object field) — returns `None` (or the non-arming `Some(UntypedObjectField)`) and falls through to the pre-existing `i64.eqz` bit-pattern test, which conflates a runtime `0`/`false` with nullish (`??` degrades to `||`).
+
+The four shapes pinned below (`let`, `var`, a function parameter, a call's return value) are ILLUSTRATIONS of that rule, not the boundary itself — see the next section for further illustrations (a `const` whose initializer chain does NOT bottom out at a literal) that are equally uncovered for the identical reason. When the real fix (the `Repr::Boolean`/null axis) lands, every assertion in both sections must go RED — that is the intended signal to update these pins."""
+args = ["run", "nullish_coalescing_over_var_binding_is_a_known_residual.ts"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "nullish_coalescing_over_parameter_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — these four record CURRENT (WRONG) behaviour, not a correctness claim.
+
+THE MECHANISM (the actual proof condition, not a list of shapes): `??` decides its branch at compile time, correctly, if and only if `static_equality_class` (`crates/kali_codegen/src/emit/equality.rs:228`) returns `Some(class)` for the left operand AND that class arms `??`'s check (`is_nullish_class`/`is_never_nullish`, `operators.rs:2181-2208`).
+
+CORRECTED 2026-07-19 (third addendum round): an earlier restatement of this condition as "exactly two cases" (a literal, or a literal-terminated `const` chain) was itself an UNDER-claim, falsified on a freshly built binary — `(a < b) ?? 9` over two function PARAMETERS and `(a - a) ?? 9` over a `let`-bound float both agree with node, and neither operand is a literal or `const`-bound. Reading `equality.rs:228-329` end to end, `static_equality_class` returns `Some` for considerably more: a literal or literal-terminated `const` chain; an operand-INDEPENDENT operator form (`void`, `!`, `typeof`, `delete`, unary `-`/`~`, AND any relational or equality operator `< <= > >= == != === !== in instanceof`, which are always `Boolean` regardless of their operands — this is why the parameter example above is proven); a statically-folded CALL result; a bare global identifier (`undefined`, `NaN`, `Infinity`); or a REPR-BACKED proof that holds over a genuine runtime value with no literal or `const` in sight — an object shape, a bigint-literal-valued node, a float-valued node, a string-valued node, or a `Deno.env.get(...)` result (this is why the float example above is proven).
+
+CORRECTED 2026-07-19 (round 4): there are THREE places `Some` does NOT mean "arms the gate", not one. `is_never_nullish` covers only `Number | BigInt | Boolean | String` and `is_nullish_class` only `Null | Undefined` (`equality.rs:140-152`), so besides `Some(EqClass::UntypedObjectField)` (a `base.field` read whose shape-table repr is the untyped `I64` default), `Some(EqClass::ObjectOrNull)` (an object-shaped operand) and `Some(EqClass::EnvGetResult)` (a `Deno.env.get(...)` result) are ALSO proven-but-non-arming. All three fall through to the runtime `i64.eqz` test exactly as if `static_equality_class` had returned `None`. The OUTCOME only diverges for `UntypedObjectField`, though: the zero-test is independently exact for a live object pointer (`ObjectOrNull`) and for `Deno.env.get`'s unset-`0` result (`EnvGetResult`), so no miscompile follows for those two — see the const-bound-member-read illustration in the next section for the one that does.
+
+Anything else — any operand read back from a runtime storage slot that isn't one of the above (a plain `let`/`var`/parameter/call-return binding with no repr proof, or an untyped-`I64` object field) — returns `None` (or the non-arming `Some(UntypedObjectField)`) and falls through to the pre-existing `i64.eqz` bit-pattern test, which conflates a runtime `0`/`false` with nullish (`??` degrades to `||`).
+
+The four shapes pinned below (`let`, `var`, a function parameter, a call's return value) are ILLUSTRATIONS of that rule, not the boundary itself — see the next section for further illustrations (a `const` whose initializer chain does NOT bottom out at a literal) that are equally uncovered for the identical reason. When the real fix (the `Repr::Boolean`/null axis) lands, every assertion in both sections must go RED — that is the intended signal to update these pins."""
+args = ["run", "nullish_coalescing_over_parameter_is_a_known_residual.ts"]
+exit = "success"
+stdout = "10\n"
+
+[[case]]
+name = "nullish_coalescing_over_call_return_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — these four record CURRENT (WRONG) behaviour, not a correctness claim.
+
+THE MECHANISM (the actual proof condition, not a list of shapes): `??` decides its branch at compile time, correctly, if and only if `static_equality_class` (`crates/kali_codegen/src/emit/equality.rs:228`) returns `Some(class)` for the left operand AND that class arms `??`'s check (`is_nullish_class`/`is_never_nullish`, `operators.rs:2181-2208`).
+
+CORRECTED 2026-07-19 (third addendum round): an earlier restatement of this condition as "exactly two cases" (a literal, or a literal-terminated `const` chain) was itself an UNDER-claim, falsified on a freshly built binary — `(a < b) ?? 9` over two function PARAMETERS and `(a - a) ?? 9` over a `let`-bound float both agree with node, and neither operand is a literal or `const`-bound. Reading `equality.rs:228-329` end to end, `static_equality_class` returns `Some` for considerably more: a literal or literal-terminated `const` chain; an operand-INDEPENDENT operator form (`void`, `!`, `typeof`, `delete`, unary `-`/`~`, AND any relational or equality operator `< <= > >= == != === !== in instanceof`, which are always `Boolean` regardless of their operands — this is why the parameter example above is proven); a statically-folded CALL result; a bare global identifier (`undefined`, `NaN`, `Infinity`); or a REPR-BACKED proof that holds over a genuine runtime value with no literal or `const` in sight — an object shape, a bigint-literal-valued node, a float-valued node, a string-valued node, or a `Deno.env.get(...)` result (this is why the float example above is proven).
+
+CORRECTED 2026-07-19 (round 4): there are THREE places `Some` does NOT mean "arms the gate", not one. `is_never_nullish` covers only `Number | BigInt | Boolean | String` and `is_nullish_class` only `Null | Undefined` (`equality.rs:140-152`), so besides `Some(EqClass::UntypedObjectField)` (a `base.field` read whose shape-table repr is the untyped `I64` default), `Some(EqClass::ObjectOrNull)` (an object-shaped operand) and `Some(EqClass::EnvGetResult)` (a `Deno.env.get(...)` result) are ALSO proven-but-non-arming. All three fall through to the runtime `i64.eqz` test exactly as if `static_equality_class` had returned `None`. The OUTCOME only diverges for `UntypedObjectField`, though: the zero-test is independently exact for a live object pointer (`ObjectOrNull`) and for `Deno.env.get`'s unset-`0` result (`EnvGetResult`), so no miscompile follows for those two — see the const-bound-member-read illustration in the next section for the one that does.
+
+Anything else — any operand read back from a runtime storage slot that isn't one of the above (a plain `let`/`var`/parameter/call-return binding with no repr proof, or an untyped-`I64` object field) — returns `None` (or the non-arming `Some(UntypedObjectField)`) and falls through to the pre-existing `i64.eqz` bit-pattern test, which conflates a runtime `0`/`false` with nullish (`??` degrades to `||`).
+
+The four shapes pinned below (`let`, `var`, a function parameter, a call's return value) are ILLUSTRATIONS of that rule, not the boundary itself — see the next section for further illustrations (a `const` whose initializer chain does NOT bottom out at a literal) that are equally uncovered for the identical reason. When the real fix (the `Repr::Boolean`/null axis) lands, every assertion in both sections must go RED — that is the intended signal to update these pins."""
+args = ["run", "nullish_coalescing_over_call_return_is_a_known_residual.ts"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "nullish_coalescing_over_const_bound_call_result_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — FAMILY (a) of the same mechanism above, one level indirect: a `const` binding whose initializer chain does NOT bottom out at a compile-time literal. `resolve_literal_aggregate` will follow a `const`'s binding, but if what it finds at the end of the chain is a call, a folded runtime expression, or another (non-`const`) binding, `static_equality_class` still returns `None` there — the `const` keyword itself proves nothing; only a chain that terminates in a literal does. The fourth shape below (an object field read) reaches the SAME `None` outcome for a different, structural reason (REVERTED 2026-07-19, round 4 — an earlier round of this comment claimed `Some(EqClass::UntypedObjectField)` instead of `None`; that was wrong, verified false on a freshly built binary: `const o={a:0}; console.log(o.a === null)` fails CLOSED with `E5506`, which only happens for class `None` — `UntypedObjectField` routes to `Runtime`, not `FailClosed`, per `strict_decision`'s `is_unproven` arm). The real reason is that `object_field_equality_class` never fires here at all: it requires the base's shape to resolve via `object_shape_of_node`, and a `const` bound directly to an object LITERAL is never given a resolved shape that way (see `crates/kali_codegen/src/emit/object.rs:14-25` and the register's R-08 residual 4 (vi) note for the corrected mechanism and a witness of the arm firing when the base's shape IS resolved). This falsifies a claim from an earlier round of this register entry ("`??` is closed for a literal or a `const`-bound operand"), which conflated "bound via `const`" with "provably a literal". Four illustrations, all re-verified on a freshly built binary, all WRONG (kali `9`, node `0`):"""
+args = ["run", "nullish_coalescing_over_const_bound_call_result_is_a_known_residual.ts"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "nullish_coalescing_over_const_bound_folded_expression_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — FAMILY (a) of the same mechanism above, one level indirect: a `const` binding whose initializer chain does NOT bottom out at a compile-time literal. `resolve_literal_aggregate` will follow a `const`'s binding, but if what it finds at the end of the chain is a call, a folded runtime expression, or another (non-`const`) binding, `static_equality_class` still returns `None` there — the `const` keyword itself proves nothing; only a chain that terminates in a literal does. The fourth shape below (an object field read) reaches the SAME `None` outcome for a different, structural reason (REVERTED 2026-07-19, round 4 — an earlier round of this comment claimed `Some(EqClass::UntypedObjectField)` instead of `None`; that was wrong, verified false on a freshly built binary: `const o={a:0}; console.log(o.a === null)` fails CLOSED with `E5506`, which only happens for class `None` — `UntypedObjectField` routes to `Runtime`, not `FailClosed`, per `strict_decision`'s `is_unproven` arm). The real reason is that `object_field_equality_class` never fires here at all: it requires the base's shape to resolve via `object_shape_of_node`, and a `const` bound directly to an object LITERAL is never given a resolved shape that way (see `crates/kali_codegen/src/emit/object.rs:14-25` and the register's R-08 residual 4 (vi) note for the corrected mechanism and a witness of the arm firing when the base's shape IS resolved). This falsifies a claim from an earlier round of this register entry ("`??` is closed for a literal or a `const`-bound operand"), which conflated "bound via `const`" with "provably a literal". Four illustrations, all re-verified on a freshly built binary, all WRONG (kali `9`, node `0`):"""
+args = ["run", "nullish_coalescing_over_const_bound_folded_expression_is_a_known_residual.ts"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "nullish_coalescing_over_const_bound_let_alias_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — FAMILY (a) of the same mechanism above, one level indirect: a `const` binding whose initializer chain does NOT bottom out at a compile-time literal. `resolve_literal_aggregate` will follow a `const`'s binding, but if what it finds at the end of the chain is a call, a folded runtime expression, or another (non-`const`) binding, `static_equality_class` still returns `None` there — the `const` keyword itself proves nothing; only a chain that terminates in a literal does. The fourth shape below (an object field read) reaches the SAME `None` outcome for a different, structural reason (REVERTED 2026-07-19, round 4 — an earlier round of this comment claimed `Some(EqClass::UntypedObjectField)` instead of `None`; that was wrong, verified false on a freshly built binary: `const o={a:0}; console.log(o.a === null)` fails CLOSED with `E5506`, which only happens for class `None` — `UntypedObjectField` routes to `Runtime`, not `FailClosed`, per `strict_decision`'s `is_unproven` arm). The real reason is that `object_field_equality_class` never fires here at all: it requires the base's shape to resolve via `object_shape_of_node`, and a `const` bound directly to an object LITERAL is never given a resolved shape that way (see `crates/kali_codegen/src/emit/object.rs:14-25` and the register's R-08 residual 4 (vi) note for the corrected mechanism and a witness of the arm firing when the base's shape IS resolved). This falsifies a claim from an earlier round of this register entry ("`??` is closed for a literal or a `const`-bound operand"), which conflated "bound via `const`" with "provably a literal". Four illustrations, all re-verified on a freshly built binary, all WRONG (kali `9`, node `0`):"""
+args = ["run", "nullish_coalescing_over_const_bound_let_alias_is_a_known_residual.ts"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "nullish_coalescing_over_const_bound_member_read_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — FAMILY (a) of the same mechanism above, one level indirect: a `const` binding whose initializer chain does NOT bottom out at a compile-time literal. `resolve_literal_aggregate` will follow a `const`'s binding, but if what it finds at the end of the chain is a call, a folded runtime expression, or another (non-`const`) binding, `static_equality_class` still returns `None` there — the `const` keyword itself proves nothing; only a chain that terminates in a literal does. The fourth shape below (an object field read) reaches the SAME `None` outcome for a different, structural reason (REVERTED 2026-07-19, round 4 — an earlier round of this comment claimed `Some(EqClass::UntypedObjectField)` instead of `None`; that was wrong, verified false on a freshly built binary: `const o={a:0}; console.log(o.a === null)` fails CLOSED with `E5506`, which only happens for class `None` — `UntypedObjectField` routes to `Runtime`, not `FailClosed`, per `strict_decision`'s `is_unproven` arm). The real reason is that `object_field_equality_class` never fires here at all: it requires the base's shape to resolve via `object_shape_of_node`, and a `const` bound directly to an object LITERAL is never given a resolved shape that way (see `crates/kali_codegen/src/emit/object.rs:14-25` and the register's R-08 residual 4 (vi) note for the corrected mechanism and a witness of the arm firing when the base's shape IS resolved). This falsifies a claim from an earlier round of this register entry ("`??` is closed for a literal or a `const`-bound operand"), which conflated "bound via `const`" with "provably a literal". Four illustrations, all re-verified on a freshly built binary, all WRONG (kali `9`, node `0`):"""
+args = ["run", "nullish_coalescing_over_const_bound_member_read_is_a_known_residual.ts"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — FAMILY (b), SINGLE-ARGUMENT `console.log` ONLY (scope corrected 2026-07-19, round 4 — see FAMILY (c) below for the part of this that round 3 wrongly retired as a duplicate of this section): a `??` whose selected result is a BOOLEAN loses its boolean-ness at the single-argument print sink — for every binding kind, including a bare literal operand, and even when `??`'s branch selection is itself correct (a bare `false`/`true`/`null` operand IS provable, so this fires on top of a correct decision, not because of the residual above).
+
+CORRECTED 2026-07-19 (third addendum round): this IS R-30 ("Computed booleans render `1`/`0` in direct `console.log` argument position") in the `kali-silent-miscompile-register.md` observed through `??`, not a `??`-specific proof gap — `??` is one more producer feeding R-30's already-registered mechanism (no `Boolean` shape arm in the single-argument console sink). These two pins are NOT blocked on the `Repr::Boolean`/null axis that blocks the mechanism section above; they are blocked on R-30's own fix (unify the console formatters). When THAT fix lands, these two assertions must go RED — that is the update signal for this section specifically, distinct from the null-axis signal called out above AND from FAMILY (c)'s own update signal below.
+
+Mechanism: when `??`'s left operand is provably `Boolean`-classed (never nullish) or provably `Null`/`Undefined`-classed (always nullish), the selected operand's `EmittedValue` correctly carries `shape: ValueShape::Boolean` (via `selected_nullish_operand`, `crates/kali_codegen/src/emit/equality.rs:433-436`). But the SINGLE-ARGUMENT `console.log`/`.error`/`.warn`/`.info` sink (`emit_console_argument`, `crates/kali_codegen/src/emit/call.rs:23-41`) — which is what a `??` expression falls to whenever the WHOLE call isn't statically renderable — never inspects `shape` except for `Float`; it hands the raw i64 to the host, which does `value.to_string()` for anything that isn't a string handle. A bare `console.log(false)` prints correctly only because the ENTIRE call is folded to the literal string "false" by a SEPARATE, independent constant-folder (`render_console_call` / `render_static_value`, `crates/kali_codegen/src/intrinsics/host.rs:345-`), which has no case for a `??`/binary node and so never folds a `??` expression — a fresh instance of this repo's "hand-mirrored oracle" class of bug (two independent notions of "is this a boolean", one used by `??`'s own branch decision, one used by console's static-fold decision, and they disagree).
+
+The multi-argument console lane and string concatenation, for a PROVABLE operand (a bare literal, and everything else this file's mechanism comment above enumerates), DO honor `shape: Boolean` and are NOT affected by THIS section — see the passing (non-residual) coverage this section deliberately omits. **Round 4 correction: this does NOT mean those two lanes are unconditionally fine — see FAMILY (c) below for the UNPROVABLE-operand case, which they do NOT handle.**
+
+Do not route these pins through string concatenation (`"n:" + (false ?? 9)`) — that takes `emit_as_string`'s correct path over this PROVABLE (literal) operand (per the existing `nullish_coalescing_does_not_treat_falsy_as_nullish` test above) and would mask this residual entirely, which is exactly what happened to a green suite in an earlier round."""
+args = ["run", "nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual.ts"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — FAMILY (b), SINGLE-ARGUMENT `console.log` ONLY (scope corrected 2026-07-19, round 4 — see FAMILY (c) below for the part of this that round 3 wrongly retired as a duplicate of this section): a `??` whose selected result is a BOOLEAN loses its boolean-ness at the single-argument print sink — for every binding kind, including a bare literal operand, and even when `??`'s branch selection is itself correct (a bare `false`/`true`/`null` operand IS provable, so this fires on top of a correct decision, not because of the residual above).
+
+CORRECTED 2026-07-19 (third addendum round): this IS R-30 ("Computed booleans render `1`/`0` in direct `console.log` argument position") in the `kali-silent-miscompile-register.md` observed through `??`, not a `??`-specific proof gap — `??` is one more producer feeding R-30's already-registered mechanism (no `Boolean` shape arm in the single-argument console sink). These two pins are NOT blocked on the `Repr::Boolean`/null axis that blocks the mechanism section above; they are blocked on R-30's own fix (unify the console formatters). When THAT fix lands, these two assertions must go RED — that is the update signal for this section specifically, distinct from the null-axis signal called out above AND from FAMILY (c)'s own update signal below.
+
+Mechanism: when `??`'s left operand is provably `Boolean`-classed (never nullish) or provably `Null`/`Undefined`-classed (always nullish), the selected operand's `EmittedValue` correctly carries `shape: ValueShape::Boolean` (via `selected_nullish_operand`, `crates/kali_codegen/src/emit/equality.rs:433-436`). But the SINGLE-ARGUMENT `console.log`/`.error`/`.warn`/`.info` sink (`emit_console_argument`, `crates/kali_codegen/src/emit/call.rs:23-41`) — which is what a `??` expression falls to whenever the WHOLE call isn't statically renderable — never inspects `shape` except for `Float`; it hands the raw i64 to the host, which does `value.to_string()` for anything that isn't a string handle. A bare `console.log(false)` prints correctly only because the ENTIRE call is folded to the literal string "false" by a SEPARATE, independent constant-folder (`render_console_call` / `render_static_value`, `crates/kali_codegen/src/intrinsics/host.rs:345-`), which has no case for a `??`/binary node and so never folds a `??` expression — a fresh instance of this repo's "hand-mirrored oracle" class of bug (two independent notions of "is this a boolean", one used by `??`'s own branch decision, one used by console's static-fold decision, and they disagree).
+
+The multi-argument console lane and string concatenation, for a PROVABLE operand (a bare literal, and everything else this file's mechanism comment above enumerates), DO honor `shape: Boolean` and are NOT affected by THIS section — see the passing (non-residual) coverage this section deliberately omits. **Round 4 correction: this does NOT mean those two lanes are unconditionally fine — see FAMILY (c) below for the UNPROVABLE-operand case, which they do NOT handle.**
+
+Do not route these pins through string concatenation (`"n:" + (false ?? 9)`) — that takes `emit_as_string`'s correct path over this PROVABLE (literal) operand (per the existing `nullish_coalescing_does_not_treat_falsy_as_nullish` test above) and would mask this residual entirely, which is exactly what happened to a green suite in an earlier round."""
+args = ["run", "nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual.ts"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "nullish_coalescing_boolean_result_loses_shape_in_concat_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — FAMILY (c) (NEW 2026-07-19, round 4 — split out of what round 3 wrongly retired as "the same as FAMILY (b) / R-30, closes when R-30 closes, no `??`-specific work needed"; scope corrected round 5 — see below): the string-concat (`+`) and multi-argument `console.log` lanes ALSO lose a `??` result's boolean-ness, whenever the LEFT OPERAND is a CALL whose OWN emission already tags its result `shape: ValueShape::Boolean` (a hand-cased intrinsic such as `Number.isInteger(5)`/`Object.is(a, b)`) but which `static_equality_class` cannot prove. This fires ON TOP OF a value the call site already got right, and — unlike FAMILY (b) above — it is genuinely `??`-specific: it is blocked on neither R-30's fix nor the `Repr::Boolean`/null axis that blocks the mechanism section above.
+
+ROUND 5 CORRECTION: an `isEven`-style ORDINARY user function was wrongly folded in here as a third example, annotated "BASELINE OK". Re-verified on a freshly built binary (2026-07-19), that baseline is already wrong: `function isEven(n){return n%2===0;} console.log("a:"+(isEven(4)))` prints kali `a:1`, node `a:true`, with NO `??` anywhere in the program. `??` is therefore not what breaks that row, and it does not belong in this family — it is a THIRD, independent defect (an ordinary function's call-site shape is never `Boolean` in the first place, so there is nothing for `??`'s fallback to discard), now tracked as its own entry, register R-34.
+
+The baseline (no `??`) is correct on the exact same lane that diverges once `??` is introduced, proving `??` is what breaks it: console.log("s:" + (Number.isInteger(5)));       // kali s:true, node s:true console.log("w:" + (Number.isInteger(5) ?? 9));  // kali w:1,    node w:true  <- diverges The value in the concat case never reaches a `console.log` argument position at all, so this is NOT R-30: unifying the console formatters (R-30's fix) cannot repair a value that never reaches a console sink.
+
+MECHANISM, TRACED (not inference): `??`'s codegen (`crates/kali_codegen/src/emit/operators.rs:2170-2229`) only attaches a proven shape via `selected_nullish_operand` on the two proof-driven branches (`static_equality_class(left)` returns `Some(class)` that arms the gate). When it returns `None` — which it does for `Number.isInteger`/ `Object.is`, because `static_equality_class`'s only route to prove a CALL boolean is `render_static_value` (`crates/kali_codegen/src/intrinsics/host.rs:358-411`), whose `Call` arm has no case for either of them (verified by reading it end to end: only `Object.freeze`, `arr.at`/`str.at`/`str.codePointAt`, and `require`/semver fold) — `??` falls to the untyped runtime fallback (`operators.rs:2210-2229`), which unconditionally returns `EmittedValue { shape: ValueShape::Unknown }` (`:2226-2229`) without ever consulting `left_result.shape`/`right_result.shape`, which it already computed one line earlier and simply discards. Downstream, `emit_as_string` (`operators.rs:1537-1572` — shared by `+` and the multi-argument console lane via `emit_console_argument_as_string`, `call.rs:60-69`) keys its boolean-formatting arm on exactly `emitted.shape == ValueShape::Boolean`, so the lost shape falls through to `int_to_string`, printing the raw `1`/`0` bit pattern. Contrast a call that IS provable — `function greet(){return "hi";} greet() ?? "x"` prints correctly in concat — because `is_string_valued` (`operators.rs:1012-1020`) proves `greet`'s return via `repr_table.return_repr(name) == Repr::String`, a real whole-program DATA-FLOW repr axis. No equivalent axis exists for booleans: `kali_common::Repr` (`crates/kali_common/src/repr.rs:18-38`) has no `Boolean` variant, so a call's booleanness can only ever be proven syntactically, never by cross-function data flow the way String/Float/ Object are. See the register's R-08 residual 6 for the full trace.
+
+AN ORDINARY user function (e.g. `isEven`) does NOT go through either hand-cased intrinsic arm above, and does NOT belong in this mechanism: it hits the GENERIC resolved-call path (`crates/kali_codegen/src/emit/ call.rs:3112-3123`), which sets `shape: ValueShape::Float` only when the callee's return repr is `F64` and `ValueShape::Unknown` in every other case — there is no `Boolean` arm there at all, for any function, because `kali_common::Repr` has no `Boolean` variant to test for. So an ordinary function's call result is `Unknown` BEFORE `??` (or anything else) ever sees it; there is no already-`Boolean` value here for `??`'s fallback to discard. That class is tracked separately as register entry R-34, not this family — see the round-5 correction above.
+
+Update trigger: this residual is specific to `??`'s own runtime-fallback lowering — it goes RED when THAT code path starts deriving its `EmittedValue.shape` from the operands it already emits, NOT when R-30 closes (that fix only touches the single-argument sink FAMILY (b) covers) and NOT per se when a `Repr::Boolean` axis lands (though that would also happen to fix it, by routing `Number.isInteger`/`Object.is` through the proof-driven branches instead)."""
+args = ["run", "nullish_coalescing_boolean_result_loses_shape_in_concat_is_a_known_residual.ts"]
+exit = "success"
+stdout = "w:1\n"
+
+[[case]]
+name = "nullish_coalescing_boolean_result_loses_shape_in_multi_arg_console_is_a_known_residual"
+rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
+
+kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
+
+The fix classifies both operands into JS type classes at the comparison site (`static_equality_class`) and decides `===`/`!==`/`==`/`!=` by TYPE first. Where a `null` / `undefined` / boolean operand meets an operand whose class cannot be proven, the comparison fails closed with `E5506` rather than emitting a wrong boolean.
+
+Every expected value in this file was captured from node v26.
+
+RESIDUAL, pinned honestly — FAMILY (c) (NEW 2026-07-19, round 4 — split out of what round 3 wrongly retired as "the same as FAMILY (b) / R-30, closes when R-30 closes, no `??`-specific work needed"; scope corrected round 5 — see below): the string-concat (`+`) and multi-argument `console.log` lanes ALSO lose a `??` result's boolean-ness, whenever the LEFT OPERAND is a CALL whose OWN emission already tags its result `shape: ValueShape::Boolean` (a hand-cased intrinsic such as `Number.isInteger(5)`/`Object.is(a, b)`) but which `static_equality_class` cannot prove. This fires ON TOP OF a value the call site already got right, and — unlike FAMILY (b) above — it is genuinely `??`-specific: it is blocked on neither R-30's fix nor the `Repr::Boolean`/null axis that blocks the mechanism section above.
+
+ROUND 5 CORRECTION: an `isEven`-style ORDINARY user function was wrongly folded in here as a third example, annotated "BASELINE OK". Re-verified on a freshly built binary (2026-07-19), that baseline is already wrong: `function isEven(n){return n%2===0;} console.log("a:"+(isEven(4)))` prints kali `a:1`, node `a:true`, with NO `??` anywhere in the program. `??` is therefore not what breaks that row, and it does not belong in this family — it is a THIRD, independent defect (an ordinary function's call-site shape is never `Boolean` in the first place, so there is nothing for `??`'s fallback to discard), now tracked as its own entry, register R-34.
+
+The baseline (no `??`) is correct on the exact same lane that diverges once `??` is introduced, proving `??` is what breaks it: console.log("s:" + (Number.isInteger(5)));       // kali s:true, node s:true console.log("w:" + (Number.isInteger(5) ?? 9));  // kali w:1,    node w:true  <- diverges The value in the concat case never reaches a `console.log` argument position at all, so this is NOT R-30: unifying the console formatters (R-30's fix) cannot repair a value that never reaches a console sink.
+
+MECHANISM, TRACED (not inference): `??`'s codegen (`crates/kali_codegen/src/emit/operators.rs:2170-2229`) only attaches a proven shape via `selected_nullish_operand` on the two proof-driven branches (`static_equality_class(left)` returns `Some(class)` that arms the gate). When it returns `None` — which it does for `Number.isInteger`/ `Object.is`, because `static_equality_class`'s only route to prove a CALL boolean is `render_static_value` (`crates/kali_codegen/src/intrinsics/host.rs:358-411`), whose `Call` arm has no case for either of them (verified by reading it end to end: only `Object.freeze`, `arr.at`/`str.at`/`str.codePointAt`, and `require`/semver fold) — `??` falls to the untyped runtime fallback (`operators.rs:2210-2229`), which unconditionally returns `EmittedValue { shape: ValueShape::Unknown }` (`:2226-2229`) without ever consulting `left_result.shape`/`right_result.shape`, which it already computed one line earlier and simply discards. Downstream, `emit_as_string` (`operators.rs:1537-1572` — shared by `+` and the multi-argument console lane via `emit_console_argument_as_string`, `call.rs:60-69`) keys its boolean-formatting arm on exactly `emitted.shape == ValueShape::Boolean`, so the lost shape falls through to `int_to_string`, printing the raw `1`/`0` bit pattern. Contrast a call that IS provable — `function greet(){return "hi";} greet() ?? "x"` prints correctly in concat — because `is_string_valued` (`operators.rs:1012-1020`) proves `greet`'s return via `repr_table.return_repr(name) == Repr::String`, a real whole-program DATA-FLOW repr axis. No equivalent axis exists for booleans: `kali_common::Repr` (`crates/kali_common/src/repr.rs:18-38`) has no `Boolean` variant, so a call's booleanness can only ever be proven syntactically, never by cross-function data flow the way String/Float/ Object are. See the register's R-08 residual 6 for the full trace.
+
+AN ORDINARY user function (e.g. `isEven`) does NOT go through either hand-cased intrinsic arm above, and does NOT belong in this mechanism: it hits the GENERIC resolved-call path (`crates/kali_codegen/src/emit/ call.rs:3112-3123`), which sets `shape: ValueShape::Float` only when the callee's return repr is `F64` and `ValueShape::Unknown` in every other case — there is no `Boolean` arm there at all, for any function, because `kali_common::Repr` has no `Boolean` variant to test for. So an ordinary function's call result is `Unknown` BEFORE `??` (or anything else) ever sees it; there is no already-`Boolean` value here for `??`'s fallback to discard. That class is tracked separately as register entry R-34, not this family — see the round-5 correction above.
+
+Update trigger: this residual is specific to `??`'s own runtime-fallback lowering — it goes RED when THAT code path starts deriving its `EmittedValue.shape` from the operands it already emits, NOT when R-30 closes (that fix only touches the single-argument sink FAMILY (b) covers) and NOT per se when a `Repr::Boolean` axis lands (though that would also happen to fix it, by routing `Number.isInteger`/`Object.is` through the proof-driven branches instead)."""
+args = ["run", "nullish_coalescing_boolean_result_loses_shape_in_multi_arg_console_is_a_known_residual.ts"]
+exit = "success"
+stdout = "x: 1\n"
+
