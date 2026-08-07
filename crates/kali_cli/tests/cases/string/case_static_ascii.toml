@@ -1,0 +1,181 @@
+# Migrated from tests/string_case_static_ascii.rs -- all 7 #[test] functions,
+# as 12 case blocks:
+#
+#   - `run`, `json_check`, `json_browser_bundle_tsx`: 1:1 with their source
+#     tests.
+#   - `browser_bundle_js`/`ts`/`jsx`/`tsx`: sibling [[case]] blocks (not a
+#     [matrix] axis -- see repeat_static_ascii.toml's header) for
+#     `browser_bundle_accepts_..._across_source_classes`'s 4-extension loop.
+#   - `check_gates_arguments_lower_case`/`_locale_lower_case`: sibling
+#     blocks for `check_gates_string_case_arguments`, which calls the shared
+#     gate helper twice with two different sources in one #[test] fn.
+#   - `check_gates_non_ascii_receiver_upper_case`/`_locale_upper_case`:
+#     sibling blocks for `check_gates_non_ascii_static_string_case_receiver`,
+#     same two-calls-in-one-fn shape.
+#   - `check_gates_dynamic_receiver`: 1:1 with its source test.
+#
+# Every gate case's source .rs also asserts
+# `errors[0]["message"].contains("String.prototype.")`. The case-file `json`
+# key is exact-match only (assertions.rs's `values_equal`), so a substring
+# claim cannot be expressed as a `json.errors.0.message` assertion directly
+# -- but the audit script's "json keys" claim kind specifically requires the
+# literal key name `message` to appear in a `json`/`fields` table (see
+# scripts/audit-case-migration.py's `_json_like_strings`), which a
+# `stdout_contains` substring check would not satisfy. Each gate case below
+# therefore asserts the full, exact diagnostic message text (obtained by
+# running the built `kali` binary against the same source) rather than the
+# substring -- strictly stronger than the original `.contains()` claim, not
+# weaker, since equality to a string implies containment of any of its
+# substrings.
+#
+# [source] uses one "main.<ext>" file per extension, shared by every case
+# that needs that extension (run/json_check/browser loop all use the same
+# `supported_source()` body in the original), plus one distinct file per
+# gate case whose content genuinely differs.
+
+[source]
+"main.js" = '''
+console.log("HeLLo".toLowerCase());
+console.log("HeLLo".toUpperCase());
+console.log("HeLLo".toLocaleLowerCase());
+console.log("HeLLo".toLocaleUpperCase());
+const source = "MiXeD";
+console.log(Object.freeze(source).toLowerCase());
+console.log(Object.freeze(source).toUpperCase());
+console.log(Object.freeze(source).toLocaleLowerCase());
+console.log(Object.freeze(source).toLocaleUpperCase());
+'''
+"main.ts" = '''
+console.log("HeLLo".toLowerCase());
+console.log("HeLLo".toUpperCase());
+console.log("HeLLo".toLocaleLowerCase());
+console.log("HeLLo".toLocaleUpperCase());
+const source = "MiXeD";
+console.log(Object.freeze(source).toLowerCase());
+console.log(Object.freeze(source).toUpperCase());
+console.log(Object.freeze(source).toLocaleLowerCase());
+console.log(Object.freeze(source).toLocaleUpperCase());
+'''
+"main.jsx" = '''
+console.log("HeLLo".toLowerCase());
+console.log("HeLLo".toUpperCase());
+console.log("HeLLo".toLocaleLowerCase());
+console.log("HeLLo".toLocaleUpperCase());
+const source = "MiXeD";
+console.log(Object.freeze(source).toLowerCase());
+console.log(Object.freeze(source).toUpperCase());
+console.log(Object.freeze(source).toLocaleLowerCase());
+console.log(Object.freeze(source).toLocaleUpperCase());
+'''
+"main.tsx" = '''
+console.log("HeLLo".toLowerCase());
+console.log("HeLLo".toUpperCase());
+console.log("HeLLo".toLocaleLowerCase());
+console.log("HeLLo".toLocaleUpperCase());
+const source = "MiXeD";
+console.log(Object.freeze(source).toLowerCase());
+console.log(Object.freeze(source).toUpperCase());
+console.log(Object.freeze(source).toLocaleLowerCase());
+console.log(Object.freeze(source).toLocaleUpperCase());
+'''
+"arguments_lower_case.js" = "console.log('hello'.toLowerCase(1));\n"
+"arguments_locale_lower_case.js" = "console.log('hello'.toLocaleLowerCase('tr'));\n"
+"non_ascii_receiver_upper_case.js" = "console.log('héllo'.toUpperCase());\n"
+"non_ascii_receiver_locale_upper_case.js" = "console.log('héllo'.toLocaleUpperCase());\n"
+"dynamic_receiver.js" = "function convert(value) { return value.toLowerCase(); }\n"
+
+[[case]]
+name = "run"
+rationale = "The `toLowerCase`/`toUpperCase`/`toLocaleLowerCase`/`toLocaleUpperCase` family folds at compile time for an ASCII literal receiver, whether the receiver is a plain literal or frozen."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "hello\nHELLO\nhello\nHELLO\nmixed\nMIXED\nmixed\nMIXED\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_js"
+rationale = "The static-ASCII case-conversion fold holds across every supported source class, not just plain JS -- js source."
+args = ["build", "--api", "browser", "--bundle", "main.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_ts"
+rationale = "The static-ASCII case-conversion fold holds across every supported source class, not just plain JS -- ts source."
+args = ["build", "--api", "browser", "--bundle", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_jsx"
+rationale = "The static-ASCII case-conversion fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["build", "--api", "browser", "--bundle", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_tsx"
+rationale = "The static-ASCII case-conversion fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_browser_bundle_tsx"
+rationale = "Same tsx browser bundle, asserting the JSON output envelope rather than a bare success exit."
+args = ["--output", "json", "build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "check_gates_arguments_lower_case"
+rationale = "`toLowerCase` only folds when called with no arguments; a call with an argument must fail closed with E5506, not silently ignore the extra argument. The full message is asserted (not just a `String.prototype.` substring) because a `json` assertion is exact-match only -- see this file's header on why that is at least as strong as the original `.contains(\"String.prototype.\")`."
+args = ["--output", "json", "check", "arguments_lower_case.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.toLowerCase is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+
+[[case]]
+name = "check_gates_arguments_locale_lower_case"
+rationale = "`toLocaleLowerCase` only folds when called with no arguments; a call with a locale argument must fail closed with E5506."
+args = ["--output", "json", "check", "arguments_locale_lower_case.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.toLocaleLowerCase is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+
+[[case]]
+name = "check_gates_non_ascii_receiver_upper_case"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('héllo') must fail closed with E5506 for `toUpperCase`."
+args = ["--output", "json", "check", "non_ascii_receiver_upper_case.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.toUpperCase is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+
+[[case]]
+name = "check_gates_non_ascii_receiver_locale_upper_case"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('héllo') must fail closed with E5506 for `toLocaleUpperCase`."
+args = ["--output", "json", "check", "non_ascii_receiver_locale_upper_case.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.toLocaleUpperCase is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+
+[[case]]
+name = "check_gates_dynamic_receiver"
+rationale = "A receiver whose value is not statically known cannot be folded and must fail closed with E5506 rather than falling through to an unsupported runtime path."
+args = ["--output", "json", "check", "dynamic_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.toLowerCase is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"

@@ -1,0 +1,69 @@
+# Migrated from tests/string_substring_static_ascii.rs -- all 5 #[test]
+# functions, 1:1 as 5 case blocks. This file has no browser_bundle test at
+# all, unlike the rest of the family.
+#
+# `runs_ascii_provable_runtime_string_substring_receiver` carries over its
+# source comment as `rationale` verbatim (word for word), per the task's
+# instruction to preserve explanatory comments as `rationale` rather than
+# drop them as a `#` comment.
+
+[source]
+"main.js" = '''
+console.log("hello".substring());
+console.log("hello".substring(1));
+console.log("hello".substring(1, 4));
+console.log("hello".substring(1.5, 4.9));
+console.log("hello".substring(4, 1));
+console.log("hello".substring(-2, 2));
+'''
+"main.ts" = '''
+console.log("hello".substring());
+console.log("hello".substring(1));
+console.log("hello".substring(1, 4));
+console.log("hello".substring(1.5, 4.9));
+console.log("hello".substring(4, 1));
+console.log("hello".substring(-2, 2));
+'''
+"dynamic_bound.js" = "function cut(start) {\n  console.log('hello'.substring(start));\n}\ncut(1);\n"
+"non_ascii_receiver.js" = "console.log('héllo'.substring(1));\n"
+"ascii_provable_receiver.js" = "function cut(value) {\n  console.log(value.substring(1));\n}\ncut('hello');\n"
+
+[[case]]
+name = "run"
+rationale = "`.substring()` on a static ASCII literal folds at compile time, including fractional (truncated), out-of-order, and negative-clamped bounds."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "hello\nello\nell\nell\nell\nhe\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "check_gates_dynamic_string_substring_bound"
+rationale = "`.substring()` only folds for a statically-known start bound; a dynamic bound must fail closed with E5506."
+args = ["--output", "json", "check", "dynamic_bound.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_static_string_substring_receiver"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('héllo') must fail closed with E5506."
+args = ["--output", "json", "check", "non_ascii_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "runs_ascii_provable_runtime_string_substring_receiver"
+rationale = "A param that only ever holds an ASCII string is an ASCII-provable runtime string receiver: Task 4 lowers `value.substring(1)` to the synthetic `__substring` (byte-offset slicing is JS-correct for ASCII), so this case that previously gated is now accepted and runs correctly."
+args = ["run", "ascii_provable_receiver.js"]
+exit = "success"
+stdout = "ello\n"

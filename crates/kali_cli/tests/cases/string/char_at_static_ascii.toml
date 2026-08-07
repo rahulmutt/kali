@@ -1,0 +1,233 @@
+# Migrated from tests/string_char_at_static_ascii.rs -- all 16 #[test]
+# functions, as 19 case blocks:
+#
+#   - `run`, `json_check`, `json_browser_bundle_tsx`: 1:1 with their source
+#     tests.
+#   - `browser_bundle_js`/`ts`/`jsx`/`tsx`: sibling [[case]] blocks (not a
+#     [matrix] axis -- see repeat_static_ascii.toml's header) for
+#     `browser_bundle_accepts_..._across_source_classes`'s 4-extension loop.
+#   - The remaining 12 `check_gates_*` tests cover `.at()`, `.charAt()`, and
+#     `.charCodeAt()` each gated on: a dynamic index, a non-integer index, a
+#     non-ASCII static receiver, and a dynamic receiver -- 1:1 with their
+#     source tests, none of which assert a message substring (only the
+#     E5506 code), unlike several sibling files in this family.
+#
+# [source] uses one "main.<ext>" file per extension, shared by every case
+# that needs that extension, plus one distinct file per gate case.
+
+[source]
+"main.js" = '''
+console.log("hello".at());
+console.log("hello".at(1));
+console.log("hello".at(-1));
+console.log("hello".at(99));
+console.log("hello".charAt());
+console.log("hello".charAt(1));
+console.log("hello".charAt(-1));
+console.log("hello".charAt(99));
+console.log("hello".charCodeAt());
+console.log("hello".charCodeAt(1));
+console.log("hello".charCodeAt(-1));
+console.log("hello".charCodeAt(99));
+'''
+"main.ts" = '''
+console.log("hello".at());
+console.log("hello".at(1));
+console.log("hello".at(-1));
+console.log("hello".at(99));
+console.log("hello".charAt());
+console.log("hello".charAt(1));
+console.log("hello".charAt(-1));
+console.log("hello".charAt(99));
+console.log("hello".charCodeAt());
+console.log("hello".charCodeAt(1));
+console.log("hello".charCodeAt(-1));
+console.log("hello".charCodeAt(99));
+'''
+"main.jsx" = '''
+console.log("hello".at());
+console.log("hello".at(1));
+console.log("hello".at(-1));
+console.log("hello".at(99));
+console.log("hello".charAt());
+console.log("hello".charAt(1));
+console.log("hello".charAt(-1));
+console.log("hello".charAt(99));
+console.log("hello".charCodeAt());
+console.log("hello".charCodeAt(1));
+console.log("hello".charCodeAt(-1));
+console.log("hello".charCodeAt(99));
+'''
+"main.tsx" = '''
+console.log("hello".at());
+console.log("hello".at(1));
+console.log("hello".at(-1));
+console.log("hello".at(99));
+console.log("hello".charAt());
+console.log("hello".charAt(1));
+console.log("hello".charAt(-1));
+console.log("hello".charAt(99));
+console.log("hello".charCodeAt());
+console.log("hello".charCodeAt(1));
+console.log("hello".charCodeAt(-1));
+console.log("hello".charCodeAt(99));
+'''
+"at_dynamic_index.js" = "function pick(index) { return 'hello'.at(index); }\n"
+"at_non_integer_index.js" = "console.log('hello'.at(1.5));\n"
+"at_non_ascii_receiver.js" = "console.log('héllo'.at(1));\n"
+"at_dynamic_receiver.js" = "function pick(value) { return value.at(1); }\n"
+"char_at_dynamic_index.js" = "function pick(index) { return 'hello'.charAt(index); }\n"
+"char_at_non_integer_index.js" = "console.log('hello'.charAt(1.5));\n"
+"char_at_non_ascii_receiver.js" = "console.log('héllo'.charAt(1));\n"
+"char_at_dynamic_receiver.js" = "function pick(value) { return value.charAt(1); }\n"
+"char_code_at_dynamic_index.js" = "function pick(index) { return 'hello'.charCodeAt(index); }\n"
+"char_code_at_non_integer_index.js" = "console.log('hello'.charCodeAt(1.5));\n"
+"char_code_at_non_ascii_receiver.js" = "console.log('héllo'.charCodeAt(1));\n"
+"char_code_at_dynamic_receiver.js" = "function pick(value) { return value.charCodeAt(1); }\n"
+
+[[case]]
+name = "run"
+rationale = "`.at()`/`.charAt()`/`.charCodeAt()` on a static ASCII literal fold at compile time, including their in-range, negative, and out-of-range index cases."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "h\ne\no\nundefined\nh\ne\n\n\n104\n101\nNaN\nNaN\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_js"
+rationale = "The static-ASCII char-at fold holds across every supported source class, not just plain JS -- js source."
+args = ["build", "--api", "browser", "--bundle", "main.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_ts"
+rationale = "The static-ASCII char-at fold holds across every supported source class, not just plain JS -- ts source."
+args = ["build", "--api", "browser", "--bundle", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_jsx"
+rationale = "The static-ASCII char-at fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["build", "--api", "browser", "--bundle", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_tsx"
+rationale = "The static-ASCII char-at fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_browser_bundle_tsx"
+rationale = "Same tsx browser bundle, asserting the JSON output envelope rather than a bare success exit."
+args = ["--output", "json", "build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "check_gates_string_at_dynamic_index"
+rationale = "`.at()` only folds for a statically-known index; a dynamic index must fail closed with E5506."
+args = ["--output", "json", "check", "at_dynamic_index.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_string_at_non_integer_index"
+rationale = "`.at()` requires an integer index; a fractional index must fail closed with E5506."
+args = ["--output", "json", "check", "at_non_integer_index.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_static_string_at_receiver"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('héllo') must fail closed with E5506 for `.at()`."
+args = ["--output", "json", "check", "at_non_ascii_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_dynamic_string_at_receiver"
+rationale = "A receiver whose value is not statically known cannot be folded and must fail closed with E5506 for `.at()`."
+args = ["--output", "json", "check", "at_dynamic_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_string_char_at_dynamic_index"
+rationale = "`.charAt()` only folds for a statically-known index; a dynamic index must fail closed with E5506."
+args = ["--output", "json", "check", "char_at_dynamic_index.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_string_char_at_non_integer_index"
+rationale = "`.charAt()` requires an integer index; a fractional index must fail closed with E5506."
+args = ["--output", "json", "check", "char_at_non_integer_index.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_static_string_char_at_receiver"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('héllo') must fail closed with E5506 for `.charAt()`."
+args = ["--output", "json", "check", "char_at_non_ascii_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_dynamic_string_char_at_receiver"
+rationale = "A receiver whose value is not statically known cannot be folded and must fail closed with E5506 for `.charAt()`."
+args = ["--output", "json", "check", "char_at_dynamic_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_string_char_code_at_dynamic_index"
+rationale = "`.charCodeAt()` only folds for a statically-known index; a dynamic index must fail closed with E5506."
+args = ["--output", "json", "check", "char_code_at_dynamic_index.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_string_char_code_at_non_integer_index"
+rationale = "`.charCodeAt()` requires an integer index; a fractional index must fail closed with E5506."
+args = ["--output", "json", "check", "char_code_at_non_integer_index.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_static_string_char_code_at_receiver"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('héllo') must fail closed with E5506 for `.charCodeAt()`."
+args = ["--output", "json", "check", "char_code_at_non_ascii_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_dynamic_string_char_code_at_receiver"
+rationale = "A receiver whose value is not statically known cannot be folded and must fail closed with E5506 for `.charCodeAt()`."
+args = ["--output", "json", "check", "char_code_at_dynamic_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"

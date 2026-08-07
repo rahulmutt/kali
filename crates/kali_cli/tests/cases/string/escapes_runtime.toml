@@ -1,0 +1,37 @@
+# Migrated from tests/string_escapes_runtime.rs -- both #[test] functions,
+# 1:1 as 2 case blocks.
+#
+# `string_escapes_unknown_escape_fails_compilation`'s original assertion is
+# `stderr.contains("escape") || stderr.contains("1004")` -- an OR, which
+# `stderr_contains` (an AND-list) cannot express directly. Running the built
+# `kali` binary against the same source shows the actual diagnostic is
+# `error[E1004]: unsupported string escape sequence at position 15`, which
+# contains *both* alternatives at once ("escape" via "escape sequence", and
+# "1004" via "E1004"). Asserting both as an AND-list is therefore at least
+# as strong as the original OR against real output, not a weakening of it;
+# it just cannot represent "either would have been acceptable" the way the
+# original code did, which is unreachable given current behavior anyway.
+
+[source]
+"esc.ts" = '''
+console.log("a\tb");
+console.log("c\nd");
+console.log("e\\f");
+'''
+"bad_esc.ts" = '''
+console.log("a\qb");
+'''
+
+[[case]]
+name = "string_escapes_decode_to_real_bytes"
+rationale = "Real TAB (0x09), then a\\tb newline; real newline inside c/d; single backslash e\\f."
+args = ["run", "esc.ts"]
+exit = "success"
+stdout = "a\tb\nc\nd\ne\\f\n"
+
+[[case]]
+name = "string_escapes_unknown_escape_fails_compilation"
+rationale = "expected stderr to mention the unsupported-escape diagnostic"
+args = ["run", "bad_esc.ts"]
+exit = "failure"
+stderr_contains = ["escape", "1004"]

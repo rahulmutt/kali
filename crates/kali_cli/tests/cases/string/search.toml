@@ -1,0 +1,75 @@
+# Migrated from tests/string_search.rs -- all 5 #[test] functions, as 5
+# case blocks, all 1:1 with their source tests (no extension loop was
+# migrated into a matrix here because it's a 4-way sibling fan-out exactly
+# like the rest of this family -- see repeat_static_ascii.toml's header).
+#
+# `check_rejects_dynamic_static_string_search_operand` is the one case in
+# this file that differs from the rest of the family's gate-test shape: it
+# invokes plain `check` (no `--output json`) and asserts on raw stderr text
+# rather than a JSON envelope, so it uses `stderr_contains` rather than
+# `json`.
+
+[source]
+"main.js" = "console.log(\"hello\".includes(\"ell\"));\nconsole.log(\"hello\".includes(\"e\", -4));\nconsole.log(\"hello\".indexOf(\"l\", 3));\nconsole.log(\"hello\".indexOf(\"e\", -2));\nconsole.log(\"hello\".lastIndexOf(\"l\"));\nconsole.log(\"hello\".lastIndexOf(\"l\", 2));\nconsole.log(\"hello\".lastIndexOf(\"l\", -1));\nconsole.log(\"hello\".startsWith(\"he\"));\nconsole.log(\"hello\".startsWith(\"ll\", 2));\nconsole.log(\"hello\".endsWith(\"lo\"));\nconsole.log(\"hello\".endsWith(\"ell\", 4));\nconsole.log(\"hello\".endsWith(\"he\", 4));\n"
+"main.ts" = "console.log(\"hello\".includes(\"ell\"));\nconsole.log(\"hello\".includes(\"e\", -4));\nconsole.log(\"hello\".indexOf(\"l\", 3));\nconsole.log(\"hello\".indexOf(\"e\", -2));\nconsole.log(\"hello\".lastIndexOf(\"l\"));\nconsole.log(\"hello\".lastIndexOf(\"l\", 2));\nconsole.log(\"hello\".lastIndexOf(\"l\", -1));\nconsole.log(\"hello\".startsWith(\"he\"));\nconsole.log(\"hello\".startsWith(\"ll\", 2));\nconsole.log(\"hello\".endsWith(\"lo\"));\nconsole.log(\"hello\".endsWith(\"ell\", 4));\nconsole.log(\"hello\".endsWith(\"he\", 4));\n"
+"main.jsx" = "console.log(\"hello\".includes(\"ell\"));\nconsole.log(\"hello\".includes(\"e\", -4));\nconsole.log(\"hello\".indexOf(\"l\", 3));\nconsole.log(\"hello\".indexOf(\"e\", -2));\nconsole.log(\"hello\".lastIndexOf(\"l\"));\nconsole.log(\"hello\".lastIndexOf(\"l\", 2));\nconsole.log(\"hello\".lastIndexOf(\"l\", -1));\nconsole.log(\"hello\".startsWith(\"he\"));\nconsole.log(\"hello\".startsWith(\"ll\", 2));\nconsole.log(\"hello\".endsWith(\"lo\"));\nconsole.log(\"hello\".endsWith(\"ell\", 4));\nconsole.log(\"hello\".endsWith(\"he\", 4));\n"
+"main.tsx" = "console.log(\"hello\".includes(\"ell\"));\nconsole.log(\"hello\".includes(\"e\", -4));\nconsole.log(\"hello\".indexOf(\"l\", 3));\nconsole.log(\"hello\".indexOf(\"e\", -2));\nconsole.log(\"hello\".lastIndexOf(\"l\"));\nconsole.log(\"hello\".lastIndexOf(\"l\", 2));\nconsole.log(\"hello\".lastIndexOf(\"l\", -1));\nconsole.log(\"hello\".startsWith(\"he\"));\nconsole.log(\"hello\".startsWith(\"ll\", 2));\nconsole.log(\"hello\".endsWith(\"lo\"));\nconsole.log(\"hello\".endsWith(\"ell\", 4));\nconsole.log(\"hello\".endsWith(\"he\", 4));\n"
+"dynamic_operand.js" = "function has(needle) { return \"hello\".startsWith(needle); }\n"
+
+[[case]]
+name = "run"
+rationale = "`.includes()`/`.indexOf()`/`.lastIndexOf()`/`.startsWith()`/`.endsWith()` on static ASCII literals fold at compile time, including negative and out-of-range position arguments."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "1\n1\n3\n1\n3\n2\n-1\n1\n1\n1\n1\n0\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_js"
+rationale = "The static-ASCII string-search fold holds across every supported source class, not just plain JS -- js source."
+args = ["build", "--api", "browser", "--bundle", "main.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_ts"
+rationale = "The static-ASCII string-search fold holds across every supported source class, not just plain JS -- ts source."
+args = ["build", "--api", "browser", "--bundle", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_jsx"
+rationale = "The static-ASCII string-search fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["build", "--api", "browser", "--bundle", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_tsx"
+rationale = "The static-ASCII string-search fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_browser_bundle_jsx"
+rationale = "Same jsx browser bundle, asserting the JSON output envelope rather than a bare success exit -- this test uses jsx rather than tsx, unlike the rest of this family's json_browser_bundle case."
+args = ["--output", "json", "build", "--api", "browser", "--bundle", "main.jsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "check_rejects_dynamic_static_string_search_operand"
+rationale = "`.startsWith()` only folds for a statically-known operand; a dynamic operand must fail closed with E5506, reported on stderr for the non-JSON `check` output."
+args = ["check", "dynamic_operand.js"]
+exit = "failure"
+stderr_contains = ["E5506", "string search method"]
