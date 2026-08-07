@@ -4,7 +4,7 @@
 //! parses `^    [A-Za-z_]` as a failed-test name, and a four-space-indented
 //! detail line would be misread as a test that does not exist.
 
-use crate::jsonpath::{flatten_expected, lookup, values_equal};
+use crate::jsonpath::{describe_absence, flatten_expected, lookup, values_equal};
 use crate::model::{Exit, ExitStatusWord, Step, StepKind};
 
 pub struct Captured {
@@ -159,26 +159,11 @@ fn describe_path(path: &str) -> String {
 
 /// `path` is never empty here -- `lookup` only returns `None` for a
 /// non-empty path (an empty path always addresses the whole document, per
-/// its doc comment). Walk it again, this time to find exactly which segment
-/// broke: if the parent node is a JSON array, say so, rather than letting a
-/// case author who wrote `errors.0.code` read a plain "absent" and go
-/// hunting for a typo that isn't there -- dotted paths address object keys
-/// only, and array indexing is not supported.
+/// its doc comment). `describe_absence` walks the path a second time to say
+/// exactly which segment broke and why -- absent key, non-array-index
+/// segment against an array, or an index past the end.
 fn missing_path_message(label: &str, actual: &serde_json::Value, path: &str) -> String {
-    let mut current = actual;
-    for segment in path.split('.') {
-        match current.get(segment) {
-            Some(next) => current = next,
-            None if current.is_array() => {
-                return format!(
-                    "{label} is absent (array indexing like `.{segment}` is not supported -- \
-                     dotted paths address object keys only)"
-                );
-            }
-            None => return format!("{label} is absent"),
-        }
-    }
-    format!("{label} is absent")
+    format!("{label} {}", describe_absence(actual, path))
 }
 
 #[cfg(test)]

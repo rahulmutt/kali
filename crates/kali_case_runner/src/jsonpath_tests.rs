@@ -78,6 +78,67 @@ fn lookup_walks_a_dotted_path() {
     assert!(lookup(&actual, "absent.deeper").is_none());
 }
 
+// A numeric segment indexes into a JSON array -- this is the whole point of
+// the feature: `errors.0.code` is how a case pins "the first diagnostic has
+// this code" without asserting the rest of the (null-bearing, otherwise
+// unmatchable) diagnostic object.
+#[test]
+fn lookup_indexes_into_an_array_with_a_numeric_segment() {
+    let actual: serde_json::Value = serde_json::json!({"errors": [{"code": "E5506"}]});
+    assert_eq!(
+        lookup(&actual, "errors.0.code").and_then(|v| v.as_str()),
+        Some("E5506")
+    );
+}
+
+#[test]
+fn lookup_rejects_an_out_of_range_array_index() {
+    let actual: serde_json::Value = serde_json::json!({"errors": [{"code": "E5506"}]});
+    assert!(lookup(&actual, "errors.5.code").is_none());
+}
+
+// Not a silent skip: a non-numeric segment against an array is a hard
+// `None`, exactly like an absent key would be -- `errors.code` (forgetting
+// the index) must fail loudly, not vacuously match nothing and pass.
+#[test]
+fn lookup_rejects_a_non_numeric_segment_into_an_array() {
+    let actual: serde_json::Value = serde_json::json!({"errors": [1, 2, 3]});
+    assert!(lookup(&actual, "errors.code").is_none());
+}
+
+// `usize` cannot represent a negative number, so "-1" fails to parse as an
+// index exactly like any other non-numeric segment would. There is no
+// negative-from-end indexing in this format.
+#[test]
+fn lookup_rejects_a_negative_looking_array_segment() {
+    let actual: serde_json::Value = serde_json::json!({"errors": [1, 2, 3]});
+    assert!(lookup(&actual, "errors.-1").is_none());
+}
+
+// A segment too large to fit a `usize` fails to parse, the same as any other
+// invalid index -- not a panic, not a silent skip.
+#[test]
+fn lookup_rejects_an_index_segment_that_overflows_usize() {
+    let actual: serde_json::Value = serde_json::json!({"errors": [1, 2, 3]});
+    assert!(lookup(&actual, "errors.99999999999999999999999999999999999999").is_none());
+}
+
+// The numeric-key ambiguity, resolved and pinned: dispatch is by the actual
+// JSON type of the node being indexed, not by whether the segment looks
+// numeric. Against an *object*, a numeric-looking segment is an ordinary key
+// lookup (an object with a literal key "0" behaves like any other object) --
+// it is only ever treated as an index when the node is a JSON *array*. This
+// is the less surprising rule: whether `.0` means "index" or "key" is a
+// property of what's being addressed, not of how the path was spelled.
+#[test]
+fn a_numeric_looking_key_on_an_object_is_a_plain_key_not_an_index() {
+    let actual: serde_json::Value = serde_json::json!({"payload": {"0": "x"}});
+    assert_eq!(
+        lookup(&actual, "payload.0").and_then(|v| v.as_str()),
+        Some("x")
+    );
+}
+
 // An empty path addresses the whole document -- this is what
 // `flatten_expected` emits for a top-level `json = {}`. `"".split('.')`
 // would otherwise look for a JSON key literally named `""`, which is never

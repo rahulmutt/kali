@@ -180,17 +180,86 @@ fn a_scalar_top_level_json_claim_reports_a_labelled_mismatch() {
     assert!(!err.contains("path  "), "{err}");
 }
 
-// Array elements are not addressable by dotted path. Without a specific hint
-// a case author reads a plain "is absent" for `errors.0.code` and goes
-// hunting for a typo that was never there; the message should say array
-// indexing is unsupported instead.
+// A numeric path segment indexes into a JSON array -- this is what lets a
+// case pin "the first diagnostic has this code" (`errors.0.code`) without
+// asserting the rest of the diagnostic object, which is unmatchable in this
+// format (every diagnostic carries a hard-coded `"fix": null`, and TOML has
+// no null literal to match it with).
 #[test]
-fn a_path_segment_into_an_array_names_the_limitation() {
+fn an_indexed_array_path_resolves_and_is_checked() {
     let mut step = blank_step();
-    step.json = Some(toml::from_str(r#"errors."0".code = 5"#).expect("toml"));
-    let err =
-        check(&step, &captured(true, 0, r#"{"errors":[{"code":5}]}"#, "")).expect_err("must fail");
-    assert!(err.contains("array indexing"), "{err}");
+    step.json = Some(toml::from_str(r#"errors."0".code = "E5506""#).expect("toml"));
+    assert!(check(
+        &step,
+        &captured(true, 0, r#"{"errors":[{"code":"E5506"}]}"#, "")
+    )
+    .is_ok());
+    let err = check(
+        &step,
+        &captured(true, 0, r#"{"errors":[{"code":"E1234"}]}"#, ""),
+    )
+    .expect_err("must fail on the wrong code");
+    assert!(err.contains("errors.0.code"), "{err}");
+}
+
+// An out-of-range index is a hard failure that names the actual problem
+// (which index, and the array's real length), not a plain "is absent" that
+// leaves a case author guessing whether it's a typo or an index past the end.
+#[test]
+fn an_out_of_range_array_index_hard_fails_and_names_the_range() {
+    let mut step = blank_step();
+    step.json = Some(toml::from_str(r#"errors."5".code = "E5506""#).expect("toml"));
+    let err = check(
+        &step,
+        &captured(true, 0, r#"{"errors":[{"code":"E5506"}]}"#, ""),
+    )
+    .expect_err("must fail");
+    assert!(err.contains("errors.5.code"), "{err}");
+    assert!(err.contains("out of range"), "{err}");
+    assert!(err.contains("length 1"), "{err}");
+}
+
+// A non-numeric segment against an array (forgetting the index) must still
+// fail loudly -- not silently match nothing and pass vacuously -- and the
+// message should point at the actual problem: this segment is not a valid
+// index, so the array needs one.
+#[test]
+fn a_non_numeric_segment_into_an_array_hard_fails_and_names_the_problem() {
+    let mut step = blank_step();
+    step.json = Some(toml::from_str(r#"errors.code = "E5506""#).expect("toml"));
+    let err = check(
+        &step,
+        &captured(true, 0, r#"{"errors":[{"code":"E5506"}]}"#, ""),
+    )
+    .expect_err("must fail");
+    assert!(err.contains("errors.code"), "{err}");
+    assert!(err.contains("not a valid array index"), "{err}");
+}
+
+// `usize` cannot represent a negative number, so a negative-looking segment
+// is rejected exactly like any other invalid index -- there is no
+// negative-from-end indexing in this format.
+#[test]
+fn a_negative_looking_array_segment_hard_fails() {
+    let mut step = blank_step();
+    step.json = Some(toml::from_str(r#"errors."-1".code = "E5506""#).expect("toml"));
+    let err = check(
+        &step,
+        &captured(true, 0, r#"{"errors":[{"code":"E5506"}]}"#, ""),
+    )
+    .expect_err("must fail");
+    assert!(err.contains("not a valid array index"), "{err}");
+}
+
+// The numeric-key ambiguity, pinned end to end: a numeric-looking segment
+// against a JSON *object* is a plain key lookup, not an index -- indexing
+// only ever applies to JSON *arrays*. An object with a literal key "0"
+// behaves exactly like any other object.
+#[test]
+fn a_numeric_segment_against_an_object_is_a_plain_key_not_an_index() {
+    let mut step = blank_step();
+    step.json = Some(toml::from_str(r#"payload.0 = "x""#).expect("toml"));
+    assert!(check(&step, &captured(true, 0, r#"{"payload":{"0":"x"}}"#, "")).is_ok());
 }
 
 // Defense in depth: an unresolved `${...}` placeholder should be caught by
