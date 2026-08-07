@@ -1,0 +1,130 @@
+# Migrated from tests/soundness_multiarg_array.rs -- all 8 #[test]
+# functions, 1:1 to a case (no fn bundles multiple independent
+# assertions -- `multiarg_array_call_is_array_literal`'s single
+# `assert_eq!` over a split-by-newline Vec is still ONE assertion on ONE
+# fixture, not two; no [matrix] -- each case runs a distinct one-off TS
+# program via `kali run <file>.ts`).
+#
+# Every fn is directly preceded by its own leading `//` comment except
+# `multiarg_array_call_is_array_literal` and
+# `shadowed_single_arg_array_call_rejects_not_miscompiles`, which have
+# none beyond the file's un-commented top (no //! doc in this file at
+# all). Two fns (`shadowed_multiarg_array_call_rejects_not_miscompiles`,
+# `shadowed_fn_local_array_call_rejects_not_miscompiles`) also carry a
+# mid-body trailing comment right above their assertions, appended too.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!`
+# call site builds a temp-directory path, never fixture text).
+#
+# `new_on_a_bracket_array_literal_rejects_fail_closed` asserts BOTH a
+# stderr substring AND an explicit empty-stdout equality in source, so
+# both are pinned. `shadowed_multiarg_array_call_rejects_not_miscompiles`
+# and `shadowed_fn_local_array_call_rejects_not_miscompiles` both assert
+# `assert_ne!` against the WRONG miscompiled value (a real negative
+# assertion the case format cannot express directly) plus failure and a
+# stderr substring; per rule 11's resolution principle (verify the real,
+# current, deterministic behavior and pin the exact stronger positive),
+# both were run against the real built kali binary and produce EMPTY
+# stdout on failure -- `stdout = ""` is pinned for both, which trivially
+# implies the source's `assert_ne!` (an empty string can never equal the
+# wrong non-empty literal it guards against), strictly stronger than the
+# untranslated negative check. The source's own `assert_ne!` sentence is
+# carried into both rationales. Every other case compares `.trim()`'d
+# stdout against a literal (or, for the first case, a `.trim().split('\n')`
+# Vec) -- per the pilot's precedent, `stdout` below is the untrimmed RAW
+# stdout captured from the real built kali binary, each verified equal to
+# the trimmed literal after `.strip()`.
+
+[source]
+"multiarg_array_call_is_array_literal.ts" = """const a = Array(1, 2, 3);
+console.log(a.length);
+console.log(a[1]);
+"""
+"multiarg_new_array_call_is_array_literal.ts" = """const a = new Array(4, 5);
+console.log(a.length + a[0]);
+"""
+"single_arg_array_still_allocates_by_length.ts" = """const a = new Array(5);
+console.log(a.length);
+"""
+"new_on_a_bracket_array_literal_rejects_fail_closed.ts" = """const a = new [1, 2, 3];
+console.log(a.length);
+"""
+"multiarg_array_call_supports_postfix_member_chain.ts" = """console.log(Array(7, 8, 9).length);
+"""
+"shadowed_multiarg_array_call_rejects_not_miscompiles.ts" = """const Array = (a, b, c) => a + b + c;
+console.log(Array(1, 2, 3));
+"""
+"shadowed_fn_local_array_call_rejects_not_miscompiles.ts" = """function f() {
+  const Array = (a, b) => a * b;
+  return Array(3, 4);
+}
+console.log(f());
+"""
+"shadowed_single_arg_array_call_rejects_not_miscompiles.ts" = """const Array = (n) => n * 10;
+const a = Array(5);
+console.log(a);
+"""
+
+[[case]]
+name = "multiarg_array_call_is_array_literal"
+rationale = """`Array(1,2,3)` is exactly `[1,2,3]` in JS (n>=2 args). Today types registers the binding as an array but codegen can't allocate it → 0."""
+args = ["run", "multiarg_array_call_is_array_literal.ts"]
+exit = "success"
+stdout = "3\n2\n"
+
+[[case]]
+name = "multiarg_new_array_call_is_array_literal"
+args = ["run", "multiarg_new_array_call_is_array_literal.ts"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "single_arg_array_still_allocates_by_length"
+rationale = """Single-arg `new Array(n)` is a LENGTH, not an element — must stay on the existing allocation lane, NOT desugar."""
+args = ["run", "single_arg_array_still_allocates_by_length.ts"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "new_on_a_bracket_array_literal_rejects_fail_closed"
+rationale = """`new [1,2,3]` is not constructible (node: TypeError). The New-arm unwrap must be scoped to the `Array(...)` desugar only — a bracket-literal callee rejects fail-closed, never silently drops the `new`."""
+args = ["run", "new_on_a_bracket_array_literal_rejects_fail_closed.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["not constructible"]
+
+[[case]]
+name = "multiarg_array_call_supports_postfix_member_chain"
+rationale = """Postfix chaining directly off the desugared literal stays green: `Array(7,8,9).length` is `[7,8,9].length`."""
+args = ["run", "multiarg_array_call_supports_postfix_member_chain.ts"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "shadowed_multiarg_array_call_rejects_not_miscompiles"
+rationale = """Whole-branch review finding I1: the `Array(a, b, …)` desugar is scope-blind. A user who SHADOWS `Array` (`const Array = (a,b,c)=>a+b+c`) must NOT get the silent array-literal miscompile — node runs the user binding and prints 6, this branch used to print 3. Reject-don't-miscompile: fail closed with a clean E5506 diagnostic (a shadow of the built-in `Array` is unavailable), NEVER a silent wrong output. The critical invariant is that stdout is not the wrong value `3`.
+
+MUST NOT silently print the miscompiled array-literal result `3`.
+
+Reject cleanly (option 2, fail-closed) — no wrong output."""
+args = ["run", "shadowed_multiarg_array_call_rejects_not_miscompiles.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["shadowing the built-in `Array`"]
+
+[[case]]
+name = "shadowed_fn_local_array_call_rejects_not_miscompiles"
+rationale = """Function-local shadow: `function f(){ const Array=(a,b)=>a*b; return Array(3,4); }` → node 12, this branch used to print 0. Same reject-don't-miscompile guard."""
+args = ["run", "shadowed_fn_local_array_call_rejects_not_miscompiles.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["shadowing the built-in `Array`"]
+
+[[case]]
+name = "shadowed_single_arg_array_call_rejects_not_miscompiles"
+rationale = """The single-arg `Array(n)` allocation lane is ALSO scope-blind (pre-existing, separate from Task 6's multiarg desugar). A shadow used to miscompile to a raw heap pointer; the binding-site reject closes it too, fail-closed."""
+args = ["run", "shadowed_single_arg_array_call_rejects_not_miscompiles.ts"]
+exit = "failure"
+stderr_contains = ["shadowing the built-in `Array`"]

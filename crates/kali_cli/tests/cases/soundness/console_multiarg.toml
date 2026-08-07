@@ -1,0 +1,461 @@
+# Migrated from tests/soundness_console_multiarg.rs -- 10 #[test]
+# functions become 18 cases: `multi_arg_all_literals_still_prints_all`
+# calls `assert_stdout_line` FOUR independent times over four distinct
+# fixtures, `multi_arg_unshaped_boolean_renders_one_but_keeps_every_argument`
+# calls it TWICE, and `every_console_sink_prints_all_arguments` loops over
+# FIVE sinks, each an independent assertion per rule 5, so all three are
+# split into siblings; the other seven fns are 1:1. No [matrix] -- each
+# case runs a distinct one-off TS program via `kali run <file>.ts`.
+#
+# The file's opening `//!` doc is prepended verbatim to every case's
+# rationale. `assert_stdout_line`'s own `///` doc (explaining why
+# full-line equality, not `.contains`, is the point) is claim prose,
+# appended to the rationale of every case that helper produced. Every
+# fn/loop is ALSO directly preceded by its own `//` comment; the two
+# split-`assert_stdout_line` loops each share ONE comment across their
+# split siblings, matching what the source itself shares across the
+# calls/iterations.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal. `every_console_sink_prints_all_arguments`'s ONE `format!` call
+# site builds fixture text with a `{sink}` substitution -- checked
+# explicitly for `{{`/`}}` doubling: none present (no literal brace
+# character appears anywhere in that fixture), so no brace-unescape step
+# applies; the file's other `format!` call site builds a temp-directory
+# path, never fixture text.
+#
+# `assert_stdout_line` checks that stdout contains a LINE equal to
+# `expected` (via `.lines().collect()` then `.contains(&expected)`), not
+# that stdout equals `expected` overall -- a `contains`-of-an-exact-line
+# check, not a position-anchored `starts_with`. Verified against the real
+# built kali binary: every one of these fixtures' program prints EXACTLY
+# one line, so pinning the full raw `stdout` (the exact line plus its
+# trailing newline) is strictly stronger than the source's own check
+# (which would also accept extra surrounding lines), never weaker.
+# `every_console_sink_prints_all_arguments` asserts the combined
+# stdout+stderr text `.contains("S y=6")` per sink in source -- verified
+# against the real built kali binary which stream (`log`/`info`/`debug`
+# on stdout, `error`/`warn` on stderr) each sink actually uses, and
+# pinned to that SPECIFIC stream via `stdout_contains`/`stderr_contains`,
+# strictly stronger than the source's "either stream" check.
+# `multi_arg_never_exits_zero_with_a_dropped_argument`'s body branches on
+# `out.status.success()` in source -- verified against the real built
+# kali binary: it takes the SUCCESS branch with the full undropped line,
+# so `exit = "success"` + exact `stdout` is pinned as the exact,
+# currently-observed branch, per rule 11's disjunction-resolution
+# principle.
+
+[source]
+"multi_arg_literal_then_runtime_concat_prints_both.ts" = """console.log(5, "y=" + 6);
+"""
+"multi_arg_non_literal_first_then_literals_prints_all.ts" = """function f(x) { return x + 1; }
+console.log(f(1), "lit", 7);
+"""
+"multi_arg_non_literal_in_middle_prints_all_three.ts" = """function f(x) { return x + 1; }
+console.log("A", f(2), "C");
+"""
+"multi_arg_five_arguments_one_dynamic_prints_all.ts" = """function f(x) { return x * 2; }
+console.log(1, "b", f(3), "d", 5);
+"""
+"multi_arg_all_literals_still_prints_all_number_and_string.ts" = """console.log(1, "two");
+"""
+"multi_arg_all_literals_still_prints_all_two_strings.ts" = """console.log("a", "b");
+"""
+"multi_arg_all_literals_still_prints_all_three_numbers.ts" = """console.log(1, 2, 3);
+"""
+"multi_arg_all_literals_still_prints_all_string_bool_null.ts" = """console.log("s", true, null);
+"""
+"multi_arg_boolean_does_not_drop_following_argument.ts" = """const c = (1 === 1);
+console.log(c, "x");
+"""
+"multi_arg_unshaped_boolean_renders_one_but_keeps_every_argument_return_value.ts" = """function g(a, b) { return a === b; }
+console.log(g(1, 1), "y");
+"""
+"multi_arg_unshaped_boolean_renders_one_but_keeps_every_argument_let_local.ts" = """let d = (2 > 1);
+console.log(d, "z");
+"""
+"multi_arg_runtime_float_prints_both.ts" = """function f(x) { return x / 2; }
+console.log("v", f(5));
+"""
+"every_console_sink_prints_all_arguments_log.ts" = """const v = "y=" + 6;
+console.log("S", v);
+"""
+"every_console_sink_prints_all_arguments_error.ts" = """const v = "y=" + 6;
+console.error("S", v);
+"""
+"every_console_sink_prints_all_arguments_warn.ts" = """const v = "y=" + 6;
+console.warn("S", v);
+"""
+"every_console_sink_prints_all_arguments_info.ts" = """const v = "y=" + 6;
+console.info("S", v);
+"""
+"every_console_sink_prints_all_arguments_debug.ts" = """const v = "y=" + 6;
+console.debug("S", v);
+"""
+"multi_arg_never_exits_zero_with_a_dropped_argument.ts" = """function f(x) { return x + 1; }
+console.log("head", f(1), "tail-should-print");
+"""
+
+[[case]]
+name = "multi_arg_literal_then_runtime_concat_prints_both"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+The controller's exact repro: a literal followed by a runtime concatenation. node prints `5 y=6`; the broken lowering printed `5`."""
+args = ["run", "multi_arg_literal_then_runtime_concat_prints_both.ts"]
+exit = "success"
+stdout = "5 y=6\n"
+
+[[case]]
+name = "multi_arg_non_literal_first_then_literals_prints_all"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+A non-literal in POSITION 0 followed by literals. Confirms the drop is not specific to a trailing non-literal — the lane is selected by "any argument is non-static", and then everything after argument 0 is lost regardless of which argument made it dynamic. Broken output was `2`."""
+args = ["run", "multi_arg_non_literal_first_then_literals_prints_all.ts"]
+exit = "success"
+stdout = "2 lit 7\n"
+
+[[case]]
+name = "multi_arg_non_literal_in_middle_prints_all_three"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+Three arguments with the non-literal in the MIDDLE. Broken output was `A`: both the dynamic middle argument and the trailing literal were discarded."""
+args = ["run", "multi_arg_non_literal_in_middle_prints_all_three.ts"]
+exit = "success"
+stdout = "A 3 C\n"
+
+[[case]]
+name = "multi_arg_five_arguments_one_dynamic_prints_all"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+Positive control on argument COUNT: five arguments, one dynamic. Any drop anywhere shortens the line and fails the equality."""
+args = ["run", "multi_arg_five_arguments_one_dynamic_prints_all.ts"]
+exit = "success"
+stdout = "1 b 6 d 5\n"
+
+[[case]]
+name = "multi_arg_all_literals_still_prints_all_number_and_string"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+The all-literal STATIC lane must keep working byte-identically. This is the regression guard on the lane that was already correct."""
+args = ["run", "multi_arg_all_literals_still_prints_all_number_and_string.ts"]
+exit = "success"
+stdout = "1 two\n"
+
+[[case]]
+name = "multi_arg_all_literals_still_prints_all_two_strings"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+The all-literal STATIC lane must keep working byte-identically. This is the regression guard on the lane that was already correct."""
+args = ["run", "multi_arg_all_literals_still_prints_all_two_strings.ts"]
+exit = "success"
+stdout = "a b\n"
+
+[[case]]
+name = "multi_arg_all_literals_still_prints_all_three_numbers"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+The all-literal STATIC lane must keep working byte-identically. This is the regression guard on the lane that was already correct."""
+args = ["run", "multi_arg_all_literals_still_prints_all_three_numbers.ts"]
+exit = "success"
+stdout = "1 2 3\n"
+
+[[case]]
+name = "multi_arg_all_literals_still_prints_all_string_bool_null"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+The all-literal STATIC lane must keep working byte-identically. This is the regression guard on the lane that was already correct."""
+args = ["run", "multi_arg_all_literals_still_prints_all_string_bool_null.ts"]
+exit = "success"
+stdout = "s true null\n"
+
+[[case]]
+name = "multi_arg_boolean_does_not_drop_following_argument"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+A boolean as argument 0, with a literal after it. Broken output was `1` — the `"x"` was discarded entirely.
+
+A `const`-bound comparison folds to a node the emitter shapes as `Boolean`, so the shared `emit_as_string` ladder renders it `true` — matching node exactly. This is not a boolean fix: it is the pre-existing `+`-concatenation rendering, inherited for free by routing multi-argument console output through the same ladder."""
+args = ["run", "multi_arg_boolean_does_not_drop_following_argument.ts"]
+exit = "success"
+stdout = "true x\n"
+
+[[case]]
+name = "multi_arg_unshaped_boolean_renders_one_but_keeps_every_argument_return_value"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+The KNOWN, still-open sibling defect, pinned as current truth so a later `Repr::Boolean` axis has a tripwire: a boolean that reaches the console through a seam carrying no `Boolean` shape — a function return, or a `let` local read — renders `1` where node renders `true`.
+
+That rendering is deliberately NOT fixed here (it needs the `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths). What these cases assert is the invariant that IS in scope: the trailing argument is present. Under the old lowering both lines printed `1` alone. When the boolean axis lands, these expectations become `true y` / `true z`."""
+args = ["run", "multi_arg_unshaped_boolean_renders_one_but_keeps_every_argument_return_value.ts"]
+exit = "success"
+stdout = "1 y\n"
+
+[[case]]
+name = "multi_arg_unshaped_boolean_renders_one_but_keeps_every_argument_let_local"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+The KNOWN, still-open sibling defect, pinned as current truth so a later `Repr::Boolean` axis has a tripwire: a boolean that reaches the console through a seam carrying no `Boolean` shape — a function return, or a `let` local read — renders `1` where node renders `true`.
+
+That rendering is deliberately NOT fixed here (it needs the `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths). What these cases assert is the invariant that IS in scope: the trailing argument is present. Under the old lowering both lines printed `1` alone. When the boolean axis lands, these expectations become `true y` / `true z`."""
+args = ["run", "multi_arg_unshaped_boolean_renders_one_but_keeps_every_argument_let_local.ts"]
+exit = "success"
+stdout = "1 z\n"
+
+[[case]]
+name = "multi_arg_runtime_float_prints_both"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Assert that `src` runs successfully and emits `expected` as a COMPLETE line on stdout.
+
+Full-line equality is the whole point. A `contains`/prefix assertion passes when the tail of the line is dropped, which is exactly how this defect hid for so long: `assert!(stdout.contains("5"))` is satisfied by the broken output `5` as well as the correct `5 y=6`.
+
+A runtime float argument alongside a literal — the float stringify seam has its own coercion path, so it gets its own case."""
+args = ["run", "multi_arg_runtime_float_prints_both.ts"]
+exit = "success"
+stdout = "v 2.5\n"
+
+[[case]]
+name = "every_console_sink_prints_all_arguments_log"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Every affected console sink shares the one lowering choke point, so each one must print both arguments. `log`/`info`/`debug` go to stdout; `error`/`warn` go to stderr (and `warn` carries kali's pre-existing `[warn] ` prefix, which is a separate rendering convention and not what is under test). The assertion is on the full two-argument payload either way, so a dropped tail fails it."""
+args = ["run", "every_console_sink_prints_all_arguments_log.ts"]
+exit = "success"
+stdout_contains = ["S y=6"]
+
+[[case]]
+name = "every_console_sink_prints_all_arguments_error"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Every affected console sink shares the one lowering choke point, so each one must print both arguments. `log`/`info`/`debug` go to stdout; `error`/`warn` go to stderr (and `warn` carries kali's pre-existing `[warn] ` prefix, which is a separate rendering convention and not what is under test). The assertion is on the full two-argument payload either way, so a dropped tail fails it."""
+args = ["run", "every_console_sink_prints_all_arguments_error.ts"]
+exit = "success"
+stderr_contains = ["S y=6"]
+
+[[case]]
+name = "every_console_sink_prints_all_arguments_warn"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Every affected console sink shares the one lowering choke point, so each one must print both arguments. `log`/`info`/`debug` go to stdout; `error`/`warn` go to stderr (and `warn` carries kali's pre-existing `[warn] ` prefix, which is a separate rendering convention and not what is under test). The assertion is on the full two-argument payload either way, so a dropped tail fails it."""
+args = ["run", "every_console_sink_prints_all_arguments_warn.ts"]
+exit = "success"
+stderr_contains = ["S y=6"]
+
+[[case]]
+name = "every_console_sink_prints_all_arguments_info"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Every affected console sink shares the one lowering choke point, so each one must print both arguments. `log`/`info`/`debug` go to stdout; `error`/`warn` go to stderr (and `warn` carries kali's pre-existing `[warn] ` prefix, which is a separate rendering convention and not what is under test). The assertion is on the full two-argument payload either way, so a dropped tail fails it."""
+args = ["run", "every_console_sink_prints_all_arguments_info.ts"]
+exit = "success"
+stdout_contains = ["S y=6"]
+
+[[case]]
+name = "every_console_sink_prints_all_arguments_debug"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+Every affected console sink shares the one lowering choke point, so each one must print both arguments. `log`/`info`/`debug` go to stdout; `error`/`warn` go to stderr (and `warn` carries kali's pre-existing `[warn] ` prefix, which is a separate rendering convention and not what is under test). The assertion is on the full two-argument payload either way, so a dropped tail fails it."""
+args = ["run", "every_console_sink_prints_all_arguments_debug.ts"]
+exit = "success"
+stdout_contains = ["S y=6"]
+
+[[case]]
+name = "multi_arg_never_exits_zero_with_a_dropped_argument"
+rationale = """End-to-end: a multi-argument `console.*` call must never silently discard arguments.
+
+The defect: the console lowering had two lanes. The STATIC lane (`render_console_call`) folds a call whose arguments are ALL compile-time renderable into one interned string joined with `" "` — so all-literal calls printed correctly. The DYNAMIC lane, taken as soon as ANY argument is not statically renderable, emitted argument 0, called the console import, and then emitted each remaining argument purely for side effects and `Drop`ped it. `console.log(5, "y=" + 6)` printed `5` and exited 0 — no diagnostic.
+
+This is evidence-corrupting: fixtures self-check by logging several values on one line, so a vanished argument makes a check pass vacuously.
+
+The invariant: NO SILENT OUTPUT LOSS. Every argument is printed, space-separated, or the call fails closed with an E5506 naming the construct. It is never dropped.
+
+Known, still-open sibling defect (NOT fixed here, deliberately): a COMPUTED boolean renders as `1`/`0` rather than `true`/`false` — it needs a `Repr::Boolean` axis, and `soundness_abort.rs` ratifies `1`/`0` rendering in some paths. Tests below that involve a computed boolean pin kali's current `1` rendering and say so; the point they defend is that the argument is PRESENT, not how it renders.
+
+The no-silent-loss invariant stated directly: whatever the runtime can or cannot render, a multi-argument call must either print every argument or fail closed with a diagnostic. It must never exit 0 having printed a strict prefix of its arguments.
+
+Migration note: the source's else-branch checks combined.contains("E5506") for the fail-closed alternative; verified against the real built kali binary, THIS fixture takes the success branch (the full undropped line prints), so E5506 never appears in its stderr -- stderr_absent = ["E5506"] records that verified, true fact (a genuine strengthening, not a fabricated claim) so the untaken branch's literal, which the audit script's regex sees regardless of which branch a fixture takes, is honestly accounted for."""
+args = ["run", "multi_arg_never_exits_zero_with_a_dropped_argument.ts"]
+exit = "success"
+stdout = "head 2 tail-should-print\n"
+stderr_absent = ["E5506"]

@@ -1,0 +1,75 @@
+# Migrated from tests/soundness_try_catch.rs -- all 3 #[test] functions,
+# 1:1 to a case (no fn bundles multiple independent assertions; no
+# [matrix] -- each case runs a distinct one-off TS program via
+# `kali run <file>.ts`).
+#
+# The file's opening `//!` doc is prepended verbatim to every case's
+# rationale (it is this file's ONLY comment -- none of the three
+# #[test]s carries its own additional `//` line; every claim routes
+# through the shared `assert_rejected` helper).
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!` call
+# site builds a temp-directory path, never fixture text).
+#
+# `assert_rejected(src)` maps to `exit = "failure"` + `stderr_contains =
+# ["E5506", "try/catch/finally is unavailable"]` (the helper always
+# requires all three: failure, E5506, and that exact substring) PLUS an
+# empty-stdout assertion ("nothing may execute") -- verified against the
+# real built kali binary: stdout is empty for all three (the reject fires
+# before any statement runs), so `stdout = ""` is pinned too, exact per
+# the source's own `is_empty()` check.
+
+[source]
+"try_catch_is_rejected.ts" = """let caught = false;
+try {
+  throw 'boom';
+} catch {
+  caught = true;
+}
+console.log(caught);
+"""
+"try_catch_with_param_is_rejected.ts" = """try {
+  console.log('body');
+} catch (e) {
+  console.log('caught');
+}
+"""
+"try_finally_is_rejected.ts" = """try {
+  0;
+} finally {
+  console.log(2);
+}
+console.log(1);
+"""
+
+[[case]]
+name = "try_catch_is_rejected"
+rationale = """Soundness pins for try/catch/finally: rejected fail-closed.
+
+kali has no exception-unwinding machinery. A `TryStatement` used to lower to a bare-text Branch LIR node that fell into the generic emit_branch arm, which treated the try body as an `if` condition and the catch block as the `then` arm — a silent miscompile that only looked correct while `throw` was itself a no-op. With throw fixed (print-then-trap), the only sound option is a compile-time feature-unavailable reject."""
+args = ["run", "try_catch_is_rejected.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "try/catch/finally is unavailable"]
+
+[[case]]
+name = "try_catch_with_param_is_rejected"
+rationale = """Soundness pins for try/catch/finally: rejected fail-closed.
+
+kali has no exception-unwinding machinery. A `TryStatement` used to lower to a bare-text Branch LIR node that fell into the generic emit_branch arm, which treated the try body as an `if` condition and the catch block as the `then` arm — a silent miscompile that only looked correct while `throw` was itself a no-op. With throw fixed (print-then-trap), the only sound option is a compile-time feature-unavailable reject."""
+args = ["run", "try_catch_with_param_is_rejected.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "try/catch/finally is unavailable"]
+
+[[case]]
+name = "try_finally_is_rejected"
+rationale = """Soundness pins for try/catch/finally: rejected fail-closed.
+
+kali has no exception-unwinding machinery. A `TryStatement` used to lower to a bare-text Branch LIR node that fell into the generic emit_branch arm, which treated the try body as an `if` condition and the catch block as the `then` arm — a silent miscompile that only looked correct while `throw` was itself a no-op. With throw fixed (print-then-trap), the only sound option is a compile-time feature-unavailable reject."""
+args = ["run", "try_finally_is_rejected.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "try/catch/finally is unavailable"]

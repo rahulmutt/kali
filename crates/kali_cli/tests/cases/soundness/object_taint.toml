@@ -1,0 +1,54 @@
+# Migrated from tests/soundness_object_taint.rs -- all 3 #[test] functions,
+# 1:1 to a case (no fn bundles multiple independent assertions; no
+# [matrix] -- each case runs a distinct one-off TS program via
+# `kali run <file>.ts`; the shared `run_source` helper writes every fixture
+# to `main.ts`).
+#
+# Every `//` comment is a leading-body comment directly above its own
+# #[test] (no banner, no //! doc, no helper fn -- all three bodies are
+# hand-inlined `assert!` over `run_source`'s raw `Output`) -- moved
+# verbatim into that case's rationale.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!` call
+# site builds a temp-directory path, never fixture text).
+#
+# All three cases assert only `!out.status.success()` in source -- no
+# stdout or stderr substring assertion at all -- so only `exit = "failure"`
+# is pinned per case; pinning a stdout/stderr value the source never
+# checked would be an assertion the source did not make (rule 2).
+
+[source]
+"declarator_object_compound_rejects.ts" = """var o = { x: 1 };
+o += 1;
+console.log(o);
+"""
+"late_assigned_object_compound_rejects.ts" = """var o;
+o = { x: 1 };
+o += 1;
+console.log(o);
+"""
+"reassigned_to_object_compound_rejects.ts" = """var o = 0;
+o = { x: 1 };
+o += 1;
+console.log(o);
+"""
+
+[[case]]
+name = "declarator_object_compound_rejects"
+rationale = """Declarator form — already rejected (Spec 7 Task 2); pin it."""
+args = ["run", "declarator_object_compound_rejects.ts"]
+exit = "failure"
+
+[[case]]
+name = "late_assigned_object_compound_rejects"
+rationale = """No-initializer form — the gap: the taint was seeded only from declarator RHS shapes, so `var o; o = {x:1}; o += 1` slipped through."""
+args = ["run", "late_assigned_object_compound_rejects.ts"]
+exit = "failure"
+
+[[case]]
+name = "reassigned_to_object_compound_rejects"
+rationale = """Reassignment-after-scalar form: same seed, via a later assignment."""
+args = ["run", "reassigned_to_object_compound_rejects.ts"]
+exit = "failure"

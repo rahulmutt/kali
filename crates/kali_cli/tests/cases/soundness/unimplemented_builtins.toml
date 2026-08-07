@@ -1,0 +1,81 @@
+# Migrated from tests/soundness_unimplemented_builtins.rs -- all 5
+# #[test] functions, 1:1 to a case (no fn bundles multiple independent
+# assertions; no [matrix] -- each case runs a distinct one-off TS program
+# via `kali run <file>.ts`).
+#
+# The file's opening `//!` doc is prepended verbatim to every case's
+# rationale. Every fn also carries its own leading in-body `//` comment
+# (0 uncommented cases) -- moved into that specific case's rationale too.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!` call
+# site builds a temp-directory path, never fixture text).
+#
+# `assert_stdout` compares RAW (untrimmed) stdout via `assert_eq!`
+# directly -- no `.trim()` -- so `stdout` is a direct copy of the
+# literal. `assert_fails_closed(src, needle)` maps to `exit = "failure"`
+# + `stderr_contains = ["E5506", needle]` (the helper always requires
+# both).
+
+[source]
+"string_call_coerces.ts" = "const x=42; console.log(\"r=\"+String(x));"
+"to_string_method_fails_closed.ts" = "const n=42; console.log(\"r=\"+n.toString());"
+"json_stringify_fails_closed.ts" = "const o={f:1}; console.log(\"r=\"+JSON.stringify(o));"
+"boolean_call_fails_closed.ts" = "const x=1; console.log(\"r=\"+Boolean(x));"
+"split_static_ascii_lane_is_preserved.ts" = "console.log(\"abc\".split(\"\")[0]);"
+
+[[case]]
+name = "string_call_coerces"
+rationale = """Soundness pins for R-19/R-20/R-15 (Stream A): String()/Boolean()/ x.toString()/JSON.stringify()/runtime-split slipped past emit_call's E5506 deny and landed on the terminal warning+`i64.const 0` placeholder, returning 0 at exit 0. The fix (Task A2b) fails those closed via a small POSITIVE deny-set (`deny_placeholder_lowering`) at that terminal, while the warn+0 escape hatch stays the DEFAULT for everything else (unresolved cross-package imports + unimplemented host surfaces), so the deny is narrow (Number() is not in it — it fails at E3100 resolve, never reaching the terminal). The static-fold lanes upstream of the fallback (split static-ASCII, static toString) are preserved. Every expected value from node v26.
+
+Stage P5 Task 1/5 update: `String` was REMOVED from that deny-set and now routes through the real `emit_as_string` coercion ladder, so `String(x)` coerces (see `string_call_coerces`). `toString`/`JSON.stringify`/`Boolean` remain denied and stay fail-closed.
+
+Stage P5 Task 5 reconciliation: `String` was removed from the terminal deny-set (Stage P5 Task 1) and now routes through the `emit_as_string` coercion ladder, so `String(42)` -> "42" as a real runtime coercion (was a fail-closed E5506 pin). node v26.5.0 referee: `r=42`. The siblings below (`toString`/`JSON.stringify`/`Boolean`) are NOT de-denylisted and stay fail-closed. (Formerly `string_call_fails_closed`.)"""
+args = ["run", "string_call_coerces.ts"]
+exit = "success"
+stdout = "r=42\n"
+
+[[case]]
+name = "to_string_method_fails_closed"
+rationale = """Soundness pins for R-19/R-20/R-15 (Stream A): String()/Boolean()/ x.toString()/JSON.stringify()/runtime-split slipped past emit_call's E5506 deny and landed on the terminal warning+`i64.const 0` placeholder, returning 0 at exit 0. The fix (Task A2b) fails those closed via a small POSITIVE deny-set (`deny_placeholder_lowering`) at that terminal, while the warn+0 escape hatch stays the DEFAULT for everything else (unresolved cross-package imports + unimplemented host surfaces), so the deny is narrow (Number() is not in it — it fails at E3100 resolve, never reaching the terminal). The static-fold lanes upstream of the fallback (split static-ASCII, static toString) are preserved. Every expected value from node v26.
+
+Stage P5 Task 1/5 update: `String` was REMOVED from that deny-set and now routes through the real `emit_as_string` coercion ladder, so `String(x)` coerces (see `string_call_coerces`). `toString`/`JSON.stringify`/`Boolean` remain denied and stay fail-closed.
+
+node: r=42. Pre-fix kali: r=0 at exit 0."""
+args = ["run", "to_string_method_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "unavailable"]
+
+[[case]]
+name = "json_stringify_fails_closed"
+rationale = """Soundness pins for R-19/R-20/R-15 (Stream A): String()/Boolean()/ x.toString()/JSON.stringify()/runtime-split slipped past emit_call's E5506 deny and landed on the terminal warning+`i64.const 0` placeholder, returning 0 at exit 0. The fix (Task A2b) fails those closed via a small POSITIVE deny-set (`deny_placeholder_lowering`) at that terminal, while the warn+0 escape hatch stays the DEFAULT for everything else (unresolved cross-package imports + unimplemented host surfaces), so the deny is narrow (Number() is not in it — it fails at E3100 resolve, never reaching the terminal). The static-fold lanes upstream of the fallback (split static-ASCII, static toString) are preserved. Every expected value from node v26.
+
+Stage P5 Task 1/5 update: `String` was REMOVED from that deny-set and now routes through the real `emit_as_string` coercion ladder, so `String(x)` coerces (see `string_call_coerces`). `toString`/`JSON.stringify`/`Boolean` remain denied and stay fail-closed.
+
+node: r={"f":1}. Pre-fix kali: r=0 at exit 0."""
+args = ["run", "json_stringify_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "unavailable"]
+
+[[case]]
+name = "boolean_call_fails_closed"
+rationale = """Soundness pins for R-19/R-20/R-15 (Stream A): String()/Boolean()/ x.toString()/JSON.stringify()/runtime-split slipped past emit_call's E5506 deny and landed on the terminal warning+`i64.const 0` placeholder, returning 0 at exit 0. The fix (Task A2b) fails those closed via a small POSITIVE deny-set (`deny_placeholder_lowering`) at that terminal, while the warn+0 escape hatch stays the DEFAULT for everything else (unresolved cross-package imports + unimplemented host surfaces), so the deny is narrow (Number() is not in it — it fails at E3100 resolve, never reaching the terminal). The static-fold lanes upstream of the fallback (split static-ASCII, static toString) are preserved. Every expected value from node v26.
+
+Stage P5 Task 1/5 update: `String` was REMOVED from that deny-set and now routes through the real `emit_as_string` coercion ladder, so `String(x)` coerces (see `string_call_coerces`). `toString`/`JSON.stringify`/`Boolean` remain denied and stay fail-closed.
+
+node: r=true. Pre-fix kali: r=0 at exit 0 (silent-0 coercion, same class as String()). Number() is NOT pinned: it fails at E3100 resolve as an undefined identifier and never reaches the terminal call fallback."""
+args = ["run", "boolean_call_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "unavailable"]
+
+[[case]]
+name = "split_static_ascii_lane_is_preserved"
+rationale = """Soundness pins for R-19/R-20/R-15 (Stream A): String()/Boolean()/ x.toString()/JSON.stringify()/runtime-split slipped past emit_call's E5506 deny and landed on the terminal warning+`i64.const 0` placeholder, returning 0 at exit 0. The fix (Task A2b) fails those closed via a small POSITIVE deny-set (`deny_placeholder_lowering`) at that terminal, while the warn+0 escape hatch stays the DEFAULT for everything else (unresolved cross-package imports + unimplemented host surfaces), so the deny is narrow (Number() is not in it — it fails at E3100 resolve, never reaching the terminal). The static-fold lanes upstream of the fallback (split static-ASCII, static toString) are preserved. Every expected value from node v26.
+
+Stage P5 Task 1/5 update: `String` was REMOVED from that deny-set and now routes through the real `emit_as_string` coercion ladder, so `String(x)` coerces (see `string_call_coerces`). `toString`/`JSON.stringify`/`Boolean` remain denied and stay fail-closed.
+
+Preserve pin: static-receiver split indexing still folds. node: a."""
+args = ["run", "split_static_ascii_lane_is_preserved.ts"]
+exit = "success"
+stdout = "a\n"

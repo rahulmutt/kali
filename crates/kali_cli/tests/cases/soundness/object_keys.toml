@@ -1,0 +1,127 @@
+# Migrated from tests/soundness_object_keys.rs -- all 8 #[test]
+# functions, 1:1 to a case (no fn bundles multiple independent
+# assertions; no [matrix] -- each case runs a distinct one-off TS
+# program via `kali run <file>.ts`).
+#
+# Every fn is directly preceded by its own banner-style leading `//`
+# comment (0 uncommented cases; no //! doc, no helper doc). Three fns
+# ALSO carry a second, in-body leading comment right above their own
+# assertion/run_source call (`unrecognized_property_form_rejects`,
+# `single_element_string_array_length_reports_one`,
+# `single_key_object_keys_length_reports_one`,
+# `single_key_delete_timeline_keys_length_reports_one`,
+# `object_entries_nested_tuple_element_reads_report_true_elements`,
+# `object_entries_inline_nested_tuple_element_reads_report_true_elements`)
+# -- a second attachment point beyond the banner, found by an exhaustive
+# scan for any indented `//` line inside each fn body; both comments are
+# appended to that case's rationale.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!`
+# call site builds a temp-directory path, never fixture text).
+#
+# `unrecognized_property_form_rejects` asserts only failure in source --
+# no stderr/stdout substring check -- so only `exit = "failure"` is
+# pinned (rule 2). Every other case compares `.trim()`'d stdout against
+# a literal -- per the pilot's precedent, `stdout` below is the
+# untrimmed RAW stdout captured from the real built kali binary, each
+# verified equal to the trimmed literal after `.strip()`.
+
+[source]
+"keyword_key_in_object_literal_round_trips.ts" = """const o = { type: 3, if: 4 };
+console.log(o.type + o.if);
+"""
+"unrecognized_property_form_rejects.ts" = """const a = { x: 1 };
+const o = { ...a };
+console.log(o.x);
+"""
+"single_element_string_array_length_reports_one.ts" = """const a = ["abcdef"];
+console.log(a.length);
+"""
+"single_key_object_keys_length_reports_one.ts" = """console.log(Object.keys({ OTHER: "2" }).length);
+"""
+"single_key_delete_timeline_keys_length_reports_one.ts" = """const cfg = { PATH: "1", OTHER: "2" };
+delete cfg.PATH;
+console.log(Object.keys(cfg).length);
+"""
+"object_entries_nested_tuple_element_reads_report_true_elements.ts" = """const es = Object.entries({ a: 1, b: 2, c: 3 });
+console.log(es[0][0], es[0][1]);
+console.log(es[1][0], es[1][1]);
+console.log(es[2][0], es[2][1]);
+"""
+"object_entries_inline_nested_tuple_element_reads_report_true_elements.ts" = """console.log(Object.entries({ a: 1, b: 2, c: 3 })[0][0]);
+"""
+"single_key_delete_timeline_neighbors_stay_correct.ts" = """const cfg = { PATH: "1", OTHER: "2" };
+delete cfg.PATH;
+console.log(Object.keys(cfg)[0]);
+console.log(Object.values(cfg)[0]);
+console.log(Object.values(cfg).length);
+"""
+
+[[case]]
+name = "keyword_key_in_object_literal_round_trips"
+rationale = """`{type: 3}` then `obj.type`: the object-literal parser only accepted Identifier/String/Numeric/computed keys; a keyword key hit the `_ =>` arm which silently DISCARDED the whole property, so the read yielded 0. Member access `obj.type` was fixed earlier (is_property_name_token); this closes the literal side with the same key set."""
+args = ["run", "keyword_key_in_object_literal_round_trips.ts"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "unrecognized_property_form_rejects"
+rationale = """The old `_ =>` arm silently dropped ANY unrecognized property form. Fail-closed now: unknown forms are a hard reject, not a silent drop.
+
+`...spread` in an object literal is unsupported surface."""
+args = ["run", "unrecognized_property_form_rejects.ts"]
+exit = "failure"
+
+[[case]]
+name = "single_element_string_array_length_reports_one"
+rationale = """A single-element ARRAY literal `[x]` is a text-less one-child `Value`, structurally identical to a transparent sequence/grouping wrapper. Codegen's receiver classifiers (`unwrap_transparent`, `resolve_static_object_identity_value`) tunneled straight through it into element `x`, so `.length` read `x`'s STRING length instead of the array length 1 — a silent wrong answer (exit 0). (throw-fallout Stage 2 review fix.)
+
+node: 1 (the array has one element). Pre-fix kali: 6 ("abcdef".length)."""
+args = ["run", "single_element_string_array_length_reports_one.ts"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "single_key_object_keys_length_reports_one"
+rationale = """The folded `Object.keys(singleKeyObject)` is a one-element array literal, so it hit the exact same single-element tunneling. `"OTHER".length` is 5, which silently replaced the array length 1.
+
+node: 1. Pre-fix kali: 5 ("OTHER".length)."""
+args = ["run", "single_key_object_keys_length_reports_one.ts"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "single_key_delete_timeline_keys_length_reports_one"
+rationale = """The delete-timeline lane rebuilds the literal down to a single key, then folds `Object.keys` over it — the enumeration-fold + delete-timeline shape this review fix exists to make honest.
+
+node: 1. Pre-fix kali: 5 ("OTHER".length after delete)."""
+args = ["run", "single_key_delete_timeline_keys_length_reports_one.ts"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "object_entries_nested_tuple_element_reads_report_true_elements"
+rationale = """A folded `Object.entries(obj)` is an array of 2-element `[key, value]` array literals. The flat element read `es[i]` yields the inner array literal, but the codegen static-index lane never resolved that inner literal, so the NESTED read `es[i][0]` / `es[i][1]` fell through to the runtime-array path and returned a placeholder `0` for EVERY key and value (`es.length` was correct; `Object.keys`/`Object.values` flat reads were correct). Resolving a static index member through `resolve_literal_aggregate` lets `es[i][j]` fold against the inner tuple. (throw-fallout Stage 2 Lane D gap.)
+
+node: `a 1 / b 2 / c 3`. Pre-fix kali: `0 0 / 0 0 / 0 0`."""
+args = ["run", "object_entries_nested_tuple_element_reads_report_true_elements.ts"]
+exit = "success"
+stdout = "a 1\nb 2\nc 3\n"
+
+[[case]]
+name = "object_entries_inline_nested_tuple_element_reads_report_true_elements"
+rationale = """The inline (unbound) form of the same nested read — `Object.entries({...})[0][0]` with no intervening `const` binding — must also fold to the real key.
+
+node: `a`. Pre-fix kali: `0`."""
+args = ["run", "object_entries_inline_nested_tuple_element_reads_report_true_elements.ts"]
+exit = "success"
+stdout = "a\n"
+
+[[case]]
+name = "single_key_delete_timeline_neighbors_stay_correct"
+rationale = """The `[0]` element read and the `Object.values` variant were already correct; pin them so the fix does not regress the neighboring lanes."""
+args = ["run", "single_key_delete_timeline_neighbors_stay_correct.ts"]
+exit = "success"
+stdout = "OTHER\n2\n1\n"

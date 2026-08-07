@@ -1,0 +1,106 @@
+# Migrated from tests/soundness_reserved_bindings.rs -- 3 #[test]
+# functions become 5 cases: `reserved_word_binding_rejects` loops over
+# THREE independent fixtures (`const if = 1;`, `let for = 2;`,
+# `var function = 3;`), each an independent assertion per rule 5, so it
+# is split into three siblings named for the reserved word each one pins
+# (`reserved_word_binding_rejects_const_if` /
+# `reserved_word_binding_rejects_let_for` /
+# `reserved_word_binding_rejects_var_function`); the other two fns are
+# 1:1. No [matrix] -- each case runs a distinct one-off TS program via
+# `kali run <file>.ts`.
+#
+# The file's opening `//!` doc is prepended verbatim to every case's
+# rationale. Every fn/loop is directly preceded by its own `//` comment
+# (0 uncommented cases); the loop's single comment (lines 33-34) is
+# shared by all three split siblings, matching what the source itself
+# shares across the three loop iterations.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!` call
+# site builds a temp-directory path, never fixture text).
+#
+# `reserved_word_binding_rejects`'s three iterations assert only
+# `!out.status.success()` in source -- no stdout/stderr substring check --
+# so only `exit = "failure"` is pinned per split case (rule 2).
+# `contextual_keyword_bindings_still_work` and
+# `full_binding_allowlist_binds_and_reads_back` both compare `.trim()`'d
+# stdout against a literal -- per the pilot's precedent, `stdout` below is
+# the untrimmed RAW stdout captured from the real built kali binary
+# ("6\n" / "36\n", each verified equal to the trimmed literal after
+# `.strip()`), strictly stronger than the trimmed comparison it replaces.
+
+[source]
+"reserved_word_binding_rejects_const_if.ts" = """const if = 1;
+"""
+"reserved_word_binding_rejects_let_for.ts" = """let for = 2;
+"""
+"reserved_word_binding_rejects_var_function.ts" = """var function = 3;
+"""
+"contextual_keyword_bindings_still_work.ts" = """const type = 1;
+const of = 2;
+const from = 3;
+console.log(type + of + from);
+"""
+"full_binding_allowlist_binds_and_reads_back.ts" = """const plain = 1;
+const type = 2;
+const interface = 3;
+const enum = 4;
+const from = 5;
+const as = 6;
+const of = 7;
+const async = 8;
+console.log(plain + type + interface + enum + from + as + of + async);
+"""
+
+[[case]]
+name = "reserved_word_binding_rejects_const_if"
+rationale = """Soundness pin: reserved words must reject as binding names.
+
+`parse_variable_declarator` used to take ANY next token's value as the binding name, so `const if = 1` bound a variable literally named "if". Contextual keywords that are legal JS binding identifiers (e.g. `type`, `of`, `from`) must keep working.
+
+`parse_variable_declarator` took ANY next token's value as the binding name, so `const if = 1` bound a variable literally named "if"."""
+args = ["run", "reserved_word_binding_rejects_const_if.ts"]
+exit = "failure"
+
+[[case]]
+name = "reserved_word_binding_rejects_let_for"
+rationale = """Soundness pin: reserved words must reject as binding names.
+
+`parse_variable_declarator` used to take ANY next token's value as the binding name, so `const if = 1` bound a variable literally named "if". Contextual keywords that are legal JS binding identifiers (e.g. `type`, `of`, `from`) must keep working.
+
+`parse_variable_declarator` took ANY next token's value as the binding name, so `const if = 1` bound a variable literally named "if"."""
+args = ["run", "reserved_word_binding_rejects_let_for.ts"]
+exit = "failure"
+
+[[case]]
+name = "reserved_word_binding_rejects_var_function"
+rationale = """Soundness pin: reserved words must reject as binding names.
+
+`parse_variable_declarator` used to take ANY next token's value as the binding name, so `const if = 1` bound a variable literally named "if". Contextual keywords that are legal JS binding identifiers (e.g. `type`, `of`, `from`) must keep working.
+
+`parse_variable_declarator` took ANY next token's value as the binding name, so `const if = 1` bound a variable literally named "if"."""
+args = ["run", "reserved_word_binding_rejects_var_function.ts"]
+exit = "failure"
+
+[[case]]
+name = "contextual_keyword_bindings_still_work"
+rationale = """Soundness pin: reserved words must reject as binding names.
+
+`parse_variable_declarator` used to take ANY next token's value as the binding name, so `const if = 1` bound a variable literally named "if". Contextual keywords that are legal JS binding identifiers (e.g. `type`, `of`, `from`) must keep working.
+
+Contextual keywords that are legal JS binding names must keep working — the lexer keywordizes them, but `const type = 1` is valid JS."""
+args = ["run", "contextual_keyword_bindings_still_work.ts"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "full_binding_allowlist_binds_and_reads_back"
+rationale = """Soundness pin: reserved words must reject as binding names.
+
+`parse_variable_declarator` used to take ANY next token's value as the binding name, so `const if = 1` bound a variable literally named "if". Contextual keywords that are legal JS binding identifiers (e.g. `type`, `of`, `from`) must keep working.
+
+Bind+read symmetry pin for the ENTIRE `is_binding_name_token` allowlist: every token legal in binding position must also read back as a plain identifier expression. The bind gate (statement.rs via call.rs allowlist) and the readback arms (primary.rs) are hand-mirrored — a token added to one side without the other silently miscompiles (readback falls into the primary catch-all and yields Identifier("unknown"), i.e. 0), so this pins all 8 tokens end-to-end with an exact sum only correct reads can produce."""
+args = ["run", "full_binding_allowlist_binds_and_reads_back.ts"]
+exit = "success"
+stdout = "36\n"

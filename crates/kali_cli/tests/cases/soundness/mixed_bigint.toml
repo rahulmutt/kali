@@ -1,0 +1,139 @@
+# Migrated from tests/soundness_mixed_bigint.rs -- 5 #[test] functions
+# become 12 cases: `mixed_bigint_arithmetic_rejects` loops over FOUR
+# independent fixtures and `mixed_bigint_operator_sweep_rejects` loops
+# over FIVE independent fixtures, each an independent assertion per rule
+# 5, so both are split into siblings named for the operator/shape each
+# one pins; the other three fns are 1:1. No [matrix] -- each case runs a
+# distinct one-off TS program via `kali run <file>.ts`.
+#
+# Every fn/loop is directly preceded by its own `//` comment (0
+# uncommented cases); the two split loops each share ONE comment across
+# all their split siblings, matching what the source itself shares
+# across the loop iterations.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!` call
+# site builds a temp-directory path, never fixture text).
+#
+# The two split loops assert failure + `stderr_contains = ["E3202"]` per
+# iteration in source (no other literal checked). `all_bigint_arithmetic_still_works`
+# asserts only success in source -- no stdout check at all -- so no
+# `stdout` field is pinned (rule 2). `unproven_bigint_operand_does_not_over_reject`
+# and `parameter_bigint_operand_does_not_over_reject` both compare
+# `.trim()`'d stdout against a literal -- per the pilot's precedent,
+# `stdout` below is the untrimmed RAW stdout captured from the real built
+# kali binary ("3\n" both times, each verified equal to the trimmed
+# literal after `.strip()`).
+
+[source]
+"mixed_bigint_arithmetic_rejects_div.ts" = """console.log(3n / 2);
+"""
+"mixed_bigint_arithmetic_rejects_mul.ts" = """console.log(3n * 2);
+"""
+"mixed_bigint_arithmetic_rejects_add.ts" = """console.log(3n + 2);
+"""
+"mixed_bigint_arithmetic_rejects_sub.ts" = """console.log(2 - 3n);
+"""
+"all_bigint_arithmetic_still_works.ts" = """console.log(6n / 2n);
+console.log(2n * 3n);
+"""
+"mixed_bigint_operator_sweep_rejects_unary_minus_mul.ts" = """console.log(-3n * 2);
+"""
+"mixed_bigint_operator_sweep_rejects_mod.ts" = """console.log(3n % 2);
+"""
+"mixed_bigint_operator_sweep_rejects_pow.ts" = """console.log(2 ** 3n);
+"""
+"mixed_bigint_operator_sweep_rejects_paren_bigint_side.ts" = """console.log((3n) + 2);
+"""
+"mixed_bigint_operator_sweep_rejects_paren_numeric_side.ts" = """console.log(3n - (2));
+"""
+"unproven_bigint_operand_does_not_over_reject.ts" = """const x = 7n;
+console.log(x / 2n);
+"""
+"parameter_bigint_operand_does_not_over_reject.ts" = """function hot(v) { return (v + 0n) + 1n; }
+console.log(hot(2n));
+"""
+
+[[case]]
+name = "mixed_bigint_arithmetic_rejects_div"
+rationale = """node: `3n / 2` throws TypeError (cannot mix BigInt and Number). kali silently floated it (F64Div → prints 1.5). Reject at compile time."""
+args = ["run", "mixed_bigint_arithmetic_rejects_div.ts"]
+exit = "failure"
+stderr_contains = ["E3202"]
+
+[[case]]
+name = "mixed_bigint_arithmetic_rejects_mul"
+rationale = """node: `3n / 2` throws TypeError (cannot mix BigInt and Number). kali silently floated it (F64Div → prints 1.5). Reject at compile time."""
+args = ["run", "mixed_bigint_arithmetic_rejects_mul.ts"]
+exit = "failure"
+stderr_contains = ["E3202"]
+
+[[case]]
+name = "mixed_bigint_arithmetic_rejects_add"
+rationale = """node: `3n / 2` throws TypeError (cannot mix BigInt and Number). kali silently floated it (F64Div → prints 1.5). Reject at compile time."""
+args = ["run", "mixed_bigint_arithmetic_rejects_add.ts"]
+exit = "failure"
+stderr_contains = ["E3202"]
+
+[[case]]
+name = "mixed_bigint_arithmetic_rejects_sub"
+rationale = """node: `3n / 2` throws TypeError (cannot mix BigInt and Number). kali silently floated it (F64Div → prints 1.5). Reject at compile time."""
+args = ["run", "mixed_bigint_arithmetic_rejects_sub.ts"]
+exit = "failure"
+stderr_contains = ["E3202"]
+
+[[case]]
+name = "all_bigint_arithmetic_still_works"
+rationale = """All-BigInt stays green (existing lane)."""
+args = ["run", "all_bigint_arithmetic_still_works.ts"]
+exit = "success"
+
+[[case]]
+name = "mixed_bigint_operator_sweep_rejects_unary_minus_mul"
+rationale = """Promoted operator sweep: every gated operator (`+ - * / % **`) rejects when exactly one side is a proven BigInt literal and the other a proven numeric literal — including under unary minus and parens (node throws TypeError for all of these)."""
+args = ["run", "mixed_bigint_operator_sweep_rejects_unary_minus_mul.ts"]
+exit = "failure"
+stderr_contains = ["E3202"]
+
+[[case]]
+name = "mixed_bigint_operator_sweep_rejects_mod"
+rationale = """Promoted operator sweep: every gated operator (`+ - * / % **`) rejects when exactly one side is a proven BigInt literal and the other a proven numeric literal — including under unary minus and parens (node throws TypeError for all of these)."""
+args = ["run", "mixed_bigint_operator_sweep_rejects_mod.ts"]
+exit = "failure"
+stderr_contains = ["E3202"]
+
+[[case]]
+name = "mixed_bigint_operator_sweep_rejects_pow"
+rationale = """Promoted operator sweep: every gated operator (`+ - * / % **`) rejects when exactly one side is a proven BigInt literal and the other a proven numeric literal — including under unary minus and parens (node throws TypeError for all of these)."""
+args = ["run", "mixed_bigint_operator_sweep_rejects_pow.ts"]
+exit = "failure"
+stderr_contains = ["E3202"]
+
+[[case]]
+name = "mixed_bigint_operator_sweep_rejects_paren_bigint_side"
+rationale = """Promoted operator sweep: every gated operator (`+ - * / % **`) rejects when exactly one side is a proven BigInt literal and the other a proven numeric literal — including under unary minus and parens (node throws TypeError for all of these)."""
+args = ["run", "mixed_bigint_operator_sweep_rejects_paren_bigint_side.ts"]
+exit = "failure"
+stderr_contains = ["E3202"]
+
+[[case]]
+name = "mixed_bigint_operator_sweep_rejects_paren_numeric_side"
+rationale = """Promoted operator sweep: every gated operator (`+ - * / % **`) rejects when exactly one side is a proven BigInt literal and the other a proven numeric literal — including under unary minus and parens (node throws TypeError for all of these)."""
+args = ["run", "mixed_bigint_operator_sweep_rejects_paren_numeric_side.ts"]
+exit = "failure"
+stderr_contains = ["E3202"]
+
+[[case]]
+name = "unproven_bigint_operand_does_not_over_reject"
+rationale = """Anti-over-reject: the gate requires TWO-SIDED literal proof. Correct all-BigInt code whose operands are NOT bare literals (a `const` binding, a function parameter) must NOT trip E3202 — "recognizer can't prove BigInt" is not "proven non-BigInt". `const x = 7n; x / 2n` is exactly the regression an earlier one-sided `left != right` gate caused (it broke the bigint-*-chain benchmark fixtures); pin it closed. node prints `3n`; kali's runtime BigInt console format prints `3` (pre-existing, see Task 2)."""
+args = ["run", "unproven_bigint_operand_does_not_over_reject.ts"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "parameter_bigint_operand_does_not_over_reject"
+rationale = """Function-parameter form, mirroring the bigint-addition/multiplication-chain benchmark fixtures a one-sided gate broke: `hot(value)` does BigInt arithmetic where `value` is a parameter (unproven), invoked only with BigInt-literal arguments. Must compile and run, not reject."""
+args = ["run", "parameter_bigint_operand_does_not_over_reject.ts"]
+exit = "success"
+stdout = "3\n"

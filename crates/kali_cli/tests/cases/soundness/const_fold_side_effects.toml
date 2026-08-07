@@ -1,0 +1,275 @@
+# Migrated from tests/soundness_const_fold_side_effects.rs -- 9 #[test]
+# functions become 13 cases: `const_bound_update_expression_applies_exactly_once`
+# calls `assert_stdout` FOUR independent times over FOUR distinct
+# fixtures (prefix ++/postfix ++/prefix --/postfix --) and
+# `const_bound_arrow_with_mutating_body_is_not_promoted` calls it TWICE
+# over two distinct fixtures, each call an independent assertion per
+# rule 5, so both are split into siblings named for the shape each one
+# pins; the other seven fns are 1:1. No [matrix] -- each case runs a
+# distinct one-off TS program via `kali run <file>.ts`.
+#
+# The file's opening `//!` doc is prepended verbatim to every case's
+# rationale. `const_bound_update_expression_applies_exactly_once`'s four
+# split siblings share ONE comment (line 48) across all four, matching
+# what the source itself shares across the four calls.
+# `const_bound_arrow_with_mutating_body_is_not_promoted`'s two split
+# siblings share the fn's leading comment (lines 77-81); the second
+# sibling ALSO carries its own extra mid-body comment (lines 88-89,
+# directly above its call) appended on top.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!`
+# call site builds a temp-directory path, never fixture text).
+#
+# `array_literal_argument_is_rejected_fail_closed` asserts failure plus
+# TWO stderr substrings (E5506 AND "array literal") in source -- both
+# pinned. Every stdout-asserting case (all others) compares stdout via
+# `assert_stdout`'s own `assert_eq!(out.stdout, expected)` -- an exact,
+# already-untrimmed comparison -- so `stdout` below is a direct copy of
+# the literal, no strengthening needed.
+
+[source]
+"const_bound_update_expression_applies_exactly_once_prefix_increment.ts" = """let b = 5;
+const x = ++b;
+console.log(x);
+console.log(b);
+"""
+"const_bound_update_expression_applies_exactly_once_postfix_increment.ts" = """let c = 5;
+const y = c++;
+console.log(y);
+console.log(c);
+"""
+"const_bound_update_expression_applies_exactly_once_prefix_decrement.ts" = """let d = 5;
+const z = --d;
+console.log(z);
+console.log(d);
+"""
+"const_bound_update_expression_applies_exactly_once_postfix_decrement.ts" = """let e = 5;
+const w = e--;
+console.log(w);
+console.log(e);
+"""
+"const_bound_assignment_expression_applies_exactly_once.ts" = """let b = 5;
+const x = (b = b + 1);
+console.log(x);
+console.log(b);
+"""
+"const_bound_arrow_with_mutating_body_is_not_promoted_isolated.ts" = """const mk = (n) => { let r = n; r = r + 1; return r; };
+console.log(mk(5));
+console.log(mk(10));
+"""
+"const_bound_arrow_with_mutating_body_is_not_promoted_alongside_double_eval.ts" = """const mk = (n) => { let r = n; r = r + 1; return r; };
+let b = 5;
+const x = ++b;
+console.log(mk(1));
+console.log(x);
+console.log(b);
+"""
+"unary_prefix_fixture_semantics_hold.ts" = """const notTrue = !true;
+if (notTrue !== false) { throw new Error('neg'); }
+const bitwiseNot = ~1;
+if (bitwiseNot !== -2) { throw new Error('bitnot'); }
+let counter = 1;
+const prefix = ++counter;
+if (prefix !== 2 || counter !== 2) { throw new Error('prefix'); }
+const postfix = counter--;
+if (postfix !== 2 || counter !== 1) { throw new Error('postfix'); }
+const value = void (1 + 2);
+if (value !== void 0) { throw new Error('void'); }
+if (typeof value !== 'undefined') { throw new Error('typeof'); }
+console.log("ok");
+"""
+"typeof_provable_lane_matches_node.ts" = """console.log(typeof 42);
+console.log(typeof "hi");
+console.log(typeof true);
+console.log(typeof null);
+console.log(typeof undefined);
+const v = void 0;
+console.log(typeof v);
+"""
+"typeof_bigint_literal_is_bigint_not_number.ts" = """console.log(typeof 5n);
+console.log(typeof -5n);
+console.log(typeof 42);
+"""
+"typeof_direct_call_operand_still_evaluates.ts" = """let n = 0;
+function bump() { n = n + 1; return 1.5; }
+console.log(typeof bump());
+console.log(n);
+"""
+"array_literal_argument_is_rejected_fail_closed.ts" = """function g(items, value) { return items[0] + items[1] + value; }
+console.log(g([1, 2], 1));
+"""
+"materialized_array_argument_still_works.ts" = """function g(items, value) { return items[0] + items[1] + value; }
+const arr = new Array(2);
+arr[0] = 1;
+arr[1] = 2;
+console.log(g(arr, 1));
+"""
+
+[[case]]
+name = "const_bound_update_expression_applies_exactly_once_prefix_increment"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+Golden outputs verified against node v26."""
+args = ["run", "const_bound_update_expression_applies_exactly_once_prefix_increment.ts"]
+exit = "success"
+stdout = "6\n6\n"
+
+[[case]]
+name = "const_bound_update_expression_applies_exactly_once_postfix_increment"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+Golden outputs verified against node v26."""
+args = ["run", "const_bound_update_expression_applies_exactly_once_postfix_increment.ts"]
+exit = "success"
+stdout = "5\n6\n"
+
+[[case]]
+name = "const_bound_update_expression_applies_exactly_once_prefix_decrement"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+Golden outputs verified against node v26."""
+args = ["run", "const_bound_update_expression_applies_exactly_once_prefix_decrement.ts"]
+exit = "success"
+stdout = "4\n4\n"
+
+[[case]]
+name = "const_bound_update_expression_applies_exactly_once_postfix_decrement"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+Golden outputs verified against node v26."""
+args = ["run", "const_bound_update_expression_applies_exactly_once_postfix_decrement.ts"]
+exit = "success"
+stdout = "5\n4\n"
+
+[[case]]
+name = "const_bound_assignment_expression_applies_exactly_once"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback."""
+args = ["run", "const_bound_assignment_expression_applies_exactly_once.ts"]
+exit = "success"
+stdout = "6\n6\n"
+
+[[case]]
+name = "const_bound_arrow_with_mutating_body_is_not_promoted_isolated"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+The mutation walk must NOT descend into function-like inits: a mutation inside a const-bound arrow's BODY runs at call time in its own scope and is no init-time side effect. Descending promoted the const to an eager local, a function-like init produces no value, and calls resolved through the phantom zero local — `mk(5)` printed `0` (node: `6`)."""
+args = ["run", "const_bound_arrow_with_mutating_body_is_not_promoted_isolated.ts"]
+exit = "success"
+stdout = "6\n11\n"
+
+[[case]]
+name = "const_bound_arrow_with_mutating_body_is_not_promoted_alongside_double_eval"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+The mutation walk must NOT descend into function-like inits: a mutation inside a const-bound arrow's BODY runs at call time in its own scope and is no init-time side effect. Descending promoted the const to an eager local, a function-like init produces no value, and calls resolved through the phantom zero local — `mk(5)` printed `0` (node: `6`).
+
+And the original double-eval closure must still hold in the same program as a function-like declarator (no cross-interference)."""
+args = ["run", "const_bound_arrow_with_mutating_body_is_not_promoted_alongside_double_eval.ts"]
+exit = "success"
+stdout = "2\n6\n6\n"
+
+[[case]]
+name = "unary_prefix_fixture_semantics_hold"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+The whole unary/update ladder the runtime_smoke unary_prefix fixture pins, as one program — must run clean end to end."""
+args = ["run", "unary_prefix_fixture_semantics_hold.ts"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "typeof_provable_lane_matches_node"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback."""
+args = ["run", "typeof_provable_lane_matches_node.ts"]
+exit = "success"
+stdout = "number\nstring\nboolean\nobject\nundefined\nundefined\n"
+
+[[case]]
+name = "typeof_bigint_literal_is_bigint_not_number"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+Whole-branch review finding I2: `typeof <bigint literal>` must be "bigint", not "number". The provable-lane numeric arm strips the trailing `n` suffix (parse_numeric_literal_value), so `5n` used to classify as "number". The BigInt arm now precedes it. node: `typeof 5n === "bigint"`, `typeof -5n === "bigint"`; plain `42` stays "number"."""
+args = ["run", "typeof_bigint_literal_is_bigint_not_number.ts"]
+exit = "success"
+stdout = "bigint\nbigint\nnumber\n"
+
+[[case]]
+name = "typeof_direct_call_operand_still_evaluates"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+`typeof f()` must still evaluate f exactly once (JS evaluates the operand)."""
+args = ["run", "typeof_direct_call_operand_still_evaluates.ts"]
+exit = "success"
+stdout = "number\n1\n"
+
+[[case]]
+name = "array_literal_argument_is_rejected_fail_closed"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+Reject pin: an array literal passed to a user function used to hand the callee a zero placeholder (g([1, 2]) read 0 for every element; node says the elements). Now rejected fail-closed."""
+args = ["run", "array_literal_argument_is_rejected_fail_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "array literal"]
+
+[[case]]
+name = "materialized_array_argument_still_works"
+rationale = """Soundness pins for two fail-open lanes closed in soundness batch 1:
+
+1. `const x = <mutating init>` double-evaluation: the `const` fold lane re-emits the bound init node at every read, which re-applies the side effect. `let b = 5; const x = ++b;` yielded `x == 7, b == 7` (node: `6, 6`); `const y = (b = b + 1)` likewise applied twice. Fixed by promoting any `const` whose init subtree contains a mutating operator to an eager local slot (`declarator_init_contains_mutation`).
+
+2. `typeof` was not parsed as a unary operator at all: `typeof value` parsed as the bare identifier `typeof` (zero placeholder) and dropped `value`, so `typeof v !== 'undefined'` was always true. Now parsed as a real unary expression with a provable static lane (literals, `void` expressions, proven floats); unproven operands keep the pre-existing placeholder fallback.
+
+Materialized arrays (new Array + element stores) must keep working when passed as arguments — the reject is scoped to fold-lane literals."""
+args = ["run", "materialized_array_argument_still_works.ts"]
+exit = "success"
+stdout = "4\n"

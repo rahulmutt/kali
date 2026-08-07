@@ -1,0 +1,74 @@
+# Migrated from tests/soundness_throw.rs -- all 4 #[test] functions,
+# 1:1 to a case (no fn bundles multiple independent assertions; no
+# [matrix] -- each case runs a distinct one-off TS program via
+# `kali run <file>.ts`).
+#
+# Every fn is directly preceded by its own `//` comment except
+# `throw_string_literal_aborts_with_message`, which shares
+# `throw_error_literal_aborts_with_message`'s banner comment (both are the
+# node-vs-kali "throw aborts with a message" repro, one literal Error(),
+# one literal string) -- moved verbatim into each affected case's
+# rationale.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!` call
+# site builds a temp-directory path, never fixture text).
+#
+# The three abort cases assert `!stdout.contains("after")` in source, not
+# stdout equality -- verified against the real built kali binary: stdout
+# is empty for all three (the trap fires before `console.log("after")` is
+# ever reached, since the throw is the first statement), so `stdout = ""`
+# is pinned, strictly stronger than the source's negative-contains check.
+# `unreached_throw_is_harmless` compares `.trim()`'d stdout against a
+# literal -- per the pilot's precedent, its `stdout` is the untrimmed RAW
+# stdout ("5\n", verified equal to the trimmed literal after `.strip()`).
+
+[source]
+"throw_error_literal_aborts_with_message.ts" = """throw new Error("boom");
+console.log("after");
+"""
+"throw_string_literal_aborts_with_message.ts" = """throw "plain";
+console.log("after");
+"""
+"throw_computed_value_still_aborts.ts" = """let x = 3;
+throw x + 1;
+console.log("after");
+"""
+"unreached_throw_is_harmless.ts" = """function check(n) { if (n > 10) { throw new Error("nope"); } return n; }
+console.log(check(5));
+"""
+
+[[case]]
+name = "throw_error_literal_aborts_with_message"
+rationale = """node: `throw new Error("boom")` prints "Uncaught Error: boom" on stderr and exits nonzero; statements after the throw must NOT run. Today kali silently falls through and prints "after" with exit 0 — the headline no-op miscompile."""
+args = ["run", "throw_error_literal_aborts_with_message.ts"]
+exit = "failure"
+stdout = ""
+stdout_absent = ["after"]
+stderr_contains = ["Uncaught Error: boom"]
+
+[[case]]
+name = "throw_string_literal_aborts_with_message"
+rationale = """node: `throw new Error("boom")` prints "Uncaught Error: boom" on stderr and exits nonzero; statements after the throw must NOT run. Today kali silently falls through and prints "after" with exit 0 — the headline no-op miscompile."""
+args = ["run", "throw_string_literal_aborts_with_message.ts"]
+exit = "failure"
+stdout = ""
+stdout_absent = ["after"]
+stderr_contains = ["Uncaught plain"]
+
+[[case]]
+name = "throw_computed_value_still_aborts"
+rationale = """Non-literal argument: no message proof — generic message, still aborts."""
+args = ["run", "throw_computed_value_still_aborts.ts"]
+exit = "failure"
+stdout = ""
+stdout_absent = ["after"]
+stderr_contains = ["Uncaught exception"]
+
+[[case]]
+name = "unreached_throw_is_harmless"
+rationale = """A throw on a never-taken path must not affect the taken path — the whole suite's defensive self-check throws depend on this staying compilable."""
+args = ["run", "unreached_throw_is_harmless.ts"]
+exit = "success"
+stdout = "5\n"

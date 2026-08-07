@@ -1,0 +1,58 @@
+# Migrated from tests/soundness_array_spread.rs -- all 3 #[test]
+# functions, 1:1 to a case (no fn bundles multiple independent assertions;
+# no [matrix] -- each case runs a distinct one-off TS program via
+# `kali run <file>.ts`).
+#
+# The file's opening `//!` doc is prepended verbatim to every case's
+# rationale. `assert_fails_closed`'s call sites carry their own leading
+# `//` comment (moved into that case's rationale too); `assert_stdout`'s
+# one call site has no comment of its own beyond the doc.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!` call
+# site builds a temp-directory path, never fixture text).
+#
+# `assert_fails_closed(src, needle)` maps to `exit = "failure"` +
+# `stderr_contains = ["E5506", needle]` (the helper always requires BOTH);
+# both needles here are "spread", so the list has one distinct entry
+# de-duplicated to the same two-item form the helper's own two asserts
+# produce -- verified against the real built kali binary: both fixtures
+# emit `error[E5506]: array spread \`[...x]\` is unavailable in the
+# current phase: kali has no spread-expansion lowering, so the spread
+# would be silently counted as one element; use explicit elements or the
+# later compatibility path`, so `E5506` and `spread` both literally occur.
+# `assert_stdout` compares RAW (untrimmed) stdout via `assert_eq!` -- no
+# `.trim()` -- so `stdout` below is a direct copy of the literal.
+
+[source]
+"array_spread_of_binding_fails_closed.ts" = "const a=[1,2]; const b=[...a]; console.log(\"len=\"+b.length);"
+"array_spread_of_literal_fails_closed.ts" = "const b=[...[1,2]]; console.log(b.length);"
+"plain_array_literal_still_folds.ts" = "const a=[1,2,3]; console.log(\"len=\"+a.length);"
+
+[[case]]
+name = "array_spread_of_binding_fails_closed"
+rationale = """Soundness pins for R-25: array spread `[...a]` was mis-classified as a 1-element array literal (`is_array_literal` accepted a textless Value whose child is a `spread` node), so `.length` folded to 1 and `[0]` to 0 at exit 0. There is no spread-expansion lowering; the honest target is REJECT-DON'T-MISCOMPILE (E5506), mirroring object spread `{...o}` which already fails closed. Static array literals without a spread child keep folding. Every expected value captured from node v26.
+
+node: len=2 e0=1. Pre-fix kali: len=1 e0=0 at exit 0."""
+args = ["run", "array_spread_of_binding_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "spread"]
+
+[[case]]
+name = "array_spread_of_literal_fails_closed"
+rationale = """Soundness pins for R-25: array spread `[...a]` was mis-classified as a 1-element array literal (`is_array_literal` accepted a textless Value whose child is a `spread` node), so `.length` folded to 1 and `[0]` to 0 at exit 0. There is no spread-expansion lowering; the honest target is REJECT-DON'T-MISCOMPILE (E5506), mirroring object spread `{...o}` which already fails closed. Static array literals without a spread child keep folding. Every expected value captured from node v26.
+
+node: 2. Pre-fix kali: 1 at exit 0."""
+args = ["run", "array_spread_of_literal_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "spread"]
+
+[[case]]
+name = "plain_array_literal_still_folds"
+rationale = """Soundness pins for R-25: array spread `[...a]` was mis-classified as a 1-element array literal (`is_array_literal` accepted a textless Value whose child is a `spread` node), so `.length` folded to 1 and `[0]` to 0 at exit 0. There is no spread-expansion lowering; the honest target is REJECT-DON'T-MISCOMPILE (E5506), mirroring object spread `{...o}` which already fails closed. Static array literals without a spread child keep folding. Every expected value captured from node v26.
+
+Preserve pin: no spread child, must keep working."""
+args = ["run", "plain_array_literal_still_folds.ts"]
+exit = "success"
+stdout = "len=3\n"

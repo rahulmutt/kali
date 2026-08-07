@@ -1,0 +1,142 @@
+# Migrated from tests/soundness_in_operator.rs -- all 5 #[test] functions,
+# 1:1 to a case (no fn bundles multiple independent assertions; no
+# [matrix] -- each case runs `kali run <file>.ts` except
+# `check_accepts_in_and_instanceof`, which runs `kali check <file>.ts`).
+#
+# The file's opening `//!` doc is prepended verbatim to every case's
+# rationale. Every fn is also directly preceded by its own `//` comment
+# (0 uncommented cases) -- moved into that specific case's rationale too.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!` call
+# site builds a temp-directory path, never fixture text).
+#
+# The three trap cases assert a stderr substring plus (for the first)
+# `!stdout.contains('a')` -- verified against the real built kali binary:
+# stdout is empty for all three (the trap fires before any `console.log`
+# runs), so `stdout = ""` is pinned, strictly stronger than the
+# negative-contains check. `check_accepts_in_and_instanceof` asserts only
+# success in source -- no stdout check -- so no `stdout` field is pinned
+# (rule 2). `for_in_statement_heads_still_work` compares RAW (untrimmed)
+# stdout via `assert_eq!` directly -- no `.trim()` -- so `stdout` below
+# is a direct copy of the literal.
+
+[source]
+"binary_in_evaluation_traps_not_left_operand.ts" = """const obj = { a: 1, b: 2 };
+const r = 'a' in obj;
+console.log(r);
+"""
+"binary_in_inside_condition_traps.ts" = """const obj = { a: 1 };
+if (!('a' in obj)) {
+  console.log('missing');
+}
+console.log('done');
+"""
+"instanceof_evaluation_traps_fail_closed.ts" = """const obj = { a: 1 };
+if (obj instanceof Object) {
+  console.log('yes');
+}
+console.log('done');
+"""
+"check_accepts_in_and_instanceof.ts" = """const obj = { a: 1 };
+const r = 'a' in obj;
+const s = obj instanceof Object;
+console.log('never run');
+"""
+"for_in_statement_heads_still_work.ts" = """function makeCumulative(table) {
+  var last = null;
+  for (var c in table) {
+    if (last) table[c] += table[last];
+    last = c;
+  }
+}
+function firstKey(table) {
+  var c;
+  for (c in table) return c;
+  return c;
+}
+var obj = { a: 0.5, b: 0.25, c: 0.25 };
+makeCumulative(obj);
+console.log(obj.c);
+console.log(firstKey(obj));
+"""
+
+[[case]]
+name = "binary_in_evaluation_traps_not_left_operand"
+rationale = """Soundness pins for the binary `in` / `instanceof` operators.
+
+Neither token was a binary operator in the parser, so `'a' in obj` parsed as the bare expression `'a'` and the trailing `in obj` tokens were silently dropped — the whole expression miscompiled to its LEFT operand (kali printed `a` where node prints `true`). Now the parser builds the real BinaryExpression and EVALUATION fails closed with throw's print-then-trap pattern (message on stderr, E4000, nonzero exit): kali's static object model cannot decide runtime key presence (e.g. after `delete`), and there is no prototype chain for `instanceof` to walk.
+
+Deliberately a runtime trap, not a compile reject: analysis-only commands (`kali check`) must stay usable on code containing these operators (the browser package corpus depends on it), and no wrong value can escape.
+
+The `for (expr in obj)` / `for (var c in obj)` statement heads are NOT binary `in` and must keep working — pinned here too.
+
+node prints `true`; kali used to print `a` (left operand) with exit 0. Until a sound presence proof exists, the only correct behaviors are "true" or a fail-closed abort — never the left operand."""
+args = ["run", "binary_in_evaluation_traps_not_left_operand.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["unsupported `in` operator", "E4000"]
+
+[[case]]
+name = "binary_in_inside_condition_traps"
+rationale = """Soundness pins for the binary `in` / `instanceof` operators.
+
+Neither token was a binary operator in the parser, so `'a' in obj` parsed as the bare expression `'a'` and the trailing `in obj` tokens were silently dropped — the whole expression miscompiled to its LEFT operand (kali printed `a` where node prints `true`). Now the parser builds the real BinaryExpression and EVALUATION fails closed with throw's print-then-trap pattern (message on stderr, E4000, nonzero exit): kali's static object model cannot decide runtime key presence (e.g. after `delete`), and there is no prototype chain for `instanceof` to walk.
+
+Deliberately a runtime trap, not a compile reject: analysis-only commands (`kali check`) must stay usable on code containing these operators (the browser package corpus depends on it), and no wrong value can escape.
+
+The `for (expr in obj)` / `for (var c in obj)` statement heads are NOT binary `in` and must keep working — pinned here too.
+
+`in` buried in a condition — the lane the runtime_smoke self-checks used; previously the condition evaluated to the (truthy/falsy) left operand."""
+args = ["run", "binary_in_inside_condition_traps.ts"]
+exit = "failure"
+stdout = ""
+stdout_absent = ["done"]
+stderr_contains = ["unsupported `in` operator"]
+
+[[case]]
+name = "instanceof_evaluation_traps_fail_closed"
+rationale = """Soundness pins for the binary `in` / `instanceof` operators.
+
+Neither token was a binary operator in the parser, so `'a' in obj` parsed as the bare expression `'a'` and the trailing `in obj` tokens were silently dropped — the whole expression miscompiled to its LEFT operand (kali printed `a` where node prints `true`). Now the parser builds the real BinaryExpression and EVALUATION fails closed with throw's print-then-trap pattern (message on stderr, E4000, nonzero exit): kali's static object model cannot decide runtime key presence (e.g. after `delete`), and there is no prototype chain for `instanceof` to walk.
+
+Deliberately a runtime trap, not a compile reject: analysis-only commands (`kali check`) must stay usable on code containing these operators (the browser package corpus depends on it), and no wrong value can escape.
+
+The `for (expr in obj)` / `for (var c in obj)` statement heads are NOT binary `in` and must keep working — pinned here too.
+
+node prints `true`; kali used to evaluate the expression to `obj`."""
+args = ["run", "instanceof_evaluation_traps_fail_closed.ts"]
+exit = "failure"
+stdout = ""
+stdout_absent = ["done"]
+stderr_contains = ["unsupported `instanceof` operator"]
+
+[[case]]
+name = "check_accepts_in_and_instanceof"
+rationale = """Soundness pins for the binary `in` / `instanceof` operators.
+
+Neither token was a binary operator in the parser, so `'a' in obj` parsed as the bare expression `'a'` and the trailing `in obj` tokens were silently dropped — the whole expression miscompiled to its LEFT operand (kali printed `a` where node prints `true`). Now the parser builds the real BinaryExpression and EVALUATION fails closed with throw's print-then-trap pattern (message on stderr, E4000, nonzero exit): kali's static object model cannot decide runtime key presence (e.g. after `delete`), and there is no prototype chain for `instanceof` to walk.
+
+Deliberately a runtime trap, not a compile reject: analysis-only commands (`kali check`) must stay usable on code containing these operators (the browser package corpus depends on it), and no wrong value can escape.
+
+The `for (expr in obj)` / `for (var c in obj)` statement heads are NOT binary `in` and must keep working — pinned here too.
+
+Analysis must stay usable: `kali check` on code containing in/instanceof succeeds (the browser package corpus pins "packages remain checkable")."""
+args = ["check", "check_accepts_in_and_instanceof.ts"]
+exit = "success"
+
+[[case]]
+name = "for_in_statement_heads_still_work"
+rationale = """Soundness pins for the binary `in` / `instanceof` operators.
+
+Neither token was a binary operator in the parser, so `'a' in obj` parsed as the bare expression `'a'` and the trailing `in obj` tokens were silently dropped — the whole expression miscompiled to its LEFT operand (kali printed `a` where node prints `true`). Now the parser builds the real BinaryExpression and EVALUATION fails closed with throw's print-then-trap pattern (message on stderr, E4000, nonzero exit): kali's static object model cannot decide runtime key presence (e.g. after `delete`), and there is no prototype chain for `instanceof` to walk.
+
+Deliberately a runtime trap, not a compile reject: analysis-only commands (`kali check`) must stay usable on code containing these operators (the browser package corpus depends on it), and no wrong value can escape.
+
+The `for (expr in obj)` / `for (var c in obj)` statement heads are NOT binary `in` and must keep working — pinned here too.
+
+The for-in statement head is not binary `in`; the supported for-in lane (declaration form + bare pre-declared form, per the fasta Spec 4a surface) must keep compiling and match node byte-for-byte."""
+args = ["run", "for_in_statement_heads_still_work.ts"]
+exit = "success"
+stdout = "1\na\n"
