@@ -358,7 +358,7 @@ json.payload.bundleFormat = "esm"
 
 [[case]]
 name = "run_harness_js"
-rationale = "`run --api browser` with a configured browser harness command supports the find-family fixture (js). See file header for why `stdout_contains` is not a weakening of the source's `starts_with`."
+rationale = "`run --api browser` with a configured browser harness command supports the find-family fixture (js)."
 args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.js"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
 exit = "success"

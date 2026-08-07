@@ -312,7 +312,14 @@ def claims(source: str) -> dict[str, dict[str, frozenset[str]]]:
 # excluded by never being read, not by being pattern-matched away. Keep this
 # in sync with `Step`/`RawStep` in model.rs; a field added there that carries
 # a string-literal claim (a new assertion key) needs a line here too.
-_STEP_LIST_KEYS = ("args", "stdout_contains", "stdout_absent", "stderr_contains", "stderr_absent")
+_STEP_LIST_KEYS = (
+    "args",
+    "stdout_contains",
+    "stdout_absent",
+    "stderr_contains",
+    "stderr_absent",
+    "json_null",
+)
 _STEP_SCALAR_KEYS = ("stdout",)
 _STEP_JSON_KEYS = ("json", "fields")
 # Keys inside a case's non-step namespace (name/rationale/ignore/step) that

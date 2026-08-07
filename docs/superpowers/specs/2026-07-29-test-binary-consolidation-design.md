@@ -257,7 +257,7 @@ A case file has four optional top-level sections and one required one:
 
 ### 5.4 Assertion keys
 
-Eight assertion keys on a step, covering the full measured vocabulary of §1.2:
+Nine assertion keys on a step, covering the full measured vocabulary of §1.2:
 
 ```toml
 exit = "success" | "failure" | 2        # status class or exact code
@@ -268,6 +268,7 @@ stderr_contains = ["..."]
 stderr_absent   = ["..."]
 json.payload.artifactKind = "bundle"    # dotted path into the stdout JSON envelope
 json.errors.0.code = "E5506"            # a numeric segment indexes a JSON array
+json_null = ["stdout", "stderr"]        # dotted paths that must be JSON null
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 ```
 
@@ -285,6 +286,24 @@ JSON `null`, and TOML has no null literal capable of matching it, so whole-
 array equality can never succeed. An out-of-range index, a non-numeric or
 negative-looking segment against an array, and any other unresolvable
 segment are all hard failures, never a silent skip.
+
+`json_null` exists for the same reason `errors.0.code` exists: TOML has no
+null literal (jsonpath.rs's `values_equal` hard-rejects every TOML type
+against a JSON `null` by construction), so a claim like
+`json["stderr"].is_null()` has no expressible form inside `json` itself --
+not even via the dotted-path indexing above, since there is still no TOML
+value to put on the right-hand side of `=`. `json_null` is a list of dotted
+paths, checked against the same parsed stdout `json` is checked against,
+each of which must resolve to present *and* JSON `null`; a path that does
+not resolve at all is a hard failure, not a pass, for the identical reason
+an absent `json` path is (§5.10 -- "not found" must never silently mean
+"nothing to assert"). It was added during Task 15's fix round when a real,
+reachable `check --output json`'s `stdout`/`stderr` null claim (from
+`array_callback_find.rs`) had no other way to survive the migration without
+either dropping the claim or asserting it on an unrelated case -- both
+rejected. Because every diagnostic's `"fix"` key (previous paragraph) is
+the same class of gap, `json_null` is expected to see broader use across
+the remaining families in Tasks 16-19, not just this one site.
 
 Two non-assertion keys live on a `[[case]]`, not a step: `name` and `rationale`,
 plus `ignore = true` to run only under `--ignored` (the 9 currently-ignored
