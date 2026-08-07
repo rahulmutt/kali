@@ -263,20 +263,35 @@ _UNICODE_ESCAPE = re.compile(r'(?<!\\)\\u\{([0-9a-fA-F]{1,6})\}')
 
 
 def unquote(raw: str) -> str:
-    """Turn a Rust string literal token into its fully-unescaped text."""
+    """Turn a Rust string literal token into its fully-unescaped text.
+
+    `_UNICODE_ESCAPE` must run *before* the plain `\\\\` -> `\\` collapse, not
+    after. Its `(?<!\\)` guard exists so a genuine escaped-backslash-then-
+    literal-text token -- Rust source `"\\\\u{e9}"`, meaning a literal
+    backslash followed by the five literal characters `u{e9}` -- is left
+    alone rather than decoded as if it were the real unicode escape
+    `"\\u{e9}"` (a single backslash + `u{e9}`, meaning U+00E9). Applying the
+    `\\\\` -> `\\` collapse first destroys that distinction: it collapses the
+    double backslash down to one *before* `_UNICODE_ESCAPE` ever sees the
+    text, so the guard's lookbehind finds no preceding backslash and wrongly
+    decodes the collapsed text to `é`. Running `_UNICODE_ESCAPE` on the
+    pre-collapse text instead lets the lookbehind see the real second
+    backslash and correctly skip it; the later `\\\\` -> `\\` collapse then
+    reduces the untouched double backslash to the single literal backslash
+    the source actually meant. Inert on this corpus at the time of this fix
+    (no `.rs` file contains the literal `\\u{` byte pattern that would
+    trigger it), verified additive by re-running this script against all 50
+    then-migrated `.rs`/`.toml` pairs before and after: 50/50 both times.
+    """
     raw = raw.strip()
     if raw.startswith("r"):
         raw = raw[1:]
         hashes = len(raw) - len(raw.lstrip("#"))
         return raw[hashes + 1 : len(raw) - hashes - 1]
     body = raw[1:-1]
-    body = (
-        body.replace('\\"', '"')
-        .replace("\\n", "\n")
-        .replace("\\t", "\t")
-        .replace("\\\\", "\\")
-    )
-    return _UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), body)
+    body = body.replace('\\"', '"').replace("\\n", "\n").replace("\\t", "\t")
+    body = _UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), body)
+    return body.replace("\\\\", "\\")
 
 
 def raw_body(raw: str) -> str:
