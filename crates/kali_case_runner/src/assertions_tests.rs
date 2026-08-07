@@ -44,7 +44,9 @@ fn an_exact_exit_code_must_match() {
     let mut step = blank_step();
     step.exit = Some(Exit::Code(2));
     assert!(check(&step, &captured(false, 2, "", "")).is_ok());
-    assert!(check(&step, &captured(false, 1, "", "")).is_err());
+    let err = check(&step, &captured(false, 1, "", "")).expect_err("must fail");
+    assert!(err.contains("code 2"), "{err}");
+    assert!(err.contains("Some(1)"), "{err}");
 }
 
 #[test]
@@ -108,6 +110,89 @@ fn a_missing_json_path_fails_and_names_the_path() {
     assert!(err.contains("payload.bundleFormat"), "{err}");
 }
 
+// An empty-table expectation ("this key is an empty object") must be
+// enforced, not silently skipped because there is nothing under it to
+// recurse into. Mirrors the design spec's §5.6 `fields` spelling
+// (`json = { schemaVersion = 1, payload = { diagnostics = {} } }`): actual
+// output with no `diagnostics` key at all (and nine unrelated errors) must
+// fail, not pass having verified nothing.
+#[test]
+fn a_nested_empty_table_expectation_is_enforced() {
+    let mut step = blank_step();
+    step.json = Some(
+        toml::from_str("schemaVersion = 1\n[payload]\n[payload.diagnostics]\n").expect("toml"),
+    );
+    let good = r#"{"schemaVersion":1,"payload":{"diagnostics":{}}}"#;
+    assert!(check(&step, &captured(true, 0, good, "")).is_ok());
+
+    let missing_key = r#"{"schemaVersion":1,"payload":{"errorCount":9}}"#;
+    let err = check(&step, &captured(true, 0, missing_key, "")).expect_err("must fail");
+    assert!(err.contains("payload.diagnostics"), "{err}");
+
+    let non_empty = r#"{"schemaVersion":1,"payload":{"diagnostics":{"x":1}}}"#;
+    assert!(check(&step, &captured(true, 0, non_empty, "")).is_err());
+}
+
+// The same rule, on `check_json` directly -- this is the function Task 11's
+// `run_file_json` calls for a `file_json` step's `fields` key, so the
+// vacuous-pass bug must be closed there too, not just on the `json` key's
+// path through `check`.
+#[test]
+fn a_top_level_empty_table_expectation_is_enforced_via_check_json() {
+    let expected: toml::Value = toml::from_str("").expect("toml");
+    assert!(check_json(&expected, &serde_json::json!({})).is_ok());
+    let err = check_json(&expected, &serde_json::json!({"other": 1})).expect_err("must fail");
+    assert!(err.contains("top-level"), "{err}");
+}
+
+// `check` receives the whole `Step`, including `kind` -- a `file_json` step
+// sets no `cli` field by construction (`finalize_step` forbids it), so
+// without this guard `check` would return `Ok(())` having verified nothing.
+// This makes the seam un-bypassable from this side: if a future dispatch
+// mistake ever routes a `file_json` step into `check` instead of
+// `run_file_json`, it fails loudly instead of silently.
+#[test]
+fn check_rejects_a_file_json_step_rather_than_passing_it_vacuously() {
+    let mut step = blank_step();
+    step.kind = StepKind::FileJson;
+    step.path = Some("out.json".to_string());
+    step.fields = Some(toml::from_str("schemaVersion = 1").expect("toml"));
+    let err = check(&step, &captured(true, 0, "", "")).expect_err("must fail");
+    assert!(err.contains("file_json"), "{err}");
+    assert!(err.contains("run_file_json"), "{err}");
+}
+
+// A scalar top-level expectation (`json = "hi"`) flattens to a leaf at the
+// empty path. Before the fix this produced "json path  is absent" (empty
+// path, double space, and wrong besides -- the path is never actually
+// absent, since an empty path addresses the whole document). It must instead
+// report a proper mismatch, labelled clearly.
+#[test]
+fn a_scalar_top_level_json_claim_reports_a_labelled_mismatch() {
+    let mut step = blank_step();
+    // `toml::Value: FromStr` parses a single inline *value* expression (not
+    // a document), which is exactly what's wanted here: the bare TOML value
+    // `"hi"`, not a document containing a key named `hi`.
+    step.json = Some(r#""hi""#.parse::<toml::Value>().expect("inline toml value"));
+    let err = check(&step, &captured(true, 0, r#"{"a":1}"#, "")).expect_err("must fail");
+    assert!(err.contains("top-level"), "{err}");
+    assert!(!err.contains("is absent"), "{err}");
+    assert!(!err.contains("path  "), "{err}");
+}
+
+// Array elements are not addressable by dotted path. Without a specific hint
+// a case author reads a plain "is absent" for `errors.0.code` and goes
+// hunting for a typo that was never there; the message should say array
+// indexing is unsupported instead.
+#[test]
+fn a_path_segment_into_an_array_names_the_limitation() {
+    let mut step = blank_step();
+    step.json = Some(toml::from_str(r#"errors."0".code = 5"#).expect("toml"));
+    let err =
+        check(&step, &captured(true, 0, r#"{"errors":[{"code":5}]}"#, "")).expect_err("must fail");
+    assert!(err.contains("array indexing"), "{err}");
+}
+
 // Defense in depth: an unresolved `${...}` placeholder should be caught by
 // Task 9's substitution pass, but if one ever escapes it into a `json`
 // expectation, comparing it literally would silently accept output that
@@ -138,6 +223,19 @@ fn unparseable_stdout_under_a_json_claim_fails_rather_than_passing_vacuously() {
 
 // Failure text must not emit lines matching `^    [A-Za-z_]`, which
 // scripts/test-gate.sh parses as failed-test names.
+fn assert_no_four_space_name_indent(err: &str) {
+    for line in err.lines() {
+        assert!(
+            !(line.starts_with("    ")
+                && line
+                    .chars()
+                    .nth(4)
+                    .is_some_and(|c| c.is_alphabetic() || c == '_')),
+            "line would be misparsed by test-gate.sh: {line:?}\nfull message:\n{err}"
+        );
+    }
+}
+
 #[test]
 fn failure_text_never_uses_the_four_space_name_indent() {
     let mut step = blank_step();
@@ -147,14 +245,24 @@ fn failure_text_never_uses_the_four_space_name_indent() {
         &captured(true, 0, "actual output here", "and stderr"),
     )
     .expect_err("must fail");
-    for line in err.lines() {
-        assert!(
-            !(line.starts_with("    ")
-                && line
-                    .chars()
-                    .nth(4)
-                    .is_some_and(|c| c.is_alphabetic() || c == '_')),
-            "line would be misparsed by test-gate.sh: {line:?}"
-        );
-    }
+    assert_no_four_space_name_indent(&err);
+}
+
+// The `json path ... mismatch` pair `Display`s a foreign type (`toml::Value`
+// / `serde_json::Value`) rather than text this module controls -- a
+// multi-line rendering there (e.g. a pretty-printed array) would introduce
+// exactly the four-space lines this rule forbids. Both crates render inline
+// today, but this pin is what would catch a regression under a toml or
+// serde_json upgrade, which the stdout-mismatch case above cannot.
+#[test]
+fn a_json_mismatch_failure_also_never_uses_the_four_space_name_indent() {
+    let mut step = blank_step();
+    step.json = Some(toml::from_str("codes = [1, 2, 3]").expect("toml"));
+    let err = check(
+        &step,
+        &captured(true, 0, r#"{"codes":[1,2,4]}"#, "some stderr"),
+    )
+    .expect_err("must fail");
+    assert!(err.contains("codes"), "{err}");
+    assert_no_four_space_name_indent(&err);
 }

@@ -5,7 +5,7 @@
 //! detail line would be misread as a test that does not exist.
 
 use crate::jsonpath::{flatten_expected, lookup, values_equal};
-use crate::model::{Exit, ExitStatusWord, Step};
+use crate::model::{Exit, ExitStatusWord, Step, StepKind};
 
 pub struct Captured {
     pub code: Option<i32>,
@@ -34,7 +34,24 @@ fn indent(text: &str) -> String {
         .join("\n")
 }
 
+/// `file_json` steps never run a process -- their `fields` claim is
+/// evaluated by Task 11's `run_file_json` calling `check_json` directly
+/// against the parsed file, not by this function. `finalize_step` already
+/// forbids a `file_json` step from setting any `cli`-only field, so calling
+/// `check` on one would otherwise see every field `None`/empty and silently
+/// return `Ok(())` having verified nothing. Rejecting the kind here makes
+/// that seam un-bypassable from this side: if a future dispatch mistake ever
+/// routes a `file_json` step into `check`, it fails loudly instead of
+/// passing vacuously.
 pub fn check(step: &Step, captured: &Captured) -> Result<(), String> {
+    if step.kind == StepKind::FileJson {
+        return Err(
+            "a `file_json` step's `fields` must be evaluated by `run_file_json`, not `check` \
+             -- `file_json` steps do not run a process"
+                .to_string(),
+        );
+    }
+
     let fail = |claim: String| -> String { format!("{claim}\n{}", captured.context()) };
 
     match step.exit {
@@ -106,24 +123,62 @@ pub fn check(step: &Step, captured: &Captured) -> Result<(), String> {
 /// too rather than being compared as a string.
 pub fn check_json(expected: &toml::Value, actual: &serde_json::Value) -> Result<(), String> {
     for (path, leaf) in flatten_expected(expected) {
+        let label = describe_path(&path);
         if let Some(text) = leaf.as_str() {
             if text.contains("${") {
                 return Err(format!(
-                    "json path {path} still contains an unsubstituted placeholder: {text:?}"
+                    "{label} still contains an unsubstituted placeholder: {text:?}"
                 ));
             }
         }
         match lookup(actual, &path) {
-            None => return Err(format!("json path {path} is absent")),
+            None => return Err(missing_path_message(&label, actual, &path)),
             Some(found) if !values_equal(&leaf, found) => {
                 return Err(format!(
-                    "json path {path} mismatch\n  expected: {leaf}\n  actual:   {found}"
+                    "{label} mismatch\n  expected: {leaf}\n  actual:   {found}"
                 ));
             }
             Some(_) => {}
         }
     }
     Ok(())
+}
+
+/// A top-level `json`/`fields` expectation that is itself a scalar (`json =
+/// "hi"`) flattens to a leaf at the empty path -- `lookup` treats that as
+/// "the whole document," so it is never actually absent, but its failure
+/// messages still need a label. "json path  is absent" (empty path, double
+/// space) tells a case author nothing; "top-level json value" does.
+fn describe_path(path: &str) -> String {
+    if path.is_empty() {
+        "top-level json value".to_string()
+    } else {
+        format!("json path {path}")
+    }
+}
+
+/// `path` is never empty here -- `lookup` only returns `None` for a
+/// non-empty path (an empty path always addresses the whole document, per
+/// its doc comment). Walk it again, this time to find exactly which segment
+/// broke: if the parent node is a JSON array, say so, rather than letting a
+/// case author who wrote `errors.0.code` read a plain "absent" and go
+/// hunting for a typo that isn't there -- dotted paths address object keys
+/// only, and array indexing is not supported.
+fn missing_path_message(label: &str, actual: &serde_json::Value, path: &str) -> String {
+    let mut current = actual;
+    for segment in path.split('.') {
+        match current.get(segment) {
+            Some(next) => current = next,
+            None if current.is_array() => {
+                return format!(
+                    "{label} is absent (array indexing like `.{segment}` is not supported -- \
+                     dotted paths address object keys only)"
+                );
+            }
+            None => return format!("{label} is absent"),
+        }
+    }
+    format!("{label} is absent")
 }
 
 #[cfg(test)]
