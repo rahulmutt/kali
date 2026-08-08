@@ -1,8 +1,8 @@
 //! Task 18 batch 2 audit escalation: kept 100% hand-written, not migrated.
 //!
 //! All 8 `#[test]` fns in this file route through
-//! `assert_browser_harness_array_from_set_map` (`:214`), which runs 21
-//! `assert!(source.contains(...))` self-checks (`:222-242`) on the JS
+//! `assert_browser_harness_array_from_set_map` (`:242`), which runs 21
+//! `assert!(source.contains(...))` self-checks (`:250-270`) on the JS
 //! fixture's OWN TEXT -- a dev-time invariant check that the fixture still
 //! literally embeds every `Array.from`/bracket-notation/logical-operator
 //! variant this file means to exercise -- before the fixture is ever
