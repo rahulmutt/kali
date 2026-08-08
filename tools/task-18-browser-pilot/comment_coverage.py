@@ -99,7 +99,7 @@ def check(rs_path, toml_path):
     return total, missing, len(cases)
 
 
-if __name__ == '__main__':
+def main() -> int:
     rs, toml = sys.argv[1], sys.argv[2]
     total, missing, n_cases = check(rs, toml)
     # Group by (line, text) so a comment paragraph missing from every case
@@ -115,3 +115,12 @@ if __name__ == '__main__':
         else:
             print(f"  MISSING line {ln} from {len(case_names)}/{n_cases} cases "
                   f"(e.g. {case_names[0]!r}): {line!r}")
+    # FIXED (Task 18 pilot review round 2, blocker C): this checker used to
+    # report failures without ever calling sys.exit, so it always exited 0
+    # -- a caller wiring it into a batch loop (as batches 2-8 will) would
+    # read a red run as a pass. A checker that only reports is not a gate.
+    return 1 if by_line else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

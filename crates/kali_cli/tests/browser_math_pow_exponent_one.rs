@@ -19,30 +19,47 @@
 //! if !json_output && source.contains("Kali.test(") { expected_stdout.push_str("\nok 1"); }
 //! ```
 //!
-//! Both literals ARE genuinely, verbatim present in the migrated `.toml`'s
-//! `[source]` fixture bodies (confirmed: `Math.pow(1, alias)` 21 times,
-//! `Kali.test(` 2 times) -- but `scripts/audit-case-migration.py`'s
-//! `assertion_strings()` deliberately excludes `[source]` from its search
+//! Post-trim, `Kali.test(` appears NOWHERE in the migrated `.toml`'s
+//! `[source]` table (0 occurrences: neither of the two remaining fixtures --
+//! the `exponent_one`/`base_one` browser-bundle sources -- is a `Kali.test`
+//! wrapper at all). `Math.pow(1, alias)` DOES still appear there, 4 times,
+//! but coincidentally, not as a trace of the introspecting helper: the
+//! `app_base_one.${ext}` bundle fixture (base = 1) happens to construct
+//! the exact same substring as an ordinary direct alias call
+//! (`console.log(Math.pow(1, alias));`, plus its `globalThis.`-prefixed
+//! sibling, each appearing once in the function body and once in the
+//! `return [...]` entries) -- unrelated to, and not read by,
+//! `assert_browser_harness_math_pow_exponent_one_identity`'s
+//! `source.contains(...)` check, which only ever runs against the 32 tests
+//! kept here. Either way this is moot for the audit: `[source]` is
+//! deliberately excluded from `scripts/audit-case-migration.py`'s search
 //! (its own docstring: "`body` and everything under `[source]` are program
-//! text, not claims about behavior"), by design, since a literal that
-//! exists only in a fixture is correctly reported missing for every OTHER
-//! claim shape in this project. This is not a format gap (spec 5.11's usual
-//! trigger, e.g. `soundness_abort.rs`'s dual-process byte comparison) --
-//! the case-runner format expresses this file's real assertions (exact
-//! `stdout`, exact `json` fields) just fine, and every one of those was
-//! migrated and live-verified against the real binary. It is a tool blind
-//! spot specific to a helper that branches on the FIXTURE'S OWN TEXT rather
-//! than on process output, which the audit script's `.contains(...)`
-//! literal-extraction regex cannot distinguish from a real output
-//! assertion. Escalated per this task's rule 3 ("a claim the tool
-//! genuinely cannot see is a tool bug -- escalate, do not disclose-and-
-//! ship") rather than silently fabricating a claim or shipping with the
-//! audit red. See task-18-pilot-report.md for the full account.
+//! text, not claims about behavior"), so neither literal's presence or
+//! absence there is visible to it regardless. What actually blocks these 32
+//! tests from migrating is that their own `.contains(...)` calls inspect
+//! the FIXTURE'S OWN TEXT to select an assertion, not process output --
+//! the audit script's literal-extraction regex cannot distinguish that from
+//! a real output assertion, so it would flag the two literals as "claimed
+//! but absent" (from an assertion field) no matter what the migrated
+//! `[source]` table happens to contain, since neither literal is ever
+//! actually asserted ON anywhere by these 32 tests -- they are read, not
+//! checked. This is not a format gap (spec 5.11's usual trigger, e.g.
+//! `soundness_abort.rs`'s dual-process byte comparison) -- the case-runner
+//! format expresses this file's real assertions (exact `stdout`, exact
+//! `json` fields) just fine, and the 16 tests that migrated prove it. It is
+//! a tool blind spot specific to a helper that branches on the FIXTURE'S
+//! OWN TEXT rather than on process output. Escalated per this task's rule 3
+//! ("a claim the tool genuinely cannot see is a tool bug -- escalate, do
+//! not disclose-and-ship") rather than silently fabricating a claim or
+//! shipping with the audit red. See task-18-pilot-report.md for the full
+//! account.
 //!
-//! kept hand-written and trimmed to just these 32 tests and the helpers
-//! they need; `math_pow_invocation_entries_for_aliases` is no longer
-//! imported since it was only used by the now-migrated `build_emits_*`
-//! source builders.
+//! This file is kept hand-written and trimmed to just these 32 tests and
+//! the helpers they need (the four bundle-source builders and their
+//! `assert_browser_bundle_*` helpers were deleted along with the 16
+//! `build_emits_*`/`json_build_emits_*` tests that used them).
+//! `math_pow_invocation_entries_for_aliases` is no longer imported since it
+//! was only used by those now-deleted, now-migrated source builders.
 
 use std::{fs, process::Command};
 

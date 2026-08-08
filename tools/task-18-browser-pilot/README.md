@@ -42,11 +42,22 @@ runnable core** — no hardcoded paths, no uncommitted inputs:
   case's own `rationale`** — not just somewhere in the file header or in
   the pooled union of all rationales (that was the round-1 bug: a
   header-only mention read as "covered" for every case). Usage:
-  `python3 comment_coverage.py SOURCE.rs TARGET.toml`. Deliberate scope
-  limit, stated in the module docstring: it does not attempt per-helper
-  attribution for a file with two distinct helper-produced comment blocks
-  each covering a disjoint subset of cases — none of this pilot's six files
-  has that shape, but batches 2-8 might.
+  `python3 comment_coverage.py SOURCE.rs TARGET.toml`. **Exits 1 if any
+  line is missing from any case, 0 otherwise** (round-2 review fix: the
+  script used to only print and never `sys.exit`, so it read as a pass in
+  any loop that checked its exit code even when it printed missing lines).
+  Deliberate scope limit, stated in the module docstring: it does not
+  attempt per-helper attribution for a file with two distinct
+  helper-produced comment blocks each covering a disjoint subset of cases
+  — none of this pilot's six files has that shape, but batches 2-8 might;
+  and it cannot yet gate a *retained* (not fully migrated) `.rs`/`.toml`
+  pair like `browser_math_pow_exponent_one.rs` — run against that pair it
+  currently reports 57 false-positive missing lines (measured directly:
+  the file's own `//!` escalation header prose, which the 4 migrated
+  bundle-build cases have no reason to carry into their `rationale`, since
+  none of that prose describes what THEY test), so it was not wired into
+  this task's verification for that one pair. See the task report's
+  pattern notes.
 - `toml_emit.py` — single-line vs. triple-quoted TOML string emission.
   `toml_string(value, multiline=None)`, `toml_str_array(values)`.
 
