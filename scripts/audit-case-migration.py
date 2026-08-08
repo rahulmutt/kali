@@ -108,10 +108,30 @@ from pathlib import Path
 
 _STR_LITERAL = r'r?#*"(?:[^"\\]|\\.)*"#*'
 
+# FIXED (Minor 3, found during Task 17 review): `_STR_LITERAL`'s `\\.`
+# alternative matches an escaped character generically -- including the Rust
+# string-continuation escape `\<newline>` (a backslash immediately followed
+# by a real newline, legal inside a plain string literal and used by
+# `switch_runtime.rs`'s `const S`/`const SS` declarations, both wrapped
+# across several lines this way). `.` does not match a literal newline
+# without `re.DOTALL`, so any pattern built from `_STR_LITERAL` and compiled
+# without that flag silently fails to match a continuation-wrapped literal at
+# all -- not a false claim, a false ABSENCE of a match, which is why
+# `switch_runtime.rs`'s audit reported `rule constants: 0` even though the
+# brief's own `grep -c 'const [A-Z0-9_]*:'` finds 2. Harmless on that
+# specific file (both `S`/`SS` are fixture text, not rule literals), but the
+# brief's own gate ("the rule-constant count must match the const count")
+# would have been satisfied only by coincidence on any file whose
+# continuation-wrapped `const` genuinely was a rule literal. `re.DOTALL` on
+# every pattern built from `_STR_LITERAL` (and the one place `_STR_LITERAL`
+# is used directly via `re.fullmatch`, in `_assert_eq_literal_tokens` below)
+# closes this for all three literal-extraction paths, not just `CONST`.
+_STR_LITERAL_FLAGS = re.DOTALL
+
 # Literal arguments to .contains(...) — one of several dominant assertion forms.
-CONTAINS = re.compile(rf'\.contains\(\s*(?:&)?({_STR_LITERAL})')
+CONTAINS = re.compile(rf'\.contains\(\s*(?:&)?({_STR_LITERAL})', _STR_LITERAL_FLAGS)
 # const NAME: &str = "literal";
-CONST = re.compile(rf'const\s+[A-Z0-9_]+\s*:\s*&str\s*=\s*\n?\s*({_STR_LITERAL})')
+CONST = re.compile(rf'const\s+[A-Z0-9_]+\s*:\s*&str\s*=\s*\n?\s*({_STR_LITERAL})', _STR_LITERAL_FLAGS)
 # assert_eq!(lhs, "literal") / assert_eq!("literal", rhs) — literal as either
 # argument. Extracted by `_assert_eq_literal_tokens` below (a balanced-paren,
 # string-aware argument scanner), NOT a `[^,]*`-skip regex.
@@ -256,14 +276,73 @@ def _blank_raw_strings(source: str) -> str:
     return _RAW_STRING.sub(lambda m: " " * len(m.group(0)), source)
 
 
+def _char_literal_end(text: str, pos: int) -> int | None:
+    """If `text[pos] == "'"` opens a genuine Rust CHAR literal (`'('`,
+    `','`, `'\\n'`, `'\\''`, `'\\x41'`, `'\\u{2764}'`, ...), return the index
+    one past its closing `'`; otherwise `None`.
+
+    FIXED (Important, found during Task 17 review): `_split_top_level_args`/
+    `_find_calls` previously treated `(`/`)`/`[`/`]`/`{`/`}` as bare bracket
+    characters everywhere, including inside a char literal -- so
+    `assert_eq!(s.replace('(', "x"), "expected\\n")` read the `(` inside
+    `'('` as a real paren-depth increment with no matching decrement (the
+    literal's own closing `'` isn't a bracket, so depth is left one too
+    high), corrupting the argument split for the rest of that call and
+    silently losing `"expected\\n"` -- worse than the bug this replaced,
+    which at least matched (wrongly); this one goes quietly missing, which
+    reads as `AUDIT OK`. A char literal containing `)`/`]`/`}` instead can
+    additionally make `_find_calls`'s depth cross zero on the WRONG
+    character, ending the call's argument-list scan early (or, in the
+    unclosed-bracket direction, never returning to zero and swallowing the
+    rest of the file as one `arg_text`, which can mint phantom claims from
+    unrelated later code).
+
+    The ambiguity this guards against is Rust LIFETIMES (`'a`, `'static`,
+    `&'a str`), which also start with a bare `'` followed by an identifier
+    character and are never closed by a second `'` at all. The guard is
+    exactly that: a candidate is only accepted as a char literal if a
+    plausible closing `'` is found within the short, escape-shaped window a
+    real char literal's body can occupy (at most `'\\u{10FFFF}'`, 10
+    characters including both quotes) -- a lifetime's identifier is not
+    followed by a `'` at all, so it never matches and is correctly left as
+    ordinary bracket-free text (which is what it is: identifiers and `&`
+    carry no bracket-depth meaning either)."""
+    n = len(text)
+    if pos + 1 >= n:
+        return None
+    if text[pos + 1] == '\\':
+        # Escape body: \xHH, \u{1-6 hex}, or a single-character escape
+        # (\n \t \r \\ \' \" \0), each followed immediately by the closing '.
+        if pos + 2 >= n:
+            return None
+        e = text[pos + 2]
+        if e == 'x' and pos + 5 <= n and text[pos + 5:pos + 6] == "'":
+            return pos + 6
+        if e == 'u' and pos + 3 < n and text[pos + 3] == '{':
+            close_brace = text.find('}', pos + 4)
+            if close_brace != -1 and close_brace + 1 < n and text[close_brace + 1] == "'":
+                return close_brace + 2
+            return None
+        if e in ('n', 't', 'r', '\\', "'", '"', '0') and pos + 3 < n and text[pos + 3] == "'":
+            return pos + 4
+        return None
+    # Plain single character (never a bare `'`, which would be the closing
+    # quote itself -- Rust requires it escaped as `\'` inside a char literal,
+    # already handled above).
+    if text[pos + 1] != "'" and pos + 2 < n and text[pos + 2] == "'":
+        return pos + 3
+    return None
+
+
 def _skip_string(text: str, pos: int) -> int | None:
     """If `text[pos]` opens a string literal (plain `"..."` or raw
-    `r#*"..."#*`), return the index one past its closing delimiter;
-    otherwise `None`. A raw-string open is only recognized when `pos` is a
-    genuine token start (the character before it, if any, is not an
-    identifier character) -- the same guard `_RAW_STRING` above needs and
-    for the identical reason (an ordinary word ending in `r`, e.g.
-    `"...operator")`, must not be misread as the start of a raw string)."""
+    `r#*"..."#*`) or a char literal (`'x'`, see `_char_literal_end`), return
+    the index one past its closing delimiter; otherwise `None`. A raw-string
+    open is only recognized when `pos` is a genuine token start (the
+    character before it, if any, is not an identifier character) -- the same
+    guard `_RAW_STRING` above needs and for the identical reason (an
+    ordinary word ending in `r`, e.g. `"...operator")`, must not be misread
+    as the start of a raw string)."""
     n = len(text)
     c = text[pos]
     if c == '"':
@@ -286,6 +365,9 @@ def _skip_string(text: str, pos: int) -> int | None:
             close = '"' + ('#' * hashes)
             end = text.find(close, k + 1)
             return (end + len(close)) if end != -1 else n
+        return None
+    if c == "'":
+        return _char_literal_end(text, pos)
     return None
 
 
@@ -311,7 +393,7 @@ def _split_top_level_args(arg_text: str) -> list[str]:
     n = len(arg_text)
     while i < n:
         c = arg_text[i]
-        if c == '"' or c == 'r':
+        if c == '"' or c == 'r' or c == "'":
             end = _skip_string(arg_text, i)
             if end is not None:
                 i = end
@@ -344,7 +426,7 @@ def _find_calls(source: str, name: str) -> list[str]:
         i = m.end()
         while i < n and depth > 0:
             c = source[i]
-            if c == '"' or c == 'r':
+            if c == '"' or c == 'r' or c == "'":
                 end = _skip_string(source, i)
                 if end is not None:
                     i = end
@@ -372,7 +454,7 @@ def _assert_eq_literal_tokens(source: str) -> list[str]:
     tokens = []
     for arg_text in _find_calls(source, 'assert_eq!'):
         for a in _split_top_level_args(arg_text)[:2]:
-            if re.fullmatch(_STR_LITERAL, a):
+            if re.fullmatch(_STR_LITERAL, a, _STR_LITERAL_FLAGS):
                 tokens.append(a)
     return tokens
 
@@ -427,9 +509,37 @@ BORING: dict[str, set[str]] = {
 # canonicalization was incomplete, not the migrated file's assertion.
 _UNICODE_ESCAPE = re.compile(r'(?<!\\)\\u\{([0-9a-fA-F]{1,6})\}')
 
+# The Rust string-continuation escape: a backslash immediately followed by a
+# REAL embedded newline (two literal source bytes: `\` then an actual `\n`
+# character -- not the two-character escape `\n`, backslash-then-letter-n,
+# which `unquote()`'s plain `.replace("\\n", "\n")` already handles). Rust
+# drops the backslash, the newline, and every whitespace character
+# immediately following it up to the next non-whitespace byte. FIXED (Minor
+# 3 follow-on, found while fixing `CONST`'s missing `re.DOTALL`, same
+# session): applying `re.DOTALL` alone made `CONST`/`CONTAINS` *match* a
+# continuation-wrapped literal like `switch_runtime.rs`'s `const S`/`const
+# SS`, but `unquote()` had no rule for this escape at all, so the "canonical"
+# text it produced still contained the literal backslash-plus-newline
+# sequence the source's own compiler would have dropped -- a real, working
+# TOML value could never equal that wrong canonical string, so the DOTALL fix
+# alone would have taken `switch_runtime.rs` from a false "rule constants: 0"
+# straight to a false "AUDIT FAILED" on its own (now-hoisted) `[constants]`
+# entries. The `(?<!\\)` guard is the same shape as `_UNICODE_ESCAPE`'s: it
+# must run before the final `\\\\` -> `\\` collapse (see that ordering note
+# below) so a genuine escaped-backslash-then-real-newline (`"\\\` followed by
+# a physical newline, meaning a literal trailing backslash character, not a
+# continuation) is not misread as a continuation and does not have its
+# newline silently eaten. Not observed in this corpus at the time of this
+# fix, but the same cheap-to-guard-against posture as `_UNICODE_ESCAPE`.
+_LINE_CONTINUATION = re.compile(r'(?<!\\)\\\n[ \t\r\n]*')
+
 
 def unquote(raw: str) -> str:
     """Turn a Rust string literal token into its fully-unescaped text.
+
+    `_LINE_CONTINUATION` runs first (right after stripping the outer quotes),
+    strictly before every other substitution in this function -- see its own
+    comment for why it must precede the final `\\\\` -> `\\` collapse.
 
     `_UNICODE_ESCAPE` must run *before* the plain `\\\\` -> `\\` collapse, not
     after. Its `(?<!\\)` guard exists so a genuine escaped-backslash-then-
@@ -455,6 +565,7 @@ def unquote(raw: str) -> str:
         hashes = len(raw) - len(raw.lstrip("#"))
         return raw[hashes + 1 : len(raw) - hashes - 1]
     body = raw[1:-1]
+    body = _LINE_CONTINUATION.sub('', body)
     body = body.replace('\\"', '"').replace("\\n", "\n").replace("\\t", "\t")
     body = _UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), body)
     return body.replace("\\\\", "\\")
