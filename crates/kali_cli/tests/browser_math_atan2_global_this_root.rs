@@ -12,7 +12,7 @@
 //! `assert_browser_harness_global_this_math_atan2` -- are migrated to
 //! `tests/cases/browser/math_atan2_global_this_root.toml` (69 named sibling
 //! `[[case]]` entries, no `[matrix]`, audited against the pre-trim source and
-//! green). All four of those helpers, the five other fixture builders,
+//! green). All four of those helpers, the eight other fixture builders,
 //! `kali_bin()` and the `fs`/`Command`/`Value`/`tempdir` imports went with
 //! them; nothing left here is unused.
 //!
