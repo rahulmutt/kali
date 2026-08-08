@@ -166,34 +166,60 @@ json_count = [{ path = "payload.stdout", needle = "1.2649110640673518", exact = 
     );
 }
 
+// Every guard on a count claim -- `deny_unknown_fields`, the empty needle,
+// `at_least = 0`, exactly-one-bound -- applies identically to both count
+// keys, but each key reaches `count_needle`/`count_bound` through its *own*
+// arm of `finalize_step` and carries its own `deny_unknown_fields` derive. A
+// guard pinned against only one key is therefore held closed by nothing on
+// the other: dropping `count_needle` from the `json_count` arm alone lets
+// `json_count = [{ path = "stdout", needle = "", at_least = 2 }]` parse, and
+// `str::matches("")` then returns `chars + 1`, so every such claim passes
+// vacuously. Each guard below runs against both keys for that reason.
+//
+// The second element is whatever the key's claim table requires beyond the
+// members under test -- `json_count` needs a `path`, `stdout_count` needs
+// nothing.
+const COUNT_KEYS: [(&str, &str); 2] = [("stdout_count", ""), ("json_count", "path = \"stdout\", ")];
+
+/// Panics naming the key under test, so a guard that holds for one count key
+/// but not the other reports *which* one regressed rather than just "must
+/// reject".
+fn expect_rejection(text: &str, key: &str, what: &str) -> String {
+    match parse_case_file(text) {
+        Ok(_) => panic!("`{key}` must reject {what}, but it parsed:\n{text}"),
+        Err(error) => error,
+    }
+}
+
+fn count_case(key: &str, extra: &str, claim: &str) -> String {
+    format!(
+        "[[case]]\nname = \"c\"\nargs = [\"run\", \"main.js\"]\n\
+         {key} = [{{ {extra}{claim} }}]\n"
+    )
+}
+
 // A claim table with no bound would parse into "count the needle, compare it
 // against nothing" -- exactly the assert-nothing degradation this format
 // exists to close. There is no defensible default to fall back on, so it is
 // a hard error.
 #[test]
 fn a_count_claim_with_no_bound_is_a_hard_error() {
-    let text = r#"
-[[case]]
-name = "c"
-args = ["run", "main.js"]
-stdout_count = [{ needle = "3\n" }]
-"#;
-    let err = parse_case_file(text).expect_err("must reject a claim with neither bound");
-    assert!(err.contains("stdout_count"), "must name the key: {err}");
-    assert!(err.contains("at_least"), "must explain: {err}");
+    for (key, extra) in COUNT_KEYS {
+        let text = count_case(key, extra, r#"needle = "3\n""#);
+        let err = expect_rejection(&text, key, "a claim with neither bound");
+        assert!(err.contains(key), "{key}: must name the key: {err}");
+        assert!(err.contains("at_least"), "{key}: must explain: {err}");
+    }
 }
 
 #[test]
 fn a_count_claim_setting_both_bounds_is_a_hard_error() {
-    let text = r#"
-[[case]]
-name = "c"
-args = ["run", "main.js"]
-json_count = [{ path = "stdout", needle = "3\n", at_least = 2, exact = 3 }]
-"#;
-    let err = parse_case_file(text).expect_err("must reject a claim with both bounds");
-    assert!(err.contains("json_count"), "must name the key: {err}");
-    assert!(err.contains("exactly one"), "must explain: {err}");
+    for (key, extra) in COUNT_KEYS {
+        let text = count_case(key, extra, r#"needle = "3\n", at_least = 2, exact = 3"#);
+        let err = expect_rejection(&text, key, "a claim with both bounds");
+        assert!(err.contains(key), "{key}: must name the key: {err}");
+        assert!(err.contains("exactly one"), "{key}: must explain: {err}");
+    }
 }
 
 // `at_least = 0` holds against every possible output, so it is a claim that
@@ -201,24 +227,21 @@ json_count = [{ path = "stdout", needle = "3\n", at_least = 2, exact = 3 }]
 // is a real claim (a stricter `stdout_absent`) and stays legal.
 #[test]
 fn an_at_least_zero_count_claim_is_rejected_but_exact_zero_is_not() {
-    let vacuous = r#"
-[[case]]
-name = "c"
-args = ["run", "main.js"]
-stdout_count = [{ needle = "3\n", at_least = 0 }]
-"#;
-    let err = parse_case_file(vacuous).expect_err("must reject a claim nothing can violate");
-    assert!(err.contains("at_least = 0"), "must explain: {err}");
+    for (key, extra) in COUNT_KEYS {
+        let vacuous = count_case(key, extra, r#"needle = "3\n", at_least = 0"#);
+        let err = expect_rejection(&vacuous, key, "a claim nothing can violate");
+        assert!(err.contains("at_least = 0"), "{key}: must explain: {err}");
 
-    let meaningful = r#"
-[[case]]
-name = "c"
-args = ["run", "main.js"]
-stdout_count = [{ needle = "3\n", exact = 0 }]
-"#;
-    let parsed = parse_case_file(meaningful).expect("`exact = 0` is a falsifiable claim");
-    let inline = parsed.case[0].inline.as_ref().expect("inline step");
-    assert_eq!(inline.stdout_count[0].bound, CountBound::Exact(0));
+        let meaningful = count_case(key, extra, r#"needle = "3\n", exact = 0"#);
+        let parsed = parse_case_file(&meaningful)
+            .unwrap_or_else(|e| panic!("{key}: `exact = 0` is a falsifiable claim: {e}"));
+        let inline = parsed.case[0].inline.as_ref().expect("inline step");
+        let bound = match key {
+            "stdout_count" => inline.stdout_count[0].bound,
+            _ => inline.json_count[0].bound,
+        };
+        assert_eq!(bound, CountBound::Exact(0), "{key}");
+    }
 }
 
 // Rust's `str::matches("")` matches at every character boundary, yielding
@@ -227,14 +250,12 @@ stdout_count = [{ needle = "3\n", exact = 0 }]
 // and special-casing it into a silent divergence from `str::matches`.
 #[test]
 fn an_empty_count_needle_is_a_hard_error() {
-    let text = r#"
-[[case]]
-name = "c"
-args = ["run", "main.js"]
-stdout_count = [{ needle = "", at_least = 2 }]
-"#;
-    let err = parse_case_file(text).expect_err("must reject an empty needle");
-    assert!(err.contains("needle"), "must name the field: {err}");
+    for (key, extra) in COUNT_KEYS {
+        let text = count_case(key, extra, r#"needle = "", at_least = 2"#);
+        let err = expect_rejection(&text, key, "an empty needle");
+        assert!(err.contains("needle"), "{key}: must name the field: {err}");
+        assert!(err.contains(key), "{key}: must name the key: {err}");
+    }
 }
 
 // The claim table itself carries `deny_unknown_fields`, so a misspelt bound
@@ -242,14 +263,11 @@ stdout_count = [{ needle = "", at_least = 2 }]
 // would then have to catch by accident) or, worse, silently dropped.
 #[test]
 fn an_unknown_key_inside_a_count_claim_is_a_hard_error_naming_it() {
-    let text = r#"
-[[case]]
-name = "c"
-args = ["run", "main.js"]
-stdout_count = [{ needle = "3\n", atleast = 2 }]
-"#;
-    let err = parse_case_file(text).expect_err("must reject the misspelt bound");
-    assert!(err.contains("atleast"), "error must name the key: {err}");
+    for (key, extra) in COUNT_KEYS {
+        let text = count_case(key, extra, r#"needle = "3\n", atleast = 2"#);
+        let err = expect_rejection(&text, key, "a misspelt bound");
+        assert!(err.contains("atleast"), "{key}: must name the key: {err}");
+    }
 }
 
 // `stdout_count` and `json_count` share the applicability rule of the keys
