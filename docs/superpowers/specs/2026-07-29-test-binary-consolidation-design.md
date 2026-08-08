@@ -257,19 +257,21 @@ A case file has four optional top-level sections and one required one:
 
 ### 5.4 Assertion keys
 
-Ten assertion keys on a step, covering the full measured vocabulary of §1.2:
+Twelve assertion keys on a step, covering the full measured vocabulary of §1.2:
 
 ```toml
 exit = "success" | "failure" | 2        # status class or exact code
 stdout = "hahaha\n\n"                   # exact equality
 stdout_contains = ["1\n", "0\n"]
 stdout_absent   = ["E5506"]
+stdout_count = [{ needle = "3\n", at_least = 2 }]   # occurrence count in stdout
 stderr = ""                             # exact equality, symmetric with stdout
 stderr_contains = ["..."]
 stderr_absent   = ["..."]
 json.payload.artifactKind = "bundle"    # dotted path into the stdout JSON envelope
 json.errors.0.code = "E5506"            # a numeric segment indexes a JSON array
 json_null = ["stdout", "stderr"]        # dotted paths that must be JSON null
+json_count = [{ path = "stdout", needle = "3\n", exact = 6 }]  # the same count, in a JSON leaf
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 ```
 
@@ -319,6 +321,56 @@ captured stderr, evaluated the same way `stdout` is; `file_json` steps
 reject it for the same reason they reject `stdout` (they never run a
 process). Symmetric with `stdout`'s existing exact-equality key, not a new
 kind of claim.
+
+`stdout_count` / `json_count` were added during Task 18 batch 4's interlude —
+the third mid-migration addition, after `json_null` (Task 15) and `stderr`
+(Task 16 batch 4), and for the same reason both of those were added: a real,
+reachable source claim had no expressible form, and the only alternatives were
+dropping it or weakening it. The claim is `haystack.matches(needle).count()`,
+which appears 32 times across the unmigrated `browser_*.rs` files: 29 sites as
+`count() >= n` and 3 as `count() == n`. `stdout_contains` cannot carry it —
+`contains` is satisfied by a *single* occurrence, so migrating `count() >= 2`
+onto it silently weakens the claim to `count() >= 1`, and output that folded
+two independently-computed constants into one emission would still pass the
+migrated case while failing the original. Of the 18 files / 168 tests measured
+as carrying an un-expressible claim across the 111 remaining `browser_*.rs`
+files, **13 files are this count shape**; without the key they would all have
+been retained hand-written under §5.11, against a §5.11 budget of ~8 retained
+targets for the entire crate that the browser family had already overrun at 10
+— directly against goal #2 ("328 compiled targets down to ~9"). The other two
+un-expressible shapes (`.lines()` and `errors.iter().all/any`) remain retained;
+this key does not attempt them.
+
+The two keys are separate because both target surfaces are genuinely required:
+a single migrated helper routinely asserts the *same* count on both branches of
+its `--output json` split (`browser_math_log2_log10.rs:177-179` against
+`json["stdout"].as_str()`, `:186` against the raw stdout), so a key covering
+only raw stdout would leave half of every such helper hand-written. `json_count`
+takes its count against the JSON string leaf at `path` in the same parsed stdout
+`json`/`json_null` read; a path that does not resolve, *or resolves to a
+non-string*, is a hard failure, never a silent pass — §5.10 again, the identical
+rule `json_null` follows. (`json["stdout"]` is legitimately `null` in this
+envelope, which is exactly why counting-zero-in-a-null would be the wrong
+answer.)
+
+Three semantics are fixed and load-bearing. **Counting is non-overlapping and
+left-to-right**, because that is what Rust's `str::matches` does and every
+migrated claim was written against it: `"aaa".matches("aa").count()` is 1, not
+2. The evaluator delegates to `str::matches` rather than re-implementing the
+scan, and a unit test pins the overlapping case specifically — an implementation
+counting overlapping occurrences would silently *strengthen* every claim it
+carries, passing on output the source assertion rejected. **The bound is closed
+at `at_least` and `exact`**, exactly the two comparisons the corpus contains; no
+`<`, `<=`, `>`, or `!=`, none of which any site spells. Exactly one of the two
+must be set — a claim table with neither, or with both, is a parse error rather
+than a claim compared against nothing — and `at_least = 0` is rejected as
+vacuous (every output satisfies it), while `exact = 0` stays legal as a
+falsifiable absence claim. **An empty `needle` is rejected at parse time**:
+`str::matches("")` matches at every character boundary and yields `len + 1`,
+a number no author writing `count() >= 2` ever meant, and special-casing it to
+0 instead would diverge from the `str::matches` semantics the migrated claims
+depend on. `file_json` steps reject both keys for the same reason they reject
+`stdout_contains` and `json` — they never run a process.
 
 Two non-assertion keys live on a `[[case]]`, not a step: `name` and `rationale`,
 plus `ignore = true` to run only under `--ignored` (the 9 currently-ignored
