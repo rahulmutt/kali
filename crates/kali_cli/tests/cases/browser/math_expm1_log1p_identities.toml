@@ -1,13 +1,19 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+# check_extra_claims.py compares this file's claim strings against the
+# source's and fails on any that appear nowhere in the .rs. The entries
+# below are the deliberate exceptions; a genuinely new one will not be
+# on this list and will fail the gate.
+# EXTRA-OK: '0\n0\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 # Migrated from tests/browser_math_expm1_log1p_identities.rs -- all 12 #[test]
 # fns, nothing retained.
 #
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
-# tests/browser_math_expm1_log1p_identities.rs returns NOTHING -- the file has no Rust comments at
-# all. The only `//` anywhere in it is the "// kali-tree-shake:" marker inside a
-# JS fixture body, which is program text and is carried verbatim into [source].
-# There is therefore no prose to move into any `rationale`, and comment_coverage
-# is run with --allow-empty for this pair (ruling 5's floor exists precisely so
-# that an empty result is an explicit acknowledgement, not a vacuous green).
+# tests/browser_math_expm1_log1p_identities.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The file contains no `//` of any kind -- it declares no bundle fixture,
+# so there is not even a `// kali-tree-shake:` marker in it.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
 #
 # RULE 7 -- INVOCATION ARITHMETIC. enumerate_invocations.py: 12 #[test] fns, 12
 # invocations of `assert_browser_harness_math_expm1_log1p`, no loops -- and the

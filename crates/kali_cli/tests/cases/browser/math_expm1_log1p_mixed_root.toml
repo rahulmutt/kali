@@ -1,3 +1,9 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+# check_extra_claims.py compares this file's claim strings against the
+# source's and fails on any that appear nowhere in the .rs. The entries
+# below are the deliberate exceptions; a genuinely new one will not be
+# on this list and will fail the gate.
+# EXTRA-OK: '0\n0\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 # Migrated from tests/browser_math_expm1_log1p_mixed_root.rs.
 #
 # RULE 12 (carry every source comment verbatim): `browser_math_expm1_log1p_mixed_root.rs` contains no
@@ -9,11 +15,15 @@
 # nothing). comment_coverage.py is run with --allow-empty for this pair.
 #
 # RULE 7 / U1 -- MATRIX ARITHMETIC, closes exactly. 6 #[test] fns, 24 real
-# invocations. NOTE that enumerate_invocations.py reports only 6 bundle
-# invocations for this file; that is a TOOL LIMITATION, not the truth -- its
-# invocation parser takes only the FIRST `assert_*` call in a fn body
-# (tools/task-18-browser-pilot/enumerate_invocations.py:121), so the second call
-# inside the jsx/tsx loop is dropped. Counted by hand from the source:
+# invocations. (HISTORICAL NOTE, fix round 1 / I1: this paragraph used to say
+# enumerate_invocations.py reported only 6 here and called that a permanent tool
+# limitation. That WAS true when this file was written and it is no longer: the
+# undercount -- the parser taking only the FIRST `assert_*` call in a fn body, so
+# the second call inside the jsx/tsx loop was dropped -- was found during this
+# same batch and FIXED in the same commit that shipped this file. The repaired
+# tool now reports TOTAL INVOCATIONS: 8, agreeing with the hand count below.
+# Re-run it rather than trusting either number from prose.) Counted by hand from
+# the source, and now also confirmed by the tool:
 #   * `assert_browser_bundle_global_this_math_bracketed_expm1_log1p`(filename,
 #     json_output) -- 8 invocations. Four one-line #[test] fns give
 #     (app.js,false), (app.ts,false), (app.js,true), (app.ts,true); the fifth,

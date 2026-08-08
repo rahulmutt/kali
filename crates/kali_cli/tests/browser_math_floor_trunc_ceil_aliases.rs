@@ -14,11 +14,11 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_harness_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory`
-//! (`:73-82`) has no helper: its whole body is a single
-//! `assert!(source.contains(expected))` self-check (`:77-80`) run in a `for`
+//! (`:84-93`) has no helper: its whole body is a single
+//! `assert!(source.contains(expected))` self-check (`:88-91`) run in a `for`
 //! loop over `kali_common::math_floor_trunc_ceil_frozen_callable_aliases()`,
 //! against `browser_harness_math_floor_trunc_ceil_run_source()`'s OWN TEXT
-//! (`:60-70`), before any command is built and without ever invoking `kali`.
+//! (`:71-81`), before any command is built and without ever invoking `kali`.
 //!
 //! It is doubly unmigratable, and the second reason is the sharper one:
 //!   1. `scripts/audit-case-migration.py` extracts every `.contains(<literal>)`
@@ -26,12 +26,23 @@
 //!      into assertions; `[source]` is excluded from that search by
 //!      construction. A fixture-text read is indistinguishable to it from an
 //!      output assertion, so migrating this test would produce a false green.
-//!   2. There is no literal to migrate at all. The needle is `expected`, a
-//!      loop variable bound to a RUNTIME-COMPUTED inventory (81 alias
-//!      spellings today) returned by a `kali_common` function. The case format
-//!      has no step kind that asserts about `[source]` text, and no assertion
-//!      key whose needles come from another crate's function. The claim is not
-//!      expressible at any strength, which is rule 4's condition exactly.
+//!   2. The claim is about `[source]` TEXT, and the format has no step kind
+//!      that asserts on it. Every assertion key in design spec 5.4 is about a
+//!      process's stdout/stderr/JSON output; this test runs no process at all.
+//!      So the claim is not expressible at any strength, which is rule 4's
+//!      condition exactly.
+//!
+//!      CORRECTED, fix round 1 (I4): this paragraph previously said "there is
+//!      no literal to migrate at all... a RUNTIME-COMPUTED inventory". That was
+//!      FALSE and is worth stating plainly, because a later reader could have
+//!      acted on it. `kali_common::math_floor_trunc_ceil_frozen_callable_
+//!      aliases()` (crates/kali_common/src/math.rs:87) is a `pub const fn`
+//!      returning a compile-time `&[&str]` of 81 raw-string literals, and all
+//!      81 are already present verbatim in the migrated case file's `[source]`
+//!      bodies (verified by counting, both case files, 81/81). The inventory
+//!      is perfectly enumerable. What blocks migration is reason 1 plus the
+//!      absence of a `[source]`-text assertion -- not any inability to obtain
+//!      the needles.
 //!
 //! Same shape as the Task 18 pilot's `browser_math_pow_exponent_one.rs`, batch
 //! 2's `browser_array_from_set_map_bundle.rs` and batch 3's

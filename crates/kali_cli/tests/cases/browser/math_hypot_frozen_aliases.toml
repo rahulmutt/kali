@@ -1,3 +1,11 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+# check_extra_claims.py compares this file's claim strings against the
+# source's and fails on any that appear nowhere in the .rs. The entries
+# below are the deliberate exceptions; a genuinely new one will not be
+# on this list and will fail the gate.
+# EXTRA-OK: '5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# EXTRA-OK: 'main_test_entry.js' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
+# EXTRA-OK: 'main_test_entry.ts' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
 # Migrated from tests/browser_math_hypot_frozen_aliases.rs.
 #
 # RULE 12 (carry every source comment): `browser_math_hypot_frozen_aliases.rs` contains NO Rust

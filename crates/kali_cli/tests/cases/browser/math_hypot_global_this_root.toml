@@ -1,26 +1,39 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+# check_extra_claims.py compares this file's claim strings against the
+# source's and fails on any that appear nowhere in the .rs. The entries
+# below are the deliberate exceptions; a genuinely new one will not be
+# on this list and will fail the gate.
+# EXTRA-OK: '5\n5\n5\n5\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# EXTRA-OK: 'program.js' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
+# EXTRA-OK: 'program.ts' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
 # Migrated from tests/browser_math_hypot_global_this_root.rs -- all 14 #[test]
 # fns, nothing retained.
 #
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
-# tests/browser_math_hypot_global_this_root.rs returns NOTHING -- the file has no Rust comments at
-# all. The only `//` anywhere in it is the "// kali-tree-shake:" marker inside a
-# JS fixture body, which is program text and is carried verbatim into [source].
-# There is therefore no prose to move into any `rationale`, and comment_coverage
-# is run with --allow-empty for this pair (ruling 5's floor exists precisely so
-# that an empty result is an explicit acknowledgement, not a vacuous green).
+# tests/browser_math_hypot_global_this_root.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 1 other `//` occurrence(s) in the file (:11) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
 #
 # RULE 7 -- INVOCATION ARITHMETIC, derived BY HAND because the mechanical
-# enumerator UNDER-COUNTS this file. enumerate_invocations.py reports 30 total;
-# the true figure is 32. Its invocations() helper calls CALL.search(body) -- it
-# finds only the FIRST assert_* call in a #[test] body -- and
+# the enumerator undercounted this file WHEN THIS FILE WAS WRITTEN, and no
+# longer does. (HISTORICAL NOTE, fix round 1 / I1.) It reported 30 total against
+# a true figure of 32, because invocations() called CALL.search(body) and so saw
+# only the FIRST assert_* call in a #[test] body, while
 # `build_emits_global_this_math_hypot_perfect_square_slice_in_jsx_and_tsx_input`
 # has TWO calls inside its `for filename in ["app.jsx", "app.tsx"]` loop
-# (json_output false, then true), so 4 of its invocations are counted as 2. It
-# also fails to bind the tuple loop variables in
+# (json_output false, then true) -- 4 invocations counted as 2. That bug was
+# found during this batch and fixed in the same commit that shipped this file;
+# the helper now uses CALL.finditer and the repaired tool reports TOTAL
+# INVOCATIONS: 32, agreeing with the hand count below. A separate, still-live
+# limitation: it does not bind the tuple loop variables in
 # `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser
-# _harness_is_configured_in_js_ts_jsx_and_tsx_input` (its TUPLE_ROW regex is
-# `\(([^()]*)\)`, which cannot match a row containing a `source()` call), though
-# it does get that fn's COUNT right. Hand-derived, per helper:
+# _harness_is_configured_in_js_ts_jsx_and_tsx_input` (its TUPLE_ROW regex cannot
+# match a row containing a `source()` call), though it does get that fn's COUNT
+# right. Hand-derived, per helper, and now also confirmed by the tool:
 #
 #   assert_browser_bundle_global_this_math_hypot -- 8 invocations
 #     4 single-call fns: (app.js,false) (app.ts,false) (app.js,true)

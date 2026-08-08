@@ -1,3 +1,10 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+# check_extra_claims.py compares this file's claim strings against the
+# source's and fails on any that appear nowhere in the .rs. The entry below
+# is the deliberate exception; a genuinely new one will not be on this list
+# and will fail the gate. Both core-suite files share this builder and this
+# same live-captured pin.
+# EXTRA-OK: '3\n1\n3\n-1\n-2\n31\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 # Migrated from tests/browser_math_global_this_root_core_suite.rs.
 #
 # RULE 12 (carry every source comment verbatim): `browser_math_global_this_root_core_suite.rs` has NO Rust
@@ -23,7 +30,7 @@
 #     the loop-tuple extractor in tools/task-18-browser-pilot/
 #     gen_batch4_group_d.py, which asserts both the 8-tuple count and that the
 #     extensions run js, js, ts, ts, jsx, jsx, tsx, tsx.)
-# FACTUAL NOTE ON THE LOOPED FN'S NAME: it ends `_in_js_and_ts_input`, but its
+# MIGRATION NOTE (stale source fn name): it ends `_in_js_and_ts_input`, but its
 # body loops over jsx and tsx as well. The name is stale, the body is what runs,
 # and the body is what is migrated. This matters because it is exactly what makes
 # the matrix legal here -- unlike the sibling files

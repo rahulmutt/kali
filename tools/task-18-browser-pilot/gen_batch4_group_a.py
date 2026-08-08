@@ -35,6 +35,7 @@ CASES = os.path.join(TESTS, "cases/browser")
 
 from case_emit import fixture_in_fn, fixture_starting, emit, write  # noqa: E402
 from math_shapes import (  # noqa: E402
+    rule12_no_comments_prose,  # noqa: E402
     bundle_steps, harness_step, envelope_build, envelope_harness, META,
 )
 
@@ -532,6 +533,12 @@ def expm1_log1p_global_this_root():
     pin = "0\n0\n"   # live-captured, run and test, all four extensions
 
     header = f"""\
+EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+check_extra_claims.py compares this file's claim strings against the
+source's and fails on any that appear nowhere in the .rs. The entries
+below are the deliberate exceptions; a genuinely new one will not be
+on this list and will fail the gate.
+EXTRA-OK: '0\\n0\\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 Migrated from tests/browser_math_expm1_log1p_global_this_root.rs.
 
 {no_rust_comments(name)}
@@ -699,6 +706,12 @@ def expm1_log1p_frozen_aliases():
     pin = "0\n0\n0\n0\n0\n0\n"   # live-captured, run and test, all four extensions
 
     header = f"""\
+EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+check_extra_claims.py compares this file's claim strings against the
+source's and fails on any that appear nowhere in the .rs. The entries
+below are the deliberate exceptions; a genuinely new one will not be
+on this list and will fail the gate.
+EXTRA-OK: '0\\n0\\n0\\n0\\n0\\n0\\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 Migrated from tests/browser_math_expm1_log1p_frozen_aliases.rs.
 
 {no_rust_comments(name)}
@@ -708,10 +721,14 @@ The gap is one looping fn, and the count needs care:
 `build_emits_frozen_math_expm1_log1p_identity_literals_in_jsx_and_tsx_input`
 (:224-229) loops `for filename in ["app.jsx", "app.tsx"]` and makes TWO helper
 calls inside the loop body -- `json_output` false at :226 and true at :227 --
-so it is 4 invocations, not 2. enumerate_invocations.py reports only the first
-call in a loop body and therefore undercounts this file (it prints 6 bundle
-invocations where there are 8, TOTAL 18 where there are 20); the number below
-is from reading the loop body.
+so it is 4 invocations, not 2. (HISTORICAL NOTE, fix round 1 / I1: this used
+to say enumerate_invocations.py undercounts this file, printing 6 bundle
+invocations where there are 8 and TOTAL 18 where there are 20. That was true
+when written; the parser bug -- taking only the first `assert_*` call in a loop
+body -- was found during this batch and fixed in the same commit. The repaired
+tool now reports TOTAL INVOCATIONS: 20, agreeing with the hand count.) The
+numbers below were derived by reading the loop body and are now also confirmed
+by the tool.
   * `assert_browser_bundle_frozen_math_expm1_log1p(filename, json_output)` --
     4 unlooped fns (:204, :209, :214, :219, covering app.js/app.ts x
     false/true) + 4 from the loop = 8, a full ext(4) x json_output(2) product.
@@ -901,6 +918,14 @@ def hypot_frozen_aliases():
     pin = "5\n" * 15   # live-captured, both commands, every entry filename used below
 
     header = f"""\
+EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+check_extra_claims.py compares this file's claim strings against the
+source's and fails on any that appear nowhere in the .rs. The entries
+below are the deliberate exceptions; a genuinely new one will not be
+on this list and will fail the gate.
+EXTRA-OK: '5\\n5\\n5\\n5\\n5\\n5\\n5\\n5\\n5\\n5\\n5\\n5\\n5\\n5\\n5\\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+EXTRA-OK: 'main_test_entry.js' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
+EXTRA-OK: 'main_test_entry.ts' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
 Migrated from tests/browser_math_hypot_frozen_aliases.rs.
 
 {no_rust_comments(name)}

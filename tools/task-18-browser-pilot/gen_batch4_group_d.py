@@ -29,6 +29,7 @@ CASES = os.path.join(TESTS, "cases/browser")
 from case_emit import fixture_in_fn, fixture_starting, emit, write  # noqa: E402
 from lexer import find_string_literals  # noqa: E402
 from math_shapes import (  # noqa: E402
+    rule12_no_comments_prose,  # noqa: E402
     bundle_steps, harness_step, envelope_build, envelope_harness, META,
 )
 
@@ -173,6 +174,18 @@ def floor_trunc_ceil():
                   {"path": "stdout", "needle": TWOS, "at_least": 3}]
 
     header = f"""\
+MIGRATION NOTE (stale source fn name): the looped `#[test]` fn ends
+`_in_js_and_ts_input`, but its body loops over jsx and tsx as well -- verified
+by reading the loop's tuple list, which names main/smoke.test entries for all
+four extensions. The name is stale; the body is what runs and what is migrated,
+and all four extensions appear as sibling cases below. This file still declines
+the file-wide [matrix] -- not because the loop is js/ts-only, but because the
+BUNDLE group is (rule 7 / U1: an ext axis would fan the bundle cases over
+jsx/tsx, inventing build invocations the source never runs). Recorded per
+ruling 8, which requires a flagged note wherever a source fn name lies about
+its own body. (Not a rule 12 / U7 item: a fn NAME is not a comment, and this
+file has no Rust comments at all.)
+
 Migrated from tests/browser_math_floor_trunc_ceil_bracketed_root.rs.
 
 {no_rust_comments(name)}
@@ -374,6 +387,24 @@ def log2_log10_bracketed():
     JSON_STDOUT = "3\n3\n3\n3\n"
 
     header = f"""\
+EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+check_extra_claims.py compares this file's claim strings against the
+source's and fails on any that appear nowhere in the .rs. The entries
+below are the deliberate exceptions; a genuinely new one will not be
+on this list and will fail the gate.
+EXTRA-OK: '3\\n3\\n3\\n3\\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+MIGRATION NOTE (stale source fn name): the looped `#[test]` fn ends
+`_in_js_and_ts_input`, but its body loops over jsx and tsx as well -- verified
+by reading the loop's tuple list, which names main/smoke.test entries for all
+four extensions. The name is stale; the body is what runs and what is migrated,
+and all four extensions appear as sibling cases below. This file still declines
+the file-wide [matrix] -- not because the loop is js/ts-only, but because the
+BUNDLE group is (rule 7 / U1: an ext axis would fan the bundle cases over
+jsx/tsx, inventing build invocations the source never runs). Recorded per
+ruling 8, which requires a flagged note wherever a source fn name lies about
+its own body. (Not a rule 12 / U7 item: a fn NAME is not a comment, and this
+file has no Rust comments at all.)
+
 Migrated from tests/browser_math_log2_log10_bracketed_root.rs.
 
 {no_rust_comments(name)}
@@ -579,6 +610,13 @@ def _core_suite(name, *, toml, bundle_src_fn, assert_fn, loop_fn, spelling,
     bundle_contains = ["3\n", "1\n", "-2\n", "31\n", "-1\n"]
 
     header = f"""\
+EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+check_extra_claims.py compares this file's claim strings against the
+source's and fails on any that appear nowhere in the .rs. The entry below
+is the deliberate exception; a genuinely new one will not be on this list
+and will fail the gate. Both core-suite files share this builder and this
+same live-captured pin.
+EXTRA-OK: '3\\n1\\n3\\n-1\\n-2\\n31\\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 Migrated from tests/browser_{name}.rs.
 
 {no_rust_comments(name)}
@@ -599,7 +637,7 @@ RULE 7 / U1 -- MATRIX ARITHMETIC, and it CLOSES EXACTLY.
     the loop-tuple extractor in tools/task-18-browser-pilot/
     gen_batch4_group_d.py, which asserts both the 8-tuple count and that the
     extensions run js, js, ts, ts, jsx, jsx, tsx, tsx.)
-FACTUAL NOTE ON THE LOOPED FN'S NAME: it ends `_in_js_and_ts_input`, but its
+MIGRATION NOTE (stale source fn name): it ends `_in_js_and_ts_input`, but its
 body loops over jsx and tsx as well. The name is stale, the body is what runs,
 and the body is what is migrated. This matters because it is exactly what makes
 the matrix legal here -- unlike the sibling files

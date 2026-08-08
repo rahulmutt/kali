@@ -19,6 +19,13 @@
 # inside a JS fixture body, which is program text and is carried verbatim into
 # [source]. Nothing to move into `rationale`; comment_coverage.py is run with
 # --allow-empty for this pair.
+# EVERY `:N` SOURCE CITATION IN THIS FILE IS A POST-DELETION LINE NUMBER, re-read
+# from the shipped `.rs` after its 85-line `//!` header was removed -- NOT
+# computed by subtracting 85 from the pre-deletion numbers. Fix round 1 (I3)
+# found all six stale by exactly that header's length: the header deletion
+# shifted every line, the fixtures were re-anchored by content at the time
+# (report section 7) and the citations were not. Arithmetic against a pre-edit
+# file is what produced them; re-derive by opening the file.
 # (The deleted `//!` header was migration bookkeeping about the retention, not
 # prose about the behaviour under test; it is superseded by this file's
 # existence and is preserved in git history and in the batch 3/4 reports.)
@@ -44,8 +51,8 @@
 # case's point is a file's presence or absence. Each command names its entry on
 # argv.
 #
-# THE COUNT CLAIM. Three sites, all the same bound: `:202` (bundle harness raw
-# stdout), `:253` (`json["stdout"].as_str()`, inside `if json_output`), `:257`
+# THE COUNT CLAIM. Three sites, all the same bound: `:117` (bundle harness raw
+# stdout), `:168` (`json["stdout"].as_str()`, inside `if json_output`), `:172`
 # (raw stdout, else branch). Carried as `stdout_count` on the two raw surfaces
 # and `json_count` on the JSON leaf. Live output is `0\n0\n0\n` -- exactly
 # three occurrences, since Math.asinh(0), Math.acosh(1) and Math.atanh(0) all
@@ -65,11 +72,11 @@
 # Raised in the batch 4 report as a standing question rather than decided here.
 #
 # ASSERTION SHAPE, mirrored and nothing more. This source asserts NO `errors`
-# array anywhere -- neither on the build envelope (:150-159) nor on the harness
-# envelope (:237-254) -- so no `errors = []` is written, unlike several siblings
+# array anywhere -- neither on the build envelope (:65-74) nor on the harness
+# envelope (:152-169) -- so no `errors = []` is written, unlike several siblings
 # in this batch that do assert it. The harness json branch DOES assert
-# `json["stderr"] == ""` (:254). The bundle harness step carries only the count
-# claim (:202); there is no accompanying `.contains`. The source passes no
+# `json["stderr"] == ""` (:169). The bundle harness step carries only the count
+# claim (:117); there is no accompanying `.contains`. The source passes no
 # `--max-threads`/`--max-spawned-processes`, so neither appears on argv.
 
 [matrix]
@@ -159,7 +166,7 @@ stdout_count = [{ needle = "0\n", at_least = 3 }]
 
 [[case]]
 name = "json_run_supports_math_inverse_hyperbolic_identity_literals_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_asinh_acosh_atanh_identities.rs. `assert_browser_harness_math_inverse_hyperbolic` runs `kali run --output json --api browser` with the browser harness backed by `node`, against a program calling Math.asinh(0), Math.acosh(1) and Math.atanh(0) -- each printing `0`. The same count claim is taken here against the JSON string leaf `json["stdout"]` rather than raw stdout (:253), which is why `json_count` exists alongside `stdout_count`. The source spells this claim as `.matches('0\\n').count() >= 3`, which the case format carries directly as `json_count` with `at_least = 3`. It is not weakened to a `*_contains` (one occurrence would satisfy that) and not strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. No equality pin is written for `json.stdout`: the source asserts only how many times `0\\n` occurs in it. `stderr` is asserted exactly empty (:254); the source makes no `errors` claim on this envelope, so none is written."""
+rationale = """Migrated from browser_math_asinh_acosh_atanh_identities.rs. `assert_browser_harness_math_inverse_hyperbolic` runs `kali run --output json --api browser` with the browser harness backed by `node`, against a program calling Math.asinh(0), Math.acosh(1) and Math.atanh(0) -- each printing `0`. The same count claim is taken here against the JSON string leaf `json["stdout"]` rather than raw stdout (:168), which is why `json_count` exists alongside `stdout_count`. The source spells this claim as `.matches('0\\n').count() >= 3`, which the case format carries directly as `json_count` with `at_least = 3`. It is not weakened to a `*_contains` (one occurrence would satisfy that) and not strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. No equality pin is written for `json.stdout`: the source asserts only how many times `0\\n` occurs in it. `stderr` is asserted exactly empty (:169); the source makes no `errors` claim on this envelope, so none is written."""
 args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -168,7 +175,7 @@ json_count = [{ path = "stdout", needle = "0\n", at_least = 3 }]
 
 [[case]]
 name = "json_test_supports_math_inverse_hyperbolic_identity_literals_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_asinh_acosh_atanh_identities.rs. `assert_browser_harness_math_inverse_hyperbolic` runs `kali test --output json --api browser` with the browser harness backed by `node`, against a program calling Math.asinh(0), Math.acosh(1) and Math.atanh(0) -- each printing `0`. The same count claim is taken here against the JSON string leaf `json["stdout"]` rather than raw stdout (:253), which is why `json_count` exists alongside `stdout_count`. The source spells this claim as `.matches('0\\n').count() >= 3`, which the case format carries directly as `json_count` with `at_least = 3`. It is not weakened to a `*_contains` (one occurrence would satisfy that) and not strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. No equality pin is written for `json.stdout`: the source asserts only how many times `0\\n` occurs in it. `stderr` is asserted exactly empty (:254); the source makes no `errors` claim on this envelope, so none is written."""
+rationale = """Migrated from browser_math_asinh_acosh_atanh_identities.rs. `assert_browser_harness_math_inverse_hyperbolic` runs `kali test --output json --api browser` with the browser harness backed by `node`, against a program calling Math.asinh(0), Math.acosh(1) and Math.atanh(0) -- each printing `0`. The same count claim is taken here against the JSON string leaf `json["stdout"]` rather than raw stdout (:168), which is why `json_count` exists alongside `stdout_count`. The source spells this claim as `.matches('0\\n').count() >= 3`, which the case format carries directly as `json_count` with `at_least = 3`. It is not weakened to a `*_contains` (one occurrence would satisfy that) and not strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. No equality pin is written for `json.stdout`: the source asserts only how many times `0\\n` occurs in it. `stderr` is asserted exactly empty (:169); the source makes no `errors` claim on this envelope, so none is written."""
 args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"

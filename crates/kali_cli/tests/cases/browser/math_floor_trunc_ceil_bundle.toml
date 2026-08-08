@@ -32,12 +32,18 @@
 #     escalation, not a drop; against the PRE-TRIM source the audit exits 0.
 #
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
-# tests/browser_math_floor_trunc_ceil_bundle.rs returns NOTHING -- the file has no Rust comments at
-# all. The only `//` anywhere in it is the "// kali-tree-shake:" marker inside a
-# JS fixture body, which is program text and is carried verbatim into [source].
-# There is therefore no prose to move into any `rationale`, and comment_coverage
-# is run with --allow-empty for this pair (ruling 5's floor exists precisely so
-# that an empty result is an explicit acknowledgement, not a vacuous green).
+# tests/browser_math_floor_trunc_ceil_bundle.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 1 other `//` occurrence(s) in the file (:79) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# (The file's leading 63-line `//!` block is the U3 RETENTION HEADER
+# this migration added, not prose carried from the source, so it is not
+# rule-12 material. comment_coverage.py does report those lines as missing
+# from every rationale; that is expected for a trimmed retention -- the
+# header describes the RETAINED test, which by construction has no case.)
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
 # (The `//!` retention header added to the .rs is migration bookkeeping about the
 # retained test, not prose about behaviour under test, so it is not carried into
 # any rationale; comment_coverage will list its lines as missing for exactly

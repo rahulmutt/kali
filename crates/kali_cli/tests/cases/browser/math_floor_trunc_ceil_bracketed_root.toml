@@ -1,3 +1,15 @@
+# MIGRATION NOTE (stale source fn name): the looped `#[test]` fn ends
+# `_in_js_and_ts_input`, but its body loops over jsx and tsx as well -- verified
+# by reading the loop's tuple list, which names main/smoke.test entries for all
+# four extensions. The name is stale; the body is what runs and what is migrated,
+# and all four extensions appear as sibling cases below. This file still declines
+# the file-wide [matrix] -- not because the loop is js/ts-only, but because the
+# BUNDLE group is (rule 7 / U1: an ext axis would fan the bundle cases over
+# jsx/tsx, inventing build invocations the source never runs). Recorded per
+# ruling 8, which requires a flagged note wherever a source fn name lies about
+# its own body. (Not a rule 12 / U7 item: a fn NAME is not a comment, and this
+# file has no Rust comments at all.)
+#
 # Migrated from tests/browser_math_floor_trunc_ceil_bracketed_root.rs.
 #
 # RULE 12 (carry every source comment verbatim): `browser_math_floor_trunc_ceil_bracketed_root.rs` has NO Rust

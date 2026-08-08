@@ -28,6 +28,7 @@ CASES = os.path.join(TESTS, "cases/browser")
 
 from case_emit import fixture_in_fn, fixture_starting, emit, write  # noqa: E402
 from math_shapes import (  # noqa: E402
+    rule12_no_comments_prose,  # noqa: E402
     bundle_steps, harness_step, envelope_build, envelope_harness, META,
 )
 
@@ -99,14 +100,21 @@ PIN_TRIG_JSON_STDOUT = "0\n0\n0\n"
 # whole phrases so check_rationale_fn_names.py can adjudicate them.
 # ---------------------------------------------------------------------------
 
-NO_RUST_COMMENTS = """\
-RULE 12 (carry every source comment verbatim): `grep -nE '^\\s*//'` over
-tests/browser_{stem}.rs returns NOTHING -- the file has no Rust comments at
-all. The only `//` anywhere in it is the "// kali-tree-shake:" marker inside a
-JS fixture body, which is program text and is carried verbatim into [source].
-There is therefore no prose to move into any `rationale`, and comment_coverage
-is run with --allow-empty for this pair (ruling 5's floor exists precisely so
-that an empty result is an explicit acknowledgement, not a vacuous green)."""
+class _Rule12:
+    """I2 fix round 1: was a fixed template asserting the source's only `//`
+    was a `// kali-tree-shake:` marker inside a JS fixture. Two of this group's
+    sources contain no `//` at all and declare no bundle fixture, so that
+    sentence shipped false. Now derived from the source by the shared verifying
+    helper, which also raises rather than emitting a false --allow-empty
+    discharge when real Rust comments exist. `.format(stem=...)` kept so the
+    call sites below are unchanged."""
+
+    @staticmethod
+    def format(stem, rs=None):
+        return rule12_no_comments_prose(rs or os.path.join(TESTS, f"browser_{stem}.rs"), stem)
+
+
+NO_RUST_COMMENTS = _Rule12()
 
 MIRROR_CONTAINS = (
     "The source spells this as a plain `.contains(...)` against raw stdout, so it is carried "
@@ -148,23 +156,35 @@ def hypot():
         "const mod = await import(")
 
     header = f"""\
+EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+check_extra_claims.py compares this file's claim strings against the
+source's and fails on any that appear nowhere in the .rs. The entries
+below are the deliberate exceptions; a genuinely new one will not be
+on this list and will fail the gate.
+EXTRA-OK: '5\\n5\\n5\\n5\\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+EXTRA-OK: 'program.js' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
+EXTRA-OK: 'program.ts' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
 Migrated from tests/browser_math_hypot_global_this_root.rs -- all 14 #[test]
 fns, nothing retained.
 
 {NO_RUST_COMMENTS.format(stem="math_hypot_global_this_root")}
 
 RULE 7 -- INVOCATION ARITHMETIC, derived BY HAND because the mechanical
-enumerator UNDER-COUNTS this file. enumerate_invocations.py reports 30 total;
-the true figure is 32. Its invocations() helper calls CALL.search(body) -- it
-finds only the FIRST assert_* call in a #[test] body -- and
+the enumerator undercounted this file WHEN THIS FILE WAS WRITTEN, and no
+longer does. (HISTORICAL NOTE, fix round 1 / I1.) It reported 30 total against
+a true figure of 32, because invocations() called CALL.search(body) and so saw
+only the FIRST assert_* call in a #[test] body, while
 `build_emits_global_this_math_hypot_perfect_square_slice_in_jsx_and_tsx_input`
 has TWO calls inside its `for filename in ["app.jsx", "app.tsx"]` loop
-(json_output false, then true), so 4 of its invocations are counted as 2. It
-also fails to bind the tuple loop variables in
+(json_output false, then true) -- 4 invocations counted as 2. That bug was
+found during this batch and fixed in the same commit that shipped this file;
+the helper now uses CALL.finditer and the repaired tool reports TOTAL
+INVOCATIONS: 32, agreeing with the hand count below. A separate, still-live
+limitation: it does not bind the tuple loop variables in
 `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser
-_harness_is_configured_in_js_ts_jsx_and_tsx_input` (its TUPLE_ROW regex is
-`\\(([^()]*)\\)`, which cannot match a row containing a `source()` call), though
-it does get that fn's COUNT right. Hand-derived, per helper:
+_harness_is_configured_in_js_ts_jsx_and_tsx_input` (its TUPLE_ROW regex cannot
+match a row containing a `source()` call), though it does get that fn's COUNT
+right. Hand-derived, per helper, and now also confirmed by the tool:
 
   assert_browser_bundle_global_this_math_hypot -- 8 invocations
     4 single-call fns: (app.js,false) (app.ts,false) (app.js,true)
@@ -418,6 +438,12 @@ def _harness_rationale(base, fn_name, command, is_json, entry, *, renamed, loope
 @target("math_floor_trunc_ceil_aliases")
 def floor_trunc_ceil_aliases():
     header = f"""\
+EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+check_extra_claims.py compares this file's claim strings against the
+source's and fails on any that appear nowhere in the .rs. The entries
+below are the deliberate exceptions; a genuinely new one will not be
+on this list and will fail the gate.
+EXTRA-OK: '1\\n1\\n2\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n1\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n2\\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 Migrated from tests/browser_math_floor_trunc_ceil_aliases.rs.
 
 PARTIAL MIGRATION (U4 trim-and-keep) -- 16 of the file's 17 #[test] fns are
@@ -725,6 +751,12 @@ def expm1_log1p():
     test_src = fixture_in_fn(text, "browser_harness_math_expm1_log1p_test_source")
 
     header = f"""\
+EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+check_extra_claims.py compares this file's claim strings against the
+source's and fails on any that appear nowhere in the .rs. The entries
+below are the deliberate exceptions; a genuinely new one will not be
+on this list and will fail the gate.
+EXTRA-OK: '0\\n0\\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 Migrated from tests/browser_math_expm1_log1p_identities.rs -- all 12 #[test]
 fns, nothing retained.
 
@@ -865,6 +897,12 @@ def inverse_trig():
     test_src = fixture_in_fn(text, "browser_harness_math_inverse_trig_test_source")
 
     header = f"""\
+EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+check_extra_claims.py compares this file's claim strings against the
+source's and fails on any that appear nowhere in the .rs. The entries
+below are the deliberate exceptions; a genuinely new one will not be
+on this list and will fail the gate.
+EXTRA-OK: '0\\n0\\n0\\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 Migrated from tests/browser_math_inverse_trig_identities.rs -- all 4 #[test]
 fns, nothing retained.
 

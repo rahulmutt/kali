@@ -52,8 +52,21 @@ note "FIXTURES (rule 9 -- every program text survives verbatim)"
 python3 "$REPO/tools/task-18-browser-pilot/check_fixtures.py" "$RS" "$TOML"
 rc=$?; echo "check_fixtures exit=$rc"; (( rc )) && fail=1
 
-note "FIDELITY (U14 -- both directions)"
-python3 "$REPO/tools/task-18-browser-pilot/fidelity.py" "$RS" -- "$TOML" | head -4
+note "EXTRA CLAIMS (U14 extra direction -- rule 2, never invent)"
+python3 "$REPO/tools/task-18-browser-pilot/check_extra_claims.py" "$RS" "$TOML"
+rc=$?; echo "check_extra_claims exit=$rc"; (( rc )) && fail=1
+
+note "FIDELITY (U14 -- raw string diff, BOTH directions, NOT truncated)"
+# Fix round 1 (I6): this used to be `| head -4`, which discarded the entire
+# EXTRA section -- U14: "a checker that computes `extra` and discards it has
+# disabled the gate that catches inventions". fidelity.py is a report and always
+# exits 0, so its status is recorded but the ENFORCING gate is
+# check_extra_claims.py above; this stays for the raw both-directions view.
+fidelity_out=$(python3 "$REPO/tools/task-18-browser-pilot/fidelity.py" "$RS" -- "$TOML")
+fidelity_rc=$?
+echo "$fidelity_out" | grep -E "^(source claims|MISSING \(|EXTRA \()" || true
+echo "fidelity exit=$fidelity_rc (report only; enforcement is check_extra_claims)"
+(( fidelity_rc )) && fail=1
 
 printf '\n==== %s: %s ====\n' "$STEM" "$( ((fail)) && echo 'ATTENTION -- a gate exited non-zero' || echo 'gates exit 0' )"
 exit $fail

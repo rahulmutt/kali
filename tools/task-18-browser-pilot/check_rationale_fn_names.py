@@ -35,6 +35,8 @@ ALLOW = {
     "schemaVersion", "artifactKind", "bundleFormat", "apiSurface", "hostContract",
     "runtimeBackend", "exitCode", "rationale", "constants", "source", "matrix",
     "expand", "substitute", "at_least", "exact", "needle", "passed", "failed", "total",
+    # U14/gate vocabulary that appears in EXTRA-OK declarations and gate prose.
+    "extra", "missing", "claims", "fidelity", "assertion_strings", "matches",
     "skipped", "success", "command", "payload", "errors", "warnings", "stdout",
     "stderr", "entry", "fields", "ignore", "browser", "bundle", "esm", "node",
     "kali_common", "kali_runtime_contract", "kali_case_runner", "tempdir",
@@ -98,9 +100,20 @@ def main(argv):
     # the defect it exists to catch is the exact failure mode this project keeps
     # hitting in its instruments.
     src = {s for s in source_names(rs_path) if len(s) >= 8}
+    # ONE direction only (fix round 1, I7). The legitimate need is a case name
+    # derived from a source fn by stripping its `_in_<ext>_input` suffix -- i.e.
+    # the cited token is a PREFIX of a real fn, `s.startswith(n)`.
+    #
+    # The reverse, `n.startswith(s)`, accepted any token that merely EXTENDS a
+    # real fn name -- and that is precisely the realistic invention: a rationale
+    # citing `assert_browser_harness_math_log2_log10_bogus` when the helper is
+    # `assert_browser_harness_math_log2_log10` passed silently. A wholly
+    # unrelated name was caught; the plausible near-miss was not, which is the
+    # wrong way round for a gate whose whole purpose is catching plausible-
+    # looking prose. Dropped.
     unexplained = sorted(
         n for n in cited
-        if n not in known and not any(s.startswith(n) or n.startswith(s) for s in src)
+        if n not in known and not any(s.startswith(n) for s in src)
     )
     print(f"{len(cited)} fn-shaped name(s) cited in {os.path.basename(toml_path)}; "
           f"{len(unexplained)} unexplained")

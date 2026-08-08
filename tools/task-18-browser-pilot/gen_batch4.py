@@ -21,6 +21,7 @@ CASES = os.path.join(TESTS, "cases/browser")
 
 from case_emit import fixture, fixture_in_fn, fixture_starting, emit, write  # noqa: E402
 from math_shapes import (  # noqa: E402
+    rule12_no_comments_prose,  # noqa: E402
     bundle_steps, harness_step, envelope_build, envelope_harness, META,
 )
 
@@ -126,6 +127,13 @@ retention `//!` header is deleted from the .rs in the same commit -- retention
 prose in a fully migrated file is worse than none.
 
 {no_rust_comments("math_asinh_acosh_atanh_identities")}
+EVERY `:N` SOURCE CITATION IN THIS FILE IS A POST-DELETION LINE NUMBER, re-read
+from the shipped `.rs` after its 85-line `//!` header was removed -- NOT
+computed by subtracting 85 from the pre-deletion numbers. Fix round 1 (I3)
+found all six stale by exactly that header's length: the header deletion
+shifted every line, the fixtures were re-anchored by content at the time
+(report section 7) and the citations were not. Arithmetic against a pre-edit
+file is what produced them; re-derive by opening the file.
 (The deleted `//!` header was migration bookkeeping about the retention, not
 prose about the behaviour under test; it is superseded by this file's
 existence and is preserved in git history and in the batch 3/4 reports.)
@@ -151,8 +159,8 @@ written unconditionally into a fresh temp dir, none is behind an `if`, and no
 case's point is a file's presence or absence. Each command names its entry on
 argv.
 
-THE COUNT CLAIM. Three sites, all the same bound: `:202` (bundle harness raw
-stdout), `:253` (`json["stdout"].as_str()`, inside `if json_output`), `:257`
+THE COUNT CLAIM. Three sites, all the same bound: `:117` (bundle harness raw
+stdout), `:168` (`json["stdout"].as_str()`, inside `if json_output`), `:172`
 (raw stdout, else branch). Carried as `stdout_count` on the two raw surfaces
 and `json_count` on the JSON leaf. Live output is `0\\n0\\n0\\n` -- exactly
 three occurrences, since Math.asinh(0), Math.acosh(1) and Math.atanh(0) all
@@ -163,11 +171,11 @@ and pinning equality would assert something it never did (rule 2).
 {RULE13_NOTE}
 
 ASSERTION SHAPE, mirrored and nothing more. This source asserts NO `errors`
-array anywhere -- neither on the build envelope (:150-159) nor on the harness
-envelope (:237-254) -- so no `errors = []` is written, unlike several siblings
+array anywhere -- neither on the build envelope (:65-74) nor on the harness
+envelope (:152-169) -- so no `errors = []` is written, unlike several siblings
 in this batch that do assert it. The harness json branch DOES assert
-`json["stderr"] == ""` (:254). The bundle harness step carries only the count
-claim (:202); there is no accompanying `.contains`. The source passes no
+`json["stderr"] == ""` (:169). The bundle harness step carries only the count
+claim (:117); there is no accompanying `.contains`. The source passes no
 `--max-threads`/`--max-spawned-processes`, so neither appears on argv."""
 
     bundle_prose = (
@@ -221,12 +229,12 @@ claim (:202); there is no accompanying `.contains`. The source passes no
                     "when_browser_harness_is_configured",
             "rationale": harness_prose.format(cmd=command + " --output json") +
                          "The same count claim is taken here against the JSON string leaf "
-                         "`json[\"stdout\"]` rather than raw stdout (:253), which is why "
+                         "`json[\"stdout\"]` rather than raw stdout (:168), which is why "
                          "`json_count` exists alongside `stdout_count`. " +
                          MIRROR_COUNT.format(needle="0\n", n=3, key="json_count") +
                          " No equality pin is written for `json.stdout`: the source asserts "
                          "only how many times `0\\n` occurs in it. `stderr` is asserted "
-                         "exactly empty (:254); the source makes no `errors` claim on this "
+                         "exactly empty (:169); the source makes no `errors` claim on this "
                          "envelope, so none is written.",
             "steps": [harness_step(command, fname, json_output=True,
                                    json_claims=envelope_harness(command, stderr=True,
