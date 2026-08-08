@@ -595,7 +595,7 @@ class Bug8_PathModResolution(unittest.TestCase):
         self.assertEqual(rc, 0, out)
         self.assertIn("AUDIT OK", out)
         self.assertIn("1 #[test] fns", out)
-        self.assertIn("resolved #[path] submodule", out)
+        self.assertIn("resolved submodule", out)
 
     def test_multiple_path_mods_are_all_resolved(self):
         old_source = (
@@ -711,7 +711,282 @@ class Bug8_PathModResolution(unittest.TestCase):
         rc, out = _run_audit(old_source, {"new.toml": toml_source})
         self.assertEqual(rc, 0, out)
         self.assertIn("AUDIT OK", out)
-        self.assertNotIn("resolved #[path] submodule", out)
+        self.assertNotIn("resolved submodule", out)
+
+
+# ---------------------------------------------------------------------------
+# Round 2 (re-review after Bug8's initial landing): `resolve_path_mods`
+# handled only `#[path]`-annotated mods, one level deep. Two real corpus
+# chains defeated that -- `browser_cdp_smoke.rs` reaches 14 more #[test]
+# fns through a PLAIN `mod cdp_driver;` (no `#[path]` at all), and
+# `inprocess.rs` reaches its CDP driver through a SECOND level of `mod`
+# nesting a one-level-deep resolver never follows. Same false-negative
+# class as Bug8's original finding, just via a different mod shape.
+# ---------------------------------------------------------------------------
+class Bug8Round2_PlainModAndNestedResolution(unittest.TestCase):
+    def test_plain_mod_with_a_directory_mod_rs_is_resolved(self):
+        # `mod child;` (no #[path]) with no sibling `child.rs` -- must fall
+        # back to `child/mod.rs`, mirroring Rust's own resolution and the
+        # real `browser_cdp_smoke.rs` -> `cdp_driver/mod.rs` shape.
+        old_source = 'mod child;\n'
+        child_source = (
+            '#[test]\n'
+            'fn only_test() {\n'
+            '    assert!(stdout.contains("from child dir"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "only_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["from child dir"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"child/mod.rs": child_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+        self.assertIn("resolved submodule", out)
+
+    def test_plain_mod_with_a_sibling_file_is_resolved(self):
+        # The OTHER plain-mod form: `mod child;` resolving to a sibling
+        # `child.rs` (tried first, before the `child/mod.rs` fallback).
+        old_source = 'mod child;\n'
+        child_source = (
+            '#[test]\n'
+            'fn only_test() {\n'
+            '    assert!(stdout.contains("from sibling file"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "only_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["from sibling file"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"child.rs": child_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+
+    def test_pub_mod_is_resolved(self):
+        old_source = 'pub mod child;\n'
+        child_source = (
+            '#[test]\n'
+            'fn only_test() {\n'
+            '    assert!(stdout.contains("from pub mod"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "only_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["from pub mod"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"child.rs": child_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+
+    def test_cfg_gated_plain_mod_is_resolved(self):
+        # An intervening #[cfg(...)] between (nothing) and `mod name;` (the
+        # reviewer's specific example) must not stop resolution.
+        old_source = '#[cfg(test)]\nmod child;\n'
+        child_source = (
+            '#[test]\n'
+            'fn only_test() {\n'
+            '    assert!(stdout.contains("from cfg gated mod"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "only_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["from cfg gated mod"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"child.rs": child_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+
+    def test_cfg_gated_path_mod_is_resolved(self):
+        # Same #[cfg] tolerance, but between `#[path = "..."]` and `mod`
+        # (rather than plain `mod`) -- the reviewer's exact finding.
+        old_source = '#[path = "elsewhere.rs"]\n#[cfg(test)]\nmod child;\n'
+        child_source = (
+            '#[test]\n'
+            'fn only_test() {\n'
+            '    assert!(stdout.contains("from cfg gated path mod"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "only_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["from cfg gated path mod"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"elsewhere.rs": child_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+
+    def test_path_mod_is_not_double_counted_as_a_plain_mod(self):
+        # A `#[path = "real.rs"] mod fake;` must resolve ONLY `real.rs` --
+        # not ALSO be picked up by the plain-mod pass and (wrongly) looked
+        # up as `fake.rs`/`fake/mod.rs`, which don't exist here.
+        old_source = '#[path = "real.rs"]\nmod fake;\n'
+        real_source = (
+            '#[test]\n'
+            'fn only_test() {\n'
+            '    assert!(stdout.contains("from real"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "only_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["from real"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"real.rs": real_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("resolved submodule", out)
+        self.assertNotIn("fake.rs", out)
+
+    def test_nested_two_level_chain_is_fully_resolved(self):
+        # Mirrors the real `inprocess.rs` -> (#[path]) -> intermediate.rs
+        # -> (plain mod) -> leaf.rs chain the reviewer named: a submodule's
+        # OWN mod declarations must also be followed, not just the
+        # top-level file's.
+        old_source = '#[path = "mid.rs"]\nmod intermediate;\n'
+        mid_source = 'mod leaf;\n'
+        leaf_source = (
+            '#[test]\n'
+            'fn leaf_test() {\n'
+            '    assert!(stdout.contains("from leaf"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "leaf_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["from leaf"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"mid.rs": mid_source, "leaf.rs": leaf_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+        self.assertIn("mid.rs", out)
+        self.assertIn("leaf.rs", out)
+
+    def test_dotdot_path_within_a_nested_chain_is_resolved(self):
+        # Mirrors the real `inprocess/cdp_driver.rs`'s
+        # `#[path = "../cdp_driver/driver.rs"]` -- a `#[path]` two levels
+        # deep that climbs back OUT of the intermediate file's own
+        # directory. `Path.parent / "../x.rs"` resolves correctly without
+        # any `.resolve()`/normalization, but this pins it explicitly.
+        old_source = 'mod sub;\n'
+        sub_source = '#[path = "../climbed.rs"]\nmod climbed;\n'
+        climbed_source = (
+            '#[test]\n'
+            'fn climbed_test() {\n'
+            '    assert!(stdout.contains("climbed out"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "climbed_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["climbed out"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"sub/mod.rs": sub_source, "climbed.rs": climbed_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+
+    def test_missing_file_deep_in_a_chain_is_still_a_hard_error(self):
+        old_source = 'mod sub;\n'
+        sub_source = 'mod missing;\n'
+        rc, out = _run_audit(
+            old_source, {"new.toml": '[[case]]\nname = "x"\nargs = ["run"]\n'},
+            extra_files={"sub/mod.rs": sub_source},
+        )
+        self.assertEqual(rc, 2, out)
+        self.assertIn("does not exist", out)
+
+    def test_self_referential_mod_does_not_hang(self):
+        # A file that (nonsensically, but this is a regex-driven tool, not
+        # a compiler) declares a plain `mod` with its own name, pointing
+        # back at itself via #[path]. Must terminate, not loop forever.
+        old_source = '#[path = "old.rs"]\nmod old;\n#[test]\nfn t() { assert!(true); }\n'
+        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        # Exactly one #[test] fn -- the self-#[path] must not double-count
+        # the top-level file's own single #[test].
+        self.assertIn("1 #[test] fns", out)
+
+    def test_mutual_cycle_between_two_submodules_does_not_hang(self):
+        old_source = 'mod a;\n'
+        a_source = '#[path = "b.rs"]\nmod b;\n#[test]\nfn a_test() { assert!(stdout.contains("a")); }\n'
+        b_source = '#[path = "a.rs"]\nmod a;\n#[test]\nfn b_test() { assert!(stdout.contains("b")); }\n'
+        toml_source = (
+            '[[case]]\nname = "a_test"\nargs = ["run"]\nstdout_contains = ["a"]\n'
+            '\n[[case]]\nname = "b_test"\nargs = ["run"]\nstdout_contains = ["b"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"a.rs": a_source, "b.rs": b_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("2 #[test] fns", out)
+
+    def test_module_block_with_a_body_is_not_mistaken_for_a_file_mod(self):
+        # `mod tests { ... }` (an inline module, not a file reference) must
+        # NOT be resolved as if it were `mod tests;` -- no trailing `;`
+        # right after the name, a `{` follows instead.
+        old_source = (
+            '#[cfg(test)]\n'
+            'mod tests {\n'
+            '    #[test]\n'
+            '    fn inline_test() { assert!(true); }\n'
+            '}\n'
+            '#[test]\n'
+            'fn top_level_test() { assert!(true); }\n'
+        )
+        toml_source = (
+            '[[case]]\nname = "top_level_test"\nargs = ["run"]\n'
+        )
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        # Must not error trying to resolve "tests.rs"/"tests/mod.rs" (which
+        # don't exist) -- the inline module has no file to resolve.
+        self.assertNotIn("does not exist", out)
+        self.assertNotIn("resolved submodule", out)
 
 
 # ---------------------------------------------------------------------------

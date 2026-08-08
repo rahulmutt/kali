@@ -181,33 +181,127 @@ JSON_KEY = re.compile(r'\[\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\]')
 ARG = re.compile(r'\.arg\(\s*"([^"]*)"\s*\)')
 TEST_FN = re.compile(r'#\[test\][^\n]*\n(?:\s*#\[[^\]]*\]\s*\n)*\s*(?:async\s+)?fn\s+([a-z0-9_]+)')
 
-# `#[path = "sibling_dir/child.rs"] mod name;` -- the `#[path]` submodule
-# shape (9 files in the browser/ family, at time of writing, per Task 18's
-# pilot report). A file using this shape declares ZERO top-level #[test]
-# fns and pulls them in from one or more sibling files instead; `grep -c
-# '#\[test\]'` on the top-level file alone returns 0 and silently drops
-# every real test. FIXED (Task 18 pilot review round 1, finding 5): this
-# script previously read only the single file named on argv[1], so running
-# it on a `#[path]`-shaped file's top-level `.rs` printed "0 #[test] fns"
-# then "AUDIT OK" -- a vacuous green that examined none of the file's real
-# tests. The `#[path]` attribute's string is a path relative to the
-# CONTAINING FILE'S OWN DIRECTORY (confirmed against `browser_math_atan2_
-# bracketed_root.rs`'s `#[path = "browser_math_atan2_bracketed_root/run.rs"]
-# mod run;`, resolved relative to `crates/kali_cli/tests/`, not relative to
-# the file itself or the cwd), not a module path -- so resolution is a
-# straight `old_path.parent / captured_string`, no Rust module-path
-# translation needed.
-PATH_MOD = re.compile(r'#\[path\s*=\s*"([^"]+)"\]\s*mod\s+[A-Za-z0-9_]+\s*;')
+# `#[path = "sibling_dir/child.rs"] mod name;` and plain `mod name;` /
+# `pub mod name;` -- the submodule shapes this corpus uses to split a test
+# target across multiple files. A file using either shape declares fewer
+# (often zero) top-level #[test] fns and pulls the rest in from sibling
+# files; `grep -c '#\[test\]'` on the top-level file alone silently drops
+# every test that lives in a submodule. FIXED (Task 18 pilot review round
+# 1, finding 5; broadened in round 2 after re-review): this script
+# originally resolved only `#[path]`-annotated mods, one level deep, from
+# the single file named on argv[1]. Two real corpus chains defeated that:
+# `browser_cdp_smoke.rs` reaches 14 more #[test] fns through a PLAIN
+# `mod cdp_driver;` (round 1's fix left this file printing "1 #[test] fns"
+# / "AUDIT OK", examining 1 of 15 real tests -- the same false-negative
+# shape finding 5 was raised to close, just via `mod` instead of
+# `#[path]`), and `inprocess.rs` reaches its CDP driver through a SECOND
+# level of `mod` nesting (`#[path]`-loaded file -> plain `mod cdp_driver;`
+# -> that file's own two `#[path]` mods) that round 1's one-level-deep
+# resolution never followed. Both shapes are now resolved, recursively,
+# with a visited-set so a self-referential (or mutually-referential) mod
+# graph cannot hang the script.
+#
+# The `#[path]` attribute's string is a path relative to the CONTAINING
+# FILE'S OWN DIRECTORY (confirmed against `browser_math_atan2_bracketed_
+# root.rs`'s `#[path = "browser_math_atan2_bracketed_root/run.rs"] mod
+# run;`, resolved relative to `crates/kali_cli/tests/`), not a Rust
+# module path. A plain `mod name;` (no `#[path]`) resolves the same way
+# Rust itself does for a file loaded outside the classic `src/`-crate
+# layout: `name.rs` OR `name/mod.rs`, both relative to the CONTAINING
+# FILE'S OWN DIRECTORY -- confirmed against every plain-`mod` chain in this
+# corpus at fix time (`browser_cdp_smoke.rs`'s `mod cdp_driver;` ->
+# `cdp_driver/mod.rs`; that file's own `mod driver;`/`mod protocol;` ->
+# `cdp_driver/driver.rs`/`cdp_driver/protocol.rs`, siblings of `mod.rs`
+# itself, not a further subdirectory; `inprocess/browser_harness_cdp_in_
+# page_trap_propagates.rs`'s `mod cdp_driver;` -> the sibling file
+# `inprocess/cdp_driver.rs`). Neither form does any further Rust
+# module-path translation (no crate-root-relative resolution, no
+# `#[path]`-changes-the-implicit-base-for-siblings edge case beyond what's
+# already covered by "relative to the containing file's own directory" --
+# this is a regex-based tool over a corpus with one consistent convention,
+# not a Rust module resolver).
+PATH_MOD = re.compile(
+    r'#\[path\s*=\s*"([^"]+)"\]'
+    r'(?:\s*#\[[^\]]*\])*'  # an intervening attribute, e.g. #[cfg(test)]
+    r'\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;',
+)
+# A plain (no `#[path]`) `mod name;` / `pub mod name;` declaration, with the
+# same intervening-attribute tolerance. Matched separately from PATH_MOD and
+# reconciled by masking (see `_find_mod_declarations`) rather than by one
+# combined regex, so neither pattern can accidentally swallow the other's
+# match or mis-pair a `#[path]` string with the wrong `mod` name.
+PLAIN_MOD = re.compile(
+    r'(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;',
+)
+
+
+def _find_mod_declarations(source: str) -> list[tuple[str | None, str]]:
+    """Every submodule declaration in `source`, in order: `(explicit_path,
+    mod_name)` where `explicit_path` is the `#[path = "..."]` string (or
+    `None` for a plain `mod`/`pub mod`). `PATH_MOD` is matched first and its
+    full matched spans are blanked out before running `PLAIN_MOD`, so a
+    `#[path = "a.rs"] mod b;` is never ALSO picked up as a plain `mod b;`
+    (which would otherwise resolve the wrong file, `b.rs`/`b/mod.rs`,
+    instead of the explicit `a.rs`)."""
+    out: list[tuple[str | None, str]] = []
+    masked = source
+    for match in PATH_MOD.finditer(source):
+        out.append((match.group(1), match.group(2)))
+        start, end = match.span()
+        masked = masked[:start] + (" " * (end - start)) + masked[end:]
+    for match in PLAIN_MOD.finditer(masked):
+        out.append((None, match.group(1)))
+    return out
+
+
+def _resolve_one_mod(including_path: Path, explicit_path: str | None, mod_name: str) -> Path:
+    """The file `mod_name`'s declaration in `including_path` refers to.
+    `explicit_path`, if given, is resolved relative to `including_path`'s
+    parent directory (a `#[path]`, never ambiguous -- exactly one
+    candidate). Otherwise tries `mod_name.rs` then `mod_name/mod.rs`, both
+    relative to the same directory, returning whichever exists; if neither
+    exists, returns the `.rs` candidate anyway so the caller's existence
+    check produces a clear, single-path error message rather than this
+    function raising."""
+    base = including_path.parent
+    if explicit_path is not None:
+        return base / explicit_path
+    flat = base / f"{mod_name}.rs"
+    if flat.is_file():
+        return flat
+    nested = base / mod_name / "mod.rs"
+    if nested.is_file():
+        return nested
+    return flat
 
 
 def resolve_path_mods(old_path: Path, source: str) -> list[Path]:
-    """Every sibling file `source` pulls in via `#[path = "..."] mod ...;`,
-    resolved relative to `old_path`'s own parent directory. Returns paths in
-    the order their `#[path]` attributes appear in `source`; does not
-    recurse (no file in this corpus at time of writing nests a second
-    `#[path]` inside a submodule, and `[[case.step]]`-style resolution two
-    levels deep is not a shape this project has needed)."""
-    return [old_path.parent / match.group(1) for match in PATH_MOD.finditer(source)]
+    """Every submodule file reachable from `old_path`/`source` by following
+    `#[path = "..."] mod ...;` and plain `mod ...;`/`pub mod ...;`
+    declarations, RECURSIVELY (a resolved submodule's own mod declarations
+    are followed too), in breadth-first discovery order. A visited-set of
+    resolved (not just textually-distinct) paths makes a self-cycle or a
+    mutual cycle between two submodules terminate instead of hang -- neither
+    is observed in this corpus at fix time, but a regex-driven resolver has
+    no independent way to know a cycle isn't there short of tracking one."""
+    resolved: list[Path] = []
+    visited: set[Path] = {old_path}
+    queue: list[tuple[Path, str]] = [(old_path, source)]
+    while queue:
+        current_path, current_source = queue.pop(0)
+        for explicit_path, mod_name in _find_mod_declarations(current_source):
+            child = _resolve_one_mod(current_path, explicit_path, mod_name)
+            if child in visited:
+                continue
+            visited.add(child)
+            resolved.append(child)
+            if child.is_file():
+                queue.append((child, child.read_text()))
+            # A missing child is left for `main`'s existence check (which
+            # reports it with the same "does not exist" message either
+            # shape produces) -- not re-checked or raised here, so every
+            # missing submodule in a file is reported, not just the first.
+    return resolved
 
 # A raw-string literal (`r"..."`, `r#"..."#`, `r##"..."##`, ...), fence-aware
 # via a backreference on the captured `#` run so a raw string's genuinely
@@ -755,18 +849,20 @@ def main() -> int:
 
     old_source = old_path.read_text()
 
-    # Resolve the `#[path]` submodule shape: fold every sibling file the
-    # top-level `.rs` pulls in via `#[path = "..."] mod ...;` into the same
-    # claims/test-count sweep, so auditing the top-level file alone can no
-    # longer under-count its real tests down to zero. Purely additive to
-    # `old_source` -- a file with no `#[path]` attribute is unaffected.
+    # Resolve every submodule the top-level `.rs` pulls in, recursively,
+    # via `#[path = "..."] mod ...;` or a plain `mod ...;`/`pub mod ...;`,
+    # into the same claims/test-count sweep -- so auditing the top-level
+    # file alone can no longer under-count its real tests, whether they're
+    # one hop away or several. Purely additive to `old_source` -- a file
+    # with no submodule declarations at all is unaffected.
     submodule_paths = resolve_path_mods(old_path, old_source)
     submodule_sources: list[str] = []
     for submodule_path in submodule_paths:
         if not submodule_path.is_file():
             print(
-                f"error: {old_path}: `#[path = \"...\"]` names "
-                f"{submodule_path}, which does not exist",
+                f"error: {old_path}: a `mod` declaration (reached from "
+                f"{old_path}, possibly through an intermediate submodule) "
+                f"names {submodule_path}, which does not exist",
                 file=sys.stderr,
             )
             return 2
@@ -789,25 +885,29 @@ def main() -> int:
     old_tests = sorted(set(TEST_FN.findall(old_source_combined)))
     if submodule_paths:
         names = ", ".join(str(p) for p in submodule_paths)
-        print(f"{old_path}: resolved #[path] submodule(s): {names}")
+        print(f"{old_path}: resolved submodule(s): {names}")
     print(f"{old_path}: {len(old_tests)} #[test] fns")
     for kind, entries in old_claims.items():
         print(f"  {kind}: {len(entries)}")
 
     # A file this script is asked to audit is, by construction, one being
     # migrated FROM -- it is expected to have real tests. Zero found (even
-    # after resolving every #[path] submodule) is never a legitimate "OK";
-    # it is either a vacuous audit of an empty/wrong file, or a resolution
-    # bug in this script, and either way must not print AUDIT OK (Task 18
-    # pilot review round 1, finding 5: "0 #[test] fns / AUDIT OK" was
-    # reachable simply by pointing this script at a #[path]-shaped file
-    # before this fix; that must become impossible to ship, not merely
+    # after resolving every submodule, of any shape) is never a legitimate
+    # "OK"; it is either a vacuous audit of an empty/wrong file, or a
+    # resolution bug in this script, and either way must not print AUDIT OK
+    # (Task 18 pilot review round 1, finding 5: "0 #[test] fns / AUDIT OK"
+    # was reachable simply by pointing this script at a `#[path]`-shaped
+    # file before that round's fix; round 2's re-review found the same
+    # shape still reachable through a PLAIN `mod` chain -- e.g.
+    # `browser_cdp_smoke.rs` printed "1 #[test] fns" / "AUDIT OK",
+    # examining 1 of its real 15, since the guard below only ever fires at
+    # exactly zero. Both must become impossible to ship, not merely
     # discouraged).
     if not old_tests:
         print(
-            "\nAUDIT FAILED — 0 #[test] fns found (after resolving any "
-            "#[path] submodules); refusing to report success against zero "
-            "examined tests."
+            "\nAUDIT FAILED — 0 #[test] fns found (after resolving every "
+            "submodule); refusing to report success against zero examined "
+            "tests."
         )
         return 1
 
