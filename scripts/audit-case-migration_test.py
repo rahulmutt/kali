@@ -26,6 +26,7 @@ import io
 import re
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -301,18 +302,30 @@ class Bug7_ConstDotall(unittest.TestCase):
 # Invariant 8: key-sync with crates/kali_case_runner/src/model.rs.
 # ---------------------------------------------------------------------------
 class Invariant8_ModelRsKeySync(unittest.TestCase):
-    """`_STEP_LIST_KEYS`, `_STEP_SCALAR_KEYS`, and `_STEP_JSON_KEYS` must
-    together cover every assertion-carrying field of `Step`/`RawStep` --
-    stated in the script's own comment above `_STEP_LIST_KEYS`, and violated
-    twice (`json_null`, `stderr` each shipped without being added, leaving a
+    """`_STEP_LIST_KEYS`, `_STEP_SCALAR_KEYS`, `_STEP_JSON_KEYS` and
+    `_STEP_COUNT_KEYS` must together cover every assertion-carrying field of
+    `Step`/`RawStep` -- stated in the script's own comment above
+    `_STEP_LIST_KEYS`, and violated three times (`json_null`, `stderr`, then
+    `stdout_count`/`json_count`, each shipped without being added, leaving a
     new key's claims silently unaudited). This test parses `model.rs` itself
     and fails if a field exists there that this audit script neither reads
-    via the three tuples nor accounts for in a named, one-line-justified
+    via the four tuples nor accounts for in a named, one-line-justified
     list -- so adding a field to `model.rs` forces a deliberate decision
     here, the same way `_CASE_NON_STEP_KEYS`/`BORING` force one in the
     script itself.
 
-    Two categories of "accounted for" that are NOT the three tuples:
+    THIS TEST IS NOT SUFFICIENT ON ITS OWN, and the count keys are why. It
+    proves a key is NAMED in a tuple, not that the extractor READS it: the
+    one-line "fix" of adding `stdout_count`/`json_count` to `_STEP_LIST_KEYS`
+    turns this test green while `assertion_strings()`' output stays
+    byte-for-byte identical, because that tuple's consumer filters
+    `isinstance(v, str)` and a count claim is a TOML table. That trap was
+    verified on the real script by the batch-4 implementer. `CountKeyExtraction`
+    below is the companion that closes it -- it drives the SAME four tuples
+    but asserts on extractor output, so a key named but not read fails there.
+    Neither test replaces the other; do not delete either.
+
+    Two categories of "accounted for" that are NOT the four tuples:
 
     - `_NO_CLAIM_FIELDS`: exactly the exclusion list named in this task's
       brief (name, rationale, ignore, kind, path, entry, body, matrix, exit,
@@ -348,7 +361,7 @@ class Invariant8_ModelRsKeySync(unittest.TestCase):
 
     # Fields that DO carry a claim (or are load-bearing structure) but are
     # read by explicit code in the audit script rather than by appearing in
-    # one of the three key tuples.
+    # one of the four key tuples.
     _OTHERWISE_AUDITED_FIELDS = {
         "env": "read directly in _step_assertion_strings via "
                "`env = step.get(\"env\")`, not via a _STEP_*_KEYS tuple",
@@ -416,7 +429,10 @@ class Invariant8_ModelRsKeySync(unittest.TestCase):
         self.assertTrue(all_fields, "field extraction found nothing -- regex is broken")
 
         tuple_covered = (
-            set(audit._STEP_LIST_KEYS) | set(audit._STEP_SCALAR_KEYS) | set(audit._STEP_JSON_KEYS)
+            set(audit._STEP_LIST_KEYS)
+            | set(audit._STEP_SCALAR_KEYS)
+            | set(audit._STEP_JSON_KEYS)
+            | set(audit._STEP_COUNT_KEYS)
         )
         accounted = tuple_covered | set(self._NO_CLAIM_FIELDS) | set(self._OTHERWISE_AUDITED_FIELDS)
 
@@ -425,11 +441,13 @@ class Invariant8_ModelRsKeySync(unittest.TestCase):
             unaccounted,
             set(),
             f"model.rs field(s) {sorted(unaccounted)!r} are neither in one of "
-            "_STEP_LIST_KEYS/_STEP_SCALAR_KEYS/_STEP_JSON_KEYS nor in this "
-            "test's named exclusion lists -- a new assertion-carrying field "
-            "was likely added to model.rs without teaching the audit script "
-            "(or this test) to read it. This is exactly the json_null/stderr "
-            "class of bug.",
+            "_STEP_LIST_KEYS/_STEP_SCALAR_KEYS/_STEP_JSON_KEYS/_STEP_COUNT_KEYS "
+            "nor in this test's named exclusion lists -- a new assertion-carrying "
+            "field was likely added to model.rs without teaching the audit script "
+            "(or this test) to read it. This is exactly the json_null/stderr/"
+            "stdout_count class of bug. NOTE: naming the field in a tuple is "
+            "necessary but NOT sufficient -- CountKeyExtraction below proves the "
+            "extractor actually reads it.",
         )
 
         # Guard the guard: every name in the exclusion lists must actually
@@ -1299,6 +1317,400 @@ class Bug8Round3_MutationHardening(unittest.TestCase):
         self.assertEqual(rc, 0, out)
         self.assertIn("AUDIT OK", out)
         self.assertIn("1 #[test] fns", out)
+
+
+# ---------------------------------------------------------------------------
+# Bug 9 (Task 18, batch 4's blocking finding): `stdout_count` / `json_count`
+# were added to the case format and to the runner, and this audit script was
+# never taught either side of them -- neither the case files' `needle`/`path`
+# nor the source's `.matches("lit").count()` claim shape. Both sides blind
+# means the gate returned the IDENTICAL result whether a count claim was
+# migrated faithfully, mis-needled, mis-bounded, dropped, or invented from
+# nothing.
+#
+# The tests below are deliberately split by WHAT they assert on, because the
+# distinction is the entire finding:
+#
+#   - `CountKeyExtraction` asserts on `assertion_strings()`' OUTPUT. This is
+#     the test whose absence created the trap: adding the two key names to
+#     `_STEP_LIST_KEYS` greens `Invariant8` (which only checks tuple
+#     MEMBERSHIP) while leaving the extractor's output byte-for-byte
+#     unchanged, because that tuple's consumer filters `isinstance(v, str)`
+#     and a count claim is a TOML table. Verified on the real script before
+#     this fix. It is driven off the four `_STEP_*_KEYS` tuples themselves,
+#     so it covers every present and future key, not just the two that
+#     prompted it.
+#   - `CountClaimSourceArm` pins the six-th source-side claim kind across
+#     every spelling the corpus actually uses.
+#   - `CountClaimCorrespondence` pins the reverse direction -- the only
+#     direction that can see an invented or mis-bounded count claim.
+# ---------------------------------------------------------------------------
+class CountKeyExtraction(unittest.TestCase):
+    """Every whitelisted step key must produce its planted sentinel in
+    `assertion_strings()`' OUTPUT -- not merely appear in a tuple."""
+
+    # How to build a step value carrying `sentinel`, per tuple, as
+    # `(value, [every sentinel that value must produce])`. Keyed by the
+    # tuple's own name so that adding a key to an existing tuple is covered
+    # automatically, and adding a NEW tuple fails this test until its shape
+    # is stated here. A shape with more than one string-bearing sub-field
+    # gets a DISTINCT sentinel per sub-field, so half a reader (`needle`
+    # read, `path` dropped) is a failure and not a pass.
+    _SHAPES = {
+        "_STEP_LIST_KEYS": lambda s: ([s], [s]),
+        "_STEP_SCALAR_KEYS": lambda s: (s, [s]),
+        "_STEP_JSON_KEYS": lambda s: ({"probe": s}, [s, "probe"]),
+        "_STEP_COUNT_KEYS": lambda s: (
+            [{"needle": s + "_NEEDLE", "path": s + "_PATH", "at_least": 2}],
+            [s + "_NEEDLE", s + "_PATH"],
+        ),
+    }
+
+    def _tuples(self):
+        return {name: getattr(audit, name) for name in self._SHAPES}
+
+    def test_every_whitelisted_key_reaches_assertion_strings_output(self):
+        for tuple_name, keys in self._tuples().items():
+            for key in keys:
+                with self.subTest(tuple=tuple_name, key=key):
+                    value, expected = self._SHAPES[tuple_name](f"SENTINEL_{key}_ZZ")
+                    doc = {"case": [{"name": "c", key: value}]}
+                    out = audit.assertion_strings(doc)
+                    for sentinel in expected:
+                        self.assertIn(
+                            sentinel,
+                            out,
+                            f"{key!r} is named in {tuple_name} but {sentinel!r} never "
+                            f"reaches assertion_strings() -- naming a key in a tuple is "
+                            f"not the same as reading it (got {out!r})",
+                        )
+
+    def test_the_naive_fix_would_fail_this_test(self):
+        # The exact trap, reproduced: pretend `stdout_count` were "fixed" by
+        # naming it in `_STEP_LIST_KEYS` only. `_STEP_LIST_KEYS`' consumer
+        # keeps `isinstance(v, str)` values, so a list of tables yields
+        # nothing at all. Asserting this here means the trap can never again
+        # look like a fix.
+        step = {"stdout_count": [{"needle": "ZZTOP\n", "at_least": 2}]}
+        list_key_only = [
+            v for v in step.get("stdout_count", []) or [] if isinstance(v, str)
+        ]
+        self.assertEqual(
+            list_key_only,
+            [],
+            "the _STEP_LIST_KEYS consumer is expected to discard count tables -- "
+            "if this ever changes, the reasoning in CountKeyExtraction's docstring "
+            "needs revisiting",
+        )
+        # ...whereas the real reader does extract them.
+        self.assertIn("ZZTOP\n", audit._step_assertion_strings(step))
+
+    def test_json_count_path_is_extracted_too(self):
+        step = {"json_count": [{"path": "payload.stdout", "needle": "3\n", "exact": 2}]}
+        out = audit._step_assertion_strings(step)
+        self.assertIn("payload.stdout", out)
+        self.assertIn("3\n", out)
+
+    def test_count_keys_are_read_from_a_case_step_list_too(self):
+        # Both step shapes (inline and `[[case.step]]`) must reach the same
+        # reader; the inline path is the one the sentinel sweep above uses.
+        doc = tomllib.loads(
+            '[[case]]\nname = "c"\n'
+            '[[case.step]]\nargs = ["run"]\n'
+            'stdout_count = [{ needle = "STEPLIST_NEEDLE\\n", at_least = 2 }]\n'
+        )
+        self.assertIn("STEPLIST_NEEDLE\n", audit.assertion_strings(doc))
+        self.assertEqual(len(audit.case_count_claims(doc)), 1)
+
+
+class CountClaimSourceArm(unittest.TestCase):
+    """The source side: `.matches("lit").count()` is a claim kind, in every
+    spelling the corpus uses, with its bound read."""
+
+    def _sites(self, source):
+        return [
+            (audit.unquote(token), bound)
+            for token, bound in audit.count_claim_sites(source)
+        ]
+
+    def test_assert_bang_greater_equal_spelling(self):
+        source = 'assert!(stdout.matches("3\\n").count() >= 2, "stdout: {stdout}");'
+        self.assertEqual(self._sites(source), [("3\n", ("at_least", 2))])
+
+    def test_assert_eq_spelling(self):
+        source = (
+            'assert_eq!(\n'
+            '    stdout.matches("1.2649110640673518").count(),\n'
+            '    6,\n'
+            '    "stdout: {stdout}"\n'
+            ');'
+        )
+        self.assertEqual(self._sites(source), [("1.2649110640673518", ("exact", 6))])
+
+    def test_assert_eq_with_the_literal_first(self):
+        source = 'assert_eq!(6, stdout.matches("x").count());'
+        self.assertEqual(self._sites(source), [("x", ("exact", 6))])
+
+    def test_assert_bang_double_equals_spelling(self):
+        source = 'assert!(stdout.matches("x").count() == 4);'
+        self.assertEqual(self._sites(source), [("x", ("exact", 4))])
+
+    def test_json_branch_multiline_chain(self):
+        # `browser_math_log2_log10.rs`'s real json-branch spelling: the whole
+        # chain is wrapped across lines. An arm that only matched the
+        # single-line form would read the raw-stdout branch of every migrated
+        # helper and silently miss the json branch of the same helper.
+        source = (
+            'assert!(\n'
+            '    json["stdout"]\n'
+            '        .as_str()\n'
+            '        .expect("stdout string")\n'
+            '        .matches("3\\n")\n'
+            '        .count()\n'
+            '        >= 2,\n'
+            '    "json: {json}"\n'
+            ');'
+        )
+        self.assertEqual(self._sites(source), [("3\n", ("at_least", 2))])
+
+    def test_needle_reaches_the_claims_surface(self):
+        source = (
+            '#[test]\nfn t() {\n'
+            '    assert!(stdout.matches("QQ\\n").count() >= 2, "stdout: {stdout}");\n'
+            '}\n'
+        )
+        self.assertIn("QQ\n", audit.claims(source)["count needles"])
+
+    def test_non_literal_needle_is_not_a_claim(self):
+        # `.matches(alias).count()` has no auditable literal in it at all.
+        source = 'assert_eq!(source.matches(alias).count(), 2, "alias {alias}");'
+        self.assertEqual(self._sites(source), [])
+
+    def test_count_outside_an_assertion_is_not_a_claim(self):
+        # Live in `browser_math_pow_exponent_one.rs`: fixture arithmetic, not
+        # a claim. Reading it as one manufactures a phantom claim that no
+        # case file could satisfy (`[source]` is excluded by construction),
+        # i.e. a false AUDIT FAILED on a correct migration.
+        source = (
+            'let expected = std::iter::repeat_n(\n'
+            '    expected_value, source.matches("console.log(").count()\n'
+            ').collect();'
+        )
+        self.assertEqual(self._sites(source), [])
+
+    def test_retention_header_prose_is_not_a_count_claim(self):
+        # This script is known to read assertion-shaped text out of `//!`
+        # doc comments (the deliberately-unfixed eighth defect). This arm
+        # does not inherit it, because count claims are also checked in the
+        # REVERSE direction: a header quoting a count assertion would
+        # otherwise manufacture a source claim for a fabricated case claim to
+        # correspond to. `browser_math_asinh_acosh_atanh_identities.rs`'s
+        # real header quotes exactly this shape.
+        source = (
+            '//! SUPERSEDED: this file retained the claim\n'
+            '//!     assert!(stdout.matches("0\\n").count() >= 3, "stdout: {stdout}");\n'
+            '/* assert!(stdout.matches("9\\n").count() >= 7); */\n'
+            '#[test]\nfn t() { assert!(stdout.contains("x"), "s"); }\n'
+        )
+        self.assertEqual(self._sites(source), [])
+
+    def test_double_slash_inside_a_string_is_not_a_comment(self):
+        # Live in `cdp_driver/driver.rs`: `assert!(ws_url.starts_with("ws://"))`.
+        # A comment masker that is not string-aware blanks from that `//` to
+        # end-of-line, taking the literal's closing quote with it, and every
+        # later string skip then runs from an unterminated string -- one
+        # `assert!`'s argument text swallowed 14,561 characters of unrelated
+        # code and re-minted a count claim from an assertion 70 lines away.
+        # A phantom claim is the dangerous direction twice over here, since
+        # the reverse check would let it legitimize a fabricated case claim.
+        source = (
+            'fn t() {\n'
+            '    assert!(ws_url.starts_with("ws://"), "url: {ws_url}");\n'
+            '    let html = "<script>console.log(\'3\');</script>";\n'
+            '    assert!(stdout.matches("3\\n").count() >= 2, "stdout: {stdout}");\n'
+            '}\n'
+        )
+        self.assertEqual(self._sites(source), [("3\n", ("at_least", 2))])
+
+    def test_real_code_beside_a_quoting_header_is_still_read(self):
+        source = (
+            '//! quotes assert!(stdout.matches("9\\n").count() >= 7);\n'
+            '#[test]\nfn t() {\n'
+            '    assert!(stdout.matches("0\\n").count() >= 3, "s");\n'
+            '}\n'
+        )
+        self.assertEqual(self._sites(source), [("0\n", ("at_least", 3))])
+
+    def test_a_dropped_count_needle_fails_the_audit(self):
+        old_source = (
+            '#[test]\nfn t() {\n'
+            '    assert!(stdout.matches("UNIQUE_COUNT_NEEDLE\\n").count() >= 2, "s");\n'
+            '}\n'
+        )
+        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\nstdout_contains = ["else"]\n'
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("count needles", out)
+        self.assertIn("UNIQUE_COUNT_NEEDLE", out)
+
+
+class CountClaimCorrespondence(unittest.TestCase):
+    """The reverse direction: a count claim in a case file must correspond to
+    a real source count assertion, needle and bound alike."""
+
+    _OLD_SOURCE = (
+        '#[test]\n'
+        'fn counted() {\n'
+        '    let stdout = String::from_utf8_lossy(&output.stdout);\n'
+        '    assert!(stdout.matches("3\\n").count() >= 2, "stdout: {stdout}");\n'
+        '    assert!(\n'
+        '        json["stdout"].as_str().expect("s").matches("3\\n").count() >= 2,\n'
+        '        "json: {json}"\n'
+        '    );\n'
+        '}\n'
+    )
+
+    def _toml(self, body):
+        return '[[case]]\nname = "counted"\nargs = ["run"]\n' + body
+
+    def test_faithful_migration_passes(self):
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml(
+                'stdout_count = [{ needle = "3\\n", at_least = 2 }]\n'
+                'json_count = [{ path = "stdout", needle = "3\\n", at_least = 2 }]\n'
+            )},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("count claims in the case files", out)
+
+    def test_fabricated_needle_fails(self):
+        # The batch-4 report's headline reproduction: a needle that appears
+        # nowhere in the source, with a bound the source never states, used
+        # to exit 0 with AUDIT OK.
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml(
+                'stdout_count = [{ needle = "3\\n", at_least = 2 }]\n'
+                'json_count = [{ path = "stdout", needle = "3\\n", at_least = 2 }]\n'
+            ) + (
+                '\n[[case]]\nname = "fabricated"\nargs = ["run"]\n'
+                'stdout_count = [{ needle = "TOTALLY_FABRICATED_NEEDLE\\n", exact = 99 }]\n'
+            )},
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("TOTALLY_FABRICATED_NEEDLE", out)
+        self.assertIn("count claim", out)
+
+    def test_wrong_bound_value_fails(self):
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml('stdout_count = [{ needle = "3\\n", at_least = 1 }]\n')},
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("at_least = 1", out)
+        self.assertIn("at_least 2", out)
+
+    def test_wrong_bound_kind_fails(self):
+        # `exact = 2` is not `count() >= 2`: it forbids a third occurrence
+        # the source assertion allows.
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml('stdout_count = [{ needle = "3\\n", exact = 2 }]\n')},
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("exact = 2", out)
+
+    def test_json_count_path_not_indexed_by_the_source_fails(self):
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml(
+                'json_count = [{ path = "neverIndexed", needle = "3\\n", at_least = 2 }]\n'
+            )},
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("neverIndexed", out)
+
+    def test_literal_block_spelling_of_the_needle_also_corresponds(self):
+        # A TOML literal block carries the escape as written; `literal_
+        # variants` is why both spellings correspond to the same source
+        # literal.
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml(
+                "stdout_count = [{ needle = '''3\\n''', at_least = 2 }]\n"
+                # Carries `_OLD_SOURCE`'s own `json["stdout"]` key claim, which
+                # is not what this test is about.
+                'stdout_contains = ["stdout"]\n'
+            )},
+        )
+        self.assertEqual(rc, 0, out)
+
+    def test_matrix_reference_in_a_needle_is_matched_as_a_pattern(self):
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": (
+                '[matrix]\nvalue = ["3"]\n\n'
+                '[[case]]\nname = "counted"\nargs = ["run"]\n'
+                'stdout_count = [{ needle = "${value}\\n", at_least = 2 }]\n'
+                'stdout_contains = ["3\\n", "stdout"]\n'
+            )},
+        )
+        self.assertEqual(rc, 0, out)
+
+    def test_wholly_substituted_needle_is_reported_unaudited_not_silently_ok(self):
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": (
+                '[matrix]\nvalue = ["3\\n"]\n\n'
+                '[[case]]\nname = "counted"\nargs = ["run"]\n'
+                'stdout_count = [{ needle = "${value}", at_least = 2 }]\n'
+                'stdout_contains = ["3\\n", "stdout"]\n'
+            )},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("UNAUDITED", out)
+
+    def test_a_source_count_claim_no_case_claim_mirrors_is_reported_not_silent(self):
+        # The forward direction is literal coverage, so a count claim
+        # downgraded to a plain `stdout_contains` of the same needle still
+        # passes -- the needle is present either way. It must at least be
+        # SAID, or the two shipped pairs that legitimately strengthened a
+        # count claim into an exact `stdout` are indistinguishable from a
+        # migration that quietly dropped one.
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml('stdout_contains = ["3\\n", "stdout"]\n')},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("NOT MIRRORED", out)
+        self.assertIn("at_least = 2", out)
+
+    def test_a_mirrored_count_claim_is_not_reported_as_unmirrored(self):
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml(
+                'stdout_count = [{ needle = "3\\n", at_least = 2 }]\n'
+                'json_count = [{ path = "stdout", needle = "3\\n", at_least = 2 }]\n'
+            )},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("NOT MIRRORED", out)
+
+    def test_a_count_claim_against_a_source_with_no_count_assertions_fails(self):
+        old_source = (
+            '#[test]\nfn t() { assert!(stdout.contains("3\\n"), "s"); }\n'
+        )
+        rc, out = _run_audit(
+            old_source,
+            {"new.toml": self._toml(
+                'stdout_contains = ["3\\n"]\n'
+                'stdout_count = [{ needle = "3\\n", at_least = 2 }]\n'
+            )},
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
 
 
 # ---------------------------------------------------------------------------
