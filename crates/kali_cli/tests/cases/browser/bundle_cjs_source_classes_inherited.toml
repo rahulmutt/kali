@@ -1,0 +1,77 @@
+# Migrated from tests/browser_bundle_cjs_source_classes.rs (the `inherited
+# == true` half; see `bundle_cjs_source_classes.toml`'s header for the full
+# explanation of why this is a separate FILE, not just a separate case in
+# that file).
+#
+# Matrix arithmetic: 4 of the file's 8 #[test] fns (the `json_build_emits_
+# inherited_*` group) are individual, unlooped calls to
+# `assert_browser_bundle_cjs_source_class(filename, true)`, covering
+# `ext(4) = js/ts/jsx/tsx` exactly once each. 4 #[test] fns -> 1 [[case]]
+# entry, matrix-fanned by `ext(4)` to 4 trials, matching the 4 real
+# invocations exactly. (The other 4 #[test] fns, `inherited == false`, are
+# `bundle_cjs_source_classes.toml`.)
+#
+# SPLIT INTO TWO FILES (review round 1, Important fix 1): source writes
+# `kali.json` ONLY when `inherited == true` (browser_bundle_cjs_source_
+# classes.rs:23-33) -- that `if` is this file's entire point: one test
+# proves `--api browser` works WITHOUT a manifest (the sibling file), the
+# other proves the manifest works WITHOUT the flag (this file). Because
+# `crates/kali_case_runner/src/expand.rs`'s `expand()` clones the whole
+# file-level [source] map into EVERY trial regardless of which case
+# references which key, `kali.json` living in a [source] table shared with
+# the no-manifest case would have leaked the manifest into that case's
+# trial directory too, silently destroying its ability to fail if `--api
+# browser` regressed (the manifest would supply the same `apiSurface`
+# either way, and no literal assertion is dropped, so the audit script
+# cannot see the leak). This file's `[source]` therefore carries ONLY the
+# manifest-inheriting case's fixtures.
+#
+# The format has no step kind that reads an arbitrary on-disk text file and
+# asserts `.contains()` on its raw content (`file_json` only parses JSON), so
+# the `app.cjs` glue-text checks (`module.exports = exported`,
+# `sourceMappingURL=app.cjs.map`) use a `browser_bundle_harness` step whose
+# `body` reads the file via the node `fs`/`fileURLToPath` bindings the
+# harness prelude already imports and echoes it to stdout for
+# `stdout_contains` -- a legitimate use of the existing format, verified
+# directly against the real binary. The source map and metadata files ARE
+# JSON, so those use `file_json` steps as usual.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = "// kali-tree-shake: greet\nfunction greet(name) { return name; }\n"
+"kali.json" = """{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"""
+
+[[case]]
+name = "json_build_emits_inherited_browser_bundle_cjs_artifacts"
+rationale = """Migrated from browser_bundle_cjs_source_classes.rs. The `--api browser` flag is omitted from the CLI invocation here; a `kali.json` manifest with `compilerOptions.apiSurface = "browser"` in the trial directory supplies it instead, exercising manifest-inherited API-surface resolution rather than an explicit flag. This case's discriminating power (that it genuinely tests manifest inheritance, not just a redundant path to the same assertion as the explicit-flag case) depends on `kali.json` being present ONLY in this file's [source], never in the sibling `bundle_cjs_source_classes.toml`'s -- see that file's header."""
+
+[[case.step]]
+args = ["--output", "json", "build", "--bundle", "--format", "cjs", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "cjs" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.cjs.map"
+fields = { version = 3, file = "app.cjs", sources = { "0" = "app.${ext}" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const glueUrl = new URL('./app/app.cjs', import.meta.url);
+const js = await fs.readFile(fileURLToPath(glueUrl), 'utf8');
+console.log(js);
+"""
+stdout_contains = ["module.exports = exported", "sourceMappingURL=app.cjs.map"]

@@ -1,3 +1,31 @@
+//! Task 18 batch 2 audit escalation: kept 100% hand-written, not migrated.
+//!
+//! All 8 `#[test]` fns in this file route through
+//! `assert_browser_harness_array_from_set_map` (`:214`), which runs 21
+//! `assert!(source.contains(...))` self-checks (`:222-242`) on the JS
+//! fixture's OWN TEXT -- a dev-time invariant check that the fixture still
+//! literally embeds every `Array.from`/bracket-notation/logical-operator
+//! variant this file means to exercise -- before the fixture is ever
+//! written to disk or `kali` is ever invoked. These are not claims about
+//! process output.
+//!
+//! `audit-case-migration.py` deliberately excludes everything under a
+//! migrated case file's `[source]` table from its claim search (see that
+//! script's module docstring: "`body` and everything under `[source]` are
+//! program text, not claims about behavior"). A full draft migration of
+//! this file was built and verified against the real `kali` binary, then
+//! audited with the real `audit-case-migration.py` -- AUDIT FAILED, all 21
+//! of the literals above reported MISSING, despite being genuinely,
+//! verbatim present in the migrated `[source]` fixture body (confirmed by
+//! construction: that body is a byte-for-byte copy of this file's own
+//! `browser_harness_array_from_set_map_run_source()`). This is the same
+//! shape as the Task 18 pilot's `browser_math_pow_exponent_one.rs` finding
+//! (see `/workspace/.superpowers/sdd/2026-07-29-test-binary-consolidation/
+//! task-18-pilot-report.md`), except here EVERY `#[test]` fn (not a
+//! subset) reaches the flagged helper unconditionally, so the pilot's
+//! §5.11 "trim-and-keep" disposition degenerates to whole-file retention --
+//! there is no complementary migratable subset to split off. No case file
+//! exists for this target.
 use std::{fs, process::Command};
 
 use serde_json::Value;

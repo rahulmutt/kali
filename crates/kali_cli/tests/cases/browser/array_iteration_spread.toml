@@ -102,12 +102,17 @@
 # `array_from_alias_inventory_source`/`array_from_loop_lines` in
 # `kali_common`, all for doc comments. None of this file's helper fns carry
 # a `///` doc comment. The two `kali_common` fns each carry a one-line
-# `///` doc comment describing what they return (plumbing, e.g. "Canonical
-# `for`/`for await` loop lines for the supported `Array.from` helper
-# slice.") -- purely descriptive of the function's own return value, not a
-# behavioral claim or caveat about the assertion the migrated cases make, so
-# not carried into `rationale` (distinct in kind from the "Honest re-pin"
-# note above, which does change how a case's assertion should be read).
+# `///` doc comment ("Canonical source text for the supported `Array.from`
+# alias inventory."; "Canonical `for`/`for await` loop lines for the
+# supported `Array.from` helper slice.") -- REVIEW ROUND 1, minor 5: an
+# earlier draft declined to carry these into `rationale` as "purely
+# descriptive," but rule 13 has no such exemption (a case produced through
+# a call chain carries every doc comment on every helper in that chain, not
+# just the ones judged behaviorally significant), so both are now carried
+# verbatim into the two `array_from` cases below (the only cases whose
+# `[source]` text is built through `browser_bundle_array_from_source`,
+# which calls both `kali_common` fns) rather than left as an
+# implementer-discretion exception.
 
 
 [matrix]
@@ -771,7 +776,7 @@ export async function objectEnumerationSpreadWrapper() {
 """
 [[case]]
 name = "build_emits_for_of_spread_in_js_ts_jsx_and_tsx_input"
-rationale = """Migrated from browser_array_iteration_spread.rs. Folds `build_emits_for_of_spread_in_js_input`, `build_emits_for_of_spread_in_ts_input` (or the `json_build_emits_...` siblings for the json case), and the relevant json-mode half of `build_emits_for_of_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+rationale = """Migrated from browser_array_iteration_spread.rs. THE NON-JSON-OUTPUT CASE: folds `build_emits_for_of_spread_in_js_input`, `build_emits_for_of_spread_in_ts_input`, and the `json_output = false` half of `build_emits_for_of_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "app_for_of.${ext}"]
@@ -792,7 +797,7 @@ stdout_contains = ["1\n", "2\n"]
 
 [[case]]
 name = "json_build_emits_for_of_spread_in_js_ts_jsx_and_tsx_input"
-rationale = """Migrated from browser_array_iteration_spread.rs. Folds `build_emits_for_of_spread_in_js_input`, `build_emits_for_of_spread_in_ts_input` (or the `json_build_emits_...` siblings for the json case), and the relevant json-mode half of `build_emits_for_of_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+rationale = """Migrated from browser_array_iteration_spread.rs. THE `--output json` CASE: folds `json_build_emits_for_of_spread_in_js_input`, `json_build_emits_for_of_spread_in_ts_input`, and the `json_output = true` half of `build_emits_for_of_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_for_of.${ext}"]
@@ -814,7 +819,7 @@ stdout_contains = ["1\n", "2\n"]
 
 [[case]]
 name = "build_emits_for_await_spread_in_js_ts_jsx_and_tsx_input"
-rationale = """Migrated from browser_array_iteration_spread.rs. Folds `build_emits_for_await_spread_in_js_input`, `build_emits_for_await_spread_in_ts_input` (or the `json_build_emits_...` siblings for the json case), and the relevant json-mode half of `build_emits_for_await_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+rationale = """Migrated from browser_array_iteration_spread.rs. THE NON-JSON-OUTPUT CASE: folds `build_emits_for_await_spread_in_js_input`, `build_emits_for_await_spread_in_ts_input`, and the `json_output = false` half of `build_emits_for_await_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "app_for_await.${ext}"]
@@ -835,7 +840,7 @@ stdout_contains = ["1\n", "2\n"]
 
 [[case]]
 name = "json_build_emits_for_await_spread_in_js_ts_jsx_and_tsx_input"
-rationale = """Migrated from browser_array_iteration_spread.rs. Folds `build_emits_for_await_spread_in_js_input`, `build_emits_for_await_spread_in_ts_input` (or the `json_build_emits_...` siblings for the json case), and the relevant json-mode half of `build_emits_for_await_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+rationale = """Migrated from browser_array_iteration_spread.rs. THE `--output json` CASE: folds `json_build_emits_for_await_spread_in_js_input`, `json_build_emits_for_await_spread_in_ts_input`, and the `json_output = true` half of `build_emits_for_await_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_for_await.${ext}"]
@@ -857,7 +862,7 @@ stdout_contains = ["1\n", "2\n"]
 
 [[case]]
 name = "build_emits_array_from_spread_in_js_ts_jsx_and_tsx_input"
-rationale = """Migrated from browser_array_iteration_spread.rs. Folds `build_emits_array_from_spread_in_js_input`, `build_emits_array_from_spread_in_ts_input` (or the `json_build_emits_...` siblings for the json case), and the relevant json-mode half of `build_emits_array_from_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+rationale = """Migrated from browser_array_iteration_spread.rs. THE NON-JSON-OUTPUT CASE: folds `build_emits_browser_array_from_wrappers_in_js_input`, `build_emits_browser_array_from_wrappers_in_ts_input`, and the `json_output = false` half of `build_emits_browser_array_from_wrappers_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`. The `[source]` fixture text this case exercises is built by `kali_common`'s `array_from_alias_inventory_source()` ("Canonical source text for the supported `Array.from` alias inventory.") and `array_from_loop_lines()` ("Canonical `for`/`for await` loop lines for the supported `Array.from` helper slice.") -- both `///`-documented in that crate, carried here per rule 13 (a case produced through a call chain carries every doc comment on every helper in that chain, not just the one closest to the case)."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "app_array_from.${ext}"]
@@ -878,7 +883,7 @@ stdout_contains = ["1\n", "2\n"]
 
 [[case]]
 name = "json_build_emits_array_from_spread_in_js_ts_jsx_and_tsx_input"
-rationale = """Migrated from browser_array_iteration_spread.rs. Folds `build_emits_array_from_spread_in_js_input`, `build_emits_array_from_spread_in_ts_input` (or the `json_build_emits_...` siblings for the json case), and the relevant json-mode half of `build_emits_array_from_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+rationale = """Migrated from browser_array_iteration_spread.rs. THE `--output json` CASE: folds `json_build_emits_browser_array_from_wrappers_in_js_input`, `json_build_emits_browser_array_from_wrappers_in_ts_input`, and the `json_output = true` half of `build_emits_browser_array_from_wrappers_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`. The `[source]` fixture text this case exercises is built by `kali_common`'s `array_from_alias_inventory_source()` ("Canonical source text for the supported `Array.from` alias inventory.") and `array_from_loop_lines()` ("Canonical `for`/`for await` loop lines for the supported `Array.from` helper slice.") -- both `///`-documented in that crate, carried here per rule 13 (a case produced through a call chain carries every doc comment on every helper in that chain, not just the one closest to the case)."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_array_from.${ext}"]
@@ -900,7 +905,7 @@ stdout_contains = ["1\n", "2\n"]
 
 [[case]]
 name = "build_emits_object_enumeration_spread_in_js_ts_jsx_and_tsx_input"
-rationale = """Migrated from browser_array_iteration_spread.rs. Folds `build_emits_object_enumeration_spread_in_js_input`, `build_emits_object_enumeration_spread_in_ts_input` (or the `json_build_emits_...` siblings for the json case), and the relevant json-mode half of `build_emits_object_enumeration_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop into one matrix-fanned case (same BATCH CONVENTION as above). Exercises `assert_browser_bundle_object_enumeration_spread`: builds a browser bundle and asserts it fails closed.
+rationale = """Migrated from browser_array_iteration_spread.rs. THE NON-JSON-OUTPUT CASE: folds `build_emits_object_enumeration_spread_in_js_input`, `build_emits_object_enumeration_spread_in_ts_input`, and the `json_output = false` half of `build_emits_object_enumeration_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (same BATCH CONVENTION as above). Exercises `assert_browser_bundle_object_enumeration_spread`: builds a browser bundle and asserts it fails closed.
 
 Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.
 
@@ -911,7 +916,7 @@ stderr_contains = ["E5506"]
 
 [[case]]
 name = "json_build_emits_object_enumeration_spread_in_js_ts_jsx_and_tsx_input"
-rationale = """Migrated from browser_array_iteration_spread.rs. Folds `build_emits_object_enumeration_spread_in_js_input`, `build_emits_object_enumeration_spread_in_ts_input` (or the `json_build_emits_...` siblings for the json case), and the relevant json-mode half of `build_emits_object_enumeration_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop into one matrix-fanned case (same BATCH CONVENTION as above). Exercises `assert_browser_bundle_object_enumeration_spread`: builds a browser bundle and asserts it fails closed.
+rationale = """Migrated from browser_array_iteration_spread.rs. THE `--output json` CASE: folds `json_build_emits_object_enumeration_spread_in_js_input`, `json_build_emits_object_enumeration_spread_in_ts_input`, and the `json_output = true` half of `build_emits_object_enumeration_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (same BATCH CONVENTION as above). Exercises `assert_browser_bundle_object_enumeration_spread`: builds a browser bundle and asserts it fails closed.
 
 Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.
 
