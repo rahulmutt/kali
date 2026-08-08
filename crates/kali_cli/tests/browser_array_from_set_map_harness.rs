@@ -26,6 +26,19 @@
 //! §5.11 "trim-and-keep" disposition degenerates to whole-file retention --
 //! there is no complementary migratable subset to split off. No case file
 //! exists for this target.
+//!
+//! CONSEQUENCE FOR THE GATES (ruling 9), added retroactively by Task 18 batch 5:
+//! THIS FILE HAS NO RED-LIST, and that is the finding, not an omission. Ruling 9
+//! addresses a U4 trim-and-keep retention, where the on-disk `.rs` is shorter
+//! than the source its case file was migrated from and every literal-comparison
+//! gate therefore goes red against the wrong left-hand side. This is a
+//! WHOLE-FILE retention: nothing was trimmed, so there is no pre-trim/post-trim
+//! divergence and no pre-trim ref to run anything against. There is also no
+//! right-hand side -- `verify_pair.sh array_from_set_map_harness` exits 2 with
+//! `missing .../cases/browser/array_from_set_map_harness.toml` before running any
+//! gate, and every one of the five gates takes a `.rs`/`.toml` pair. Verified by
+//! running it, not assumed. The batch-8 family gate's carve-out for this file is
+//! the retention statement above, not a gate red-list.
 use std::{fs, process::Command};
 
 use serde_json::Value;

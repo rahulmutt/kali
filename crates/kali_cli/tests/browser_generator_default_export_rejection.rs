@@ -89,6 +89,20 @@
 //! fabricated claim. This file must NOT be deleted by the family-wide sweep
 //! after batch 8. See `.superpowers/sdd/2026-07-29-test-binary-consolidation/
 //! task-18-batch3-report.md` for the full account.
+//!
+//! CONSEQUENCE FOR THE GATES (ruling 9), added retroactively by Task 18 batch 5:
+//! THIS FILE HAS NO RED-LIST, and that is the finding, not an omission. Ruling 9
+//! addresses a U4 trim-and-keep retention, where the on-disk `.rs` is shorter
+//! than the source its case file was migrated from and every literal-comparison
+//! gate therefore goes red against the wrong left-hand side. This is a
+//! WHOLE-FILE retention -- the batch-3 commit that adjudicated it added this
+//! header and deleted nothing -- so there is no pre-trim/post-trim divergence and
+//! no pre-trim ref to run anything against. There is also no right-hand side:
+//! `verify_pair.sh generator_default_export_rejection` exits 2 with
+//! `missing .../cases/browser/generator_default_export_rejection.toml` before
+//! running any gate, and every one of the five gates takes a `.rs`/`.toml` pair.
+//! Verified by running it, not assumed. The batch-8 family gate's carve-out for
+//! this file is the "must NOT be deleted" line above, not a gate red-list.
 use std::{fs, process::Command};
 
 use serde_json::Value;

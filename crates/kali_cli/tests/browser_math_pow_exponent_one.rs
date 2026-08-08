@@ -60,6 +60,58 @@
 //! `build_emits_*`/`json_build_emits_*` tests that used them).
 //! `math_pow_invocation_entries_for_aliases` is no longer imported since it
 //! was only used by those now-deleted, now-migrated source builders.
+//!
+//! CONSEQUENCE FOR THE GATES -- THE COMPLETE RED-LIST (ruling 9). Added
+//! retroactively by Task 18 batch 5: ruling 9 postdates the commit that trimmed
+//! this file, so this pair shipped without one. Every line below was produced by
+//! RUNNING the gate against both sides, not by reasoning about it, and it is NOT
+//! a copy of batch 4's list -- this pair behaves differently.
+//!
+//!   PRE-TRIM REF:  d7fc768c1f^   (= eaf12ff4a4)
+//!   git show d7fc768c1f^:crates/kali_cli/tests/browser_math_pow_exponent_one.rs > /tmp/pretrim.rs
+//!
+//! Read the two columns as POST-trim (the plain `verify_pair.sh
+//! math_pow_exponent_one` run, against this file) then PRE-trim.
+//!
+//!   audit-case-migration.py      RED / RED, and BYTE-IDENTICAL both ways --
+//!        14 claims absent, the same 14. This is the escalation itself, not a
+//!        trim artifact: the claims belong to the 32 tests RETAINED here, which
+//!        by construction have no case, so no case file can carry them and the
+//!        pre-trim ref does not rescue this gate. Rule 3's "never ship a file
+//!        whose audit exits non-zero" was discharged for this pair by the
+//!        pilot's escalation, recorded above, not by a green run.
+//!   comment_coverage.py          RED / green(--allow-empty). Post-trim, every
+//!        non-blank line of this header comes back missing: the checker requires
+//!        each source comment line to appear in some case's rationale, and this
+//!        header is prose about the RETAINED tests, which have no case. NO COUNT
+//!        IS GIVEN, deliberately -- any figure would count this header's own
+//!        length and would be invalidated by every edit to it, including the
+//!        edit that corrected it. Pre-trim the ref predates this header, so the
+//!        source has no Rust comments at all and the run is the vacuous green
+//!        `--allow-empty` acknowledges.
+//!   check_rationale_fn_names.py  RED / RED -- 2 unexplained post-trim, 1
+//!        pre-trim. Both are helper names that left with the migrated cases or
+//!        live in `kali_common`; the checker resolves names only against the
+//!        `.rs` it is handed.
+//!   check_fixtures.py            RED / RED -- 3 fixtures unmatched, the same 3
+//!        both ways. They are `format!` templates whose placeholders are
+//!        unresolved in the source text, so a verbatim search cannot match them.
+//!        Not a trim artifact and not a migration defect.
+//!   check_extra_claims.py        RED / RED -- 16 unexplained post-trim, 10
+//!        pre-trim. This gate and the U8 checker were both shipped in ef0b2cf3f5,
+//!        AFTER this pair; the `# EXTRA-OK:` declaration mechanism it reads did
+//!        not exist when the case file was written, so its live-captured exact
+//!        pins and its U5-renamed source keys are undeclared by construction.
+//!
+//! SO: this pair does NOT go all-green against the pre-trim ref. Three of the
+//! five gates are red on both sides, for three unrelated reasons -- an
+//! escalation, a `format!` limitation, and two gates that postdate the file.
+//! Recording that is the point; a red-list that claimed otherwise would be worse
+//! than none.
+//!
+//! Adding a new gate to `verify_pair.sh` includes updating this paragraph, in
+//! the same change (ruling 9). This file must NOT be deleted by the family-wide
+//! sweep after batch 8.
 
 use std::{fs, process::Command};
 
