@@ -10,29 +10,47 @@ Not wired into `mise.toml`/CI and not imported by anything under
 `crates/`. Safe to delete once the pilot is reviewed, or to keep as a
 starting point for batches 2-8 of Task 18.
 
+**Fixed after pilot round-1 review (minor):** the six per-file `gen_*.py`/
+`emit_*.py` generator scripts used during migration hardcoded an
+agent-session scratchpad path (`/tmp/claude-.../scratchpad/t18/...`, 17
+occurrences across 8 files) and, for two files, loaded an uncommitted
+intermediate (`.pkl`/`.json` dumps from a temporary `#[test] fn dump()`
+run) — neither runnable from a clean checkout. Rather than parameterize
+eight scripts whose only remaining value is as a historical record (the
+`.toml` files they produced are already committed and already re-verified
+independently after every review-round fix), they were removed from this
+directory. **What's left below is the reusable, path-clean, immediately
+runnable core** — no hardcoded paths, no uncommitted inputs:
+
 - `lexer.py` — character-cursor Rust string-literal scanner. The
   generator's fixture-copy mechanism: every JS fixture body embedded in a
-  `.toml` was pulled through this (or, for the two `format!`/library-call
-  sites in files 4 and 6, through a temporary `#[test] fn dump()` that
-  actually executed the real Rust code — see the task report).
+  `.toml` was pulled through this (or, for the `format!`/library-call sites
+  in files 4 and 6, through a temporary `#[test] fn dump()` that actually
+  executed the real Rust code — see the task report).
 - `kali_run.py` — spawns the real built `kali` binary (and, transitively,
   `node` for browser-harness steps) against literal in-memory fixtures, so
   every generated case's expected `stdout`/`json` fields were captured live
-  rather than hand-computed.
+  rather than hand-computed. Usable standalone: `from kali_run import
+  run_kali; run_kali({"a.js": "console.log(1)"}, ["run", "a.js"])`.
 - `fidelity.py` — an independent (regex-per-position, not character-cursor)
   bidirectional source-vs-TOML string-literal diff. Prints both `missing`
-  and `extra`, per the task brief's explicit requirement.
+  and `extra`, per the task brief's explicit requirement. Usage:
+  `python3 fidelity.py SOURCE.rs [SOURCE2.rs ...] -- TARGET.toml`.
 - `comment_coverage.py` — mechanical, independent: groups `//`/`///`/`//!`
-  lines into paragraphs and requires every non-divider line's text to
-  appear verbatim (whitespace-collapsed) in the target `.toml`'s `#` header
-  plus every case's `rationale`.
+  lines into paragraphs and requires every non-divider paragraph line's
+  text to appear verbatim (whitespace-collapsed) in **every individual
+  case's own `rationale`** — not just somewhere in the file header or in
+  the pooled union of all rationales (that was the round-1 bug: a
+  header-only mention read as "covered" for every case). Usage:
+  `python3 comment_coverage.py SOURCE.rs TARGET.toml`. Deliberate scope
+  limit, stated in the module docstring: it does not attempt per-helper
+  attribution for a file with two distinct helper-produced comment blocks
+  each covering a disjoint subset of cases — none of this pilot's six files
+  has that shape, but batches 2-8 might.
 - `toml_emit.py` — single-line vs. triple-quoted TOML string emission.
-- `gen_*.py` / `emit_*.py` — one generator+emitter pair per source file,
-  each: builds the case list from data read directly out of the `.rs`
-  source (by lexer index or by executing the real `format!`/library-helper
-  calls), live-verifies every case against the real binary, then writes the
-  final `.toml`.
+  `toml_string(value, multiline=None)`, `toml_str_array(values)`.
 
 Full narrative (what each file's shape was, why matrix was or wasn't used,
-the two audit findings, the scaling measurement) is in the task report,
-`task-18-pilot-report.md`, alongside the plan documents for this branch.
+the audit findings, the scaling measurement, and the five review-round-1
+fixes) is in the task report, `task-18-pilot-report.md`, alongside the plan
+documents for this branch.

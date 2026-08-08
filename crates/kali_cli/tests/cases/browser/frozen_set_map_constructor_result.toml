@@ -23,6 +23,16 @@
 # `.contains(...)`, which the `json` assertion key cannot express directly
 # (exact-equality-only per path). The exact value was captured live from the
 # real binary for every case and pinned exactly -- strictly stronger.
+#
+# BATCH CONVENTION (minor, pilot round 1 review): a single [[case]] here can
+# correspond to MORE THAN ONE source #[test] fn -- e.g. the `run`/`test`
+# plain-variant cases fold together the individual `..._in_js_input`/
+# `..._in_ts_input` fns with the `..._in_jsx_and_tsx_input` loop fn (three
+# source fns, one [[case]] block, matrix-fanned over `ext`). Assertion
+# mapping stays 1:1 (every trial still checks exactly the real
+# per-extension source assertion), so no claim is lost -- but a failing
+# trial's id reads `[ext=jsx]`, not a source fn name, so this is worth
+# stating explicitly as the convention batches 2-8 will also produce.
 
 
 [matrix]

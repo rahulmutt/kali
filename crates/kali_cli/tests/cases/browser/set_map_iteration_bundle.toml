@@ -317,7 +317,6 @@ name = "json_build_emits_set_constructor_iteration_in_js_ts_jsx_and_tsx_input"
 rationale = """Migrated from browser_set_map_iteration_bundle.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Source asserts `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams, not two codes (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only (never stdout); in `--output json` mode the diagnostic is JSON-encoded on stdout as `errors[0].code` and stderr is empty. Pinned to the stream/field that actually carries it in each mode -- a verified strengthening of the source's OR, carrying the disjunction sentence here per rule 11 -- rather than reproducing the OR as `stdout_absent`+`stderr_contains`. This is the pilot's designated extension-loop / [matrix] candidate (task brief): all 4 #[test] fns loop `for extension in ["js","ts","jsx","tsx"]` with an identical fail-closed assertion, so `ext` is hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
 args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_set.${ext}"]
 exit = "failure"
-stderr = ""
 json = { errors = { "0" = { code = "E5506" } } }
 
 [[case]]
@@ -332,5 +331,4 @@ name = "json_build_emits_map_constructor_iteration_in_js_ts_jsx_and_tsx_input"
 rationale = """Migrated from browser_set_map_iteration_bundle.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Source asserts `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams, not two codes (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only (never stdout); in `--output json` mode the diagnostic is JSON-encoded on stdout as `errors[0].code` and stderr is empty. Pinned to the stream/field that actually carries it in each mode -- a verified strengthening of the source's OR, carrying the disjunction sentence here per rule 11 -- rather than reproducing the OR as `stdout_absent`+`stderr_contains`. This is the pilot's designated extension-loop / [matrix] candidate (task brief): all 4 #[test] fns loop `for extension in ["js","ts","jsx","tsx"]` with an identical fail-closed assertion, so `ext` is hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
 args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_map.${ext}"]
 exit = "failure"
-stderr = ""
 json = { errors = { "0" = { code = "E5506" } } }
