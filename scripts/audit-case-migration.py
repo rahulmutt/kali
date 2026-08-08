@@ -181,6 +181,34 @@ JSON_KEY = re.compile(r'\[\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\]')
 ARG = re.compile(r'\.arg\(\s*"([^"]*)"\s*\)')
 TEST_FN = re.compile(r'#\[test\][^\n]*\n(?:\s*#\[[^\]]*\]\s*\n)*\s*(?:async\s+)?fn\s+([a-z0-9_]+)')
 
+# `#[path = "sibling_dir/child.rs"] mod name;` -- the `#[path]` submodule
+# shape (9 files in the browser/ family, at time of writing, per Task 18's
+# pilot report). A file using this shape declares ZERO top-level #[test]
+# fns and pulls them in from one or more sibling files instead; `grep -c
+# '#\[test\]'` on the top-level file alone returns 0 and silently drops
+# every real test. FIXED (Task 18 pilot review round 1, finding 5): this
+# script previously read only the single file named on argv[1], so running
+# it on a `#[path]`-shaped file's top-level `.rs` printed "0 #[test] fns"
+# then "AUDIT OK" -- a vacuous green that examined none of the file's real
+# tests. The `#[path]` attribute's string is a path relative to the
+# CONTAINING FILE'S OWN DIRECTORY (confirmed against `browser_math_atan2_
+# bracketed_root.rs`'s `#[path = "browser_math_atan2_bracketed_root/run.rs"]
+# mod run;`, resolved relative to `crates/kali_cli/tests/`, not relative to
+# the file itself or the cwd), not a module path -- so resolution is a
+# straight `old_path.parent / captured_string`, no Rust module-path
+# translation needed.
+PATH_MOD = re.compile(r'#\[path\s*=\s*"([^"]+)"\]\s*mod\s+[A-Za-z0-9_]+\s*;')
+
+
+def resolve_path_mods(old_path: Path, source: str) -> list[Path]:
+    """Every sibling file `source` pulls in via `#[path = "..."] mod ...;`,
+    resolved relative to `old_path`'s own parent directory. Returns paths in
+    the order their `#[path]` attributes appear in `source`; does not
+    recurse (no file in this corpus at time of writing nests a second
+    `#[path]` inside a submodule, and `[[case.step]]`-style resolution two
+    levels deep is not a shape this project has needed)."""
+    return [old_path.parent / match.group(1) for match in PATH_MOD.finditer(source)]
+
 # A raw-string literal (`r"..."`, `r#"..."#`, `r##"..."##`, ...), fence-aware
 # via a backreference on the captured `#` run so a raw string's genuinely
 # unescaped interior quotes -- routine in a JS/TS fixture body, e.g.
@@ -726,9 +754,28 @@ def main() -> int:
     new_paths = [Path(p) for p in sys.argv[2:]]
 
     old_source = old_path.read_text()
+
+    # Resolve the `#[path]` submodule shape: fold every sibling file the
+    # top-level `.rs` pulls in via `#[path = "..."] mod ...;` into the same
+    # claims/test-count sweep, so auditing the top-level file alone can no
+    # longer under-count its real tests down to zero. Purely additive to
+    # `old_source` -- a file with no `#[path]` attribute is unaffected.
+    submodule_paths = resolve_path_mods(old_path, old_source)
+    submodule_sources: list[str] = []
+    for submodule_path in submodule_paths:
+        if not submodule_path.is_file():
+            print(
+                f"error: {old_path}: `#[path = \"...\"]` names "
+                f"{submodule_path}, which does not exist",
+                file=sys.stderr,
+            )
+            return 2
+        submodule_sources.append(submodule_path.read_text())
+    old_source_combined = "\n".join([old_source, *submodule_sources])
+
     new_text = load_new_text(new_paths)
 
-    old_claims = claims(old_source)
+    old_claims = claims(old_source_combined)
 
     missing: list[tuple[str, str]] = []
     for kind, entries in old_claims.items():
@@ -739,10 +786,30 @@ def main() -> int:
             if not any(variant and variant in new_text for variant in variants):
                 missing.append((kind, canonical))
 
-    old_tests = sorted(set(TEST_FN.findall(old_source)))
+    old_tests = sorted(set(TEST_FN.findall(old_source_combined)))
+    if submodule_paths:
+        names = ", ".join(str(p) for p in submodule_paths)
+        print(f"{old_path}: resolved #[path] submodule(s): {names}")
     print(f"{old_path}: {len(old_tests)} #[test] fns")
     for kind, entries in old_claims.items():
         print(f"  {kind}: {len(entries)}")
+
+    # A file this script is asked to audit is, by construction, one being
+    # migrated FROM -- it is expected to have real tests. Zero found (even
+    # after resolving every #[path] submodule) is never a legitimate "OK";
+    # it is either a vacuous audit of an empty/wrong file, or a resolution
+    # bug in this script, and either way must not print AUDIT OK (Task 18
+    # pilot review round 1, finding 5: "0 #[test] fns / AUDIT OK" was
+    # reachable simply by pointing this script at a #[path]-shaped file
+    # before this fix; that must become impossible to ship, not merely
+    # discouraged).
+    if not old_tests:
+        print(
+            "\nAUDIT FAILED — 0 #[test] fns found (after resolving any "
+            "#[path] submodules); refusing to report success against zero "
+            "examined tests."
+        )
+        return 1
 
     if missing:
         print(f"\nAUDIT FAILED — {len(missing)} claim(s) absent from the case files:")

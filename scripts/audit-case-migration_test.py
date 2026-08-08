@@ -45,17 +45,27 @@ def _load_audit_module():
 audit = _load_audit_module()
 
 
-def _run_audit(old_source: str, new_toml_sources: dict) -> tuple:
+def _run_audit(old_source: str, new_toml_sources: dict, extra_files: dict | None = None) -> tuple:
     """Run `audit.main()` in-process against a temporary `old.rs` and one or
     more temporary `.toml` files (dict of filename -> contents), the same way
     `scripts/test-gate.sh`-adjacent callers invoke it as a subprocess, but
     in-process so failures point at the real traceback. Returns
     `(returncode, combined_stdout)`.
+
+    `extra_files`, if given, is a dict of path-relative-to-the-tempdir ->
+    contents, written before the audit runs -- used to exercise the
+    `#[path]` submodule shape, where `old.rs` names a sibling file that must
+    exist relative to `old.rs`'s own parent directory (the tempdir itself,
+    here) for resolution to find it.
     """
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         old_path = tmp_path / "old.rs"
         old_path.write_text(old_source)
+        for rel_name, contents in (extra_files or {}).items():
+            p = tmp_path / rel_name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(contents)
         new_paths = []
         for name, contents in new_toml_sources.items():
             p = tmp_path / name
@@ -66,7 +76,7 @@ def _run_audit(old_source: str, new_toml_sources: dict) -> tuple:
         sys.argv = ["audit-case-migration.py", str(old_path)] + [str(p) for p in new_paths]
         buf = io.StringIO()
         try:
-            with contextlib.redirect_stdout(buf):
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
                 rc = audit.main()
         finally:
             sys.argv = argv
@@ -534,6 +544,174 @@ json = { errors = [ { code = "E5507" } ] }
         self.assertIn("AUDIT FAILED", out)
         self.assertIn("hello world", out)
         self.assertIn("E5506", out)
+
+
+# ---------------------------------------------------------------------------
+# Feature: `#[path]` submodule resolution (Task 18 pilot review round 1,
+# finding 5). Nine files in the browser/ family declare zero top-level
+# #[test] fns and pull their real tests in via
+# `#[path = "sibling_dir/child.rs"] mod name;`. Before this fix, this script
+# read only the single file named on argv[1], so running it on the
+# top-level file alone printed "0 #[test] fns" and then "AUDIT OK" -- a
+# vacuous green that examined none of the file's real tests. This is the
+# dangerous direction (a false negative: a migration could drop every
+# submodule claim and this script would still say OK), the same basis as
+# the six prior script fixes recorded above.
+# ---------------------------------------------------------------------------
+class Bug8_PathModResolution(unittest.TestCase):
+    def test_top_level_file_alone_previously_reported_zero_tests(self):
+        # Pins the PRE-fix failure mode directly against the CURRENT
+        # (fixed) script's raw building blocks, so this test documents what
+        # was wrong rather than just asserting the fix works in isolation:
+        # `TEST_FN` over the un-resolved top-level source alone finds
+        # nothing, because the real #[test] fns live only in the submodule.
+        old_source = (
+            '#[path = "old/child.rs"]\n'
+            'mod child;\n'
+        )
+        self.assertEqual(audit.TEST_FN.findall(old_source), [])
+
+    def test_single_path_mod_is_resolved_and_its_tests_counted(self):
+        old_source = (
+            '#[path = "old/child.rs"]\n'
+            'mod child;\n'
+        )
+        child_source = (
+            '#[test]\n'
+            'fn only_test() {\n'
+            '    assert!(stdout.contains("from child"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "only_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["from child"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"old/child.rs": child_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+        self.assertIn("resolved #[path] submodule", out)
+
+    def test_multiple_path_mods_are_all_resolved(self):
+        old_source = (
+            '#[path = "old/run.rs"]\n'
+            'mod run;\n'
+            '#[path = "old/build.rs"]\n'
+            'mod build;\n'
+        )
+        run_source = (
+            '#[test]\n'
+            'fn run_test() {\n'
+            '    assert!(stdout.contains("run claim"));\n'
+            '}\n'
+        )
+        build_source = (
+            '#[test]\n'
+            'fn build_test() {\n'
+            '    assert!(stdout.contains("build claim"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "run_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["run claim"]\n'
+            '\n'
+            '[[case]]\n'
+            'name = "build_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["build claim"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"old/run.rs": run_source, "old/build.rs": build_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("2 #[test] fns", out)
+
+    def test_dropped_claim_in_a_submodule_still_fails(self):
+        # The whole point: a migration that drops a claim living ONLY in the
+        # submodule must still be caught, not hidden by only ever looking at
+        # the (claim-free) top-level file.
+        old_source = (
+            '#[path = "old/child.rs"]\n'
+            'mod child;\n'
+        )
+        child_source = (
+            '#[test]\n'
+            'fn only_test() {\n'
+            '    assert!(stdout.contains("from child"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "only_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["something else entirely"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"old/child.rs": child_source},
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("AUDIT FAILED", out)
+        self.assertIn("from child", out)
+
+    def test_missing_submodule_file_is_a_hard_error_not_a_silent_skip(self):
+        old_source = (
+            '#[path = "old/missing.rs"]\n'
+            'mod missing;\n'
+        )
+        rc, out = _run_audit(old_source, {"new.toml": '[[case]]\nname = "x"\nargs = ["run"]\n'})
+        self.assertEqual(rc, 2, out)
+        self.assertIn("does not exist", out)
+
+    def test_zero_tests_after_resolution_is_audit_failed_not_audit_ok(self):
+        # The brief's own Step-5 loop would have passed a completely empty
+        # toml against a #[path]-shaped file before this fix (0 tests found,
+        # 0 claims required, trivially "OK"). Covers both the no-#[path]-at-
+        # all case AND the resolved-but-still-empty case.
+        rc, out = _run_audit("fn helper_with_no_test_attribute() {}\n", {"new.toml": ""})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("AUDIT FAILED", out)
+        self.assertIn("0 #[test] fns found", out)
+        self.assertNotIn("AUDIT OK", out)
+
+        old_source = '#[path = "old/child.rs"]\nmod child;\n'
+        rc2, out2 = _run_audit(
+            old_source, {"new.toml": ""},
+            extra_files={"old/child.rs": "fn not_a_test_either() {}\n"},
+        )
+        self.assertEqual(rc2, 1, out2)
+        self.assertIn("AUDIT FAILED", out2)
+        self.assertIn("0 #[test] fns found", out2)
+        self.assertNotIn("AUDIT OK", out2)
+
+    def test_file_with_no_path_attribute_is_unaffected(self):
+        # Purely additive: a file that never used #[path] at all must audit
+        # identically to before this fix.
+        old_source = (
+            '#[test]\n'
+            'fn plain_test() {\n'
+            '    assert!(stdout.contains("plain claim"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\n'
+            'name = "plain_test"\n'
+            'args = ["run"]\n'
+            'stdout_contains = ["plain claim"]\n'
+        )
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertNotIn("resolved #[path] submodule", out)
 
 
 # ---------------------------------------------------------------------------
