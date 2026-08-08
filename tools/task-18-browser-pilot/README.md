@@ -42,10 +42,17 @@ runnable core** — no hardcoded paths, no uncommitted inputs:
   case's own `rationale`** — not just somewhere in the file header or in
   the pooled union of all rationales (that was the round-1 bug: a
   header-only mention read as "covered" for every case). Usage:
-  `python3 comment_coverage.py SOURCE.rs TARGET.toml`. **Exits 1 if any
-  line is missing from any case, 0 otherwise** (round-2 review fix: the
-  script used to only print and never `sys.exit`, so it read as a pass in
-  any loop that checked its exit code even when it printed missing lines).
+  `python3 comment_coverage.py [--allow-empty] SOURCE.rs TARGET.toml`.
+  **Exits 1 if any line is missing from any case, 2 if it checked zero
+  non-divider comment lines, 0 otherwise** (round-2 review fix: the script
+  used to only print and never `sys.exit`, so it read as a pass in any loop
+  that checked its exit code even when it printed missing lines; Task 18
+  controller ruling 5, added by batch 3: exit 0 on "0 lines checked" was a
+  vacuous green, indistinguishable from real coverage, and most of the
+  remaining ~133 files carry no Rust comments at all, so that would have
+  become the normal unexamined result. `--allow-empty` is the explicit
+  acknowledgement, to be passed only after reading the source and confirming
+  it genuinely has no Rust comments).
   Deliberate scope limit, stated in the module docstring: it does not
   attempt per-helper attribution for a file with two distinct
   helper-produced comment blocks each covering a disjoint subset of cases

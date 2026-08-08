@@ -100,7 +100,16 @@ def check(rs_path, toml_path):
 
 
 def main() -> int:
-    rs, toml = sys.argv[1], sys.argv[2]
+    argv = sys.argv[1:]
+    allow_empty = False
+    if '--allow-empty' in argv:
+        allow_empty = True
+        argv = [a for a in argv if a != '--allow-empty']
+    if len(argv) != 2:
+        print("usage: comment_coverage.py [--allow-empty] SOURCE.rs TARGET.toml",
+              file=sys.stderr)
+        return 64  # EX_USAGE -- distinct from 1 (missing) and 2 (vacuous)
+    rs, toml = argv[0], argv[1]
     total, missing, n_cases = check(rs, toml)
     # Group by (line, text) so a comment paragraph missing from every case
     # isn't printed N times; report the case COUNT it's missing from instead.
@@ -119,7 +128,30 @@ def main() -> int:
     # report failures without ever calling sys.exit, so it always exited 0
     # -- a caller wiring it into a batch loop (as batches 2-8 will) would
     # read a red run as a pass. A checker that only reports is not a gate.
-    return 1 if by_line else 0
+    if by_line:
+        return 1
+    # FIXED (Task 18 controller ruling 5, added by batch 3): a run that
+    # checked ZERO non-divider comment lines used to exit 0, indistinguishable
+    # from a run that checked 40 lines and found them all covered. That is a
+    # vacuous green, and batches 3-8 are about to run this across ~133 files,
+    # most of which will legitimately have no Rust comments at all -- exactly
+    # the population in which "0 checked, exit 0" would silently become the
+    # normal, unexamined result. So an empty check is now a distinct nonzero
+    # exit (2), and a caller that has established by reading the source that
+    # the file genuinely carries no prose must say so explicitly with
+    # `--allow-empty`. Green then means "prose was checked and covered", and
+    # nothing else can produce it by accident.
+    if total == 0:
+        if allow_empty:
+            print("VACUOUS: 0 non-divider comment lines in the source; "
+                  "emptiness explicitly acknowledged via --allow-empty")
+            return 0
+        print("VACUOUS: 0 non-divider comment lines checked -- this is not "
+              "coverage. Confirm by reading the source that it truly carries "
+              "no Rust comments, then re-run with --allow-empty.",
+              file=sys.stderr)
+        return 2
+    return 0
 
 
 if __name__ == '__main__':
