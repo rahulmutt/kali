@@ -1,0 +1,311 @@
+# Migrated from tests/browser_array_from_frozen_set_map_constructor_result.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -n '^\s*//'`
+# finds nothing outside the JS fixture bodies' own `// kali-tree-shake:` markers,
+# which are program text, not Rust comments), so there is no prose to move
+# verbatim into `rationale` here.
+#
+# MATRIX ARITHMETIC (rule 7): all 14 #[test] fns funnel through exactly four
+# helpers (`assert_browser_check_array_from_frozen_set_map`,
+# `assert_browser_harness_array_from_frozen_set_map` for "run", the same
+# helper for "test", and `assert_browser_bundle_array_from_frozen_set_map`),
+# each called once per `(ext, json_output)` pair with an identical assertion
+# shape within its own helper. Enumerating every call site (expanding every
+# `for filename in [...]` loop):
+#   check:  1 (js) + 3 (ts/jsx/tsx loop) + 4 (json, all 4 loop)      =  8 calls
+#   run:    1 (js) + 3 (ts/jsx/tsx loop) + 4 (json, all 4 loop)      =  8 calls
+#   test:   1 (js) + 3 (ts/jsx/tsx loop) + 4 (json, all 4 loop)      =  8 calls
+#   build:  1(js,false)+1(js,true)+1(ts,false)+1(ts,true)
+#           + 2(jsx: false,true) + 2(tsx: false,true)                =  8 calls
+# Total 32 invocations = 8 case-groups (check/run/test/build x
+# json_output false/true) x ext(4) exactly -- matching the `[matrix]` fan
+# below exactly. `ext` is hoisted to a file-level [matrix] axis; the
+# `json_output` axis is NOT folded into matrix (each json_output value has a
+# structurally different assertion shape -- CLI-plain assertions vs a JSON
+# envelope), so it stays as separate named cases, matching the pilot's
+# `object_keys_harness.toml`/`frozen_set_map_constructor_result.toml`
+# convention: 14 #[test] fns collapse to 8 [[case]] entries, matrix-fanned to
+# 32 trials.
+#
+# `check` and `run` share the exact same underlying fixture body
+# (`browser_array_from_frozen_set_map_run_source`) and filename convention
+# (`main.${ext}`) in source -- both map to one shared `[source]` key here.
+# `test` uses a distinct `Kali.test(...)`-wrapped body and `smoke.test.${ext}`
+# filename; `build` uses a distinct `export async function ...` (bundle/
+# tree-shake) body and `app.${ext}` filename. Three distinct fixture bodies,
+# not four, matching the three distinct helper source-builder fns in the
+# .rs file.
+#
+# The nested-JSON `.contains()` claims on `json["stdout"]` (both `run` and
+# `test`, json_output mode) have no substring-assertion form in the case
+# format (`json` asserts exact leaf equality via dotted-path lookup, there is
+# no `json_contains`) -- resolved as a verified strengthening: the full,
+# live-captured stdout text was confirmed to equal the claimed literal
+# exactly (not merely contain it, confirmed directly against the real
+# binary), so pinning `json.stdout` to that exact text is strictly stronger
+# than source's own `.contains()` check, not a fabrication.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """async function browserArrayFromFrozenSetMapWrappers() {
+  const setValues = [1, 2, 1];
+  const mapValues = [[1, 2], [1, 3], [4, 5]];
+  for (const value of Array.from(Object.freeze(new Set(setValues)))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze(new globalThis["Set"](setValues)))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze(new globalThis['Set'](setValues)))) {
+    console.log(value);
+  }
+  for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze((null ?? new Set(setValues))))) {
+    console.log(value);
+  }
+  for await (const value of Array.from(Object.freeze((false || new Set(setValues))))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze((new (true && Set)(setValues))))) {
+    console.log(value);
+  }
+  for (const entry of Array.from(Object.freeze(new Map(mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze(new globalThis['Map'](mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze(new globalThis["Map"](mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Array.from(Object.freeze((new Map(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze((null ?? new Map(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Array.from(Object.freeze((false || new Map(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze((new (true && Map)(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+
+browserArrayFromFrozenSetMapWrappers();
+"""
+"smoke.test.${ext}" = """Kali.test('array.from frozen set/map constructor results', () => {
+  async function browserArrayFromFrozenSetMapWrappers() {
+    const setValues = [1, 2, 1];
+    const mapValues = [[1, 2], [1, 3], [4, 5]];
+    for (const value of Array.from(Object.freeze(new Set(setValues)))) {
+      console.log(value);
+    }
+    for (const value of Array.from(Object.freeze(new globalThis["Set"](setValues)))) {
+      console.log(value);
+    }
+    for (const value of Array.from(Object.freeze(new globalThis['Set'](setValues)))) {
+      console.log(value);
+    }
+    for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
+      console.log(value);
+    }
+    for (const value of Array.from(Object.freeze((null ?? new Set(setValues))))) {
+      console.log(value);
+    }
+    for await (const value of Array.from(Object.freeze((false || new Set(setValues))))) {
+      console.log(value);
+    }
+    for (const value of Array.from(Object.freeze((new (true && Set)(setValues))))) {
+      console.log(value);
+    }
+    for (const entry of Array.from(Object.freeze(new Map(mapValues)))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of Array.from(Object.freeze(new globalThis['Map'](mapValues)))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of Array.from(Object.freeze(new globalThis["Map"](mapValues)))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Array.from(Object.freeze((new Map(mapValues))))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of Array.from(Object.freeze((null ?? new Map(mapValues))))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Array.from(Object.freeze((false || new Map(mapValues))))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of Array.from(Object.freeze((new (true && Map)(mapValues))))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+  }
+
+  return browserArrayFromFrozenSetMapWrappers();
+});
+"""
+"app.${ext}" = """// kali-tree-shake: browserArrayFromFrozenSetMapWrappers
+export async function browserArrayFromFrozenSetMapWrappers() {
+  const setValues = [1, 2, 1];
+  const mapValues = [[1, 2], [1, 3], [4, 5]];
+  for (const value of Array.from(Object.freeze(new Set(setValues)))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze(new globalThis["Set"](setValues)))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze(new globalThis['Set'](setValues)))) {
+    console.log(value);
+  }
+  for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze((null ?? new Set(setValues))))) {
+    console.log(value);
+  }
+  for await (const value of Array.from(Object.freeze((false || new Set(setValues))))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze((new (true && Set)(setValues))))) {
+    console.log(value);
+  }
+  for (const entry of Array.from(Object.freeze(new Map(mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze(new globalThis['Map'](mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze(new globalThis["Map"](mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Array.from(Object.freeze((new Map(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze((null ?? new Map(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Array.from(Object.freeze((false || new Map(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze((new (true && Map)(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+"""
+
+[[case]]
+name = "check_supports_array_from_frozen_set_map_constructor_results"
+rationale = """Migrated from browser_array_from_frozen_set_map_constructor_result.rs. `assert_browser_check_array_from_frozen_set_map` runs `kali check --api browser` and, in non-json mode, only asserts a clean exit and empty stderr. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 14 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["check", "--api", "browser", "main.${ext}"]
+exit = "success"
+stderr = ""
+
+[[case]]
+name = "json_check_supports_array_from_frozen_set_map_constructor_results"
+rationale = """Migrated from browser_array_from_frozen_set_map_constructor_result.rs. `assert_browser_check_array_from_frozen_set_map` runs `kali check --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/exitCode/payload fields, that `errors`/`warnings` are empty, and that `stdout`/`stderr` are JSON null. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 14 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["check", "--api", "browser", "--output", "json", "main.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "check", success = true, exitCode = 0, payload = { errorCount = 0, filesChecked = 1, warningCount = 0 }, errors = [], warnings = [] }
+json_null = ["stdout", "stderr"]
+
+[[case]]
+name = "run_supports_array_from_frozen_set_map_constructor_results"
+rationale = """Migrated from browser_array_from_frozen_set_map_constructor_result.rs. `assert_browser_harness_array_from_frozen_set_map("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit, that stdout contains the full frozen Set/Map constructor iteration output, and that stderr is exactly empty. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 14 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"]
+stderr = ""
+
+[[case]]
+name = "json_run_supports_array_from_frozen_set_map_constructor_results"
+rationale = """Migrated from browser_array_from_frozen_set_map_constructor_result.rs. `assert_browser_harness_array_from_frozen_set_map("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (hostContract, runtimeBackend, threadTopology, exitCode) fields, that `errors` is empty, that `stderr` is exactly empty, and that `json["stdout"]` contains the full frozen Set/Map constructor iteration output. That last claim has no substring-assertion form for a nested `json` leaf in this case-file format (only exact equality), so it is resolved as a verified strengthening: the real binary's full live stdout was confirmed to equal the claimed literal exactly, not merely contain it, so pinning `json.stdout` to that exact text is strictly stronger than source's own `.contains()` check. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 14 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", threadTopology = { totalInstances = 0, terminatedInstances = 0, liveInstances = [] }, exitCode = 0 }, stdout = "1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "test_supports_array_from_frozen_set_map_constructor_results"
+rationale = """Migrated from browser_array_from_frozen_set_map_constructor_result.rs. `assert_browser_harness_array_from_frozen_set_map("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit, that stdout contains the full frozen Set/Map constructor iteration output plus `ok 1`, and that stderr is exactly empty. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 14 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n", "ok 1"]
+stderr = ""
+
+[[case]]
+name = "json_test_supports_array_from_frozen_set_map_constructor_results"
+rationale = """Migrated from browser_array_from_frozen_set_map_constructor_result.rs. `assert_browser_harness_array_from_frozen_set_map("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend, threadTopology, total, passed, failed) fields, that `errors` is empty, that `stderr` is exactly empty, and that `json["stdout"]` contains the full frozen Set/Map constructor iteration output. That last claim has no substring-assertion form for a nested `json` leaf in this case-file format (only exact equality), so it is resolved as a verified strengthening: the real binary's full live stdout was confirmed to equal the claimed literal exactly, not merely contain it, so pinning `json.stdout` to that exact text is strictly stronger than source's own `.contains()` check. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 14 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", threadTopology = { totalInstances = 0, terminatedInstances = 0, liveInstances = [] }, total = 1, passed = 1, failed = 0 }, stdout = "1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "build_emits_array_from_frozen_set_map_constructor_results"
+rationale = """Migrated from browser_array_from_frozen_set_map_constructor_result.rs. `assert_browser_bundle_array_from_frozen_set_map` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata (apiSurface, artifactKind), then runs the bundle glue under the browser-bundle-harness contract and checks that the harness's stdout contains the full frozen Set/Map constructor iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 14 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserArrayFromFrozenSetMapWrappers();
+"""
+stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"]
+
+[[case]]
+name = "json_build_emits_array_from_frozen_set_map_constructor_results"
+rationale = """Migrated from browser_array_from_frozen_set_map_constructor_result.rs. `assert_browser_bundle_array_from_frozen_set_map` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app/app.meta.json` metadata (apiSurface, artifactKind), then runs the bundle glue under the browser-bundle-harness contract and checks that the harness's stdout contains the full frozen Set/Map constructor iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 14 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserArrayFromFrozenSetMapWrappers();
+"""
+stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"]

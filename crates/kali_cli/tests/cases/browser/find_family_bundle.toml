@@ -1,0 +1,70 @@
+# Migrated from tests/browser_find_family_bundle.rs.
+#
+# `browser_bundle_find_family_js_source()` and `..._ts_source()` are
+# byte-identical text (both build the same JS body), so a single shared
+# `[source]` entry per extension is used rather than two separately-tracked
+# fixtures.
+#
+# Matrix arithmetic: all 8 #[test] fns are individual, unlooped calls to
+# `assert_browser_bundle_find_family(filename, json_output, source)` -- 4
+# call `..."app.<ext>", false, ...` (one per ext), 4 call
+# `..."app.<ext>", true, ...`. 8 #[test] fns -> 2 [[case]] entries
+# (non-json, json), matrix-fanned by `ext(4)` to 8 trials, matching the 8
+# real invocations exactly.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserFindFamily
+async function browserFindFamily() {
+  console.log([0, 1, 2].find((value) => value > 1));
+  console.log([0, 1, 2].findIndex((value) => value > 1));
+  console.log([0, 1, 2, 3].findLast((value) => value > 1));
+  console.log([0, 1, 2, 3].findLastIndex((value) => value > 1));
+  console.log('browser find family ok');
+}
+"""
+
+[[case]]
+name = "build_emits_browser_find_family"
+rationale = """Migrated from browser_find_family_bundle.rs."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserFindFamily();
+"""
+stdout_contains = ["browser find family ok"]
+
+[[case]]
+name = "json_build_emits_browser_find_family"
+rationale = """Migrated from browser_find_family_bundle.rs."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserFindFamily();
+"""
+stdout_contains = ["browser find family ok"]

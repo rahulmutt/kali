@@ -1,0 +1,86 @@
+# Migrated from tests/browser_bundle_cjs_source_classes.rs.
+#
+# Matrix arithmetic: all 8 #[test] fns are individual, unlooped calls to
+# `assert_browser_bundle_cjs_source_class(filename, inherited)` -- grouped by
+# `inherited` (false/true), each group covers `ext(4) = js/ts/jsx/tsx`
+# exactly once. 8 #[test] fns -> 2 [[case]] entries (inherited=false,
+# inherited=true), matrix-fanned by `ext(4)` to 8 trials, matching the 8 real
+# invocations exactly.
+#
+# The format has no step kind that reads an arbitrary on-disk text file and
+# asserts `.contains()` on its raw content (`file_json` only parses JSON), so
+# the `app.cjs` glue-text checks (`module.exports = exported`,
+# `sourceMappingURL=app.cjs.map`) use a `browser_bundle_harness` step whose
+# `body` reads the file via the node `fs`/`fileURLToPath` bindings the
+# harness prelude already imports and echoes it to stdout for
+# `stdout_contains` -- a legitimate use of the existing format, verified
+# directly against the real binary. The source map and metadata files ARE
+# JSON, so those use `file_json` steps as usual.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = "// kali-tree-shake: greet\nfunction greet(name) { return name; }\n"
+"kali.json" = """{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"""
+
+[[case]]
+name = "build_emits_browser_bundle_cjs_artifacts"
+rationale = """Migrated from browser_bundle_cjs_source_classes.rs."""
+
+[[case.step]]
+args = ["--output", "json", "build", "--bundle", "--format", "cjs", "--api", "browser", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "cjs" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.cjs.map"
+fields = { version = 3, file = "app.cjs", sources = { "0" = "app.${ext}" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const glueUrl = new URL('./app/app.cjs', import.meta.url);
+const js = await fs.readFile(fileURLToPath(glueUrl), 'utf8');
+console.log(js);
+"""
+stdout_contains = ["module.exports = exported", "sourceMappingURL=app.cjs.map"]
+
+[[case]]
+name = "json_build_emits_inherited_browser_bundle_cjs_artifacts"
+rationale = """Migrated from browser_bundle_cjs_source_classes.rs. The `--api browser` flag is omitted from the CLI invocation here; a `kali.json` manifest with `compilerOptions.apiSurface = "browser"` in the trial directory supplies it instead, exercising manifest-inherited API-surface resolution rather than an explicit flag."""
+
+[[case.step]]
+args = ["--output", "json", "build", "--bundle", "--format", "cjs", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "cjs" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.cjs.map"
+fields = { version = 3, file = "app.cjs", sources = { "0" = "app.${ext}" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const glueUrl = new URL('./app/app.cjs', import.meta.url);
+const js = await fs.readFile(fileURLToPath(glueUrl), 'utf8');
+console.log(js);
+"""
+stdout_contains = ["module.exports = exported", "sourceMappingURL=app.cjs.map"]

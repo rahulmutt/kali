@@ -1,0 +1,452 @@
+# Migrated from tests/browser_for_await_object_string_enumeration_browser_smoke.rs.
+#
+# 32 #[test] fns, two distinct helper/fixture pairs, each producing 16 fns:
+#
+#   * `assert_browser_for_await_object_string_enumeration_sequence_wrappers_support`
+#     ("Group A" below) writes `browser_for_await_object_string_enumeration_
+#     sequence_wrappers_source()` (assert-FUNCTION-routed collectors) and always
+#     runs `kali build --bundle --api browser [--output json] <path>` -- its
+#     first parameter is literally named `_command` and never read, so the
+#     `check_*`-named and `build_*`-named #[test] fns produce byte-identical
+#     invocations (see the per-case rationale). Source's only assertion is
+#     `assert!(!output.status.success())` -- fail closed.
+#   * `assert_browser_for_await_object_string_enumeration_support` ("Group B"
+#     below) writes `browser_for_await_object_string_enumeration_source()`
+#     (inline-assert collectors) and runs `kali <command> --api browser
+#     [--bundle] [--output json] <path>`, `command` genuinely driving both the
+#     `--bundle` flag and the echoed `json["command"]` value. Source asserts
+#     `output.status.success()` unconditionally, plus (json mode only)
+#     `json["schemaVersion"] == 1`, `json["command"] == command`,
+#     `json["success"] == true`, `json["errors"]` is an empty array -- the
+#     `command == "build"` early-return branch and the fallthrough branch
+#     duplicate this exact same check, so it is one assertion shape regardless
+#     of `check`/`build`.
+#
+# MATRIX ARITHMETIC (rule 7): both groups are, independently, exactly
+# command(2) x json_output(2) x ext(4) = 16 real invocations (verified live
+# against the real kali binary for every one of the 4 extensions, in both
+# output modes, for both fixture bodies -- see `kali_run.py` transcript in
+# the task report/agent notes). `ext` is the only axis genuinely uniform
+# across every one of this file's 8 named cases (Group A's 4 + Group B's 4),
+# so it alone is hoisted to a file-level [matrix]; `command`/`json_output`
+# change the argv shape and/or the assertion shape itself (an extra `json`
+# table only when `--output json` is passed, an extra `--bundle` flag only
+# for Group B's `build`), which `expand.rs`'s uniform `${...}` substitution
+# cannot express conditionally, so they are named sibling [[case]] entries
+# instead, per this format's own doc comment ("variation that changes
+# assertions... belongs in sibling [[case]] blocks, not here"). 8 named
+# cases x ext(4) = 32 trials, matching this file's 32 #[test] fns exactly,
+# 1:1 with no fn folded into another (Group A's `check_*`/`build_*` pairs are
+# argument-for-argument identical invocations because of the `_command`
+# quirk above, but are kept as separate [[case]] entries rather than folded,
+# per rule 6, precisely because they correspond to two distinct #[test] fns).
+#
+# format!: none in this file (confirmed: `grep -n 'format!'` finds zero
+# hits) -- both fixture bodies are plain (non-`format!`) raw string literals,
+# copied byte-for-byte from source into [source] below.
+#
+# Genuine JS template literals (`${...}`, rule 10): none in either fixture
+# body (confirmed: `grep -n '\${'` over the whole source file finds zero
+# hits) -- `[constants] dollar` is not needed here.
+#
+# Stream-mapping (rule 2/11): no `.contains()`/`.matches()` call of any kind
+# anywhere in this source file (confirmed: `grep -n '\.contains('` finds
+# zero hits) -- every claim is either an exit-status check or a JSON
+# key/value equality (schemaVersion/command/success/errors), so the
+# stream-mirroring question this rule exists for never arises in this file.
+#
+# [source] filename disambiguation (rule 8): both fixture bodies write to a
+# bare `app.<ext>` in source (each #[test] gets its own private tempdir, so
+# the collision is invisible there). This file's flat, file-wide [source]
+# table cannot hold two different bodies under one key, so Group A's entry
+# is renamed `app_sequence_wrappers.${ext}` (Group B keeps the unrenamed
+# `app.${ext}`). Confirmed safe: neither fixture body references its own
+# filename anywhere in its own text (no `import()`/`require()`/self-string
+# read), so this rename changes no claim.
+#
+# Comment coverage (this file's two distinct helper-produced comment
+# blocks, each covering a disjoint 16-fn subset -- the exact shape
+# `comment_coverage.py`'s own docstring flags as unsupported for
+# per-helper attribution, and which the Task 18 pilot report's "Deferred"
+# section names explicitly as a batch-2-8 risk): house style is bottom-up
+# attribution (a comment belongs in every case the commenting code's own
+# producing helper reaches, not every case in the file), so block (1) below
+# (attached to `browser_for_await_object_string_enumeration_source`, Group
+# B's fixture builder) is carried into Group B's 4 cases only, and block (2)
+# (inside Group A's `..._sequence_wrappers_support` helper) is carried into
+# Group A's 4 cases only -- confirmed correct against the source by reading
+# exactly which fn/helper each comment is attached to (block (1) sits
+# directly above `browser_for_await_object_string_enumeration_source`, block
+# (2) sits inside `assert_browser_for_await_..._sequence_wrappers_support`;
+# neither text appears near or applies to the other helper). This means
+# `python3 tools/task-18-browser-pilot/comment_coverage.py <this .rs> <this
+# .toml>` reports both blocks MISSING from the other group's 4 cases (17
+# lines x 4/8 cases each) -- a KNOWN, VERIFIED false positive: the checker
+# does not attempt per-helper attribution (its own docstring says so), and
+# an earlier draft of this file worked around it by copying both blocks into
+# all 8 cases, which was reverted (over-attribution -- 4 cases would have
+# carried prose describing a fixture/helper they don't use, the same stale-
+# prose failure mode Task 18 pilot review round 2's Blocker A was raised
+# for). This exit-1 report is expected and correct for this file; do not
+# "fix" it by re-duplicating the prose.
+#
+# The two source comment blocks, reproduced verbatim here for reference
+# (see every case's own `rationale` for where they are actually checked):
+#
+# (1) Doc comment above `browser_for_await_object_string_enumeration_source`:
+# Throw-fallout Stage 4 Task 6 adjudication (fake-green flip, coordinator-ruled Option B): this fixture used to pass its pushed collectors to assert helper FUNCTIONS (`assertObjectKeysIteration(keys)` — a call-argument escape). That compiled only because `.push` was a silent no-op (the collectors stayed length 0, so the program would have thrown at runtime — these build/check tests never ran it). Task 6's fail-closed reject (E5506 for a growable-shape push receiver in an unsupported position) correctly rejects that shape, so the asserts are now INLINED at each collector (length + index-read string guards — all safe growable positions), and the collectors legitimately promote to the real growable lane with node-parity runtime semantics (verified byte-for-byte on a runnable replica). The `entries` collectors keep length-only guards: their elements are ARRAYS (`[k, v]`), which the growable lane's element surface does not support reading back — any `entry[0]` read anywhere in the function marks `entry` as an array binding and fail-closes every `entries.push(entry)` (E5506, unsupported element).
+#
+# (2) Comment inside `assert_browser_for_await_object_string_enumeration_
+# sequence_wrappers_support`:
+# Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """export async function browserObjectStringEnumerationAwait() {
+  const keys = [];
+  for await (const key of Object.keys('ab')) {
+    keys.push(key);
+  }
+  if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+  const globalKeys = [];
+  for await (const key of globalThis.Object.keys('ab')) {
+    globalKeys.push(key);
+  }
+  if (globalKeys.length !== 2 || globalKeys[0] !== '0' || globalKeys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+  const mixedKeys = [];
+  for await (const key of globalThis.Object["keys"]('ab')) {
+    mixedKeys.push(key);
+  }
+  if (mixedKeys.length !== 2 || mixedKeys[0] !== '0' || mixedKeys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+  const bracketedKeys = [];
+  for await (const key of globalThis["Object"].keys('ab')) {
+    bracketedKeys.push(key);
+  }
+  if (bracketedKeys.length !== 2 || bracketedKeys[0] !== '0' || bracketedKeys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+  const fullyBracketedKeys = [];
+  for await (const key of globalThis["Object"]["keys"]('ab')) {
+    fullyBracketedKeys.push(key);
+  }
+  if (fullyBracketedKeys.length !== 2 || fullyBracketedKeys[0] !== '0' || fullyBracketedKeys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+  const singleBracketedKeys = [];
+  for await (const key of globalThis['Object']['keys']('ab')) {
+    singleBracketedKeys.push(key);
+  }
+  if (singleBracketedKeys.length !== 2 || singleBracketedKeys[0] !== '0' || singleBracketedKeys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [];
+  for await (const key of Object.freeze((globalThis['Object']).keys)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyKeys.push(key);
+  }
+
+  const values = [];
+  for await (const value of Object.values('ab')) {
+    values.push(value);
+  }
+  if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+  const globalValues = [];
+  for await (const value of globalThis.Object.values('ab')) {
+    globalValues.push(value);
+  }
+  if (globalValues.length !== 2 || globalValues[0] !== 'a' || globalValues[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+  const mixedValues = [];
+  for await (const value of globalThis.Object["values"]('ab')) {
+    mixedValues.push(value);
+  }
+  if (mixedValues.length !== 2 || mixedValues[0] !== 'a' || mixedValues[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+  const bracketedValues = [];
+  for await (const value of globalThis["Object"].values('ab')) {
+    bracketedValues.push(value);
+  }
+  if (bracketedValues.length !== 2 || bracketedValues[0] !== 'a' || bracketedValues[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+  const fullyBracketedValues = [];
+  for await (const value of globalThis["Object"]["values"]('ab')) {
+    fullyBracketedValues.push(value);
+  }
+  if (fullyBracketedValues.length !== 2 || fullyBracketedValues[0] !== 'a' || fullyBracketedValues[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+  const singleBracketedValues = [];
+  for await (const value of globalThis['Object']['values']('ab')) {
+    singleBracketedValues.push(value);
+  }
+  if (singleBracketedValues.length !== 2 || singleBracketedValues[0] !== 'a' || singleBracketedValues[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+  const parenthesizedSingleQuotedReceiverPropertyValues = [];
+  for await (const value of Object.freeze((globalThis['Object']).values)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyValues.push(value);
+  }
+
+  const entries = [];
+  for await (const entry of Object.entries('ab')) {
+    entries.push(entry);
+  }
+  if (entries.length !== 2) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+  const globalEntries = [];
+  for await (const entry of globalThis.Object.entries('ab')) {
+    globalEntries.push(entry);
+  }
+  if (globalEntries.length !== 2) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+  const mixedEntries = [];
+  for await (const entry of globalThis.Object["entries"]('ab')) {
+    mixedEntries.push(entry);
+  }
+  if (mixedEntries.length !== 2) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+  const bracketedEntries = [];
+  for await (const entry of globalThis["Object"].entries('ab')) {
+    bracketedEntries.push(entry);
+  }
+  if (bracketedEntries.length !== 2) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+  const fullyBracketedEntries = [];
+  for await (const entry of globalThis["Object"]["entries"]('ab')) {
+    fullyBracketedEntries.push(entry);
+  }
+  if (fullyBracketedEntries.length !== 2) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+  const singleBracketedEntries = [];
+  for await (const entry of globalThis['Object']['entries']('ab')) {
+    singleBracketedEntries.push(entry);
+  }
+  if (singleBracketedEntries.length !== 2) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+  const parenthesizedSingleQuotedReceiverPropertyEntries = [];
+  for await (const entry of Object.freeze((globalThis['Object']).entries)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyEntries.push(entry);
+  }
+  console.log("replica ok");
+}
+"""
+"app_sequence_wrappers.${ext}" = """// kali-tree-shake: browserObjectStringEnumerationAwaitSequenceWrappers
+async function browserObjectStringEnumerationAwaitSequenceWrappers() {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+      throw new Error('unexpected Object.keys string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectValuesIteration(values) {
+    if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+      throw new Error('unexpected Object.values string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== '0' ||
+      entries[0][1] !== 'a' ||
+      entries[1][0] !== '1' ||
+      entries[1][1] !== 'b'
+    ) {
+      throw new Error('unexpected Object.entries string-primitive iteration semantics');
+    }
+  }
+
+  const keys = [];
+  for await (const key of (0, Object.keys('ab'))) {
+    keys.push(key);
+  }
+  const globalKeys = [];
+  for await (const key of (0, globalThis.Object.keys('ab'))) {
+    globalKeys.push(key);
+  }
+  const mixedKeys = [];
+  for await (const key of (0, globalThis.Object["keys"]('ab'))) {
+    mixedKeys.push(key);
+  }
+  const bracketedKeys = [];
+  for await (const key of (0, globalThis["Object"].keys('ab'))) {
+    bracketedKeys.push(key);
+  }
+  const fullyBracketedKeys = [];
+  for await (const key of (0, globalThis["Object"]["keys"]('ab'))) {
+    fullyBracketedKeys.push(key);
+  }
+  const singleBracketedKeys = [];
+  for await (const key of (0, globalThis['Object']['keys']('ab'))) {
+    singleBracketedKeys.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [];
+  for await (const key of (0, Object.freeze((globalThis['Object']).keys)('ab'))) {
+    parenthesizedSingleQuotedReceiverPropertyKeys.push(key);
+  }
+
+  const values = [];
+  for await (const value of (0, Object.values('ab'))) {
+    values.push(value);
+  }
+  const globalValues = [];
+  for await (const value of (0, globalThis.Object.values('ab'))) {
+    globalValues.push(value);
+  }
+  const mixedValues = [];
+  for await (const value of (0, globalThis.Object["values"]('ab'))) {
+    mixedValues.push(value);
+  }
+  const bracketedValues = [];
+  for await (const value of (0, globalThis["Object"].values('ab'))) {
+    bracketedValues.push(value);
+  }
+  const fullyBracketedValues = [];
+  for await (const value of (0, globalThis["Object"]["values"]('ab'))) {
+    fullyBracketedValues.push(value);
+  }
+  const singleBracketedValues = [];
+  for await (const value of (0, globalThis['Object']['values']('ab'))) {
+    singleBracketedValues.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyValues = [];
+  for await (const value of (0, Object.freeze((globalThis['Object']).values)('ab'))) {
+    parenthesizedSingleQuotedReceiverPropertyValues.push(value);
+  }
+
+  const entries = [];
+  for await (const entry of (0, Object.entries('ab'))) {
+    entries.push(entry);
+  }
+  const globalEntries = [];
+  for await (const entry of (0, globalThis.Object.entries('ab'))) {
+    globalEntries.push(entry);
+  }
+  const mixedEntries = [];
+  for await (const entry of (0, globalThis.Object["entries"]('ab'))) {
+    mixedEntries.push(entry);
+  }
+  const bracketedEntries = [];
+  for await (const entry of (0, globalThis["Object"].entries('ab'))) {
+    bracketedEntries.push(entry);
+  }
+  const fullyBracketedEntries = [];
+  for await (const entry of (0, globalThis["Object"]["entries"]('ab'))) {
+    fullyBracketedEntries.push(entry);
+  }
+  const singleBracketedEntries = [];
+  for await (const entry of (0, globalThis['Object']['entries']('ab'))) {
+    singleBracketedEntries.push(entry);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyEntries = [];
+  for await (const entry of (0, Object.freeze((globalThis['Object']).entries)('ab'))) {
+    parenthesizedSingleQuotedReceiverPropertyEntries.push(entry);
+  }
+
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(fullyBracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(globalValues);
+  assertObjectValuesIteration(mixedValues);
+  assertObjectValuesIteration(bracketedValues);
+  assertObjectValuesIteration(fullyBracketedValues);
+  assertObjectValuesIteration(singleBracketedValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(fullyBracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+  console.log('1');
+  console.log('2');
+}
+"""
+
+[[case]]
+name = "check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context"
+rationale = """Migrated from browser_for_await_object_string_enumeration_browser_smoke.rs, `assert_browser_for_await_object_string_enumeration_sequence_wrappers_support`. Writes `browser_for_await_object_string_enumeration_sequence_wrappers_source()` (the same `for await` enumeration walk over `Object.keys`/`Object.values`/`Object.entries` applied to the string primitive `'ab'`, but routed through three shared assert-FUNCTIONS -- `assertObjectKeysIteration`/`assertObjectValuesIteration`/`assertObjectEntriesIteration` -- called after every collector, with each receiver wrapped in a comma-expression `(0, ...)` to defeat direct-call optimization) to `app_sequence_wrappers.${ext}` (renamed from source's bare `app.${ext}`/`app.ts`/`app.jsx`/`app.tsx` to disambiguate this file's second, distinct [source] fixture body -- the fixture never references its own filename internally, so the rename changes no claim). This helper's first parameter is named `_command` (underscore-prefixed, never read anywhere in the fn body) -- the constructed `Command` always runs `build --bundle --api browser`, regardless of whether the calling #[test] fn's name says `check_*` or `build_*`. This is a genuine quirk in the source .rs file, not a migration artifact: the `check_*`-named and `build_*`-named case pairs below are therefore literally identical invocations (same args, same assertion), each kept as its own [[case]] to preserve a 1:1 mapping to its corresponding source #[test] fn rather than folding two fns into one case (rule 6). Source's only assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked, and `--output json` does not change that shape.
+
+Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."""
+args = ["build", "--bundle", "--api", "browser", "app_sequence_wrappers.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context"
+rationale = """Migrated from browser_for_await_object_string_enumeration_browser_smoke.rs, `assert_browser_for_await_object_string_enumeration_sequence_wrappers_support`. Writes `browser_for_await_object_string_enumeration_sequence_wrappers_source()` (the same `for await` enumeration walk over `Object.keys`/`Object.values`/`Object.entries` applied to the string primitive `'ab'`, but routed through three shared assert-FUNCTIONS -- `assertObjectKeysIteration`/`assertObjectValuesIteration`/`assertObjectEntriesIteration` -- called after every collector, with each receiver wrapped in a comma-expression `(0, ...)` to defeat direct-call optimization) to `app_sequence_wrappers.${ext}` (renamed from source's bare `app.${ext}`/`app.ts`/`app.jsx`/`app.tsx` to disambiguate this file's second, distinct [source] fixture body -- the fixture never references its own filename internally, so the rename changes no claim). This helper's first parameter is named `_command` (underscore-prefixed, never read anywhere in the fn body) -- the constructed `Command` always runs `build --bundle --api browser`, regardless of whether the calling #[test] fn's name says `check_*` or `build_*`. This is a genuine quirk in the source .rs file, not a migration artifact: the `check_*`-named and `build_*`-named case pairs below are therefore literally identical invocations (same args, same assertion), each kept as its own [[case]] to preserve a 1:1 mapping to its corresponding source #[test] fn rather than folding two fns into one case (rule 6). Source's only assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked, and `--output json` does not change that shape.
+
+Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_sequence_wrappers.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context"
+rationale = """Migrated from browser_for_await_object_string_enumeration_browser_smoke.rs, `assert_browser_for_await_object_string_enumeration_sequence_wrappers_support`. Writes `browser_for_await_object_string_enumeration_sequence_wrappers_source()` (the same `for await` enumeration walk over `Object.keys`/`Object.values`/`Object.entries` applied to the string primitive `'ab'`, but routed through three shared assert-FUNCTIONS -- `assertObjectKeysIteration`/`assertObjectValuesIteration`/`assertObjectEntriesIteration` -- called after every collector, with each receiver wrapped in a comma-expression `(0, ...)` to defeat direct-call optimization) to `app_sequence_wrappers.${ext}` (renamed from source's bare `app.${ext}`/`app.ts`/`app.jsx`/`app.tsx` to disambiguate this file's second, distinct [source] fixture body -- the fixture never references its own filename internally, so the rename changes no claim). This helper's first parameter is named `_command` (underscore-prefixed, never read anywhere in the fn body) -- the constructed `Command` always runs `build --bundle --api browser`, regardless of whether the calling #[test] fn's name says `check_*` or `build_*`. This is a genuine quirk in the source .rs file, not a migration artifact: the `check_*`-named and `build_*`-named case pairs below are therefore literally identical invocations (same args, same assertion), each kept as its own [[case]] to preserve a 1:1 mapping to its corresponding source #[test] fn rather than folding two fns into one case (rule 6). Source's only assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked, and `--output json` does not change that shape.
+
+Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."""
+args = ["build", "--bundle", "--api", "browser", "app_sequence_wrappers.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context"
+rationale = """Migrated from browser_for_await_object_string_enumeration_browser_smoke.rs, `assert_browser_for_await_object_string_enumeration_sequence_wrappers_support`. Writes `browser_for_await_object_string_enumeration_sequence_wrappers_source()` (the same `for await` enumeration walk over `Object.keys`/`Object.values`/`Object.entries` applied to the string primitive `'ab'`, but routed through three shared assert-FUNCTIONS -- `assertObjectKeysIteration`/`assertObjectValuesIteration`/`assertObjectEntriesIteration` -- called after every collector, with each receiver wrapped in a comma-expression `(0, ...)` to defeat direct-call optimization) to `app_sequence_wrappers.${ext}` (renamed from source's bare `app.${ext}`/`app.ts`/`app.jsx`/`app.tsx` to disambiguate this file's second, distinct [source] fixture body -- the fixture never references its own filename internally, so the rename changes no claim). This helper's first parameter is named `_command` (underscore-prefixed, never read anywhere in the fn body) -- the constructed `Command` always runs `build --bundle --api browser`, regardless of whether the calling #[test] fn's name says `check_*` or `build_*`. This is a genuine quirk in the source .rs file, not a migration artifact: the `check_*`-named and `build_*`-named case pairs below are therefore literally identical invocations (same args, same assertion), each kept as its own [[case]] to preserve a 1:1 mapping to its corresponding source #[test] fn rather than folding two fns into one case (rule 6). Source's only assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked, and `--output json` does not change that shape.
+
+Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_sequence_wrappers.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "check_supports_for_await_object_string_enumeration_in_browser_analysis_context"
+rationale = """Migrated from browser_for_await_object_string_enumeration_browser_smoke.rs, `assert_browser_for_await_object_string_enumeration_support`. Writes `browser_for_await_object_string_enumeration_source()` (a `for await` walk over `Object.keys`/`Object.values`/`Object.entries` applied to the string primitive `'ab'`, exercised through direct/global/mixed/bracketed/fully-bracketed/single-bracketed/parenthesized-property-access call shapes, with inline `throw`-guarded length/index assertions on each collector) to `app.${ext}` and runs `kali <command> --api browser [--bundle] [--output json] app.${ext}`. Source asserts `output.status.success()` unconditionally, and (only when `--output json` is passed) `json["schemaVersion"] == 1`, `json["command"] == command`, `json["success"] == true`, and `json["errors"]` is an empty array -- identical logic duplicated in both the `command == "build"` early-return branch and the fallthrough branch, so this is one assertion shape regardless of `check`/`build`.
+
+Throw-fallout Stage 4 Task 6 adjudication (fake-green flip, coordinator-ruled Option B): this fixture used to pass its pushed collectors to assert helper FUNCTIONS (`assertObjectKeysIteration(keys)` — a call-argument escape). That compiled only because `.push` was a silent no-op (the collectors stayed length 0, so the program would have thrown at runtime — these build/check tests never ran it). Task 6's fail-closed reject (E5506 for a growable-shape push receiver in an unsupported position) correctly rejects that shape, so the asserts are now INLINED at each collector (length + index-read string guards — all safe growable positions), and the collectors legitimately promote to the real growable lane with node-parity runtime semantics (verified byte-for-byte on a runnable replica). The `entries` collectors keep length-only guards: their elements are ARRAYS (`[k, v]`), which the growable lane's element surface does not support reading back — any `entry[0]` read anywhere in the function marks `entry` as an array binding and fail-closes every `entries.push(entry)` (E5506, unsupported element)."""
+args = ["check", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case]]
+name = "json_check_supports_for_await_object_string_enumeration_in_browser_analysis_context"
+rationale = """Migrated from browser_for_await_object_string_enumeration_browser_smoke.rs, `assert_browser_for_await_object_string_enumeration_support`. Writes `browser_for_await_object_string_enumeration_source()` (a `for await` walk over `Object.keys`/`Object.values`/`Object.entries` applied to the string primitive `'ab'`, exercised through direct/global/mixed/bracketed/fully-bracketed/single-bracketed/parenthesized-property-access call shapes, with inline `throw`-guarded length/index assertions on each collector) to `app.${ext}` and runs `kali <command> --api browser [--bundle] [--output json] app.${ext}`. Source asserts `output.status.success()` unconditionally, and (only when `--output json` is passed) `json["schemaVersion"] == 1`, `json["command"] == command`, `json["success"] == true`, and `json["errors"]` is an empty array -- identical logic duplicated in both the `command == "build"` early-return branch and the fallthrough branch, so this is one assertion shape regardless of `check`/`build`.
+
+Throw-fallout Stage 4 Task 6 adjudication (fake-green flip, coordinator-ruled Option B): this fixture used to pass its pushed collectors to assert helper FUNCTIONS (`assertObjectKeysIteration(keys)` — a call-argument escape). That compiled only because `.push` was a silent no-op (the collectors stayed length 0, so the program would have thrown at runtime — these build/check tests never ran it). Task 6's fail-closed reject (E5506 for a growable-shape push receiver in an unsupported position) correctly rejects that shape, so the asserts are now INLINED at each collector (length + index-read string guards — all safe growable positions), and the collectors legitimately promote to the real growable lane with node-parity runtime semantics (verified byte-for-byte on a runnable replica). The `entries` collectors keep length-only guards: their elements are ARRAYS (`[k, v]`), which the growable lane's element surface does not support reading back — any `entry[0]` read anywhere in the function marks `entry` as an array binding and fail-closes every `entries.push(entry)` (E5506, unsupported element)."""
+args = ["check", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "check", success = true, errors = [] }
+
+[[case]]
+name = "build_supports_for_await_object_string_enumeration_in_browser_bundle_context"
+rationale = """Migrated from browser_for_await_object_string_enumeration_browser_smoke.rs, `assert_browser_for_await_object_string_enumeration_support`. Writes `browser_for_await_object_string_enumeration_source()` (a `for await` walk over `Object.keys`/`Object.values`/`Object.entries` applied to the string primitive `'ab'`, exercised through direct/global/mixed/bracketed/fully-bracketed/single-bracketed/parenthesized-property-access call shapes, with inline `throw`-guarded length/index assertions on each collector) to `app.${ext}` and runs `kali <command> --api browser [--bundle] [--output json] app.${ext}`. Source asserts `output.status.success()` unconditionally, and (only when `--output json` is passed) `json["schemaVersion"] == 1`, `json["command"] == command`, `json["success"] == true`, and `json["errors"]` is an empty array -- identical logic duplicated in both the `command == "build"` early-return branch and the fallthrough branch, so this is one assertion shape regardless of `check`/`build`.
+
+Throw-fallout Stage 4 Task 6 adjudication (fake-green flip, coordinator-ruled Option B): this fixture used to pass its pushed collectors to assert helper FUNCTIONS (`assertObjectKeysIteration(keys)` — a call-argument escape). That compiled only because `.push` was a silent no-op (the collectors stayed length 0, so the program would have thrown at runtime — these build/check tests never ran it). Task 6's fail-closed reject (E5506 for a growable-shape push receiver in an unsupported position) correctly rejects that shape, so the asserts are now INLINED at each collector (length + index-read string guards — all safe growable positions), and the collectors legitimately promote to the real growable lane with node-parity runtime semantics (verified byte-for-byte on a runnable replica). The `entries` collectors keep length-only guards: their elements are ARRAYS (`[k, v]`), which the growable lane's element surface does not support reading back — any `entry[0]` read anywhere in the function marks `entry` as an array binding and fail-closes every `entries.push(entry)` (E5506, unsupported element)."""
+args = ["build", "--api", "browser", "--bundle", "app.${ext}"]
+exit = "success"
+
+[[case]]
+name = "json_build_supports_for_await_object_string_enumeration_in_browser_bundle_context"
+rationale = """Migrated from browser_for_await_object_string_enumeration_browser_smoke.rs, `assert_browser_for_await_object_string_enumeration_support`. Writes `browser_for_await_object_string_enumeration_source()` (a `for await` walk over `Object.keys`/`Object.values`/`Object.entries` applied to the string primitive `'ab'`, exercised through direct/global/mixed/bracketed/fully-bracketed/single-bracketed/parenthesized-property-access call shapes, with inline `throw`-guarded length/index assertions on each collector) to `app.${ext}` and runs `kali <command> --api browser [--bundle] [--output json] app.${ext}`. Source asserts `output.status.success()` unconditionally, and (only when `--output json` is passed) `json["schemaVersion"] == 1`, `json["command"] == command`, `json["success"] == true`, and `json["errors"]` is an empty array -- identical logic duplicated in both the `command == "build"` early-return branch and the fallthrough branch, so this is one assertion shape regardless of `check`/`build`.
+
+Throw-fallout Stage 4 Task 6 adjudication (fake-green flip, coordinator-ruled Option B): this fixture used to pass its pushed collectors to assert helper FUNCTIONS (`assertObjectKeysIteration(keys)` — a call-argument escape). That compiled only because `.push` was a silent no-op (the collectors stayed length 0, so the program would have thrown at runtime — these build/check tests never ran it). Task 6's fail-closed reject (E5506 for a growable-shape push receiver in an unsupported position) correctly rejects that shape, so the asserts are now INLINED at each collector (length + index-read string guards — all safe growable positions), and the collectors legitimately promote to the real growable lane with node-parity runtime semantics (verified byte-for-byte on a runnable replica). The `entries` collectors keep length-only guards: their elements are ARRAYS (`[k, v]`), which the growable lane's element surface does not support reading back — any `entry[0]` read anywhere in the function marks `entry` as an array binding and fail-closes every `entries.push(entry)` (E5506, unsupported element)."""
+args = ["build", "--api", "browser", "--bundle", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, errors = [] }

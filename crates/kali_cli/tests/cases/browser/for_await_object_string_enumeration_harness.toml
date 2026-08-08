@@ -1,13 +1,55 @@
-use std::{fs, process::Command};
+# Migrated from tests/browser_for_await_object_string_enumeration_harness.rs.
+#
+# Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here
+# (growable-array lane rejects push-then-alias with E5506), never a silent
+# wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+# Helper re-pin: every caller of this helper in this file (all 16
+# run/test x js/ts/jsx/tsx x plain/json variants) is red — no green
+# out-of-batch caller of THIS file's private helper exists (a same-named
+# helper in browser_object_string_enumeration_harness.rs is a distinct
+# compilation unit, not a shared caller), so the helper itself is
+# re-pinned rather than inlining each wrapper.
+#
+# MATRIX ARITHMETIC (rule 7): source has 16 #[test] fns, each an individual,
+# unlooped call to `assert_browser_harness_object_string_enumeration(command,
+# filename, source, json_output)`. Grouping by (command, json_output) yields
+# exactly 4 distinct invocation shapes (run/plain, run/json, test/plain,
+# test/json); within each shape, the 4 fns differ only by the input
+# extension (js/ts/jsx/tsx) with an identical assertion. 16 invocations = 4
+# cases x ext(4) -- matches exactly, so `ext` is hoisted to a file-level
+# [matrix] axis (every one of this file's 4 [[case]] entries genuinely
+# varies over `ext` via `${ext}` in its `[source]` key and `args`, so a
+# file-level [matrix] is safe here per the no-per-case-opt-out rule).
+#
+# STREAM NOTE (rule 11, applied to streams not codes): source's assertion is
+# `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across
+# STREAMS for the SAME code, not two different codes, but the same shape
+# rule 11 describes. Verified directly against the real binary for every
+# (command, json_output) combination, across all four extensions: in
+# non-json mode E5506 appears on stderr only (stdout is empty or a short
+# harness banner, never contains E5506); in `--output json` mode the
+# diagnostic is JSON-encoded on stdout (`errors[].code`) and stderr is
+# empty. Each mode is pinned to the stream that actually carries it -- a
+# verified strengthening of the source's OR (this is a presence claim, so
+# narrowing to the stream that actually carries it is a strengthening, not
+# the absence-narrowing hazard rule 2 warns about) -- with the disjunction
+# sentence carried into every case's rationale below per rule 11, not
+# silently narrowed.
+#
+# No `format!` sites: both fixture builders
+# (`browser_harness_object_string_enumeration_run_source` /
+# `..._test_source`) return a plain `&'static str` raw string literal, no
+# Rust-side substitution. No `[matrix]`-key filename collisions across
+# distinct fixture bodies: `main.${ext}` is used only by the run-source
+# fixture and `smoke.test.${ext}` only by the test-source fixture, so no
+# `[source]` key needed disambiguation.
 
-use tempfile::tempdir;
 
-fn kali_bin() -> String {
-    std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
-}
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
 
-fn browser_harness_object_string_enumeration_run_source() -> &'static str {
-    r##"function assertObjectKeysIteration(keys) {
+[source]
+"main.${ext}" = """function assertObjectKeysIteration(keys) {
   if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
     throw new Error('unexpected Object.keys string-primitive iteration semantics');
   }
@@ -224,11 +266,8 @@ async function browserObjectStringEnumeration() {
 }
 
 browserObjectStringEnumeration();
-"##
-}
-
-fn browser_harness_object_string_enumeration_test_source() -> &'static str {
-    r##"async function browserObjectStringEnumeration() {
+"""
+"smoke.test.${ext}" = """async function browserObjectStringEnumeration() {
   function assertObjectKeysIteration(keys) {
     if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
       throw new Error('unexpected Object.keys string-primitive iteration semantics');
@@ -445,212 +484,52 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
 }
 
 Kali.test('browser object string enumeration', () => browserObjectStringEnumeration());
-"##
-}
+"""
 
-fn assert_browser_harness_object_string_enumeration(
-    command: &str,
-    filename: &str,
-    source: &str,
-    json_output: bool,
-) {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join(filename);
-    fs::write(&source_path, source).expect("write source");
+[[case]]
+name = "run_supports_string_primitive_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_await_object_string_enumeration_harness.rs. Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (growable-array lane rejects push-then-alias with E5506), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (all 16 run/test x js/ts/jsx/tsx x plain/json variants) is red — no green out-of-batch caller of THIS file's private helper exists (a same-named helper in browser_object_string_enumeration_harness.rs is a distinct compilation unit, not a shared caller), so the helper itself is re-pinned rather than inlining each wrapper.
 
-    let mut output = Command::new(kali_bin());
-    output
-        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
-        .current_dir(dir.path());
-    if json_output {
-        output.arg("--output").arg("json");
-    }
-    let output = output
-        .arg(command)
-        .arg("--api")
-        .arg("browser")
-        .arg("--max-threads")
-        .arg("0")
-        .arg("--max-spawned-processes")
-        .arg("0")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+Source's assertion is `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only, never stdout. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11.
 
-    // Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here
-    // (growable-array lane rejects push-then-alias with E5506), never a silent
-    // wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md.
-    // Helper re-pin: every caller of this helper in this file (all 16
-    // run/test x js/ts/jsx/tsx x plain/json variants) is red — no green
-    // out-of-batch caller of THIS file's private helper exists (a same-named
-    // helper in browser_object_string_enumeration_harness.rs is a distinct
-    // compilation unit, not a shared caller), so the helper itself is
-    // re-pinned rather than inlining each wrapper.
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(!output.status.success(), "must fail closed: {output:?}");
-    assert!(
-        stdout.contains("E5506") || stderr.contains("E5506"),
-        "stdout: {stdout}\nstderr: {stderr}"
-    );
-}
+16 #[test] fns in source, each an individual (unlooped) call to `assert_browser_harness_object_string_enumeration`, grouped by (command, json_output) into 4 distinct shapes; within this shape the 4 fns differ only by input extension (js/ts/jsx/tsx) with an identical assertion -- hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stderr_contains = ["E5506"]
 
-#[test]
-fn run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_harness_object_string_enumeration(
-        "run",
-        "main.js",
-        browser_harness_object_string_enumeration_run_source(),
-        false,
-    );
-}
+[[case]]
+name = "json_run_supports_string_primitive_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_await_object_string_enumeration_harness.rs. Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (growable-array lane rejects push-then-alias with E5506), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (all 16 run/test x js/ts/jsx/tsx x plain/json variants) is red — no green out-of-batch caller of THIS file's private helper exists (a same-named helper in browser_object_string_enumeration_harness.rs is a distinct compilation unit, not a shared caller), so the helper itself is re-pinned rather than inlining each wrapper.
 
-#[test]
-fn run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input() {
-    assert_browser_harness_object_string_enumeration(
-        "run",
-        "main.ts",
-        browser_harness_object_string_enumeration_run_source(),
-        false,
-    );
-}
+Source's assertion is `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in `--output json` mode the diagnostic is JSON-encoded on stdout and stderr is empty. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11.
 
-#[test]
-fn run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input() {
-    assert_browser_harness_object_string_enumeration(
-        "run",
-        "main.jsx",
-        browser_harness_object_string_enumeration_run_source(),
-        false,
-    );
-}
+16 #[test] fns in source, each an individual (unlooped) call to `assert_browser_harness_object_string_enumeration`, grouped by (command, json_output) into 4 distinct shapes; within this shape the 4 fns differ only by input extension (js/ts/jsx/tsx) with an identical assertion -- hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stdout_contains = ["E5506"]
 
-#[test]
-fn run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input() {
-    assert_browser_harness_object_string_enumeration(
-        "run",
-        "main.tsx",
-        browser_harness_object_string_enumeration_run_source(),
-        false,
-    );
-}
+[[case]]
+name = "test_supports_string_primitive_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_await_object_string_enumeration_harness.rs. Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (growable-array lane rejects push-then-alias with E5506), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (all 16 run/test x js/ts/jsx/tsx x plain/json variants) is red — no green out-of-batch caller of THIS file's private helper exists (a same-named helper in browser_object_string_enumeration_harness.rs is a distinct compilation unit, not a shared caller), so the helper itself is re-pinned rather than inlining each wrapper.
 
-#[test]
-fn test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_harness_object_string_enumeration(
-        "test",
-        "smoke.test.js",
-        browser_harness_object_string_enumeration_test_source(),
-        false,
-    );
-}
+Source's assertion is `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only, never stdout. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11.
 
-#[test]
-fn test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input() {
-    assert_browser_harness_object_string_enumeration(
-        "test",
-        "smoke.test.ts",
-        browser_harness_object_string_enumeration_test_source(),
-        false,
-    );
-}
+16 #[test] fns in source, each an individual (unlooped) call to `assert_browser_harness_object_string_enumeration`, grouped by (command, json_output) into 4 distinct shapes; within this shape the 4 fns differ only by input extension (js/ts/jsx/tsx) with an identical assertion -- hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stderr_contains = ["E5506"]
 
-#[test]
-fn test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input() {
-    assert_browser_harness_object_string_enumeration(
-        "test",
-        "smoke.test.jsx",
-        browser_harness_object_string_enumeration_test_source(),
-        false,
-    );
-}
+[[case]]
+name = "json_test_supports_string_primitive_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_await_object_string_enumeration_harness.rs. Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (growable-array lane rejects push-then-alias with E5506), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (all 16 run/test x js/ts/jsx/tsx x plain/json variants) is red — no green out-of-batch caller of THIS file's private helper exists (a same-named helper in browser_object_string_enumeration_harness.rs is a distinct compilation unit, not a shared caller), so the helper itself is re-pinned rather than inlining each wrapper.
 
-#[test]
-fn test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input() {
-    assert_browser_harness_object_string_enumeration(
-        "test",
-        "smoke.test.tsx",
-        browser_harness_object_string_enumeration_test_source(),
-        false,
-    );
-}
+Source's assertion is `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in `--output json` mode the diagnostic is JSON-encoded on stdout and stderr is empty. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11.
 
-#[test]
-fn json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_harness_object_string_enumeration(
-        "run",
-        "main.js",
-        browser_harness_object_string_enumeration_run_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input() {
-    assert_browser_harness_object_string_enumeration(
-        "run",
-        "main.ts",
-        browser_harness_object_string_enumeration_run_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input() {
-    assert_browser_harness_object_string_enumeration(
-        "run",
-        "main.jsx",
-        browser_harness_object_string_enumeration_run_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input() {
-    assert_browser_harness_object_string_enumeration(
-        "run",
-        "main.tsx",
-        browser_harness_object_string_enumeration_run_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_harness_object_string_enumeration(
-        "test",
-        "smoke.test.js",
-        browser_harness_object_string_enumeration_test_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input() {
-    assert_browser_harness_object_string_enumeration(
-        "test",
-        "smoke.test.ts",
-        browser_harness_object_string_enumeration_test_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input() {
-    assert_browser_harness_object_string_enumeration(
-        "test",
-        "smoke.test.jsx",
-        browser_harness_object_string_enumeration_test_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input() {
-    assert_browser_harness_object_string_enumeration(
-        "test",
-        "smoke.test.tsx",
-        browser_harness_object_string_enumeration_test_source(),
-        true,
-    );
-}
+16 #[test] fns in source, each an individual (unlooped) call to `assert_browser_harness_object_string_enumeration`, grouped by (command, json_output) into 4 distinct shapes; within this shape the 4 fns differ only by input extension (js/ts/jsx/tsx) with an identical assertion -- hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stdout_contains = ["E5506"]
