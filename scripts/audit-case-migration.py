@@ -330,25 +330,31 @@ def _mask_comments_outside_strings(source: str) -> str:
     left-to-right pass that recognizes whichever token starts first, so a
     `//` inside a string literal is text, not a comment.
 
-    `_mask_comments` below cannot be used where a runaway matters, and this
-    corpus proves why: `cdp_driver/driver.rs` asserts
-    `assert!(ws_url.starts_with("ws://"), ...)`, whose `//` is INSIDE a
-    string. `_mask_comments` blanks from there to end-of-line, taking the
-    literal's closing quote with it, and every subsequent `_skip_string`
-    then runs from an unterminated string -- one `assert!` call's argument
-    text swallowed 14,561 characters of unrelated code, re-minting a
-    `.matches("3\\n").count()` claim from an assertion 70 lines further
-    down. Benign there only because the swallowed claim happened to be a
-    duplicate of a real one; a runaway that swallows a DIFFERENT file's
-    idea of a claim is a phantom, and in the reverse count check it would
-    additionally legitimize a fabricated case claim. Measured, not
-    hypothetical -- see `test_double_slash_inside_a_string_is_not_a_comment`.
+    This REPLACES a non-string-aware predecessor (`_mask_comments`, deleted
+    in the Task 18 audit-count fix round rather than left around to be
+    reached for again). That version scanned for `//` and `/*` without
+    tracking string literals, and this corpus breaks it twice over, in both
+    of its callers:
 
-    `_mask_comments` is left as it is: `_find_mod_declarations` is its only
-    other caller and this task does not touch mod resolution. It carries the
-    same exposure (a `mod x;`-shaped string on a line after a `"http://"`
-    would be missed), which is recorded in the task-18 audit-count report as
-    an observation, not fixed here.
+    - `cdp_driver/driver.rs` asserts
+      `assert!(ws_url.starts_with("ws://"), ...)`, whose `//` is inside a
+      string. Blanking from there to end-of-line takes the literal's closing
+      quote with it, and every subsequent `_skip_string` then runs from an
+      unterminated string -- one `assert!` call's argument text swallowed
+      14,561 characters of unrelated code, re-minting a
+      `.matches("3\\n").count()` claim from an assertion 70 lines further
+      down. Benign there only because the swallowed claim duplicated a real
+      one; in the reverse count check a phantom source claim would
+      additionally legitimize a fabricated case claim.
+    - `package_corpus.rs:322` contains the fixture line
+      `"./*": "./src/*.js"`, whose `/*` is inside a raw string. Blanking from
+      there to the next `*/` (or, absent one, to end-of-file) blanked 13,084
+      characters, and `_find_mod_declarations` returned `[]` for a file
+      declaring five `#[path]` submodules -- see its own FIXED note.
+
+    Both are measured, not hypothetical, and both are pinned:
+    `test_double_slash_inside_a_string_is_not_a_comment` and
+    `test_block_comment_open_inside_a_string_does_not_swallow_a_path_mod`.
     """
     out: list[str] = []
     i = 0
@@ -375,40 +381,6 @@ def _mask_comments_outside_strings(source: str) -> str:
                 out.append(source[i:end])
                 i = end
                 continue
-        out.append(c)
-        i += 1
-    return ''.join(out)
-
-
-def _mask_comments(source: str) -> str:
-    """`source` with every `//...` (including `///`/`//!`) and `/* ... */`
-    comment replaced by spaces (newlines preserved). Does NOT mask string
-    literals -- unlike `_mask_comments_and_strings` below, this is used
-    ahead of `PATH_MOD` matching, which needs a `#[path = "..."]`
-    attribute's own string argument to stay intact and readable.
-
-    Not string-aware: a `//` inside a string literal is treated as a comment
-    start. See `_mask_comments_outside_strings` above for what that costs and
-    why the count arm uses that instead."""
-    out: list[str] = []
-    i = 0
-    n = len(source)
-    while i < n:
-        c = source[i]
-        if c == '/' and i + 1 < n and source[i + 1] == '/':
-            end = source.find('\n', i)
-            if end == -1:
-                end = n
-            out.append(' ' * (end - i))
-            i = end
-            continue
-        if c == '/' and i + 1 < n and source[i + 1] == '*':
-            close = source.find('*/', i + 2)
-            end = (close + 2) if close != -1 else n
-            segment = source[i:end]
-            out.append(''.join(ch if ch == '\n' else ' ' for ch in segment))
-            i = end
-            continue
         out.append(c)
         i += 1
     return ''.join(out)
@@ -464,8 +436,26 @@ def _find_mod_declarations(source: str) -> list[tuple[str | None, str]]:
     `#[path = "a.rs"] mod b;` is never ALSO picked up as a plain `mod b;`
     (which would resolve the wrong file, `b.rs`/`b/mod.rs`, instead of the
     explicit `a.rs`), and a `mod x;` inside any OTHER string or comment is
-    invisible to the plain-mod pass."""
-    comments_masked = _mask_comments(source)
+    invisible to the plain-mod pass.
+
+    FIXED (Task 18 audit-count fix round, found by review): that comment mask
+    is `_mask_comments_outside_strings`, not `_mask_comments`, because the
+    latter is not string-aware -- a `/*` or `//` INSIDE a string literal is
+    read as a comment open. Live in this corpus, and not harmlessly:
+    `package_corpus.rs:322` contains the fixture line `"./*": "./src/*.js"`,
+    whose `/*` made `_mask_comments` blank **13,084 characters** through
+    end-of-file, so this function returned `[]` for a file that declares FIVE
+    `#[path]` submodules at `:754-767`. The danger direction here is a MISSED
+    submodule, not a wrong one (a runaway blanks text, it does not mint
+    declarations -- swept over all 228 live and 99 restored sources against a
+    string-aware ground truth, `package_corpus.rs` is the only difference and
+    there are no spurious extras): a parent with at least one `#[test]` fn
+    plus a silently dropped submodule audits `AUDIT OK` over claims nobody
+    examined. `package_corpus.rs` itself is fail-closed today -- it declares
+    zero top-level `#[test]` fns, so auditing it hits the "0 #[test] fns"
+    refusal rather than a silent OK -- but that is a property of one file, not
+    of the resolver."""
+    comments_masked = _mask_comments_outside_strings(source)
     out: list[tuple[str | None, str]] = []
     path_mod_matches = list(PATH_MOD.finditer(comments_masked))
     for match in path_mod_matches:

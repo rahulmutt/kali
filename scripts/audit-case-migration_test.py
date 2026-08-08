@@ -1147,6 +1147,68 @@ class Bug8Round3_MutationHardening(unittest.TestCase):
         self.assertNotIn("does not exist", out)
         self.assertNotIn("resolved submodule", out)
 
+    def test_block_comment_open_inside_a_string_does_not_swallow_a_path_mod(self):
+        # Live in this corpus, and found only by review: `package_corpus.rs`
+        # :322 carries the fixture line `"./*": "./src/*.js"`, whose `/*` is
+        # inside a raw string. A comment masker that is not string-aware
+        # reads it as a block-comment open and blanks 13,084 characters
+        # through end-of-file, so `_find_mod_declarations` returned [] for a
+        # file declaring FIVE `#[path]` submodules at :754-767.
+        #
+        # The danger direction is a MISSED submodule, not a wrong one: a
+        # runaway blanks text, it cannot mint a declaration. A parent with
+        # >= 1 #[test] fn plus a silently dropped submodule audits AUDIT OK
+        # over claims nobody examined. Pinned as behaviour, not as a call
+        # site: any masker that gets this wrong fails here.
+        old_source = (
+            '#[test]\n'
+            'fn parent_test() {\n'
+            '    let manifest = r#"{ "exports": { "./*": "./src/*.js" } }"#;\n'
+            '    assert!(manifest.contains("exports"));\n'
+            '}\n'
+            '\n'
+            '#[path = "real/child.rs"]\n'
+            'mod child;\n'
+        )
+        child_source = (
+            '#[test]\n'
+            'fn child_test() {\n'
+            '    assert!(stdout.contains("claim only the child makes"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\nname = "parent_test"\nargs = ["run"]\n'
+            'stdout_contains = ["exports", "claim only the child makes"]\n'
+        )
+        self.assertEqual(
+            audit._find_mod_declarations(old_source),
+            [("real/child.rs", "child")],
+            "a `/*` inside a string literal must not blank the `#[path]` that follows it",
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"real/child.rs": child_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("2 #[test] fns", out)
+        self.assertIn("child.rs", out)
+
+    def test_line_comment_open_inside_a_string_does_not_swallow_a_path_mod(self):
+        # The `//` half of the same defect: `cdp_driver/driver.rs`'s
+        # `starts_with("ws://")` shape, applied to mod resolution.
+        old_source = (
+            '#[test]\n'
+            'fn parent_test() {\n'
+            '    assert!(ws_url.starts_with("ws://"), "url: {ws_url}");\n'
+            '}\n'
+            '#[path = "real/child.rs"]\n'
+            'mod child;\n'
+        )
+        self.assertEqual(
+            audit._find_mod_declarations(old_source),
+            [("real/child.rs", "child")],
+        )
+
     def test_path_attribute_string_survives_comment_masking(self):
         # The regression the FIRST attempt at fixing comment-blindness
         # introduced and caught before shipping: masking ALL strings
@@ -1486,6 +1548,32 @@ class CountClaimSourceArm(unittest.TestCase):
         source = 'assert_eq!(source.matches(alias).count(), 2, "alias {alias}");'
         self.assertEqual(self._sites(source), [])
 
+    def test_panic_message_arguments_are_not_scanned(self):
+        # The docstring says only `assert!`'s condition (arg 0) and
+        # `assert_eq!`'s two compared arguments (args 0-1) are read, but
+        # nothing pinned it: widening the arity so that panic-message
+        # arguments are scanned too survived the suite. Found by review.
+        #
+        # It is not a cosmetic scope: a format argument is diagnostic output,
+        # not a claim, so reading one manufactures a claim the case file must
+        # satisfy (a false AUDIT FAILED) -- and for `assert_eq!` the
+        # bound-from-the-sibling-argument lookup (`args[1 - index]`) is only
+        # meaningful for indices 0 and 1 in the first place.
+        source = (
+            'assert!(\n'
+            '    ok,\n'
+            '    "saw {} of them",\n'
+            '    stdout.matches("MESSAGE_ONLY\\n").count()\n'
+            ');\n'
+            'assert_eq!(\n'
+            '    a,\n'
+            '    b,\n'
+            '    "saw {}",\n'
+            '    stdout.matches("EQ_MESSAGE_ONLY\\n").count()\n'
+            ');\n'
+        )
+        self.assertEqual(self._sites(source), [])
+
     def test_count_outside_an_assertion_is_not_a_claim(self):
         # Live in `browser_math_pow_exponent_one.rs`: fixture arithmetic, not
         # a claim. Reading it as one manufactures a phantom claim that no
@@ -1602,6 +1690,54 @@ class CountClaimCorrespondence(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("TOTALLY_FABRICATED_NEEDLE", out)
         self.assertIn("count claim", out)
+
+    def test_fabricated_needle_with_a_COINCIDING_bound_still_fails(self):
+        # `test_fabricated_needle_fails` above passes for TWO reasons at once
+        # (its needle is invented AND its bound is one the source never
+        # states), so on its own it does not exercise the needle check:
+        # deleting needle correspondence entirely left the suite green.
+        # Found by review. Here the bound matches a real source claim
+        # exactly, so only the needle can distinguish -- an invented count
+        # claim that borrows a real bound is exactly the shape a careless
+        # migration produces.
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml(
+                'stdout_contains = ["3\\n", "stdout"]\n'
+                'stdout_count = [{ needle = "NEVER_IN_THE_SOURCE\\n", at_least = 2 }]\n'
+            )},
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("NEVER_IN_THE_SOURCE", out)
+        self.assertIn("corresponds to no", out)
+
+    def test_needle_correspondence_is_equality_not_substring(self):
+        # Weakening `_needle_correspondence` from equality to a substring
+        # test also survived the suite. It must not: counting occurrences of
+        # `"3"` is a different claim from counting occurrences of `"3\n"`
+        # ("13\n23\n" holds two of the former and none of the latter), and a
+        # migration that drops the newline silently changes what is counted
+        # while keeping the bound.
+        self.assertFalse(
+            audit._needle_correspondence("3", frozenset({"3\n", "3\\n"})),
+            "a needle that is merely a SUBSTRING of the source literal is a "
+            "different claim, not a corresponding one",
+        )
+        self.assertFalse(
+            audit._needle_correspondence("3\n4\n", frozenset({"3\n", "3\\n"})),
+            "a needle the source literal is a substring OF is equally not a "
+            "corresponding claim",
+        )
+        self.assertTrue(audit._needle_correspondence("3\n", frozenset({"3\n", "3\\n"})))
+        rc, out = _run_audit(
+            self._OLD_SOURCE,
+            {"new.toml": self._toml(
+                'stdout_contains = ["3\\n", "stdout"]\n'
+                'stdout_count = [{ needle = "3", at_least = 2 }]\n'
+            )},
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
 
     def test_wrong_bound_value_fails(self):
         rc, out = _run_audit(
