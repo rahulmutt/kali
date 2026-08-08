@@ -1,0 +1,1250 @@
+# Migrated from tests/switch_fail_closed.rs.
+#
+# The exact denial reason each rule emits. A test that asserts only "some E5506"
+# silently degrades the moment the cell it names starts denying for a DIFFERENT
+# reason — most often Rule 1, since a discriminant proof regression makes every
+# switch in the file deny — and it keeps passing while having lost its entire
+# purpose. That failure mode has now been found twice on this plan, so it is
+# closed structurally: every fail-closed test below pins the rule, and a new one
+# has an obvious shape to copy.
+#
+# PRECISELY (corrected in the pre-merge fix wave — this header used to say
+# "every fail-closed test below pins the rule, VIA `assert_denied_by`", which
+# was false in two ways and had already let one test drift): - Every `E5506`
+# cell pins its rule through `assert_denied_by`. The one that did not —
+# `a_float_discriminant_is_fail_closed`, which asserted only `contains("E5506")`
+# — was fixed in the same wave. - Three cells legitimately do NOT call
+# `assert_denied_by`, and must not: `a_labeled_break_in_a_clause_is_fail_closed`
+# denies with **E3100** from name resolution, never reaching E5506 at all; and
+# the two `NO_ENCLOSING_LOOP` cells assert on that constant directly because
+# they also assert the OTHER cause's message is ABSENT, which is a disjointness
+# claim `assert_denied_by` does not make. All three still pin an exact constant
+# — none asserts a bare "some denial". Rule literals are never hand-rolled: a
+# hand-copied PREFIX goes insensitive exactly when the rule text widens, which
+# has already happened once here (Rule 4, Task 9). Always use the constants
+# below.
+#
+# MIGRATION NOTE (flagged, not silently corrected -- the source prose above is
+# moved verbatim): "the two `NO_ENCLOSING_LOOP` cells assert on that constant
+# directly because they also assert the OTHER cause's message is ABSENT"
+# overstates one of the two. Verified against the actual source: only
+# `the_two_continue_denial_causes_are_reported_distinctly` (split below into
+# `..._no_loop` and `..._bad_form`) makes the disjointness claim -- its
+# `..._no_loop` sibling is the disjointness-asserting NO_ENCLOSING_LOOP cell the
+# header means. `continue_in_a_switch_with_no_enclosing_loop_is_fail_closed`,
+# the OTHER cell that asserts on NO_ENCLOSING_LOOP directly, asserts only that
+# NO_ENCLOSING_LOOP is present -- no disjointness claim. Per rule 2 (never add
+# an assertion the source did not make), that case below does NOT get a
+# fabricated `stderr_absent = ["${UNFAITHFUL_CONTINUE}"]` to manufacture the
+# symmetry the header describes. The "three cells" COUNT itself IS accurate at
+# #[test]-fn granularity (labeled_break,
+# continue_in_a_switch_with_no_enclosing_loop_is_fail_closed, and
+# the_two_continue_denial_causes_are_reported_distinctly, which contains the
+# actual disjointness pair) -- only the "both assert absence" clause overstates
+# the first of those three.
+#
+# STREAM NOTE: `run_js_expect_failure`'s `out` is stdout+stderr concatenated.
+# Every fixture here is refused at compile time before the module ever runs
+# (kali's E5506/E3100 diagnostics are emitted before any `console.log`
+# executes), so stdout is empty in every case below -- verified directly against
+# the real built binary (see the task report). `out.contains(X)` therefore
+# translates exactly to `stderr_contains`, and `!out.contains(X)` to
+# `stderr_absent`, with no `stdout_contains`/`stdout_absent` needed anywhere in
+# this file.
+#
+# `:623`'s `assert!(!out.is_empty(), "expected a diagnostic, got nothing")` (on
+# `continue_in_a_switch_with_no_enclosing_loop_is_fail_closed`) has no direct
+# TOML equivalent (the format expresses emptiness via exact `stderr`, not
+# non-emptiness) -- it is subsumed by the case's own `stderr_contains =
+# ["${NO_ENCLOSING_LOOP}"]`: a string that contains a specific non-empty
+# substring cannot itself be empty. See the task report for the full reasoning.
+
+[constants]
+RULE_1_DISCRIMINANT = "the discriminant is not a proven integer or string"
+RULE_2_CASE_TEST = "a `case` test that is not a literal in the discriminant's domain"
+RULE_4_TERMINATOR = "a clause that does not end in `return`, `break` or `continue`"
+RULE_5_BLOCK_BINDING = "a `let`/`const` declaration in a clause body"
+NO_ENCLOSING_LOOP = "`continue` inside a `switch` requires an enclosing loop; there is none here"
+UNFAITHFUL_CONTINUE = "does not re-run the update/test faithfully in the current lowering (register R-09)"
+REPR_MIXED_CONFLICT = "is used as both a string and a number"
+TRAILING_EMPTY_GROUP = "an empty trailing clause with no body to group onto"
+DEFAULT_CANNOT_GROUP = "a `default` clause cannot be grouped with a preceding empty `case` clause"
+DEFAULT_NOT_LAST = "a `default` clause that is not the last clause in the switch"
+
+[source]
+"true_fallthrough_at_module_scope_is_fail_closed.js" = """var v = "?";
+var x = 20;
+switch (x) {
+case 10: v = "A";
+case 20: v = "B";
+default: v = "D";
+}
+console.log("v=" + v);
+"""
+"true_fallthrough_is_fail_closed.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: r = 1;
+case 2: r = 2;
+}
+return r;
+}
+console.log("v=" + s(1));
+"""
+"a_non_literal_case_test_is_fail_closed.js" = """function s(x, y) {
+switch (x) {
+case y: return "A";
+default: return "D";
+}
+}
+console.log("v=" + s(1, 1));
+"""
+"a_float_discriminant_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case 1: return "a";
+default: return "b";
+}
+}
+console.log("v=" + s(1.5));
+"""
+"a_boolean_discriminant_is_fail_closed.js" = """function s(x) {
+switch (x > 0) {
+case 1: return "pos";
+default: return "other";
+}
+}
+console.log("v=" + s(1));
+"""
+"a_boolean_identifier_discriminant_is_fail_closed.js" = """function s() {
+var d = true;
+switch (d) {
+case 1: return "one";
+default: return "other";
+}
+}
+console.log("v=" + s());
+"""
+"a_boolean_parameter_discriminant_is_fail_closed.js" = """function s(b) {
+switch (b) {
+case 1: return "one";
+default: return "other";
+}
+}
+console.log("v=" + s(true));
+"""
+"a_computed_parameter_argument_discriminant_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case 1: return "one";
+default: return "other";
+}
+}
+var n = 0;
+console.log("v=" + s(n + 1));
+"""
+"a_negative_float_parameter_argument_discriminant_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case 1: return "one";
+default: return "other";
+}
+}
+console.log("v=" + s(-1.5));
+"""
+"a_let_declaration_in_a_braced_clause_is_fail_closed_via_rule_4.js" = """function s(x) {
+switch (x) {
+case 1: { let a = 1; return "A" + a; }
+default: return "D";
+}
+}
+console.log("v=" + s(1));
+"""
+"a_let_declaration_in_an_unbraced_clause_is_fail_closed_via_rule_5.js" = """function s(x) {
+switch (x) {
+case 1: let a = 1; return "A" + a;
+default: return "D";
+}
+}
+console.log("v=" + s(1));
+"""
+"a_written_parameter_discriminant_is_fail_closed.js" = """function s(x) {
+x = true;
+switch (x) {
+case 1: return "one";
+default: return "other";
+}
+}
+console.log("v=" + s(1));
+"""
+"a_parameter_overwritten_from_a_boolean_binding_is_fail_closed.js" = """function s(x) {
+var t = 1 > 0;
+x = t;
+switch (x) {
+case 1: return "one";
+default: return "other";
+}
+}
+console.log("v=" + s(1));
+"""
+"a_parameter_overwritten_from_another_parameter_is_fail_closed.js" = """function s(x, y) {
+x = y;
+switch (x) {
+case 1: return "one";
+default: return "other";
+}
+}
+console.log("v=" + s(1, true));
+"""
+"a_new_invocation_site_of_the_enclosing_function_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case 1: return "one";
+default: return "other";
+}
+}
+console.log("a=" + s(1));
+new s(true);
+"""
+"continue_in_a_switch_with_no_enclosing_loop_is_fail_closed.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: continue;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(1));
+"""
+"continue_in_a_switch_in_a_c_style_for_loop_is_fail_closed.js" = """var s = 0;
+for (var i = 0; i < 6; i = i + 1) {
+console.log("iter=" + i);
+switch (i) {
+case 2: i = i + 1; continue;
+default: s = s + i; break;
+}
+}
+console.log("s=" + s);
+"""
+"continue_nested_in_a_return_clause_in_a_c_style_for_loop_is_fail_closed.js" = """function f() {
+var s = 0; var i = 0;
+for (i = 0; i < 6; i = i + 1) {
+console.log("iter=" + i);
+switch (i) {
+case 2: if (i === 2) { i = i + 1; continue; } return "unreachable";
+default: s = s + i; break;
+}
+}
+return "s=" + s;
+}
+console.log("v=" + f());
+"""
+"continue_in_a_switch_in_a_do_while_is_fail_closed.js" = """var s = 0; var i = 0;
+do {
+i = i + 1;
+console.log("iter=" + i);
+switch (i) { case 2: continue; default: s = s + i; break; }
+} while (i < 4);
+console.log("s=" + s);
+"""
+"continue_in_a_switch_in_a_for_in_is_fail_closed.js" = """var o = { a: 1, b: 2 }; var n = 0;
+for (var k in o) {
+console.log("key=" + k);
+switch (k) { case "b": continue; default: n = n + 1; break; }
+}
+console.log("n=" + n);
+"""
+"the_two_continue_denial_causes_are_reported_distinctly_no_loop.js" = """function s(x) {
+var r = 0;
+switch (x) { case 1: continue; default: r = 9; break; }
+return r;
+}
+console.log("v=" + s(1));
+"""
+"the_two_continue_denial_causes_are_reported_distinctly_bad_form.js" = """for (var i = 0; i < 3; i = i + 1) {
+console.log("iter=" + i);
+switch (i) { case 1: continue; default: break; }
+}
+"""
+"a_labeled_break_in_a_clause_is_fail_closed.js" = """var sum = 0;
+outer: for (var i = 0; i < 3; i = i + 1) {
+console.log("iter=" + i);
+switch (i) {
+case 1: break outer;
+default: sum = sum + 1; break;
+}
+}
+console.log("sum=" + sum);
+"""
+"a_fallthrough_clause_beside_a_break_clause_is_fail_closed.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: r = 1;
+case 2: r = 2; break;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(1));
+"""
+"a_break_followed_by_dead_code_in_a_clause_is_fail_closed.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: r = 1; break; r = 5;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(1));
+"""
+"a_braced_break_clause_is_fail_closed.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: { r = 1; break; }
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(1));
+"""
+"a_fallthrough_clause_beside_a_break_clause_is_fail_closed_on_the_string_axis.js" = """var v = "?";
+var x = "a";
+switch (x) {
+case "a": v = "A";
+case "b": v = "B"; break;
+default: v = "D"; break;
+}
+console.log("v=" + v);
+"""
+"a_string_case_against_a_numeric_discriminant_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case "1": return "A";
+default: return "D";
+}
+}
+console.log("v=" + s(1));
+"""
+"a_numeric_case_against_a_string_discriminant_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case 1: return "A";
+default: return "D";
+}
+}
+console.log("v=" + s("a"));
+"""
+"a_boolean_written_into_a_string_parameter_is_fail_closed.js" = """function s(x) {
+x = true;
+switch (x) {
+case "a": return 1;
+default: return 3;
+}
+}
+console.log("v=" + s("b"));
+"""
+"a_write_from_another_parameter_into_a_string_parameter_is_fail_closed.js" = """function s(x, y) {
+x = y;
+switch (x) {
+case "a": return 1;
+default: return 3;
+}
+}
+console.log("v=" + s("b", true));
+"""
+"a_write_from_a_comparison_result_into_a_string_parameter_is_fail_closed.js" = """function s(x) {
+var t = 1 > 0;
+x = t;
+switch (x) {
+case "a": return 1;
+default: return 3;
+}
+}
+console.log("v=" + s("b"));
+"""
+"a_written_string_parameter_is_fail_closed_even_when_written_with_a_string.js" = """function s(x) {
+x = "z";
+switch (x) {
+case "a": return 1;
+case "z": return 9;
+default: return 3;
+}
+}
+console.log("v=" + s("b"));
+"""
+"a_new_expression_call_site_denies_a_string_parameter_discriminant.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+default: return 3;
+}
+}
+new s(true);
+console.log("v=" + s("b"));
+"""
+"an_escaping_function_denies_a_string_parameter_discriminant.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+default: return 3;
+}
+}
+setTimeout(s, 0);
+console.log("v=" + s("b"));
+"""
+"a_pass_through_chain_carrying_a_boolean_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+default: return 3;
+}
+}
+function t(y) { return s(y); }
+console.log("v=" + t(true));
+"""
+"a_string_switch_in_a_never_called_function_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+default: return 3;
+}
+}
+console.log("v=" + "no-call");
+"""
+"free_globals_against_string_cases_are_fail_closed_globalthis.js" = """function s() {
+switch (globalThis) {
+case "a": return 1;
+default: return 3;
+}
+}
+console.log("v=" + s());
+"""
+"free_globals_against_string_cases_are_fail_closed_undefined.js" = """function s() {
+switch (undefined) {
+case "a": return 1;
+default: return 3;
+}
+}
+console.log("v=" + s());
+"""
+"free_globals_against_string_cases_are_fail_closed_nan.js" = """function s() {
+switch (NaN) {
+case "a": return 1;
+default: return 3;
+}
+}
+console.log("v=" + s());
+"""
+"a_concatenated_case_test_against_a_string_discriminant_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case "a" + "b": return 1;
+default: return 3;
+}
+}
+console.log("v=" + s("ab"));
+"""
+"aggregate_discriminants_against_string_cases_are_fail_closed_object.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+default: return 3;
+}
+}
+var o = { k: 1 };
+console.log("v=" + s(o));
+"""
+"aggregate_discriminants_against_string_cases_are_fail_closed_array.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+default: return 3;
+}
+}
+var a = [1, 2];
+console.log("v=" + s(a));
+"""
+"string_switch_still_obeys_the_clause_rules_rule4.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case "a": r = 1;
+default: return 3;
+}
+return r;
+}
+console.log("v=" + s("a"));
+"""
+"string_switch_still_obeys_the_clause_rules_rule5.js" = """function s(x) {
+switch (x) {
+case "a": let q = 1; return q;
+default: return 3;
+}
+}
+console.log("v=" + s("a"));
+"""
+"a_trailing_empty_clause_with_nothing_after_is_fail_closed.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: r = 1; break;
+case 2:
+}
+return r;
+}
+console.log("v=" + s(1));
+"""
+"a_trailing_empty_clause_is_fail_closed_on_the_string_axis_at_module_scope.js" = """var r = "?";
+var x = "a";
+switch (x) {
+case "a": r = "A"; break;
+case "b":
+}
+console.log("v=" + r);
+"""
+"a_mid_group_empty_default_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case 1:
+default:
+case 2: return "x";
+}
+}
+console.log("v=" + s(1));
+"""
+"a_default_clause_cannot_absorb_a_preceding_empty_group.js" = """function s(x) {
+switch (x) {
+case 1:
+case 2:
+default: return "x";
+}
+}
+console.log("v=" + s(1));
+"""
+"an_ungrouped_non_final_default_is_fail_closed_and_was_silently_wrong_since_task_7.js" = """function s(x) {
+switch (x) {
+case 1: return "one";
+default: return "def";
+case 2: return "two";
+}
+}
+console.log("v=" + s(1) + "|" + s(2) + "|" + s(9));
+"""
+"a_grouped_non_final_default_is_fail_closed.js" = """function s(x) {
+switch (x) {
+case 1: return "one";
+default: return "def";
+case 7:
+case 8: return "grp";
+}
+}
+console.log("v=" + s(1) + "|" + s(7) + "|" + s(8) + "|" + s(9));
+"""
+"an_ungrouped_non_final_default_is_fail_closed_at_module_scope.js" = """var x = 2;
+switch (x) {
+case 1: console.log("v=one"); break;
+default: console.log("v=def"); break;
+case 2: console.log("v=two"); break;
+}
+"""
+"a_grouped_non_final_default_is_fail_closed_at_module_scope.js" = """var x = 7;
+switch (x) {
+case 1: console.log("v=one"); break;
+default: console.log("v=def"); break;
+case 7:
+case 8: console.log("v=grp"); break;
+}
+"""
+
+[[case]]
+name = "true_fallthrough_at_module_scope_is_fail_closed"
+rationale = """NOTE (Task 9): `switch_nested_in_for_loop_is_fail_closed_not_silently_wrong` used to live here. Task 6 added it as an additive fail-closed requirement and Tasks 7-8 denied it correctly, because its clauses end in `break`/`continue` and Rule 4 admitted only `return`. Task 9 admits those terminators, so the cell FLIPPED to correctness and moved verbatim (per-iteration `console.log` intact) to `switch_runtime.rs` as `switch_nested_in_a_loop_selects_correctly_with_break_and_continue`. It was neither deleted nor weakened; it now asserts node's exact bytes.
+
+Scope is a required test axis. Module scope cannot use `return`, so this pins the DENIAL side at module scope (the admitted twin arrives with Task 9's `break`): true fallthrough (no terminator at all) must still fail closed here too.
+
+Rule 4, not Rule 1: `x` here IS a proven i64, so a Rule 1 denial would mean the discriminant proof had regressed and this cell had stopped testing fallthrough at all.
+
+Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so its message changed and this constant tracks it EXACTLY (not a prefix — the old text is still a prefix of the new one, so leaving it would have made every Rule-4 pin silently insensitive to the widening it is meant to bound).
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "true_fallthrough_at_module_scope_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
+
+[[case]]
+name = "true_fallthrough_is_fail_closed"
+rationale = """True fallthrough (a clause with no `return`/`break`) is denied at function scope too — Task 7 admits ONLY all-`return` clauses; true fallthrough arrives nowhere in this plan (it is never a supported lowering shape).
+
+Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so its message changed and this constant tracks it EXACTLY (not a prefix — the old text is still a prefix of the new one, so leaving it would have made every Rule-4 pin silently insensitive to the widening it is meant to bound).
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "true_fallthrough_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
+
+[[case]]
+name = "a_non_literal_case_test_is_fail_closed"
+rationale = """A `case` test must be a numeric literal (Rule 2). A non-literal test (here, another parameter) is denied rather than silently compared as if it were.
+
+Rule 2, not Rule 1: `s(1, 1)` gives BOTH parameters clean numeric-literal inflow, so `x` is a proven discriminant and the only thing left to deny is the `case y:` test itself.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_non_literal_case_test_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_2_CASE_TEST}"]
+
+[[case]]
+name = "a_float_discriminant_is_fail_closed"
+rationale = """ADDITIVE (Task 4's re-derived boundary matrix, cell 15): a float discriminant is denied. The trap this test exists to close: matrix cell 15 records that a float discriminant already fails today with a DIFFERENT diagnostic, `E4201` (an invalid-module error at load time, for an unrelated reason), so a test that only asserted "this is rejected" would pass for the wrong reason and prove nothing. This asserts E5506 specifically IS present and E4201 is NOT — i.e. `is_provable_i64_scalar`'s float check (`is_float_valued`) is what denies this, at the switch choke point, before any invalid module could ever be produced.
+
+Fix wave item 4: this cell asserted only "some E5506, and not E4201", which is exactly the degradation the file header (and `assert_denied_by`) exist to prevent. Pin the rule.
+
+KNOWN OVERDETERMINATION — recorded, deliberately not fixed in this wave. Three INDEPENDENT gates now deny this one fixture at Rule 1: the parameter-inflow proof added by `83a401c311`, the second gate added by `2bc904375e`, and `emit/switch.rs`'s `scalar(…) == Repr::I64` check. Deleting `is_float_valued` from `is_provable_i64_scalar` today would leave this test GREEN, so the pin above does not actually measure the float check this test's comment claims it does. The same vacuity applies to `a_negative_float_parameter_argument_discriminant_is_fail_closed` below, whose comment claims it pins `expr_is_nonneg_int_literal`'s `fract()` check — unreachable, because the parameter-inflow gate at `emit/switch.rs` returns first. FOLLOW-UP: closing the vacuity needs a fixture that the parameter-inflow and `Repr::I64` gates both ADMIT and only the float check denies; constructing one is its own task and was deliberately out of scope here.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_float_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_absent = ["E4201"]
+
+[[case]]
+name = "a_boolean_discriminant_is_fail_closed"
+rationale = """ADDITIVE (Task 4's re-derived boundary matrix, cell 16): a boolean discriminant is denied. Cell 16 is one of only two cells where kali is otherwise CORRECT — this is a deliberate regression to fail-closed (Task 11 records it as such), accepted because fail-closed beats accidentally-right: `static_equality_class` proving `EqClass::Boolean` is the ONLY existing proof that a value is a JS boolean (a plain `Repr::I64` scalar carries no boolean axis of its own — see `emit/equality.rs`'s doc comment), and `is_provable_i64_scalar` denies on it explicitly.
+
+Fix wave item 5: was a hand-rolled PREFIX of the rule text, which goes insensitive the moment Rule 1's message widens. Routed through the constant. (The claim it makes is unchanged: this must be Rule 1 — the discriminant — not the numeric case-test rule.)
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_boolean_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "a_boolean_identifier_discriminant_is_fail_closed"
+rationale = """Fix round 1 (Critical 2 companion, cell 16 closed for real): a bare identifier bound to a boolean is a DIFFERENT trap than `x > 0` above. `static_equality_class` proves boolean-ness only for a SYNTACTIC form (a literal, a comparison, `!`, `delete`) — a bare identifier like `d` here carries no such proof, so this must be denied by the identifier arm's positive-evidence requirement (`name_is_declared_parameter(name) || binding_is_proven_numeric(name)`) instead: `d` is not a parameter, and its only write (`var d = true;`) is not `write_value_is_numeric`, so `binding_is_proven_numeric` is false and this fails Rule 1. Before fix round 1 this ran to completion and printed `v=one` where node prints `v=other` (measured, exit 0 both sides) — a silent miscompile, not a rejection.
+
+Fix wave item 5: was a hand-rolled PREFIX of the rule text (`"the discriminant is not a proven integer"`), which goes insensitive the moment Rule 1's message widens — as Rule 4's already did once on this branch. Routed through the constant.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_boolean_identifier_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "a_boolean_parameter_discriminant_is_fail_closed"
+rationale = """Fix round 2 (human ruling): a boolean-valued PARAMETER discriminant is the residual fix round 1 disclosed but did not close. `kali_common::Repr` has no `Boolean` variant, so nothing distinguishes a boolean-passed parameter from a numeric one by repr alone -- the fix is narrowing WHICH parameters the identifier arm trusts at all: `identifier_is_provable_i64_scalar` now requires `param_has_numeric_literal_inflow`, positive proof that EVERY enumerated call site of `s` passes a numeric literal for `b`. `s(true)` is the (only) call site and its argument is not a numeric literal, so `b` fails this proof and Rule 1 denies. Before fix round 2 this ran to completion and printed `v=one` where node prints `v=other` (measured, exit 0 both sides) -- a silent miscompile, not a rejection.
+
+Fix wave item 5: was a hand-rolled PREFIX of the rule text (`"the discriminant is not a proven integer"`), which goes insensitive the moment Rule 1's message widens — as Rule 4's already did once on this branch. Routed through the constant.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_boolean_parameter_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "a_computed_parameter_argument_discriminant_is_fail_closed"
+rationale = """Fix round 2 positive-direction coverage: a parameter fed a COMPUTED (non-literal) argument at its only call site must ALSO be denied -- `param_has_numeric_literal_inflow` requires the argument to be `expr_is_nonneg_int_literal`-grade specifically, not merely arithmetic/scalar. `n + 1` is syntactically scalar (it would satisfy the weaker `scalar_inflow_params`/`binding_is_proven_numeric`-style proof) but is NOT a numeric literal, so this must still fail Rule 1 -- proving the new rule actually denies computed arguments and is not vacuously satisfied by anything scalar-shaped.
+
+Fix wave item 5: was a hand-rolled PREFIX of the rule text (`"the discriminant is not a proven integer"`), which goes insensitive the moment Rule 1's message widens — as Rule 4's already did once on this branch. Routed through the constant.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_computed_parameter_argument_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "a_negative_float_parameter_argument_discriminant_is_fail_closed"
+rationale = """Fix round 3: the inflow predicate was widened to accept unary `+`/`-` DIRECTLY over a numeric literal (so `s(-1)` admits again -- see `numeric_switch_selects_correctly_with_a_negative_case_test` in `switch_runtime.rs`). This pins the float axis specifically, not just the boolean axis: `-1.5` is unary `-` over a LITERAL, syntactically the same shape as `-1`, but `expr_is_nonneg_int_literal`'s `n.fract() == 0.0` check must still catch the fractional magnitude on both sides of zero. If the widening had been done by loosening that check instead of by peeling the unary wrapper around the UNCHANGED nonneg-int check, this is the fixture that would have caught it (Task 4's float requirement depends on this staying closed).
+
+Fix wave item 5: routed through the constant (was a hand-rolled prefix).
+
+See the overdetermination note on `a_float_discriminant_is_fail_closed`: this cell's comment claims it pins `expr_is_nonneg_int_literal`'s `fract()` check, but the parameter-inflow gate denies first, so that claim is VACUOUS. Recorded, not fixed in this wave.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_negative_float_parameter_argument_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_absent = ["E4201"]
+
+[[case]]
+name = "a_let_declaration_in_a_braced_clause_is_fail_closed_via_rule_4"
+rationale = """A `let`/`const` declaration in a clause body is denied (Rule 5): block shadowing across case labels is unmodeled (register R-10), so a case-scoped binding would build on a known-broken foundation.
+
+NOTE (fix round 1): this braced form is denied by RULE 4 (the clause's last statement is a `Block`, not a `Branch("return")`), not Rule 5 — `declares_block_scoped_binding` is never even consulted for it. Kept as a pin on its own right (a braced clause with an inner `let` must still fail), but see the unbraced test below for actual Rule-5 coverage.
+
+Fix round 4: this test's NAME claims Rule 4, so pin the Rule-4 reason — otherwise nothing distinguishes it from the Rule-5 test below (or from a Rule-1 denial that would make both of them pass for the wrong reason). Task 9: routed through `assert_denied_by` so it tracks the widened message via the shared constant rather than its own stale copy.
+
+Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so its message changed and this constant tracks it EXACTLY (not a prefix — the old text is still a prefix of the new one, so leaving it would have made every Rule-4 pin silently insensitive to the widening it is meant to bound).
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_let_declaration_in_a_braced_clause_is_fail_closed_via_rule_4.js"]
+stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
+
+[[case]]
+name = "a_let_declaration_in_an_unbraced_clause_is_fail_closed_via_rule_5"
+rationale = """The unbraced form: `let a = 1;` and `return ...;` are two SIBLING statements in the clause body (not nested inside a `Block`), so this clause's last statement genuinely IS a `return` (Rule 4 passes) and Rule 5 (`declares_block_scoped_binding`) is what must catch the `let`. Without this fixture `declares_block_scoped_binding` had zero test coverage.
+
+Fix round 4: pin the Rule-5 reason this test's name claims — without it an "any E5506" assertion is satisfied by ANY denial, including the Rule-4 one the test above pins, which would make this test's whole premise (`declares_block_scoped_binding` has coverage) untrue.
+
+Fix wave item 5: the rule text was HAND-COPIED here rather than taken from `RULE_5_BLOCK_BINDING`, so a widening of Rule 5's message would leave this pin matching a stale prefix. Routed through the constant.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_let_declaration_in_an_unbraced_clause_is_fail_closed_via_rule_5.js"]
+stderr_contains = ["E5506", "${RULE_5_BLOCK_BINDING}"]
+
+[[case]]
+name = "a_written_parameter_discriminant_is_fail_closed"
+rationale = """Fix round 4, LEAK 2 (Critical): `param_has_numeric_literal_inflow` proves what flowed IN at the call sites; it was being consumed as a proof of the discriminant's value AT THE SWITCH. Any write to the parameter between function entry and the switch laundered a non-numeric value through a clean numeric-literal call site. Measured at HEAD 83a401c311: `v=one` where node prints `v=other`, exit 0 on both sides, no diagnostic — a silent miscompile. Closed by conjoining `kali_types::repr_infer`'s `readonly_params` (a POSITIVE enumeration of the forms in which a name is provably only read) into `numeric_literal_inflow_params`, which makes the inflow proof a proof of VALUE.
+
+Fix wave item 5: was a hand-rolled PREFIX of the rule text (`"the discriminant is not a proven integer"`), which goes insensitive the moment Rule 1's message widens — as Rule 4's already did once on this branch. Routed through the constant.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_written_parameter_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "a_parameter_overwritten_from_a_boolean_binding_is_fail_closed"
+rationale = """Fix round 4, LEAK 2, the sharpest variant. `t` is a `var` holding a boolean that `binding_is_proven_numeric` correctly REFUSES — `switch (t)` directly is already denied (`a_boolean_identifier_discriminant_is_fail_closed`). This pins that copying that same refused value into a parameter does not launder it past the refusal: the parameter's numeric-literal inflow from `s(1)` must not stand in for the value it actually holds at the switch. This is also the fixture that pins the OTHER half of the fix — the identifier arm's parameter branch is now an if/else, not an `||` with `binding_is_proven_numeric`, so a PARAMETER can no longer be rescued by the numeric-binding write proof (which accepts a write whose RHS is another parameter on SCALAR inflow alone).
+
+Fix wave item 5: was a hand-rolled PREFIX of the rule text (`"the discriminant is not a proven integer"`), which goes insensitive the moment Rule 1's message widens — as Rule 4's already did once on this branch. Routed through the constant.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_parameter_overwritten_from_a_boolean_binding_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "a_parameter_overwritten_from_another_parameter_is_fail_closed"
+rationale = """Fix round 4, LEAK 2 companion: a second PARAMETER copied into the discriminant parameter. `x = y` earns the numeric-binding write proof for `x` on nothing stronger than `y`'s SCALAR inflow, and a boolean literal argument is scalar-syntactic — so `s(1, true)` had a "proven numeric" `x` holding `true`. Measured at HEAD 83a401c311: `v=one` vs node's `v=other`, exit 0. Denied now because a declared parameter's ONLY admitted proof is numeric-literal inflow AND never-written.
+
+Fix wave item 5: was a hand-rolled PREFIX of the rule text (`"the discriminant is not a proven integer"`), which goes insensitive the moment Rule 1's message widens — as Rule 4's already did once on this branch. Routed through the constant.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_parameter_overwritten_from_another_parameter_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "a_new_invocation_site_of_the_enclosing_function_is_fail_closed"
+rationale = """Fix round 4, LEAK 1 (Critical): a `new`-invocation site was invisible to BOTH halves of the parameter proof. `new s(true)` is not a `CallEdge` (only a bare-identifier CallExpression builds one), so Step 1c's ∀-over-enumerated -edges never saw it, AND `repr_infer`'s `visit_expr` never visited a NewExpression's CALLEE at all, so `s` never reached the identifier arm that populates `escaping_function_names` — the backstop whose entire job is to guarantee that "∀ enumerated edges" means "∀ invocation sites". The `s(1)` site supplied clean ∃-evidence and nothing vetoed. Measured at HEAD 83a401c311: kali printed `one`/`one` where node prints `one`/`other`, exit 0, no diagnostic. Note this fixture NEEDS the `s(1)` call: without an enumerated numeric-literal site there is no ∃-evidence and the switch would deny for an unrelated reason, proving nothing about the `new` site.
+
+Fix wave item 5: was a hand-rolled PREFIX of the rule text (`"the discriminant is not a proven integer"`), which goes insensitive the moment Rule 1's message widens — as Rule 4's already did once on this branch. Routed through the constant.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_new_invocation_site_of_the_enclosing_function_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+# --- R-35 Task 9: `break`/`continue` terminators ---
+[[case]]
+name = "continue_in_a_switch_with_no_enclosing_loop_is_fail_closed"
+rationale = """R-35 Task 9: `break`/`continue` terminators. Every cell below pins that admitting them removed no rejection.
+
+The `None` half of `LoopFrame.continue_index`. `case 1: continue;` IS an admitted clause terminator now, so `switch_plan` builds a plan and the switch frame is pushed — but that frame inherits `continue_index` from the enclosing loop frame, and at function scope there is no enclosing loop, so it inherits `None`. `emit_break_or_continue` then has no target and fails closed rather than branching to the switch's own exit (which would silently turn `continue` into `break`). This is the cell that proves the inheritance is `None`-typed and not defaulted to `break_index`.
+
+Not a `switch_plan` rule: `emit_break_or_continue`'s own fail-closed arm, for a `continue` whose innermost frame is a SWITCH frame carrying no inherited `continue_index` (i.e. there is no enclosing loop). Pinned separately from Rule 4 because the two deny at different choke points, and a test that accepted either could not tell "the clause was refused" from "the clause was admitted and the `continue` had nowhere to go"."""
+exit = "failure"
+args = ["run", "continue_in_a_switch_with_no_enclosing_loop_is_fail_closed.js"]
+stderr_contains = ["${NO_ENCLOSING_LOOP}"]
+
+# --- FIX ROUND 1: continue must fail closed when the loop's continue lowering is unfaithful ---
+[[case]]
+name = "continue_in_a_switch_in_a_c_style_for_loop_is_fail_closed"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+LEAK 1 (the reviewer's cell). `continue` as a clause TERMINATOR inside a C-style `for`. Measured at `a82d8499be`, exit 0 and no diagnostic: kali iter=0|iter=1|iter=2|iter=3|iter=4|iter=5|s=13 node iter=0|iter=1|iter=2|iter=4|iter=5|s=10 The `continue` skipped the loop's `i = i + 1` update (register R-09), so the `i = i + 1` written inside the clause was undone and iteration 3 ran when node skips it. Per-iteration logging is what makes that visible as a changed iteration SEQUENCE rather than just a wrong total.
+
+The OTHER `None` cause, and pairwise disjoint from the one above: there IS an enclosing loop, but its `continue` lowering is unfaithful (register R-09), so the switch declines to inherit its continue target. Pinned separately because a test that accepted either message could not tell "you have no loop" from "your loop's `continue` would silently skip iterations" — and the first would be a lie to anyone with a perfectly good `for` loop.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "continue_in_a_switch_in_a_c_style_for_loop_is_fail_closed.js"]
+stderr_contains = ["E5506", "${UNFAITHFUL_CONTINUE}"]
+stderr_absent = ["iter="]
+
+[[case]]
+name = "continue_nested_in_a_return_clause_in_a_c_style_for_loop_is_fail_closed"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+LEAK 2, and the reason reverting the `Continue` TERMINATOR would not have been enough: the identical wrongness through a `continue` NESTED INSIDE a `return`-terminated clause. Rule 4 has admitted that clause shape since Task 7, so this leak PREDATES Task 9's terminator widening — Task 9 widened an already-leaking surface rather than creating it. Measured at `a82d8499be`, exit 0, no diagnostic: kali `v=s=13` / six `iter=` lines against node's `v=s=10` / five.
+
+The OTHER `None` cause, and pairwise disjoint from the one above: there IS an enclosing loop, but its `continue` lowering is unfaithful (register R-09), so the switch declines to inherit its continue target. Pinned separately because a test that accepted either message could not tell "you have no loop" from "your loop's `continue` would silently skip iterations" — and the first would be a lie to anyone with a perfectly good `for` loop.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "continue_nested_in_a_return_clause_in_a_c_style_for_loop_is_fail_closed.js"]
+stderr_contains = ["E5506", "${UNFAITHFUL_CONTINUE}"]
+stderr_absent = ["iter="]
+
+[[case]]
+name = "continue_in_a_switch_in_a_do_while_is_fail_closed"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+`do`/`while` is unfaithful too, and this cell is the one that contradicts `emit_loop`'s original doc comment (which claimed do-while "re-tests correctly on `continue`" because it has no update). It does not: the test is at the BOTTOM and `continue` branches to the loop TOP. Measured switch-free, `do { i = i + 1; console.log("iter=" + i); continue; } while (i < 3);` printed 1,578,155 lines before trapping at exit 1 where node prints three and `i=3`.
+
+Fix wave item 9: NOT redundant with the rule pin. `deny_e5506` pushes a diagnostic and emits `Unreachable`, but it still emits a COMPLETE module, and `run_js_expect_failure` gates only on `!status.success()`. If codegen diagnostics ever stop being fatal for `run`, this cell goes green WHILE THE LOOP EXECUTES — and this is the worst measured blow-up on record (1,578,155 lines before trapping).
+
+The OTHER `None` cause, and pairwise disjoint from the one above: there IS an enclosing loop, but its `continue` lowering is unfaithful (register R-09), so the switch declines to inherit its continue target. Pinned separately because a test that accepted either message could not tell "you have no loop" from "your loop's `continue` would silently skip iterations" — and the first would be a lie to anyone with a perfectly good `for` loop.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "continue_in_a_switch_in_a_do_while_is_fail_closed.js"]
+stderr_contains = ["E5506", "${UNFAITHFUL_CONTINUE}"]
+stderr_absent = ["iter="]
+
+[[case]]
+name = "continue_in_a_switch_in_a_for_in_is_fail_closed"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+`for...in` advances its ordinal AFTER the body, so `continue` re-reads the same key forever. Measured switch-free: `key=b` 1,249,832 times, exit 1, against node's a/b/c and `n=2`. (That hang is R-09 family and is routed to Task 11's register work; this cell only pins that `switch` refuses to widen into it.)
+
+Fix wave item 9, and note the MARKER: this fixture logs `key=`, not `iter=`. A copy-pasted `!contains("iter=")` would be vacuously true here and would pin nothing at all. Same rationale as the do-while cell above; this form's measured blow-up is 1,249,832 lines.
+
+The OTHER `None` cause, and pairwise disjoint from the one above: there IS an enclosing loop, but its `continue` lowering is unfaithful (register R-09), so the switch declines to inherit its continue target. Pinned separately because a test that accepted either message could not tell "you have no loop" from "your loop's `continue` would silently skip iterations" — and the first would be a lie to anyone with a perfectly good `for` loop.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "continue_in_a_switch_in_a_for_in_is_fail_closed.js"]
+stderr_contains = ["E5506", "${UNFAITHFUL_CONTINUE}"]
+stderr_absent = ["key="]
+
+[[case]]
+name = "the_two_continue_denial_causes_are_reported_distinctly_no_loop"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+The two `None` causes must stay DISTINGUISHABLE. A switch with no enclosing loop must NOT be told its loop form is unsupported, and a switch in a C-style `for` must NOT be told it has no loop. Without this, one message could quietly replace the other and both cells above would still pass.
+
+Not a `switch_plan` rule: `emit_break_or_continue`'s own fail-closed arm, for a `continue` whose innermost frame is a SWITCH frame carrying no inherited `continue_index` (i.e. there is no enclosing loop). Pinned separately from Rule 4 because the two deny at different choke points, and a test that accepted either could not tell "the clause was refused" from "the clause was admitted and the `continue` had nowhere to go".
+
+The OTHER `None` cause, and pairwise disjoint from the one above: there IS an enclosing loop, but its `continue` lowering is unfaithful (register R-09), so the switch declines to inherit its continue target. Pinned separately because a test that accepted either message could not tell "you have no loop" from "your loop's `continue` would silently skip iterations" — and the first would be a lie to anyone with a perfectly good `for` loop."""
+exit = "failure"
+args = ["run", "the_two_continue_denial_causes_are_reported_distinctly_no_loop.js"]
+stderr_contains = ["${NO_ENCLOSING_LOOP}"]
+stderr_absent = ["${UNFAITHFUL_CONTINUE}"]
+
+[[case]]
+name = "the_two_continue_denial_causes_are_reported_distinctly_bad_form"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+The two `None` causes must stay DISTINGUISHABLE. A switch with no enclosing loop must NOT be told its loop form is unsupported, and a switch in a C-style `for` must NOT be told it has no loop. Without this, one message could quietly replace the other and both cells above would still pass.
+
+Fix wave item 9: the `bad_form` fixture has a real loop with a per-iteration `console.log("iter=" + i)`, so it must also be proven not to have RUN. Same rationale as the do-while / for-in cells above.
+
+Not a `switch_plan` rule: `emit_break_or_continue`'s own fail-closed arm, for a `continue` whose innermost frame is a SWITCH frame carrying no inherited `continue_index` (i.e. there is no enclosing loop). Pinned separately from Rule 4 because the two deny at different choke points, and a test that accepted either could not tell "the clause was refused" from "the clause was admitted and the `continue` had nowhere to go".
+
+The OTHER `None` cause, and pairwise disjoint from the one above: there IS an enclosing loop, but its `continue` lowering is unfaithful (register R-09), so the switch declines to inherit its continue target. Pinned separately because a test that accepted either message could not tell "you have no loop" from "your loop's `continue` would silently skip iterations" — and the first would be a lie to anyone with a perfectly good `for` loop."""
+exit = "failure"
+args = ["run", "the_two_continue_denial_causes_are_reported_distinctly_bad_form.js"]
+stderr_contains = ["${UNFAITHFUL_CONTINUE}"]
+stderr_absent = ["${NO_ENCLOSING_LOOP}", "iter="]
+
+[[case]]
+name = "a_labeled_break_in_a_clause_is_fail_closed"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+A LABELED break in a clause is NOT admitted. `is_unlabeled_break_statement` accepts only the text EXACTLY `"break"`; the HIR encodes a labeled one as `"break:<label>"` (`kali_hir/src/lowering/statement.rs:25-32`), the same encoding `emit_break_or_continue` decodes (`emit/control_flow.rs:22-33`). Admitting the prefix would have let a `break L` targeting an OUTER loop be planned as if it bound to the switch.
+
+MEASURED BOUNDARY (do not mistake this cell for a Rule-4 pin): labeled STATEMENTS are unsupported in kali entirely, well upstream of `switch`. The label declaration itself resolves as a bare identifier and raises `E3100 undefined identifier 'outer'` — verified independently of any switch: the same loop with no switch in it (`outer: for (...) { sum = sum + 1; }`) raises the identical E3100, where node prints `sum=3`. So no `"break:<label>"` node can reach `switch_plan` today, and `is_unlabeled_break_statement`'s exact match is DEFENCE IN DEPTH rather than the operative gate. This test pins the operative one; if labeled statements are ever supported, this cell must be re-pinned on RULE_4_TERMINATOR and will start measuring the exact match for real."""
+exit = "failure"
+args = ["run", "a_labeled_break_in_a_clause_is_fail_closed.js"]
+stderr_contains = ["E3100"]
+stderr_absent = ["iter="]
+
+[[case]]
+name = "a_fallthrough_clause_beside_a_break_clause_is_fail_closed"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+The boundary Rule 4 now draws: `break` is admitted, a BARE ASSIGNMENT is still true fallthrough. This is the mixed cell — one clause `break`s and one does not — so it cannot pass by the whole switch being denied for an unrelated reason, and it proves the widening is per-clause POSITIVE evidence rather than "any switch containing a `break` is admitted".
+
+Rule 4 specifically: `s(1)` gives `x` clean numeric-literal inflow, so the discriminant is proven and the ONLY thing left to deny is the terminator-less `case 1:`.
+
+Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so its message changed and this constant tracks it EXACTLY (not a prefix — the old text is still a prefix of the new one, so leaving it would have made every Rule-4 pin silently insensitive to the widening it is meant to bound).
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_fallthrough_clause_beside_a_break_clause_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
+
+[[case]]
+name = "a_break_followed_by_dead_code_in_a_clause_is_fail_closed"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+Rule 4 keys on the clause's LAST statement, so a `break` followed by dead code does NOT satisfy it — the last statement is the assignment. Node runs this fine (`v=1`, the dead `r = 5` never executes) and kali refuses it. That is deliberate and it is the honest side of the trade: `is_unlabeled_break_statement` is a positive proof about the terminator POSITION, not a search for a `break` somewhere in the clause. A search would be a denylist inversion — "contains a break, therefore fine" — and would admit `case 1: break; while (q) { … }` whose real terminator is unmodeled.
+
+Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so its message changed and this constant tracks it EXACTLY (not a prefix — the old text is still a prefix of the new one, so leaving it would have made every Rule-4 pin silently insensitive to the widening it is meant to bound).
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_break_followed_by_dead_code_in_a_clause_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
+
+[[case]]
+name = "a_braced_break_clause_is_fail_closed"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+A BRACED clause whose block ends in `break` is denied by Rule 4 too: the clause's last statement is a `Block`, not a `Branch`. Same shape as the pre-existing braced-`let` cell, but with the terminator that Task 9 just admitted — so it pins that the widening did not reach INSIDE a block.
+
+Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so its message changed and this constant tracks it EXACTLY (not a prefix — the old text is still a prefix of the new one, so leaving it would have made every Rule-4 pin silently insensitive to the widening it is meant to bound).
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_braced_break_clause_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
+
+[[case]]
+name = "a_fallthrough_clause_beside_a_break_clause_is_fail_closed_on_the_string_axis"
+rationale = """FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering is UNFAITHFUL must fail closed. Admitting `continue` moved these from fail-closed to SILENTLY WRONG; the fix filters the inheritance at `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches both the terminator form and the nested form with no clause-body walk.
+
+NOTE (Task 10): `an_empty_grouped_clause_is_still_fail_closed_at_task_9` used to live here. Task 6/9-era Rule 4 denied an EMPTY clause because it has no last statement to classify as a terminator. Task 10 admits `EmptyGroup`, which folds an empty clause's test onto the next terminated clause instead of rejecting it, so this exact fixture FLIPS from denial to correctness — the same move Task 9 made for `switch_nested_in_for_loop_is_fail_closed_not_silently_wrong`. It was neither deleted nor weakened; it moved verbatim (both group members checked) to `switch_runtime.rs` as `an_empty_grouped_clause_beside_a_break_clause_is_admitted`.
+
+The same boundary at MODULE scope (scope is a required test axis), and on the STRING axis, so the terminator rule cannot have been widened on one axis only.
+
+Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which refuses a string-reachable binding fed by an unbacked plain source BEFORE `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert this is ABSENT, or they cannot tell the two apart.
+
+Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so its message changed and this constant tracks it EXACTLY (not a prefix — the old text is still a prefix of the new one, so leaving it would have made every Rule-4 pin silently insensitive to the widening it is meant to bound).
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_fallthrough_clause_beside_a_break_clause_is_fail_closed_on_the_string_axis.js"]
+stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
+stderr_absent = ["${REPR_MIXED_CONFLICT}"]
+
+# --- R-35 Task 8: the STRING discriminant axis ---
+[[case]]
+name = "a_string_case_against_a_numeric_discriminant_is_fail_closed"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+Step 6 (brief): a string `case` test against a NUMERIC discriminant. Rule 2 is domain-matched, so this is DENIED rather than compiled into a comparison that can never be true. Node falls to `default` here; agreeing with node by accident is not a lowering proof, so kali refuses instead.
+
+RULE 2 is the whole point. `s(1)` gives `x` clean numeric-literal inflow, so the discriminant IS proven and Rule 1 has nothing to say; only a domain-matched rule 2 can deny this. If the string proof ever regressed and this started denying at Rule 1, the test would still "pass" while no longer testing domain matching at all — hence the pin.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_string_case_against_a_numeric_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_2_CASE_TEST}"]
+
+[[case]]
+name = "a_numeric_case_against_a_string_discriminant_is_fail_closed"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+The OTHER direction: a numeric `case` test against a PROVEN STRING discriminant. Both directions must be denied or rule 2 is not actually domain-matched -- it would just be two independent one-way checks.
+
+RULE 2 again, and for the same reason mirrored: `s("a")` proves `x` a string, so the discriminant is admitted and only the numeric `case 1:` can deny. Pinning BOTH directions at Rule 2 is what makes this a claim about domain MATCHING rather than two unrelated one-way checks.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_numeric_case_against_a_string_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_2_CASE_TEST}"]
+
+[[case]]
+name = "a_boolean_written_into_a_string_parameter_is_fail_closed"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+String analogue of Task 7 fix round 4 LEAK 2: a WRITE launders a non-string value into a parameter with clean string inflow. On the numeric axis this silently miscompiled; on the string axis `repr_infer`'s own `plain_write_targets` rule already turns "string-reachable node fed by an unbacked plain source" into a shape conflict, so the program is refused before the switch proof is even consulted. Pinned here so a future change to that rule cannot quietly reopen the switch cell.
+
+Denied UPSTREAM of the switch, by `repr_infer`'s `plain_write_targets` shape conflict — pinned on that message specifically, because the claim this test makes is "the write is caught at the source, program-wide", not merely "this switch was refused".
+
+Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which refuses a string-reachable binding fed by an unbacked plain source BEFORE `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert this is ABSENT, or they cannot tell the two apart.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_boolean_written_into_a_string_parameter_is_fail_closed.js"]
+stderr_contains = ["E5506", "${REPR_MIXED_CONFLICT}"]
+
+[[case]]
+name = "a_write_from_another_parameter_into_a_string_parameter_is_fail_closed"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+Same leak through a SECOND PARAMETER rather than a literal -- the exact shape (`x = y` with `s(<good>, <bad>)`) that defeated the numeric proof's `||` disjunction in fix round 3.
+
+Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which refuses a string-reachable binding fed by an unbacked plain source BEFORE `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert this is ABSENT, or they cannot tell the two apart.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_write_from_another_parameter_into_a_string_parameter_is_fail_closed.js"]
+stderr_contains = ["E5506", "${REPR_MIXED_CONFLICT}"]
+
+[[case]]
+name = "a_write_from_a_comparison_result_into_a_string_parameter_is_fail_closed"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+Same leak through a comparison RESULT copied via a local -- the shape `binding_is_proven_numeric` itself refuses but the numeric proof's disjunction admitted anyway.
+
+Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which refuses a string-reachable binding fed by an unbacked plain source BEFORE `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert this is ABSENT, or they cannot tell the two apart.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_write_from_a_comparison_result_into_a_string_parameter_is_fail_closed.js"]
+stderr_contains = ["E5506", "${REPR_MIXED_CONFLICT}"]
+
+[[case]]
+name = "a_written_string_parameter_is_fail_closed_even_when_written_with_a_string"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+A write of a STRING into the parameter is denied too. Nothing about the value is wrong here -- node prints `v=9` and a string discriminant would still be a string. It is denied because `readonly_params` is a POSITIVE enumeration of read-only forms and a written parameter simply is not in it. Fail-closed, deliberately: this pins that the parameter arm's evidence is "never written", not "never written with something bad", so no future edit can turn it into a denylist of bad write RHSs.
+
+This is the SOLE pin on `param_is_readonly` being load-bearing, so it has to isolate that conjunct rather than accept any denial. A string-RHS write builds a string-reachable edge, so `plain_write_targets` does NOT fire here (measured: the same function without the switch, `function s(x) { x = "z"; return x + "!"; } s("b")`, compiles and runs at exit 0). With the mixed-conflict message asserted ABSENT, the only thing left that can produce this Rule 1 denial is `param_is_readonly`.
+
+Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which refuses a string-reachable binding fed by an unbacked plain source BEFORE `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert this is ABSENT, or they cannot tell the two apart.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_written_string_parameter_is_fail_closed_even_when_written_with_a_string.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_absent = ["${REPR_MIXED_CONFLICT}"]
+
+[[case]]
+name = "a_new_expression_call_site_denies_a_string_parameter_discriminant"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+`new s(true)` builds NO call edge, so the call-edge quantifier cannot see it; it is visible only as an ESCAPE (`mark_new_callee_escapes`). The string parameter arm conjoins the SAME `escaping_function_names` set Task 7's numeric proof does, so this denies even though the only enumerable call site (`s("b")`) supplies a clean string.
+
+Isolates `!function_escapes` the same way the readonly cell above isolates its conjunct: `new s(true)` builds no call edge and writes nothing, so no shape conflict is raised (measured: the same program without the switch, `function s(x) { return x + "!"; } new s(true); s("b")`, compiles and runs at exit 0). With the conflict asserted absent and `x` never written, the escape gate is the only remaining conjunct.
+
+Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which refuses a string-reachable binding fed by an unbacked plain source BEFORE `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert this is ABSENT, or they cannot tell the two apart.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_new_expression_call_site_denies_a_string_parameter_discriminant.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_absent = ["${REPR_MIXED_CONFLICT}"]
+
+[[case]]
+name = "an_escaping_function_denies_a_string_parameter_discriminant"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+The escape gate proper: `s` passed as a callback can be invoked through a site no analysis in this compiler enumerates, so no per-parameter fact derived from the enumerated sites is a fact about every invocation.
+
+Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which refuses a string-reachable binding fed by an unbacked plain source BEFORE `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert this is ABSENT, or they cannot tell the two apart.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "an_escaping_function_denies_a_string_parameter_discriminant.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_absent = ["${REPR_MIXED_CONFLICT}"]
+
+[[case]]
+name = "a_pass_through_chain_carrying_a_boolean_is_fail_closed"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+Existential laundering through a PASS-THROUGH chain: `s`'s only argument is a bare identifier, so nothing about `s`'s parameter is proven unless `t`'s parameter is itself proven a string -- and `t(true)` proves it is not.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_pass_through_chain_carrying_a_boolean_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "a_string_switch_in_a_never_called_function_is_fail_closed"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+No evidence is not vacuous truth: a function with ZERO call sites has no proof for its parameter and is denied.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_string_switch_in_a_never_called_function_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "free_globals_against_string_cases_are_fail_closed_globalthis"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+Free globals against STRING cases. `globalThis`/`undefined`/`NaN` are not program-bound, so the identifier arm's first gate (`name_is_program_bound`, the check Task 7's identifier arm originally omitted) denies them. Pinned on the string axis too so the gate cannot be dropped from one arm only.
+
+Rule 1 specifically: this pins `name_is_program_bound` as the gate that denies a free global, which is the check Task 7's identifier arm originally omitted.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "free_globals_against_string_cases_are_fail_closed_globalthis.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_absent = ["E4201"]
+
+[[case]]
+name = "free_globals_against_string_cases_are_fail_closed_undefined"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+Free globals against STRING cases. `globalThis`/`undefined`/`NaN` are not program-bound, so the identifier arm's first gate (`name_is_program_bound`, the check Task 7's identifier arm originally omitted) denies them. Pinned on the string axis too so the gate cannot be dropped from one arm only.
+
+Rule 1 specifically: this pins `name_is_program_bound` as the gate that denies a free global, which is the check Task 7's identifier arm originally omitted.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "free_globals_against_string_cases_are_fail_closed_undefined.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_absent = ["E4201"]
+
+[[case]]
+name = "free_globals_against_string_cases_are_fail_closed_nan"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+Free globals against STRING cases. `globalThis`/`undefined`/`NaN` are not program-bound, so the identifier arm's first gate (`name_is_program_bound`, the check Task 7's identifier arm originally omitted) denies them. Pinned on the string axis too so the gate cannot be dropped from one arm only.
+
+Rule 1 specifically: this pins `name_is_program_bound` as the gate that denies a free global, which is the check Task 7's identifier arm originally omitted.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "free_globals_against_string_cases_are_fail_closed_nan.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_absent = ["E4201"]
+
+[[case]]
+name = "a_concatenated_case_test_against_a_string_discriminant_is_fail_closed"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+A `case` test that is a runtime string EXPRESSION rather than a literal is denied: rule 2 admits a string LITERAL only, so a concat -- which would materialize a fresh handle per clause evaluation -- never reaches the emit.
+
+Rule 2: `s("ab")` proves the discriminant a string, so the only thing left to deny is the case test's non-literal shape.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_concatenated_case_test_against_a_string_discriminant_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_2_CASE_TEST}"]
+
+[[case]]
+name = "aggregate_discriminants_against_string_cases_are_fail_closed_object"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+An object / array discriminant against string cases. Both are i64-shaped wasm values exactly like a string handle, so only the proof stands between them and `__streq` reading a non-string handle's bits.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "aggregate_discriminants_against_string_cases_are_fail_closed_object.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "aggregate_discriminants_against_string_cases_are_fail_closed_array"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+An object / array discriminant against string cases. Both are i64-shaped wasm values exactly like a string handle, so only the proof stands between them and `__streq` reading a non-string handle's bits.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "aggregate_discriminants_against_string_cases_are_fail_closed_array.js"]
+stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+
+[[case]]
+name = "string_switch_still_obeys_the_clause_rules_rule4"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+Rules 4 and 5 are unchanged by the string widening: a non-`return` clause and a `let` in a clause body stay denied on the string axis too. Without these, "widened the discriminant domain" could silently have meant "widened the clause allowlist as well".
+
+Rule 4 SPECIFICALLY, not Rule 1. `s("a")` proves the discriminant, so this cell's whole claim is "the clause-terminator rule still applies on the string axis". A Rule 1 denial here would mean the string proof had regressed and the clause rules were no longer being exercised at all — the exact silent degradation this pin exists to catch.
+
+Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so its message changed and this constant tracks it EXACTLY (not a prefix — the old text is still a prefix of the new one, so leaving it would have made every Rule-4 pin silently insensitive to the widening it is meant to bound).
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "string_switch_still_obeys_the_clause_rules_rule4.js"]
+stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
+
+[[case]]
+name = "string_switch_still_obeys_the_clause_rules_rule5"
+rationale = """R-35 Task 8: the STRING discriminant axis. Every test below is the string analogue of a leak Task 7 measured on the numeric axis, plus the two mismatched-domain directions. They are the regression suite for the claim "the allowlist widened by adding a proof, and no rejection was removed".
+
+Rules 4 and 5 are unchanged by the string widening: a non-`return` clause and a `let` in a clause body stay denied on the string axis too. Without these, "widened the discriminant domain" could silently have meant "widened the clause allowlist as well".
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "string_switch_still_obeys_the_clause_rules_rule5.js"]
+stderr_contains = ["E5506", "${RULE_5_BLOCK_BINDING}"]
+
+# --- R-35 Task 10: `EmptyGroup` widens Rule 4 to fold an empty clause onto the next terminated clause ---
+[[case]]
+name = "a_trailing_empty_clause_with_nothing_after_is_fail_closed"
+rationale = """R-35 Task 10: `EmptyGroup` widens Rule 4 to fold an empty clause's test onto the next terminated clause. What stays denied: a trailing empty group with nothing to fall onto, and `default` on either side of a group.
+
+A trailing empty clause (`case 2:` last, nothing after it) is legal JS — node falls out of the switch for it (see the Task 10 report's oracle output) — but there is no clause left in this compiler's plan to carry its test, so the plan denies it explicitly rather than silently dropping it.
+
+Task 10: a trailing run of empty clauses with nothing left to group onto (`case 1: return "a"; case 2:` at the end of the switch) is legal JS — it falls out of the switch — but this compiler has no clause left to carry its test, so it is denied rather than silently dropped.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_trailing_empty_clause_with_nothing_after_is_fail_closed.js"]
+stderr_contains = ["E5506", "${TRAILING_EMPTY_GROUP}"]
+
+[[case]]
+name = "a_trailing_empty_clause_is_fail_closed_on_the_string_axis_at_module_scope"
+rationale = """R-35 Task 10: `EmptyGroup` widens Rule 4 to fold an empty clause's test onto the next terminated clause. What stays denied: a trailing empty group with nothing to fall onto, and `default` on either side of a group.
+
+Same shape on the STRING axis and at MODULE scope — scope and domain are both required test axes, and this is a NEW rule, not a re-exercise of one already covered elsewhere.
+
+Task 10: a trailing run of empty clauses with nothing left to group onto (`case 1: return "a"; case 2:` at the end of the switch) is legal JS — it falls out of the switch — but this compiler has no clause left to carry its test, so it is denied rather than silently dropped.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_trailing_empty_clause_is_fail_closed_on_the_string_axis_at_module_scope.js"]
+stderr_contains = ["E5506", "${TRAILING_EMPTY_GROUP}"]
+
+[[case]]
+name = "a_mid_group_empty_default_is_fail_closed"
+rationale = """R-35 Task 10: `EmptyGroup` widens Rule 4 to fold an empty clause's test onto the next terminated clause. What stays denied: a trailing empty group with nothing to fall onto, and `default` on either side of a group.
+
+An EMPTY `default` in the middle of a group (`case 1: default: case 2: …`) is legal JS — node returns "x" for every input, per the Task 10 report — but `default` is NOT eligible for `EmptyGroup` (it has no test of its own to hand forward), so an empty `default` denies for the SAME reason any other terminator-less clause does: Rule 4, not the `default`-specific absorption rule below (that rule fires only for a NON-empty `default`, which this clause is not). Pinning Rule 4 here — not `DEFAULT_CANNOT_GROUP` — is deliberate: it is the honest mechanism, verified by reading `switch_plan`, not assumed from the shape's resemblance to the other cell.
+
+Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so its message changed and this constant tracks it EXACTLY (not a prefix — the old text is still a prefix of the new one, so leaving it would have made every Rule-4 pin silently insensitive to the widening it is meant to bound).
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_mid_group_empty_default_is_fail_closed.js"]
+stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
+
+[[case]]
+name = "a_default_clause_cannot_absorb_a_preceding_empty_group"
+rationale = """R-35 Task 10: `EmptyGroup` widens Rule 4 to fold an empty clause's test onto the next terminated clause. What stays denied: a trailing empty group with nothing to fall onto, and `default` on either side of a group.
+
+A NON-empty `default` that ABSORBS tests grouped onto it from a preceding empty `case` (`case 1: case 2: default: return "x";`) is the other direction of the same hazard: node still returns "x" for every input (`default` already means "anything else"), but representing that as `disc === 1 || disc === 2` would silently NARROW it to just those two values — the exact miscompile this denial exists to prevent.
+
+Task 10: a NON-EMPTY `default` cannot ABSORB tests grouped onto it from a preceding empty `case` clause (`case 1: case 2: default: return "x";`) — `default` already means "every value not otherwise matched", so folding preceding tests into it as an equality disjunction would silently narrow it to those tests only. Node returns the SAME answer for every input on this fixture (see the Task 10 report), which is exactly why a narrowed disjunction would be a silent miscompile rather than a merely-incomplete one. (An EMPTY `default`, e.g. `case 1: default: case 2: …`, denies via Rule 4 instead — see `a_mid_group_empty_default_is_fail_closed` — because it is not eligible for `EmptyGroup` at all, so it never reaches this rule.)
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_default_clause_cannot_absorb_a_preceding_empty_group.js"]
+stderr_contains = ["E5506", "${DEFAULT_CANNOT_GROUP}"]
+
+# --- R-35 Task 10, FIX ROUND 1: a `default` clause in a NON-FINAL position ---
+[[case]]
+name = "an_ungrouped_non_final_default_is_fail_closed_and_was_silently_wrong_since_task_7"
+rationale = """R-35 Task 10, FIX ROUND 1: a `default` clause in a NON-FINAL position.
+
+`emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its own source position and `return`s from the recursion there — it never visits any clause after it. JS itself does not care where `default` sits (once true fallthrough is denied), so this is an EMISSION-STRATEGY limitation, not a semantics one, and it must be denied rather than silently dropping every later clause.
+
+The UNGROUPED form — no `EmptyGroup` involved at all. THIS IS A REGRESSION TEST for a defect that has been admitted and silently wrong since Task 7: `default` in a non-final position was never denied, and `emit_clause_chain` has always `return`ed unconditionally from the `default` arm without recursing further. Measured at this project's pre-fix-round-1 commit `2c7df5341a` (and, by inspection of the unchanged code path, at every commit back through Task 7): node prints `v=one|two|def`, kali printed `v=one|def|def` — exit 0 on both sides, no diagnostic.
+
+Task 10 FIX ROUND 1: a `default` clause that is NOT the last clause in the switch. `emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its own source position with an early `return` from the recursion, so a clause AFTER `default` in source order is never visited by that recursion at all — independent of whether that later clause is grouped. This is an EMISSION-STRATEGY limitation, not a JS-selection-semantics one (JS itself does not care where `default` sits once fallthrough is denied), and it was silently WRONG for the ungrouped shape since Task 7 (see `an_ungrouped_non_final_default_is_fail_closed_and_was_silently_wrong_since_task_7` below) — this constant and its two pinning tests are the fix. Message text is pairwise-disjoint from every constant above: it names POSITION, not grouping, absorption, or a missing terminator.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "an_ungrouped_non_final_default_is_fail_closed_and_was_silently_wrong_since_task_7.js"]
+stderr_contains = ["E5506", "${DEFAULT_NOT_LAST}"]
+
+[[case]]
+name = "a_grouped_non_final_default_is_fail_closed"
+rationale = """R-35 Task 10, FIX ROUND 1: a `default` clause in a NON-FINAL position.
+
+`emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its own source position and `return`s from the recursion there — it never visits any clause after it. JS itself does not care where `default` sits (once true fallthrough is denied), so this is an EMISSION-STRATEGY limitation, not a semantics one, and it must be denied rather than silently dropping every later clause.
+
+The GROUPED form — new at this task's commit (the empty `case 7:` was Rule-4-denied, hence unreachable, at the pre-Task-10 HEAD `e05458af91`). Node prints `v=one|grp|grp|def`; the pre-fix-round-1 lowering printed `v=one|def|def|def`, exit 0 both sides.
+
+Task 10 FIX ROUND 1: a `default` clause that is NOT the last clause in the switch. `emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its own source position with an early `return` from the recursion, so a clause AFTER `default` in source order is never visited by that recursion at all — independent of whether that later clause is grouped. This is an EMISSION-STRATEGY limitation, not a JS-selection-semantics one (JS itself does not care where `default` sits once fallthrough is denied), and it was silently WRONG for the ungrouped shape since Task 7 (see `an_ungrouped_non_final_default_is_fail_closed_and_was_silently_wrong_since_task_7` below) — this constant and its two pinning tests are the fix. Message text is pairwise-disjoint from every constant above: it names POSITION, not grouping, absorption, or a missing terminator.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "a_grouped_non_final_default_is_fail_closed.js"]
+stderr_contains = ["E5506", "${DEFAULT_NOT_LAST}"]
+
+[[case]]
+name = "an_ungrouped_non_final_default_is_fail_closed_at_module_scope"
+rationale = """R-35 Task 10, FIX ROUND 1: a `default` clause in a NON-FINAL position.
+
+`emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its own source position and `return`s from the recursion there — it never visits any clause after it. JS itself does not care where `default` sits (once true fallthrough is denied), so this is an EMISSION-STRATEGY limitation, not a semantics one, and it must be denied rather than silently dropping every later clause.
+
+Scope is a required test axis: the same two shapes at MODULE scope, using `break` (module scope cannot use `return`).
+
+Task 10 FIX ROUND 1: a `default` clause that is NOT the last clause in the switch. `emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its own source position with an early `return` from the recursion, so a clause AFTER `default` in source order is never visited by that recursion at all — independent of whether that later clause is grouped. This is an EMISSION-STRATEGY limitation, not a JS-selection-semantics one (JS itself does not care where `default` sits once fallthrough is denied), and it was silently WRONG for the ungrouped shape since Task 7 (see `an_ungrouped_non_final_default_is_fail_closed_and_was_silently_wrong_since_task_7` below) — this constant and its two pinning tests are the fix. Message text is pairwise-disjoint from every constant above: it names POSITION, not grouping, absorption, or a missing terminator.
+
+Assert `out` was denied by the named rule, not merely denied."""
+exit = "failure"
+args = ["run", "an_ungrouped_non_final_default_is_fail_closed_at_module_scope.js"]
+stderr_contains = ["E5506", "${DEFAULT_NOT_LAST}"]
+
+[[case]]
+name = "a_grouped_non_final_default_is_fail_closed_at_module_scope"
+rationale = """R-35 Task 10, FIX ROUND 1: a `default` clause in a NON-FINAL position.
+
+`emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its own source position and `return`s from the recursion there — it never visits any clause after it. JS itself does not care where `default` sits (once true fallthrough is denied), so this is an EMISSION-STRATEGY limitation, not a semantics one, and it must be denied rather than silently dropping every later clause.
+
+Task 10 FIX ROUND 1: a `default` clause that is NOT the last clause in the switch. `emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its own source position with an early `return` from the recursion, so a clause AFTER `default` in source order is never visited by that recursion at all — independent of whether that later clause is grouped. This is an EMISSION-STRATEGY limitation, not a JS-selection-semantics one (JS itself does not care where `default` sits once fallthrough is denied), and it was silently WRONG for the ungrouped shape since Task 7 (see `an_ungrouped_non_final_default_is_fail_closed_and_was_silently_wrong_since_task_7` below) — this constant and its two pinning tests are the fix. Message text is pairwise-disjoint from every constant above: it names POSITION, not grouping, absorption, or a missing terminator.
+
+Assert `out` was denied by the named rule, not merely denied.
+
+Over-denial guard: a TRAILING `default` after a group (the normal, still-admitted position) must NOT be caught by this check — it must key on POSITION, not on the mere presence of a group anywhere in the switch. This belongs in `switch_runtime.rs` as a correctness pin, not here; see `a_trailing_default_after_a_group_is_still_admitted`."""
+exit = "failure"
+args = ["run", "a_grouped_non_final_default_is_fail_closed_at_module_scope.js"]
+stderr_contains = ["E5506", "${DEFAULT_NOT_LAST}"]
+

@@ -1,0 +1,1724 @@
+# Migrated from tests/switch_runtime.rs.
+#
+# Correctness pins for the admitted switch surface -- the companion file to
+# switch/fail_closed.toml, which pins the DENIED surface. No [constants]:
+# this file has no `const NAME: &str` rule-literal declarations (grep-
+# confirmed) -- every assertion here is an exact `stdout` pin against a
+# program that runs to completion, not a diagnostic-message pin.
+#
+# EVERY fixture that carries a loop logs a per-iteration `console.log` line
+# (an explicit method note repeated at both the Task 9 and Task 10/11 zone
+# banners below): a switch fixture with `break`/`continue` measures LOOP
+# TRUNCATION FIRST -- if `break` bound to the enclosing loop instead of the
+# switch, the loop would die at iteration 0, and a final-value-only assertion
+# could not tell that apart from a merely mis-selected clause. Task 4 shipped
+# a wrong boundary-matrix cell for exactly this reason; the per-iteration line
+# is what makes the two failure modes distinguishable in the assertion text
+# itself, and it survives into every exact `stdout` pin below rather than
+# being pared down to a final summary value.
+#
+# `assert_eq!` is exact-equality throughout, so every case below maps to the
+# case-runner's exact `stdout` key, never `stdout_contains` -- a prefix or
+# substring match would silently accept extra trailing output no fixture here
+# actually produces.
+
+[source]
+"numeric_switch_selects_the_matching_clause.js" = """function s(x) {
+switch (x) {
+case 10: return "A";
+case 20: return "B";
+default: return "D";
+}
+}
+console.log("v=" + s(20));"""
+"numeric_switch_falls_to_default_on_no_match.js" = """function s(x) {
+switch (x) {
+case 10: return "A";
+case 20: return "B";
+default: return "D";
+}
+}
+console.log("v=" + s(40));"""
+"numeric_switch_handles_a_zero_discriminant.js" = """function s(x) {
+switch (x) {
+case 10: return "A";
+case 20: return "B";
+default: return "D";
+}
+}
+console.log("v=" + s(0));"""
+"numeric_switch_reaches_the_third_clause_clause_three.js" = """function s(x) {
+switch (x) {
+case 1: return "one";
+case 2: return "two";
+case 3: return "three";
+case 4: return "four";
+default: return "other";
+}
+}
+console.log("v=" + s(3));"""
+"numeric_switch_reaches_the_third_clause_clause_four.js" = """function s(x) {
+switch (x) {
+case 1: return "one";
+case 2: return "two";
+case 3: return "three";
+case 4: return "four";
+default: return "other";
+}
+}
+console.log("v=" + s(4));"""
+"numeric_switch_reaches_the_third_clause_default.js" = """function s(x) {
+switch (x) {
+case 1: return "one";
+case 2: return "two";
+case 3: return "three";
+case 4: return "four";
+default: return "other";
+}
+}
+console.log("v=" + s(9));"""
+"numeric_switch_evaluates_the_discriminant_exactly_once.js" = """var hits = 0;
+function d(x) { hits = hits + 1; return x + 0; }
+function s() {
+switch (d(2)) {
+case 1: return "one";
+case 2: return "two";
+default: return "other";
+}
+}
+s();
+console.log("hits=" + hits);
+"""
+"numeric_switch_is_correct_for_the_shape_that_was_previously_denied.js" = """function s(x) {
+switch (x) {
+case 10: return "A";
+case 20: return "B";
+default: return "D";
+}
+}
+console.log("v=" + s(20));"""
+"numeric_switch_selects_correctly_with_a_negative_case_test.js" = """function s(x) {
+switch (x) {
+case -1: return "neg";
+case 1: return "pos";
+default: return "other";
+}
+}
+console.log("v=" + s(-1));"""
+"string_switch_selects_the_matching_clause.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s("b"));"""
+"string_switch_falls_to_default.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s("z"));"""
+"string_switch_compares_by_content_not_handle.js" = """function s(x) {
+switch (x) {
+case "ab": return 1;
+default: return 3;
+}
+}
+var built = "a" + "b";
+console.log("v=" + s(built));
+"""
+"string_switch_selects_the_first_clause.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s("a"));"""
+"string_switch_handles_an_empty_string_discriminant.js" = """function s(x) {
+switch (x) {
+case "": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s(""));"""
+"string_switch_handles_a_non_ascii_discriminant.js" = """function s(x) {
+switch (x) {
+case "é": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s("é"));"""
+"string_switch_distinguishes_same_length_cases.js" = """function s(x) {
+switch (x) {
+case "alpha": return 1;
+case "alphb": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s("alphb"));"""
+"string_switch_on_a_module_const_binding.js" = """const d = "b";
+function s() {
+switch (d) {
+case "a": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s());
+"""
+"string_switch_on_a_function_local_binding.js" = """function s() {
+var d = "b";
+switch (d) {
+case "a": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s());
+"""
+"string_switch_matches_a_runtime_substring_discriminant.js" = """function s(x) {
+switch (x) {
+case "b": return 1;
+default: return 3;
+}
+}
+var t = "abc";
+console.log("v=" + s(t.substring(1, 2)));
+"""
+"string_switch_evaluates_the_discriminant_exactly_once_matching.js" = """var hits = 0;
+function d(x) { hits = hits + 1; return "k" + x; }
+function s() {
+switch (d(2)) {
+case "k1": return 1;
+case "k2": return 2;
+default: return 3;
+}
+}
+s();
+console.log("hits=" + hits);
+"""
+"string_switch_evaluates_the_discriminant_exactly_once_defaulting.js" = """var hits = 0;
+function d(x) { hits = hits + 1; return "k" + x; }
+function s() {
+switch (d(9)) {
+case "k1": return 1;
+case "k2": return 2;
+default: return 3;
+}
+}
+s();
+console.log("hits=" + hits);
+"""
+"string_switch_on_a_string_returning_call_discriminant.js" = """function g(n) { return "k" + n; }
+function s() {
+switch (g(2)) {
+case "k1": return 1;
+case "k2": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s());
+"""
+"an_exported_function_is_admitted_because_export_is_not_an_escape.js" = """export function s(x) {
+switch (x) {
+case "a": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s("b"));
+"""
+"string_switch_is_correct_across_two_call_sites.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s("b"));
+console.log("w=" + s("q"));
+"""
+"break_terminated_clauses_select_correctly_s20.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 10: r = 1; break;
+case 20: r = 2; break;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(20));"""
+"break_terminated_clauses_select_correctly_s40.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 10: r = 1; break;
+case 20: r = 2; break;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(40));"""
+"break_terminated_clauses_select_correctly_s0.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 10: r = 1; break;
+case 20: r = 2; break;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(0));"""
+"break_terminated_switch_works_at_module_scope.js" = """var v = "?";
+var x = 20;
+switch (x) {
+case 10: v = "A"; break;
+case 20: v = "B"; break;
+default: v = "D"; break;
+}
+console.log("v=" + v);
+"""
+"break_inside_a_switch_inside_a_loop_exits_the_switch_not_the_loop.js" = """var sum = 0;
+for (var i = 0; i < 3; i = i + 1) {
+console.log("iter=" + i);
+switch (i) {
+case 0: sum = sum + 1; break;
+case 1: sum = sum + 1; break;
+default: sum = sum + 1; break;
+}
+}
+console.log("sum=" + sum);
+"""
+"continue_inside_a_switch_inside_a_loop_continues_the_loop.js" = """var hits = 0;
+var i = -1;
+while (i < 2) {
+i = i + 1;
+console.log("iter=" + i);
+switch (i) {
+case 0: continue;
+case 1: continue;
+default: hits = hits + 1; break;
+}
+console.log("after=" + i);
+}
+console.log("hits=" + hits);
+"""
+"switch_nested_in_a_loop_selects_correctly_with_break_and_continue.js" = """var i = -1;
+while (i < 2) {
+i = i + 1;
+console.log("iter=" + i);
+switch (i) {
+case 0: continue;
+case 1: break;
+default: continue;
+}
+console.log("after=" + i);
+}
+console.log("done");
+"""
+"break_and_return_clauses_mix_in_one_switch_s1.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: return "early";
+case 2: r = 2; break;
+default: r = 9; break;
+}
+return "late" + r;
+}
+console.log("v=" + s(1));"""
+"break_and_return_clauses_mix_in_one_switch_s2.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: return "early";
+case 2: r = 2; break;
+default: r = 9; break;
+}
+return "late" + r;
+}
+console.log("v=" + s(2));"""
+"break_and_return_clauses_mix_in_one_switch_s7.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: return "early";
+case 2: r = 2; break;
+default: r = 9; break;
+}
+return "late" + r;
+}
+console.log("v=" + s(7));"""
+"a_break_nested_inside_a_return_clause_binds_to_the_switch_not_the_loop.js" = """function f() {
+var out = 0;
+for (var i = 0; i < 3; i = i + 1) {
+console.log("iter=" + i);
+switch (i) {
+case 0: if (i < 5) { break; } return "early";
+default: return "def" + out;
+}
+}
+return "end";
+}
+console.log("v=" + f());
+"""
+"continue_in_a_switch_in_an_update_free_for_loop_is_admitted.js" = """var s = 0;
+for (var i = 0; i < 4; ) {
+i = i + 1;
+console.log("iter=" + i);
+switch (i) {
+case 2: continue;
+default: s = s + i; break;
+}
+console.log("after=" + i);
+}
+console.log("s=" + s);
+"""
+"continue_in_a_switch_in_a_for_of_loop_is_admitted.js" = """var s = 0;
+for (const v of [1, 2, 3, 4]) {
+console.log("iter=" + v);
+switch (v) {
+case 2: continue;
+default: s = s + v; break;
+}
+console.log("after=" + v);
+}
+console.log("s=" + s);
+"""
+"break_in_a_switch_in_a_c_style_for_loop_is_still_admitted.js" = """var sum = 0;
+for (var i = 0; i < 3; i = i + 1) {
+console.log("iter=" + i);
+switch (i) {
+case 0: sum = sum + 10; break;
+default: sum = sum + 1; break;
+}
+console.log("after=" + i);
+}
+console.log("sum=" + sum);
+"""
+"a_break_switch_with_no_default_falls_out_of_the_chain.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: r = 1; break;
+case 2: r = 2; break;
+}
+return r;
+}
+console.log("a=" + s(1));
+console.log("b=" + s(7));
+"""
+"a_default_only_break_switch_runs_its_body.js" = """function s(x) {
+var r = 0;
+switch (x) {
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(1));
+"""
+"a_break_in_a_nested_switch_binds_to_the_inner_switch.js" = """function s(x, y) {
+var r = 0;
+switch (x) {
+case 1:
+switch (y) {
+case 1: r = 11; break;
+default: r = 19; break;
+}
+r = r + 100;
+break;
+default: r = 99; break;
+}
+return r;
+}
+console.log("a=" + s(1, 1));
+console.log("b=" + s(1, 2));
+console.log("c=" + s(2, 1));
+"""
+"break_and_continue_bind_correctly_in_a_loop_inside_a_function.js" = """function f(n) {
+var acc = 0;
+var i = -1;
+while (i < 2) {
+i = i + 1;
+console.log("iter=" + i);
+switch (i) {
+case 0: acc = acc + n; continue;
+case 1: acc = acc + 10; break;
+default: acc = acc + 100; break;
+}
+console.log("after=" + i);
+}
+return acc;
+}
+console.log("v=" + f(1));
+"""
+"break_out_of_a_switch_in_an_allocating_loop_does_not_corrupt_the_arena.js" = """var total = 0;
+var m = 0;
+for (var i = 0; i < 200; i = i + 1) {
+console.log("iter=" + i);
+var s = "k" + i;
+switch (m) {
+case 0: total = total + s.length; m = 1; break;
+case 1: total = total + 1; m = 2; break;
+default: m = 0; break;
+}
+}
+console.log("total=" + total);
+"""
+"break_terminated_clauses_work_on_the_string_axis_b.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case "a": r = 1; break;
+case "b": r = 2; break;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s("b"));"""
+"break_terminated_clauses_work_on_the_string_axis_z.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case "a": r = 1; break;
+case "b": r = 2; break;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s("z"));"""
+"a_duplicate_string_case_is_first_match_wins.js" = """function s(x) {
+switch (x) {
+case "a": return 1;
+case "a": return 2;
+default: return 3;
+}
+}
+console.log("v=" + s("a"));
+"""
+"empty_clauses_group_onto_the_next_s1.js" = """function s(x) {
+switch (x) {
+case 1:
+case 2: return "low";
+case 3: return "mid";
+default: return "high";
+}
+}
+console.log("v=" + s(1));"""
+"empty_clauses_group_onto_the_next_s2.js" = """function s(x) {
+switch (x) {
+case 1:
+case 2: return "low";
+case 3: return "mid";
+default: return "high";
+}
+}
+console.log("v=" + s(2));"""
+"empty_clauses_group_onto_the_next_s3.js" = """function s(x) {
+switch (x) {
+case 1:
+case 2: return "low";
+case 3: return "mid";
+default: return "high";
+}
+}
+console.log("v=" + s(3));"""
+"empty_clauses_group_onto_the_next_s9.js" = """function s(x) {
+switch (x) {
+case 1:
+case 2: return "low";
+case 3: return "mid";
+default: return "high";
+}
+}
+console.log("v=" + s(9));"""
+"a_grouped_body_is_emitted_once_not_per_test.js" = """var hits = 0;
+function s(x) {
+switch (x) {
+case 1:
+case 2: hits = hits + 1; break;
+default: break;
+}
+return 0;
+}
+s(1);
+console.log("hits=" + hits);
+"""
+"empty_clauses_group_with_a_string_discriminant_b.js" = """function s(x) {
+switch (x) {
+case "a":
+case "b": return "ab";
+default: return "other";
+}
+}
+console.log("v=" + s("b"));"""
+"empty_clauses_group_with_a_string_discriminant_z.js" = """function s(x) {
+switch (x) {
+case "a":
+case "b": return "ab";
+default: return "other";
+}
+}
+console.log("v=" + s("z"));"""
+"an_empty_grouped_clause_beside_a_break_clause_is_admitted_s1.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1:
+case 2: r = 2; break;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(1));"""
+"an_empty_grouped_clause_beside_a_break_clause_is_admitted_s2.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1:
+case 2: r = 2; break;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(2));"""
+"an_empty_grouped_clause_beside_a_break_clause_is_admitted_s9.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1:
+case 2: r = 2; break;
+default: r = 9; break;
+}
+return r;
+}
+console.log("v=" + s(9));"""
+"empty_clause_group_is_admitted_at_module_scope_x1.js" = """var x = 1;
+var r = 0;
+switch (x) {
+case 1:
+case 2: r = 100; break;
+default: r = 9; break;
+}
+console.log("v=" + r);
+"""
+"empty_clause_group_is_admitted_at_module_scope_x2.js" = """var x = 2;
+var r = 0;
+switch (x) {
+case 1:
+case 2: r = 100; break;
+default: r = 9; break;
+}
+console.log("v=" + r);
+"""
+"empty_clause_group_is_admitted_at_module_scope_x9.js" = """var x = 9;
+var r = 0;
+switch (x) {
+case 1:
+case 2: r = 100; break;
+default: r = 9; break;
+}
+console.log("v=" + r);
+"""
+"grouped_clauses_terminated_by_break_select_correctly_in_a_loop.js" = """var i = 0;
+var s = 0;
+while (i < 4) {
+console.log("iter=" + i);
+switch (i) {
+case 0:
+case 1: s = s + 100; break;
+default: s = s + i; break;
+}
+i = i + 1;
+}
+console.log("s=" + s);
+"""
+"grouped_clauses_terminated_by_continue_select_correctly_under_a_faithful_loop.js" = """var i = 0;
+var s = 0;
+while (i < 6) {
+console.log("iter=" + i);
+switch (i) {
+case 1:
+case 2: i = i + 1; continue;
+default: s = s + i; i = i + 1; break;
+}
+}
+console.log("s=" + s);
+"""
+"a_trailing_default_after_a_group_is_still_admitted_s1.js" = """function s(x) {
+switch (x) {
+case 1:
+case 2: return "low";
+default: return "def";
+}
+}
+console.log("v=" + s(1));"""
+"a_trailing_default_after_a_group_is_still_admitted_s2.js" = """function s(x) {
+switch (x) {
+case 1:
+case 2: return "low";
+default: return "def";
+}
+}
+console.log("v=" + s(2));"""
+"a_trailing_default_after_a_group_is_still_admitted_s9.js" = """function s(x) {
+switch (x) {
+case 1:
+case 2: return "low";
+default: return "def";
+}
+}
+console.log("v=" + s(9));"""
+"a_single_case_switch_with_no_default_is_admitted.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case 1: r = 1; break;
+}
+return r;
+}
+console.log("a=" + s(1));
+console.log("b=" + s(7));
+"""
+"a_string_switch_with_no_default_falls_out_of_the_chain.js" = """function s(x) {
+var r = 0;
+switch (x) {
+case "a": r = 1; break;
+case "b": r = 2; break;
+}
+return r;
+}
+console.log("a=" + s("b"));
+console.log("b=" + s("z"));
+"""
+"string_switch_works_at_module_scope.js" = """var v = "?";
+var x = "b";
+switch (x) {
+case "a": v = "A"; break;
+case "b": v = "B"; break;
+default: v = "D"; break;
+}
+console.log("v=" + v);
+"""
+"string_switch_in_a_loop_binds_break_and_continue_correctly.js" = """var i = -1;
+var acc = "";
+while (i < 2) {
+i = i + 1;
+var k = "k" + i;
+console.log("iter=" + k);
+switch (k) {
+case "k0": continue;
+case "k1": acc = acc + "B"; break;
+default: acc = acc + "D"; break;
+}
+console.log("after=" + k);
+}
+console.log("acc=" + acc);
+"""
+"grouped_clauses_terminated_by_continue_select_correctly_under_a_c_style_for_with_no_update.js" = """var s = 0;
+for (var i = 0; i < 6; ) {
+i = i + 1;
+console.log("iter=" + i);
+switch (i) {
+case 1:
+case 2: continue;
+default: s = s + i; break;
+}
+console.log("after=" + i);
+}
+console.log("s=" + s);
+"""
+
+[[case]]
+name = "numeric_switch_selects_the_matching_clause"
+rationale = "Anti-spot-check: s(10) is EXCLUDED on purpose. The pre-fix lowering returned \"A\" for every truthy discriminant, so s(10) agreed with node by coincidence and proves nothing. Every assertion below uses a discriminant the broken lowering got wrong, and the answers must vary with the input."
+exit = "success"
+args = ["run", "numeric_switch_selects_the_matching_clause.js"]
+stdout = """v=B
+"""
+
+[[case]]
+name = "numeric_switch_falls_to_default_on_no_match"
+rationale = "Anti-spot-check: s(10) is EXCLUDED on purpose. The pre-fix lowering returned \"A\" for every truthy discriminant, so s(10) agreed with node by coincidence and proves nothing. Every assertion below uses a discriminant the broken lowering got wrong, and the answers must vary with the input."
+exit = "success"
+args = ["run", "numeric_switch_falls_to_default_on_no_match.js"]
+stdout = """v=D
+"""
+
+[[case]]
+name = "numeric_switch_handles_a_zero_discriminant"
+rationale = """Anti-spot-check: s(10) is EXCLUDED on purpose. The pre-fix lowering returned "A" for every truthy discriminant, so s(10) agreed with node by coincidence and proves nothing. Every assertion below uses a discriminant the broken lowering got wrong, and the answers must vary with the input.
+
+The pre-fix lowering truthiness-tested the discriminant, so 0 took the else branch and returned clause 1's "B". This is the cell that proves the discriminant is compared, not tested for truth."""
+exit = "success"
+args = ["run", "numeric_switch_handles_a_zero_discriminant.js"]
+stdout = """v=D
+"""
+
+[[case]]
+name = "numeric_switch_reaches_the_third_clause_clause_three"
+rationale = """Anti-spot-check: s(10) is EXCLUDED on purpose. The pre-fix lowering returned "A" for every truthy discriminant, so s(10) agreed with node by coincidence and proves nothing. Every assertion below uses a discriminant the broken lowering got wrong, and the answers must vary with the input.
+
+Clauses beyond the second were never emitted at all (the Tier-1 half)."""
+exit = "success"
+args = ["run", "numeric_switch_reaches_the_third_clause_clause_three.js"]
+stdout = """v=three
+"""
+
+[[case]]
+name = "numeric_switch_reaches_the_third_clause_clause_four"
+rationale = """Anti-spot-check: s(10) is EXCLUDED on purpose. The pre-fix lowering returned "A" for every truthy discriminant, so s(10) agreed with node by coincidence and proves nothing. Every assertion below uses a discriminant the broken lowering got wrong, and the answers must vary with the input.
+
+Clauses beyond the second were never emitted at all (the Tier-1 half)."""
+exit = "success"
+args = ["run", "numeric_switch_reaches_the_third_clause_clause_four.js"]
+stdout = """v=four
+"""
+
+[[case]]
+name = "numeric_switch_reaches_the_third_clause_default"
+rationale = """Anti-spot-check: s(10) is EXCLUDED on purpose. The pre-fix lowering returned "A" for every truthy discriminant, so s(10) agreed with node by coincidence and proves nothing. Every assertion below uses a discriminant the broken lowering got wrong, and the answers must vary with the input.
+
+Clauses beyond the second were never emitted at all (the Tier-1 half)."""
+exit = "success"
+args = ["run", "numeric_switch_reaches_the_third_clause_default.js"]
+stdout = """v=other
+"""
+
+[[case]]
+name = "numeric_switch_evaluates_the_discriminant_exactly_once"
+rationale = """If the chain re-emitted the discriminant per clause test, `hits` would count once per comparison instead of once per call.
+
+Fix round 1, two changes from the original fixture:
+
+1. The discriminant is `d(2)`, a call with a LITERAL argument -- not `d(x)`, a passthrough of `s`'s own parameter. A bare-identifier call argument is never scalar EVIDENCE (see `crates/kali_types/src/repr_infer.rs:4099-4107`), so `d(x)`'s param would be vetoed under the stricter `return_is_proven_numeric` proof `is_provable_i64_scalar`'s call arm now requires.
+
+2. `d` returns `x + 0`, not a bare `x`. This is NOT cosmetic: ANY function whose return is a BARE identifier is unconditionally excluded from ever earning `return_is_proven_numeric`, regardless of how provably-scalar that identifier is -- `repr_infer.rs`'s `visit_statement` (`ReturnStatement` arm, ~line 2291-2300) unconditionally records ANY `return <identifier>;` into `array_binding_returns` (the "might dynamically be an array" guard), and the `numeric_return_candidates` finalize step (~line 5320-5327) skips a function with ANY such entry outright, before it ever reaches the params-proven check. `return x + 0;` is arithmetic, not a bare identifier, so it never enters that registry and the positive proof can actually fire. Measured empirically (not assumed): `return x;` here made `d` fail `is_provable_i64_scalar` even with a literal argument at every call site; `return x + 0;` passes, and both kali and node agree byte-for-byte (`/workspace/.cache/scratch/eval_once2.js`, deleted after verification: `v=two` / `hits=1` on both engines)."""
+exit = "success"
+args = ["run", "numeric_switch_evaluates_the_discriminant_exactly_once.js"]
+stdout = """hits=1
+"""
+
+[[case]]
+name = "numeric_switch_is_correct_for_the_shape_that_was_previously_denied"
+rationale = "Moved from `switch_fail_closed.rs`'s `switch_is_fail_closed_not_silently_wrong`: this exact shape (numeric discriminant, `case 10`/`case 20`/`default`, all `return`) is now ADMITTED and correct, so it belongs here among the correctness tests rather than in a file named \"fail_closed\"."
+exit = "success"
+args = ["run", "numeric_switch_is_correct_for_the_shape_that_was_previously_denied.js"]
+stdout = """v=B
+"""
+
+[[case]]
+name = "numeric_switch_selects_correctly_with_a_negative_case_test"
+rationale = ""
+exit = "success"
+args = ["run", "numeric_switch_selects_correctly_with_a_negative_case_test.js"]
+stdout = """v=neg
+"""
+
+# --- R-35 Task 8: string discriminants ---
+[[case]]
+name = "string_switch_selects_the_matching_clause"
+rationale = "R-35 Task 8: string discriminants."
+exit = "success"
+args = ["run", "string_switch_selects_the_matching_clause.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "string_switch_falls_to_default"
+rationale = "R-35 Task 8: string discriminants."
+exit = "success"
+args = ["run", "string_switch_falls_to_default.js"]
+stdout = """v=3
+"""
+
+[[case]]
+name = "string_switch_compares_by_content_not_handle"
+rationale = """R-35 Task 8: string discriminants.
+
+Two equal strings built differently must select the same clause. If the comparison were handle identity rather than __streq content equality, the runtime-built string would miss every case and fall to default."""
+exit = "success"
+args = ["run", "string_switch_compares_by_content_not_handle.js"]
+stdout = """v=1
+"""
+
+[[case]]
+name = "string_switch_selects_the_first_clause"
+rationale = """R-35 Task 8: string discriminants.
+
+Anti-spot-check on the string axis: the answer must VARY with the discriminant, and each of these three is a different clause of the same program (first case, second case, default)."""
+exit = "success"
+args = ["run", "string_switch_selects_the_first_clause.js"]
+stdout = """v=1
+"""
+
+[[case]]
+name = "string_switch_handles_an_empty_string_discriminant"
+rationale = """R-35 Task 8: string discriminants.
+
+The empty string is the string-axis analogue of the `0` discriminant cell: a truthiness-testing lowering would take the else branch for it and return the wrong clause. `""` matching `case "":` proves the discriminant is COMPARED."""
+exit = "success"
+args = ["run", "string_switch_handles_an_empty_string_discriminant.js"]
+stdout = """v=1
+"""
+
+[[case]]
+name = "string_switch_handles_a_non_ascii_discriminant"
+rationale = """R-35 Task 8: string discriminants.
+
+A non-ASCII discriminant: `__streq` compares BYTES, so a multi-byte literal must still select its own clause and not collide with a same-length-in-chars neighbour."""
+exit = "success"
+args = ["run", "string_switch_handles_a_non_ascii_discriminant.js"]
+stdout = """v=1
+"""
+
+[[case]]
+name = "string_switch_distinguishes_same_length_cases"
+rationale = """R-35 Task 8: string discriminants.
+
+Same-length, same-prefix cases: a length-only or prefix-only comparison would pick the wrong clause. `"alphb"` must not select `case "alpha"`."""
+exit = "success"
+args = ["run", "string_switch_distinguishes_same_length_cases.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "string_switch_on_a_module_const_binding"
+rationale = """R-35 Task 8: string discriminants.
+
+A module-scope `const` read from inside the function, resolved through the fold-alias before the repr lookup. Scope is a required test axis: this is the module-scope binding half, the tests above are the parameter half."""
+exit = "success"
+args = ["run", "string_switch_on_a_module_const_binding.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "string_switch_on_a_function_local_binding"
+rationale = """R-35 Task 8: string discriminants.
+
+A function-local `var` binding -- the function-scope half of the same axis."""
+exit = "success"
+args = ["run", "string_switch_on_a_function_local_binding.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "string_switch_matches_a_runtime_substring_discriminant"
+rationale = """R-35 Task 8: string discriminants.
+
+A RUNTIME-produced discriminant that is not an interned literal at all: `t.substring(1, 2)` allocates a fresh handle. Handle identity would miss every clause; `__streq` content equality selects `case "b"`. This is the same guarantee as `string_switch_compares_by_content_not_handle` but through a different string producer, so the two cannot both pass by coincidence."""
+exit = "success"
+args = ["run", "string_switch_matches_a_runtime_substring_discriminant.js"]
+stdout = """v=1
+"""
+
+[[case]]
+name = "string_switch_evaluates_the_discriminant_exactly_once_matching"
+rationale = """R-35 Task 8: string discriminants.
+
+The string-axis twin of `numeric_switch_evaluates_the_discriminant_exactly once`, in BOTH directions: a matching discriminant and a default-taking one. A chain that re-emitted the discriminant per clause test would call `d` once per clause, and the default-taking variant is the cell that exposes it (every clause test runs before the default is reached)."""
+exit = "success"
+args = ["run", "string_switch_evaluates_the_discriminant_exactly_once_matching.js"]
+stdout = """hits=1
+"""
+
+[[case]]
+name = "string_switch_evaluates_the_discriminant_exactly_once_defaulting"
+rationale = """R-35 Task 8: string discriminants.
+
+The string-axis twin of `numeric_switch_evaluates_the_discriminant_exactly once`, in BOTH directions: a matching discriminant and a default-taking one. A chain that re-emitted the discriminant per clause test would call `d` once per clause, and the default-taking variant is the cell that exposes it (every clause test runs before the default is reached)."""
+exit = "success"
+args = ["run", "string_switch_evaluates_the_discriminant_exactly_once_defaulting.js"]
+stdout = """hits=1
+"""
+
+[[case]]
+name = "string_switch_on_a_string_returning_call_discriminant"
+rationale = """R-35 Task 8: string discriminants.
+
+A call-expression discriminant whose callee's return repr is proven String (the `is_string_valued` call arm), selecting a non-first clause."""
+exit = "success"
+args = ["run", "string_switch_on_a_string_returning_call_discriminant.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "an_exported_function_is_admitted_because_export_is_not_an_escape"
+rationale = """R-35 Task 8: string discriminants.
+
+`export` is NOT an escape trigger, so an exported switch function IS admitted. Doc comments claimed the opposite (fix round 1) and then claimed the right conclusion for the wrong reason (fix round 2); this test pins the behaviour so the next implementer reads a measurement rather than prose.
+
+The reason is in the PARSER, not the escape walk: `parse_export_declaration` (`kali_parser::module`) discards the `export` token and dispatches straight to `parse_function_declaration()`, and `kali_ast::FunctionDeclaration` has no `exported` field — so `export function s() {}` and `function s() {}` produce the SAME AST and nothing downstream can distinguish them. `Statement::ExportNamed` is the `export { name }` LIST form only, and is not what this test exercises.
+
+Admission is sound only while a cross-module imported call returns `0` wholesale. If cross-module calls ever deliver real arguments, exported functions must be marked escaping and this test must flip to fail-closed — and that needs a PARSER change first (preserve the export marker on the declaration), because matching `Statement::ExportNamed` alone would miss exactly the shape below."""
+exit = "success"
+args = ["run", "an_exported_function_is_admitted_because_export_is_not_an_escape.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "string_switch_is_correct_across_two_call_sites"
+rationale = """R-35 Task 8: string discriminants.
+
+The numeric axis must be UNCHANGED by the string widening: the same function answers correctly for two different string call sites in one program, and duplicate cases stay first-match-wins."""
+exit = "success"
+args = ["run", "string_switch_is_correct_across_two_call_sites.js"]
+stdout = """v=2
+w=3
+"""
+
+# --- R-35 Task 9: `break`-terminated clauses ---
+[[case]]
+name = "break_terminated_clauses_select_correctly_s20"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself."""
+exit = "success"
+args = ["run", "break_terminated_clauses_select_correctly_s20.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "break_terminated_clauses_select_correctly_s40"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself."""
+exit = "success"
+args = ["run", "break_terminated_clauses_select_correctly_s40.js"]
+stdout = """v=9
+"""
+
+[[case]]
+name = "break_terminated_clauses_select_correctly_s0"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself."""
+exit = "success"
+args = ["run", "break_terminated_clauses_select_correctly_s0.js"]
+stdout = """v=9
+"""
+
+[[case]]
+name = "break_terminated_switch_works_at_module_scope"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself."""
+exit = "success"
+args = ["run", "break_terminated_switch_works_at_module_scope.js"]
+stdout = """v=B
+"""
+
+[[case]]
+name = "break_inside_a_switch_inside_a_loop_exits_the_switch_not_the_loop"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+If `break` bound to the LOOP instead of the switch, the loop would stop after one iteration and the sum would be 1 instead of 3. The per-iteration `iter=` line is what distinguishes those two failures: a mis-bound `break` prints `iter=0` only, a mis-selected clause prints all three and gets the sum wrong."""
+exit = "success"
+args = ["run", "break_inside_a_switch_inside_a_loop_exits_the_switch_not_the_loop.js"]
+stdout = """iter=0
+iter=1
+iter=2
+sum=3
+"""
+
+[[case]]
+name = "continue_inside_a_switch_inside_a_loop_continues_the_loop"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+`continue` must reach PAST the switch frame to the loop.
+
+THE LOOP FORM IS A `while`, NOT A `for`, AND THAT IS NOT COSMETIC. R-09 (`continue` inside a C-style `for` skips the update expression — `docs/superpowers/followups/kali-silent-miscompile-register.md:1073`) makes ANY `for`-loop `continue` fixture hang to an `E4003` fuel trap, with or without a switch: measured here on a switch-free control (`for (var i = 0; i < 3; i = i + 1) { console.log("iter=" + i); if (i < 2) { continue; } ... }`) printing `iter=0` 1,332,956 times before exit 1, where node prints `iter=0/1/2`. That register entry names R-09 as the OWNING ID for the continue-in-a-switch-clause hang specifically, and records that `while`/`do-while`/`for…of` are already correct. So a `for` fixture here would measure R-09, not this task's binding property — the exact "loop-truncation FIRST" trap that produced a wrong boundary-matrix cell at Task 4.
+
+The discriminating observation is the `after=` line, which is INSIDE the loop body but AFTER the switch. If `continue` had bound to the switch's own break target it would merely leave the switch, `after=` would print on every iteration, and the interleaving would read `iter=0/after=0/iter=1/after=1/iter=2/after=2`. It prints once, and the per-iteration `iter=` lines separately prove the loop was not truncated."""
+exit = "success"
+args = ["run", "continue_inside_a_switch_inside_a_loop_continues_the_loop.js"]
+stdout = """iter=0
+iter=1
+iter=2
+after=2
+hits=1
+"""
+
+[[case]]
+name = "switch_nested_in_a_loop_selects_correctly_with_break_and_continue"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+Converted from `switch_fail_closed.rs`'s `switch_nested_in_for_loop_is_fail_closed_not_silently_wrong`, which Task 6 added as an additive fail-closed requirement and which Tasks 7-8 correctly denied because `Break`/`Continue` terminators were not admitted. Task 9 admits them, so the SWITCH half of that cell flips from denial to correctness — the same move Task 7 made for the flat fail-closed test. It is neither deleted nor weakened: it keeps its mixed `break`/`continue` clauses, keeps its per-iteration `console.log`, gains an `after=` discriminator, and asserts node's exact bytes instead of a diagnostic.
+
+ONE THING CHANGED AND IT IS A FINDING, NOT A CONVENIENCE: the loop is a `while`, not the original `for`. With Task 9's widening the switch is admitted, but the ORIGINAL `for` form still does not run correctly — it hangs to an `E4003` fuel trap on the `case 0: continue;` iteration. That is R-09 (`continue` inside a C-style `for` skips the update expression), which the register names as the owning ID for exactly this shape and states no `switch` allowlist can fix (`docs/superpowers/followups/kali-silent-miscompile-register.md:1073,1105`). Verified switch-free on this branch. The `while` form is the register's own recommended reference lowering and exercises the identical switch property.
+
+`after=` is the break-vs-continue discriminator: it prints only on the iteration whose clause `break`s (i=1), so a `continue` mis-bound to the switch's exit would print it three times, and a `break` mis-bound to the loop would truncate after `iter=1`."""
+exit = "success"
+args = ["run", "switch_nested_in_a_loop_selects_correctly_with_break_and_continue.js"]
+stdout = """iter=0
+iter=1
+after=1
+iter=2
+done
+"""
+
+[[case]]
+name = "break_and_return_clauses_mix_in_one_switch_s1"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+True fallthrough — a clause ending in NEITHER `return` nor `break` — is the boundary Rule 4 now draws, and admitting `break` must not have widened it to a bare assignment. Pinned on the correctness side of the file too (the denial pin lives in `switch_fail_closed.rs`) is not possible, so the admitted-side pin here is the mixed clause: one clause `break`s, and the program still runs, proving the widening is per-clause evidence rather than a blanket relaxation."""
+exit = "success"
+args = ["run", "break_and_return_clauses_mix_in_one_switch_s1.js"]
+stdout = """v=early
+"""
+
+[[case]]
+name = "break_and_return_clauses_mix_in_one_switch_s2"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+True fallthrough — a clause ending in NEITHER `return` nor `break` — is the boundary Rule 4 now draws, and admitting `break` must not have widened it to a bare assignment. Pinned on the correctness side of the file too (the denial pin lives in `switch_fail_closed.rs`) is not possible, so the admitted-side pin here is the mixed clause: one clause `break`s, and the program still runs, proving the widening is per-clause evidence rather than a blanket relaxation."""
+exit = "success"
+args = ["run", "break_and_return_clauses_mix_in_one_switch_s2.js"]
+stdout = """v=late2
+"""
+
+[[case]]
+name = "break_and_return_clauses_mix_in_one_switch_s7"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+True fallthrough — a clause ending in NEITHER `return` nor `break` — is the boundary Rule 4 now draws, and admitting `break` must not have widened it to a bare assignment. Pinned on the correctness side of the file too (the denial pin lives in `switch_fail_closed.rs`) is not possible, so the admitted-side pin here is the mixed clause: one clause `break`s, and the program still runs, proving the widening is per-clause evidence rather than a blanket relaxation."""
+exit = "success"
+args = ["run", "break_and_return_clauses_mix_in_one_switch_s7.js"]
+stdout = """v=late9
+"""
+
+[[case]]
+name = "a_break_nested_inside_a_return_clause_binds_to_the_switch_not_the_loop"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+A `break` NESTED INSIDE a `return`-terminated clause. Rule 4 admitted this shape from Task 7 onward (its last statement IS a `return`), but no switch frame existed, so the `break` bound to the enclosing `for` loop. Measured at HEAD a8cc36ea9f: kali printed `iter=0` / `v=end` where node prints `iter=0` / `iter=1` / `v=def0`, exit 0 on both sides — a SILENT MISCOMPILE in already-admitted territory, not a refusal.
+
+This is also the fixture that forbids gating the frame push on any clause having a `Break` terminator: no clause here does, and the push is still required. The per-iteration `iter=` line is what makes the two failure modes distinguishable — a loop truncated at iteration 0 versus a wrong return value."""
+exit = "success"
+args = ["run", "a_break_nested_inside_a_return_clause_binds_to_the_switch_not_the_loop.js"]
+stdout = """iter=0
+iter=1
+v=def0
+"""
+
+[[case]]
+name = "continue_in_a_switch_in_an_update_free_for_loop_is_admitted"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+FIX ROUND 1, the ADMITTED side of the faithfulness condition. The denial is a property of the LOOP FORM, not of `switch`, so the loop forms whose `continue` IS faithful must keep working — otherwise the fix would be a blanket ban dressed up as a proof.
+
+A C-style `for` with NO update clause has nothing for `continue` to skip, so it is faithful and admitted. This is the cell that proves the flag is keyed on `update.is_none()` — the same binding `emit_loop` dispatches its own emission with — rather than on the string `"for"`."""
+exit = "success"
+args = ["run", "continue_in_a_switch_in_an_update_free_for_loop_is_admitted.js"]
+stdout = """iter=1
+after=1
+iter=2
+iter=3
+after=3
+iter=4
+after=4
+s=8
+"""
+
+[[case]]
+name = "continue_in_a_switch_in_a_for_of_loop_is_admitted"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+`for...of` advances its index BEFORE the body precisely so `continue` visits the next element, so it is faithful and admitted. Verified by measurement rather than assumed, across the literal-array, string and `Set` lanes; this pins the literal-array one. The missing `after=2` is the proof the `continue` reached the LOOP: had it bound to the switch's exit, `after=2` would print."""
+exit = "success"
+args = ["run", "continue_in_a_switch_in_a_for_of_loop_is_admitted.js"]
+stdout = """iter=1
+after=1
+iter=2
+iter=3
+after=3
+iter=4
+after=4
+s=8
+"""
+
+[[case]]
+name = "break_in_a_switch_in_a_c_style_for_loop_is_still_admitted"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+`break` is UNAFFECTED by the faithfulness condition — it binds to the switch's own block and never touches `continue_index`. So a `break`-only switch inside a C-style `for` (the very loop form whose `continue` is refused) must still be admitted and correct. Without this cell, the fix could have over-denied every switch in a `for` loop and the suite would not notice."""
+exit = "success"
+args = ["run", "break_in_a_switch_in_a_c_style_for_loop_is_still_admitted.js"]
+stdout = """iter=0
+after=0
+iter=1
+after=1
+iter=2
+after=2
+sum=12
+"""
+
+[[case]]
+name = "a_break_switch_with_no_default_falls_out_of_the_chain"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+A switch with NO `default` clause. `emit_clause_chain` ends by recursing past the last clause and returning without emitting anything, so the innermost `else` arm is EMPTY — a distinct emit path that every other fixture in this file misses (they all carry a `default`). Before `break` was admitted this path was barely reachable: an all-`return` switch with no default falls off the end of the function. `s(7)` matches no clause and must leave `r` at its initial `0`."""
+exit = "success"
+args = ["run", "a_break_switch_with_no_default_falls_out_of_the_chain.js"]
+stdout = """a=1
+b=0
+"""
+
+[[case]]
+name = "a_default_only_break_switch_runs_its_body"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+The mirror image: a switch whose ONLY clause is `default`, with a `break`. The chain has no `If` at all — the default body is emitted unconditionally at depth 0 inside the switch's block, so this is the one shape where the block wrapper is the entire control structure."""
+exit = "success"
+args = ["run", "a_default_only_break_switch_runs_its_body.js"]
+stdout = """v=9
+"""
+
+[[case]]
+name = "a_break_in_a_nested_switch_binds_to_the_inner_switch"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+A switch nested inside a switch: the inner `break` must bind to the INNER switch and let the outer clause continue (`r = r + 100`), not escape both. This is the frame-stack half of the by-construction property — `break` resolves against `loop_frames.last()`, so nesting works for free — and it is the cell that would fail if the switch frame were pushed once per switch STATEMENT rather than once per emission, or popped in the wrong order."""
+exit = "success"
+args = ["run", "a_break_in_a_nested_switch_binds_to_the_inner_switch.js"]
+stdout = """a=111
+b=119
+c=99
+"""
+
+[[case]]
+name = "break_and_continue_bind_correctly_in_a_loop_inside_a_function"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+Function scope, not module scope: a switch inside a loop inside a FUNCTION, with a `continue` clause, a `break` clause and a default. Scope is a required test axis and every other loop-nested cell here is at module scope."""
+exit = "success"
+args = ["run", "break_and_continue_bind_correctly_in_a_loop_inside_a_function.js"]
+stdout = """iter=0
+iter=1
+after=1
+iter=2
+after=2
+v=111
+"""
+
+[[case]]
+name = "break_out_of_a_switch_in_an_allocating_loop_does_not_corrupt_the_arena"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+THE ARENA PROPERTY, as a test rather than a one-off probe: a `break` out of a switch inside an ALLOCATING loop, across 200 iterations. A switch opens NO arena frame, so the break path falls through to the loop's single unconditional release; a double release would splice the enclosing arena's still-live pages onto the free list (the defect `emit/control_flow.rs:57-75` records) and this would trap or diverge.
+
+Two allocations per iteration land in the loop arena: the `console.log` concat and `"k" + i`. Per-iteration logging is present as required, and the expectation is BUILT rather than pasted so all 200 lines are actually asserted — a loop truncated at iteration 0 fails on the very first line, not on a summary number.
+
+The brief's own Step-7 fixture (`var o = { a: i, b: i + 1 };` with `switch (i % 3)`) CANNOT be used and this is a finding, not a substitution of convenience: it is refused by an unrelated rule — "object literal for Binding(\\"_start\\", \\"o\\") has a field value that is not provably a number or string" — and the identical refusal reproduces with the switch DELETED entirely, so it never reaches the arena question at all. (`i % 3` would also have failed Rule 1: a binary expression is not a proven i64 discriminant.)"""
+exit = "success"
+args = ["run", "break_out_of_a_switch_in_an_allocating_loop_does_not_corrupt_the_arena.js"]
+stdout = """iter=0
+iter=1
+iter=2
+iter=3
+iter=4
+iter=5
+iter=6
+iter=7
+iter=8
+iter=9
+iter=10
+iter=11
+iter=12
+iter=13
+iter=14
+iter=15
+iter=16
+iter=17
+iter=18
+iter=19
+iter=20
+iter=21
+iter=22
+iter=23
+iter=24
+iter=25
+iter=26
+iter=27
+iter=28
+iter=29
+iter=30
+iter=31
+iter=32
+iter=33
+iter=34
+iter=35
+iter=36
+iter=37
+iter=38
+iter=39
+iter=40
+iter=41
+iter=42
+iter=43
+iter=44
+iter=45
+iter=46
+iter=47
+iter=48
+iter=49
+iter=50
+iter=51
+iter=52
+iter=53
+iter=54
+iter=55
+iter=56
+iter=57
+iter=58
+iter=59
+iter=60
+iter=61
+iter=62
+iter=63
+iter=64
+iter=65
+iter=66
+iter=67
+iter=68
+iter=69
+iter=70
+iter=71
+iter=72
+iter=73
+iter=74
+iter=75
+iter=76
+iter=77
+iter=78
+iter=79
+iter=80
+iter=81
+iter=82
+iter=83
+iter=84
+iter=85
+iter=86
+iter=87
+iter=88
+iter=89
+iter=90
+iter=91
+iter=92
+iter=93
+iter=94
+iter=95
+iter=96
+iter=97
+iter=98
+iter=99
+iter=100
+iter=101
+iter=102
+iter=103
+iter=104
+iter=105
+iter=106
+iter=107
+iter=108
+iter=109
+iter=110
+iter=111
+iter=112
+iter=113
+iter=114
+iter=115
+iter=116
+iter=117
+iter=118
+iter=119
+iter=120
+iter=121
+iter=122
+iter=123
+iter=124
+iter=125
+iter=126
+iter=127
+iter=128
+iter=129
+iter=130
+iter=131
+iter=132
+iter=133
+iter=134
+iter=135
+iter=136
+iter=137
+iter=138
+iter=139
+iter=140
+iter=141
+iter=142
+iter=143
+iter=144
+iter=145
+iter=146
+iter=147
+iter=148
+iter=149
+iter=150
+iter=151
+iter=152
+iter=153
+iter=154
+iter=155
+iter=156
+iter=157
+iter=158
+iter=159
+iter=160
+iter=161
+iter=162
+iter=163
+iter=164
+iter=165
+iter=166
+iter=167
+iter=168
+iter=169
+iter=170
+iter=171
+iter=172
+iter=173
+iter=174
+iter=175
+iter=176
+iter=177
+iter=178
+iter=179
+iter=180
+iter=181
+iter=182
+iter=183
+iter=184
+iter=185
+iter=186
+iter=187
+iter=188
+iter=189
+iter=190
+iter=191
+iter=192
+iter=193
+iter=194
+iter=195
+iter=196
+iter=197
+iter=198
+iter=199
+total=297
+"""
+
+[[case]]
+name = "break_terminated_clauses_work_on_the_string_axis_b"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+The string axis must inherit the `break` widening too — Rule 4 is domain-independent, so a string discriminant with `break`-terminated clauses is admitted by the same evidence. Without this, "widened the terminator set" could silently have meant "widened it on the numeric axis only"."""
+exit = "success"
+args = ["run", "break_terminated_clauses_work_on_the_string_axis_b.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "break_terminated_clauses_work_on_the_string_axis_z"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself.
+
+The string axis must inherit the `break` widening too — Rule 4 is domain-independent, so a string discriminant with `break`-terminated clauses is admitted by the same evidence. Without this, "widened the terminator set" could silently have meant "widened it on the numeric axis only"."""
+exit = "success"
+args = ["run", "break_terminated_clauses_work_on_the_string_axis_z.js"]
+stdout = """v=9
+"""
+
+[[case]]
+name = "a_duplicate_string_case_is_first_match_wins"
+rationale = """R-35 Task 9: `break`-terminated clauses.
+
+EVERY fixture below that contains a loop carries a per-iteration `console.log`. This is not decoration: any switch fixture carrying `break` measures LOOP TRUNCATION FIRST — if `break` bound to the enclosing loop instead of the switch, the loop would die at iteration 0 and a final-value-only assertion could not tell that apart from a mis-selected clause. Task 4 shipped a wrong boundary-matrix cell for exactly this reason. The per-iteration line makes the two distinguishable in the assertion itself."""
+exit = "success"
+args = ["run", "a_duplicate_string_case_is_first_match_wins.js"]
+stdout = """v=1
+"""
+
+# --- R-35 Task 10: empty-clause grouping ---
+[[case]]
+name = "empty_clauses_group_onto_the_next_s1"
+rationale = "R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report."
+exit = "success"
+args = ["run", "empty_clauses_group_onto_the_next_s1.js"]
+stdout = """v=low
+"""
+
+[[case]]
+name = "empty_clauses_group_onto_the_next_s2"
+rationale = "R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report."
+exit = "success"
+args = ["run", "empty_clauses_group_onto_the_next_s2.js"]
+stdout = """v=low
+"""
+
+[[case]]
+name = "empty_clauses_group_onto_the_next_s3"
+rationale = "R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report."
+exit = "success"
+args = ["run", "empty_clauses_group_onto_the_next_s3.js"]
+stdout = """v=mid
+"""
+
+[[case]]
+name = "empty_clauses_group_onto_the_next_s9"
+rationale = "R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report."
+exit = "success"
+args = ["run", "empty_clauses_group_onto_the_next_s9.js"]
+stdout = """v=high
+"""
+
+[[case]]
+name = "a_grouped_body_is_emitted_once_not_per_test"
+rationale = """R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report.
+
+If the body were duplicated per grouped test, `hits` would be 2."""
+exit = "success"
+args = ["run", "a_grouped_body_is_emitted_once_not_per_test.js"]
+stdout = """hits=1
+"""
+
+[[case]]
+name = "empty_clauses_group_with_a_string_discriminant_b"
+rationale = "R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report."
+exit = "success"
+args = ["run", "empty_clauses_group_with_a_string_discriminant_b.js"]
+stdout = """v=ab
+"""
+
+[[case]]
+name = "empty_clauses_group_with_a_string_discriminant_z"
+rationale = "R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report."
+exit = "success"
+args = ["run", "empty_clauses_group_with_a_string_discriminant_z.js"]
+stdout = """v=other
+"""
+
+[[case]]
+name = "an_empty_grouped_clause_beside_a_break_clause_is_admitted_s1"
+rationale = """R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report.
+
+Moved (and flipped) from `switch_fail_closed.rs`'s `an_empty_grouped_clause_is_still_fail_closed_at_task_9`. Task 10's `EmptyGroup` makes this exact fixture correctness, not denial — the same move Task 9 made for `switch_nested_in_a_loop_selects_correctly_with_break_and_continue`. Not deleted or weakened: kept verbatim, now asserting node's bytes, and both group members (`s(1)` AND `s(2)`) are checked so a bug that mapped the whole group to the first arm cannot pass."""
+exit = "success"
+args = ["run", "an_empty_grouped_clause_beside_a_break_clause_is_admitted_s1.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "an_empty_grouped_clause_beside_a_break_clause_is_admitted_s2"
+rationale = """R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report.
+
+Moved (and flipped) from `switch_fail_closed.rs`'s `an_empty_grouped_clause_is_still_fail_closed_at_task_9`. Task 10's `EmptyGroup` makes this exact fixture correctness, not denial — the same move Task 9 made for `switch_nested_in_a_loop_selects_correctly_with_break_and_continue`. Not deleted or weakened: kept verbatim, now asserting node's bytes, and both group members (`s(1)` AND `s(2)`) are checked so a bug that mapped the whole group to the first arm cannot pass."""
+exit = "success"
+args = ["run", "an_empty_grouped_clause_beside_a_break_clause_is_admitted_s2.js"]
+stdout = """v=2
+"""
+
+[[case]]
+name = "an_empty_grouped_clause_beside_a_break_clause_is_admitted_s9"
+rationale = """R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report.
+
+Moved (and flipped) from `switch_fail_closed.rs`'s `an_empty_grouped_clause_is_still_fail_closed_at_task_9`. Task 10's `EmptyGroup` makes this exact fixture correctness, not denial — the same move Task 9 made for `switch_nested_in_a_loop_selects_correctly_with_break_and_continue`. Not deleted or weakened: kept verbatim, now asserting node's bytes, and both group members (`s(1)` AND `s(2)`) are checked so a bug that mapped the whole group to the first arm cannot pass."""
+exit = "success"
+args = ["run", "an_empty_grouped_clause_beside_a_break_clause_is_admitted_s9.js"]
+stdout = """v=9
+"""
+
+[[case]]
+name = "empty_clause_group_is_admitted_at_module_scope_x1"
+rationale = """R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report.
+
+Scope is a required test axis, and module scope can't use `return`, so this is the module-scope grouping cell (function-scope is covered above). It also serves the anti-spot-check: `x = 2` (the SECOND group member, not the first) is checked, plus `x = 1` and the default fall-through."""
+exit = "success"
+args = ["run", "empty_clause_group_is_admitted_at_module_scope_x1.js"]
+stdout = """v=100
+"""
+
+[[case]]
+name = "empty_clause_group_is_admitted_at_module_scope_x2"
+rationale = """R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report.
+
+Scope is a required test axis, and module scope can't use `return`, so this is the module-scope grouping cell (function-scope is covered above). It also serves the anti-spot-check: `x = 2` (the SECOND group member, not the first) is checked, plus `x = 1` and the default fall-through."""
+exit = "success"
+args = ["run", "empty_clause_group_is_admitted_at_module_scope_x2.js"]
+stdout = """v=100
+"""
+
+[[case]]
+name = "empty_clause_group_is_admitted_at_module_scope_x9"
+rationale = """R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report.
+
+Scope is a required test axis, and module scope can't use `return`, so this is the module-scope grouping cell (function-scope is covered above). It also serves the anti-spot-check: `x = 2` (the SECOND group member, not the first) is checked, plus `x = 1` and the default fall-through."""
+exit = "success"
+args = ["run", "empty_clause_group_is_admitted_at_module_scope_x9.js"]
+stdout = """v=9
+"""
+
+[[case]]
+name = "grouped_clauses_terminated_by_break_select_correctly_in_a_loop"
+rationale = """R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report.
+
+Grouping combined with `break` inside a LOOP: per-iteration `console.log` is mandatory here (any switch fixture with `break` measures loop-truncation FIRST — a loop can die at iteration 0 before the switch's behaviour is ever observed, which produced a wrong matrix cell in Task 4). Both grouped members (`i = 0` and `i = 1`) must take the grouped clause, so the running sum discriminates a "first-arm-only" grouping bug from a correct one."""
+exit = "success"
+args = ["run", "grouped_clauses_terminated_by_break_select_correctly_in_a_loop.js"]
+stdout = """iter=0
+iter=1
+iter=2
+iter=3
+s=205
+"""
+
+[[case]]
+name = "grouped_clauses_terminated_by_continue_select_correctly_under_a_faithful_loop"
+rationale = """R-35 Task 10: empty-clause grouping. A run of EMPTY clauses (`case 1: case 2: body`) collapses onto the next terminated clause, which carries all of the grouped tests and ORs them: `disc === 1 || disc === 2` guarding ONE body. Node's oracle output for every fixture below is recorded in the Task 10 report.
+
+Grouping combined with `continue` under a FAITHFUL enclosing loop (`while` — see the register's R-09 note on why a `for` `continue` fixture measures loop-truncation/R-09 instead of this task's property). Per-iteration `console.log` again mandatory. `i = 1` and `i = 2` both take the grouped clause and `continue` (skipping the `s = s + i` add); if the grouping only bound the FIRST test, `i = 2` would fall to `default` and add 2 to `s`, changing the total from 12 to 14 — the anti-spot-check."""
+exit = "success"
+args = ["run", "grouped_clauses_terminated_by_continue_select_correctly_under_a_faithful_loop.js"]
+stdout = """iter=0
+iter=1
+iter=2
+iter=3
+iter=4
+iter=5
+s=12
+"""
+
+# --- R-35 Task 10, FIX ROUND 1 ---
+[[case]]
+name = "a_trailing_default_after_a_group_is_still_admitted_s1"
+rationale = """R-35 Task 10, FIX ROUND 1.
+
+Over-denial guard for the non-final-`default` fix: a TRAILING `default` AFTER a group (the ordinary, still-admitted position) must NOT be caught by that check — it has to key on POSITION (is this `default` the last clause), not on the mere presence of a group anywhere in the switch. Both group members checked."""
+exit = "success"
+args = ["run", "a_trailing_default_after_a_group_is_still_admitted_s1.js"]
+stdout = """v=low
+"""
+
+[[case]]
+name = "a_trailing_default_after_a_group_is_still_admitted_s2"
+rationale = """R-35 Task 10, FIX ROUND 1.
+
+Over-denial guard for the non-final-`default` fix: a TRAILING `default` AFTER a group (the ordinary, still-admitted position) must NOT be caught by that check — it has to key on POSITION (is this `default` the last clause), not on the mere presence of a group anywhere in the switch. Both group members checked."""
+exit = "success"
+args = ["run", "a_trailing_default_after_a_group_is_still_admitted_s2.js"]
+stdout = """v=low
+"""
+
+[[case]]
+name = "a_trailing_default_after_a_group_is_still_admitted_s9"
+rationale = """R-35 Task 10, FIX ROUND 1.
+
+Over-denial guard for the non-final-`default` fix: a TRAILING `default` AFTER a group (the ordinary, still-admitted position) must NOT be caught by that check — it has to key on POSITION (is this `default` the last clause), not on the mere presence of a group anywhere in the switch. Both group members checked."""
+exit = "success"
+args = ["run", "a_trailing_default_after_a_group_is_still_admitted_s9.js"]
+stdout = """v=def
+"""
+
+# --- R-35 Task 11: acceptance-matrix completion ---
+[[case]]
+name = "a_single_case_switch_with_no_default_is_admitted"
+rationale = """R-35 Task 11: acceptance-matrix completion. Four cells that the per-task files left uncovered, each naming the axis it fills. Node's oracle output for all four is recorded in the Task 11 report (verified byte-for-byte before these assertions were written, not after).
+
+AXIS: clause COUNT — a switch with exactly ONE clause, a `case` (not the `default`-only shape `a_default_only_break_switch_runs_its_body` already pins). `emit_clause_chain` emits a single `If` whose `else` arm recurses past the end and emits nothing, so this is the minimal chain: one test, one body, an empty else. `s(7)` must fall past the whole switch and leave `r` at its initial `0` — the anti-spot-check that distinguishes "selected clause 1 unconditionally" from "compared the discriminant"."""
+exit = "success"
+args = ["run", "a_single_case_switch_with_no_default_is_admitted.js"]
+stdout = """a=1
+b=0
+"""
+
+[[case]]
+name = "a_string_switch_with_no_default_falls_out_of_the_chain"
+rationale = """R-35 Task 11: acceptance-matrix completion. Four cells that the per-task files left uncovered, each naming the axis it fills. Node's oracle output for all four is recorded in the Task 11 report (verified byte-for-byte before these assertions were written, not after).
+
+AXIS: `default` ABSENT × the STRING discriminant. Every other string-axis fixture in this file carries a `default`, so the empty-innermost-`else` path was pinned on the numeric axis only (`a_break_switch_with_no_default_falls_out_of_the_chain`). Control must fall PAST the whole switch — proven by `return r;` reading the untouched initial `0` for a non-matching discriminant."""
+exit = "success"
+args = ["run", "a_string_switch_with_no_default_falls_out_of_the_chain.js"]
+stdout = """a=2
+b=0
+"""
+
+[[case]]
+name = "string_switch_works_at_module_scope"
+rationale = """R-35 Task 11: acceptance-matrix completion. Four cells that the per-task files left uncovered, each naming the axis it fills. Node's oracle output for all four is recorded in the Task 11 report (verified byte-for-byte before these assertions were written, not after).
+
+AXIS: STRING discriminant × MODULE scope. Scope is a required axis and the module-scope cells (`break_terminated_switch_works_at_module_scope`, `empty_clause_group_is_admitted_at_module_scope`) were both numeric; `string_switch_on_a_module_const_binding` reads a module binding but the SWITCH is inside a function. This is the string switch emitted into `_start` itself."""
+exit = "success"
+args = ["run", "string_switch_works_at_module_scope.js"]
+stdout = """v=B
+"""
+
+[[case]]
+name = "string_switch_in_a_loop_binds_break_and_continue_correctly"
+rationale = """R-35 Task 11: acceptance-matrix completion. Four cells that the per-task files left uncovered, each naming the axis it fills. Node's oracle output for all four is recorded in the Task 11 report (verified byte-for-byte before these assertions were written, not after).
+
+AXIS: STRING discriminant × NESTING inside a loop, with BOTH `break` and `continue` clauses. The whole nesting axis was numeric-only; `break`/ `continue` binding is domain-independent by construction (the frame stack knows nothing about the discriminant), and this is the cell that would fail if it were not. `while` is used deliberately — see the R-09 note above on why a C-style `for` with an update measures loop faithfulness rather than this property. Per-iteration `iter=` logging plus the `after=` discriminator are both mandatory here: `after=` is absent exactly on the `continue` iteration."""
+exit = "success"
+args = ["run", "string_switch_in_a_loop_binds_break_and_continue_correctly.js"]
+stdout = """iter=k0
+iter=k1
+after=k1
+iter=k2
+after=k2
+acc=BD
+"""
+
+[[case]]
+name = "grouped_clauses_terminated_by_continue_select_correctly_under_a_c_style_for_with_no_update"
+rationale = """R-35 Task 11: acceptance-matrix completion. Four cells that the per-task files left uncovered, each naming the axis it fills. Node's oracle output for all four is recorded in the Task 11 report (verified byte-for-byte before these assertions were written, not after).
+
+Grouping + `continue` under the OTHER faithful loop form named in this task's review: a C-style `for` with NO update clause (`for...of` is deliberately NOT used as a faithful-loop probe here — with no switch at all it prints `iter=0` five times, a separate out-of-scope defect). Per-iteration `console.log` plus an `after=` line that is absent exactly on the iterations that `continue`, both mandatory per this task's method note."""
+exit = "success"
+args = ["run", "grouped_clauses_terminated_by_continue_select_correctly_under_a_c_style_for_with_no_update.js"]
+stdout = """iter=1
+iter=2
+iter=3
+after=3
+iter=4
+after=4
+iter=5
+after=5
+iter=6
+after=6
+s=18
+"""
+
