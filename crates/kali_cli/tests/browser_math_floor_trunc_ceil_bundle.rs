@@ -13,11 +13,11 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory`
-//! (`:98-107`) has no helper: its whole body is a single
-//! `assert!(source.contains(expected))` self-check (`:102-105`) run in a `for`
+//! (`:123-132`) has no helper: its whole body is a single
+//! `assert!(source.contains(expected))` self-check (`:127-130`) run in a `for`
 //! loop over `kali_common::math_floor_trunc_ceil_frozen_callable_aliases()`,
 //! against `browser_bundle_math_floor_trunc_ceil_alias_source()`'s OWN TEXT
-//! (`:74-88`), before any command is built and without ever invoking `kali`.
+//! (`:99-113`), before any command is built and without ever invoking `kali`.
 //!
 //! It is doubly unmigratable, and the second reason is the sharper one:
 //!   1. `scripts/audit-case-migration.py` extracts every `.contains(<literal>)`
@@ -51,12 +51,37 @@
 //! this is a partial retention (1 of 9), not a whole-file one, and the trim is
 //! done -- this file is now exactly its retained remainder.
 //!
-//! CONSEQUENCE FOR THE GATES, measured rather than assumed. Auditing this
-//! POST-trim file against the shipped case file reports its claims absent, and
-//! `comment_coverage.py` reports this header's own lines as missing from every
-//! `rationale`. Both are expected for a trimmed retention: the header describes
-//! the RETAINED test, which by construction has no case. Audit the migrated 8
-//! against the PRE-TRIM source (git history), where the audit exits 0.
+//! CONSEQUENCE FOR THE GATES -- THE COMPLETE RED-LIST (ruling 9). Every gate
+//! below was RUN against this post-trim file, not reasoned about. A trimmed
+//! retention makes the post-trim `.rs` the WRONG left-hand side: the migrated
+//! 8 cases were produced from the file as it stood BEFORE the trim, so any
+//! gate that compares case file against source must be given the pre-trim ref.
+//!
+//!   PRE-TRIM REF:  b44fd6acf9^   (= c934f6ebdd)
+//!   git show b44fd6acf9^:crates/kali_cli/tests/browser_math_floor_trunc_ceil_bundle.rs > /tmp/pretrim.rs
+//!
+//! Against the POST-trim file (i.e. the plain `verify_pair.sh math_floor_trunc_ceil_bundle` run):
+//!   RED  comment_coverage.py          exit 1, 56 missing lines -- this
+//!        header's own prose, which no case carries because it describes the
+//!        RETAINED test, and that test has no case by construction.
+//!   RED  check_rationale_fn_names.py  exit 1, 2 unexplained -- cites helpers
+//!        that left with the migrated cases and no longer exist here.
+//!   RED  check_extra_claims.py        exit 1, 17 unexplained extras -- the
+//!        migrated cases' claims are absent from the trimmed remainder.
+//!   GREEN audit-case-migration.py     exit 0 -- the retained test's claim has
+//!        no extractable literal (its needle is a loop variable), so there is
+//!        nothing for the audit to report missing. Do not read this green as
+//!        the migration being audited; that is the pre-trim run below.
+//!   GREEN check_fixtures.py           exit 0.
+//!
+//! Against the PRE-TRIM ref, ALL FIVE exit 0. That is the run that gates this
+//! migration; it is the one to reproduce.
+//!
+//! Adding a new gate to `verify_pair.sh` includes updating this paragraph, in
+//! the same change (ruling 9). `check_extra_claims.py` and the U8 check were
+//! shipped in ef0b2cf3f5 and were missing from this list until N1 of that
+//! round's re-review caught it -- the fix commit edited this very block
+//! without adding the gate it was itself introducing.
 //!
 //! This file must NOT be deleted by the family-wide sweep after batch 8. See
 //! `.superpowers/sdd/2026-07-29-test-binary-consolidation/

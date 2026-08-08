@@ -34,14 +34,9 @@
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_floor_trunc_ceil_bundle.rs returns NOTHING -- the file has no Rust comments
 # at all.
-# The 1 other `//` occurrence(s) in the file (:79) sit
+# The 1 other `//` occurrence(s) in the file (:23) sit
 # inside JS fixture bodies, which is program text carried verbatim into
 # [source], not Rust prose.
-# (The file's leading 63-line `//!` block is the U3 RETENTION HEADER
-# this migration added, not prose carried from the source, so it is not
-# rule-12 material. comment_coverage.py does report those lines as missing
-# from every rationale; that is expected for a trimmed retention -- the
-# header describes the RETAINED test, which by construction has no case.)
 # There is therefore no prose to move into any `rationale`, and
 # comment_coverage.py is run with --allow-empty for this pair.
 # (The `//!` retention header added to the .rs is migration bookkeeping about the
