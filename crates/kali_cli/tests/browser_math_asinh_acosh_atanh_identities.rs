@@ -1,16 +1,47 @@
-//! Task 18 batch 3 escalation (fix round 1): kept 100% hand-written, not
-//! migrated. No case file exists for this target.
+//! Task 18 batch 3 escalation (fix round 1): kept hand-written, not migrated.
+//! No case file exists for this target *yet*.
+//!
+//! ### SUPERSEDED — the adjudication below was REVERSED. This file is now
+//! ### migratable, and batch 4 owns migrating it.
+//!
+//! The "no eleventh assertion key" call recorded further down was overturned
+//! by the human partner during the Task 18 batch 4 interlude. Two count keys
+//! now exist in the case format (design spec §5.4, which opens "Twelve
+//! assertion keys"):
+//!
+//!     stdout_count = [{ needle = "0\n", at_least = 3 }]
+//!     json_count   = [{ path = "stdout", needle = "0\n", at_least = 3 }]
+//!
+//! `at_least` is non-overlapping `str::matches` counting, exactly the
+//! semantics `.matches(needle).count()` has here -- so it carries this file's
+//! claim at equal strength, with no weakening (rule 1) and no invented
+//! adjacency claim (rule 2). Both of this file's surfaces are covered: `:202`
+//! and `:257` count in raw stdout (`stdout_count`); `:253`, inside the
+//! `if json_output` branch, counts in `json["stdout"].as_str()`
+//! (`json_count`). All three sites are the same `>= 3` bound, so all 24
+//! `#[test]` fns are expressible.
+//!
+//! Nothing below this line has been deleted, because the reasoning is still
+//! accurate about *why the format could not carry the claim before the keys
+//! existed* -- it is the record that motivated adding them. Read it as
+//! history. The one sentence that is now simply wrong is the ADJUDICATED
+//! paragraph's "**No eleventh assertion key is being added for it**"; that is
+//! the ruling that was reversed. The §5.11 retention this file currently
+//! holds stands only until batch 4 migrates it.
+//!
+//! DO NOT migrate this file from here. Batch 4 owns it, and the keys landed
+//! deliberately ahead of any migration so that batch could do it under review.
 //!
 //! ALL 24 `#[test]` fns in this file make a COUNT claim about stdout, which
 //! the case-file format cannot carry. U4's trim-and-keep was applied first
 //! and degenerates to whole-file retention: there is no complementary
 //! migratable subset to split off. The 8 `build_emits_*` /
 //! `json_build_emits_*` fns all reach
-//! `assert_browser_bundle_math_inverse_hyperbolic` (`:91-172`), whose only
-//! stdout assertion is at `:171`. The other 16 all reach
-//! `assert_browser_harness_math_inverse_hyperbolic` (`:174-228`), whose
-//! `if json_output` branch asserts the same shape at `:222` and whose `else`
-//! branch asserts it at `:226`. Every one of the 24 fns reaches exactly one
+//! `assert_browser_bundle_math_inverse_hyperbolic` (`:122-203`), whose only
+//! stdout assertion is at `:202`. The other 16 all reach
+//! `assert_browser_harness_math_inverse_hyperbolic` (`:205-259`), whose
+//! `if json_output` branch asserts the same shape at `:253` and whose `else`
+//! branch asserts it at `:257`. Every one of the 24 fns reaches exactly one
 //! of those three lines, and each is the same claim:
 //!
 //!     stdout.matches(<needle>).count() >= 3
