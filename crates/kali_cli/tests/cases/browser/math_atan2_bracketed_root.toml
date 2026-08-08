@@ -1,0 +1,1088 @@
+# Migrated from tests/browser_math_atan2_bracketed_root.rs and its sibling
+# submodule directory tests/browser_math_atan2_bracketed_root/{run,build}.rs
+# (the `#[path]` submodule shape: the top-level file declares zero top-level
+# #[test] fns and pulls its 29 tests in via `#[path = "..."] mod run;` /
+# `mod build;`). No Rust comments exist anywhere in the three source files, so
+# there is no prose to move verbatim into `rationale` here.
+
+[source]
+"app.js" = """// kali-tree-shake: bracketedGlobalThisMathAtan2ZeroSlice
+function bracketedGlobalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"].atan2(zero, one));
+  console.log(globalThis['Math']['atan2'](zero, one));
+  return globalThis["Math"].atan2(zero, one);
+}
+"""
+"app.jsx" = """// kali-tree-shake: bracketedGlobalThisMathAtan2ZeroSlice
+function bracketedGlobalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"].atan2(zero, one));
+  console.log(globalThis['Math']['atan2'](zero, one));
+  return globalThis["Math"].atan2(zero, one);
+}
+"""
+"app.ts" = """// kali-tree-shake: bracketedGlobalThisMathAtan2ZeroSlice
+function bracketedGlobalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"].atan2(zero, one));
+  console.log(globalThis['Math']['atan2'](zero, one));
+  return globalThis["Math"].atan2(zero, one);
+}
+"""
+"app.tsx" = """// kali-tree-shake: bracketedGlobalThisMathAtan2ZeroSlice
+function bracketedGlobalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"].atan2(zero, one));
+  console.log(globalThis['Math']['atan2'](zero, one));
+  return globalThis["Math"].atan2(zero, one);
+}
+"""
+"app_as_const.ts" = """// kali-tree-shake: bracketedGlobalThisMathAtan2AsConstWrapper
+function bracketedGlobalThisMathAtan2AsConstWrapper() {
+  const zero = (0 as const);
+  const one = (1 as const);
+  console.log(globalThis["Math"].atan2(zero, one));
+  return globalThis["Math"].atan2(zero, one);
+}
+"""
+"app_method.js" = """// kali-tree-shake: bracketedGlobalThisMathAtan2BracketedMethod
+function bracketedGlobalThisMathAtan2BracketedMethod() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"]["atan2"](zero, one));
+  return globalThis["Math"]["atan2"](zero, one);
+}
+"""
+"app_method.ts" = """// kali-tree-shake: bracketedGlobalThisMathAtan2BracketedMethod
+function bracketedGlobalThisMathAtan2BracketedMethod() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"]["atan2"](zero, one));
+  return globalThis["Math"]["atan2"](zero, one);
+}
+"""
+"app_satisfies.ts" = """// kali-tree-shake: bracketedGlobalThisMathAtan2SatisfiesWrapper
+function bracketedGlobalThisMathAtan2SatisfiesWrapper() {
+  const zero = (0 satisfies number);
+  const one = (1 satisfies number);
+  console.log(globalThis["Math"].atan2(zero, one));
+  return globalThis["Math"].atan2(zero, one);
+}
+"""
+"app_sq.js" = """// kali-tree-shake: singleQuotedGlobalThisMathAtan2ZeroSlice
+function singleQuotedGlobalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis['Math']['atan2'](zero, one));
+  return globalThis['Math']['atan2'](zero, one);
+}
+"""
+"app_sq.jsx" = """// kali-tree-shake: singleQuotedGlobalThisMathAtan2ZeroSlice
+function singleQuotedGlobalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis['Math']['atan2'](zero, one));
+  return globalThis['Math']['atan2'](zero, one);
+}
+"""
+"app_sq.ts" = """// kali-tree-shake: singleQuotedGlobalThisMathAtan2ZeroSlice
+function singleQuotedGlobalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis['Math']['atan2'](zero, one));
+  return globalThis['Math']['atan2'](zero, one);
+}
+"""
+"app_sq.tsx" = """// kali-tree-shake: singleQuotedGlobalThisMathAtan2ZeroSlice
+function singleQuotedGlobalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis['Math']['atan2'](zero, one));
+  return globalThis['Math']['atan2'](zero, one);
+}
+"""
+"main_asconst.ts" = """const zero = (0 as const); const one = (1 as const); console.log(globalThis["Math"].atan2(zero, one));
+"""
+"main_method.js" = """const zero = 0; const one = 1; console.log(globalThis["Math"]["atan2"](zero, one));
+"""
+"main_method.ts" = """const zero = 0; const one = 1; console.log(globalThis["Math"]["atan2"](zero, one));
+"""
+"main_satisfies.ts" = """const zero = (0 satisfies number); const one = (1 satisfies number); console.log(globalThis["Math"].atan2(zero, one));
+"""
+"main_sq.js" = """const zero = 0; const one = 1; console.log(globalThis['Math']['atan2'](zero, one));
+"""
+"main_sq.jsx" = """const zero = 0; const one = 1; console.log(globalThis['Math']['atan2'](zero, one));
+"""
+"main_sq.ts" = """const zero = 0; const one = 1; console.log(globalThis['Math']['atan2'](zero, one));
+"""
+"main_sq.tsx" = """const zero = 0; const one = 1; console.log(globalThis['Math']['atan2'](zero, one));
+"""
+"main_zeroslice.js" = """const zero = 0; const one = 1; console.log(globalThis["Math"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one));
+"""
+"main_zeroslice.jsx" = """const zero = 0; const one = 1; console.log(globalThis["Math"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one));
+"""
+"main_zeroslice.ts" = """const zero = 0; const one = 1; console.log(globalThis["Math"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one));
+"""
+"main_zeroslice.tsx" = """const zero = 0; const one = 1; console.log(globalThis["Math"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one));
+"""
+"smoke.test.asconst.ts" = """Kali.test('bracketed atan2 as const wrapper', () => { const zero = (0 as const); const one = (1 as const); console.log(globalThis["Math"].atan2(zero, one)); });
+"""
+"smoke.test.method.js" = """Kali.test('bracketed atan2 bracketed method', () => { const zero = 0; const one = 1; console.log(globalThis["Math"]["atan2"](zero, one)); });
+"""
+"smoke.test.method.ts" = """Kali.test('bracketed atan2 bracketed method', () => { const zero = 0; const one = 1; console.log(globalThis["Math"]["atan2"](zero, one)); });
+"""
+"smoke.test.satisfies.ts" = """Kali.test('bracketed atan2 satisfies wrapper', () => { const zero = (0 satisfies number); const one = (1 satisfies number); console.log(globalThis["Math"].atan2(zero, one)); });
+"""
+"smoke.test.sq.js" = """Kali.test('single quoted bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis['Math']['atan2'](zero, one)); });
+"""
+"smoke.test.sq.jsx" = """Kali.test('single quoted bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis['Math']['atan2'](zero, one)); });
+"""
+"smoke.test.sq.ts" = """Kali.test('single quoted bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis['Math']['atan2'](zero, one)); });
+"""
+"smoke.test.sq.tsx" = """Kali.test('single quoted bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis['Math']['atan2'](zero, one)); });
+"""
+"smoke.test.zeroslice.js" = """Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis["Math"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one)); });
+"""
+"smoke.test.zeroslice.jsx" = """Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis["Math"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one)); });
+"""
+"smoke.test.zeroslice.ts" = """Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis["Math"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one)); });
+"""
+"smoke.test.zeroslice.tsx" = """Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis["Math"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one)); });
+"""
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_atan2_zero_slice_in_js_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_atan2_zero_slice_in_js_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_atan2_zero_slice_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_atan2_zero_slice_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_atan2_zero_slice_in_jsx_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_atan2_zero_slice_in_jsx_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_atan2_zero_slice_in_tsx_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_atan2_zero_slice_in_tsx_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_atan2_bracketed_method_in_js_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_method.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_method/app_method.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_method"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2BracketedMethod();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_atan2_bracketed_method_in_js_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_method.js"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_method/app_method.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_method"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2BracketedMethod();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_atan2_bracketed_method_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_method.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_method/app_method.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_method"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2BracketedMethod();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_atan2_bracketed_method_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_method.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_method/app_method.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_method"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2BracketedMethod();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_single_quoted_global_this_math_atan2_zero_slice_in_js_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_sq.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_sq/app_sq.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_sq"
+body = """const mod = await import(bundleJs.href);
+await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_single_quoted_global_this_math_atan2_zero_slice_in_js_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_sq.js"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_sq/app_sq.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_sq"
+body = """const mod = await import(bundleJs.href);
+await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_single_quoted_global_this_math_atan2_zero_slice_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_sq.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_sq/app_sq.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_sq"
+body = """const mod = await import(bundleJs.href);
+await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_single_quoted_global_this_math_atan2_zero_slice_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_sq.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_sq/app_sq.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_sq"
+body = """const mod = await import(bundleJs.href);
+await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_single_quoted_global_this_math_atan2_zero_slice_in_jsx_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_sq.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_sq/app_sq.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_sq"
+body = """const mod = await import(bundleJs.href);
+await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_single_quoted_global_this_math_atan2_zero_slice_in_jsx_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_sq.jsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_sq/app_sq.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_sq"
+body = """const mod = await import(bundleJs.href);
+await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_single_quoted_global_this_math_atan2_zero_slice_in_tsx_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_sq.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_sq/app_sq.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_sq"
+body = """const mod = await import(bundleJs.href);
+await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_single_quoted_global_this_math_atan2_zero_slice_in_tsx_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_sq.tsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_sq/app_sq.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_sq"
+body = """const mod = await import(bundleJs.href);
+await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_atan2_as_const_wrapper_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_as_const.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_as_const/app_as_const.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_as_const"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2AsConstWrapper();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_atan2_as_const_wrapper_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_as_const.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_as_const/app_as_const.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_as_const"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2AsConstWrapper();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_atan2_satisfies_wrapper_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_satisfies.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_satisfies/app_satisfies.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_satisfies"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2SatisfiesWrapper();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_atan2_satisfies_wrapper_in_ts_input"
+rationale = """Migrated from browser_math_atan2_bracketed_root/build.rs. Builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed atan2 result."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_satisfies.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_satisfies/app_satisfies.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_satisfies"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathAtan2SatisfiesWrapper();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_js_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zeroslice.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_js_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zeroslice.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_js_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.zeroslice.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_js_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.zeroslice.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+0
+""" }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zeroslice.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zeroslice.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.zeroslice.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.zeroslice.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+0
+""" }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_jsx_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zeroslice.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_jsx_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zeroslice.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_jsx_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.zeroslice.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_jsx_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.zeroslice.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+0
+""" }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_tsx_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zeroslice.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_tsx_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zeroslice.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_tsx_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.zeroslice.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_tsx_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.zeroslice.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+0
+""" }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_as_const_wrapper_when_browser_harness_is_configured_in_ts_input_run_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_asconst.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_as_const_wrapper_when_browser_harness_is_configured_in_ts_input_run_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_asconst.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_as_const_wrapper_when_browser_harness_is_configured_in_ts_input_test_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.asconst.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_as_const_wrapper_when_browser_harness_is_configured_in_ts_input_test_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.asconst.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""" }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_satisfies_wrapper_when_browser_harness_is_configured_in_ts_input_run_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_satisfies_wrapper_when_browser_harness_is_configured_in_ts_input_run_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_satisfies_wrapper_when_browser_harness_is_configured_in_ts_input_test_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.satisfies.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_satisfies_wrapper_when_browser_harness_is_configured_in_ts_input_test_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.satisfies.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""" }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_bracketed_method_when_browser_harness_is_configured_in_js_and_ts_input_run_js_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_method.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_bracketed_method_when_browser_harness_is_configured_in_js_and_ts_input_run_js_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_method.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_bracketed_method_when_browser_harness_is_configured_in_js_and_ts_input_test_js_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.method.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_bracketed_method_when_browser_harness_is_configured_in_js_and_ts_input_test_js_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.method.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""" }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_bracketed_method_when_browser_harness_is_configured_in_js_and_ts_input_run_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_method.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_bracketed_method_when_browser_harness_is_configured_in_js_and_ts_input_run_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_method.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_bracketed_method_when_browser_harness_is_configured_in_js_and_ts_input_test_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.method.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_bracketed_global_this_math_atan2_bracketed_method_when_browser_harness_is_configured_in_js_and_ts_input_test_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.method.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""" }
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_js_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sq.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_js_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sq.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_js_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.sq.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_js_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.sq.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""" }
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sq.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sq.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_ts_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.sq.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_ts_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.sq.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""" }
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_jsx_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sq.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_jsx_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sq.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_jsx_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.sq.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_jsx_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.sq.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""" }
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_tsx_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sq.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_run_tsx_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sq.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""", "exitCode" = 0 }
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_tsx_text"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.sq.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\nok 1"]
+
+[[case]]
+name = "run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_test_tsx_json"
+rationale = """Migrated from browser_math_atan2_bracketed_root/run.rs. A single #[test] fn in source loops over multiple (command, filename, json_output) combinations sharing one assertion shape; split here into one named sibling per combination (rule 5), each with its own [source] fixture. `kali <run|test> --api browser` with KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node. In `--output json` mode the exact `json.stdout` value was captured from the real built binary and pinned exactly -- strictly stronger than the source's own `.contains("0")` substring check on that same field, which the case file format cannot express directly (`json` only supports exact equality per path, not substring)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.sq.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stderr" = "", "errors" = [], "stdout" = """0
+""" }

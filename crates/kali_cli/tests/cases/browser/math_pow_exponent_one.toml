@@ -1,0 +1,1177 @@
+# Migrated from tests/browser_math_pow_exponent_one.rs.
+#
+# All 48 #[test] fns are individual calls (no loops in this file at all);
+# grouped by (variant in {exponent_one, base_one}, mode in {build, run,
+# test}), each of the 6 groups is exactly 8 fns = ext(js/ts/jsx/tsx) x
+# json_output(2), with an identical assertion shape per group -- confirmed
+# by reading all 48. `ext` is therefore a genuinely uniform file-level
+# [matrix] axis: 48 #[test] fns -> 12 [[case]] entries, matrix-fanned to 48
+# trials.
+#
+# DEAD LITERAL FOUND: `assert_browser_harness_math_pow_exponent_one_identity`
+# takes an `_expected_stdout: &str` parameter (underscore-prefixed) that is
+# NEVER READ inside the function -- the helper computes its own expected
+# value dynamically instead (`source.matches("console.log(").count()`
+# repeats of "2" or "1", chosen by whether the fixture text contains the
+# literal substring "Math.pow(1, alias)"). The 32 hardcoded strings passed
+# at call sites (e.g. "2\n2\n2\n2\n2\n2\n2\n2") are dead text with no
+# assertion behind them. Per rule 2, this is NOT migrated as a claim (there
+# is none) and NOT fabricated into one; the real, dynamically-computed
+# expected stdout (48 repeats of the value, one per `console.log`, since
+# every fixture makes exactly 12 direct + 36 frozen-callable invocations)
+# was captured live from the real binary for every case and pinned exactly.
+#
+# `format!`-built fixtures: `browser_bundle_math_pow_exponent_one_source`/
+# `..._base_one_identity_source` and `browser_harness_math_pow_identity_
+# run_source`/`..._test_source` all build their bodies via
+# `kali_common::math_pow_invocation_lines_for_aliases`/
+# `..._entries_for_aliases` -- functions in a LIBRARY CRATE, not string
+# literals in this file at all. Every fixture body below was captured by
+# actually EXECUTING these real functions via a temporary Rust test dump
+# (never hand-derived or reimplemented in Python), the same rule-8
+# discipline as a `format!` brace-collapse trap, applied one level further
+# up the call chain.
+
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app_base_one.${ext}" = """// kali-tree-shake: mathPowBaseOneIdentity
+function mathPowBaseOneIdentity() {
+  const exponent = 7;
+  const alias = exponent;
+  console.log(Math.pow(1, alias));
+  console.log(Math['pow'](1, alias));
+  console.log(Math["pow"](1, alias));
+  console.log(globalThis.Math.pow(1, alias));
+  console.log(globalThis.Math['pow'](1, alias));
+  console.log(globalThis.Math["pow"](1, alias));
+  console.log(globalThis['Math'].pow(1, alias));
+  console.log(globalThis['Math']['pow'](1, alias));
+  console.log(globalThis['Math']["pow"](1, alias));
+  console.log(globalThis["Math"].pow(1, alias));
+  console.log(globalThis["Math"]["pow"](1, alias));
+  console.log(globalThis["Math"]['pow'](1, alias));
+  console.log(Object.freeze(globalThis.Math['pow'])(1, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(1, alias));
+  console.log(Object.freeze(globalThis['Math']['pow'])(1, alias));
+  console.log(Object.freeze(globalThis['Math']["pow"])(1, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(1, alias));
+  console.log(Object.freeze(globalThis["Math"]['pow'])(1, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(1, alias));
+  console.log(Object.freeze(globalThis['Math'].pow)(1, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(1, alias));
+  console.log(Object.freeze(Math.pow)(1, alias));
+  console.log(Object.freeze(Math['pow'])(1, alias));
+  console.log(Object.freeze(Math["pow"])(1, alias));
+  console.log(Object.freeze((globalThis.Math['pow']))(1, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(1, alias));
+  console.log(Object.freeze((globalThis['Math']['pow']))(1, alias));
+  console.log(Object.freeze((globalThis['Math']["pow"]))(1, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(1, alias));
+  console.log(Object.freeze((globalThis["Math"]['pow']))(1, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(1, alias));
+  console.log(Object.freeze((globalThis['Math'].pow))(1, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(1, alias));
+  console.log(Object.freeze((Math.pow))(1, alias));
+  console.log(Object.freeze((Math['pow']))(1, alias));
+  console.log(Object.freeze((Math["pow"]))(1, alias));
+  console.log(Object.freeze((null ?? Math.pow))(1, alias));
+  console.log(Object.freeze((true && Math.pow))(1, alias));
+  console.log(Object.freeze((false || Math.pow))(1, alias));
+  console.log(Object.freeze((null ?? globalThis.Math.pow))(1, alias));
+  console.log(Object.freeze((true && globalThis.Math.pow))(1, alias));
+  console.log(Object.freeze((false || globalThis.Math.pow))(1, alias));
+  console.log(Object.freeze((null ?? globalThis["Math"]["pow"]))(1, alias));
+  console.log(Object.freeze((true && globalThis["Math"]["pow"]))(1, alias));
+  console.log(Object.freeze((false || globalThis["Math"]["pow"]))(1, alias));
+  console.log(Object.freeze((null ?? globalThis['Math']['pow']))(1, alias));
+  console.log(Object.freeze((true && globalThis['Math']['pow']))(1, alias));
+  console.log(Object.freeze((false || globalThis['Math']['pow']))(1, alias));
+  return [
+    Math.pow(1, alias),
+    Math['pow'](1, alias),
+    Math["pow"](1, alias),
+    globalThis.Math.pow(1, alias),
+    globalThis.Math['pow'](1, alias),
+    globalThis.Math["pow"](1, alias),
+    globalThis['Math'].pow(1, alias),
+    globalThis['Math']['pow'](1, alias),
+    globalThis['Math']["pow"](1, alias),
+    globalThis["Math"].pow(1, alias),
+    globalThis["Math"]["pow"](1, alias),
+    globalThis["Math"]['pow'](1, alias),
+    Object.freeze(globalThis.Math['pow'])(1, alias),
+    Object.freeze(globalThis.Math["pow"])(1, alias),
+    Object.freeze(globalThis['Math']['pow'])(1, alias),
+    Object.freeze(globalThis['Math']["pow"])(1, alias),
+    Object.freeze(globalThis["Math"]["pow"])(1, alias),
+    Object.freeze(globalThis["Math"]['pow'])(1, alias),
+    Object.freeze(globalThis.Math.pow)(1, alias),
+    Object.freeze(globalThis['Math'].pow)(1, alias),
+    Object.freeze(globalThis["Math"].pow)(1, alias),
+    Object.freeze(Math.pow)(1, alias),
+    Object.freeze(Math['pow'])(1, alias),
+    Object.freeze(Math["pow"])(1, alias),
+    Object.freeze((globalThis.Math['pow']))(1, alias),
+    Object.freeze((globalThis.Math["pow"]))(1, alias),
+    Object.freeze((globalThis['Math']['pow']))(1, alias),
+    Object.freeze((globalThis['Math']["pow"]))(1, alias),
+    Object.freeze((globalThis["Math"]["pow"]))(1, alias),
+    Object.freeze((globalThis["Math"]['pow']))(1, alias),
+    Object.freeze((globalThis.Math.pow))(1, alias),
+    Object.freeze((globalThis['Math'].pow))(1, alias),
+    Object.freeze((globalThis["Math"].pow))(1, alias),
+    Object.freeze((Math.pow))(1, alias),
+    Object.freeze((Math['pow']))(1, alias),
+    Object.freeze((Math["pow"]))(1, alias),
+    Object.freeze((null ?? Math.pow))(1, alias),
+    Object.freeze((true && Math.pow))(1, alias),
+    Object.freeze((false || Math.pow))(1, alias),
+    Object.freeze((null ?? globalThis.Math.pow))(1, alias),
+    Object.freeze((true && globalThis.Math.pow))(1, alias),
+    Object.freeze((false || globalThis.Math.pow))(1, alias),
+    Object.freeze((null ?? globalThis["Math"]["pow"]))(1, alias),
+    Object.freeze((true && globalThis["Math"]["pow"]))(1, alias),
+    Object.freeze((false || globalThis["Math"]["pow"]))(1, alias),
+    Object.freeze((null ?? globalThis['Math']['pow']))(1, alias),
+    Object.freeze((true && globalThis['Math']['pow']))(1, alias),
+    Object.freeze((false || globalThis['Math']['pow']))(1, alias),
+  ];
+}
+"""
+"app_exponent_one.${ext}" = """// kali-tree-shake: mathPowExponentOneIdentity
+function mathPowExponentOneIdentity() {
+  const exponent = 1;
+  const alias = exponent;
+  console.log(Math.pow(2, alias));
+  console.log(Math['pow'](2, alias));
+  console.log(Math["pow"](2, alias));
+  console.log(globalThis.Math.pow(2, alias));
+  console.log(globalThis.Math['pow'](2, alias));
+  console.log(globalThis.Math["pow"](2, alias));
+  console.log(globalThis['Math'].pow(2, alias));
+  console.log(globalThis['Math']['pow'](2, alias));
+  console.log(globalThis['Math']["pow"](2, alias));
+  console.log(globalThis["Math"].pow(2, alias));
+  console.log(globalThis["Math"]["pow"](2, alias));
+  console.log(globalThis["Math"]['pow'](2, alias));
+  console.log(Object.freeze(globalThis.Math['pow'])(2, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze(globalThis['Math']['pow'])(2, alias));
+  console.log(Object.freeze(globalThis['Math']["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]['pow'])(2, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(2, alias));
+  console.log(Object.freeze(globalThis['Math'].pow)(2, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
+  console.log(Object.freeze(Math.pow)(2, alias));
+  console.log(Object.freeze(Math['pow'])(2, alias));
+  console.log(Object.freeze(Math["pow"])(2, alias));
+  console.log(Object.freeze((globalThis.Math['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((globalThis['Math']["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis["Math"]['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((globalThis['Math'].pow))(2, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(2, alias));
+  console.log(Object.freeze((Math.pow))(2, alias));
+  console.log(Object.freeze((Math['pow']))(2, alias));
+  console.log(Object.freeze((Math["pow"]))(2, alias));
+  console.log(Object.freeze((null ?? Math.pow))(2, alias));
+  console.log(Object.freeze((true && Math.pow))(2, alias));
+  console.log(Object.freeze((false || Math.pow))(2, alias));
+  console.log(Object.freeze((null ?? globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((true && globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((false || globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((null ?? globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((true && globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((false || globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((null ?? globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((true && globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((false || globalThis['Math']['pow']))(2, alias));
+  return [
+    Math.pow(2, alias),
+    Math['pow'](2, alias),
+    Math["pow"](2, alias),
+    globalThis.Math.pow(2, alias),
+    globalThis.Math['pow'](2, alias),
+    globalThis.Math["pow"](2, alias),
+    globalThis['Math'].pow(2, alias),
+    globalThis['Math']['pow'](2, alias),
+    globalThis['Math']["pow"](2, alias),
+    globalThis["Math"].pow(2, alias),
+    globalThis["Math"]["pow"](2, alias),
+    globalThis["Math"]['pow'](2, alias),
+    Object.freeze(globalThis.Math['pow'])(2, alias),
+    Object.freeze(globalThis.Math["pow"])(2, alias),
+    Object.freeze(globalThis['Math']['pow'])(2, alias),
+    Object.freeze(globalThis['Math']["pow"])(2, alias),
+    Object.freeze(globalThis["Math"]["pow"])(2, alias),
+    Object.freeze(globalThis["Math"]['pow'])(2, alias),
+    Object.freeze(globalThis.Math.pow)(2, alias),
+    Object.freeze(globalThis['Math'].pow)(2, alias),
+    Object.freeze(globalThis["Math"].pow)(2, alias),
+    Object.freeze(Math.pow)(2, alias),
+    Object.freeze(Math['pow'])(2, alias),
+    Object.freeze(Math["pow"])(2, alias),
+    Object.freeze((globalThis.Math['pow']))(2, alias),
+    Object.freeze((globalThis.Math["pow"]))(2, alias),
+    Object.freeze((globalThis['Math']['pow']))(2, alias),
+    Object.freeze((globalThis['Math']["pow"]))(2, alias),
+    Object.freeze((globalThis["Math"]["pow"]))(2, alias),
+    Object.freeze((globalThis["Math"]['pow']))(2, alias),
+    Object.freeze((globalThis.Math.pow))(2, alias),
+    Object.freeze((globalThis['Math'].pow))(2, alias),
+    Object.freeze((globalThis["Math"].pow))(2, alias),
+    Object.freeze((Math.pow))(2, alias),
+    Object.freeze((Math['pow']))(2, alias),
+    Object.freeze((Math["pow"]))(2, alias),
+    Object.freeze((null ?? Math.pow))(2, alias),
+    Object.freeze((true && Math.pow))(2, alias),
+    Object.freeze((false || Math.pow))(2, alias),
+    Object.freeze((null ?? globalThis.Math.pow))(2, alias),
+    Object.freeze((true && globalThis.Math.pow))(2, alias),
+    Object.freeze((false || globalThis.Math.pow))(2, alias),
+    Object.freeze((null ?? globalThis["Math"]["pow"]))(2, alias),
+    Object.freeze((true && globalThis["Math"]["pow"]))(2, alias),
+    Object.freeze((false || globalThis["Math"]["pow"]))(2, alias),
+    Object.freeze((null ?? globalThis['Math']['pow']))(2, alias),
+    Object.freeze((true && globalThis['Math']['pow']))(2, alias),
+    Object.freeze((false || globalThis['Math']['pow']))(2, alias),
+  ];
+}
+"""
+"main_base_one.${ext}" = """const exponent = 7; const alias = exponent; console.log(Math.pow(1, alias));
+console.log(Math['pow'](1, alias));
+console.log(Math["pow"](1, alias));
+console.log(globalThis.Math.pow(1, alias));
+console.log(globalThis.Math['pow'](1, alias));
+console.log(globalThis.Math["pow"](1, alias));
+console.log(globalThis['Math'].pow(1, alias));
+console.log(globalThis['Math']['pow'](1, alias));
+console.log(globalThis['Math']["pow"](1, alias));
+console.log(globalThis["Math"].pow(1, alias));
+console.log(globalThis["Math"]["pow"](1, alias));
+console.log(globalThis["Math"]['pow'](1, alias)); console.log(Object.freeze(globalThis.Math['pow'])(1, alias));
+console.log(Object.freeze(globalThis.Math["pow"])(1, alias));
+console.log(Object.freeze(globalThis['Math']['pow'])(1, alias));
+console.log(Object.freeze(globalThis['Math']["pow"])(1, alias));
+console.log(Object.freeze(globalThis["Math"]["pow"])(1, alias));
+console.log(Object.freeze(globalThis["Math"]['pow'])(1, alias));
+console.log(Object.freeze(globalThis.Math.pow)(1, alias));
+console.log(Object.freeze(globalThis['Math'].pow)(1, alias));
+console.log(Object.freeze(globalThis["Math"].pow)(1, alias));
+console.log(Object.freeze(Math.pow)(1, alias));
+console.log(Object.freeze(Math['pow'])(1, alias));
+console.log(Object.freeze(Math["pow"])(1, alias));
+console.log(Object.freeze((globalThis.Math['pow']))(1, alias));
+console.log(Object.freeze((globalThis.Math["pow"]))(1, alias));
+console.log(Object.freeze((globalThis['Math']['pow']))(1, alias));
+console.log(Object.freeze((globalThis['Math']["pow"]))(1, alias));
+console.log(Object.freeze((globalThis["Math"]["pow"]))(1, alias));
+console.log(Object.freeze((globalThis["Math"]['pow']))(1, alias));
+console.log(Object.freeze((globalThis.Math.pow))(1, alias));
+console.log(Object.freeze((globalThis['Math'].pow))(1, alias));
+console.log(Object.freeze((globalThis["Math"].pow))(1, alias));
+console.log(Object.freeze((Math.pow))(1, alias));
+console.log(Object.freeze((Math['pow']))(1, alias));
+console.log(Object.freeze((Math["pow"]))(1, alias));
+console.log(Object.freeze((null ?? Math.pow))(1, alias));
+console.log(Object.freeze((true && Math.pow))(1, alias));
+console.log(Object.freeze((false || Math.pow))(1, alias));
+console.log(Object.freeze((null ?? globalThis.Math.pow))(1, alias));
+console.log(Object.freeze((true && globalThis.Math.pow))(1, alias));
+console.log(Object.freeze((false || globalThis.Math.pow))(1, alias));
+console.log(Object.freeze((null ?? globalThis["Math"]["pow"]))(1, alias));
+console.log(Object.freeze((true && globalThis["Math"]["pow"]))(1, alias));
+console.log(Object.freeze((false || globalThis["Math"]["pow"]))(1, alias));
+console.log(Object.freeze((null ?? globalThis['Math']['pow']))(1, alias));
+console.log(Object.freeze((true && globalThis['Math']['pow']))(1, alias));
+console.log(Object.freeze((false || globalThis['Math']['pow']))(1, alias));
+"""
+"main_exponent_one.${ext}" = """const exponent = 1; const alias = exponent; console.log(Math.pow(2, alias));
+console.log(Math['pow'](2, alias));
+console.log(Math["pow"](2, alias));
+console.log(globalThis.Math.pow(2, alias));
+console.log(globalThis.Math['pow'](2, alias));
+console.log(globalThis.Math["pow"](2, alias));
+console.log(globalThis['Math'].pow(2, alias));
+console.log(globalThis['Math']['pow'](2, alias));
+console.log(globalThis['Math']["pow"](2, alias));
+console.log(globalThis["Math"].pow(2, alias));
+console.log(globalThis["Math"]["pow"](2, alias));
+console.log(globalThis["Math"]['pow'](2, alias)); console.log(Object.freeze(globalThis.Math['pow'])(2, alias));
+console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+console.log(Object.freeze(globalThis['Math']['pow'])(2, alias));
+console.log(Object.freeze(globalThis['Math']["pow"])(2, alias));
+console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+console.log(Object.freeze(globalThis["Math"]['pow'])(2, alias));
+console.log(Object.freeze(globalThis.Math.pow)(2, alias));
+console.log(Object.freeze(globalThis['Math'].pow)(2, alias));
+console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
+console.log(Object.freeze(Math.pow)(2, alias));
+console.log(Object.freeze(Math['pow'])(2, alias));
+console.log(Object.freeze(Math["pow"])(2, alias));
+console.log(Object.freeze((globalThis.Math['pow']))(2, alias));
+console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
+console.log(Object.freeze((globalThis['Math']['pow']))(2, alias));
+console.log(Object.freeze((globalThis['Math']["pow"]))(2, alias));
+console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
+console.log(Object.freeze((globalThis["Math"]['pow']))(2, alias));
+console.log(Object.freeze((globalThis.Math.pow))(2, alias));
+console.log(Object.freeze((globalThis['Math'].pow))(2, alias));
+console.log(Object.freeze((globalThis["Math"].pow))(2, alias));
+console.log(Object.freeze((Math.pow))(2, alias));
+console.log(Object.freeze((Math['pow']))(2, alias));
+console.log(Object.freeze((Math["pow"]))(2, alias));
+console.log(Object.freeze((null ?? Math.pow))(2, alias));
+console.log(Object.freeze((true && Math.pow))(2, alias));
+console.log(Object.freeze((false || Math.pow))(2, alias));
+console.log(Object.freeze((null ?? globalThis.Math.pow))(2, alias));
+console.log(Object.freeze((true && globalThis.Math.pow))(2, alias));
+console.log(Object.freeze((false || globalThis.Math.pow))(2, alias));
+console.log(Object.freeze((null ?? globalThis["Math"]["pow"]))(2, alias));
+console.log(Object.freeze((true && globalThis["Math"]["pow"]))(2, alias));
+console.log(Object.freeze((false || globalThis["Math"]["pow"]))(2, alias));
+console.log(Object.freeze((null ?? globalThis['Math']['pow']))(2, alias));
+console.log(Object.freeze((true && globalThis['Math']['pow']))(2, alias));
+console.log(Object.freeze((false || globalThis['Math']['pow']))(2, alias));
+"""
+"smoke.test_base_one.${ext}" = """Kali.test('math pow base one identity', () => {
+  const exponent = 7;
+  const alias = exponent;
+console.log(Math.pow(1, alias));
+console.log(Math['pow'](1, alias));
+console.log(Math["pow"](1, alias));
+console.log(globalThis.Math.pow(1, alias));
+console.log(globalThis.Math['pow'](1, alias));
+console.log(globalThis.Math["pow"](1, alias));
+console.log(globalThis['Math'].pow(1, alias));
+console.log(globalThis['Math']['pow'](1, alias));
+console.log(globalThis['Math']["pow"](1, alias));
+console.log(globalThis["Math"].pow(1, alias));
+console.log(globalThis["Math"]["pow"](1, alias));
+console.log(globalThis["Math"]['pow'](1, alias));
+  console.log(Object.freeze(globalThis.Math['pow'])(1, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(1, alias));
+  console.log(Object.freeze(globalThis['Math']['pow'])(1, alias));
+  console.log(Object.freeze(globalThis['Math']["pow"])(1, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(1, alias));
+  console.log(Object.freeze(globalThis["Math"]['pow'])(1, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(1, alias));
+  console.log(Object.freeze(globalThis['Math'].pow)(1, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(1, alias));
+  console.log(Object.freeze(Math.pow)(1, alias));
+  console.log(Object.freeze(Math['pow'])(1, alias));
+  console.log(Object.freeze(Math["pow"])(1, alias));
+  console.log(Object.freeze((globalThis.Math['pow']))(1, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(1, alias));
+  console.log(Object.freeze((globalThis['Math']['pow']))(1, alias));
+  console.log(Object.freeze((globalThis['Math']["pow"]))(1, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(1, alias));
+  console.log(Object.freeze((globalThis["Math"]['pow']))(1, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(1, alias));
+  console.log(Object.freeze((globalThis['Math'].pow))(1, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(1, alias));
+  console.log(Object.freeze((Math.pow))(1, alias));
+  console.log(Object.freeze((Math['pow']))(1, alias));
+  console.log(Object.freeze((Math["pow"]))(1, alias));
+  console.log(Object.freeze((null ?? Math.pow))(1, alias));
+  console.log(Object.freeze((true && Math.pow))(1, alias));
+  console.log(Object.freeze((false || Math.pow))(1, alias));
+  console.log(Object.freeze((null ?? globalThis.Math.pow))(1, alias));
+  console.log(Object.freeze((true && globalThis.Math.pow))(1, alias));
+  console.log(Object.freeze((false || globalThis.Math.pow))(1, alias));
+  console.log(Object.freeze((null ?? globalThis["Math"]["pow"]))(1, alias));
+  console.log(Object.freeze((true && globalThis["Math"]["pow"]))(1, alias));
+  console.log(Object.freeze((false || globalThis["Math"]["pow"]))(1, alias));
+  console.log(Object.freeze((null ?? globalThis['Math']['pow']))(1, alias));
+  console.log(Object.freeze((true && globalThis['Math']['pow']))(1, alias));
+  console.log(Object.freeze((false || globalThis['Math']['pow']))(1, alias));
+});
+"""
+"smoke.test_exponent_one.${ext}" = """Kali.test('math pow exponent one identity', () => {
+  const exponent = 1;
+  const alias = exponent;
+console.log(Math.pow(2, alias));
+console.log(Math['pow'](2, alias));
+console.log(Math["pow"](2, alias));
+console.log(globalThis.Math.pow(2, alias));
+console.log(globalThis.Math['pow'](2, alias));
+console.log(globalThis.Math["pow"](2, alias));
+console.log(globalThis['Math'].pow(2, alias));
+console.log(globalThis['Math']['pow'](2, alias));
+console.log(globalThis['Math']["pow"](2, alias));
+console.log(globalThis["Math"].pow(2, alias));
+console.log(globalThis["Math"]["pow"](2, alias));
+console.log(globalThis["Math"]['pow'](2, alias));
+  console.log(Object.freeze(globalThis.Math['pow'])(2, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze(globalThis['Math']['pow'])(2, alias));
+  console.log(Object.freeze(globalThis['Math']["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]['pow'])(2, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(2, alias));
+  console.log(Object.freeze(globalThis['Math'].pow)(2, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
+  console.log(Object.freeze(Math.pow)(2, alias));
+  console.log(Object.freeze(Math['pow'])(2, alias));
+  console.log(Object.freeze(Math["pow"])(2, alias));
+  console.log(Object.freeze((globalThis.Math['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((globalThis['Math']["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis["Math"]['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((globalThis['Math'].pow))(2, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(2, alias));
+  console.log(Object.freeze((Math.pow))(2, alias));
+  console.log(Object.freeze((Math['pow']))(2, alias));
+  console.log(Object.freeze((Math["pow"]))(2, alias));
+  console.log(Object.freeze((null ?? Math.pow))(2, alias));
+  console.log(Object.freeze((true && Math.pow))(2, alias));
+  console.log(Object.freeze((false || Math.pow))(2, alias));
+  console.log(Object.freeze((null ?? globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((true && globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((false || globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((null ?? globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((true && globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((false || globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((null ?? globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((true && globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((false || globalThis['Math']['pow']))(2, alias));
+});
+"""
+
+[[case]]
+name = "build_emits_math_pow_exponent_one_identity"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_exponent_one.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_exponent_one/app_exponent_one.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_exponent_one"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowExponentOneIdentity();
+"""
+stdout = """2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+"""
+
+[[case]]
+name = "json_build_emits_math_pow_exponent_one_identity"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_exponent_one.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app_exponent_one/app_exponent_one.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_exponent_one"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowExponentOneIdentity();
+"""
+stdout = """2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+"""
+
+[[case]]
+name = "build_emits_math_pow_base_one_identity"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_base_one.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_base_one/app_base_one.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_base_one"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowBaseOneIdentity();
+"""
+stdout = """1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+"""
+
+[[case]]
+name = "json_build_emits_math_pow_base_one_identity"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_base_one.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app_base_one/app_base_one.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_base_one"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowBaseOneIdentity();
+"""
+stdout = """1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+"""
+
+[[case]]
+name = "run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_exponent_one.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+"""
+
+[[case]]
+name = "json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_exponent_one.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", exitCode = 0, success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = """2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+""" }
+
+[[case]]
+name = "test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_exponent_one.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+ok 1
+"""
+
+[[case]]
+name = "json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_exponent_one.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0, skipped = 0 }, stdout = """2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+""" }
+
+[[case]]
+name = "run_supports_math_pow_base_one_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_base_one.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+"""
+
+[[case]]
+name = "json_run_supports_math_pow_base_one_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_base_one.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", exitCode = 0, success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = """1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+""" }
+
+[[case]]
+name = "test_supports_math_pow_base_one_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_base_one.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+ok 1
+"""
+
+[[case]]
+name = "json_test_supports_math_pow_base_one_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_exponent_one.rs. All 48 #[test] fns are individual (no loops at all in this file) and, grouped by (variant, mode), each group of 8 is exactly ext(js/ts/jsx/tsx) x json_output(2) with an identical assertion shape -- confirmed by reading all 48 fn bodies. `ext` is therefore a genuinely uniform file-level [matrix] axis; 48 #[test] fns collapse to 12 [[case]] entries, matrix-fanned to 48 trials. `assert_browser_harness_math_pow_exponent_one_identity`'s `_expected_stdout` parameter is UNUSED (underscore-prefixed) at every one of its 32 call sites -- the real expected value is computed dynamically inside the helper from `source.matches("console.log(").count()` and whether the fixture contains the literal `"Math.pow(1, alias)"` substring. The 32 hardcoded `_expected_stdout` string literals at the call sites (e.g. `"2\\n2\\n2\\n2\\n2\\n2\\n2\\n2"`) are therefore DEAD TEXT, never actually asserted -- not migrated as a claim (there is no claim to migrate), and not fabricated into one either (rule 2). The REAL per-case expected stdout (48 repeats of "2" or "1" joined by newlines, since every fixture makes exactly 12 direct + 36 frozen-callable = 48 `console.log(...)` calls) was captured live from the real binary for every case and pinned exactly -- strictly stronger than source's own `.contains(...)` substring check on that value, in both `--output json` and text mode."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_base_one.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0, skipped = 0 }, stdout = """1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+""" }
