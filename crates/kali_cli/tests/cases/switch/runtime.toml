@@ -1,10 +1,23 @@
 # Migrated from tests/switch_runtime.rs.
 #
 # Correctness pins for the admitted switch surface -- the companion file to
-# switch/fail_closed.toml, which pins the DENIED surface. No [constants]:
-# this file has no `const NAME: &str` rule-literal declarations (grep-
-# confirmed) -- every assertion here is an exact `stdout` pin against a
-# program that runs to completion, not a diagnostic-message pin.
+# switch/fail_closed.toml, which pins the DENIED surface. Two `const NAME:
+# &str` declarations exist in the source (`S` at :27, `SS` at :160), but
+# REVIEW FIX (Minor 5): the original version of this note said "No
+# [constants]: this file has no `const NAME: &str` rule-literal declarations
+# (grep-confirmed)" -- overstated; a grep for `const NAME: &str` returns 2,
+# not 0. Corrected: neither is a RULE literal (a diagnostic-message pin, the
+# thing switch/fail_closed.toml's [constants] hold) -- both are plain JS
+# fixture bodies (a numeric-axis switch skeleton, a string-axis one), shared
+# across 4 cases each. Hoisted into [constants] below anyway, per rule 7
+# ("[constants] for ... byte-identical shared fixture bodies -- assert the
+# identity, do not eyeball it"): REVIEW FIX (Minor 4), the two were
+# previously duplicated as literal text in each of their 4 cases' [source]
+# bodies rather than hoisted, so a change to either shared fixture was a
+# 4-place edit instead of a 1-place one -- a property the source's own
+# `const` declarations had that the first migration pass dropped. Every
+# assertion here is still an exact `stdout` pin against a program that runs
+# to completion, not a diagnostic-message pin.
 #
 # EVERY fixture that carries a loop logs a per-iteration `console.log` line
 # (an explicit method note repeated at both the Task 9 and Task 10/11 zone
@@ -22,31 +35,28 @@
 # substring match would silently accept extra trailing output no fixture here
 # actually produces.
 
+[constants]
+S = """function s(x) {
+switch (x) {
+case 10: return "A";
+case 20: return "B";
+default: return "D";
+}
+}
+"""
+SS = """function s(x) {
+switch (x) {
+case "a": return 1;
+case "b": return 2;
+default: return 3;
+}
+}
+"""
+
 [source]
-"numeric_switch_selects_the_matching_clause.js" = """function s(x) {
-switch (x) {
-case 10: return "A";
-case 20: return "B";
-default: return "D";
-}
-}
-console.log("v=" + s(20));"""
-"numeric_switch_falls_to_default_on_no_match.js" = """function s(x) {
-switch (x) {
-case 10: return "A";
-case 20: return "B";
-default: return "D";
-}
-}
-console.log("v=" + s(40));"""
-"numeric_switch_handles_a_zero_discriminant.js" = """function s(x) {
-switch (x) {
-case 10: return "A";
-case 20: return "B";
-default: return "D";
-}
-}
-console.log("v=" + s(0));"""
+"numeric_switch_selects_the_matching_clause.js" = "${S}console.log(\"v=\" + s(20));"
+"numeric_switch_falls_to_default_on_no_match.js" = "${S}console.log(\"v=\" + s(40));"
+"numeric_switch_handles_a_zero_discriminant.js" = "${S}console.log(\"v=\" + s(0));"
 "numeric_switch_reaches_the_third_clause_clause_three.js" = """function s(x) {
 switch (x) {
 case 1: return "one";
@@ -89,14 +99,7 @@ default: return "other";
 s();
 console.log("hits=" + hits);
 """
-"numeric_switch_is_correct_for_the_shape_that_was_previously_denied.js" = """function s(x) {
-switch (x) {
-case 10: return "A";
-case 20: return "B";
-default: return "D";
-}
-}
-console.log("v=" + s(20));"""
+"numeric_switch_is_correct_for_the_shape_that_was_previously_denied.js" = "${S}console.log(\"v=\" + s(20));"
 "numeric_switch_selects_correctly_with_a_negative_case_test.js" = """function s(x) {
 switch (x) {
 case -1: return "neg";
@@ -105,22 +108,8 @@ default: return "other";
 }
 }
 console.log("v=" + s(-1));"""
-"string_switch_selects_the_matching_clause.js" = """function s(x) {
-switch (x) {
-case "a": return 1;
-case "b": return 2;
-default: return 3;
-}
-}
-console.log("v=" + s("b"));"""
-"string_switch_falls_to_default.js" = """function s(x) {
-switch (x) {
-case "a": return 1;
-case "b": return 2;
-default: return 3;
-}
-}
-console.log("v=" + s("z"));"""
+"string_switch_selects_the_matching_clause.js" = "${SS}console.log(\"v=\" + s(\"b\"));"
+"string_switch_falls_to_default.js" = "${SS}console.log(\"v=\" + s(\"z\"));"
 "string_switch_compares_by_content_not_handle.js" = """function s(x) {
 switch (x) {
 case "ab": return 1;
@@ -130,14 +119,7 @@ default: return 3;
 var built = "a" + "b";
 console.log("v=" + s(built));
 """
-"string_switch_selects_the_first_clause.js" = """function s(x) {
-switch (x) {
-case "a": return 1;
-case "b": return 2;
-default: return 3;
-}
-}
-console.log("v=" + s("a"));"""
+"string_switch_selects_the_first_clause.js" = "${SS}console.log(\"v=\" + s(\"a\"));"
 "string_switch_handles_an_empty_string_discriminant.js" = """function s(x) {
 switch (x) {
 case "": return 1;
@@ -234,14 +216,7 @@ default: return 3;
 }
 console.log("v=" + s("b"));
 """
-"string_switch_is_correct_across_two_call_sites.js" = """function s(x) {
-switch (x) {
-case "a": return 1;
-case "b": return 2;
-default: return 3;
-}
-}
-console.log("v=" + s("b"));
+"string_switch_is_correct_across_two_call_sites.js" = """${SS}console.log("v=" + s("b"));
 console.log("w=" + s("q"));
 """
 "break_terminated_clauses_select_correctly_s20.js" = """function s(x) {

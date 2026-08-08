@@ -43,14 +43,38 @@
 # actual disjointness pair) -- only the "both assert absence" clause overstates
 # the first of those three.
 #
-# STREAM NOTE: `run_js_expect_failure`'s `out` is stdout+stderr concatenated.
-# Every fixture here is refused at compile time before the module ever runs
-# (kali's E5506/E3100 diagnostics are emitted before any `console.log`
-# executes), so stdout is empty in every case below -- verified directly against
-# the real built binary (see the task report). `out.contains(X)` therefore
-# translates exactly to `stderr_contains`, and `!out.contains(X)` to
-# `stderr_absent`, with no `stdout_contains`/`stdout_absent` needed anywhere in
-# this file.
+# STREAM NOTE (corrected in review round 1 -- the original version of this note
+# reasoned that since stdout is always empty here, a stderr-only mirror of an
+# absence claim was equivalent to the source's combined-stream check; that
+# reasoning is CIRCULAR for an absence claim specifically, because the claim's
+# entire job is to fail if stdout ever STOPS being empty -- a stderr-only guard
+# cannot see the exact regression it exists to catch): `run_js_expect_failure`'s
+# `out` is stdout+stderr concatenated. Every fixture here is refused at compile
+# time before the module ever runs, so `out.contains(X)` (a presence claim)
+# safely translates to `stderr_contains` alone -- verified directly against the
+# real built binary that stdout is empty on the fixtures that currently pass, so
+# a presence claim already true of stderr is also true of the combined stream.
+# But `!out.contains(X)` (an ABSENCE claim) is NOT safe to narrow to
+# `stderr_absent` alone: if a future regression made stdout non-empty (the exact
+# defect several of these cells exist to catch -- see e.g. the do-while cell's
+# comment on a 1,578,155-line blow-up if codegen diagnostics ever stop being
+# fatal for `run`), a stderr-only guard would still read the (unwatched) stdout
+# as absent and stay green while the regression it is meant to catch runs
+# unchecked. Every `stderr_absent` list below that mirrors a real source absence
+# claim therefore ALSO carries an identical `stdout_absent` list -- restoring
+# the source's actual combined-stream claim, not adding a new one (rule 2). This
+# applies even to the constant-text needles (`${NO_ENCLOSING_LOOP}`,
+# `${UNFAITHFUL_CONTINUE}`, `${REPR_MIXED_CONFLICT}`) and `E4201`, which are
+# immaterial today (those diagnostics only ever reach stderr in this binary) but
+# are mirrored unconditionally anyway -- a blanket rule is cheaper and safer
+# than re-deriving, per needle, which diagnostics could theoretically leak to
+# stdout in some future codegen change. THE AUDIT SCRIPT CANNOT CATCH A MISSING
+# MIRROR HERE: `scripts/audit-case-migration.py` searches `stdout_absent` and
+# `stderr_absent` as a single pooled set of literals (see its module docstring
+# and `_step_assertion_strings`), so a `stderr_absent`-only pin and a
+# `stderr_absent`+`stdout_absent` pin of the identical literal audit identically
+# -- this is a real, structural blind spot in the audit, not something a future
+# edit here can rely on the audit to enforce.
 #
 # `:623`'s `assert!(!out.is_empty(), "expected a diagnostic, got nothing")` (on
 # `continue_in_a_switch_with_no_enclosing_loop_is_fail_closed`) has no direct
@@ -590,6 +614,7 @@ exit = "failure"
 args = ["run", "a_float_discriminant_is_fail_closed.js"]
 stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
 stderr_absent = ["E4201"]
+stdout_absent = ["E4201"]
 
 [[case]]
 name = "a_boolean_discriminant_is_fail_closed"
@@ -648,6 +673,7 @@ exit = "failure"
 args = ["run", "a_negative_float_parameter_argument_discriminant_is_fail_closed.js"]
 stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
 stderr_absent = ["E4201"]
+stdout_absent = ["E4201"]
 
 [[case]]
 name = "a_let_declaration_in_a_braced_clause_is_fail_closed_via_rule_4"
@@ -747,6 +773,7 @@ exit = "failure"
 args = ["run", "continue_in_a_switch_in_a_c_style_for_loop_is_fail_closed.js"]
 stderr_contains = ["E5506", "${UNFAITHFUL_CONTINUE}"]
 stderr_absent = ["iter="]
+stdout_absent = ["iter="]
 
 [[case]]
 name = "continue_nested_in_a_return_clause_in_a_c_style_for_loop_is_fail_closed"
@@ -761,6 +788,7 @@ exit = "failure"
 args = ["run", "continue_nested_in_a_return_clause_in_a_c_style_for_loop_is_fail_closed.js"]
 stderr_contains = ["E5506", "${UNFAITHFUL_CONTINUE}"]
 stderr_absent = ["iter="]
+stdout_absent = ["iter="]
 
 [[case]]
 name = "continue_in_a_switch_in_a_do_while_is_fail_closed"
@@ -777,6 +805,7 @@ exit = "failure"
 args = ["run", "continue_in_a_switch_in_a_do_while_is_fail_closed.js"]
 stderr_contains = ["E5506", "${UNFAITHFUL_CONTINUE}"]
 stderr_absent = ["iter="]
+stdout_absent = ["iter="]
 
 [[case]]
 name = "continue_in_a_switch_in_a_for_in_is_fail_closed"
@@ -793,6 +822,7 @@ exit = "failure"
 args = ["run", "continue_in_a_switch_in_a_for_in_is_fail_closed.js"]
 stderr_contains = ["E5506", "${UNFAITHFUL_CONTINUE}"]
 stderr_absent = ["key="]
+stdout_absent = ["key="]
 
 [[case]]
 name = "the_two_continue_denial_causes_are_reported_distinctly_no_loop"
@@ -807,6 +837,7 @@ exit = "failure"
 args = ["run", "the_two_continue_denial_causes_are_reported_distinctly_no_loop.js"]
 stderr_contains = ["${NO_ENCLOSING_LOOP}"]
 stderr_absent = ["${UNFAITHFUL_CONTINUE}"]
+stdout_absent = ["${UNFAITHFUL_CONTINUE}"]
 
 [[case]]
 name = "the_two_continue_denial_causes_are_reported_distinctly_bad_form"
@@ -823,6 +854,7 @@ exit = "failure"
 args = ["run", "the_two_continue_denial_causes_are_reported_distinctly_bad_form.js"]
 stderr_contains = ["${UNFAITHFUL_CONTINUE}"]
 stderr_absent = ["${NO_ENCLOSING_LOOP}", "iter="]
+stdout_absent = ["${NO_ENCLOSING_LOOP}", "iter="]
 
 [[case]]
 name = "a_labeled_break_in_a_clause_is_fail_closed"
@@ -835,6 +867,7 @@ exit = "failure"
 args = ["run", "a_labeled_break_in_a_clause_is_fail_closed.js"]
 stderr_contains = ["E3100"]
 stderr_absent = ["iter="]
+stdout_absent = ["iter="]
 
 [[case]]
 name = "a_fallthrough_clause_beside_a_break_clause_is_fail_closed"
@@ -894,6 +927,7 @@ exit = "failure"
 args = ["run", "a_fallthrough_clause_beside_a_break_clause_is_fail_closed_on_the_string_axis.js"]
 stderr_contains = ["E5506", "${RULE_4_TERMINATOR}"]
 stderr_absent = ["${REPR_MIXED_CONFLICT}"]
+stdout_absent = ["${REPR_MIXED_CONFLICT}"]
 
 # --- R-35 Task 8: the STRING discriminant axis ---
 [[case]]
@@ -978,6 +1012,7 @@ exit = "failure"
 args = ["run", "a_written_string_parameter_is_fail_closed_even_when_written_with_a_string.js"]
 stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
 stderr_absent = ["${REPR_MIXED_CONFLICT}"]
+stdout_absent = ["${REPR_MIXED_CONFLICT}"]
 
 [[case]]
 name = "a_new_expression_call_site_denies_a_string_parameter_discriminant"
@@ -994,6 +1029,7 @@ exit = "failure"
 args = ["run", "a_new_expression_call_site_denies_a_string_parameter_discriminant.js"]
 stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
 stderr_absent = ["${REPR_MIXED_CONFLICT}"]
+stdout_absent = ["${REPR_MIXED_CONFLICT}"]
 
 [[case]]
 name = "an_escaping_function_denies_a_string_parameter_discriminant"
@@ -1008,6 +1044,7 @@ exit = "failure"
 args = ["run", "an_escaping_function_denies_a_string_parameter_discriminant.js"]
 stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
 stderr_absent = ["${REPR_MIXED_CONFLICT}"]
+stdout_absent = ["${REPR_MIXED_CONFLICT}"]
 
 [[case]]
 name = "a_pass_through_chain_carrying_a_boolean_is_fail_closed"
@@ -1044,6 +1081,7 @@ exit = "failure"
 args = ["run", "free_globals_against_string_cases_are_fail_closed_globalthis.js"]
 stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
 stderr_absent = ["E4201"]
+stdout_absent = ["E4201"]
 
 [[case]]
 name = "free_globals_against_string_cases_are_fail_closed_undefined"
@@ -1058,6 +1096,7 @@ exit = "failure"
 args = ["run", "free_globals_against_string_cases_are_fail_closed_undefined.js"]
 stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
 stderr_absent = ["E4201"]
+stdout_absent = ["E4201"]
 
 [[case]]
 name = "free_globals_against_string_cases_are_fail_closed_nan"
@@ -1072,6 +1111,7 @@ exit = "failure"
 args = ["run", "free_globals_against_string_cases_are_fail_closed_nan.js"]
 stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
 stderr_absent = ["E4201"]
+stdout_absent = ["E4201"]
 
 [[case]]
 name = "a_concatenated_case_test_against_a_string_discriminant_is_fail_closed"
