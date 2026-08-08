@@ -328,7 +328,13 @@ the third mid-migration addition, after `json_null` (Task 15) and `stderr`
 reachable source claim had no expressible form, and the only alternatives were
 dropping it or weakening it. The claim is `haystack.matches(needle).count()`,
 which appears 32 times across the unmigrated `browser_*.rs` files: 29 sites as
-`count() >= n` and 3 as `count() == n`. `stdout_contains` cannot carry it —
+`count() >= n` and 3 as `count() == n`. (Those figures are a snapshot of the
+survey that motivated the key, measured across `browser_*.rs` at `b189575556`;
+they are not a live count, and they will not reproduce from a later tree as
+batch 4 migrates the sites away. `browser_bundle_toplevel_start.rs`'s
+`count() == 1` had already left the corpus by `f0bfb76d79`, migrated to an
+exact `stdout` pin — a stronger form, per ruling 3 — which is the expected
+direction of drift.) `stdout_contains` cannot carry it —
 `contains` is satisfied by a *single* occurrence, so migrating `count() >= 2`
 onto it silently weakens the claim to `count() >= 1`, and output that folded
 two independently-computed constants into one emission would still pass the
@@ -503,7 +509,7 @@ expected around 10 MB.
 4. **run** — per trial: temp dir, write `[source]`, execute steps in order.
    `kali` is located via `env!("CARGO_BIN_EXE_kali")`, which Cargo sets for
    `harness = false` test targets as for ordinary ones.
-5. **assert** — evaluate the ten keys; the first failure ends the trial.
+5. **assert** — evaluate the twelve keys; the first failure ends the trial.
 
 `libtest-mimic` provides filtering, `--ignored`, parallel execution across
 trials, and `--format terse|pretty`. Each trial owns its temp dir, so
