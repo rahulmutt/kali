@@ -1,0 +1,380 @@
+# Migrated from tests/browser_math_log2_log10_bracketed_root.rs.
+#
+# RULE 12 (carry every source comment verbatim): `browser_math_log2_log10_bracketed_root.rs` has NO Rust
+# comments. Verified with `grep -nE '//' browser_math_log2_log10_bracketed_root.rs`, whose single hit is
+# line 11's `// kali-tree-shake:` marker -- that sits INSIDE the `r##"..."##` JS
+# bundle fixture, so it is program text carried verbatim into [source] below,
+# not Rust prose. There is therefore nothing to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- INVOCATION ARITHMETIC, and why the matrix is DECLINED.
+# 5 #[test] fns, 20 real invocations, in two groups that do NOT cover the same
+# extensions:
+#   * `assert_browser_bundle_bracketed_global_this_math_log2_log10(filename,
+#     json_output)` -- 4 unlooped #[test] fns = ext(js/ts) x
+#     json_output(false/true). js and ts ONLY; there is no jsx or tsx build fn.
+#   * `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_
+#     when_browser_harness_is_configured_in_js_and_ts_input` -- ONE #[test] fn
+#     whose body is an INLINE loop over eight literal
+#     `(command, source_name, source, expected_stdout)` tuples -- ("run",
+#     "main.js"), ("test","smoke.test.js"), then the same pair for ts, jsx and
+#     tsx -- nested inside `for output_json in [false, true]`: 8 x 2 = 16.
+#     (enumerate_invocations.py reports this fn as `UNPARSED (no helper call
+#     found)` because it builds its Command inline rather than calling a named
+#     helper; it is enumerated by hand above and mechanically by the loop-tuple
+#     extractor in tools/task-18-browser-pilot/gen_batch4_group_d.py, which
+#     asserts the 8-tuple count.)
+# Total 4 + 16 = 20 invocations from 5 fns.
+#
+# NO [matrix] (rule 7 / U1). [matrix] is FILE-WIDE -- `expand()` fans every
+# [[case]] by the full cross product of every axis with no per-case opt-out
+# (crates/kali_case_runner/src/expand.rs) -- so an `ext` axis here would fan the
+# four bundle cases over jsx/tsx, manufacturing four build invocations the source
+# never runs. That is both a rule 7 arithmetic failure (cases x axis product
+# would not equal the real invocation count) and a rule 2 invention. The axis is
+# therefore dropped for the WHOLE file and every real invocation is written as
+# its own named sibling [[case]]. Same disposition, same reason, as the
+# already-shipped `math_exp_log_bracketed_root.toml`.
+#
+# RULE 5 (split, don't fold) / rule 6 (1:1): the looped #[test] fn becomes 16
+# sibling [[case]] entries named by command, extension and output mode; the four
+# bundle fns keep one case each. 20 [[case]] entries, 20 invocations, 1:1.
+#
+# U2 -- [source] is file-wide and that is safe here: all ten fixtures are written
+# unconditionally into a fresh temp dir, none sits behind an `if`, and no case's
+# point is a file's presence or absence. Every command names its entry on argv.
+# U5 needs no renaming: `app.js`/`app.ts` and `main.<ext>`/`smoke.test.<ext>` are
+# already distinct keys.
+#
+# THE COUNT CLAIM -- this is batch 4's second count-carrying target. Sites:
+#   :111  `stdout.contains("3\n")`                     raw bundle-harness stdout
+#   :112  `stdout.matches("3\n").count() >= 2`         raw bundle-harness stdout
+# :111 and :112 are TWO SEPARATE source claims about the same needle, so BOTH are
+# carried on the bundle-harness step -- `stdout_contains = ["3\n"]` and
+# `stdout_count = [{ needle = "3\n", at_least = 2 }]`. Collapsing them into
+# either one alone would drop a claim. The count is mirrored exactly: not
+# weakened to `contains` (one occurrence satisfies that), not strengthened to
+# `exact` even though the live output is `3\n3\n3\n3\n` -- four occurrences,
+# since log2(8), frozenLog2(8), log10(1000) and frozenLog10(1000) all print 3 --
+# because the source states a lower bound (rule 2 / ruling 3).
+# The harness group makes NO count claim: its plain-text branch asserts
+# `stdout.contains(expected_stdout)` (:240) against the loop's own
+# expected_stdout literal, which is `"3\n3"` for `run` and `"3\nok 1"` for
+# `test`, carried as `stdout_contains` (both literals are pulled from the .rs,
+# not retyped). Its json branch asserts
+# `json["stdout"].as_str().contains("3")` (:233-236).
+#
+# THE ONE STRENGTHENING, and it is live-verified. `json["stdout"]` is a JSON leaf
+# and the format has no substring form for a `json` path, so per controller
+# ruling 3 that `.contains("3")` becomes an exact `json.stdout` pin -- captured
+# from the real `.cache/cargo-target/debug/kali` with `node` as the harness
+# backend for all EIGHT (command, ext) cells, every one of which produced
+# `"3\n3\n3\n3\n"`, never hand-computed (U9). Every run satisfying the pin
+# satisfies the source's `.contains("3")`, so this is a strengthening, not a
+# change of claim. Same disposition as the shipped sibling
+# `math_exp_log_bracketed_root.toml`. (`json_count` with `at_least = 1` was
+# considered as a closer mirror now that the count keys exist; the exact pin was
+# kept because ruling 3 names it for json leaves and because the sibling file in
+# this same family already ships that shape.)
+#
+# RULE 13 (transitive helper docs): every fn in each call chain was checked for a
+# `///` doc comment and none carries one -- the file's only `//` is the JS
+# tree-shake marker inside a fixture (see the rule 12 note above). The chain does
+# reach `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which carry one-line `///` docs, but in
+# the migrated form this case file never calls them: the `browser_bundle_harness`
+# step kind means the case RUNNER does (crates/kali_case_runner/src/steps.rs), so
+# those docs describe shared runner infrastructure (design spec 5.3), not what
+# this case claims. Every browser/ case file shipped before batch 4 does the
+# same.
+#
+# ASSERTION SHAPE, mirrored and nothing more.
+# Bundle group: `exit = "success"` on the build (:52) and on the harness process
+# (:104); json mode carries schemaVersion/command/success/exitCode and payload
+# artifactKind/bundleFormat (:61-67) -- no `errors` claim in the source, so none
+# is written; `app/app.meta.json` metadata (:75-76) in BOTH modes, since the
+# source reads it outside the `if json_output`; then the harness step's
+# `stdout_contains` + `stdout_count`.
+# Harness group: `exit = "success"` (:212); json mode carries schemaVersion/
+# command/success/payload(hostContract, runtimeBackend) (:220-224), `exitCode`
+# and `payload.exitCode` for `run` (:226-227) or payload total/passed/failed for
+# `test` (:229-231), the exact `stdout` pin above, and `stderr = ""` (:237); no
+# `errors` claim, so none is written.
+# ARGV: the harness invocations pass `--max-threads 0 --max-spawned-processes 0`
+# (:204-207); the bundle build does not. Mirrored per group.
+
+[source]
+"app.js" = """// kali-tree-shake: bracketedGlobalThisMathLog2Log10Identities
+function bracketedGlobalThisMathLog2Log10Identities() {
+  const log2Value = 8;
+  const log10Value = 1000;
+  const frozenLog2 = Object.freeze(globalThis.Math.log2);
+  const frozenLog10 = Object.freeze(globalThis["Math"].log10);
+  console.log(globalThis.Math.log2(log2Value));
+  console.log(frozenLog2(log2Value));
+  console.log(globalThis["Math"].log10(log10Value));
+  console.log(frozenLog10(log10Value));
+  return [
+    globalThis.Math.log2(log2Value),
+    globalThis.Math.log10(log10Value),
+    frozenLog2(log2Value),
+    frozenLog10(log10Value),
+  ];
+}
+"""
+"app.ts" = """// kali-tree-shake: bracketedGlobalThisMathLog2Log10Identities
+function bracketedGlobalThisMathLog2Log10Identities() {
+  const log2Value = 8;
+  const log10Value = 1000;
+  const frozenLog2 = Object.freeze(globalThis.Math.log2);
+  const frozenLog10 = Object.freeze(globalThis["Math"].log10);
+  console.log(globalThis.Math.log2(log2Value));
+  console.log(frozenLog2(log2Value));
+  console.log(globalThis["Math"].log10(log10Value));
+  console.log(frozenLog10(log10Value));
+  return [
+    globalThis.Math.log2(log2Value),
+    globalThis.Math.log10(log10Value),
+    frozenLog2(log2Value),
+    frozenLog10(log10Value),
+  ];
+}
+"""
+"main.js" = """const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis["Math"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value));
+"""
+"smoke.test.js" = """Kali.test('bracketed log2/log10 identities', () => { const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis["Math"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value)); });
+"""
+"main.ts" = """const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis["Math"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value));
+"""
+"smoke.test.ts" = """Kali.test('bracketed log2/log10 identities', () => { const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis["Math"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value)); });
+"""
+"main.jsx" = """const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis["Math"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value));
+"""
+"smoke.test.jsx" = """Kali.test('bracketed log2/log10 identities', () => { const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis["Math"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value)); });
+"""
+"main.tsx" = """const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis["Math"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value));
+"""
+"smoke.test.tsx" = """Kali.test('bracketed log2/log10 identities', () => { const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis["Math"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value)); });
+"""
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_log2_log10_identity_literals_in_js_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs. `assert_browser_bundle_bracketed_global_this_math_log2_log10` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program's four calls -- globalThis.Math.log2(8), a frozen alias of it, globalThis["Math"].log10(1000) and a frozen alias of that -- each print 3. The source makes TWO separate claims about that output, `stdout.contains("3\\n")` (:111) and `stdout.matches("3\\n").count() >= 2` (:112), so both are carried, as `stdout_contains` and `stdout_count` respectively; carrying either alone would drop a claim. The source spells this as `.matches("3\\n")` `.count() >= 2`, carried directly as `stdout_count` with `at_least = 2`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The real output holds four occurrences, but pinning `exact = 4` would assert something the source never claimed. No [matrix] in this file: the bundle group covers only js/ts while the harness group covers all four extensions, and [matrix] is file-wide with no per-case opt-out (the header carries the arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathLog2Log10Identities();
+"""
+exit = "success"
+stdout_contains = ["3\n"]
+stdout_count = [{ needle = "3\n", at_least = 2 }]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_log2_log10_identity_literals_in_ts_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs. `assert_browser_bundle_bracketed_global_this_math_log2_log10` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program's four calls -- globalThis.Math.log2(8), a frozen alias of it, globalThis["Math"].log10(1000) and a frozen alias of that -- each print 3. The source makes TWO separate claims about that output, `stdout.contains("3\\n")` (:111) and `stdout.matches("3\\n").count() >= 2` (:112), so both are carried, as `stdout_contains` and `stdout_count` respectively; carrying either alone would drop a claim. The source spells this as `.matches("3\\n")` `.count() >= 2`, carried directly as `stdout_count` with `at_least = 2`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The real output holds four occurrences, but pinning `exact = 4` would assert something the source never claimed. No [matrix] in this file: the bundle group covers only js/ts while the harness group covers all four extensions, and [matrix] is file-wide with no per-case opt-out (the header carries the arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathLog2Log10Identities();
+"""
+exit = "success"
+stdout_contains = ["3\n"]
+stdout_count = [{ needle = "3\n", at_least = 2 }]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_log2_log10_identity_literals_in_js_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs. `assert_browser_bundle_bracketed_global_this_math_log2_log10` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program's four calls -- globalThis.Math.log2(8), a frozen alias of it, globalThis["Math"].log10(1000) and a frozen alias of that -- each print 3. The source makes TWO separate claims about that output, `stdout.contains("3\\n")` (:111) and `stdout.matches("3\\n").count() >= 2` (:112), so both are carried, as `stdout_contains` and `stdout_count` respectively; carrying either alone would drop a claim. The source spells this as `.matches("3\\n")` `.count() >= 2`, carried directly as `stdout_count` with `at_least = 2`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The real output holds four occurrences, but pinning `exact = 4` would assert something the source never claimed. No [matrix] in this file: the bundle group covers only js/ts while the harness group covers all four extensions, and [matrix] is file-wide with no per-case opt-out (the header carries the arithmetic). This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat) instead of plain text; the source makes no `errors` claim on that envelope, so none is written."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathLog2Log10Identities();
+"""
+exit = "success"
+stdout_contains = ["3\n"]
+stdout_count = [{ needle = "3\n", at_least = 2 }]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_log2_log10_identity_literals_in_ts_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs. `assert_browser_bundle_bracketed_global_this_math_log2_log10` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program's four calls -- globalThis.Math.log2(8), a frozen alias of it, globalThis["Math"].log10(1000) and a frozen alias of that -- each print 3. The source makes TWO separate claims about that output, `stdout.contains("3\\n")` (:111) and `stdout.matches("3\\n").count() >= 2` (:112), so both are carried, as `stdout_contains` and `stdout_count` respectively; carrying either alone would drop a claim. The source spells this as `.matches("3\\n")` `.count() >= 2`, carried directly as `stdout_count` with `at_least = 2`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The real output holds four occurrences, but pinning `exact = 4` would assert something the source never claimed. No [matrix] in this file: the bundle group covers only js/ts while the harness group covers all four extensions, and [matrix] is file-wide with no per-case opt-out (the header carries the arithmetic). This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat) instead of plain text; the source makes no `errors` claim on that envelope, so none is written."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathLog2Log10Identities();
+"""
+exit = "success"
+stdout_contains = ["3\n"]
+stdout_count = [{ needle = "3\n", at_least = 2 }]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `run` / `js` / plain-text-output cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` (:240) against this tuple's own expected_stdout literal, carried verbatim as `stdout_contains`. It is a plain `.contains` against a field that has a substring form, so per controller ruling 3 it stays a substring claim and is NOT strengthened to an exact `stdout` pin."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\n3"]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `test` / `js` / plain-text-output cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` (:240) against this tuple's own expected_stdout literal, carried verbatim as `stdout_contains`. It is a plain `.contains` against a field that has a substring form, so per controller ruling 3 it stays a substring claim and is NOT strengthened to an exact `stdout` pin."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\nok 1"]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `run` / `ts` / plain-text-output cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` (:240) against this tuple's own expected_stdout literal, carried verbatim as `stdout_contains`. It is a plain `.contains` against a field that has a substring form, so per controller ruling 3 it stays a substring claim and is NOT strengthened to an exact `stdout` pin."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\n3"]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `test` / `ts` / plain-text-output cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` (:240) against this tuple's own expected_stdout literal, carried verbatim as `stdout_contains`. It is a plain `.contains` against a field that has a substring form, so per controller ruling 3 it stays a substring claim and is NOT strengthened to an exact `stdout` pin."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\nok 1"]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `run` / `jsx` / plain-text-output cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` (:240) against this tuple's own expected_stdout literal, carried verbatim as `stdout_contains`. It is a plain `.contains` against a field that has a substring form, so per controller ruling 3 it stays a substring claim and is NOT strengthened to an exact `stdout` pin."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\n3"]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `test` / `jsx` / plain-text-output cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` (:240) against this tuple's own expected_stdout literal, carried verbatim as `stdout_contains`. It is a plain `.contains` against a field that has a substring form, so per controller ruling 3 it stays a substring claim and is NOT strengthened to an exact `stdout` pin."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\nok 1"]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `run` / `tsx` / plain-text-output cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` (:240) against this tuple's own expected_stdout literal, carried verbatim as `stdout_contains`. It is a plain `.contains` against a field that has a substring form, so per controller ruling 3 it stays a substring claim and is NOT strengthened to an exact `stdout` pin."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\n3"]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `test` / `tsx` / plain-text-output cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` (:240) against this tuple's own expected_stdout literal, carried verbatim as `stdout_contains`. It is a plain `.contains` against a field that has a substring form, so per controller ruling 3 it stays a substring claim and is NOT strengthened to an exact `stdout` pin."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\nok 1"]
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `run` / `js` / --output json cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. On this branch the source asserts `json["stdout"].as_str().contains("3")` (:233-236). `json` paths have no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for this exact cell (U9), never hand-computed, and checked to contain the source's own `"3"` literal before being written. Every run satisfying the pin satisfies the source's `.contains`, so this is a verified strengthening. `stderr` is asserted exactly empty (:237); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "3\n3\n3\n3\n", stderr = "" }
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `test` / `js` / --output json cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. On this branch the source asserts `json["stdout"].as_str().contains("3")` (:233-236). `json` paths have no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for this exact cell (U9), never hand-computed, and checked to contain the source's own `"3"` literal before being written. Every run satisfying the pin satisfies the source's `.contains`, so this is a verified strengthening. `stderr` is asserted exactly empty (:237); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "3\n3\n3\n3\n", stderr = "" }
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `run` / `ts` / --output json cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. On this branch the source asserts `json["stdout"].as_str().contains("3")` (:233-236). `json` paths have no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for this exact cell (U9), never hand-computed, and checked to contain the source's own `"3"` literal before being written. Every run satisfying the pin satisfies the source's `.contains`, so this is a verified strengthening. `stderr` is asserted exactly empty (:237); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "3\n3\n3\n3\n", stderr = "" }
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `test` / `ts` / --output json cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. On this branch the source asserts `json["stdout"].as_str().contains("3")` (:233-236). `json` paths have no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for this exact cell (U9), never hand-computed, and checked to contain the source's own `"3"` literal before being written. Every run satisfying the pin satisfies the source's `.contains`, so this is a verified strengthening. `stderr` is asserted exactly empty (:237); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "3\n3\n3\n3\n", stderr = "" }
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `run` / `jsx` / --output json cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. On this branch the source asserts `json["stdout"].as_str().contains("3")` (:233-236). `json` paths have no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for this exact cell (U9), never hand-computed, and checked to contain the source's own `"3"` literal before being written. Every run satisfying the pin satisfies the source's `.contains`, so this is a verified strengthening. `stderr` is asserted exactly empty (:237); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "3\n3\n3\n3\n", stderr = "" }
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `test` / `jsx` / --output json cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. On this branch the source asserts `json["stdout"].as_str().contains("3")` (:233-236). `json` paths have no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for this exact cell (U9), never hand-computed, and checked to contain the source's own `"3"` literal before being written. Every run satisfying the pin satisfies the source's `.contains`, so this is a verified strengthening. `stderr` is asserted exactly empty (:237); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "3\n3\n3\n3\n", stderr = "" }
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `run` / `tsx` / --output json cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. On this branch the source asserts `json["stdout"].as_str().contains("3")` (:233-236). `json` paths have no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for this exact cell (U9), never hand-computed, and checked to contain the source's own `"3"` literal before being written. Every run satisfying the pin satisfies the source's `.contains`, so this is a verified strengthening. `stderr` is asserted exactly empty (:237); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "3\n3\n3\n3\n", stderr = "" }
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_log2_log10_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling. This case is the `test` / `tsx` / --output json cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; log2(8), a frozen alias of log2, log10(1000) and a frozen alias of log10 each print 3. On this branch the source asserts `json["stdout"].as_str().contains("3")` (:233-236). `json` paths have no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for this exact cell (U9), never hand-computed, and checked to contain the source's own `"3"` literal before being written. Every run satisfying the pin satisfies the source's `.contains`, so this is a verified strengthening. `stderr` is asserted exactly empty (:237); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "3\n3\n3\n3\n", stderr = "" }

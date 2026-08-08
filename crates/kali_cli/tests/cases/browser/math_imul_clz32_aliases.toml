@@ -1,0 +1,162 @@
+# Migrated from tests/browser_math_imul_clz32_aliases.rs.
+#
+# RULE 12 (carry every source comment verbatim): `browser_math_imul_clz32_aliases.rs` has NO Rust
+# comments. Verified with `grep -nE '//' browser_math_imul_clz32_aliases.rs`, whose single hit is
+# line 11's `// kali-tree-shake:` marker -- that sits INSIDE the `r##"..."##` JS
+# bundle fixture, so it is program text carried verbatim into [source] below,
+# not Rust prose. There is therefore nothing to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it CLOSES EXACTLY.
+# 4 #[test] fns, 4 real invocations, ONE helper, NO loops anywhere in the file
+# (verified with enumerate_invocations.py, which parses every fn in this file and
+# reports TOTAL INVOCATIONS: 4 with no UNPARSED entries):
+#   * `assert_browser_bundle_math_imul_clz32_aliases(filename, json_output)`
+#     -- 4 unlooped #[test] fns = ext(js/ts) x json_output(false/true), a full
+#     cross product.
+# This file has NO harness group at all -- there is no `run`/`test` #[test] fn
+# and no second helper -- so the js/ts coverage is uniform across the whole file
+# by construction and the axis fans nothing untested:
+# 2 [[case]] x ext(js, ts) = 4 trials = 4 #[test] fns. Exact.
+# The axis is `ext = ["js", "ts"]` and NOT the four-value axis several siblings
+# in this batch use: this source has no `app.jsx` or `app.tsx` #[test] fn, and
+# adding those cells would invent two untested build invocations (rule 2).
+# Per rule 6 the fold is stated here: each [[case]] corresponds to 2 source
+# #[test] fns, one per `ext` cell, and the assertion mapping stays 1:1 per trial.
+# `json_output` is NOT an axis -- it changes the assertion SHAPE (a JSON envelope
+# claim instead of no stdout claim on the build step), which design spec 5.6
+# excludes from a matrix -- so it is a sibling [[case]].
+#
+# U2 -- [source] is file-wide and that is safe here: `app.${ext}` is the file's
+# only fixture, written unconditionally into a fresh temp dir by every one of the
+# four #[test] fns, never behind an `if`, and no case's point is a file's
+# presence or absence.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# `exit = "success"` on the build (:83) and on the harness process (:135); json
+# mode carries the envelope's schemaVersion/command/success/exitCode and payload
+# artifactKind/bundleFormat (:92-98) -- the source asserts NO `errors` array, so
+# none is written; the emitted `app/app.meta.json` metadata (:106-107) is
+# asserted in BOTH modes, because the source reads it outside the
+# `if json_output`.
+# THE TWO HARNESS CLAIMS ARE PLAIN `.contains`, NOT COUNTS: `stdout.contains
+# ("-2\n")` (:142) and `stdout.contains("31\n")` (:143). There is no
+# `.matches().count()` anywhere in this file, so no `stdout_count`/`json_count`
+# appears -- and neither claim is strengthened to an exact `stdout` pin, because
+# `stdout` has a substring form and ruling 3 keeps a plain `.contains` as a
+# substring claim. The bundled program prints imul(2147483647, 2) = -2 nine times
+# through nine alias spellings and clz32(1) = 31 nine times through nine more, so
+# an exact pin would also have asserted a repetition count the source never
+# mentions.
+# ARGV: the source passes no `--max-threads` / `--max-spawned-processes` (it has
+# no `run`/`test` invocation to pass them to), so neither appears below.
+#
+# RULE 13 (transitive helper docs): every fn in each call chain was checked for a
+# `///` doc comment and none carries one -- the file's only `//` is the JS
+# tree-shake marker inside a fixture (see the rule 12 note above). The chain does
+# reach `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which carry one-line `///` docs, but in
+# the migrated form this case file never calls them: the `browser_bundle_harness`
+# step kind means the case RUNNER does (crates/kali_case_runner/src/steps.rs), so
+# those docs describe shared runner infrastructure (design spec 5.3), not what
+# this case claims. Every browser/ case file shipped before batch 4 does the
+# same.
+
+[matrix]
+ext = ["js", "ts"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserMathImulClz32Aliases
+function browserMathImulClz32Aliases() {
+  const imulLeft = 2147483647;
+  const imulRight = 2;
+  const clz32Value = 1;
+  const frozenImul = Object.freeze(globalThis.Math.imul);
+  const frozenBracketedImul = Object.freeze(globalThis["Math"]["imul"]);
+  const frozenClz32 = Object.freeze(globalThis["Math"]["clz32"]);
+  const frozenBracketedClz32 = Object.freeze(globalThis.Math["clz32"]);
+  console.log(globalThis.Math.imul(imulLeft, imulRight));
+  console.log(globalThis.Math["imul"](imulLeft, imulRight));
+  console.log(globalThis["Math"].imul(imulLeft, imulRight));
+  console.log(globalThis["Math"]["imul"](imulLeft, imulRight));
+  console.log(Math["imul"](imulLeft, imulRight));
+  console.log(frozenImul(imulLeft, imulRight));
+  console.log(frozenBracketedImul(imulLeft, imulRight));
+  console.log(Object.freeze(Math.imul)(imulLeft, imulRight));
+  console.log(Object.freeze(Math["imul"])(imulLeft, imulRight));
+  console.log(globalThis.Math.clz32(clz32Value));
+  console.log(globalThis.Math["clz32"](clz32Value));
+  console.log(globalThis["Math"].clz32(clz32Value));
+  console.log(globalThis["Math"]["clz32"](clz32Value));
+  console.log(Math["clz32"](clz32Value));
+  console.log(frozenClz32(clz32Value));
+  console.log(frozenBracketedClz32(clz32Value));
+  console.log(Object.freeze(Math.clz32)(clz32Value));
+  console.log(Object.freeze(Math["clz32"])(clz32Value));
+  return [
+    globalThis.Math.imul(imulLeft, imulRight),
+    globalThis.Math["imul"](imulLeft, imulRight),
+    globalThis["Math"].imul(imulLeft, imulRight),
+    globalThis["Math"]["imul"](imulLeft, imulRight),
+    Math["imul"](imulLeft, imulRight),
+    frozenImul(imulLeft, imulRight),
+    frozenBracketedImul(imulLeft, imulRight),
+    Object.freeze(Math.imul)(imulLeft, imulRight),
+    Object.freeze(Math["imul"])(imulLeft, imulRight),
+    globalThis.Math.clz32(clz32Value),
+    globalThis.Math["clz32"](clz32Value),
+    globalThis["Math"].clz32(clz32Value),
+    globalThis["Math"]["clz32"](clz32Value),
+    Math["clz32"](clz32Value),
+    frozenClz32(clz32Value),
+    frozenBracketedClz32(clz32Value),
+    Object.freeze(Math.clz32)(clz32Value),
+    Object.freeze(Math["clz32"])(clz32Value),
+  ];
+}
+"""
+
+[[case]]
+name = "build_emits_math_imul_clz32_aliases"
+rationale = """Migrated from browser_math_imul_clz32_aliases.rs. `assert_browser_bundle_math_imul_clz32_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program reaches Math.imul and Math.clz32 through eighteen alias spellings -- dotted, bracketed, mixed, bare `Math[...]`, and `Object.freeze`d captures of each -- printing -2 for imul(2147483647, 2) and 31 for clz32(1). The source's two stdout claims are plain `.contains` (:142-143), mirrored as `stdout_contains` and deliberately neither turned into a count (the source makes no `.matches().count()` claim) nor strengthened to an exact `stdout` pin (ruling 3)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserMathImulClz32Aliases();
+"""
+exit = "success"
+stdout_contains = ["-2\n", "31\n"]
+
+[[case]]
+name = "json_build_emits_math_imul_clz32_aliases"
+rationale = """Migrated from browser_math_imul_clz32_aliases.rs. `assert_browser_bundle_math_imul_clz32_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program reaches Math.imul and Math.clz32 through eighteen alias spellings -- dotted, bracketed, mixed, bare `Math[...]`, and `Object.freeze`d captures of each -- printing -2 for imul(2147483647, 2) and 31 for clz32(1). The source's two stdout claims are plain `.contains` (:142-143), mirrored as `stdout_contains` and deliberately neither turned into a count (the source makes no `.matches().count()` claim) nor strengthened to an exact `stdout` pin (ruling 3). This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat) instead of plain text; the source makes no `errors` claim on that envelope, so none is written. Output shape is not a matrix axis because it changes the assertion shape."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserMathImulClz32Aliases();
+"""
+exit = "success"
+stdout_contains = ["-2\n", "31\n"]

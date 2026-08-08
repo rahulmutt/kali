@@ -1,0 +1,591 @@
+# Migrated from tests/browser_math_hypot_global_this_root.rs -- all 14 #[test]
+# fns, nothing retained.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_hypot_global_this_root.rs returns NOTHING -- the file has no Rust comments at
+# all. The only `//` anywhere in it is the "// kali-tree-shake:" marker inside a
+# JS fixture body, which is program text and is carried verbatim into [source].
+# There is therefore no prose to move into any `rationale`, and comment_coverage
+# is run with --allow-empty for this pair (ruling 5's floor exists precisely so
+# that an empty result is an explicit acknowledgement, not a vacuous green).
+#
+# RULE 7 -- INVOCATION ARITHMETIC, derived BY HAND because the mechanical
+# enumerator UNDER-COUNTS this file. enumerate_invocations.py reports 30 total;
+# the true figure is 32. Its invocations() helper calls CALL.search(body) -- it
+# finds only the FIRST assert_* call in a #[test] body -- and
+# `build_emits_global_this_math_hypot_perfect_square_slice_in_jsx_and_tsx_input`
+# has TWO calls inside its `for filename in ["app.jsx", "app.tsx"]` loop
+# (json_output false, then true), so 4 of its invocations are counted as 2. It
+# also fails to bind the tuple loop variables in
+# `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser
+# _harness_is_configured_in_js_ts_jsx_and_tsx_input` (its TUPLE_ROW regex is
+# `\(([^()]*)\)`, which cannot match a row containing a `source()` call), though
+# it does get that fn's COUNT right. Hand-derived, per helper:
+#
+#   assert_browser_bundle_global_this_math_hypot -- 8 invocations
+#     4 single-call fns: (app.js,false) (app.ts,false) (app.js,true)
+#       (app.ts,true)
+#     1 loop fn x 2 filenames x 2 calls = 4: (app.jsx,false) (app.jsx,true)
+#       (app.tsx,false) (app.tsx,true)
+#   assert_browser_harness_global_this_math_hypot -- 24 invocations
+#     8 single-call fns: run/test x main.js/main.ts x json false/true
+#     1 loop fn: 8 (command, filename, source) rows x `for json_output in
+#       [false, true]` = 16
+#   TOTAL = 8 + 24 = 32.
+#
+# [matrix] DECLINED for the whole file (rule 7 / U1). No axis is uniform:
+#   * `ext` -- the bundle helper covers js/ts/jsx/tsx evenly (8 = 4 x 2), and so
+#     does the loop fn, but the eight single-call harness fns cover only js and
+#     ts. A file-wide `ext` axis fans EVERY [[case]] with no per-case opt-out
+#     (crates/kali_case_runner/src/expand.rs), so those cases would be fanned to
+#     jsx/tsx cells no source fn performs -- rule 2's invented combination.
+#   * `command` and `json_output` change the assertion SHAPE, not a substituted
+#     string (JSON envelope vs text stdout; `exitCode` for run vs total/passed/
+#     failed for test), so neither is a legal axis either.
+#   32 invocations -> 32 named sibling [[case]] entries, one per real
+#   invocation, no folding.
+#
+# RULE 6 -- FOUR DELIBERATE DUPLICATE PAIRS. The loop fn re-runs four
+# invocations the single-call fns already make: (run, main.js, false),
+# (run, main.ts, false), (run, main.js, true), (run, main.ts, true). They are
+# NOT deduplicated. Rule 6 keeps one [[case]] per source #[test] fn even when
+# two fns' invocations are literally identical, because the case is the only
+# remaining trace of the fn; the four loop-side siblings carry a
+# `run_and_test_supports_` prefix and say so in their own rationale.
+#
+# U5 -- ONE [source] KEY RENAME, and why it was unavoidable. [source] is a flat
+# file-wide namespace, and this source binds the name `main.js` to TWO different
+# programs: the run fixture (in `run_supports_..._in_js_input` and in the loop
+# fn) and the TEST fixture (in `test_supports_global_this_math_hypot_perfect_
+# square_slice_when_browser_harness_is_configured_in_js_input` and its json
+# sibling, which run `kali test` against a file named main.js rather than the
+# smoke.test.js the loop fn uses). Same for main.ts. One key cannot hold two
+# bodies, so the four test-command-on-a-main-named-entry cases use
+# `program.js` / `program.ts` instead. This is safe under U5: the entry name
+# reaches kali only as an argv token, no fixture body references it by string,
+# and the property those four fns actually exercise -- running `kali test`
+# against an entry whose name is NOT `*.test.*` -- is preserved. Verified
+# against the real binary rather than assumed: `kali test --api browser` over
+# the same test fixture produces byte-identical stdout ("5\n5\n5\n5\nok 1\n")
+# and byte-identical json.stdout for main.js, main.ts, program.js and
+# program.ts.
+#
+# U2 -- [source] is file-wide, and that is safe here: all 14 fixtures are
+# written unconditionally into a fresh temp dir, none is behind an `if`, and no
+# case's point is a file's presence or absence. Every command names its entry on
+# argv.
+#
+# U13 -- the bundle/run/test bodies are each repeated across four extension-
+# suffixed keys rather than hoisted into [constants]. Deliberate, following the
+# shipped no-matrix precedent in cases/browser/math_atan2_global_this_root.toml:
+# hoisting program text into [constants] moves it onto a surface
+# audit-case-migration.py DOES search (U13 records this counter-hazard itself),
+# so a future phantom claim could be satisfied by a fixture body, and it would
+# also defeat the rule-9 fixture gate, which reads [source] values directly.
+#
+# ASSERTION SHAPE, mirrored and nothing more. The bundle helper's json branch
+# DOES assert `errors` is empty (:78-81) and so does the harness helper's
+# (:186); the harness json branch also asserts json["stderr"] == "" (:185). All
+# three are carried. Raw-stdout claims are plain `.contains("5\n")` (:125,
+# :189) and stay stdout_contains. The harness argv passes --max-threads 0 and
+# --max-spawned-processes 0 (:149-152); the build argv does not.
+
+[source]
+"app.js" = """// kali-tree-shake: globalThisMathHypotPerfectSquareSlice
+function globalThisMathHypotPerfectSquareSlice() {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+  return [
+    globalThis.Math.hypot(three, four),
+    globalThis.Math["hypot"](three, four),
+    globalThis["Math"].hypot(three, four),
+    globalThis["Math"]["hypot"](three, four),
+  ];
+}
+"""
+"app.ts" = """// kali-tree-shake: globalThisMathHypotPerfectSquareSlice
+function globalThisMathHypotPerfectSquareSlice() {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+  return [
+    globalThis.Math.hypot(three, four),
+    globalThis.Math["hypot"](three, four),
+    globalThis["Math"].hypot(three, four),
+    globalThis["Math"]["hypot"](three, four),
+  ];
+}
+"""
+"app.jsx" = """// kali-tree-shake: globalThisMathHypotPerfectSquareSlice
+function globalThisMathHypotPerfectSquareSlice() {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+  return [
+    globalThis.Math.hypot(three, four),
+    globalThis.Math["hypot"](three, four),
+    globalThis["Math"].hypot(three, four),
+    globalThis["Math"]["hypot"](three, four),
+  ];
+}
+"""
+"app.tsx" = """// kali-tree-shake: globalThisMathHypotPerfectSquareSlice
+function globalThisMathHypotPerfectSquareSlice() {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+  return [
+    globalThis.Math.hypot(three, four),
+    globalThis.Math["hypot"](three, four),
+    globalThis["Math"].hypot(three, four),
+    globalThis["Math"]["hypot"](three, four),
+  ];
+}
+"""
+"main.js" = """const three = 3; const four = 4; console.log(globalThis.Math.hypot(three, four)); console.log(globalThis.Math["hypot"](three, four)); console.log(globalThis["Math"].hypot(three, four)); console.log(globalThis["Math"]["hypot"](three, four));
+"""
+"main.ts" = """const three = 3; const four = 4; console.log(globalThis.Math.hypot(three, four)); console.log(globalThis.Math["hypot"](three, four)); console.log(globalThis["Math"].hypot(three, four)); console.log(globalThis["Math"]["hypot"](three, four));
+"""
+"main.jsx" = """const three = 3; const four = 4; console.log(globalThis.Math.hypot(three, four)); console.log(globalThis.Math["hypot"](three, four)); console.log(globalThis["Math"].hypot(three, four)); console.log(globalThis["Math"]["hypot"](three, four));
+"""
+"main.tsx" = """const three = 3; const four = 4; console.log(globalThis.Math.hypot(three, four)); console.log(globalThis.Math["hypot"](three, four)); console.log(globalThis["Math"].hypot(three, four)); console.log(globalThis["Math"]["hypot"](three, four));
+"""
+"smoke.test.js" = """Kali.test('globalThis math hypot perfect square slice', () => {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+});
+"""
+"smoke.test.ts" = """Kali.test('globalThis math hypot perfect square slice', () => {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+});
+"""
+"smoke.test.jsx" = """Kali.test('globalThis math hypot perfect square slice', () => {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+});
+"""
+"smoke.test.tsx" = """Kali.test('globalThis math hypot perfect square slice', () => {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+});
+"""
+"program.js" = """Kali.test('globalThis math hypot perfect square slice', () => {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+});
+"""
+"program.ts" = """Kali.test('globalThis math hypot perfect square slice', () => {
+  const three = 3;
+  const four = 4;
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(globalThis.Math["hypot"](three, four));
+  console.log(globalThis["Math"].hypot(three, four));
+  console.log(globalThis["Math"]["hypot"](three, four));
+});
+"""
+
+[[case]]
+name = "build_emits_global_this_math_hypot_perfect_square_slice_in_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `build_emits_global_this_math_hypot_perfect_square_slice_in_js_input`. `assert_browser_bundle_global_this_math_hypot` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted app/app.meta.json metadata (apiSurface/artifactKind), then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls globalThis.Math.hypot(3, 4) through four spellings -- dotted, bracketed-property, bracketed-object, and both bracketed -- each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotPerfectSquareSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "build_emits_global_this_math_hypot_perfect_square_slice_in_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `build_emits_global_this_math_hypot_perfect_square_slice_in_ts_input`. `assert_browser_bundle_global_this_math_hypot` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted app/app.meta.json metadata (apiSurface/artifactKind), then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls globalThis.Math.hypot(3, 4) through four spellings -- dotted, bracketed-property, bracketed-object, and both bracketed -- each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotPerfectSquareSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_hypot_perfect_square_slice_in_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `json_build_emits_global_this_math_hypot_perfect_square_slice_in_js_input`. `assert_browser_bundle_global_this_math_hypot` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted app/app.meta.json metadata (apiSurface/artifactKind), then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls globalThis.Math.hypot(3, 4) through four spellings -- dotted, bracketed-property, bracketed-object, and both bracketed -- each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode, payload artifactKind/bundleFormat) instead of plain text, and asserts `errors` is the empty array (:78-81)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotPerfectSquareSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_hypot_perfect_square_slice_in_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `json_build_emits_global_this_math_hypot_perfect_square_slice_in_ts_input`. `assert_browser_bundle_global_this_math_hypot` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted app/app.meta.json metadata (apiSurface/artifactKind), then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls globalThis.Math.hypot(3, 4) through four spellings -- dotted, bracketed-property, bracketed-object, and both bracketed -- each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode, payload artifactKind/bundleFormat) instead of plain text, and asserts `errors` is the empty array (:78-81)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotPerfectSquareSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "build_emits_global_this_math_hypot_perfect_square_slice_in_jsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `build_emits_global_this_math_hypot_perfect_square_slice_in_jsx_and_tsx_input`. `assert_browser_bundle_global_this_math_hypot` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted app/app.meta.json metadata (apiSurface/artifactKind), then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls globalThis.Math.hypot(3, 4) through four spellings -- dotted, bracketed-property, bracketed-object, and both bracketed -- each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation comes from that fn's `for filename in ["app.jsx", "app.tsx"]` loop, whose body makes TWO calls (json_output false then true); it is split into its own named sibling per rule 5 rather than folded."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotPerfectSquareSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_hypot_perfect_square_slice_in_jsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `build_emits_global_this_math_hypot_perfect_square_slice_in_jsx_and_tsx_input`. `assert_browser_bundle_global_this_math_hypot` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted app/app.meta.json metadata (apiSurface/artifactKind), then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls globalThis.Math.hypot(3, 4) through four spellings -- dotted, bracketed-property, bracketed-object, and both bracketed -- each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode, payload artifactKind/bundleFormat) instead of plain text, and asserts `errors` is the empty array (:78-81). Source-side this invocation comes from that fn's `for filename in ["app.jsx", "app.tsx"]` loop, whose body makes TWO calls (json_output false then true); it is split into its own named sibling per rule 5 rather than folded."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotPerfectSquareSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "build_emits_global_this_math_hypot_perfect_square_slice_in_tsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `build_emits_global_this_math_hypot_perfect_square_slice_in_jsx_and_tsx_input`. `assert_browser_bundle_global_this_math_hypot` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted app/app.meta.json metadata (apiSurface/artifactKind), then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls globalThis.Math.hypot(3, 4) through four spellings -- dotted, bracketed-property, bracketed-object, and both bracketed -- each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation comes from that fn's `for filename in ["app.jsx", "app.tsx"]` loop, whose body makes TWO calls (json_output false then true); it is split into its own named sibling per rule 5 rather than folded."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotPerfectSquareSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_hypot_perfect_square_slice_in_tsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `build_emits_global_this_math_hypot_perfect_square_slice_in_jsx_and_tsx_input`. `assert_browser_bundle_global_this_math_hypot` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted app/app.meta.json metadata (apiSurface/artifactKind), then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls globalThis.Math.hypot(3, 4) through four spellings -- dotted, bracketed-property, bracketed-object, and both bracketed -- each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode, payload artifactKind/bundleFormat) instead of plain text, and asserts `errors` is the empty array (:78-81). Source-side this invocation comes from that fn's `for filename in ["app.jsx", "app.tsx"]` loop, whose body makes TWO calls (json_output false then true); it is split into its own named sibling per rule 5 rather than folded."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotPerfectSquareSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_ts_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. NOTE (U5): the source writes this entry as main.js, but [source] is one flat file-wide namespace and that name is already bound to the run fixture by the sibling run_supports_ cases, so the key is renamed to program.js here. The name reaches kali only as an argv token, no fixture body references it, the not-a-*.test.*-name property the source exercised is kept, and the rename was confirmed output-identical against the real binary."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "program.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_ts_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. NOTE (U5): the source writes this entry as main.ts, but [source] is one flat file-wide namespace and that name is already bound to the run fixture by the sibling run_supports_ cases, so the key is renamed to program.ts here. The name reaches kali only as an argv token, no fixture body references it, the not-a-*.test.*-name property the source exercised is kept, and the rename was confirmed output-identical against the real binary."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "program.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_json_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_json_js_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (run). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "run_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_json_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_json_ts_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (run). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_json_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_json_js_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (test). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. NOTE (U5): the source writes this entry as main.js, but [source] is one flat file-wide namespace and that name is already bound to the run fixture by the sibling run_supports_ cases, so the key is renamed to program.js here. The name reaches kali only as an argv token, no fixture body references it, the not-a-*.test.*-name property the source exercised is kept, and the rename was confirmed output-identical against the real binary."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "program.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_json_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_json_ts_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (test). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. NOTE (U5): the source writes this entry as main.ts, but [source] is one flat file-wide namespace and that name is already bound to the run fixture by the sibling run_supports_ cases, so the key is renamed to program.ts here. The name reaches kali only as an argv token, no fixture body references it, the not-a-*.test.*-name property the source exercised is kept, and the rename was confirmed output-identical against the real binary."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "program.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_run_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_json_run_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (run). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_test_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_json_test_js_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (test). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_run_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_json_run_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (run). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_test_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_json_test_ts_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (test). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_run_jsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_json_run_jsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (run). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_test_jsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_json_test_jsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (test). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_run_tsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_json_run_tsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali run --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (run). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_test_tsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_json_test_tsx_input"
+rationale = """Migrated from browser_math_hypot_global_this_root.rs, `run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`. `assert_browser_harness_global_this_math_hypot` runs `kali test --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that calls globalThis.Math.hypot(3, 4) through four spellings, each printing 5. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (test). It also asserts stderr is exactly empty (:185) and `errors` is the empty array (:186). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. Source-side this invocation is one cell of that fn's nested loops: eight (command, filename, source) rows x `for json_output in [false, true]`. It is split into its own named sibling per rule 5. Four of the sixteen cells duplicate invocations the single-call run_supports_ fns already make; per rule 6 they are kept as separate cases anyway, because a [[case]] is the only remaining trace of the source fn that produced it."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "", errors = [], stdout = "5\n5\n5\n5\n" }

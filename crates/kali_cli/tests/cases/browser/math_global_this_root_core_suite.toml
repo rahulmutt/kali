@@ -1,0 +1,210 @@
+# Migrated from tests/browser_math_global_this_root_core_suite.rs.
+#
+# RULE 12 (carry every source comment verbatim): `browser_math_global_this_root_core_suite.rs` has NO Rust
+# comments. Verified with `grep -nE '//' browser_math_global_this_root_core_suite.rs`, whose single hit is
+# line 11's `// kali-tree-shake:` marker -- that sits INSIDE the `r##"..."##` JS
+# bundle fixture, so it is program text carried verbatim into [source] below,
+# not Rust prose. There is therefore nothing to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it CLOSES EXACTLY.
+# 9 #[test] fns, 24 real invocations:
+#   * `assert_browser_bundle_global_this_math_core_suite(filename, json_output)`
+#     -- 8 unlooped #[test] fns = ext(js/ts/jsx/tsx) x json_output(false/true),
+#     a full cross product.
+#   * `run_and_test_supports_global_this_math_core_suite_when_browser_harness_is_configured_in_js_and_ts_input`
+#     -- ONE #[test] fn whose body is an INLINE loop over eight literal
+#     `(command, source_name, source, expected_stdout)` tuples -- ("run",
+#     "main.js"), ("test","smoke.test.js"), then the same pair for ts, jsx and
+#     tsx -- nested inside `for output_json in [false, true]`: 8 x 2 = 16
+#     invocations. (enumerate_invocations.py reports this fn as `UNPARSED (no
+#     helper call found)` because it builds its Command inline rather than
+#     calling a named helper; it is enumerated by hand above and mechanically by
+#     the loop-tuple extractor in tools/task-18-browser-pilot/
+#     gen_batch4_group_d.py, which asserts both the 8-tuple count and that the
+#     extensions run js, js, ts, ts, jsx, jsx, tsx, tsx.)
+# FACTUAL NOTE ON THE LOOPED FN'S NAME: it ends `_in_js_and_ts_input`, but its
+# body loops over jsx and tsx as well. The name is stale, the body is what runs,
+# and the body is what is migrated. This matters because it is exactly what makes
+# the matrix legal here -- unlike the sibling files
+# `math_floor_trunc_ceil_bracketed_root.toml` and
+# `math_log2_log10_bracketed_root.toml`,
+# whose bundle groups really do cover js/ts only and which therefore decline the
+# matrix. (Not a rule 12 / U7 item: a fn NAME is not a comment, and this file has
+# no Rust comments at all. Recorded here so the difference between these files is
+# not read as an inconsistency.)
+# `ext` is the one axis BOTH groups vary over uniformly and completely, so:
+# 6 [[case]] x ext(4) = 24 trials = 24 invocations = 9 #[test] fns' worth of
+# work. Exact, with nothing invented and nothing duplicated.
+# Per rule 6 the fold is stated here: each [[case]] below corresponds to 4 real
+# invocations, one per `ext` cell, and the assertion mapping stays 1:1 per trial.
+# `command` and `json_output` are NOT axes -- each changes the assertion SHAPE
+# rather than a substituted string (JSON envelope vs text stdout; `exitCode` for
+# `run` vs `total`/`passed`/`failed` for `test`), which design spec 5.6 excludes
+# from a matrix -- so they are sibling [[case]] entries instead.
+#
+# U2 -- [source] is file-wide and that is safe here: `app.${ext}`,
+# `main.${ext}` and `smoke.test.${ext}` are all written unconditionally into
+# a fresh temp dir, none sits behind an `if`, and no case's point is a file's
+# presence or absence. Every command names its entry on argv, so the two unused
+# siblings in a trial dir are inert. U5 needs no renaming: the three keys are
+# already distinct.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more. Every stdout claim
+# in this file is a PLAIN `.contains` -- there is no `.matches().count()`
+# anywhere, so no `stdout_count`/`json_count` appears, and no `*_contains` is
+# strengthened to an exact pin (ruling 3: a `.contains` against a field that has
+# a substring form stays a substring claim).
+# Bundle group: `exit = "success"` on the build and on the harness process; json
+# mode carries schemaVersion/command/success/exitCode and payload
+# artifactKind/bundleFormat -- the source asserts NO `errors` array, so none is
+# written; the emitted `app/app.meta.json` metadata in BOTH modes, since the
+# source reads it outside the `if json_output`; then the bundle-harness
+# `stdout_contains` of the source's five separate needles, in source order:
+# "3\n", "1\n", "-2\n", "31\n", "-1\n" (max=3, clz32(1)=31, min=1,
+# abs(-3)=3, sign(-3)=-1, imul(2147483647,2)=-2).
+# Harness group: `exit = "success"`; the plain-text branch asserts
+# `stdout.contains(expected_stdout)` against the loop's own literal
+# `"3
+# 1
+# 3
+# -1
+# -2
+# 31"` (pulled from the .rs, not retyped), carried as
+# `stdout_contains`; the json branch carries schemaVersion/command/success/
+# payload(hostContract, runtimeBackend), `exitCode` and `payload.exitCode` for
+# `run` or payload total/passed/failed for `test`, `stderr = ""`, and an exact
+# `json.stdout` pin.
+# THE ONE STRENGTHENING, live-verified: the json branch's claim is
+# `json["stdout"].as_str().contains(expected_stdout)`. A `json` path has no
+# substring form, so per controller ruling 3 it becomes an exact `json.stdout`
+# pin -- captured from the real `.cache/cargo-target/debug/kali` with `node` as
+# the harness backend for all EIGHT (command, ext) cells, every one of which
+# produced the identical `"3\n1\n3\n-1\n-2\n31\n"` (U9, never
+# hand-computed). That the value is identical across all four extensions is also
+# what lets the pin sit inside a matrix-fanned case at all. Every run satisfying
+# the pin satisfies the source's `.contains`, so this is a strengthening, not a
+# change of claim; the same disposition as the shipped
+# `math_exp_log_bracketed_root.toml`.
+# ARGV: the harness invocations pass `--max-threads 0 --max-spawned-processes 0`;
+# the bundle build does not. Mirrored per group.
+#
+# RULE 13 (transitive helper docs): every fn in each call chain was checked for a
+# `///` doc comment and none carries one -- the file's only `//` is the JS
+# tree-shake marker inside a fixture (see the rule 12 note above). The chain does
+# reach `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which carry one-line `///` docs, but in
+# the migrated form this case file never calls them: the `browser_bundle_harness`
+# step kind means the case RUNNER does (crates/kali_case_runner/src/steps.rs), so
+# those docs describe shared runner infrastructure (design spec 5.3), not what
+# this case claims. Every browser/ case file shipped before batch 4 does the
+# same.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: globalThisMathCoreSuite
+function globalThisMathCoreSuite() {
+  console.log(globalThis.Math.max(1, 2, 3));
+  console.log(globalThis.Math.min(3, 2, 1));
+  console.log(globalThis.Math.abs(3 - 6));
+  console.log(globalThis.Math.sign(3 - 6));
+  console.log(globalThis.Math.imul(2147483647, 2));
+  console.log(globalThis.Math.clz32(1));
+  return [
+    globalThis.Math.max(1, 2, 3),
+    globalThis.Math.min(3, 2, 1),
+    globalThis.Math.abs(3 - 6),
+    globalThis.Math.sign(3 - 6),
+    globalThis.Math.imul(2147483647, 2),
+    globalThis.Math.clz32(1),
+  ];
+}
+"""
+"main.${ext}" = """console.log(globalThis.Math.max(1, 2, 3));
+console.log(globalThis.Math.min(3, 2, 1));
+console.log(globalThis.Math.abs(3 - 6));
+console.log(globalThis.Math.sign(3 - 6));
+console.log(globalThis.Math.imul(2147483647, 2));
+console.log(globalThis.Math.clz32(1));
+"""
+"smoke.test.${ext}" = """Kali.test('globalThis math core suite', () => { console.log(globalThis.Math.max(1, 2, 3)); console.log(globalThis.Math.min(3, 2, 1)); console.log(globalThis.Math.abs(3 - 6)); console.log(globalThis.Math.sign(3 - 6)); console.log(globalThis.Math.imul(2147483647, 2)); console.log(globalThis.Math.clz32(1)); });
+"""
+
+[[case]]
+name = "build_emits_global_this_math_core_suite"
+rationale = """Migrated from browser_math_global_this_root_core_suite.rs. `assert_browser_bundle_global_this_math_core_suite` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the dotted globalThis.Math Math core-suite output: max(1,2,3)=3, min(3,2,1)=1, abs(3-6)=3, sign(3-6)=-1, imul(2147483647,2)=-2, clz32(1)=31. The source makes five separate plain `.contains` claims about that output, carried in source order as `stdout_contains`; they are substring claims against a field that has a substring form, so per controller ruling 3 they are not strengthened to an exact `stdout` pin."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathCoreSuite();
+"""
+exit = "success"
+stdout_contains = ["3\n", "1\n", "-2\n", "31\n", "-1\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_core_suite"
+rationale = """Migrated from browser_math_global_this_root_core_suite.rs. `assert_browser_bundle_global_this_math_core_suite` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the dotted globalThis.Math Math core-suite output: max(1,2,3)=3, min(3,2,1)=1, abs(3-6)=3, sign(3-6)=-1, imul(2147483647,2)=-2, clz32(1)=31. The source makes five separate plain `.contains` claims about that output, carried in source order as `stdout_contains`; they are substring claims against a field that has a substring form, so per controller ruling 3 they are not strengthened to an exact `stdout` pin. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat) instead of plain text; the source makes no `errors` claim on that envelope, so none is written."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathCoreSuite();
+"""
+exit = "success"
+stdout_contains = ["3\n", "1\n", "-2\n", "31\n", "-1\n"]
+
+[[case]]
+name = "run_supports_global_this_math_core_suite_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_global_this_root_core_suite.rs, from the inline loop in `run_and_test_supports_global_this_math_core_suite_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; the eight extension cells fold into this file's `ext` matrix axis (see the header's arithmetic) and the command/output-mode cells become sibling cases per rule 7. This case is the `run` / plain-text-output cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; its six dotted globalThis.Math Math calls print 3, 1, 3, -1, -2 and 31. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` against the loop's own literal, carried verbatim as `stdout_contains` and deliberately not strengthened to an exact `stdout` pin (ruling 3)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\n1\n3\n-1\n-2\n31"]
+
+[[case]]
+name = "test_supports_global_this_math_core_suite_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_global_this_root_core_suite.rs, from the inline loop in `run_and_test_supports_global_this_math_core_suite_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; the eight extension cells fold into this file's `ext` matrix axis (see the header's arithmetic) and the command/output-mode cells become sibling cases per rule 7. This case is the `test` / plain-text-output cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; its six dotted globalThis.Math Math calls print 3, 1, 3, -1, -2 and 31. The source's only stdout claim on this branch is `stdout.contains(expected_stdout)` against the loop's own literal, carried verbatim as `stdout_contains` and deliberately not strengthened to an exact `stdout` pin (ruling 3)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\n1\n3\n-1\n-2\n31"]
+
+[[case]]
+name = "json_run_supports_global_this_math_core_suite_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_global_this_root_core_suite.rs, from the inline loop in `run_and_test_supports_global_this_math_core_suite_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; the eight extension cells fold into this file's `ext` matrix axis (see the header's arithmetic) and the command/output-mode cells become sibling cases per rule 7. This case is the `run` / --output json cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; its six dotted globalThis.Math Math calls print 3, 1, 3, -1, -2 and 31. On this branch the source asserts `json["stdout"].as_str().contains(expected_stdout)`. A `json` path has no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for every extension cell (U9), never hand-computed, and checked to contain the source's own expected literal before being written. `stderr` is asserted exactly empty; the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "3\n1\n3\n-1\n-2\n31\n", stderr = "" }
+
+[[case]]
+name = "json_test_supports_global_this_math_core_suite_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_global_this_root_core_suite.rs, from the inline loop in `run_and_test_supports_global_this_math_core_suite_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source, expected_stdout) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; the eight extension cells fold into this file's `ext` matrix axis (see the header's arithmetic) and the command/output-mode cells become sibling cases per rule 7. This case is the `test` / --output json cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; its six dotted globalThis.Math Math calls print 3, 1, 3, -1, -2 and 31. On this branch the source asserts `json["stdout"].as_str().contains(expected_stdout)`. A `json` path has no substring form, so per controller ruling 3 that becomes an exact `json.stdout` pin -- live-captured from the real kali binary for every extension cell (U9), never hand-computed, and checked to contain the source's own expected literal before being written. `stderr` is asserted exactly empty; the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "3\n1\n3\n-1\n-2\n31\n", stderr = "" }

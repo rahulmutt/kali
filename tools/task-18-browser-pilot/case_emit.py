@@ -16,13 +16,14 @@ kind, entry, path, args, env, body, fields, exit, then the assertion keys in
 the order §5.4 lists them.
 """
 
-import sys
 import os
+import re
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from toml_emit import toml_string, toml_str_array  # noqa: E402
-from lexer import string_literals_in_range  # noqa: E402
+from lexer import string_literals_in_range, find_string_literals  # noqa: E402
 
 
 def fixture(rs_text, first_line, last_line, index=0):
@@ -42,6 +43,69 @@ def fixture(rs_text, first_line, last_line, index=0):
             f"wanted index {index}"
         )
     return lits[index]
+
+
+def fixture_in_fn(rs_text, fn_name, index=0):
+    """The index-th string literal inside `fn <fn_name>`'s body.
+
+    Prefer this over `fixture()`. Line ranges are NOT stable across a migration:
+    inserting or deleting a `//!` retention header shifts every line below it,
+    after which a hardcoded range silently extracts the WRONG literal and the
+    generated case file still parses. That happened on
+    browser_math_asinh_acosh_atanh_identities.rs in this batch -- deleting its
+    85-line header made `[source]` come out as
+    `"app.${ext}" = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND"`. Anchoring on the fn
+    name is immune to that, and it is also what a reader can check by eye.
+    """
+    marker = re.search(r"\bfn\s+" + re.escape(fn_name) + r"\s*[(<]", rs_text)
+    if not marker:
+        raise AssertionError(f"no `fn {fn_name}` in source")
+    brace = rs_text.find("{", marker.end() - 1)
+    if brace == -1:
+        raise AssertionError(f"no body brace for `fn {fn_name}`")
+    depth, i, n = 0, brace, len(rs_text)
+    while i < n:
+        if rs_text[i] == "{":
+            depth += 1
+        elif rs_text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    body = rs_text[brace:i + 1]
+    lits = [x["value"] for x in find_string_literals(body)]
+    if index >= len(lits):
+        raise AssertionError(
+            f"`fn {fn_name}` has {len(lits)} string literal(s), wanted index {index}")
+    return lits[index]
+
+
+def fixture_starting(rs_text, fn_name, prefix):
+    """The one string literal inside `fn <fn_name>` whose value starts with
+    `prefix`. Content-anchored, so it survives line shifts AND does not depend
+    on counting past every `.arg("...")` and `.expect("...")` literal in the
+    body. Fails if the prefix matches zero or more than one literal -- an
+    ambiguous match is a silent wrong-fixture bug otherwise.
+    """
+    marker = re.search(r"\bfn\s+" + re.escape(fn_name) + r"\s*[(<]", rs_text)
+    if not marker:
+        raise AssertionError(f"no `fn {fn_name}` in source")
+    brace = rs_text.find("{", marker.end() - 1)
+    depth, i, n = 0, brace, len(rs_text)
+    while i < n:
+        if rs_text[i] == "{":
+            depth += 1
+        elif rs_text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    hits = [x["value"] for x in find_string_literals(rs_text[brace:i + 1])
+            if x["value"].startswith(prefix)]
+    if len(hits) != 1:
+        raise AssertionError(
+            f"`fn {fn_name}`: {len(hits)} literal(s) start with {prefix!r}, wanted exactly 1")
+    return hits[0]
 
 
 def _toml_scalar(v):

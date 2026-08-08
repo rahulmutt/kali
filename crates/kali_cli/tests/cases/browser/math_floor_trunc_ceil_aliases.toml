@@ -1,0 +1,140 @@
+# Migrated from tests/browser_math_floor_trunc_ceil_aliases.rs.
+#
+# PARTIAL MIGRATION (U4 trim-and-keep) -- 16 of the file's 17 #[test] fns are
+# migrated here. The 17th,
+# `browser_harness_math_floor_trunc_ceil_source_includes_full_frozen_callable_
+# inventory`, is a FIXTURE SELF-INSPECTION test: it takes
+# `browser_harness_math_floor_trunc_ceil_run_source()` and asserts
+# `source.contains(expected)` for every `expected` in a runtime-computed
+# inventory returned by kali_common's math_floor_trunc_ceil_frozen_callable_
+# aliases. It builds no command, runs no binary, and asserts nothing about
+# behaviour -- it checks the fixture's own text against a list that exists only
+# at runtime. That claim has no expressible form in the case format (there is no
+# step kind that asserts about [source] text; [source] is program text by
+# construction, not a claim), and it is invisible to
+# audit-case-migration.py, whose `.contains()` extractor cannot tell a
+# fixture-text read from an output assertion and which excludes everything under
+# [source] from its search by design. Migrating it would produce a false green.
+# It is escalated per rule 3/4 and RETAINED hand-written; controller ruling 4 is
+# explicit that the audit script is NOT extended for this shape. No other fn in
+# this file reaches that construct -- the other 16 all route through
+# `assert_browser_harness_math_floor_trunc_ceil`, which never reads fixture text
+# -- so U4's trim-and-keep applies and exactly one test is retained.
+#
+# THE .rs HAS SINCE BEEN TRIMMED to exactly that one test plus the two fixture
+# builders it reads, carrying a `//!` retention header, on the same pattern as
+# cases/browser/math_atan2_global_this_root.toml's source. TWO CONSEQUENCES A
+# LATER READER MUST NOT MISREAD:
+#   * EVERY `:N` LINE CITATION IN THIS FILE IS A PRE-TRIM LINE NUMBER. Audit and
+#     diff this pair against the pre-trim source (git history), not against the
+#     working tree.
+#   * Running audit-case-migration.py on the POST-trim pair reports the retained
+#     fn's own needles as absent -- they live in the retained test and by ruling
+#     4 have no home here. Measured, not assumed. That is the documented
+#     escalation, not a drop; against the PRE-TRIM source the audit exits 0.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_floor_trunc_ceil_aliases.rs returns NOTHING -- the file has no Rust comments at
+# all. The only `//` anywhere in it is the "// kali-tree-shake:" marker inside a
+# JS fixture body, which is program text and is carried verbatim into [source].
+# There is therefore no prose to move into any `rationale`, and comment_coverage
+# is run with --allow-empty for this pair (ruling 5's floor exists precisely so
+# that an empty result is an explicit acknowledgement, not a vacuous green).
+# (The `//!` retention header added to the .rs is migration bookkeeping about the
+# retained test, not prose about behaviour under test, so it is not carried into
+# any rationale; comment_coverage will list its lines as missing for exactly
+# that reason.)
+#
+# RULE 8 / RULE 9 -- both fixtures are built by `format!` over
+# kali_common::math_floor_trunc_ceil_frozen_callable_invocation_lines, so their
+# resolved text appears in NO string literal in the .rs. The bodies in [source]
+# below are the byte-exact output of executing the real builders (a temporary
+# test target that `include!`d the .rs and dumped them), never a hand-applied
+# `{}` substitution. See this generator's header for the exact procedure.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, closes exactly, over the migrated 16.
+# Enumerated with enumerate_invocations.py: 16 fns, 16 single invocations, no
+# loops anywhere (the helper has no internal loop either -- checked by reading
+# it). Coverage is a complete cross product:
+#   command(run/test) x ext(js/ts/jsx/tsx) x json_output(false/true) = 16.
+# `ext` is the axis every case varies over uniformly and completely, so:
+# 4 [[case]] x ext(4) = 16 trials = the 16 migrated #[test] fns. Per rule 6 the
+# fold is stated here -- each [[case]] corresponds to 4 source fns, one per
+# cell, and the assertion mapping stays 1:1 per trial. `command` and
+# `json_output` are NOT axes: each changes the assertion SHAPE (JSON envelope vs
+# text stdout; `exitCode` for run vs total/passed/failed for test), which is
+# excluded from a matrix.
+#
+# U2 -- [source] is file-wide and that is safe here: both fixtures are written
+# unconditionally into a fresh temp dir, neither is behind an `if`, and no
+# case's point is a file's presence or absence.
+#
+# RULE 13 -- transitive helper docs. Every fn in each call chain was checked for
+# a `///` doc comment. None of this file's own helpers carries one. The chain
+# reaches kali_runtime_contract's browser_bundle_harness_script and
+# browser_harness_command_parts_for, which do carry one-line docs, but in the
+# migrated form this case file never calls them -- the browser_bundle_harness
+# step kind means the case RUNNER does (design spec 5.3), so those docs describe
+# shared runner infrastructure, not what this case claims. Every case file
+# shipped before this batch does the same.
+# The chain DOES reach documented library helpers in another crate --
+# kali_common's math_floor_trunc_ceil_frozen_callable_invocation_lines and
+# math_floor_trunc_ceil_frozen_callable_aliases -- which produce the fixture
+# text. Rule 13 states no "purely descriptive" exemption and explicitly includes
+# kali_common, so both `///` docs are carried verbatim into every rationale.
+#
+# ASSERTION SHAPE, mirrored and nothing more. This source asserts NO `errors`
+# array on the harness envelope (:78-96 -- compare its sibling
+# browser_math_hypot_global_this_root.rs, which does), so no `errors` claim is
+# written. The json branch DOES assert json["stderr"] == "" (:96). Raw-stdout
+# claims are two plain `.contains` calls (:99, :100) and stay stdout_contains.
+# The source passes NO --max-threads / --max-spawned-processes, so neither
+# appears on argv -- again unlike the hypot sibling.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """const value = 1.6; const alias = value; console.log(Math.floor(alias)); console.log(Math.trunc(alias)); console.log(Math.ceil(alias)); console.log(Object.freeze(globalThis.Math["floor"])(alias)); console.log(Object.freeze((globalThis.Math["floor"]))(alias)); console.log(Object.freeze(globalThis.Math['floor'])(alias)); console.log(Object.freeze((globalThis.Math['floor']))(alias)); console.log(Object.freeze(globalThis.Math.floor)(alias)); console.log(Object.freeze((globalThis.Math.floor))(alias)); console.log(Object.freeze(globalThis["Math"]["floor"])(alias)); console.log(Object.freeze((globalThis["Math"]["floor"]))(alias)); console.log(Object.freeze((globalThis["Math"]))["floor"](alias)); console.log(Object.freeze((globalThis["Math"]))['floor'](alias)); console.log(Object.freeze((globalThis.Math))["floor"](alias)); console.log(Object.freeze((globalThis.Math))['floor'](alias)); console.log(Object.freeze((globalThis['Math']))["floor"](alias)); console.log(Object.freeze((globalThis['Math']))['floor'](alias)); console.log(Object.freeze(globalThis["Math"]['floor'])(alias)); console.log(Object.freeze((globalThis["Math"]['floor']))(alias)); console.log(Object.freeze(globalThis["Math"].floor)(alias)); console.log(Object.freeze((globalThis["Math"])["floor"])(alias)); console.log(Object.freeze((globalThis['Math'])['floor'])(alias)); console.log(Object.freeze(globalThis['Math'].floor)(alias)); console.log(Object.freeze((globalThis['Math']).floor)(alias)); console.log(Object.freeze((globalThis["Math"]).floor)(alias)); console.log(Object.freeze((globalThis["Math"].floor))(alias)); console.log(Object.freeze(Math["floor"])(alias)); console.log(Object.freeze((Math["floor"]))(alias)); console.log(Object.freeze(Math['floor'])(alias)); console.log(Object.freeze((Math['floor']))(alias)); console.log(Object.freeze(globalThis.Math["trunc"])(alias)); console.log(Object.freeze((globalThis.Math["trunc"]))(alias)); console.log(Object.freeze(globalThis.Math['trunc'])(alias)); console.log(Object.freeze((globalThis.Math['trunc']))(alias)); console.log(Object.freeze(globalThis.Math.trunc)(alias)); console.log(Object.freeze((globalThis.Math.trunc))(alias)); console.log(Object.freeze(globalThis["Math"]["trunc"])(alias)); console.log(Object.freeze((globalThis["Math"]["trunc"]))(alias)); console.log(Object.freeze((globalThis["Math"]))["trunc"](alias)); console.log(Object.freeze((globalThis["Math"]))['trunc'](alias)); console.log(Object.freeze((globalThis.Math))["trunc"](alias)); console.log(Object.freeze((globalThis.Math))['trunc'](alias)); console.log(Object.freeze((globalThis['Math']))["trunc"](alias)); console.log(Object.freeze((globalThis['Math']))['trunc'](alias)); console.log(Object.freeze(globalThis["Math"]['trunc'])(alias)); console.log(Object.freeze((globalThis["Math"]['trunc']))(alias)); console.log(Object.freeze(globalThis["Math"].trunc)(alias)); console.log(Object.freeze((globalThis["Math"])["trunc"])(alias)); console.log(Object.freeze((globalThis['Math'])['trunc'])(alias)); console.log(Object.freeze(globalThis['Math'].trunc)(alias)); console.log(Object.freeze((globalThis['Math']).trunc)(alias)); console.log(Object.freeze((globalThis["Math"]).trunc)(alias)); console.log(Object.freeze((globalThis["Math"].trunc))(alias)); console.log(Object.freeze(Math["trunc"])(alias)); console.log(Object.freeze((Math["trunc"]))(alias)); console.log(Object.freeze(Math['trunc'])(alias)); console.log(Object.freeze((Math['trunc']))(alias)); console.log(Object.freeze(globalThis.Math["ceil"])(alias)); console.log(Object.freeze((globalThis.Math["ceil"]))(alias)); console.log(Object.freeze(globalThis.Math['ceil'])(alias)); console.log(Object.freeze((globalThis.Math['ceil']))(alias)); console.log(Object.freeze(globalThis.Math.ceil)(alias)); console.log(Object.freeze((globalThis.Math.ceil))(alias)); console.log(Object.freeze(globalThis["Math"]["ceil"])(alias)); console.log(Object.freeze((globalThis["Math"]["ceil"]))(alias)); console.log(Object.freeze((globalThis["Math"]))["ceil"](alias)); console.log(Object.freeze((globalThis["Math"]))['ceil'](alias)); console.log(Object.freeze((globalThis.Math))["ceil"](alias)); console.log(Object.freeze((globalThis.Math))['ceil'](alias)); console.log(Object.freeze((globalThis['Math']))["ceil"](alias)); console.log(Object.freeze((globalThis['Math']))['ceil'](alias)); console.log(Object.freeze(globalThis["Math"]['ceil'])(alias)); console.log(Object.freeze((globalThis["Math"]['ceil']))(alias)); console.log(Object.freeze(globalThis["Math"].ceil)(alias)); console.log(Object.freeze((globalThis["Math"])["ceil"])(alias)); console.log(Object.freeze((globalThis['Math'])['ceil'])(alias)); console.log(Object.freeze(globalThis['Math'].ceil)(alias)); console.log(Object.freeze((globalThis['Math']).ceil)(alias)); console.log(Object.freeze((globalThis["Math"]).ceil)(alias)); console.log(Object.freeze((globalThis["Math"].ceil))(alias)); console.log(Object.freeze(Math["ceil"])(alias)); console.log(Object.freeze((Math["ceil"]))(alias)); console.log(Object.freeze(Math['ceil'])(alias)); console.log(Object.freeze((Math['ceil']))(alias));
+"""
+"smoke.test.${ext}" = """Kali.test('math floor trunc ceil identities', () => {
+  const value = 1.6;
+  const alias = value;
+  console.log(Math.floor(alias));
+  console.log(Math.trunc(alias));
+  console.log(Math.ceil(alias));
+  console.log(Object.freeze(globalThis.Math["floor"])(alias)); console.log(Object.freeze((globalThis.Math["floor"]))(alias)); console.log(Object.freeze(globalThis.Math['floor'])(alias)); console.log(Object.freeze((globalThis.Math['floor']))(alias)); console.log(Object.freeze(globalThis.Math.floor)(alias)); console.log(Object.freeze((globalThis.Math.floor))(alias)); console.log(Object.freeze(globalThis["Math"]["floor"])(alias)); console.log(Object.freeze((globalThis["Math"]["floor"]))(alias)); console.log(Object.freeze((globalThis["Math"]))["floor"](alias)); console.log(Object.freeze((globalThis["Math"]))['floor'](alias)); console.log(Object.freeze((globalThis.Math))["floor"](alias)); console.log(Object.freeze((globalThis.Math))['floor'](alias)); console.log(Object.freeze((globalThis['Math']))["floor"](alias)); console.log(Object.freeze((globalThis['Math']))['floor'](alias)); console.log(Object.freeze(globalThis["Math"]['floor'])(alias)); console.log(Object.freeze((globalThis["Math"]['floor']))(alias)); console.log(Object.freeze(globalThis["Math"].floor)(alias)); console.log(Object.freeze((globalThis["Math"])["floor"])(alias)); console.log(Object.freeze((globalThis['Math'])['floor'])(alias)); console.log(Object.freeze(globalThis['Math'].floor)(alias)); console.log(Object.freeze((globalThis['Math']).floor)(alias)); console.log(Object.freeze((globalThis["Math"]).floor)(alias)); console.log(Object.freeze((globalThis["Math"].floor))(alias)); console.log(Object.freeze(Math["floor"])(alias)); console.log(Object.freeze((Math["floor"]))(alias)); console.log(Object.freeze(Math['floor'])(alias)); console.log(Object.freeze((Math['floor']))(alias)); console.log(Object.freeze(globalThis.Math["trunc"])(alias)); console.log(Object.freeze((globalThis.Math["trunc"]))(alias)); console.log(Object.freeze(globalThis.Math['trunc'])(alias)); console.log(Object.freeze((globalThis.Math['trunc']))(alias)); console.log(Object.freeze(globalThis.Math.trunc)(alias)); console.log(Object.freeze((globalThis.Math.trunc))(alias)); console.log(Object.freeze(globalThis["Math"]["trunc"])(alias)); console.log(Object.freeze((globalThis["Math"]["trunc"]))(alias)); console.log(Object.freeze((globalThis["Math"]))["trunc"](alias)); console.log(Object.freeze((globalThis["Math"]))['trunc'](alias)); console.log(Object.freeze((globalThis.Math))["trunc"](alias)); console.log(Object.freeze((globalThis.Math))['trunc'](alias)); console.log(Object.freeze((globalThis['Math']))["trunc"](alias)); console.log(Object.freeze((globalThis['Math']))['trunc'](alias)); console.log(Object.freeze(globalThis["Math"]['trunc'])(alias)); console.log(Object.freeze((globalThis["Math"]['trunc']))(alias)); console.log(Object.freeze(globalThis["Math"].trunc)(alias)); console.log(Object.freeze((globalThis["Math"])["trunc"])(alias)); console.log(Object.freeze((globalThis['Math'])['trunc'])(alias)); console.log(Object.freeze(globalThis['Math'].trunc)(alias)); console.log(Object.freeze((globalThis['Math']).trunc)(alias)); console.log(Object.freeze((globalThis["Math"]).trunc)(alias)); console.log(Object.freeze((globalThis["Math"].trunc))(alias)); console.log(Object.freeze(Math["trunc"])(alias)); console.log(Object.freeze((Math["trunc"]))(alias)); console.log(Object.freeze(Math['trunc'])(alias)); console.log(Object.freeze((Math['trunc']))(alias)); console.log(Object.freeze(globalThis.Math["ceil"])(alias)); console.log(Object.freeze((globalThis.Math["ceil"]))(alias)); console.log(Object.freeze(globalThis.Math['ceil'])(alias)); console.log(Object.freeze((globalThis.Math['ceil']))(alias)); console.log(Object.freeze(globalThis.Math.ceil)(alias)); console.log(Object.freeze((globalThis.Math.ceil))(alias)); console.log(Object.freeze(globalThis["Math"]["ceil"])(alias)); console.log(Object.freeze((globalThis["Math"]["ceil"]))(alias)); console.log(Object.freeze((globalThis["Math"]))["ceil"](alias)); console.log(Object.freeze((globalThis["Math"]))['ceil'](alias)); console.log(Object.freeze((globalThis.Math))["ceil"](alias)); console.log(Object.freeze((globalThis.Math))['ceil'](alias)); console.log(Object.freeze((globalThis['Math']))["ceil"](alias)); console.log(Object.freeze((globalThis['Math']))['ceil'](alias)); console.log(Object.freeze(globalThis["Math"]['ceil'])(alias)); console.log(Object.freeze((globalThis["Math"]['ceil']))(alias)); console.log(Object.freeze(globalThis["Math"].ceil)(alias)); console.log(Object.freeze((globalThis["Math"])["ceil"])(alias)); console.log(Object.freeze((globalThis['Math'])['ceil'])(alias)); console.log(Object.freeze(globalThis['Math'].ceil)(alias)); console.log(Object.freeze((globalThis['Math']).ceil)(alias)); console.log(Object.freeze((globalThis["Math"]).ceil)(alias)); console.log(Object.freeze((globalThis["Math"].ceil))(alias)); console.log(Object.freeze(Math["ceil"])(alias)); console.log(Object.freeze((Math["ceil"]))(alias)); console.log(Object.freeze(Math['ceil'])(alias)); console.log(Object.freeze((Math['ceil']))(alias));
+});
+"""
+
+[[case]]
+name = "run_supports_math_floor_trunc_ceil_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_floor_trunc_ceil_aliases.rs, the four `run_supports_math_floor_trunc_ceil_alias_chain_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_floor_trunc_ceil` runs `kali run --api browser` with the browser harness backed by node, against a program that computes Math.floor(1.6), Math.trunc(1.6) and Math.ceil(1.6) and then re-invokes every frozen callable alias in the canonical floor/trunc/ceil inventory, so 1 and 2 are both printed many times. Its two stdout claims here are `stdout.contains("1\\n")` and `stdout.contains("2\\n")` against raw stdout (:99-100). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical `console.log(...)` invocation lines for the supported `Math.floor` / `Math.trunc` / `Math.ceil` frozen callable aliases." and "Canonical frozen callable aliases for the supported `Math.floor` / `Math.trunc` / `Math.ceil` helper slice.""""
+args = ["run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "test_supports_math_floor_trunc_ceil_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_floor_trunc_ceil_aliases.rs, the four `test_supports_math_floor_trunc_ceil_alias_chain_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_floor_trunc_ceil` runs `kali test --api browser` with the browser harness backed by node, against a program that computes Math.floor(1.6), Math.trunc(1.6) and Math.ceil(1.6) and then re-invokes every frozen callable alias in the canonical floor/trunc/ceil inventory, so 1 and 2 are both printed many times. Its two stdout claims here are `stdout.contains("1\\n")` and `stdout.contains("2\\n")` against raw stdout (:99-100). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact stdout pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical `console.log(...)` invocation lines for the supported `Math.floor` / `Math.trunc` / `Math.ceil` frozen callable aliases." and "Canonical frozen callable aliases for the supported `Math.floor` / `Math.trunc` / `Math.ceil` helper slice.""""
+args = ["test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_run_supports_math_floor_trunc_ceil_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_floor_trunc_ceil_aliases.rs, the four `json_run_supports_math_floor_trunc_ceil_alias_chain_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_floor_trunc_ceil` runs `kali run --output json --api browser` with the browser harness backed by node, against a program that computes Math.floor(1.6), Math.trunc(1.6) and Math.ceil(1.6) and then re-invokes every frozen callable alias in the canonical floor/trunc/ceil inventory, so 1 and 2 are both printed many times. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (run), plus stderr exactly empty (:96). The source makes NO `errors` claim on this envelope, so none is written. Its two stdout claims here are `stdout.contains("1\\n")` and `stdout.contains("2\\n")` taken against json["stdout"] (:93-95). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical `console.log(...)` invocation lines for the supported `Math.floor` / `Math.trunc` / `Math.ceil` frozen callable aliases." and "Canonical frozen callable aliases for the supported `Math.floor` / `Math.trunc` / `Math.ceil` helper slice.""""
+args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "", stdout = "1\n1\n2\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n" }
+
+[[case]]
+name = "json_test_supports_math_floor_trunc_ceil_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_floor_trunc_ceil_aliases.rs, the four `json_test_supports_math_floor_trunc_ceil_alias_chain_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_floor_trunc_ceil` runs `kali test --output json --api browser` with the browser harness backed by node, against a program that computes Math.floor(1.6), Math.trunc(1.6) and Math.ceil(1.6) and then re-invokes every frozen callable alias in the canonical floor/trunc/ceil inventory, so 1 and 2 are both printed many times. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (test), plus stderr exactly empty (:96). The source makes NO `errors` claim on this envelope, so none is written. Its two stdout claims here are `stdout.contains("1\\n")` and `stdout.contains("2\\n")` taken against json["stdout"] (:93-95). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical `console.log(...)` invocation lines for the supported `Math.floor` / `Math.trunc` / `Math.ceil` frozen callable aliases." and "Canonical frozen callable aliases for the supported `Math.floor` / `Math.trunc` / `Math.ceil` helper slice.""""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "", stdout = "1\n1\n2\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n" }

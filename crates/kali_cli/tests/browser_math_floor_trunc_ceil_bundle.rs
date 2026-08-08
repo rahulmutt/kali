@@ -1,11 +1,56 @@
-use std::{fs, process::Command, sync::OnceLock};
-
-use serde_json::Value;
-use tempfile::tempdir;
-
-fn kali_bin() -> String {
-    std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
-}
+//! Task 18 batch 4 audit escalation, TRIMMED: this file now holds exactly the
+//! one `#[test]` its fixture-introspecting body blocks from migrating, plus the
+//! three fixture builders that test reads.
+//!
+//! It originally had 9 `#[test]` fns. The other 8 -- every `build_emits_*` and
+//! `json_build_emits_*` fn, one real invocation each of
+//! `assert_browser_bundle_math_floor_trunc_ceil_alias` -- ARE migrated, to
+//! `tests/cases/browser/math_floor_trunc_ceil_bundle.toml` (2 `[[case]]` x a
+//! file-wide `ext` `[matrix]` of js/ts/jsx/tsx = 8 trials, audited against the
+//! pre-trim source and green). That helper, `kali_bin()` and the
+//! `fs`/`Command`/`Value`/`tempdir` imports went with them; nothing left here
+//! is unused.
+//!
+//! WHAT BLOCKS THE ONE RETAINED TEST.
+//! `browser_bundle_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory`
+//! (`:87-96`) has no helper: its whole body is a single
+//! `assert!(source.contains(expected))` self-check (`:91-94`) run in a `for`
+//! loop over `kali_common::math_floor_trunc_ceil_frozen_callable_aliases()`,
+//! against `browser_bundle_math_floor_trunc_ceil_alias_source()`'s OWN TEXT
+//! (`:63-84`), before any command is built and without ever invoking `kali`.
+//!
+//! It is doubly unmigratable, and the second reason is the sharper one:
+//!   1. `scripts/audit-case-migration.py` extracts every `.contains(<literal>)`
+//!      argument as a claim and searches only the fields the case runner turns
+//!      into assertions; `[source]` is excluded from that search by
+//!      construction. A fixture-text read is indistinguishable to it from an
+//!      output assertion, so migrating this test would produce a false green.
+//!   2. There is no literal to migrate at all. The needle is `expected`, a
+//!      loop variable bound to a RUNTIME-COMPUTED inventory (81 alias
+//!      spellings today) returned by a `kali_common` function. The case format
+//!      has no step kind that asserts about `[source]` text, and no assertion
+//!      key whose needles come from another crate's function. The claim is not
+//!      expressible at any strength, which is rule 4's condition exactly.
+//!
+//! Same shape as the Task 18 pilot's `browser_math_pow_exponent_one.rs`, batch
+//! 2's `browser_array_from_set_map_bundle.rs` and batch 3's
+//! `browser_math_atan2_global_this_root.rs`; the controller has ruled the
+//! script is NOT extended for it (ruling 4), so this is escalated per rule 3/4
+//! and the affected test is retained hand-written. U4's trim-and-keep applied:
+//! this is a partial retention (1 of 9), not a whole-file one, and the trim is
+//! done -- this file is now exactly its retained remainder.
+//!
+//! CONSEQUENCE FOR THE GATES, measured rather than assumed. Auditing this
+//! POST-trim file against the shipped case file reports its claims absent, and
+//! `comment_coverage.py` reports this header's own lines as missing from every
+//! `rationale`. Both are expected for a trimmed retention: the header describes
+//! the RETAINED test, which by construction has no case. Audit the migrated 8
+//! against the PRE-TRIM source (git history), where the audit exits 0.
+//!
+//! This file must NOT be deleted by the family-wide sweep after batch 8. See
+//! `.superpowers/sdd/2026-07-29-test-binary-consolidation/
+//! task-18-batch4-report.md` for the full account.
+use std::sync::OnceLock;
 
 fn math_floor_trunc_ceil_frozen_callable_invocations() -> String {
     kali_common::math_floor_trunc_ceil_frozen_callable_invocation_lines("  ")
@@ -38,90 +83,6 @@ function mathFloorTruncCeilAliasChain() {{
         .as_str()
 }
 
-fn assert_browser_bundle_math_floor_trunc_ceil_alias(filename: &str, json_output: bool) {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join(filename);
-    fs::write(
-        &source_path,
-        browser_bundle_math_floor_trunc_ceil_alias_source(),
-    )
-    .expect("write source");
-
-    let mut command = Command::new(kali_bin());
-    command
-        .current_dir(dir.path())
-        .arg("build")
-        .arg("--bundle")
-        .arg("--api")
-        .arg("browser");
-    if json_output {
-        command.arg("--output").arg("json");
-    }
-    let output = command.arg(&source_path).output().expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if json_output {
-        let envelope: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
-        assert_eq!(envelope["schemaVersion"], 1);
-        assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["success"], true);
-        assert_eq!(envelope["exitCode"], 0);
-        let payload = envelope["payload"].as_object().expect("payload object");
-        assert_eq!(payload["artifactKind"], "bundle");
-        assert_eq!(payload["bundleFormat"], "esm");
-    }
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_eq!(metadata["apiSurface"], "browser");
-    assert_eq!(metadata["artifactKind"], "bundle");
-
-    let harness_path = bundle_dir
-        .parent()
-        .expect("bundle root parent")
-        .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime_contract::browser_bundle_harness_script(
-        "app",
-        false,
-        r#"const mod = await import(bundleJs.href);
-await mod.mathFloorTruncCeilAliasChain();
-"#,
-    );
-    fs::write(&harness_path, harness).expect("write browser bundle harness");
-
-    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
-        std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
-            .ok()
-            .as_deref(),
-    );
-    let harness_executable = harness_command.remove(0);
-    let output = Command::new(&harness_executable)
-        .current_dir(&bundle_dir)
-        .args(&harness_command)
-        .arg(&harness_path)
-        .output()
-        .expect("run browser bundle harness");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n"), "stdout: {stdout}");
-    assert!(stdout.contains("2\n"), "stdout: {stdout}");
-}
-
 #[test]
 fn browser_bundle_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory() {
     let source = browser_bundle_math_floor_trunc_ceil_alias_source();
@@ -132,44 +93,4 @@ fn browser_bundle_math_floor_trunc_ceil_source_includes_full_frozen_callable_inv
             "missing {expected} in source: {source}"
         );
     }
-}
-
-#[test]
-fn build_emits_math_floor_trunc_ceil_alias_chain_in_js_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.js", false);
-}
-
-#[test]
-fn build_emits_math_floor_trunc_ceil_alias_chain_in_ts_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.ts", false);
-}
-
-#[test]
-fn build_emits_math_floor_trunc_ceil_alias_chain_in_jsx_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.jsx", false);
-}
-
-#[test]
-fn build_emits_math_floor_trunc_ceil_alias_chain_in_tsx_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.tsx", false);
-}
-
-#[test]
-fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_js_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.js", true);
-}
-
-#[test]
-fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_ts_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.ts", true);
-}
-
-#[test]
-fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_jsx_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.jsx", true);
-}
-
-#[test]
-fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_tsx_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.tsx", true);
 }
