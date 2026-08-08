@@ -22,6 +22,10 @@
 # `assert_browser_bundle_global_this_math_atan2{,_source,_await_wrapped}` or
 # `assert_browser_harness_global_this_math_atan2`, none of which reads fixture
 # text), so U4's trim-and-keep applies and only that one test is retained.
+# The `.rs` has since been TRIMMED to exactly that one test and the fixture
+# builder it reads (batch 3, controller ruling on concern 5), so the 18 fns
+# migrated here no longer exist there -- audit this pair against the PRE-TRIM
+# source (`git show <batch commit>:...`), not the working tree.
 #
 # INVOCATION ARITHMETIC (rule 7), over the migrated 18. Every fn except
 # `build_emits_global_this_math_atan2_zero_slice_in_js_input` loops

@@ -3,18 +3,27 @@
 //!
 //! ALL 28 `#[test]` fns in this file reach
 //! `assert_browser_harness_generator_rejection_with_expected_messages`
-//! (`:140-204`) -- 16 of them indirectly, through the four-branch dispatcher
-//! `assert_browser_harness_generator_rejection` (`:112-138`), and 12 directly
+//! (`:162-226`) -- 16 of them indirectly, through the four-branch dispatcher
+//! `assert_browser_harness_generator_rejection` (`:134-160`), and 12 directly
 //! -- so U4's
 //! trim-and-keep degenerates to whole-file retention: there is no complementary
-//! migratable subset to split off. Two independent blockers, either of which
-//! alone would retain the file:
+//! migratable subset to split off. (Batch 3's two OTHER escalations,
+//! `browser_math_abs_sign_frozen_aliases.rs` and
+//! `browser_math_atan2_global_this_root.rs`, WERE trimmed to their one blocked
+//! test each; this one could not be, because there is no unblocked subset.)
+//!
+//! TWO INDEPENDENT GROUNDS, EITHER OF WHICH ALONE RETAINS THIS FILE. They are
+//! unrelated -- one is a tool blind spot, the other a format gap -- and they do
+//! not overlap in their fix. **Removing one does not make this file
+//! migratable.** A later reader who teaches `audit-case-migration.py` to see
+//! fixture self-inspection, or who adds an assertion key for quantified JSON
+//! arrays, must satisfy BOTH before reopening this target:
 //!
 //! (1) FIXTURE SELF-INSPECTION (audit blind spot; reaches 16 of the 28 fns).
-//!     `assert_browser_harness_generator_rejection` (`:112-138`) selects its
-//!     `expected_messages` by reading the JS fixture's OWN TEXT at `:120`,
-//!     `:122` and `:124` (the blocking construct is the `if`/`else if` chain
-//!     `:120-128`), before any command is built:
+//!     `assert_browser_harness_generator_rejection` (`:134-160`) selects its
+//!     `expected_messages` by reading the JS fixture's OWN TEXT at `:142`,
+//!     `:144` and `:146` (the blocking construct is the `if`/`else if` chain
+//!     `:142-150`), before any command is built:
 //!
 //!     ```text
 //!     if source.contains("(0, async function*") && matches!(command, "check" | "build") { ... }
@@ -36,7 +45,7 @@
 //!
 //! (2) UNIVERSALLY-QUANTIFIED JSON-ARRAY CLAIMS (format gap, spec 5.11; reaches
 //!     all 28 fns). In `--output json` mode the shared helper asserts, at
-//!     `:179`, `:180-183` and `:188-193`,
+//!     `:201`, `:202-205` and `:210-215`,
 //!
 //!     ```text
 //!     assert!(!errors.is_empty(), "errors array should not be empty");
@@ -56,6 +65,19 @@
 //!     Every one of the 28 fns runs the json branch, because each loops
 //!     `for json_output in [false, true]` inside its own body, so no fn is
 //!     wholly free of this gap.
+//!
+//!     ADJUDICATED: the human partner ruled these quantifiers are §5.11
+//!     outliers, in the same class as the `starts_with`/`lines()` sites that
+//!     §5.4's closing paragraph already places outside the assertion
+//!     vocabulary. **No eleventh assertion key is being added for them.** The
+//!     disposition is retention, not a format extension, and it is settled --
+//!     do not reopen it by proposing a `json.errors.*.code` wildcard or an
+//!     `errors_all_code` key. Three further `browser_*` targets carry the same
+//!     shape and fall in later batches
+//!     (`browser_non_literal_dynamic_import_harness_jsx_tsx.rs`,
+//!     `browser_math_pow_optional_chain_harness.rs`,
+//!     `browser_math_unsupported_member_calls_harness_jsx_tsx.rs`); they are
+//!     expected to be retained on this same ground.
 //!
 //! The non-json half of the file WOULD have migrated cleanly
 //! (`exit = 1` for `assert_eq!(output.status.code(), Some(1))`, and

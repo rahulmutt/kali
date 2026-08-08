@@ -13,7 +13,13 @@ Deliberately does NOT reuse the generators' machinery:
   * trial arithmetic is re-derived from `cargo test --list` output rather than
     from the generator's own case/matrix bookkeeping, and compared against the
     per-file expectation table below, which was written by reading the source
-    files -- not produced by the generators.
+    files -- not produced by the generators;
+
+  * for the two targets that were trimmed to their single audit-blocked
+    `#[test]` after migrating, the `.rs` is read out of the batch commit rather
+    than off disk, so the comparison is against the source the migration
+    actually saw (the same reason `audit-case-migration.py` must be pointed at
+    the pre-trim original).
 
 Usage: verify_batch3.py
 """
@@ -26,8 +32,35 @@ import tomllib
 TESTS = '/workspace/crates/kali_cli/tests'
 CASES = os.path.join(TESTS, 'cases', 'browser')
 
+# Two batch-3 targets were TRIMMED to their single audit-blocked `#[test]` after
+# migration (controller ruling on concern 5), so the working tree no longer holds
+# the fns or the fixtures their case files came from. Both the audit and this
+# sweep must compare against the source AS IT WAS, so the pre-trim text is read
+# out of the batch commit that shipped it rather than off disk.
+PRE_TRIM_REF = '50061950a4'
+PRE_TRIM = {
+    'browser_math_abs_sign_frozen_aliases': 25,   # #[test] fns before the trim
+    'browser_math_atan2_global_this_root': 19,
+}
+
+
+def source_text(rs_stem):
+    """The `.rs` as the migration saw it: from git for a trimmed target, from
+    disk otherwise."""
+    path = f'crates/kali_cli/tests/{rs_stem}.rs'
+    if rs_stem in PRE_TRIM:
+        p = subprocess.run(['git', 'show', f'{PRE_TRIM_REF}:{path}'],
+                           cwd='/workspace', capture_output=True, text=True)
+        if p.returncode != 0:
+            raise SystemExit(f'cannot read pre-trim {path} at {PRE_TRIM_REF}: '
+                             f'{p.stderr.strip()}')
+        return p.stdout
+    return open(os.path.join('/workspace', path), encoding='utf-8').read()
+
+
 # (rs stem, toml stem, #[test] fns in source, real invocations, expected trials)
-# Hand-derived by reading every call site and expanding every loop.
+# Hand-derived by reading every call site and expanding every loop. The fn count
+# is the PRE-TRIM count for the two trimmed targets.
 TABLE = [
     ('browser_for_await_object_string_enumeration_sequence_wrappers_js_input',
      'for_await_object_string_enumeration_sequence_wrappers_js_input', 5, 16, 16),
@@ -148,7 +181,7 @@ def main():
 
     print(f'{"case file":52} {"fns":>4} {"invoc":>6} {"trials":>7} {"src":>5}')
     for rs_stem, toml_stem, n_fns, n_invoc, n_trials in TABLE:
-        rs = open(os.path.join(TESTS, rs_stem + '.rs'), encoding='utf-8').read()
+        rs = source_text(rs_stem)
         real_fns = len(re.findall(r'^#\[test\]', rs, re.MULTILINE))
         got_trials = trials.get(toml_stem, 0)
         doc = tomllib.load(open(os.path.join(CASES, toml_stem + '.toml'), 'rb'))

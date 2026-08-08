@@ -24,7 +24,10 @@
 # `assert_browser_harness_global_this_math_abs_sign_frozen`, neither of which
 # reads fixture text -- so U4's trim-and-keep applies and only that one test
 # is
-# retained.
+# retained. The `.rs` has since been TRIMMED to exactly that one test and
+# the fixture builder it reads (batch 3, controller ruling on concern 5), so
+# the 24 fns migrated here no longer exist there -- audit this pair against
+# the PRE-TRIM source (`git show <batch commit>:...`), not the working tree.
 #
 # MATRIX ARITHMETIC (rule 7), over the migrated 24: 8 bundle fns
 # (ext(4) x json_output(2), all individual, no loops) + 16 harness fns

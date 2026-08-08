@@ -1,61 +1,51 @@
-//! Task 18 batch 3 audit escalation: ONE of this file's 25 `#[test]` fns is
-//! blocked from migration by the fixture self-inspection blind spot; the other
-//! 24 are migrated to `tests/cases/browser/math_abs_sign_frozen_aliases.toml`
-//! (6 `[[case]]` entries, `ext(4)` matrix-fanned to 24 trials, all green).
+//! Task 18 batch 3 audit escalation, TRIMMED: this file now holds exactly the
+//! one `#[test]` its fixture-introspecting body blocks from migrating, plus the
+//! single fixture builder that test reads.
 //!
-//! BLOCKED TEST (1 of 25, NOT all -- U4's trim-and-keep applies here, this is
-//! not a whole-file retention):
+//! It originally had 25 `#[test]` fns. The other 24 -- the 8
+//! `build_emits_*`/`json_build_emits_*` fns that called
+//! `assert_browser_bundle_global_this_math_abs_sign_frozen`, and the 16
+//! `run_supports_*`/`test_supports_*`/`json_*` fns that called
+//! `assert_browser_harness_global_this_math_abs_sign_frozen` -- are migrated to
+//! `tests/cases/browser/math_abs_sign_frozen_aliases.toml` (6 `[[case]]`
+//! entries, `ext = [js, ts, jsx, tsx]` matrix-fanned to 24 trials, audited
+//! against the pre-trim source and green). Both of those helpers, their two
+//! harness fixture builders, `kali_bin()` and the `fs`/`Command`/`Value`/
+//! `tempdir` imports went with them; nothing left here is unused.
+//!
+//! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen_math_aliases`
-//! (`:273-291`). It has no helper: its whole body is four
-//! `assert!(source.contains(<needle>))` self-checks run against
-//! `browser_bundle_global_this_math_abs_sign_frozen_source()`'s OWN TEXT
-//! (`:276`, `:280`, `:284`, `:288` -- the whole blocking construct is the
-//! four-`assert!` range `:275-290`),
-//! before any command is built and without ever invoking `kali`. The four
-//! blocking literals are `Object.freeze(globalThis.Math.abs)`,
-//! `Object.freeze(globalThis.Math.sign)`, `Object.freeze(Math.abs)` and
-//! `Object.freeze(Math.sign)`.
+//! (`:80-98`) has no helper: its whole body is four
+//! `assert!(source.contains(<needle>))` self-checks (`:82-97`)
+//! run against `browser_bundle_global_this_math_abs_sign_frozen_source()`'s OWN
+//! TEXT (`:50-77`), before any command is built and without ever
+//! invoking `kali`. The four blocking literals are
+//! `Object.freeze(globalThis.Math.abs)`, `Object.freeze(globalThis.Math.sign)`,
+//! `Object.freeze(Math.abs)` and `Object.freeze(Math.sign)`.
 //!
-//! WHY THE AUDIT CANNOT CARRY IT. `scripts/audit-case-migration.py` extracts
-//! every `.contains(<literal>)` argument as a claim and searches only the
-//! fields the case runner turns into assertions; `[source]` is excluded from
-//! that search by construction (its module docstring: "`body` and everything
-//! under `[source]` are program text, not claims about behavior"). These four
-//! literals are *read*, not *asserted on output*, so no honest migration can
-//! put them in an assertion field -- doing so would invent a claim the source
-//! never made -- and the audit therefore reports them absent no matter what
-//! the migrated `[source]` contains. Verified, not assumed: running
-//! `python3 scripts/audit-case-migration.py
-//! crates/kali_cli/tests/browser_math_abs_sign_frozen_aliases.rs
-//! crates/kali_cli/tests/cases/browser/math_abs_sign_frozen_aliases.toml`
-//! reports `AUDIT FAILED -- 4 claim(s) absent`, listing exactly those four
-//! literals and nothing else.
+//! `scripts/audit-case-migration.py` extracts every `.contains(<literal>)`
+//! argument as a claim and searches only the fields the case runner turns into
+//! assertions; `[source]` is excluded from that search by construction (its
+//! module docstring: "`body` and everything under `[source]` are program text,
+//! not claims about behavior"). These four literals are *read*, not *asserted
+//! on output*, so no honest migration can put them in an assertion field --
+//! doing so would invent a claim the source never made -- and the audit reports
+//! them absent no matter what the migrated `[source]` contains. Verified, not
+//! assumed: auditing the PRE-TRIM source against the shipped case file reports
+//! `AUDIT FAILED -- 4 claim(s) absent`, listing exactly those four literals and
+//! nothing else.
 //!
-//! This is the same shape as the Task 18 pilot's
-//! `browser_math_pow_exponent_one.rs` and batch 2's
-//! `browser_array_from_set_map_bundle.rs`. The controller has ruled that
-//! `audit-case-migration.py` is NOT extended for it (ruling 4), so it is
-//! escalated per rule 3/4 and the affected test is retained hand-written.
+//! Same shape as the Task 18 pilot's `browser_math_pow_exponent_one.rs` and
+//! batch 2's `browser_array_from_set_map_bundle.rs`. The controller has ruled
+//! that `audit-case-migration.py` is NOT extended for it (ruling 4), so this is
+//! escalated per rule 3/4 and the affected test is retained hand-written. U4's
+//! trim-and-keep applied: this is a partial retention, not a whole-file one,
+//! and the trim is done -- this file is now exactly its retained remainder.
 //!
-//! SCOPE OF THE RETENTION. Only the one `#[test]` above is retained. The other
-//! 24 fns route through `assert_browser_bundle_global_this_math_abs_sign_frozen`
-//! or `assert_browser_harness_global_this_math_abs_sign_frozen`; neither reads
-//! fixture text, and both migrated cleanly. Those 24 are still present in this
-//! file because batch 3's brief forbids deleting or trimming any `.rs` in this
-//! increment -- deletion is one family-wide operation after batch 8. At that
-//! sweep this file must be TRIMMED to the single blocked test and its two
-//! fixture builders, NOT deleted outright.
-//!
-//! See `.superpowers/sdd/2026-07-29-test-binary-consolidation/
+//! This file must NOT be deleted by the family-wide sweep after batch 8. See
+//! `.superpowers/sdd/2026-07-29-test-binary-consolidation/
 //! task-18-batch3-report.md` for the full account.
-use std::{fs, process::Command, sync::OnceLock};
-
-use serde_json::Value;
-use tempfile::tempdir;
-
-fn kali_bin() -> String {
-    std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
-}
+use std::sync::OnceLock;
 
 fn browser_bundle_global_this_math_abs_sign_frozen_source() -> &'static str {
     static SOURCE: OnceLock<String> = OnceLock::new();
@@ -86,189 +76,6 @@ function globalThisMathAbsSignFrozenAliases() {
         .as_str()
 }
 
-fn browser_harness_global_this_math_abs_sign_run_source() -> &'static str {
-    static SOURCE: OnceLock<String> = OnceLock::new();
-    SOURCE
-        .get_or_init(|| {
-            "const value = -3; const alias = value; console.log(globalThis.Math.abs(value)); console.log(globalThis.Math.sign(value)); console.log(Object.freeze(globalThis.Math.abs)(alias)); console.log(Object.freeze(globalThis.Math.sign)(alias)); console.log(Object.freeze(Math.abs)(alias)); console.log(Object.freeze(Math.sign)(alias));\n".to_string()
-        })
-        .as_str()
-}
-
-fn browser_harness_global_this_math_abs_sign_test_source() -> &'static str {
-    static SOURCE: OnceLock<String> = OnceLock::new();
-    SOURCE
-        .get_or_init(|| {
-            r#"Kali.test('globalThis.Math abs sign frozen aliases', () => {
-  const value = -3;
-  const alias = value;
-  console.log(globalThis.Math.abs(value));
-  console.log(globalThis.Math.sign(value));
-  console.log(Object.freeze(globalThis.Math.abs)(alias));
-  console.log(Object.freeze(globalThis.Math.sign)(alias));
-  console.log(Object.freeze(Math.abs)(alias));
-  console.log(Object.freeze(Math.sign)(alias));
-});
-"#
-            .to_string()
-        })
-        .as_str()
-}
-
-fn assert_browser_bundle_global_this_math_abs_sign_frozen(filename: &str, json_output: bool) {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join(filename);
-    fs::write(
-        &source_path,
-        browser_bundle_global_this_math_abs_sign_frozen_source(),
-    )
-    .expect("write source");
-
-    let mut command = Command::new(kali_bin());
-    command
-        .current_dir(dir.path())
-        .arg("build")
-        .arg("--bundle")
-        .arg("--api")
-        .arg("browser");
-    if json_output {
-        command.arg("--output").arg("json");
-    }
-    let output = command.arg(&source_path).output().expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if json_output {
-        let envelope: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
-        assert_eq!(envelope["schemaVersion"], 1);
-        assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["success"], true);
-        assert_eq!(envelope["exitCode"], 0);
-        let payload = envelope["payload"].as_object().expect("payload object");
-        assert_eq!(payload["artifactKind"], "bundle");
-        assert_eq!(payload["bundleFormat"], "esm");
-    }
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_eq!(metadata["apiSurface"], "browser");
-    assert_eq!(metadata["artifactKind"], "bundle");
-
-    let harness_path = bundle_dir
-        .parent()
-        .expect("bundle root parent")
-        .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime_contract::browser_bundle_harness_script(
-        "app",
-        false,
-        r#"const mod = await import(bundleJs.href);
-await mod.globalThisMathAbsSignFrozenAliases();
-"#,
-    );
-    fs::write(&harness_path, harness).expect("write browser bundle harness");
-
-    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
-        std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
-            .ok()
-            .as_deref(),
-    );
-    let harness_executable = harness_command.remove(0);
-    let output = Command::new(&harness_executable)
-        .current_dir(&bundle_dir)
-        .args(&harness_command)
-        .arg(&harness_path)
-        .output()
-        .expect("run browser bundle harness");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("3\n"), "stdout: {stdout}");
-    assert!(stdout.contains("-1\n"), "stdout: {stdout}");
-}
-
-fn assert_browser_harness_global_this_math_abs_sign_frozen(
-    command: &str,
-    filename: &str,
-    source: &str,
-    json_output: bool,
-) {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join(filename);
-    fs::write(&source_path, source).expect("write source");
-
-    let mut output = Command::new(kali_bin());
-    output
-        .current_dir(dir.path())
-        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
-    if json_output {
-        output.arg("--output").arg("json");
-    }
-    let output = output
-        .arg(command)
-        .arg("--api")
-        .arg("browser")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if json_output {
-        let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
-        assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], command);
-        assert_eq!(json["success"], true);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        if command == "run" {
-            assert_eq!(json["exitCode"], 0);
-            assert_eq!(json["payload"]["exitCode"], 0);
-        } else {
-            assert_eq!(json["payload"]["total"], 1);
-            assert_eq!(json["payload"]["passed"], 1);
-            assert_eq!(json["payload"]["failed"], 0);
-        }
-        assert!(
-            json["stdout"]
-                .as_str()
-                .expect("stdout string")
-                .contains("3\n"),
-            "json: {json}"
-        );
-        assert!(
-            json["stdout"]
-                .as_str()
-                .expect("stdout string")
-                .contains("-1\n"),
-            "json: {json}"
-        );
-        assert_eq!(json["stderr"], "");
-        assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
-    } else {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("3\n"), "stdout: {stdout}");
-        assert!(stdout.contains("-1\n"), "stdout: {stdout}");
-    }
-}
-
 #[test]
 fn browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen_math_aliases() {
     let source = browser_bundle_global_this_math_abs_sign_frozen_source();
@@ -287,221 +94,5 @@ fn browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen
     assert!(
         source.contains("Object.freeze(Math.sign)"),
         "source: {source}"
-    );
-}
-
-#[test]
-fn build_emits_global_this_math_abs_sign_frozen_aliases_in_js_input() {
-    assert_browser_bundle_global_this_math_abs_sign_frozen("app.js", false);
-}
-
-#[test]
-fn build_emits_global_this_math_abs_sign_frozen_aliases_in_ts_input() {
-    assert_browser_bundle_global_this_math_abs_sign_frozen("app.ts", false);
-}
-
-#[test]
-fn build_emits_global_this_math_abs_sign_frozen_aliases_in_jsx_input() {
-    assert_browser_bundle_global_this_math_abs_sign_frozen("app.jsx", false);
-}
-
-#[test]
-fn build_emits_global_this_math_abs_sign_frozen_aliases_in_tsx_input() {
-    assert_browser_bundle_global_this_math_abs_sign_frozen("app.tsx", false);
-}
-
-#[test]
-fn json_build_emits_global_this_math_abs_sign_frozen_aliases_in_js_input() {
-    assert_browser_bundle_global_this_math_abs_sign_frozen("app.js", true);
-}
-
-#[test]
-fn json_build_emits_global_this_math_abs_sign_frozen_aliases_in_ts_input() {
-    assert_browser_bundle_global_this_math_abs_sign_frozen("app.ts", true);
-}
-
-#[test]
-fn json_build_emits_global_this_math_abs_sign_frozen_aliases_in_jsx_input() {
-    assert_browser_bundle_global_this_math_abs_sign_frozen("app.jsx", true);
-}
-
-#[test]
-fn json_build_emits_global_this_math_abs_sign_frozen_aliases_in_tsx_input() {
-    assert_browser_bundle_global_this_math_abs_sign_frozen("app.tsx", true);
-}
-
-#[test]
-fn run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_js_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "run",
-        "main.js",
-        browser_harness_global_this_math_abs_sign_run_source(),
-        false,
-    );
-}
-
-#[test]
-fn run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_ts_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "run",
-        "main.ts",
-        browser_harness_global_this_math_abs_sign_run_source(),
-        false,
-    );
-}
-
-#[test]
-fn run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_jsx_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "run",
-        "main.jsx",
-        browser_harness_global_this_math_abs_sign_run_source(),
-        false,
-    );
-}
-
-#[test]
-fn run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_tsx_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "run",
-        "main.tsx",
-        browser_harness_global_this_math_abs_sign_run_source(),
-        false,
-    );
-}
-
-#[test]
-fn test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_js_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "test",
-        "smoke.test.js",
-        browser_harness_global_this_math_abs_sign_test_source(),
-        false,
-    );
-}
-
-#[test]
-fn test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_ts_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "test",
-        "smoke.test.ts",
-        browser_harness_global_this_math_abs_sign_test_source(),
-        false,
-    );
-}
-
-#[test]
-fn test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_jsx_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "test",
-        "smoke.test.jsx",
-        browser_harness_global_this_math_abs_sign_test_source(),
-        false,
-    );
-}
-
-#[test]
-fn test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_tsx_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "test",
-        "smoke.test.tsx",
-        browser_harness_global_this_math_abs_sign_test_source(),
-        false,
-    );
-}
-
-#[test]
-fn json_run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_js_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "run",
-        "main.js",
-        browser_harness_global_this_math_abs_sign_run_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_ts_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "run",
-        "main.ts",
-        browser_harness_global_this_math_abs_sign_run_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_jsx_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "run",
-        "main.jsx",
-        browser_harness_global_this_math_abs_sign_run_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_tsx_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "run",
-        "main.tsx",
-        browser_harness_global_this_math_abs_sign_run_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_js_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "test",
-        "smoke.test.js",
-        browser_harness_global_this_math_abs_sign_test_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_ts_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "test",
-        "smoke.test.ts",
-        browser_harness_global_this_math_abs_sign_test_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_jsx_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "test",
-        "smoke.test.jsx",
-        browser_harness_global_this_math_abs_sign_test_source(),
-        true,
-    );
-}
-
-#[test]
-fn json_test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured_in_tsx_input(
-) {
-    assert_browser_harness_global_this_math_abs_sign_frozen(
-        "test",
-        "smoke.test.tsx",
-        browser_harness_global_this_math_abs_sign_test_source(),
-        true,
     );
 }
