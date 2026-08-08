@@ -1,3 +1,72 @@
+//! Task 18 batch 3 escalation: kept 100% hand-written, not migrated. No case
+//! file exists for this target.
+//!
+//! ALL 28 `#[test]` fns in this file reach
+//! `assert_browser_harness_generator_rejection_with_expected_messages`
+//! (`:140-204`) -- 16 of them indirectly, through the four-branch dispatcher
+//! `assert_browser_harness_generator_rejection` (`:112-138`), and 12 directly
+//! -- so U4's
+//! trim-and-keep degenerates to whole-file retention: there is no complementary
+//! migratable subset to split off. Two independent blockers, either of which
+//! alone would retain the file:
+//!
+//! (1) FIXTURE SELF-INSPECTION (audit blind spot; reaches 16 of the 28 fns).
+//!     `assert_browser_harness_generator_rejection` (`:112-138`) selects its
+//!     `expected_messages` by reading the JS fixture's OWN TEXT at `:120`,
+//!     `:122` and `:124` (the blocking construct is the `if`/`else if` chain
+//!     `:120-128`), before any command is built:
+//!
+//!     ```text
+//!     if source.contains("(0, async function*") && matches!(command, "check" | "build") { ... }
+//!     else if source.contains("yield*") { ... }
+//!     else if source.contains("async function*") { ... }
+//!     ```
+//!
+//!     `scripts/audit-case-migration.py` extracts each of those three
+//!     `.contains` arguments as a claim, and `[source]` is excluded from its
+//!     search by construction, so a migration reports them absent no matter
+//!     what it contains -- they are read, never asserted on output. Verified,
+//!     not assumed: a throwaway draft `.toml` carrying the strongest assertions
+//!     the format can express for this file was audited against it and reported
+//!     `AUDIT FAILED`, naming `(0, async function*` and `async function*` (the
+//!     third needle, `yield*`, happens to survive only because it is a
+//!     substring of the asserted message text `yield* delegation`). The
+//!     controller has ruled the script is NOT extended for this shape
+//!     (ruling 4).
+//!
+//! (2) UNIVERSALLY-QUANTIFIED JSON-ARRAY CLAIMS (format gap, spec 5.11; reaches
+//!     all 28 fns). In `--output json` mode the shared helper asserts, at
+//!     `:179`, `:180-183` and `:188-193`,
+//!
+//!     ```text
+//!     assert!(!errors.is_empty(), "errors array should not be empty");
+//!     assert!(errors.iter().all(|error| error["code"] == "E5506"), ...);
+//!     assert!(expected_messages.iter().all(|expected| messages.iter().any(|m| m.contains(expected))), ...);
+//!     ```
+//!
+//!     Both are universal quantifiers over the `errors` array. The case-file
+//!     format offers only closed dotted-path indexing into JSON -- design spec
+//!     5.4 is explicit that there are "no slices, no wildcards, no
+//!     negative-from-end indexing, no filters" -- so `json.errors.0.code` can
+//!     pin the FIRST error and nothing more. Narrowing "every error's code is
+//!     E5506" to "error 0's code is E5506" is a weakening (a second,
+//!     differently-coded diagnostic would satisfy the migration and fail the
+//!     source), and rule 1 forbids weakening. Pinning `payload.errorCount` to
+//!     restore the strength would add a claim the source never makes (rule 2).
+//!     Every one of the 28 fns runs the json branch, because each loops
+//!     `for json_output in [false, true]` inside its own body, so no fn is
+//!     wholly free of this gap.
+//!
+//! The non-json half of the file WOULD have migrated cleanly
+//! (`exit = 1` for `assert_eq!(output.status.code(), Some(1))`, and
+//! `stderr_contains = ["E5506", <expected message>]`), but a source `#[test]`
+//! fn cannot be split across the two halves: each fn's own inner
+//! `for json_output in [false, true]` loop runs both.
+//!
+//! Escalated per rule 3/4 rather than shipped with a false green or a
+//! fabricated claim. This file must NOT be deleted by the family-wide sweep
+//! after batch 8. See `.superpowers/sdd/2026-07-29-test-binary-consolidation/
+//! task-18-batch3-report.md` for the full account.
 use std::{fs, process::Command};
 
 use serde_json::Value;

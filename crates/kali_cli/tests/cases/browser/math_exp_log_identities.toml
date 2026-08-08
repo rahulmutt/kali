@@ -1,0 +1,77 @@
+# Migrated from tests/browser_math_exp_log_identities.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# MATRIX ARITHMETIC (rule 7): all 16 #[test] fns are individual (no loops)
+# calls
+# to the single helper `assert_browser_harness_math_exp_log(command, filename,
+# source, json_output)` = command(run/test) x ext(js/ts/jsx/tsx) x
+# json_output(2) = 16 invocations, uniform over `ext`. `ext` is hoisted to a
+# file-level [matrix] axis: 16 fns collapse to 4 [[case]] entries, matrix-
+# fanned
+# to 16 trials, matching exactly. This file has no bundle group.
+#
+# ASSERTION SHAPE. `exit = "success"`. Non-json: `stdout_contains = ["1\n",
+# "0\n"]`, mirroring source's two plain `.contains` checks. Json:
+# schemaVersion/command/success/payload(hostContract, runtimeBackend), then
+# `json["exitCode"]`/`payload.exitCode` for "run" or
+# `payload.total/passed/failed` for "test", `stderr = ""`, and an exact
+# `json.stdout` pin resolving source's two `json["stdout"].contains(...)`
+# claims
+# -- a nested `json` leaf has no substring form, so it is pinned exactly and
+# only
+# after live-capturing the value from the real `kali` binary. This helper's
+# argv
+# carries no `--max-threads`/`--max-spawned-processes` throttle, and it sets
+# the
+# env var by its literal name rather than through
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV`; both are the same
+# `KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node`, mirrored exactly.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """const zero = 0; const one = 1; console.log(Math.exp(zero)); console.log(Math.log(one));
+"""
+"smoke.test.${ext}" = """Kali.test('math exp/log identities', () => {
+  const zero = 0;
+  const one = 1;
+  console.log(Math.exp(zero));
+  console.log(Math.log(one));
+});
+"""
+
+[[case]]
+name = "run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp_log_identities.rs. `assert_browser_harness_math_exp_log("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1\\n` and `0\\n`; plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials (see the file header's arithmetic)."""
+args = ["run", "--api", "browser", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp_log_identities.rs. `assert_browser_harness_math_exp_log("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1\\n` and `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's two `.contains()` checks. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials (see the file header's arithmetic)."""
+args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "1\n0\n", "stderr" = "" }
+
+[[case]]
+name = "test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp_log_identities.rs. `assert_browser_harness_math_exp_log("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1\\n` and `0\\n`; plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials (see the file header's arithmetic)."""
+args = ["test", "--api", "browser", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp_log_identities.rs. `assert_browser_harness_math_exp_log("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1\\n` and `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's two `.contains()` checks. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials (see the file header's arithmetic)."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "1\n0\n", "stderr" = "" }

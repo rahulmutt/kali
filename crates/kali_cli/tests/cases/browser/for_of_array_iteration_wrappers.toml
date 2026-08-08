@@ -1,0 +1,148 @@
+# Migrated from tests/browser_for_of_array_iteration_wrappers.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# MATRIX ARITHMETIC (rule 7): all 16 #[test] fns are individual (no loops
+# anywhere in this file) and funnel through the single helper
+# `assert_browser_bundle_for_of_wrapper(filename, json_output, source,
+# harness_function)`, one call per (variant, ext, json_output) triple. Two
+# distinct fixture bodies/variants (as_const, satisfies), each exercised
+# across
+# all four extensions in both json_output states:
+#   as_const:  4 (false) + 4 (true) = 8
+#   satisfies: 4 (false) + 4 (true) = 8
+# Total 16 invocations = variant(2) x ext(4) x json_output(2) exactly, uniform
+# across every case. `ext` is hoisted to a file-level [matrix] axis: 16
+# #[test]
+# fns collapse to 4 [[case]] entries (build/json_build x as_const/satisfies),
+# matrix-fanned to 16 trials, matching the 16 real invocations exactly.
+#
+# [source] KEY DISAMBIGUATION (U5): source reuses the bare filename
+# `app.<ext>`
+# for both fixture bodies (safe there -- each #[test] gets its own private
+# tempdir), but the case-file `[source]` table is one flat file-wide namespace
+# that cannot hold two bodies under one key. Renamed to
+# `app_as_const.<ext>`/`app_satisfies.<ext>`; because `kali build --bundle`
+# names
+# its output directory after the input STEM, the `file_json` `path` and the
+# harness `entry` track the rename rather than staying hardcoded to `app`.
+# Neither fixture body references its own filename by string (no
+# `import()`/`require()` -- they are plain `kali build --bundle` entry
+# points),
+# so the rename changes no claim.
+#
+# `exit = "success"` carries `assert!(output.status.success())`. The harness
+# step's `stdout_contains = ["1\n", "2\n"]` mirrors source's own two plain
+# `.contains` checks (controller ruling 3: a plain `.contains` against a field
+# that HAS a substring form stays `*_contains`). Rule 8: each harness `body`
+# was
+# produced by EXECUTING the real `format!` from source, not hand-substituted.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app_as_const.${ext}" = """// kali-tree-shake: forOfArrayIterationAsConstWrapper
+function forOfArrayIterationAsConstWrapper() {
+  const value = 2;
+  for (const item of ([1, (value)] as const)) {
+    console.log(item);
+  }
+}
+"""
+"app_satisfies.${ext}" = """// kali-tree-shake: forOfArrayIterationSatisfiesWrapper
+function forOfArrayIterationSatisfiesWrapper() {
+  const value = 2;
+  for (const item of ([1, (value)] satisfies readonly [1, 2])) {
+    console.log(item);
+  }
+}
+"""
+
+[[case]]
+name = "build_emits_for_of_as_const_wrapper"
+rationale = """Migrated from browser_for_of_array_iteration_wrappers.rs. `assert_browser_bundle_for_of_wrapper` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_as_const/app_as_const.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed as-const-wrapped iteration output (both `1` and `2`). `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(variant,ext,json_output) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`) because the `[source]` table is one flat file-wide namespace and source reused the bare name `app.<ext>` for both private-tempdir fixture bodies; no assertion pins the literal filename and neither body references its own filename by string, so the rename is safe. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened to an exact pin."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_as_const.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_as_const/app_as_const.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_as_const"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationAsConstWrapper();
+"""
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_of_as_const_wrapper"
+rationale = """Migrated from browser_for_of_array_iteration_wrappers.rs. `assert_browser_bundle_for_of_wrapper` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_as_const/app_as_const.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed as-const-wrapped iteration output (both `1` and `2`). `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(variant,ext,json_output) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`) because the `[source]` table is one flat file-wide namespace and source reused the bare name `app.<ext>` for both private-tempdir fixture bodies; no assertion pins the literal filename and neither body references its own filename by string, so the rename is safe. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened to an exact pin."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_as_const.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_as_const/app_as_const.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_as_const"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationAsConstWrapper();
+"""
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "build_emits_for_of_satisfies_wrapper"
+rationale = """Migrated from browser_for_of_array_iteration_wrappers.rs. `assert_browser_bundle_for_of_wrapper` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_satisfies/app_satisfies.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed satisfies-wrapped iteration output (both `1` and `2`). `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(variant,ext,json_output) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`) because the `[source]` table is one flat file-wide namespace and source reused the bare name `app.<ext>` for both private-tempdir fixture bodies; no assertion pins the literal filename and neither body references its own filename by string, so the rename is safe. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened to an exact pin."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_satisfies.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_satisfies/app_satisfies.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_satisfies"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationSatisfiesWrapper();
+"""
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_of_satisfies_wrapper"
+rationale = """Migrated from browser_for_of_array_iteration_wrappers.rs. `assert_browser_bundle_for_of_wrapper` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_satisfies/app_satisfies.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed satisfies-wrapped iteration output (both `1` and `2`). `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(variant,ext,json_output) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`) because the `[source]` table is one flat file-wide namespace and source reused the bare name `app.<ext>` for both private-tempdir fixture bodies; no assertion pins the literal filename and neither body references its own filename by string, so the rename is safe. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened to an exact pin."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_satisfies.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_satisfies/app_satisfies.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_satisfies"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationSatisfiesWrapper();
+"""
+stdout_contains = ["1\n", "2\n"]

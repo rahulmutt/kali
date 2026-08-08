@@ -1,0 +1,447 @@
+# Migrated from
+# tests/browser_for_of_array_iteration_harness_wrappers_js_input.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# NO [matrix] (rule 7 / U1): all 40 #[test] fns are individual calls (zero
+# loops
+# anywhere in this file -- confirmed by reading every fn body) to
+# `assert_browser_harness_for_of_wrapper(command, filename, source,
+# json_output)`, but the three fixture variants are NOT uniform over `ext`.
+# Checked directly against the real fn list, not inferred from the first few
+# fns: `satisfies` is exercised in ONLY js and tsx (there is no
+# `..._satisfies_wrapper..._ts_input` or `..._jsx_input` fn), while `as_const`
+# and `parenthesized_const_alias` each cover all of js/ts/jsx/tsx. Arithmetic:
+#   as_const:                  4 ext x command(2) x json_output(2) = 16
+#   satisfies:                 2 ext x command(2) x json_output(2) =  8
+#   parenthesized_const_alias: 4 ext x command(2) x json_output(2) = 16
+# Total 40 invocations = 40 #[test] fns = 40 [[case]] entries below, 1:1. A
+# file-level `ext` axis would either invent untested (satisfies,
+# ts)/(satisfies,
+# jsx) cases -- a rule-2 violation, since `expand()` fans EVERY [[case]] by
+# the
+# full cross-product with no per-case opt-out -- or require excluding a case
+# from
+# an axis the format cannot express. Declined for the whole file.
+#
+# [source] KEY DISAMBIGUATION (U5): source reuses the bare filename
+# `main.<ext>`
+# across all three variants (safe there -- each #[test] gets its own private
+# tempdir); the flat file-wide `[source]` table cannot hold three bodies under
+# one key, so the stems become `main_<variant>.<ext>`. The filename is only
+# ever
+# the bare CLI positional argument; no fixture body references its own
+# filename
+# by string (no `import()`/`require()` anywhere in the three source fns), so
+# the
+# rename changes no claim. Only the (variant, ext) pairs source actually
+# exercises are declared, so no unreferenced fixture is written.
+#
+# ASSERTION SHAPE. `exit = "success"` folds both
+# `assert!(output.status.success())` and `assert_eq!(output.status.code(),
+# Some(0))`. Non-json: source calls
+# `assert_browser_for_of_array_iteration(&stdout)`,
+# whose body is `assert!(output.contains("1"))` /
+# `assert!(output.contains("2"))`
+# -- a genuine substring claim, mirrored as `stdout_contains = ["1", "2"]`
+# rather
+# than weakened or gratuitously strengthened (controller ruling 3). Json:
+# source
+# asserts schemaVersion/command/success/payload(hostContract, runtimeBackend),
+# `json["stdout"].contains("1")` and `...("2")`, `json["stderr"] == ""`, and
+# `json["errors"].is_empty()`. The nested `json` leaf has no substring form,
+# so
+# the two stdout `.contains` claims resolve to one exact pin, live-captured
+# from
+# the real `kali` binary per variant and command -- a verified strengthening.
+# Source's json branch makes no top-level `exitCode` or `payload.total` claim
+# in
+# this file; none is added (rule 2).
+
+[source]
+"main_as_const.js" = """// kali-tree-shake: forOfArrayIterationAsConstWrapper
+const value = 2;
+for (const item of ([1, (value)] as const)) {
+  console.log(item);
+}
+"""
+"main_as_const.ts" = """// kali-tree-shake: forOfArrayIterationAsConstWrapper
+const value = 2;
+for (const item of ([1, (value)] as const)) {
+  console.log(item);
+}
+"""
+"main_as_const.jsx" = """// kali-tree-shake: forOfArrayIterationAsConstWrapper
+const value = 2;
+for (const item of ([1, (value)] as const)) {
+  console.log(item);
+}
+"""
+"main_as_const.tsx" = """// kali-tree-shake: forOfArrayIterationAsConstWrapper
+const value = 2;
+for (const item of ([1, (value)] as const)) {
+  console.log(item);
+}
+"""
+"main_satisfies.js" = """// kali-tree-shake: forOfArrayIterationSatisfiesWrapper
+const value = 2;
+for (const item of ([1, (value)] satisfies readonly [1, 2])) {
+  console.log(item);
+}
+"""
+"main_satisfies.tsx" = """// kali-tree-shake: forOfArrayIterationSatisfiesWrapper
+const value = 2;
+for (const item of ([1, (value)] satisfies readonly [1, 2])) {
+  console.log(item);
+}
+"""
+"main_parenthesized_const_alias.js" = """// kali-tree-shake: forOfArrayIterationParenthesizedConstAliasWrapper
+const value = 2;
+const values = ([1, (value)]);
+for (const item of (values)) {
+  console.log(item);
+}
+"""
+"main_parenthesized_const_alias.ts" = """// kali-tree-shake: forOfArrayIterationParenthesizedConstAliasWrapper
+const value = 2;
+const values = ([1, (value)]);
+for (const item of (values)) {
+  console.log(item);
+}
+"""
+"main_parenthesized_const_alias.jsx" = """// kali-tree-shake: forOfArrayIterationParenthesizedConstAliasWrapper
+const value = 2;
+const values = ([1, (value)]);
+for (const item of (values)) {
+  console.log(item);
+}
+"""
+"main_parenthesized_const_alias.tsx" = """// kali-tree-shake: forOfArrayIterationParenthesizedConstAliasWrapper
+const value = 2;
+const values = ([1, (value)]);
+for (const item of (values)) {
+  console.log(item);
+}
+"""
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_as_const.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_satisfies.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source's non-json assertion is `assert_browser_for_of_array_iteration(&stdout)`, i.e. `output.contains("1")` and `output.contains("2")` -- a genuine substring claim, mirrored as `stdout_contains` rather than strengthened to an exact match source never claimed. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_harness_wrappers_js_input.rs. Every one of this file's 40 #[test] fns is an individual (zero-loop) call to `assert_browser_harness_for_of_wrapper(command, filename, source, json_output)`. No [matrix]: the `satisfies` variant is exercised in only js and tsx (not ts/jsx), so a file-level `ext` axis would either invent an untested (satisfies, ts)/(satisfies, jsx) case or require excluding a case from an axis the format cannot express. Source asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`; a nested `json` leaf has no substring-assertion form in this format, so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `[source]` filenames are disambiguated with a variant-suffix stem (`main_<variant>.<ext>`) because source reuses the bare name `main.<ext>` across all three variants and the `[source]` table is one flat file-wide namespace; the filename is only ever the bare CLI positional argument, never read back inside a fixture body, so renaming it changes no claim."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_parenthesized_const_alias.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }

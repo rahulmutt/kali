@@ -1,0 +1,83 @@
+# Migrated from
+# tests/browser_math_atan2_trailing_argument_evaluation_bundle.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# MATRIX ARITHMETIC (rule 7): all 8 #[test] fns are individual (no loops
+# anywhere in this file) calls to the single helper
+# `assert_browser_bundle_atan2_trailing_argument_evaluation(filename,
+# json_output)` = ext(js/ts/jsx/tsx) x json_output(2) = 8 invocations, uniform
+# over `ext`. `ext` is hoisted to a file-level [matrix] axis: 8 fns collapse
+# to 2
+# [[case]] entries, matrix-fanned to 8 trials, matching exactly.
+#
+# [source] needs no disambiguation (U5): one fixture body, named `app.<ext>`
+# in
+# source, kept as-is.
+#
+# ASSERTION SHAPE. `exit = "success"`; json mode carries
+# schemaVersion/command/success/exitCode/payload(artifactKind, bundleFormat)
+# AND
+# `errors = []` (this file's helper does assert
+# `envelope["errors"].is_empty()`); then the emitted `app/app.meta.json`
+# metadata; then the bundle-harness `stdout_contains = ["bump", "0\n"]`,
+# mirroring source's two plain `.contains` checks -- `bump` proves the
+# extra trailing argument's side effect ran, `0\n` is `Math.atan2(0, 1)`.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: atan2TrailingArgumentEvaluation
+function atan2TrailingArgumentEvaluation() {
+  const bump = () => { console.log("bump"); return 2; };
+  const result = Math.atan2(0, 1, bump());
+  console.log(result);
+  return result;
+}
+"""
+
+[[case]]
+name = "build_supports_math_atan2_trailing_argument_evaluation"
+rationale = """Migrated from browser_math_atan2_trailing_argument_evaluation_bundle.rs. `assert_browser_bundle_atan2_trailing_argument_evaluation` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the surplus trailing argument to `Math.atan2(0, 1, bump())` was still evaluated (`bump` printed) and that the call itself returned `0`. Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 8 #[test] fns collapse to 2 [[case]] entries here, matrix-fanned to 8 trials (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.atan2TrailingArgumentEvaluation();
+"""
+stdout_contains = ["bump", "0\n"]
+
+[[case]]
+name = "json_build_supports_math_atan2_trailing_argument_evaluation"
+rationale = """Migrated from browser_math_atan2_trailing_argument_evaluation_bundle.rs. `assert_browser_bundle_atan2_trailing_argument_evaluation` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the surplus trailing argument to `Math.atan2(0, 1, bump())` was still evaluated (`bump` printed) and that the call itself returned `0`. Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 8 #[test] fns collapse to 2 [[case]] entries here, matrix-fanned to 8 trials (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.atan2TrailingArgumentEvaluation();
+"""
+stdout_contains = ["bump", "0\n"]

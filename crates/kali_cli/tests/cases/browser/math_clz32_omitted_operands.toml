@@ -1,0 +1,159 @@
+# Migrated from tests/browser_math_clz32_omitted_operands.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# MATRIX ARITHMETIC (rule 7): 8 bundle fns (ext(4) x json_output(2)) + 16
+# harness
+# fns = 24 invocations = 24 #[test] fns, all individual (no loops anywhere in
+# this file). Both groups vary uniformly over all four extensions, so `ext` is
+# hoisted to a file-level [matrix] axis: 24 fns collapse to 6 [[case]]
+# entries,
+# matrix-fanned to 24 trials, matching exactly.
+#
+# SOURCE ODDITY, CARRIED AS-IS (rule 6). The harness helper
+# `assert_browser_harness_math_clz32_omitted_operands(command, filename,
+# source,
+# expected_stdout)` takes NO `json_output` parameter and never passes
+# `--output json`. Its 16 callers are nevertheless named in two groups of 8 --
+# `run_supports_*`/`test_supports_*` and `json_run_supports_*`/
+# `json_test_supports_*` -- and each `json_`-prefixed fn passes byte-identical
+# arguments to its unprefixed twin. So eight pairs of source #[test] fns are
+# literally the same invocation with the same assertion. They are NOT folded:
+# rule 6 keeps one [[case]] per source fn even when the invocations are
+# identical, because the case is the only remaining trace of the fn. The
+# `json_`-prefixed cases below therefore carry the same argv and the same
+# assertion as their twins, and no `--output json` is added to them -- adding
+# it
+# would invent a claim source never made (rule 2). This is a fact about the
+# source, recorded rather than quietly corrected (U7).
+#
+# [source] needs no disambiguation (U5): `app.<ext>`, `main.<ext>` and
+# `smoke.test.<ext>` are already distinct keys.
+#
+# ASSERTION SHAPE. Bundle: `exit = "success"`; json mode
+# schemaVersion/command/success/exitCode/payload(artifactKind, bundleFormat)
+# (source makes no `errors` claim in this file, so none is added); the emitted
+# `app/app.meta.json` metadata; then the bundle-harness
+# `stdout_contains = ["32\n32\n32\n32\n32\n32\n32\n"]`, mirroring source's
+# single `.contains` needle verbatim. Harness: `exit = "success"` plus
+# `stdout_contains` of the per-command `expected_stdout` the source passes in
+# --
+# `32\n` x7 for "run", the same plus `\nok 1` for "test". Both are plain
+# `.contains` against a field that has a substring form, so they stay
+# `*_contains` (controller ruling 3), and the `\nok 1` suffix is carried only
+# on
+# the "test" cases, where source actually passes it.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: mathClz32OmittedOperands
+function mathClz32OmittedOperands() {
+  console.log(Math.clz32());
+  console.log(globalThis.Math.clz32());
+  console.log(globalThis.Math["clz32"]());
+  console.log(globalThis["Math"].clz32());
+  console.log(globalThis["Math"]["clz32"]());
+  console.log(Object.freeze(Math.clz32)());
+  console.log(Object.freeze(globalThis.Math.clz32)());
+  return [
+    Math.clz32(),
+    globalThis.Math.clz32(),
+    globalThis.Math["clz32"](),
+    globalThis["Math"].clz32(),
+    globalThis["Math"]["clz32"](),
+    Object.freeze(Math.clz32)(),
+    Object.freeze(globalThis.Math.clz32)(),
+  ];
+}
+"""
+"main.${ext}" = """console.log(Math.clz32()); console.log(globalThis.Math.clz32()); console.log(globalThis.Math["clz32"]()); console.log(globalThis["Math"].clz32()); console.log(globalThis["Math"]["clz32"]()); console.log(Object.freeze(Math.clz32)()); console.log(Object.freeze(globalThis.Math.clz32)());
+"""
+"smoke.test.${ext}" = """Kali.test('math clz32 omitted operands', () => {
+  console.log(Math.clz32());
+  console.log(globalThis.Math.clz32());
+  console.log(globalThis.Math["clz32"]());
+  console.log(globalThis["Math"].clz32());
+  console.log(globalThis["Math"]["clz32"]());
+  console.log(Object.freeze(Math.clz32)());
+  console.log(Object.freeze(globalThis.Math.clz32)());
+});
+"""
+
+[[case]]
+name = "build_emits_math_clz32_omitted_operands"
+rationale = """Migrated from browser_math_clz32_omitted_operands.rs. `assert_browser_bundle_math_clz32_omitted_operands` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that all seven omitted-operand `Math.clz32()` spellings printed `32`. Source's stdout claim is a single plain `.contains` needle, carried verbatim as `stdout_contains` rather than strengthened. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathClz32OmittedOperands();
+"""
+stdout_contains = ["32\n32\n32\n32\n32\n32\n32\n"]
+
+[[case]]
+name = "json_build_emits_math_clz32_omitted_operands"
+rationale = """Migrated from browser_math_clz32_omitted_operands.rs. `assert_browser_bundle_math_clz32_omitted_operands` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields -- source makes no `errors` claim in this file, so none is added -- then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that all seven omitted-operand `Math.clz32()` spellings printed `32`. Source's stdout claim is a single plain `.contains` needle, carried verbatim as `stdout_contains` rather than strengthened. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathClz32OmittedOperands();
+"""
+stdout_contains = ["32\n32\n32\n32\n32\n32\n32\n"]
+
+[[case]]
+name = "run_supports_math_clz32_omitted_operands_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_clz32_omitted_operands.rs. `assert_browser_harness_math_clz32_omitted_operands("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and asserts a clean exit plus `stdout.contains('32\\n32\\n32\\n32\\n32\\n32\\n32')` -- a plain `.contains` against a field that has a substring form, so it is mirrored as `stdout_contains` rather than strengthened to an exact pin. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["32\n32\n32\n32\n32\n32\n32"]
+
+[[case]]
+name = "test_supports_math_clz32_omitted_operands_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_clz32_omitted_operands.rs. `assert_browser_harness_math_clz32_omitted_operands("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and asserts a clean exit plus `stdout.contains('32\\n32\\n32\\n32\\n32\\n32\\n32\\nok 1')` -- a plain `.contains` against a field that has a substring form, so it is mirrored as `stdout_contains` rather than strengthened to an exact pin. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["32\n32\n32\n32\n32\n32\n32\nok 1"]
+
+[[case]]
+name = "json_run_supports_math_clz32_omitted_operands_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_clz32_omitted_operands.rs. `assert_browser_harness_math_clz32_omitted_operands("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and asserts a clean exit plus `stdout.contains('32\\n32\\n32\\n32\\n32\\n32\\n32')` -- a plain `.contains` against a field that has a substring form, so it is mirrored as `stdout_contains` rather than strengthened to an exact pin. This case's source fn is named `json_run_supports_*`, but the helper it calls takes no `json_output` parameter and never passes `--output json`: the invocation and the assertion are byte-identical to the unprefixed `run_supports_*` twin. The two are kept as separate [[case]] entries rather than folded, because the case is the only remaining trace of the source fn (rule 6), and no `--output json` is added, because source never passes it (rule 2). `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["32\n32\n32\n32\n32\n32\n32"]
+
+[[case]]
+name = "json_test_supports_math_clz32_omitted_operands_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_clz32_omitted_operands.rs. `assert_browser_harness_math_clz32_omitted_operands("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and asserts a clean exit plus `stdout.contains('32\\n32\\n32\\n32\\n32\\n32\\n32\\nok 1')` -- a plain `.contains` against a field that has a substring form, so it is mirrored as `stdout_contains` rather than strengthened to an exact pin. This case's source fn is named `json_test_supports_*`, but the helper it calls takes no `json_output` parameter and never passes `--output json`: the invocation and the assertion are byte-identical to the unprefixed `test_supports_*` twin. The two are kept as separate [[case]] entries rather than folded, because the case is the only remaining trace of the source fn (rule 6), and no `--output json` is added, because source never passes it (rule 2). `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["32\n32\n32\n32\n32\n32\n32\nok 1"]

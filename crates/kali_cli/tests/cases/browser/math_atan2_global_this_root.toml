@@ -1,0 +1,1260 @@
+# Migrated from tests/browser_math_atan2_global_this_root.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# PARTIAL MIGRATION -- 18 of this file's 19 #[test] fns are migrated here. The
+# 19th, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_
+# frozen_callable_aliases`, is a FIXTURE SELF-INSPECTION test: it runs three
+# `assert!(source.contains("Object.freeze(...)"))` checks (one of them itself
+# an
+# OR across two quoting spellings) against the JS fixture's own text and never
+# builds a command at all. That shape is invisible to
+# `scripts/audit-case-migration.py` -- its `.contains()` extractor cannot tell
+# a
+# fixture-text read from an output assertion, and everything under `[source]`
+# is
+# excluded from its search by construction -- so migrating it would produce a
+# false green. It stays hand-written and is escalated per rule 3/4; see the
+# retention header on the `.rs` and the batch report. No other fn in this file
+# reaches that construct (the other 18 route through
+# `assert_browser_bundle_global_this_math_atan2{,_source,_await_wrapped}` or
+# `assert_browser_harness_global_this_math_atan2`, none of which reads fixture
+# text), so U4's trim-and-keep applies and only that one test is retained.
+#
+# INVOCATION ARITHMETIC (rule 7), over the migrated 18. Every fn except
+# `build_emits_global_this_math_atan2_zero_slice_in_js_input` loops
+# `for filename in ["app.js","app.ts","app.jsx","app.tsx"]` or over a
+# four-element `(filename, source)` tuple list, i.e. 4 real invocations each;
+# that one fn makes a single `("app.js", false)` call. 1 + (17 x 4) = 69
+# invocations, expanded by reading every loop rather than by counting fn
+# names.
+# This file maps to 69 named sibling [[case]] entries below, one per real
+# invocation, no folding.
+#
+# [matrix] DECLINED (rule 7 / U1). `ext` looks uniform at a glance -- 68 of
+# the
+# 69 invocations are a clean 17 x 4 fan over js/ts/jsx/tsx -- but
+# `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-ONLY, and
+# `[matrix]` is file-wide: `expand()` fans EVERY [[case]] by the full
+# cross-product with no per-case opt-out. A file-level `ext` axis would fan
+# that
+# one case to ts/jsx/tsx as well, producing three duplicate trials that no
+# source
+# fn performs and breaking rule 7's `total invocations == cases x axis
+# product`
+# arithmetic. Declined for the whole file, on the same reasoning as batch 2's
+# `array_iteration_spread_runtime`.
+#
+# VARIANT COVERAGE IS ALSO ASYMMETRIC, so no `variant` axis is possible
+# either:
+# `frozen` has a `run` harness fn only in NON-json mode -- there is no
+# `json_run_supports_global_this_math_atan2_frozen_callable_aliases_*` fn in
+# source, while `zero_slice` and `await_wrapped` both have one. Verified
+# against
+# the real fn list. That missing combination is not invented here (rule 2).
+#
+# [source] KEY DISAMBIGUATION (U5): source writes all three bundle fixtures to
+# `app.<ext>` and all six harness fixtures to `main.<ext>`/`smoke.test.<ext>`
+# (safe there -- private tempdir per invocation). The flat file-wide
+# `[source]`
+# table cannot, so the stems become `app_<variant>`, `main_<variant>` and
+# `smoke_<variant>.test`; because `kali build --bundle` names its output
+# directory after the input stem, the `file_json` `path` and the harness
+# `entry`
+# track the rename. No fixture body references its own filename by string, so
+# no
+# claim changes.
+#
+# RULE 8: the harness `body` for the zero_slice and frozen bundle cases comes
+# from `format!("const mod = await import(bundleJs.href);\nawait
+# mod.{export_name}();\n")`; both resolved strings were produced by EXECUTING
+# that real `format!`, not by hand-substitution. The await_wrapped helper uses
+# a
+# plain raw-string literal with no substitution at all.
+#
+# ASSERTION SHAPE. Bundle: `exit = "success"`; json mode
+# schemaVersion/command/success/exitCode/payload(artifactKind, bundleFormat)
+# and
+# `errors = []`; the emitted `app_<variant>/app_<variant>.meta.json` metadata;
+# then the bundle-harness `stdout_contains = ["0\n"]`. Harness:
+# `exit = "success"`; non-json `stdout_contains = ["0\n"]`; json mode carries
+# schemaVersion/command/success/payload(hostContract, runtimeBackend), then
+# `json["exitCode"]`/`payload.exitCode` for "run" or
+# `payload.total/passed/failed` for "test", `stderr = ""`, `errors = []`, and
+# an
+# exact `json.stdout` pin resolving source's `json["stdout"].contains("0\n")`
+# --
+# live-captured from the real `kali` binary per (variant, command).
+
+[source]
+"app_zero_slice.js" = """// kali-tree-shake: globalThisMathAtan2ZeroSlice
+function globalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis.Math.atan2(zero, one));
+  console.log(globalThis.Math["atan2"](zero, one));
+  return [globalThis.Math.atan2(zero, one), globalThis.Math["atan2"](zero, one)];
+}
+"""
+"app_zero_slice.ts" = """// kali-tree-shake: globalThisMathAtan2ZeroSlice
+function globalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis.Math.atan2(zero, one));
+  console.log(globalThis.Math["atan2"](zero, one));
+  return [globalThis.Math.atan2(zero, one), globalThis.Math["atan2"](zero, one)];
+}
+"""
+"app_zero_slice.jsx" = """// kali-tree-shake: globalThisMathAtan2ZeroSlice
+function globalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis.Math.atan2(zero, one));
+  console.log(globalThis.Math["atan2"](zero, one));
+  return [globalThis.Math.atan2(zero, one), globalThis.Math["atan2"](zero, one)];
+}
+"""
+"app_zero_slice.tsx" = """// kali-tree-shake: globalThisMathAtan2ZeroSlice
+function globalThisMathAtan2ZeroSlice() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis.Math.atan2(zero, one));
+  console.log(globalThis.Math["atan2"](zero, one));
+  return [globalThis.Math.atan2(zero, one), globalThis.Math["atan2"](zero, one)];
+}
+"""
+"app_frozen.js" = """// kali-tree-shake: globalThisMathAtan2FrozenCallableAliases
+function globalThisMathAtan2FrozenCallableAliases() {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+  return [frozenDotRoot(zero, one), frozenBracketedRoot(zero, one), frozenSingleQuotedRoot(zero, one), frozenDirect(zero, one)];
+}
+"""
+"app_frozen.ts" = """// kali-tree-shake: globalThisMathAtan2FrozenCallableAliases
+function globalThisMathAtan2FrozenCallableAliases() {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+  return [frozenDotRoot(zero, one), frozenBracketedRoot(zero, one), frozenSingleQuotedRoot(zero, one), frozenDirect(zero, one)];
+}
+"""
+"app_frozen.jsx" = """// kali-tree-shake: globalThisMathAtan2FrozenCallableAliases
+function globalThisMathAtan2FrozenCallableAliases() {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+  return [frozenDotRoot(zero, one), frozenBracketedRoot(zero, one), frozenSingleQuotedRoot(zero, one), frozenDirect(zero, one)];
+}
+"""
+"app_frozen.tsx" = """// kali-tree-shake: globalThisMathAtan2FrozenCallableAliases
+function globalThisMathAtan2FrozenCallableAliases() {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+  return [frozenDotRoot(zero, one), frozenBracketedRoot(zero, one), frozenSingleQuotedRoot(zero, one), frozenDirect(zero, one)];
+}
+"""
+"app_await_wrapped.js" = """// kali-tree-shake: globalThisMathAtan2AwaitWrappedZeroSlice
+async function globalThisMathAtan2AwaitWrappedZeroSlice() {
+  console.log(globalThis.Math.atan2(await 0, await 1));
+  console.log(globalThis.Math["atan2"](await 0, await 1));
+  return [globalThis.Math.atan2(await 0, await 1), globalThis.Math["atan2"](await 0, await 1)];
+}
+"""
+"app_await_wrapped.ts" = """// kali-tree-shake: globalThisMathAtan2AwaitWrappedZeroSlice
+async function globalThisMathAtan2AwaitWrappedZeroSlice() {
+  console.log(globalThis.Math.atan2(await 0, await 1));
+  console.log(globalThis.Math["atan2"](await 0, await 1));
+  return [globalThis.Math.atan2(await 0, await 1), globalThis.Math["atan2"](await 0, await 1)];
+}
+"""
+"app_await_wrapped.jsx" = """// kali-tree-shake: globalThisMathAtan2AwaitWrappedZeroSlice
+async function globalThisMathAtan2AwaitWrappedZeroSlice() {
+  console.log(globalThis.Math.atan2(await 0, await 1));
+  console.log(globalThis.Math["atan2"](await 0, await 1));
+  return [globalThis.Math.atan2(await 0, await 1), globalThis.Math["atan2"](await 0, await 1)];
+}
+"""
+"app_await_wrapped.tsx" = """// kali-tree-shake: globalThisMathAtan2AwaitWrappedZeroSlice
+async function globalThisMathAtan2AwaitWrappedZeroSlice() {
+  console.log(globalThis.Math.atan2(await 0, await 1));
+  console.log(globalThis.Math["atan2"](await 0, await 1));
+  return [globalThis.Math.atan2(await 0, await 1), globalThis.Math["atan2"](await 0, await 1)];
+}
+"""
+"main_zero_slice.js" = """const zero = 0; const one = 1; console.log(globalThis.Math.atan2(zero, one)); console.log(globalThis.Math["atan2"](zero, one));
+"""
+"smoke_zero_slice.test.js" = """Kali.test('globalThis math atan2 zero slice', () => {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis.Math.atan2(zero, one));
+  console.log(globalThis.Math["atan2"](zero, one));
+});
+"""
+"main_zero_slice.ts" = """const zero = 0; const one = 1; console.log(globalThis.Math.atan2(zero, one)); console.log(globalThis.Math["atan2"](zero, one));
+"""
+"smoke_zero_slice.test.ts" = """Kali.test('globalThis math atan2 zero slice', () => {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis.Math.atan2(zero, one));
+  console.log(globalThis.Math["atan2"](zero, one));
+});
+"""
+"main_zero_slice.jsx" = """const zero = 0; const one = 1; console.log(globalThis.Math.atan2(zero, one)); console.log(globalThis.Math["atan2"](zero, one));
+"""
+"smoke_zero_slice.test.jsx" = """Kali.test('globalThis math atan2 zero slice', () => {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis.Math.atan2(zero, one));
+  console.log(globalThis.Math["atan2"](zero, one));
+});
+"""
+"main_zero_slice.tsx" = """const zero = 0; const one = 1; console.log(globalThis.Math.atan2(zero, one)); console.log(globalThis.Math["atan2"](zero, one));
+"""
+"smoke_zero_slice.test.tsx" = """Kali.test('globalThis math atan2 zero slice', () => {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis.Math.atan2(zero, one));
+  console.log(globalThis.Math["atan2"](zero, one));
+});
+"""
+"main_frozen.js" = """const zero = 0; const one = 1; const frozenDotRoot = Object.freeze(globalThis.Math.atan2); const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]); const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']); const frozenDirect = Object.freeze(Math.atan2); console.log(frozenDotRoot(zero, one)); console.log(frozenBracketedRoot(zero, one)); console.log(frozenSingleQuotedRoot(zero, one)); console.log(frozenDirect(zero, one));
+"""
+"smoke_frozen.test.js" = """Kali.test('globalThis math atan2 frozen callable aliases', () => {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+});
+"""
+"main_frozen.ts" = """const zero = 0; const one = 1; const frozenDotRoot = Object.freeze(globalThis.Math.atan2); const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]); const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']); const frozenDirect = Object.freeze(Math.atan2); console.log(frozenDotRoot(zero, one)); console.log(frozenBracketedRoot(zero, one)); console.log(frozenSingleQuotedRoot(zero, one)); console.log(frozenDirect(zero, one));
+"""
+"smoke_frozen.test.ts" = """Kali.test('globalThis math atan2 frozen callable aliases', () => {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+});
+"""
+"main_frozen.jsx" = """const zero = 0; const one = 1; const frozenDotRoot = Object.freeze(globalThis.Math.atan2); const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]); const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']); const frozenDirect = Object.freeze(Math.atan2); console.log(frozenDotRoot(zero, one)); console.log(frozenBracketedRoot(zero, one)); console.log(frozenSingleQuotedRoot(zero, one)); console.log(frozenDirect(zero, one));
+"""
+"smoke_frozen.test.jsx" = """Kali.test('globalThis math atan2 frozen callable aliases', () => {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+});
+"""
+"main_frozen.tsx" = """const zero = 0; const one = 1; const frozenDotRoot = Object.freeze(globalThis.Math.atan2); const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]); const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']); const frozenDirect = Object.freeze(Math.atan2); console.log(frozenDotRoot(zero, one)); console.log(frozenBracketedRoot(zero, one)); console.log(frozenSingleQuotedRoot(zero, one)); console.log(frozenDirect(zero, one));
+"""
+"smoke_frozen.test.tsx" = """Kali.test('globalThis math atan2 frozen callable aliases', () => {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+});
+"""
+"main_await_wrapped.js" = """async function main() {
+  console.log(globalThis.Math.atan2(await 0, await 1));
+  console.log(globalThis.Math["atan2"](await 0, await 1));
+}
+
+main();
+"""
+"smoke_await_wrapped.test.js" = """Kali.test('globalThis math atan2 await-wrapped zero slice', () => {
+  async function main() {
+    console.log(globalThis.Math.atan2(await 0, await 1));
+    console.log(globalThis.Math["atan2"](await 0, await 1));
+  }
+  return main();
+});
+"""
+"main_await_wrapped.ts" = """async function main() {
+  console.log(globalThis.Math.atan2(await 0, await 1));
+  console.log(globalThis.Math["atan2"](await 0, await 1));
+}
+
+main();
+"""
+"smoke_await_wrapped.test.ts" = """Kali.test('globalThis math atan2 await-wrapped zero slice', () => {
+  async function main() {
+    console.log(globalThis.Math.atan2(await 0, await 1));
+    console.log(globalThis.Math["atan2"](await 0, await 1));
+  }
+  return main();
+});
+"""
+"main_await_wrapped.jsx" = """async function main() {
+  console.log(globalThis.Math.atan2(await 0, await 1));
+  console.log(globalThis.Math["atan2"](await 0, await 1));
+}
+
+main();
+"""
+"smoke_await_wrapped.test.jsx" = """Kali.test('globalThis math atan2 await-wrapped zero slice', () => {
+  async function main() {
+    console.log(globalThis.Math.atan2(await 0, await 1));
+    console.log(globalThis.Math["atan2"](await 0, await 1));
+  }
+  return main();
+});
+"""
+"main_await_wrapped.tsx" = """async function main() {
+  console.log(globalThis.Math.atan2(await 0, await 1));
+  console.log(globalThis.Math["atan2"](await 0, await 1));
+}
+
+main();
+"""
+"smoke_await_wrapped.test.tsx" = """Kali.test('globalThis math atan2 await-wrapped zero slice', () => {
+  async function main() {
+    console.log(globalThis.Math.atan2(await 0, await 1));
+    console.log(globalThis.Math["atan2"](await 0, await 1));
+  }
+  return main();
+});
+"""
+
+[[case]]
+name = "build_emits_global_this_math_atan2_zero_slice_in_js_input"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_zero_slice/app_zero_slice.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the zero slice `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_zero_slice.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_zero_slice/app_zero_slice.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_zero_slice"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_zero_slice_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_zero_slice/app_zero_slice.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the zero slice `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_zero_slice.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_zero_slice/app_zero_slice.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_zero_slice"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_zero_slice_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_zero_slice/app_zero_slice.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the zero slice `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_zero_slice.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_zero_slice/app_zero_slice.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_zero_slice"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_zero_slice_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_zero_slice/app_zero_slice.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the zero slice `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_zero_slice.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_zero_slice/app_zero_slice.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_zero_slice"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_zero_slice_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_zero_slice/app_zero_slice.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the zero slice `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_zero_slice.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_zero_slice/app_zero_slice.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_zero_slice"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_zero_slice_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_zero_slice/app_zero_slice.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the zero slice `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_zero_slice.js"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_zero_slice/app_zero_slice.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_zero_slice"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_zero_slice_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_zero_slice/app_zero_slice.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the zero slice `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_zero_slice.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_zero_slice/app_zero_slice.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_zero_slice"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_zero_slice_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_zero_slice/app_zero_slice.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the zero slice `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_zero_slice.jsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_zero_slice/app_zero_slice.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_zero_slice"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_zero_slice_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_zero_slice/app_zero_slice.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the zero slice `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_zero_slice.tsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_zero_slice/app_zero_slice.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_zero_slice"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2ZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_frozen/app_frozen.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_frozen.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_frozen/app_frozen.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_frozen"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2FrozenCallableAliases();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_frozen/app_frozen.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_frozen.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_frozen/app_frozen.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_frozen"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2FrozenCallableAliases();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_frozen/app_frozen.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_frozen.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_frozen/app_frozen.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_frozen"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2FrozenCallableAliases();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_frozen/app_frozen.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_frozen.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_frozen/app_frozen.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_frozen"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2FrozenCallableAliases();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_frozen/app_frozen.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_frozen.js"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_frozen/app_frozen.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_frozen"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2FrozenCallableAliases();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_frozen/app_frozen.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_frozen.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_frozen/app_frozen.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_frozen"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2FrozenCallableAliases();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_frozen/app_frozen.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_frozen.jsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_frozen/app_frozen.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_frozen"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2FrozenCallableAliases();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_source` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_frozen/app_frozen.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_frozen.tsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_frozen/app_frozen.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_frozen"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2FrozenCallableAliases();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_await_wrapped` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_await_wrapped/app_await_wrapped.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the await wrapped `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_await_wrapped.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_await_wrapped/app_await_wrapped.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await_wrapped"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_await_wrapped` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_await_wrapped/app_await_wrapped.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the await wrapped `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_await_wrapped.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_await_wrapped/app_await_wrapped.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await_wrapped"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_await_wrapped` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_await_wrapped/app_await_wrapped.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the await wrapped `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_await_wrapped.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_await_wrapped/app_await_wrapped.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await_wrapped"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_await_wrapped` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app_await_wrapped/app_await_wrapped.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the await wrapped `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_await_wrapped.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_await_wrapped/app_await_wrapped.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await_wrapped"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_await_wrapped` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_await_wrapped/app_await_wrapped.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the await wrapped `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_await_wrapped.js"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_await_wrapped/app_await_wrapped.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await_wrapped"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_await_wrapped` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_await_wrapped/app_await_wrapped.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the await wrapped `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_await_wrapped.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_await_wrapped/app_await_wrapped.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await_wrapped"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_await_wrapped` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_await_wrapped/app_await_wrapped.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the await wrapped `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_await_wrapped.jsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_await_wrapped/app_await_wrapped.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await_wrapped"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_bundle_global_this_math_atan2_await_wrapped` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app_await_wrapped/app_await_wrapped.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the await wrapped `globalThis`-rooted `Math.atan2` spellings printed `0`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_await_wrapped.tsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_await_wrapped/app_await_wrapped.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await_wrapped"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
+"""
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zero_slice.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zero_slice.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zero_slice.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zero_slice.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_zero_slice.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_zero_slice.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_zero_slice.test.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_zero_slice.test.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zero_slice.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zero_slice.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zero_slice.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_zero_slice.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_zero_slice.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_zero_slice.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_zero_slice.test.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the zero slice variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_zero_slice.test.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_json_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_json_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_json_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_json_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the frozen variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await_wrapped.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await_wrapped.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await_wrapped.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await_wrapped.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await_wrapped.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await_wrapped.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await_wrapped.test.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `0\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await_wrapped.test.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["0\n"]
+
+[[case]]
+name = "run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await_wrapped.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await_wrapped.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await_wrapped.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await_wrapped.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_js"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await_wrapped.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_ts"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await_wrapped.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_jsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await_wrapped.test.jsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input_tsx"
+rationale = """Migrated from browser_math_atan2_global_this_root.rs. `assert_browser_harness_global_this_math_atan2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. The fixture is the await wrapped variant. No [matrix] in this file: 68 of its 69 real invocations fan uniformly over js/ts/jsx/tsx, but `build_emits_global_this_math_atan2_zero_slice_in_js_input` is js-only and `[matrix]` is file-wide with no per-case opt-out, so an `ext` axis would produce three duplicate trials no source fn performs. Variant coverage is asymmetric too (`frozen` has no json-mode `run` harness fn), so no variant axis is possible either. 69 named sibling [[case]] entries, one per real invocation. `[source]` stems are disambiguated per variant because source reuses `app.<ext>`/`main.<ext>`/`smoke.test.<ext>` across all of them and the `[source]` table is one flat file-wide namespace; the `file_json` path and harness `entry` track the rename because `kali build --bundle` names its output directory after the input stem. This file's 19th fn, `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await_wrapped.test.tsx"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "0\n0\n", "stderr" = "", "errors" = [] }

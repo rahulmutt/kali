@@ -1,0 +1,330 @@
+# Migrated from tests/browser_math_exp_log_fully_bracketed_root.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# NO [matrix] (rule 7 / U1): the two groups do NOT cover the same extensions.
+# The
+# bundle group
+# (`assert_browser_bundle_fully_bracketed_global_this_math_exp_log`)
+# has 8 individual #[test] fns = ext(js/ts/jsx/tsx) x json_output(2). The
+# harness
+# group is a SINGLE #[test] fn whose body loops over four
+# `(command, source_name, source)` tuples -- ("run","main.js"),
+# ("test","smoke.test.js"), ("run","main.ts"), ("test","smoke.test.ts"), i.e.
+# js and ts ONLY -- and over `for output_json in [false, true]`, giving 8 more
+# invocations. 8 + 8 = 16 invocations against 9 #[test] fns. A file-level
+# `ext`
+# axis would fan the harness cases over jsx/tsx and invent four untested
+# combinations (rule 2). Declined for the whole file: 16 named sibling
+# [[case]]
+# entries, one per real invocation, per the split-don't-fold rule.
+#
+# [source] needs no disambiguation (U5). Only the js/ts harness fixtures the
+# source actually writes are declared.
+#
+# ASSERTION SHAPE. Bundle: `exit = "success"`; json mode
+# schemaVersion/command/success/exitCode/payload(artifactKind, bundleFormat)
+# (no `errors` claim in source, so none added); the emitted
+# `app/app.meta.json`
+# metadata; then the bundle-harness `stdout_contains = ["1\n", "0\n"]`.
+# Harness: `exit = "success"`; non-json `stdout_contains = ["1\n", "0\n"]`;
+# json mode carries schemaVersion/command/success/payload(hostContract,
+# runtimeBackend), `json["exitCode"]`/`payload.exitCode` for "run" or
+# `payload.total/passed/failed` for "test", `stderr = ""`, and an exact
+# `json.stdout` pin resolving source's two `json["stdout"].contains(...)`
+# claims,
+# live-captured from the real `kali` binary.
+
+[source]
+"app.js" = """// kali-tree-shake: fullyBracketedGlobalThisMathExpLogIdentities
+function fullyBracketedGlobalThisMathExpLogIdentities() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"]["exp"](zero));
+  console.log(globalThis["Math"]["log"](one));
+  return [globalThis["Math"]["exp"](zero), globalThis["Math"]["log"](one)];
+}
+"""
+"app.ts" = """// kali-tree-shake: fullyBracketedGlobalThisMathExpLogIdentities
+function fullyBracketedGlobalThisMathExpLogIdentities() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"]["exp"](zero));
+  console.log(globalThis["Math"]["log"](one));
+  return [globalThis["Math"]["exp"](zero), globalThis["Math"]["log"](one)];
+}
+"""
+"app.jsx" = """// kali-tree-shake: fullyBracketedGlobalThisMathExpLogIdentities
+function fullyBracketedGlobalThisMathExpLogIdentities() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"]["exp"](zero));
+  console.log(globalThis["Math"]["log"](one));
+  return [globalThis["Math"]["exp"](zero), globalThis["Math"]["log"](one)];
+}
+"""
+"app.tsx" = """// kali-tree-shake: fullyBracketedGlobalThisMathExpLogIdentities
+function fullyBracketedGlobalThisMathExpLogIdentities() {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"]["exp"](zero));
+  console.log(globalThis["Math"]["log"](one));
+  return [globalThis["Math"]["exp"](zero), globalThis["Math"]["log"](one)];
+}
+"""
+"main.js" = """const zero = 0; const one = 1; console.log(globalThis["Math"]["exp"](zero)); console.log(globalThis["Math"]["log"](one));
+"""
+"smoke.test.js" = """Kali.test('fully bracketed exp/log identities', () => {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"]["exp"](zero));
+  console.log(globalThis["Math"]["log"](one));
+});
+"""
+"main.ts" = """const zero = 0; const one = 1; console.log(globalThis["Math"]["exp"](zero)); console.log(globalThis["Math"]["log"](one));
+"""
+"smoke.test.ts" = """Kali.test('fully bracketed exp/log identities', () => {
+  const zero = 0;
+  const one = 1;
+  console.log(globalThis["Math"]["exp"](zero));
+  console.log(globalThis["Math"]["log"](one));
+});
+"""
+
+[[case]]
+name = "build_emits_fully_bracketed_global_this_math_exp_log_identity_literals_in_js_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. `assert_browser_bundle_fully_bracketed_global_this_math_exp_log` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the fully-bracketed `globalThis["Math"]["exp"]`/`["log"]` identity output (`1` and `0`). Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: the bundle group covers all four extensions but the harness group covers only js/ts (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.fullyBracketedGlobalThisMathExpLogIdentities();
+"""
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_build_emits_fully_bracketed_global_this_math_exp_log_identity_literals_in_js_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. `assert_browser_bundle_fully_bracketed_global_this_math_exp_log` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields -- source makes no `errors` claim here, so none is added -- then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the fully-bracketed `globalThis["Math"]["exp"]`/`["log"]` identity output (`1` and `0`). Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: the bundle group covers all four extensions but the harness group covers only js/ts (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.fullyBracketedGlobalThisMathExpLogIdentities();
+"""
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "build_emits_fully_bracketed_global_this_math_exp_log_identity_literals_in_ts_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. `assert_browser_bundle_fully_bracketed_global_this_math_exp_log` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the fully-bracketed `globalThis["Math"]["exp"]`/`["log"]` identity output (`1` and `0`). Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: the bundle group covers all four extensions but the harness group covers only js/ts (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.fullyBracketedGlobalThisMathExpLogIdentities();
+"""
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_build_emits_fully_bracketed_global_this_math_exp_log_identity_literals_in_ts_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. `assert_browser_bundle_fully_bracketed_global_this_math_exp_log` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields -- source makes no `errors` claim here, so none is added -- then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the fully-bracketed `globalThis["Math"]["exp"]`/`["log"]` identity output (`1` and `0`). Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: the bundle group covers all four extensions but the harness group covers only js/ts (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.fullyBracketedGlobalThisMathExpLogIdentities();
+"""
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "build_emits_fully_bracketed_global_this_math_exp_log_identity_literals_in_jsx_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. `assert_browser_bundle_fully_bracketed_global_this_math_exp_log` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the fully-bracketed `globalThis["Math"]["exp"]`/`["log"]` identity output (`1` and `0`). Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: the bundle group covers all four extensions but the harness group covers only js/ts (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.fullyBracketedGlobalThisMathExpLogIdentities();
+"""
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_build_emits_fully_bracketed_global_this_math_exp_log_identity_literals_in_jsx_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. `assert_browser_bundle_fully_bracketed_global_this_math_exp_log` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields -- source makes no `errors` claim here, so none is added -- then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the fully-bracketed `globalThis["Math"]["exp"]`/`["log"]` identity output (`1` and `0`). Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: the bundle group covers all four extensions but the harness group covers only js/ts (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.fullyBracketedGlobalThisMathExpLogIdentities();
+"""
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "build_emits_fully_bracketed_global_this_math_exp_log_identity_literals_in_tsx_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. `assert_browser_bundle_fully_bracketed_global_this_math_exp_log` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the fully-bracketed `globalThis["Math"]["exp"]`/`["log"]` identity output (`1` and `0`). Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: the bundle group covers all four extensions but the harness group covers only js/ts (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.fullyBracketedGlobalThisMathExpLogIdentities();
+"""
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_build_emits_fully_bracketed_global_this_math_exp_log_identity_literals_in_tsx_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. `assert_browser_bundle_fully_bracketed_global_this_math_exp_log` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields -- source makes no `errors` claim here, so none is added -- then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the fully-bracketed `globalThis["Math"]["exp"]`/`["log"]` identity output (`1` and `0`). Source's stdout claims are plain `.contains`, mirrored as `stdout_contains`. No [matrix] in this file: the bundle group covers all four extensions but the harness group covers only js/ts (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.fullyBracketedGlobalThisMathExpLogIdentities();
+"""
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "run_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. This case is one of the 8 invocations the single #[test] fn `run_and_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_and_ts_input` performs by looping over four (command, source_name, source) tuples and over `for output_json in [false, true]`; per the split-don't-fold rule each independent program gets its own sibling [[case]]. It calls `assert_browser_harness_fully_bracketed_global_this_math_exp_log`, which runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1\\n` and `0\\n`; plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. No [matrix] in this file: the harness group covers only js/ts while the bundle group covers all four extensions."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_run_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. This case is one of the 8 invocations the single #[test] fn `run_and_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_and_ts_input` performs by looping over four (command, source_name, source) tuples and over `for output_json in [false, true]`; per the split-don't-fold rule each independent program gets its own sibling [[case]]. It calls `assert_browser_harness_fully_bracketed_global_this_math_exp_log`, which runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1\\n` and `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's two `.contains()` checks. No [matrix] in this file: the harness group covers only js/ts while the bundle group covers all four extensions."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "1\n0\n", "stderr" = "" }
+
+[[case]]
+name = "test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. This case is one of the 8 invocations the single #[test] fn `run_and_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_and_ts_input` performs by looping over four (command, source_name, source) tuples and over `for output_json in [false, true]`; per the split-don't-fold rule each independent program gets its own sibling [[case]]. It calls `assert_browser_harness_fully_bracketed_global_this_math_exp_log`, which runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1\\n` and `0\\n`; plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. No [matrix] in this file: the harness group covers only js/ts while the bundle group covers all four extensions."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. This case is one of the 8 invocations the single #[test] fn `run_and_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_and_ts_input` performs by looping over four (command, source_name, source) tuples and over `for output_json in [false, true]`; per the split-don't-fold rule each independent program gets its own sibling [[case]]. It calls `assert_browser_harness_fully_bracketed_global_this_math_exp_log`, which runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1\\n` and `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's two `.contains()` checks. No [matrix] in this file: the harness group covers only js/ts while the bundle group covers all four extensions."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "1\n0\n", "stderr" = "" }
+
+[[case]]
+name = "run_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. This case is one of the 8 invocations the single #[test] fn `run_and_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_and_ts_input` performs by looping over four (command, source_name, source) tuples and over `for output_json in [false, true]`; per the split-don't-fold rule each independent program gets its own sibling [[case]]. It calls `assert_browser_harness_fully_bracketed_global_this_math_exp_log`, which runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1\\n` and `0\\n`; plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. No [matrix] in this file: the harness group covers only js/ts while the bundle group covers all four extensions."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_run_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. This case is one of the 8 invocations the single #[test] fn `run_and_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_and_ts_input` performs by looping over four (command, source_name, source) tuples and over `for output_json in [false, true]`; per the split-don't-fold rule each independent program gets its own sibling [[case]]. It calls `assert_browser_harness_fully_bracketed_global_this_math_exp_log`, which runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1\\n` and `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's two `.contains()` checks. No [matrix] in this file: the harness group covers only js/ts while the bundle group covers all four extensions."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "1\n0\n", "stderr" = "" }
+
+[[case]]
+name = "test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. This case is one of the 8 invocations the single #[test] fn `run_and_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_and_ts_input` performs by looping over four (command, source_name, source) tuples and over `for output_json in [false, true]`; per the split-don't-fold rule each independent program gets its own sibling [[case]]. It calls `assert_browser_harness_fully_bracketed_global_this_math_exp_log`, which runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1\\n` and `0\\n`; plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. No [matrix] in this file: the harness group covers only js/ts while the bundle group covers all four extensions."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n", "0\n"]
+
+[[case]]
+name = "json_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_exp_log_fully_bracketed_root.rs. This case is one of the 8 invocations the single #[test] fn `run_and_test_supports_fully_bracketed_global_this_math_exp_log_identities_when_browser_harness_is_configured_in_js_and_ts_input` performs by looping over four (command, source_name, source) tuples and over `for output_json in [false, true]`; per the split-don't-fold rule each independent program gets its own sibling [[case]]. It calls `assert_browser_harness_fully_bracketed_global_this_math_exp_log`, which runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1\\n` and `0\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's two `.contains()` checks. No [matrix] in this file: the harness group covers only js/ts while the bundle group covers all four extensions."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "1\n0\n", "stderr" = "" }

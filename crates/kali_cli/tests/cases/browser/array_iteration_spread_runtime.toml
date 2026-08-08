@@ -57,6 +57,24 @@
 # field (again strengthened from `.contains('1')`/`.contains('2')` on the
 # JSON-embedded string, live-verified).
 #
+# GRANDFATHERED PINS (note added by batch 3, per controller ruling 3). The 16
+# exact `stdout = "1\n2\n"` pins in this file PREDATE the assertion-strengthening
+# policy that now governs batches 3-8. That policy is "mirror the source": a
+# plain `.contains(x)` against a field that HAS a substring form stays
+# `*_contains`, and is NOT strengthened to an exact pin merely because the exact
+# output was observed. Source's non-json claim here is exactly that shape
+# (`stdout.contains('1')` and `stdout.contains('2')` on the raw stdout, which
+# the format can express as `stdout_contains`), so written today these 16 would
+# be `stdout_contains = ["1", "2"]`, not exact `stdout` equality. They are kept
+# as-is rather than churned: every one of them was live-captured from the real
+# built `kali` binary (not hand-computed), they are strictly stronger than the
+# source claim, they were reviewed and are green, and rewriting a verified file
+# to a weaker assertion buys nothing. The inline `json.stdout` pins in this file
+# are NOT grandfathered -- a nested `json` leaf has no substring form at all in
+# this format, so exact equality is the only expressible encoding there and the
+# current policy prescribes it. Do not copy the non-json exact-`stdout` pattern
+# into new case files.
+#
 # STREAM-MAPPING: no absence claims and no OR-across-streams/codes anywhere in
 # this file (the only claims are presence-shaped `.contains()` calls on a
 # single stream, resolved above as verified-live exact-value strengthenings),

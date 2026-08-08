@@ -1,3 +1,53 @@
+//! Task 18 batch 3 audit escalation: ONE of this file's 25 `#[test]` fns is
+//! blocked from migration by the fixture self-inspection blind spot; the other
+//! 24 are migrated to `tests/cases/browser/math_abs_sign_frozen_aliases.toml`
+//! (6 `[[case]]` entries, `ext(4)` matrix-fanned to 24 trials, all green).
+//!
+//! BLOCKED TEST (1 of 25, NOT all -- U4's trim-and-keep applies here, this is
+//! not a whole-file retention):
+//! `browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen_math_aliases`
+//! (`:273-291`). It has no helper: its whole body is four
+//! `assert!(source.contains(<needle>))` self-checks run against
+//! `browser_bundle_global_this_math_abs_sign_frozen_source()`'s OWN TEXT
+//! (`:276`, `:280`, `:284`, `:288` -- the whole blocking construct is the
+//! four-`assert!` range `:275-290`),
+//! before any command is built and without ever invoking `kali`. The four
+//! blocking literals are `Object.freeze(globalThis.Math.abs)`,
+//! `Object.freeze(globalThis.Math.sign)`, `Object.freeze(Math.abs)` and
+//! `Object.freeze(Math.sign)`.
+//!
+//! WHY THE AUDIT CANNOT CARRY IT. `scripts/audit-case-migration.py` extracts
+//! every `.contains(<literal>)` argument as a claim and searches only the
+//! fields the case runner turns into assertions; `[source]` is excluded from
+//! that search by construction (its module docstring: "`body` and everything
+//! under `[source]` are program text, not claims about behavior"). These four
+//! literals are *read*, not *asserted on output*, so no honest migration can
+//! put them in an assertion field -- doing so would invent a claim the source
+//! never made -- and the audit therefore reports them absent no matter what
+//! the migrated `[source]` contains. Verified, not assumed: running
+//! `python3 scripts/audit-case-migration.py
+//! crates/kali_cli/tests/browser_math_abs_sign_frozen_aliases.rs
+//! crates/kali_cli/tests/cases/browser/math_abs_sign_frozen_aliases.toml`
+//! reports `AUDIT FAILED -- 4 claim(s) absent`, listing exactly those four
+//! literals and nothing else.
+//!
+//! This is the same shape as the Task 18 pilot's
+//! `browser_math_pow_exponent_one.rs` and batch 2's
+//! `browser_array_from_set_map_bundle.rs`. The controller has ruled that
+//! `audit-case-migration.py` is NOT extended for it (ruling 4), so it is
+//! escalated per rule 3/4 and the affected test is retained hand-written.
+//!
+//! SCOPE OF THE RETENTION. Only the one `#[test]` above is retained. The other
+//! 24 fns route through `assert_browser_bundle_global_this_math_abs_sign_frozen`
+//! or `assert_browser_harness_global_this_math_abs_sign_frozen`; neither reads
+//! fixture text, and both migrated cleanly. Those 24 are still present in this
+//! file because batch 3's brief forbids deleting or trimming any `.rs` in this
+//! increment -- deletion is one family-wide operation after batch 8. At that
+//! sweep this file must be TRIMMED to the single blocked test and its two
+//! fixture builders, NOT deleted outright.
+//!
+//! See `.superpowers/sdd/2026-07-29-test-binary-consolidation/
+//! task-18-batch3-report.md` for the full account.
 use std::{fs, process::Command, sync::OnceLock};
 
 use serde_json::Value;

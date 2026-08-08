@@ -1,0 +1,209 @@
+# Migrated from tests/browser_for_await_object_string_enumeration_
+# sequence_wrappers_js_input.rs.
+#
+# Honest re-pin (PR #16 rev2): kali fails closed/loud here; see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md.
+#
+# MATRIX ARITHMETIC (rule 7): all 5 #[test] fns funnel through the single
+# helper
+# `assert_browser_harness_object_string_enumeration_sequence_wrappers(command,
+# filename, json_output)`. Four fns each make one individual call with
+# `filename = "main.js"`; the fifth loops `for extension in
+# ["ts","jsx","tsx"]`
+# around all four `(command, json_output)` pairs (3 x 4 = 12). Total 4 + 12 =
+# 16
+# invocations = command(2) x json_output(2) x ext(4), uniform over `ext`, so
+# `ext` is hoisted to a file-level [matrix] axis: 5 #[test] fns collapse to 4
+# [[case]] entries, matrix-fanned to 16 trials, matching exactly.
+#
+# [source] KEY DISAMBIGUATION (U5 / U2): the helper picks its fixture body
+# from
+# the COMMAND (`if command == "test" { ..._test_source() } else {
+# ..._source() }`) while writing both to the same `main.<ext>` filename.
+# `[source]`
+# is file-wide and has no conditionals, so one key cannot carry two bodies:
+# the stems become `main_run.<ext>` and `main_test.<ext>`. Both fixtures are
+# consequently present in every trial dir, which is harmless here -- neither
+# the
+# argv nor any assertion depends on a file's presence or absence, only on the
+# entry each case names explicitly, so this is not the U2 conditional-fixture
+# hazard (no case's point is that a file is or is not there). The filename is
+# only ever the bare CLI positional argument, never read back inside a fixture
+# body, so the rename changes no claim.
+#
+# STREAM RESOLUTION (rule 11, applied to streams rather than codes): source's
+# assertion is `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR
+# across STREAMS for the SAME code. Resolved against the real binary for every
+# (command, json_output) combination rather than reproduced: non-json carries
+# E5506 on stderr, `--output json` carries it on
+# stdout. Each mode is pinned to the stream that actually
+# carries it -- a verified strengthening, since this is a PRESENCE claim and
+# narrowing a presence claim to the stream that carries it is strictly
+# stronger
+# (narrowing an ABSENCE claim would be a weakening, and there is none here).
+# The
+# source's full disjunction sentence is carried into every affected case's
+# rationale below rather than silently narrowed.
+#
+# `assert!(!output.status.success(), "must fail closed: {output:?}")` becomes
+# `exit = "failure"`. Source makes no other assertion in this file -- no exit
+# code, no envelope field, no second needle -- so none is added (rule 2).
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main_run.${ext}" = """async function browserObjectStringEnumerationSequenceWrappers() {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+      throw new Error('unexpected Object.keys string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectValuesIteration(values) {
+    if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+      throw new Error('unexpected Object.values string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== '0' ||
+      entries[0][1] !== 'a' ||
+      entries[1][0] !== '1' ||
+      entries[1][1] !== 'b'
+    ) {
+      throw new Error('unexpected Object.entries string-primitive iteration semantics');
+    }
+  }
+
+  const keys = [];
+  for await (const key of (0, globalThis["Object"]["keys"]('ab'))) {
+    keys.push(key);
+  }
+  const singleQuotedKeys = [];
+  for await (const key of (0, globalThis['Object']['keys']('ab'))) {
+    singleQuotedKeys.push(key);
+  }
+  const values = [];
+  for await (const value of (0, globalThis.Object["values"]('ab'))) {
+    values.push(value);
+  }
+  const singleQuotedValues = [];
+  for await (const value of (0, globalThis['Object']['values']('ab'))) {
+    singleQuotedValues.push(value);
+  }
+  const entries = [];
+  for await (const entry of (0, globalThis["Object"]["entries"]('ab'))) {
+    entries.push(entry);
+  }
+  const singleQuotedEntries = [];
+  for await (const entry of (0, globalThis['Object']['entries']('ab'))) {
+    singleQuotedEntries.push(entry);
+  }
+
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(singleQuotedKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(singleQuotedValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(singleQuotedEntries);
+  console.log('browser object string enumeration sequence wrappers ok');
+}
+
+browserObjectStringEnumerationSequenceWrappers();
+"""
+"main_test.${ext}" = """async function browserObjectStringEnumerationSequenceWrappers() {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+      throw new Error('unexpected Object.keys string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectValuesIteration(values) {
+    if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+      throw new Error('unexpected Object.values string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== '0' ||
+      entries[0][1] !== 'a' ||
+      entries[1][0] !== '1' ||
+      entries[1][1] !== 'b'
+    ) {
+      throw new Error('unexpected Object.entries string-primitive iteration semantics');
+    }
+  }
+
+  const keys = [];
+  for await (const key of (0, globalThis["Object"]["keys"]('ab'))) {
+    keys.push(key);
+  }
+  const singleQuotedKeys = [];
+  for await (const key of (0, globalThis['Object']['keys']('ab'))) {
+    singleQuotedKeys.push(key);
+  }
+  const values = [];
+  for await (const value of (0, globalThis.Object["values"]('ab'))) {
+    values.push(value);
+  }
+  const singleQuotedValues = [];
+  for await (const value of (0, globalThis['Object']['values']('ab'))) {
+    singleQuotedValues.push(value);
+  }
+  const entries = [];
+  for await (const entry of (0, globalThis["Object"]["entries"]('ab'))) {
+    entries.push(entry);
+  }
+  const singleQuotedEntries = [];
+  for await (const entry of (0, globalThis['Object']['entries']('ab'))) {
+    singleQuotedEntries.push(entry);
+  }
+
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(singleQuotedKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(singleQuotedValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(singleQuotedEntries);
+  console.log('browser object string enumeration sequence wrappers ok');
+}
+
+Kali.test('browser object string enumeration sequence wrappers', () => browserObjectStringEnumerationSequenceWrappers());
+"""
+
+[[case]]
+name = "run_supports_object_string_enumeration_sequence_wrappers_in_browser_api_surface_with_harness"
+rationale = """Migrated from browser_for_await_object_string_enumeration_sequence_wrappers_js_input.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. `assert_browser_harness_object_string_enumeration_sequence_wrappers("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and asserts only that the process fails closed and that E5506 appears on one of the two streams. Source's assertion is `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in this mode E5506 appears on stderr only. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 5 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(command,json_output,ext) invocations in source exactly. The helper picks its fixture body from the command while writing both to `main.<ext>`, which one flat file-wide `[source]` key cannot express, so the stems are disambiguated to `main_run`/`main_test`; the filename is only ever the bare CLI positional argument, never read back inside a fixture body."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_run.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_run_supports_object_string_enumeration_sequence_wrappers_in_browser_api_surface_with_harness"
+rationale = """Migrated from browser_for_await_object_string_enumeration_sequence_wrappers_js_input.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. `assert_browser_harness_object_string_enumeration_sequence_wrappers("run", ...)` runs `kali run --api browser --output json` under the browser harness (`node`) and asserts only that the process fails closed and that E5506 appears on one of the two streams. Source's assertion is `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in this mode E5506 appears on stdout only. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 5 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(command,json_output,ext) invocations in source exactly. The helper picks its fixture body from the command while writing both to `main.<ext>`, which one flat file-wide `[source]` key cannot express, so the stems are disambiguated to `main_run`/`main_test`; the filename is only ever the bare CLI positional argument, never read back inside a fixture body."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_run.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stdout_contains = ["E5506"]
+
+[[case]]
+name = "test_supports_object_string_enumeration_sequence_wrappers_in_browser_api_surface_with_harness"
+rationale = """Migrated from browser_for_await_object_string_enumeration_sequence_wrappers_js_input.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. `assert_browser_harness_object_string_enumeration_sequence_wrappers("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and asserts only that the process fails closed and that E5506 appears on one of the two streams. Source's assertion is `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in this mode E5506 appears on stderr only. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 5 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(command,json_output,ext) invocations in source exactly. The helper picks its fixture body from the command while writing both to `main.<ext>`, which one flat file-wide `[source]` key cannot express, so the stems are disambiguated to `main_run`/`main_test`; the filename is only ever the bare CLI positional argument, never read back inside a fixture body."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_test_supports_object_string_enumeration_sequence_wrappers_in_browser_api_surface_with_harness"
+rationale = """Migrated from browser_for_await_object_string_enumeration_sequence_wrappers_js_input.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. `assert_browser_harness_object_string_enumeration_sequence_wrappers("test", ...)` runs `kali test --api browser --output json` under the browser harness (`node`) and asserts only that the process fails closed and that E5506 appears on one of the two streams. Source's assertion is `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in this mode E5506 appears on stdout only. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 5 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(command,json_output,ext) invocations in source exactly. The helper picks its fixture body from the command while writing both to `main.<ext>`, which one flat file-wide `[source]` key cannot express, so the stems are disambiguated to `main_run`/`main_test`; the filename is only ever the bare CLI positional argument, never read back inside a fixture body."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stdout_contains = ["E5506"]

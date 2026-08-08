@@ -1,0 +1,169 @@
+# Migrated from tests/browser_math_exp2_global_this_root.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# MATRIX ARITHMETIC (rule 7): 8 bundle fns (ext(4) x json_output(2)) + 16
+# harness
+# fns (command(run/test) x ext(4) x json_output(2)) = 24 invocations = 24
+# #[test]
+# fns, all individual (no loops anywhere in this file). Both groups vary
+# uniformly over all four extensions, so `ext` is hoisted to a file-level
+# [matrix] axis: 24 fns collapse to 6 [[case]] entries, matrix-fanned to 24
+# trials, matching exactly.
+#
+# [source] needs no disambiguation (U5): `app.<ext>`, `main.<ext>` and
+# `smoke.test.<ext>` are already distinct keys.
+#
+# ASSERTION SHAPE. Bundle: `exit = "success"`; json mode carries
+# schemaVersion/command/success/exitCode/payload(artifactKind, bundleFormat)
+# AND
+# `errors = []` (this file's bundle helper does assert
+# `envelope["errors"].is_empty()`, unlike several of its siblings); then the
+# emitted `app/app.meta.json` metadata; then the bundle-harness
+# `stdout_contains = ["4\n"]`. Harness: `exit = "success"`; non-json
+# `stdout_contains = ["4\n"]`; json mode carries
+# schemaVersion/command/success/payload(hostContract, runtimeBackend), then
+# `json["exitCode"]`/`payload.exitCode` for "run" or
+# `payload.total/passed/failed` for "test", `errors = []`, `warnings = []`
+# (`assert_eq!(json["warnings"], Value::Array(vec![]))` -- an exact
+# empty-array claim this file makes and most of its siblings do not),
+# `stderr = ""`, and an exact `json.stdout` pin resolving source's
+# `json["stdout"].contains("4\n")`, live-captured from the real `kali` binary.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: globalThisMathExp2NonNegativeIntegerLiterals
+function globalThisMathExp2NonNegativeIntegerLiterals() {
+  const exponent = 2;
+  console.log(globalThis.Math.exp2(exponent));
+  console.log(globalThis?.Math.exp2(exponent));
+  console.log(Object.freeze(globalThis?.Math.exp2)(exponent));
+  console.log(globalThis.Math["exp2"](exponent));
+  console.log(globalThis["Math"].exp2(exponent));
+  console.log(globalThis["Math"]["exp2"](exponent));
+  console.log(Object.freeze(globalThis["Math"].exp2)(exponent));
+  console.log(Object.freeze((globalThis["Math"].exp2))(exponent));
+  console.log(Object.freeze(globalThis.Math.exp2)(exponent));
+  console.log(Object.freeze((globalThis.Math.exp2))(exponent));
+  console.log(Object.freeze(globalThis.Math["exp2"])(exponent));
+  console.log(Object.freeze((globalThis.Math["exp2"]))(exponent));
+  console.log(Object.freeze(globalThis["Math"].exp2)(exponent));
+  console.log(Object.freeze((globalThis["Math"].exp2))(exponent));
+  console.log(Object.freeze((null ?? globalThis.Math.exp2))(exponent));
+  console.log(Object.freeze((true && globalThis.Math.exp2))(exponent));
+  console.log(Object.freeze((false || globalThis.Math.exp2))(exponent));
+  console.log(Object.freeze(globalThis["Math"]["exp2"])(exponent));
+  console.log(Object.freeze((globalThis["Math"]["exp2"]))(exponent));
+  console.log(Object.freeze((true && globalThis["Math"]["exp2"]))(exponent));
+  return [globalThis.Math.exp2(exponent), globalThis.Math["exp2"](exponent), globalThis["Math"].exp2(exponent), globalThis["Math"]["exp2"](exponent), Object.freeze(globalThis["Math"].exp2)(exponent), Object.freeze((globalThis["Math"].exp2))(exponent), Object.freeze(globalThis.Math.exp2)(exponent), Object.freeze((globalThis.Math.exp2))(exponent), Object.freeze(globalThis.Math["exp2"])(exponent), Object.freeze((globalThis.Math["exp2"]))(exponent), Object.freeze(globalThis["Math"].exp2)(exponent), Object.freeze((globalThis["Math"].exp2))(exponent), Object.freeze((null ?? globalThis.Math.exp2))(exponent), Object.freeze((true && globalThis.Math.exp2))(exponent), Object.freeze((false || globalThis.Math.exp2))(exponent), Object.freeze(globalThis["Math"]["exp2"])(exponent), Object.freeze((globalThis["Math"]["exp2"]))(exponent), Object.freeze((true && globalThis["Math"]["exp2"]))(exponent)];
+}
+"""
+"main.${ext}" = """const exponent = 2; console.log(globalThis.Math.exp2(exponent)); console.log(globalThis?.Math.exp2(exponent)); console.log(Object.freeze(globalThis?.Math.exp2)(exponent)); console.log(globalThis.Math["exp2"](exponent)); console.log(globalThis["Math"].exp2(exponent)); console.log(globalThis["Math"]["exp2"](exponent)); console.log(Object.freeze(globalThis["Math"].exp2)(exponent)); console.log(Object.freeze((globalThis["Math"].exp2))(exponent)); console.log(Object.freeze(globalThis.Math.exp2)(exponent)); console.log(Object.freeze((globalThis.Math.exp2))(exponent)); console.log(Object.freeze(globalThis.Math["exp2"])(exponent)); console.log(Object.freeze((globalThis.Math["exp2"]))(exponent)); console.log(Object.freeze(globalThis["Math"].exp2)(exponent)); console.log(Object.freeze((globalThis["Math"].exp2))(exponent)); console.log(Object.freeze((null ?? globalThis.Math.exp2))(exponent)); console.log(Object.freeze((true && globalThis.Math.exp2))(exponent)); console.log(Object.freeze((false || globalThis.Math.exp2))(exponent)); console.log(Object.freeze((globalThis["Math"]["exp2"]))(exponent)); console.log(Object.freeze((null ?? globalThis.Math["exp2"]))(exponent)); console.log(Object.freeze((true && globalThis.Math["exp2"]))(exponent)); console.log(Object.freeze((false || globalThis.Math["exp2"]))(exponent)); console.log(Object.freeze((null ?? globalThis["Math"].exp2))(exponent)); console.log(Object.freeze((true && globalThis["Math"].exp2))(exponent)); console.log(Object.freeze((false || globalThis["Math"].exp2))(exponent));
+"""
+"smoke.test.${ext}" = """Kali.test('globalThis math exp2 non-negative integer literals', () => {
+  const exponent = 2;
+  console.log(globalThis.Math.exp2(exponent));
+  console.log(globalThis?.Math.exp2(exponent));
+  console.log(Object.freeze(globalThis?.Math.exp2)(exponent));
+  console.log(globalThis.Math["exp2"](exponent));
+  console.log(globalThis["Math"].exp2(exponent));
+  console.log(globalThis["Math"]["exp2"](exponent));
+  console.log(Object.freeze(globalThis["Math"].exp2)(exponent));
+  console.log(Object.freeze((globalThis["Math"].exp2))(exponent));
+  console.log(Object.freeze(globalThis.Math.exp2)(exponent));
+  console.log(Object.freeze((globalThis.Math.exp2))(exponent));
+  console.log(Object.freeze(globalThis.Math["exp2"])(exponent));
+  console.log(Object.freeze((globalThis.Math["exp2"]))(exponent));
+  console.log(Object.freeze(globalThis["Math"].exp2)(exponent));
+  console.log(Object.freeze((globalThis["Math"].exp2))(exponent));
+  console.log(Object.freeze((null ?? globalThis.Math.exp2))(exponent));
+  console.log(Object.freeze((true && globalThis.Math.exp2))(exponent));
+  console.log(Object.freeze((false || globalThis.Math.exp2))(exponent));
+  console.log(Object.freeze((globalThis["Math"]["exp2"]))(exponent));
+  console.log(Object.freeze((null ?? globalThis.Math["exp2"]))(exponent));
+  console.log(Object.freeze((true && globalThis.Math["exp2"]))(exponent));
+  console.log(Object.freeze((false || globalThis.Math["exp2"]))(exponent));
+  console.log(Object.freeze((null ?? globalThis["Math"].exp2))(exponent));
+  console.log(Object.freeze((true && globalThis["Math"].exp2))(exponent));
+  console.log(Object.freeze((false || globalThis["Math"].exp2))(exponent));
+});
+"""
+
+[[case]]
+name = "build_emits_global_this_math_exp2_zero_identity"
+rationale = """Migrated from browser_math_exp2_global_this_root.rs. `assert_browser_bundle_global_this_math_exp2` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that every `globalThis`-rooted `Math.exp2` spelling printed `4`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathExp2NonNegativeIntegerLiterals();
+"""
+stdout_contains = ["4\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_exp2_zero_identity"
+rationale = """Migrated from browser_math_exp2_global_this_root.rs. `assert_browser_bundle_global_this_math_exp2` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that every `globalThis`-rooted `Math.exp2` spelling printed `4`. Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathExp2NonNegativeIntegerLiterals();
+"""
+stdout_contains = ["4\n"]
+
+[[case]]
+name = "run_supports_global_this_math_exp2_zero_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp2_global_this_root.rs. `assert_browser_harness_global_this_math_exp2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `4\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["4\n"]
+
+[[case]]
+name = "json_run_supports_global_this_math_exp2_zero_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp2_global_this_root.rs. `assert_browser_harness_global_this_math_exp2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `errors` is empty, that `warnings` is exactly the empty array, that `stderr` is exactly empty, and that `json["stdout"]` contains `4\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's `.contains()` check. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "errors" = [], "warnings" = [], "stdout" = "4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n", "stderr" = "" }
+
+[[case]]
+name = "test_supports_global_this_math_exp2_zero_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp2_global_this_root.rs. `assert_browser_harness_global_this_math_exp2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `4\\n`; a plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["4\n"]
+
+[[case]]
+name = "json_test_supports_global_this_math_exp2_zero_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp2_global_this_root.rs. `assert_browser_harness_global_this_math_exp2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `errors` is empty, that `warnings` is exactly the empty array, that `stderr` is exactly empty, and that `json["stdout"]` contains `4\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's `.contains()` check. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "errors" = [], "warnings" = [], "stdout" = "4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n", "stderr" = "" }

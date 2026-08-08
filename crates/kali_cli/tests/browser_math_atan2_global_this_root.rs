@@ -1,3 +1,55 @@
+//! Task 18 batch 3 audit escalation: ONE of this file's 19 `#[test]` fns is
+//! blocked from migration by the fixture self-inspection blind spot; the other
+//! 18 are migrated to `tests/cases/browser/math_atan2_global_this_root.toml`
+//! (69 named sibling `[[case]]` entries, no `[matrix]`, all green).
+//!
+//! BLOCKED TEST (1 of 19, NOT all -- U4's trim-and-keep applies here, this is
+//! not a whole-file retention):
+//! `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`
+//! (`:399-414`). It has no helper: its whole body is three
+//! `assert!(source.contains(<needle>))` self-checks -- one of them
+//! itself an OR across two quoting spellings -- run against
+//! `browser_bundle_global_this_math_atan2_frozen_source()`'s OWN TEXT
+//! (`:402`, `:406`, `:407`, `:411` -- the whole blocking construct is the
+//! three-`assert!` range `:401-413`), before
+//! any command is built and without ever invoking `kali`. The four blocking
+//! literals are `Object.freeze(globalThis.Math.atan2)`,
+//! `Object.freeze(globalThis['Math']['atan2'])`, its double-quoted sibling
+//! (identical but spelling both bracket keys with `"` instead of `'`) and
+//! `Object.freeze(Math.atan2)`.
+//!
+//! WHY THE AUDIT CANNOT CARRY IT. `scripts/audit-case-migration.py` extracts
+//! every `.contains(<literal>)` argument as a claim and searches only the
+//! fields the case runner turns into assertions; `[source]` is excluded from
+//! that search by construction. These four literals are *read*, not *asserted
+//! on output*, so no honest migration can put them in an assertion field, and
+//! the audit reports them absent regardless of what the migrated `[source]`
+//! contains. Verified, not assumed: running
+//! `python3 scripts/audit-case-migration.py
+//! crates/kali_cli/tests/browser_math_atan2_global_this_root.rs
+//! crates/kali_cli/tests/cases/browser/math_atan2_global_this_root.toml`
+//! reports `AUDIT FAILED -- 4 claim(s) absent`, listing exactly those four
+//! literals and nothing else.
+//!
+//! Same shape as the Task 18 pilot's `browser_math_pow_exponent_one.rs` and
+//! batch 2's `browser_array_from_set_map_bundle.rs`; the controller has ruled
+//! the script is NOT extended for it (ruling 4), so this is escalated per rule
+//! 3/4 and the affected test is retained hand-written.
+//!
+//! SCOPE OF THE RETENTION. Only the one `#[test]` above is retained. The other
+//! 18 fns route through `assert_browser_bundle_global_this_math_atan2`,
+//! `assert_browser_bundle_global_this_math_atan2_source`,
+//! `assert_browser_bundle_global_this_math_atan2_await_wrapped` or
+//! `assert_browser_harness_global_this_math_atan2`; none reads fixture text and
+//! all migrated cleanly (69 real invocations, expanded from their `for`
+//! loops). Those 18 are still present in this file because batch 3's brief
+//! forbids deleting or trimming any `.rs` in this increment -- deletion is one
+//! family-wide operation after batch 8. At that sweep this file must be TRIMMED
+//! to the single blocked test and
+//! `browser_bundle_global_this_math_atan2_frozen_source`, NOT deleted outright.
+//!
+//! See `.superpowers/sdd/2026-07-29-test-binary-consolidation/
+//! task-18-batch3-report.md` for the full account.
 use std::{fs, process::Command};
 
 use serde_json::Value;

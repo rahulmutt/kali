@@ -1,0 +1,92 @@
+# Migrated from
+# tests/browser_math_atan2_trailing_argument_evaluation_harness.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# MATRIX ARITHMETIC (rule 7): 6 #[test] fns, each one call to
+# `assert_browser_harness_atan2_trailing_argument_evaluation(command,
+# filename)`,
+# whose body loops `for output_json in [false, true]` -- so each fn is TWO
+# real
+# invocations, not one. 6 x 2 = 12 invocations = command(run/test) x
+# ext(ts/jsx/tsx) x json_output(2). Note the extension axis here is THREE
+# values,
+# not four: this file has no `_js_input` fn at all (verified against the real
+# fn
+# list). `ext` is hoisted to a file-level [matrix] axis over
+# ["ts","jsx","tsx"]:
+# 6 fns / 12 invocations collapse to 4 [[case]] entries, matrix-fanned to 12
+# trials, matching exactly.
+#
+# [source] SELECTION (U5 / U2): `atan2_trailing_argument_source(command)` is a
+# `match` returning the `Kali.test`-wrapped body for "test" and the bare-
+# script
+# body otherwise, written to `main.<ext>` or `smoke.test.<ext>` respectively
+# --
+# already distinct keys, so no rename is needed and no conditional-fixture
+# hazard arises.
+#
+# ASSERTION SHAPE. `exit = "success"` folds both
+# `assert!(output.status.success())` and `assert_eq!(output.status.code(),
+# Some(0))`. Non-json: `stdout_contains = ["bump", "0"]`, mirroring source's
+# `stdout.contains("bump")` and `stdout.contains('0')` -- note the second
+# needle
+# is a CHAR literal `'0'` in source, carried as the one-character string.
+# Json:
+# schemaVersion/command/success/payload(hostContract, runtimeBackend), then
+# `payload.exitCode == 0` for "run" -- this file asserts ONLY the nested
+# `payload.exitCode`, never the top-level `json["exitCode"]`, unlike most of
+# its
+# siblings, and nothing is added -- or `payload.total/passed/failed` for
+# "test";
+# `stderr = ""`, `errors = []`, and an exact `json.stdout` pin resolving
+# source's
+# two `.contains` claims on that leaf, live-captured from the real `kali`
+# binary.
+
+[matrix]
+ext = ["ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """const bump = () => { console.log("bump"); return 2; };
+console.log(Math.atan2(0, 1, bump()));
+"""
+"smoke.test.${ext}" = """Kali.test('atan2 trailing argument evaluation', () => {
+  const bump = () => { console.log("bump"); return 2; };
+  console.log(Math.atan2(0, 1, bump()));
+});
+"""
+
+[[case]]
+name = "run_supports_math_atan2_trailing_argument_evaluation_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_atan2_trailing_argument_evaluation_harness.rs. `assert_browser_harness_atan2_trailing_argument_evaluation("run", ...)` loops `for output_json in [false, true]` inside its body, so each of the 6 source #[test] fns is two real invocations. This one runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `bump` (proving the surplus trailing argument's side effect still ran) and `0` (the `Math.atan2(0, 1)` result); the second needle is a char literal `'0'` in source, carried as the one-character string. Plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `ext` is hoisted to a file-level [matrix] axis over THREE values (ts/jsx/tsx) -- this file has no `_js_input` fn at all -- so 6 #[test] fns / 12 invocations collapse to 4 [[case]] entries here, matrix-fanned to 12 trials (see the file header's arithmetic)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["bump", "0"]
+
+[[case]]
+name = "json_run_supports_math_atan2_trailing_argument_evaluation_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_atan2_trailing_argument_evaluation_harness.rs. `assert_browser_harness_atan2_trailing_argument_evaluation("run", ...)` loops `for output_json in [false, true]` inside its body, so each of the 6 source #[test] fns is two real invocations. This one runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.exitCode == 0` -- this file asserts only the nested payload field, never the top-level `json["exitCode"]`, so none is added -- that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `bump` and `0`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `ext` is hoisted to a file-level [matrix] axis over THREE values (ts/jsx/tsx) -- this file has no `_js_input` fn at all -- so 6 #[test] fns / 12 invocations collapse to 4 [[case]] entries here, matrix-fanned to 12 trials (see the file header's arithmetic)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "stdout" = "bump\n0\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_math_atan2_trailing_argument_evaluation_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_atan2_trailing_argument_evaluation_harness.rs. `assert_browser_harness_atan2_trailing_argument_evaluation("test", ...)` loops `for output_json in [false, true]` inside its body, so each of the 6 source #[test] fns is two real invocations. This one runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `bump` (proving the surplus trailing argument's side effect still ran) and `0` (the `Math.atan2(0, 1)` result); the second needle is a char literal `'0'` in source, carried as the one-character string. Plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `ext` is hoisted to a file-level [matrix] axis over THREE values (ts/jsx/tsx) -- this file has no `_js_input` fn at all -- so 6 #[test] fns / 12 invocations collapse to 4 [[case]] entries here, matrix-fanned to 12 trials (see the file header's arithmetic)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["bump", "0"]
+
+[[case]]
+name = "json_test_supports_math_atan2_trailing_argument_evaluation_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_atan2_trailing_argument_evaluation_harness.rs. `assert_browser_harness_atan2_trailing_argument_evaluation("test", ...)` loops `for output_json in [false, true]` inside its body, so each of the 6 source #[test] fns is two real invocations. This one runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `bump` and `0`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `ext` is hoisted to a file-level [matrix] axis over THREE values (ts/jsx/tsx) -- this file has no `_js_input` fn at all -- so 6 #[test] fns / 12 invocations collapse to 4 [[case]] entries here, matrix-fanned to 12 trials (see the file header's arithmetic)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "bump\n0\n", "stderr" = "", "errors" = [] }
