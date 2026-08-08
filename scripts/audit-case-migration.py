@@ -11,23 +11,29 @@ Five claim kinds are extracted:
   - `.contains("literal")` string arguments.
   - `const NAME: &str = "literal";` rule constants.
   - `assert_eq!(a, "literal")` / `assert_eq!("literal", a)` string-literal
-    arguments, whichever side of the comma the literal is on. Site counts
+    arguments, whichever side of the comma the literal is on, found via a
+    balanced-paren, string-aware argument scanner (`_assert_eq_literal_
+    tokens`), not a regex -- see the FIXED note above `ASSERT_EQ_VALUE_FIRST`
+    's old definition for why a regex could not do this safely. Site counts
     quoted anywhere in this project's history for "assert_eq! vs .contains()"
     have come from at least three different measurement tools and disagreed
     each time; the only number worth trusting is one reproducible from the
-    code actually shipped here, so: running the exact CONTAINS,
-    ASSERT_EQ_VALUE_SECOND, and ASSERT_EQ_VALUE_FIRST patterns below over
-    crates/kali_cli/tests/*.rs (2026-08-07) finds 1,744 assert_eq!
-    string-literal sites (all value-second; value-first is 0 today, see its
-    comment) against 1,229 .contains() literal sites -- assert_eq! is the
-    dominant assertion form, not .contains(). Reproduce with:
-    `python3 -c "..."` using this module's CONTAINS/ASSERT_EQ_VALUE_*
-    patterns against `Path('crates/kali_cli/tests').glob('*.rs')` if this
-    number is ever in question again -- do not requote it from memory.
-    A migration that keeps a JSON path (`errors.0.code`) but silently
-    asserts a different value ("E5507" instead of "E5506") is exactly the
-    kind of quiet weakening this script exists to catch, and only this
-    claim kind catches it.
+    code actually shipped here, so: running the exact CONTAINS pattern and
+    `_assert_eq_literal_tokens` scanner below over crates/kali_cli/tests/*.rs
+    (2026-08-07, PRE-fix, against the file set present that day, most of
+    which has since migrated away and cannot be re-measured on the same
+    corpus) found 1,744 assert_eq! string-literal sites (via the old regex
+    pair, all value-second; value-first was 0 that day) against 1,229
+    .contains() literal sites -- assert_eq! is the dominant assertion form,
+    not .contains(). Do not requote this pair from memory; if it is ever in
+    question again, re-run `CONTAINS`/`_assert_eq_literal_tokens` against
+    `Path('crates/kali_cli/tests').glob('*.rs')` as it stands then -- the
+    file set itself is a moving target across this migration project, so a
+    fresh re-run will not reproduce 1,744/1,229 exactly even with identical
+    code, and that is expected, not a regression. A migration that keeps a
+    JSON path (`errors.0.code`) but silently asserts a different value
+    ("E5507" instead of "E5506") is exactly the kind of quiet weakening this
+    script exists to catch, and only this claim kind catches it.
   - Bracketed JSON keys inside an indexing expression, e.g. the `code` in
     `json["errors"][0]["code"]`.
   - `.arg("token")` argv tokens.
@@ -106,22 +112,49 @@ _STR_LITERAL = r'r?#*"(?:[^"\\]|\\.)*"#*'
 CONTAINS = re.compile(rf'\.contains\(\s*(?:&)?({_STR_LITERAL})')
 # const NAME: &str = "literal";
 CONST = re.compile(rf'const\s+[A-Z0-9_]+\s*:\s*&str\s*=\s*\n?\s*({_STR_LITERAL})')
-# assert_eq!(lhs, "literal") — literal as the second argument, the shape this
-# corpus actually uses today.
-# The first argument is captured with a bare [^,]* (no comma allowed) rather
-# than a real expression parser: this is deliberately conservative. It correctly
-# skips calls whose first argument itself contains a top-level comma (a nested
-# multi-arg call, a vec! literal, ...) rather than risk mis-splitting them, at
-# the cost of a false negative for that (rare, and always non-string-adjacent
-# in this corpus at time of writing) shape. It matches across newlines, so
-# multi-line assert_eq!(...) calls are still captured.
-ASSERT_EQ_VALUE_SECOND = re.compile(rf'assert_eq!\(\s*[^,]*,\s*({_STR_LITERAL})\s*[,)]')
-# assert_eq!("literal", rhs) — literal as the first argument. No site of this
-# shape exists in the corpus at time of writing (confirmed), but nothing
-# guarantees that stays true across ~300 more migrations, and missing it
-# would be a silent under-extraction, not a loud one -- so both argument
-# positions are covered rather than only the one currently observed.
-ASSERT_EQ_VALUE_FIRST = re.compile(rf'assert_eq!\(\s*({_STR_LITERAL})\s*,')
+# assert_eq!(lhs, "literal") / assert_eq!("literal", rhs) — literal as either
+# argument. Extracted by `_assert_eq_literal_tokens` below (a balanced-paren,
+# string-aware argument scanner), NOT a `[^,]*`-skip regex.
+#
+# FIXED (found during Task 17, same class as the `JSON_KEY` raw-string
+# anchor and the `unquote()` unicode-escape fix below: the tool's own
+# canonicalization/extraction was incomplete, not the migrated file's
+# assertion): the previous `ASSERT_EQ_VALUE_SECOND` was
+# `assert_eq!\(\s*[^,]*,\s*(LITERAL)\s*[,)]`. Its first-argument placeholder,
+# `[^,]*`, does not track parenthesis depth, so on a first argument that
+# itself contains a nested call with its own comma-separated arguments --
+# `assert_eq!(run_js(&src.replace("var x = 1;", "var x = 2;")), "v=100\n")`
+# (`switch_runtime.rs`) -- it stops at the FIRST comma it meets textually,
+# which is `.replace`'s own internal separator, not `assert_eq!`'s top-level
+# one, and then reads the next string literal (`"var x = 2;"`, a replacement
+# ARGUMENT, not an assertion value) as if it were `assert_eq!`'s real second
+# argument. That phantom claim lives only in fixture-construction text, which
+# is exactly the kind of text `[source]` excludes from the new side's search
+# by design (see the module docstring above), so nothing but a fabricated
+# assertion could ever satisfy it -- the audit failed on `switch_runtime.rs`
+# for a claim that was never a claim. The old docstring called the `[^,]*`
+# design "deliberately conservative" and accepted a false NEGATIVE on a
+# first-argument top-level comma as its cost; it did not anticipate a
+# first-argument NESTED comma producing a false POSITIVE instead, which is
+# the strictly more dangerous direction (a false OK is worse than a missed
+# claim). Confirmed additive-and-corrective, not just additive, by re-running
+# every currently-migrated pair's audit before and after this fix (see the
+# task-17 report): every previously-`AUDIT OK` file stayed `AUDIT OK` with an
+# unchanged claim set (the old regex's bare-second-argument case is a special
+# case the new scanner also handles identically), and `switch_runtime.rs`
+# flipped from `AUDIT FAILED` (2 phantom claims) to `AUDIT OK` with zero
+# newly-missing real claims.
+#
+# `CONTAINS`/`CONST`/`JSON_KEY`/`ARG` above and below do NOT share this bug:
+# none of them has a `[^,]*`-style "skip an unbounded prefix" component --
+# each requires its captured literal to start immediately (mod whitespace/an
+# optional `&`) at a fixed anchor point (right after `.contains(`, right
+# after `const NAME: &str =`, right after `[`, right after `.arg(`), so there
+# is nothing for a nested call's comma to be mistaken for. Re-verified
+# empirically, not just by inspection: the same before/after sweep that
+# re-ran every pair's full audit (all five claim kinds, not just assert_eq
+# values) found zero changes to any `contains literals`/`rule constants`/
+# `json keys`/`argv tokens` claim set anywhere in the corpus.
 # assert_eq!(json["a"]["b"], value) — capture each bracketed key.
 JSON_KEY = re.compile(r'\[\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\]')
 # .arg("token")
@@ -223,12 +256,145 @@ def _blank_raw_strings(source: str) -> str:
     return _RAW_STRING.sub(lambda m: " " * len(m.group(0)), source)
 
 
+def _skip_string(text: str, pos: int) -> int | None:
+    """If `text[pos]` opens a string literal (plain `"..."` or raw
+    `r#*"..."#*`), return the index one past its closing delimiter;
+    otherwise `None`. A raw-string open is only recognized when `pos` is a
+    genuine token start (the character before it, if any, is not an
+    identifier character) -- the same guard `_RAW_STRING` above needs and
+    for the identical reason (an ordinary word ending in `r`, e.g.
+    `"...operator")`, must not be misread as the start of a raw string)."""
+    n = len(text)
+    c = text[pos]
+    if c == '"':
+        j = pos + 1
+        while j < n:
+            if text[j] == '\\':
+                j += 2
+                continue
+            if text[j] == '"':
+                return j + 1
+            j += 1
+        return n
+    if c == 'r' and (pos == 0 or not (text[pos - 1].isalnum() or text[pos - 1] == '_')):
+        k = pos + 1
+        hashes = 0
+        while k < n and text[k] == '#':
+            hashes += 1
+            k += 1
+        if k < n and text[k] == '"':
+            close = '"' + ('#' * hashes)
+            end = text.find(close, k + 1)
+            return (end + len(close)) if end != -1 else n
+    return None
+
+
+def _split_top_level_args(arg_text: str) -> list[str]:
+    """Split a call's raw argument-list text (the text strictly between its
+    outer parens) into top-level arguments: a comma only splits when it is
+    not inside a nested `()`/`[]`/`{}` and not inside a string literal. This
+    is what `_find_calls`/`_assert_eq_literal_tokens` use in place of the
+    former `[^,]*` regex skip -- see the FIXED note above `ASSERT_EQ_VALUE
+    _FIRST`'s old definition for the false-positive this closes.
+
+    Bracket TYPES are not matched against each other (an unclosed `(` can be
+    closed by a `]`) -- this is a heuristic scan over syntactically valid
+    Rust, the same trade-off `callsite_extract.py`-style tools on this
+    branch have made before, not a real parser. It is sufficient here: the
+    source is always valid Rust, so bracket types are always self-consistent
+    even though this function does not check that itself.
+    """
+    parts = []
+    depth = 0
+    start = 0
+    i = 0
+    n = len(arg_text)
+    while i < n:
+        c = arg_text[i]
+        if c == '"' or c == 'r':
+            end = _skip_string(arg_text, i)
+            if end is not None:
+                i = end
+                continue
+        if c in '([{':
+            depth += 1
+        elif c in ')]}':
+            depth -= 1
+        elif c == ',' and depth == 0:
+            parts.append(arg_text[start:i])
+            start = i + 1
+        i += 1
+    parts.append(arg_text[start:])
+    return [p.strip() for p in parts]
+
+
+def _find_calls(source: str, name: str) -> list[str]:
+    """Every balanced `name(...)` call's raw argument-list text (the text
+    strictly between the outer parens), found by depth-tracking from the
+    opening paren to its true matching close -- skipping string-literal
+    interiors the same way `_split_top_level_args` does, so a `)` or `(`
+    character inside a fixture string can never be mistaken for the call's
+    own closing paren. `name` is matched literally (e.g. `"assert_eq!("`
+    already includes the macro's own opening paren in the search anchor is
+    NOT assumed here -- callers pass the bare name, e.g. `"assert_eq!"`)."""
+    out = []
+    n = len(source)
+    for m in re.finditer(re.escape(name) + r'\(', source):
+        depth = 1
+        i = m.end()
+        while i < n and depth > 0:
+            c = source[i]
+            if c == '"' or c == 'r':
+                end = _skip_string(source, i)
+                if end is not None:
+                    i = end
+                    continue
+            if c in '([{':
+                depth += 1
+            elif c in ')]}':
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        out.append(source[m.end():i])
+    return out
+
+
+def _assert_eq_literal_tokens(source: str) -> list[str]:
+    """Every literal-string argument in position 0 or 1 of every
+    `assert_eq!(...)` call, found via balanced-paren, string-aware argument
+    splitting -- see the FIXED note above for the bug this replaces. Returns
+    raw literal tokens (quotes and escapes intact), exactly like
+    `CONTAINS`/`CONST`'s `.findall()` output, so it flows through the same
+    `unquote()`/`literal_variants()` pipeline unchanged. A 3rd+ argument (a
+    custom panic-message format string) is never inspected, matching the
+    old regexes' scope."""
+    tokens = []
+    for arg_text in _find_calls(source, 'assert_eq!'):
+        for a in _split_top_level_args(arg_text)[:2]:
+            if re.fullmatch(_STR_LITERAL, a):
+                tokens.append(a)
+    return tokens
+
+
+class _AssertEqLiterals:
+    """Duck-types `re.Pattern`'s `.findall(source) -> list[str]` so
+    `LITERAL_KINDS` can hold this scanner alongside real compiled regexes
+    without changing `claims()`'s iteration logic at all."""
+
+    def findall(self, source: str) -> list[str]:
+        return _assert_eq_literal_tokens(source)
+
+
+ASSERT_EQ_LITERALS = _AssertEqLiterals()
+
+
 # String-literal claim kinds, each checked in both spellings (see module
 # docstring), each backed by one or more patterns whose matches are unioned.
-LITERAL_KINDS: dict[str, list[re.Pattern[str]]] = {
+LITERAL_KINDS: dict[str, list] = {
     "contains literals": [CONTAINS],
     "rule constants": [CONST],
-    "assert_eq values": [ASSERT_EQ_VALUE_SECOND, ASSERT_EQ_VALUE_FIRST],
+    "assert_eq values": [ASSERT_EQ_LITERALS],
 }
 
 # Per-kind values with no discriminating power, excluded so they can't produce
