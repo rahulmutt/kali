@@ -80,6 +80,7 @@ entry = "app_as_const"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationAsConstWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -102,6 +103,7 @@ entry = "app_as_const"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationAsConstWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -123,6 +125,7 @@ entry = "app_satisfies"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationSatisfiesWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -145,4 +148,5 @@ entry = "app_satisfies"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationSatisfiesWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]

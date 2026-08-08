@@ -69,6 +69,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationSequenceWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -91,4 +92,5 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationSequenceWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]

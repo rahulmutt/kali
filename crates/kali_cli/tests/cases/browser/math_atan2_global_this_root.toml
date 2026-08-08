@@ -393,6 +393,7 @@ entry = "app_zero_slice"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -414,6 +415,7 @@ entry = "app_zero_slice"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -435,6 +437,7 @@ entry = "app_zero_slice"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -456,6 +459,7 @@ entry = "app_zero_slice"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -477,6 +481,7 @@ entry = "app_zero_slice"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -499,6 +504,7 @@ entry = "app_zero_slice"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -521,6 +527,7 @@ entry = "app_zero_slice"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -543,6 +550,7 @@ entry = "app_zero_slice"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -565,6 +573,7 @@ entry = "app_zero_slice"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -586,6 +595,7 @@ entry = "app_frozen"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2FrozenCallableAliases();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -607,6 +617,7 @@ entry = "app_frozen"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2FrozenCallableAliases();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -628,6 +639,7 @@ entry = "app_frozen"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2FrozenCallableAliases();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -649,6 +661,7 @@ entry = "app_frozen"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2FrozenCallableAliases();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -671,6 +684,7 @@ entry = "app_frozen"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2FrozenCallableAliases();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -693,6 +707,7 @@ entry = "app_frozen"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2FrozenCallableAliases();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -715,6 +730,7 @@ entry = "app_frozen"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2FrozenCallableAliases();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -737,6 +753,7 @@ entry = "app_frozen"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2FrozenCallableAliases();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -758,6 +775,7 @@ entry = "app_await_wrapped"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -779,6 +797,7 @@ entry = "app_await_wrapped"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -800,6 +819,7 @@ entry = "app_await_wrapped"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -821,6 +841,7 @@ entry = "app_await_wrapped"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -843,6 +864,7 @@ entry = "app_await_wrapped"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -865,6 +887,7 @@ entry = "app_await_wrapped"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -887,6 +910,7 @@ entry = "app_await_wrapped"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -909,6 +933,7 @@ entry = "app_await_wrapped"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]

@@ -286,6 +286,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.browserArrayFromFrozenSetMapWrappers();
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"]
 
 [[case]]
@@ -308,4 +309,5 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.browserArrayFromFrozenSetMapWrappers();
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"]

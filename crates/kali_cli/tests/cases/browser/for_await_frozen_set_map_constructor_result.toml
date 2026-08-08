@@ -524,6 +524,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserFrozenSetMapConstructorResult();
 console.log('browser for await frozen set/map constructor results ok');
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n3\n4\n5\n"]
 
 [[case]]
@@ -547,6 +548,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserFrozenSetMapConstructorResult();
 console.log('browser for await frozen set/map constructor results ok');
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n3\n4\n5\n"]
 
 [[case]]
@@ -603,6 +605,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserParenthesizedFrozenSetMapConstructorResult();
 console.log('browser for await parenthesized frozen set/map constructor results ok');
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"]
 
 [[case]]
@@ -626,6 +629,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserParenthesizedFrozenSetMapConstructorResult();
 console.log('browser for await parenthesized frozen set/map constructor results ok');
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"]
 
 [[case]]
@@ -682,6 +686,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserFrozenObjectHelperIterationTargets();
 console.log('browser for await frozen object helper iteration targets ok');
 """
+exit = "success"
 stdout_contains = ["b\na\n", "1\n2\n", "b\n1\na\n2\n"]
 
 [[case]]
@@ -705,4 +710,5 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserFrozenObjectHelperIterationTargets();
 console.log('browser for await frozen object helper iteration targets ok');
 """
+exit = "success"
 stdout_contains = ["b\na\n", "1\n2\n", "b\n1\na\n2\n"]

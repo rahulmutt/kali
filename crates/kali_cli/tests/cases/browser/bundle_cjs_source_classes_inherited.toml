@@ -35,6 +35,14 @@
 # `stdout_contains` -- a legitimate use of the existing format, verified
 # directly against the real binary. The source map and metadata files ARE
 # JSON, so those use `file_json` steps as usual.
+#
+# That step deliberately carries NO `exit` assertion (fix round 1, batch 3
+# I2). Every other `browser_bundle_harness` step in the browser family now
+# sets `exit = "success"`, mirroring the `assert!(output.status.success())`
+# its source makes on the harness process. This source runs no harness
+# process at all -- the step exists only as the format's way of reading a
+# text file -- so there is no source claim to mirror, and adding one would
+# be a rule 2 invention.
 
 [matrix]
 ext = ["js", "ts", "jsx", "tsx"]

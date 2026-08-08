@@ -174,6 +174,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -196,6 +197,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -217,6 +219,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -239,6 +242,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -260,6 +264,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -282,6 +287,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -303,6 +309,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -325,6 +332,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -346,6 +354,7 @@ entry = "app_method"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2BracketedMethod();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -368,6 +377,7 @@ entry = "app_method"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2BracketedMethod();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -389,6 +399,7 @@ entry = "app_method"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2BracketedMethod();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -411,6 +422,7 @@ entry = "app_method"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2BracketedMethod();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -432,6 +444,7 @@ entry = "app_sq"
 body = """const mod = await import(bundleJs.href);
 await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -454,6 +467,7 @@ entry = "app_sq"
 body = """const mod = await import(bundleJs.href);
 await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -475,6 +489,7 @@ entry = "app_sq"
 body = """const mod = await import(bundleJs.href);
 await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -497,6 +512,7 @@ entry = "app_sq"
 body = """const mod = await import(bundleJs.href);
 await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -518,6 +534,7 @@ entry = "app_sq"
 body = """const mod = await import(bundleJs.href);
 await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -540,6 +557,7 @@ entry = "app_sq"
 body = """const mod = await import(bundleJs.href);
 await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -561,6 +579,7 @@ entry = "app_sq"
 body = """const mod = await import(bundleJs.href);
 await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -583,6 +602,7 @@ entry = "app_sq"
 body = """const mod = await import(bundleJs.href);
 await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -604,6 +624,7 @@ entry = "app_as_const"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2AsConstWrapper();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -626,6 +647,7 @@ entry = "app_as_const"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2AsConstWrapper();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -647,6 +669,7 @@ entry = "app_satisfies"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2SatisfiesWrapper();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]
@@ -669,6 +692,7 @@ entry = "app_satisfies"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2SatisfiesWrapper();
 """
+exit = "success"
 stdout_contains = ["0\n"]
 
 [[case]]

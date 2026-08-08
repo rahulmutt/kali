@@ -793,6 +793,7 @@ entry = "app_for_of"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationSpreadWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -815,6 +816,7 @@ entry = "app_for_of"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationSpreadWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -836,6 +838,7 @@ entry = "app_for_await"
 body = """const mod = await import(bundleJs.href);
 await mod.forAwaitArrayIterationSpreadWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -858,6 +861,7 @@ entry = "app_for_await"
 body = """const mod = await import(bundleJs.href);
 await mod.forAwaitArrayIterationSpreadWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -879,6 +883,7 @@ entry = "app_array_from"
 body = """const mod = await import(bundleJs.href);
 await mod.browserArrayFromWrappers();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -901,6 +906,7 @@ entry = "app_array_from"
 body = """const mod = await import(bundleJs.href);
 await mod.browserArrayFromWrappers();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]

@@ -45,6 +45,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.browserFindFamily();
 """
+exit = "success"
 stdout_contains = ["browser find family ok"]
 
 [[case]]
@@ -67,4 +68,5 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.browserFindFamily();
 """
+exit = "success"
 stdout_contains = ["browser find family ok"]

@@ -263,6 +263,7 @@ entry = "app_exponent_one"
 body = """const mod = await import(bundleJs.href);
 await mod.mathPowExponentOneIdentity();
 """
+exit = "success"
 stdout = """2
 2
 2
@@ -333,6 +334,7 @@ entry = "app_exponent_one"
 body = """const mod = await import(bundleJs.href);
 await mod.mathPowExponentOneIdentity();
 """
+exit = "success"
 stdout = """2
 2
 2
@@ -402,6 +404,7 @@ entry = "app_base_one"
 body = """const mod = await import(bundleJs.href);
 await mod.mathPowBaseOneIdentity();
 """
+exit = "success"
 stdout = """1
 1
 1
@@ -472,6 +475,7 @@ entry = "app_base_one"
 body = """const mod = await import(bundleJs.href);
 await mod.mathPowBaseOneIdentity();
 """
+exit = "success"
 stdout = """1
 1
 1

@@ -116,6 +116,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathExpLogIdentities();
 """
+exit = "success"
 stdout_contains = ["1\n", "0\n"]
 
 [[case]]
@@ -138,6 +139,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathExpLogIdentities();
 """
+exit = "success"
 stdout_contains = ["1\n", "0\n"]
 
 [[case]]
@@ -159,6 +161,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathExpLogIdentities();
 """
+exit = "success"
 stdout_contains = ["1\n", "0\n"]
 
 [[case]]
@@ -181,6 +184,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathExpLogIdentities();
 """
+exit = "success"
 stdout_contains = ["1\n", "0\n"]
 
 [[case]]
@@ -202,6 +206,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathExpLogIdentities();
 """
+exit = "success"
 stdout_contains = ["1\n", "0\n"]
 
 [[case]]
@@ -224,6 +229,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathExpLogIdentities();
 """
+exit = "success"
 stdout_contains = ["1\n", "0\n"]
 
 [[case]]
@@ -245,6 +251,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathExpLogIdentities();
 """
+exit = "success"
 stdout_contains = ["1\n", "0\n"]
 
 [[case]]
@@ -267,6 +274,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathExpLogIdentities();
 """
+exit = "success"
 stdout_contains = ["1\n", "0\n"]
 
 [[case]]

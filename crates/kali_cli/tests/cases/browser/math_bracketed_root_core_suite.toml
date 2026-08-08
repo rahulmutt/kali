@@ -99,6 +99,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathCoreSuite();
 """
+exit = "success"
 stdout_contains = ["3\n", "1\n", "-2\n", "31\n", "-1\n"]
 
 [[case]]
@@ -121,6 +122,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathCoreSuite();
 """
+exit = "success"
 stdout_contains = ["3\n", "1\n", "-2\n", "31\n", "-1\n"]
 
 [[case]]

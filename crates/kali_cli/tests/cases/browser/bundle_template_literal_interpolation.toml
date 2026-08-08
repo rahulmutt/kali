@@ -23,4 +23,5 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.start();
 """
+exit = "success"
 stdout_contains = ["v: 3.5\n"]

@@ -114,6 +114,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathExp2NonNegativeIntegerLiterals();
 """
+exit = "success"
 stdout_contains = ["4\n"]
 
 [[case]]
@@ -136,6 +137,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathExp2NonNegativeIntegerLiterals();
 """
+exit = "success"
 stdout_contains = ["4\n"]
 
 [[case]]

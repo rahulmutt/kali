@@ -364,6 +364,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserFrozenSetMapConstructorResult();
 console.log('browser frozen set/map constructor results ok');
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"]
 
 [[case]]
@@ -387,6 +388,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserFrozenSetMapConstructorResult();
 console.log('browser frozen set/map constructor results ok');
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"]
 
 [[case]]
@@ -409,6 +411,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserParenthesizedFrozenSetMapConstructorResult();
 console.log('browser parenthesized frozen set/map constructor results ok');
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"]
 
 [[case]]
@@ -432,4 +435,5 @@ body = """const mod = await import(bundleJs.href);
 await mod.browserParenthesizedFrozenSetMapConstructorResult();
 console.log('browser parenthesized frozen set/map constructor results ok');
 """
+exit = "success"
 stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"]

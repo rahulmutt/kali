@@ -58,6 +58,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.atan2TrailingArgumentEvaluation();
 """
+exit = "success"
 stdout_contains = ["bump", "0\n"]
 
 [[case]]
@@ -80,4 +81,5 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.atan2TrailingArgumentEvaluation();
 """
+exit = "success"
 stdout_contains = ["bump", "0\n"]

@@ -19,6 +19,17 @@
 # prelude already imports, and echoes it to stdout for `stdout_contains` to
 # check -- a legitimate use of the existing format, not a new capability;
 # verified directly against the real binary.
+#
+# Those two glue-text steps deliberately carry NO `exit` assertion (fix
+# round 1, batch 3 I2). Every other `browser_bundle_harness` step in the
+# browser family now sets `exit = "success"`, mirroring the
+# `assert!(output.status.success())` its source makes on the harness
+# process. `start_helper_is_present_in_both_glue_formats` runs no harness
+# process at all -- the step exists only as the format's way of reading a
+# text file -- so there is no source claim to mirror, and adding one would
+# be a rule 2 invention. The first case,
+# `toplevel_program_runs_once_via_glue_start_helper`, DOES run the harness
+# in source and does carry `exit = "success"`.
 
 [source]
 "app.ts" = "console.log(1 + 2);\n"
@@ -38,6 +49,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.start();
 await mod.start();
 """
+exit = "success"
 stdout = "3\n"
 
 [[case]]

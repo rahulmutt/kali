@@ -78,6 +78,7 @@ entry = "app_for_of"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationBreakContinueWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n"]
 
 [[case]]
@@ -100,6 +101,7 @@ entry = "app_for_of"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationBreakContinueWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n"]
 
 [[case]]
@@ -121,6 +123,7 @@ entry = "app_for_await"
 body = """const mod = await import(bundleJs.href);
 await mod.forAwaitArrayIterationBreakContinueWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n"]
 
 [[case]]
@@ -143,4 +146,5 @@ entry = "app_for_await"
 body = """const mod = await import(bundleJs.href);
 await mod.forAwaitArrayIterationBreakContinueWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n"]

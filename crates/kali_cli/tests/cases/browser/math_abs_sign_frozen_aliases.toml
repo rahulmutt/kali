@@ -120,6 +120,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAbsSignFrozenAliases();
 """
+exit = "success"
 stdout_contains = ["3\n", "-1\n"]
 
 [[case]]
@@ -142,6 +143,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.globalThisMathAbsSignFrozenAliases();
 """
+exit = "success"
 stdout_contains = ["3\n", "-1\n"]
 
 [[case]]

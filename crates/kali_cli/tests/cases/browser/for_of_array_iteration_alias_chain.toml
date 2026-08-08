@@ -113,6 +113,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationConstAliasChainWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -135,6 +136,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationConstAliasChainWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -156,6 +158,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationConstAliasChainWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -178,6 +181,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationConstAliasChainWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -199,6 +203,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationConstAliasChainWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -221,6 +226,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationConstAliasChainWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -242,6 +248,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationConstAliasChainWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
@@ -264,6 +271,7 @@ entry = "app"
 body = """const mod = await import(bundleJs.href);
 await mod.forOfArrayIterationConstAliasChainWrapper();
 """
+exit = "success"
 stdout_contains = ["1\n", "2\n"]
 
 [[case]]
