@@ -13,11 +13,11 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory`
-//! (`:123-132`) has no helper: its whole body is a single
-//! `assert!(source.contains(expected))` self-check (`:127-130`) run in a `for`
+//! (`:132-141`) has no helper: its whole body is a single
+//! `assert!(source.contains(expected))` self-check (`:136-139`) run in a `for`
 //! loop over `kali_common::math_floor_trunc_ceil_frozen_callable_aliases()`,
 //! against `browser_bundle_math_floor_trunc_ceil_alias_source()`'s OWN TEXT
-//! (`:99-113`), before any command is built and without ever invoking `kali`.
+//! (`:108-122`), before any command is built and without ever invoking `kali`.
 //!
 //! It is doubly unmigratable, and the second reason is the sharper one:
 //!   1. `scripts/audit-case-migration.py` extracts every `.contains(<literal>)`
@@ -61,9 +61,18 @@
 //!   git show b44fd6acf9^:crates/kali_cli/tests/browser_math_floor_trunc_ceil_bundle.rs > /tmp/pretrim.rs
 //!
 //! Against the POST-trim file (i.e. the plain `verify_pair.sh math_floor_trunc_ceil_bundle` run):
-//!   RED  comment_coverage.py          exit 1, 56 missing lines -- this
-//!        header's own prose, which no case carries because it describes the
-//!        RETAINED test, and that test has no case by construction.
+//!   RED  comment_coverage.py          exit 1 -- EVERY non-blank line of this
+//!        header comes back missing. The checker requires each source comment
+//!        line to appear in some case's `rationale`; this header is prose
+//!        about the RETAINED test, which by construction has no case, so none
+//!        of it is carried anywhere and all of it reports as uncovered.
+//!        NO COUNT IS GIVEN, deliberately. Any figure here would be a count of
+//!        THIS header's own length, so every edit to this paragraph -- including
+//!        the edit that corrects the figure -- silently invalidates it. That is
+//!        exactly how it went stale: measured, then the explanatory prose was
+//!        written, and the writing changed the measurement. Batch 4 caught this
+//!        class three times. Run the gate if you want today's number; the
+//!        durable fact is the classification, not the integer.
 //!   RED  check_rationale_fn_names.py  exit 1, 2 unexplained -- cites helpers
 //!        that left with the migrated cases and no longer exist here.
 //!   RED  check_extra_claims.py        exit 1, 17 unexplained extras -- the
