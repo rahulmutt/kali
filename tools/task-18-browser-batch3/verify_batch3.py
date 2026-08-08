@@ -82,8 +82,10 @@ TABLE = [
     # partial migrations: 1 #[test] retained hand-written in each
     ('browser_math_abs_sign_frozen_aliases',
      'math_abs_sign_frozen_aliases', 25, 24, 24),
-    ('browser_math_asinh_acosh_atanh_identities',
-     'math_asinh_acosh_atanh_identities', 24, 24, 24),
+    # browser_math_asinh_acosh_atanh_identities is NOT in this table: the
+    # controller reversed its migration in fix round 1 (every one of its 24
+    # `#[test]` fns makes a `.matches(<needle>).count() >= N` claim, a spec
+    # 5.11 outlier), so it is retained whole and ships no case file.
     ('browser_math_atan2_global_this_root',
      'math_atan2_global_this_root', 19, 69, 69),
     ('browser_math_atan2_trailing_argument_evaluation_bundle',
@@ -104,7 +106,7 @@ TABLE = [
     ('browser_math_exp_log_identities', 'math_exp_log_identities', 16, 16, 16),
 ]
 
-# Rule 8: the 17 distinct `browser_bundle_harness` bodies this batch ships. The
+# Rule 8: the 16 distinct `browser_bundle_harness` bodies this batch ships. The
 # first 8 export names below are the ones source builds with `format!`, and their
 # resolved text came from EXECUTING those real `format!` calls in a standalone
 # dump program, never hand-substituted; the remaining 9 are plain raw-string
@@ -120,7 +122,7 @@ FORMAT_BODIES = {
         'forAwaitArrayIterationBreakContinueWrapper',
         'globalThisMathAtan2ZeroSlice', 'globalThisMathAtan2FrozenCallableAliases',
         'globalThisMathAtan2AwaitWrappedZeroSlice',
-        'globalThisMathAbsSignFrozenAliases', 'mathInverseHyperbolicIdentities',
+        'globalThisMathAbsSignFrozenAliases',
         'mathClz32OmittedOperands',
         'globalThisMathExp2NonNegativeIntegerLiterals',
         'atan2TrailingArgumentEvaluation',

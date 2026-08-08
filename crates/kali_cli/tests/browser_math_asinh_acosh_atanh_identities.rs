@@ -1,3 +1,57 @@
+//! Task 18 batch 3 escalation (fix round 1): kept 100% hand-written, not
+//! migrated. No case file exists for this target.
+//!
+//! ALL 24 `#[test]` fns in this file make a COUNT claim about stdout, which
+//! the case-file format cannot carry. U4's trim-and-keep was applied first
+//! and degenerates to whole-file retention: there is no complementary
+//! migratable subset to split off. The 8 `build_emits_*` /
+//! `json_build_emits_*` fns all reach
+//! `assert_browser_bundle_math_inverse_hyperbolic` (`:91-172`), whose only
+//! stdout assertion is at `:171`. The other 16 all reach
+//! `assert_browser_harness_math_inverse_hyperbolic` (`:174-228`), whose
+//! `if json_output` branch asserts the same shape at `:222` and whose `else`
+//! branch asserts it at `:226`. Every one of the 24 fns reaches exactly one
+//! of those three lines, and each is the same claim:
+//!
+//!     stdout.matches(<needle>).count() >= 3
+//!
+//! WHY IT CANNOT BE MIGRATED. `stdout_contains` with the bare needle is
+//! satisfied by a single occurrence, so it is a WEAKENING and rule 1 forbids
+//! it. An exact `stdout` pin is barred by controller ruling 3, which keeps a
+//! substring-shaped source claim as `*_contains` whenever the field has a
+//! substring form. The remaining option -- a contiguous three-in-a-row needle,
+//! which does imply the count, since `str::matches` counts non-overlapping
+//! matches -- substitutes an ADJACENCY claim the source deliberately does not
+//! make: "three zeroes anywhere in stdout" is not "three zeroes in a row".
+//! Rule 2 forbids inventing a claim the source never made. That contiguous
+//! encoding was shipped by batch 3's commit `50061950a4` and the controller
+//! reversed it; this retention is the reversal.
+//!
+//! ADJUDICATED: `.matches(...).count()` is a design-spec 5.11 outlier, in the
+//! same class as the `starts_with` / `lines()` sites that 5.4's closing
+//! paragraph already places outside the assertion vocabulary. **No eleventh
+//! assertion key is being added for it** -- do not reopen this by proposing a
+//! `stdout_matches_count` key. This is the same call the human partner made on
+//! the universally-quantified JSON-array claims in
+//! `browser_generator_default_export_rejection.rs`, which is retained whole on
+//! that ground.
+//!
+//! The distinction from an already-exact count claim matters, so a later
+//! reader does not read this as barring exact pins generally: the pilot's
+//! `cases/browser/bundle_toplevel_start.toml` legitimately carries an exact
+//! `stdout` pin because ITS source asserts `.count() == 1` -- an exact
+//! assertion, which ruling 3 maps straight onto an exact pin. `>= 3` is an
+//! inequality, and no observed output resolves it without either weakening
+//! the claim or inventing a stronger one.
+//!
+//! `tests/cases/browser/math_asinh_acosh_atanh_identities.toml` was shipped by
+//! `50061950a4` and is DELETED in the same commit as this header. The 24
+//! trials it contributed are gone from the `cases` target, and these 24 Rust
+//! `#[test]` fns are once again the only coverage of this behaviour.
+//!
+//! This file must NOT be deleted by the family-wide sweep after batch 8. See
+//! `.superpowers/sdd/2026-07-29-test-binary-consolidation/
+//! task-18-batch3-report.md` for the full account.
 use std::{fs, process::Command};
 
 use serde_json::Value;

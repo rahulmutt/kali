@@ -230,154 +230,16 @@ mirrored exactly.
 
 
 # ======================================================= inverse hyperbolic ==
-
-def gen_asinh():
-    rs = src('browser_math_asinh_acosh_atanh_identities.rs')
-    bundle_body = fixture(rs, 'browser_bundle_math_inverse_hyperbolic_source')
-    run_body = fixture(rs, 'browser_harness_math_inverse_hyperbolic_run_source')
-    test_body = fixture(rs, 'browser_harness_math_inverse_hyperbolic_test_source')
-
-    live = {}
-    for command, fname, body in (('run', 'main.js', run_body),
-                                 ('test', 'smoke.test.js', test_body)):
-        live[command] = live_stdout(
-            fname, body, command,
-            harness_args(command, fname, True, throttle=False))
-        # The count claim this migration must not weaken: >= 3 occurrences.
-        assert live[command].count('0\n') >= 3, live[command]
-        assert '0\n0\n0\n' in live[command], live[command]
-
-    header = f"""Migrated from tests/browser_math_asinh_acosh_atanh_identities.rs.
-{NO_COMMENTS}
-
-MATRIX ARITHMETIC (rule 7): 8 bundle fns (ext(4) x json_output(2)) + 16 harness
-fns (command(run/test) x ext(4) x json_output(2)) = 24 invocations = 24 #[test]
-fns, all individual (no loops anywhere in this file). Both groups vary
-uniformly over all four extensions, so `ext` is hoisted to a file-level
-[matrix] axis: 24 fns collapse to 6 [[case]] entries, matrix-fanned to 24
-trials, matching exactly.
-
-COUNT CLAIM (rule 1 -- never weaken). This file does NOT use a plain
-`.contains`: every stdout assertion is
-`stdout.matches("0\\n").count() >= 3`, i.e. at least three separate `0\\n`
-occurrences (asinh(0), acosh(1), atanh(0) each print 0). A bare
-`stdout_contains = ["0\\n"]` would satisfy a single occurrence and is therefore
-a WEAKENING -- rejected. The migrated claim is
-`stdout_contains = ["0\\n0\\n0\\n"]`: since Rust's `str::matches` counts
-non-overlapping matches, a run containing the three-in-a-row needle
-necessarily has `count() >= 3`, so this implies the source claim and is
-strictly stronger (the converse does not hold -- three non-adjacent `0\\n`s
-would satisfy source but not this). The strengthening was verified against the
-real binary before being written, not assumed: the live capture asserts both
-`count("0\\n") >= 3` and the contiguous `0\\n0\\n0\\n` substring for every
-command. The nested `json["stdout"]` leaf has no substring form at all, so
-there the claim becomes an exact live-captured pin.
-
-[source] needs no disambiguation (U5): `app.<ext>`, `main.<ext>` and
-`smoke.test.<ext>` are already distinct keys.
-
-ASSERTION SHAPE. Bundle json mode: schemaVersion/command/success/exitCode/
-payload(artifactKind, bundleFormat); source makes no `errors` claim in this
-file's bundle helper, so none is added (rule 2). Harness json mode adds
-`json["exitCode"]`/`payload.exitCode` for "run" or
-`payload.total/passed/failed` for "test", plus `stderr = ""`; source makes no
-`errors` claim in the harness helper either, so none is added. The harness argv
-carries no `--max-threads`/`--max-spawned-processes` throttle; mirrored.
-"""
-    sources = {'app.${ext}': bundle_body,
-               'main.${ext}': run_body,
-               'smoke.test.${ext}': test_body}
-    count_prose = (
-        "Source's stdout claim here is `stdout.matches(\"0\\n\").count() >= 3`, "
-        "not a plain `.contains`: a bare `stdout_contains = [\"0\\n\"]` would be "
-        "satisfied by ONE occurrence and would weaken it. It is carried as the "
-        "contiguous needle `0\\n0\\n0\\n`, which implies `count() >= 3` because "
-        "`str::matches` counts non-overlapping matches -- strictly stronger than "
-        "the source claim, and verified against the real binary before being "
-        "written."
-    )
-    cases = []
-    for json_output in (False, True):
-        prefix = 'json_build_emits' if json_output else 'build_emits'
-        cases.append({
-            'name': f'{prefix}_math_inverse_hyperbolic_identity_literals',
-            'rationale': (
-                "Migrated from browser_math_asinh_acosh_atanh_identities.rs. "
-                "`assert_browser_bundle_math_inverse_hyperbolic` builds a browser "
-                "bundle (`kali build --bundle --api browser"
-                + (" --output json`), asserts the JSON envelope's "
-                   "schemaVersion/command/success/exitCode/payload (artifactKind, "
-                   "bundleFormat) fields -- source makes no `errors` claim in this "
-                   "file's bundle helper, so none is added -- then asserts"
-                   if json_output else "`), asserts")
-                + " the emitted `app/app.meta.json` metadata, then runs the bundle "
-                  "glue under the browser-bundle-harness contract and checks the "
-                  "asinh(0)/acosh(1)/atanh(0) identity output. " + count_prose
-                + " `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: "
-                  "24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned "
-                  "to 24 trials, matching the 24 real invocations exactly (see the "
-                  "file header's arithmetic)."),
-            'steps': bundle_steps('app', '${ext}', json_output,
-                                  'mathInverseHyperbolicIdentities',
-                                  ['0\n0\n0\n'], assert_errors_empty=False)})
-    for command in ('run', 'test'):
-        fname = 'main.${ext}' if command == 'run' else 'smoke.test.${ext}'
-        for json_output in (False, True):
-            step = {'args': harness_args(command, fname, json_output,
-                                         throttle=False),
-                    'env': dict(NODE_ENV), 'exit': 'success'}
-            if json_output:
-                payload = {'hostContract': 'browser-requested',
-                           'runtimeBackend': 'browser-harness'}
-                j = {'schemaVersion': 1, 'command': command, 'success': True,
-                     'payload': payload}
-                if command == 'run':
-                    j['exitCode'] = 0
-                    payload['exitCode'] = 0
-                else:
-                    payload['total'] = 1
-                    payload['passed'] = 1
-                    payload['failed'] = 0
-                j['stdout'] = live[command]
-                j['stderr'] = ''
-                step['json'] = j
-            else:
-                step['stdout_contains'] = ['0\n0\n0\n']
-            prefix = 'json_' if json_output else ''
-            cases.append({
-                'name': (f'{prefix}{command}_supports_math_inverse_hyperbolic_'
-                         'identity_literals_when_browser_harness_is_configured'),
-                'rationale': (
-                    "Migrated from browser_math_asinh_acosh_atanh_identities.rs. "
-                    f"`assert_browser_harness_math_inverse_hyperbolic(\"{command}\", "
-                    f"...)` runs `kali {command} --api browser"
-                    + (" --output json` and asserts the JSON envelope's "
-                       "schemaVersion/command/success/payload (hostContract, "
-                       "runtimeBackend) fields, "
-                       + ("`json[\"exitCode\"] == 0` and `payload.exitCode == 0`, "
-                          if command == 'run' else
-                          "`payload.total`/`passed`/`failed` == 1/1/0, ")
-                       + "that `stderr` is exactly empty, and that "
-                         "`json[\"stdout\"]` satisfies "
-                         "`matches(\"0\\n\").count() >= 3`. A nested `json` leaf has "
-                         "no substring-assertion form at all in this case-file "
-                         "format (only exact equality), so that claim is resolved to "
-                         "an exact pin -- live-captured from the real `kali` binary "
-                         "and checked to satisfy the original count claim before "
-                         "being written. Source makes no `errors` claim in this "
-                         "helper, so none is added."
-                       if json_output else
-                       "` under the browser harness (`node`) and, in non-json mode, "
-                       "asserts a clean exit and the same count claim. " + count_prose)
-                    + " This helper's argv carries no `--max-threads`/"
-                      "`--max-spawned-processes` throttle; mirrored exactly. `ext` "
-                      "(js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 "
-                      "#[test] fns collapse to 6 [[case]] entries here, matrix-fanned "
-                      "to 24 trials (see the file header's arithmetic)."),
-                'steps': [step]})
-    return emit_case_file(
-        os.path.join(CASES, 'math_asinh_acosh_atanh_identities.toml'),
-        header, {'ext': EXTS}, sources, cases)
+# REMOVED in fix round 1. `gen_asinh()` used to emit
+# cases/browser/math_asinh_acosh_atanh_identities.toml. The controller
+# reversed that migration: every one of that target's 24 `#[test]` fns makes
+# a `.matches(<needle>).count() >= N` claim, which the assertion vocabulary
+# cannot carry -- the bare needle weakens it (rule 1), an exact stdout pin is
+# barred by ruling 3, and the contiguous three-in-a-row needle this generator
+# used to emit invents an adjacency claim the source never made (rule 2). The
+# target is retained whole per spec 5.11; see its `//!` header. The generator
+# is deleted rather than left in place so re-running this file cannot
+# resurrect the reverted case file.
 
 
 # ================================================================== clz32 ====
@@ -1701,7 +1563,7 @@ live-captured from the real `kali` binary per (variant, command).
 
 if __name__ == '__main__':
     total = 0
-    for fn in (gen_abs_sign, gen_asinh, gen_clz32, gen_exp2_global_this,
+    for fn in (gen_abs_sign, gen_clz32, gen_exp2_global_this,
                gen_exp2_zero_identity, gen_exp_log_identities,
                gen_exp_log_bracketed_root, gen_exp_log_fully_bracketed_root,
                gen_bracketed_root_core_suite, gen_atan2_trailing_bundle,
