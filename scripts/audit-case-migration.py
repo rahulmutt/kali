@@ -7,7 +7,7 @@ nothing. So the migration gate is mechanical, not eyeballed: every string
 literal the old test compared against, every JSON path it asserted on, and every
 argv token it passed must still appear somewhere in the new case files.
 
-Five claim kinds are extracted:
+Six claim kinds are extracted:
   - `.contains("literal")` string arguments.
   - `const NAME: &str = "literal";` rule constants.
   - `assert_eq!(a, "literal")` / `assert_eq!("literal", a)` string-literal
@@ -37,6 +37,19 @@ Five claim kinds are extracted:
   - Bracketed JSON keys inside an indexing expression, e.g. the `code` in
     `json["errors"][0]["code"]`.
   - `.arg("token")` argv tokens.
+  - Occurrence-count needles: the `"literal"` in a
+    `.matches("literal").count()` asserted inside an `assert!`/`assert_eq!`
+    -- the claim shape the `stdout_count`/`json_count` case keys exist to
+    carry. Both spellings are read (`assert!(x.matches(L).count() >= K)` and
+    `assert_eq!(x.matches(L).count(), K)`), on the raw-stdout branch and on
+    the `json["stdout"].as_str()` branch alike, since the arm is anchored on
+    `.matches(...).count()` itself and not on the surface it is taken
+    against. `.matches(some_variable).count()` yields no literal and so no
+    claim -- there is nothing auditable in it. A `.matches("lit").count()`
+    OUTSIDE an assertion (e.g. `repeat_n(v, src.matches("console.log(")
+    .count())`, live in `browser_math_pow_exponent_one.rs`) is deliberately
+    not a claim: it is fixture arithmetic, and reading it as one would
+    manufacture a phantom claim no case file could satisfy.
 
 Every string-literal claim (contains/const/assert_eq) is checked against the
 new case files in *two* spellings: the literal exactly as written in the Rust
@@ -65,7 +78,8 @@ So this parses each new case file with `tomllib` (stdlib) and only *searches
 the fields the case runner (`kali_case_runner::model`) actually turns into
 assertions*: a step's `args`, `env` values, `stdout`, `stdout_contains`,
 `stdout_absent`, `stderr`, `stderr_contains`, `stderr_absent`, every string leaf and
-every key inside `json`/`fields`, and `[constants]` values (referenced into
+every key inside `json`/`fields`, every `stdout_count`/`json_count` claim's
+`needle` (and a `json_count`'s `path`), and `[constants]` values (referenced into
 assertions via `${NAME}`, so a rule constant vanishing from `[constants]`
 matters exactly like it did in the old `const NAME: &str` form). Both the
 inline single-step shorthand and `[[case.step]]` lists are read. `name`,
@@ -90,6 +104,43 @@ string, so the two-spellings-of-a-newline problem that motivated this
 script's own dual-form matching (below) does not recur on the new-file
 side -- it's solved once, correctly, by using a real parser, rather than
 solved approximately per spelling by pattern-matching raw text.
+
+TWO DIRECTIONS, DELIBERATELY ASYMMETRIC. Every claim kind above is checked in
+the "nothing was dropped" direction: an old literal must appear somewhere in
+the new files. `stdout_count`/`json_count` are checked in the *opposite*
+direction as well -- every count claim a case file makes must correspond to a
+real `.matches("lit").count()` assertion in the old source, with the SAME
+needle and the SAME bound (`at_least = 2` against `count() >= 2`,
+`exact = 6` against `count() == 6` / `assert_eq!(...count(), 6)`), and a
+`json_count`'s `path` segments must be JSON keys the old source indexed. This
+is the only direction that can see a count claim that was invented, mis-
+needled, or mis-bounded, and without it the keys are unauditable: a needle
+that appears nowhere in the source, carrying a bound the source never states,
+otherwise exits `AUDIT OK` (verified on a real clean pair before this arm
+existed -- see the task-18 batch-4 report §2c).
+
+Why the reverse check is scoped to the count keys and not applied to every
+key: an `exact` bound is a fidelity claim about a NUMBER, and a number cannot
+be found by a substring search of the new text, so the count keys are the one
+place where forward literal coverage provably proves nothing. The other keys'
+extra-direction is left to review and to `cargo test`.
+
+Why the FORWARD direction for count claims is literal coverage (the needle
+must appear somewhere in the case files) rather than "an old count claim must
+become a count key with a matching bound": measured against the real corpus,
+the strict form flags two already-shipped, legitimately-STRONGER migrations --
+`browser_bundle_toplevel_start.rs`'s `assert_eq!(stdout.matches("3\\n")
+.count(), 1)` and `math_inverse_trig_identities.rs`'s
+`assert!(stdout.matches("0\\n").count() >= 3)` were both migrated to an exact
+whole-`stdout` equality (`stdout = "3\\n"`, `stdout = "0\\n0\\n0\\n"`), which
+implies the count claim and then some. A literal-coverage tool cannot see that
+implication, so the strict form would report two true migrations as failures.
+The residual this leaves -- a count claim silently downgraded to a bare
+`stdout_contains` of the same needle passes, because the needle is present
+either way -- is not left silent: every source count claim that no case count
+claim reproduces prints a `NOT MIRRORED` line for the reader to disposition.
+Advisory, deliberately, for the two-legitimate-migrations reason above; the
+task-18 audit-count report names it as the residual it is.
 
 This is a coverage check, not a proof of equivalence. It catches wholesale drops
 and quiet weakenings (a rule constant vanishing while `contains("E5506")`
@@ -273,12 +324,72 @@ PLAIN_MOD = re.compile(
 )
 
 
+def _mask_comments_outside_strings(source: str) -> str:
+    """`source` with every real comment blanked (newlines and offsets
+    preserved) and every string/char literal left INTACT -- a single
+    left-to-right pass that recognizes whichever token starts first, so a
+    `//` inside a string literal is text, not a comment.
+
+    `_mask_comments` below cannot be used where a runaway matters, and this
+    corpus proves why: `cdp_driver/driver.rs` asserts
+    `assert!(ws_url.starts_with("ws://"), ...)`, whose `//` is INSIDE a
+    string. `_mask_comments` blanks from there to end-of-line, taking the
+    literal's closing quote with it, and every subsequent `_skip_string`
+    then runs from an unterminated string -- one `assert!` call's argument
+    text swallowed 14,561 characters of unrelated code, re-minting a
+    `.matches("3\\n").count()` claim from an assertion 70 lines further
+    down. Benign there only because the swallowed claim happened to be a
+    duplicate of a real one; a runaway that swallows a DIFFERENT file's
+    idea of a claim is a phantom, and in the reverse count check it would
+    additionally legitimize a fabricated case claim. Measured, not
+    hypothetical -- see `test_double_slash_inside_a_string_is_not_a_comment`.
+
+    `_mask_comments` is left as it is: `_find_mod_declarations` is its only
+    other caller and this task does not touch mod resolution. It carries the
+    same exposure (a `mod x;`-shaped string on a line after a `"http://"`
+    would be missed), which is recorded in the task-18 audit-count report as
+    an observation, not fixed here.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(source)
+    while i < n:
+        c = source[i]
+        if c == '/' and i + 1 < n and source[i + 1] == '/':
+            end = source.find('\n', i)
+            if end == -1:
+                end = n
+            out.append(' ' * (end - i))
+            i = end
+            continue
+        if c == '/' and i + 1 < n and source[i + 1] == '*':
+            close = source.find('*/', i + 2)
+            end = (close + 2) if close != -1 else n
+            segment = source[i:end]
+            out.append(''.join(ch if ch == '\n' else ' ' for ch in segment))
+            i = end
+            continue
+        if c == '"' or c == 'r' or c == "'":
+            end = _skip_string(source, i)
+            if end is not None:
+                out.append(source[i:end])
+                i = end
+                continue
+        out.append(c)
+        i += 1
+    return ''.join(out)
+
+
 def _mask_comments(source: str) -> str:
     """`source` with every `//...` (including `///`/`//!`) and `/* ... */`
     comment replaced by spaces (newlines preserved). Does NOT mask string
     literals -- unlike `_mask_comments_and_strings` below, this is used
     ahead of `PATH_MOD` matching, which needs a `#[path = "..."]`
-    attribute's own string argument to stay intact and readable."""
+    attribute's own string argument to stay intact and readable.
+
+    Not string-aware: a `//` inside a string literal is treated as a comment
+    start. See `_mask_comments_outside_strings` above for what that costs and
+    why the count arm uses that instead."""
     out: list[str] = []
     i = 0
     n = len(source)
@@ -724,6 +835,103 @@ def _assert_eq_literal_tokens(source: str) -> list[str]:
     return tokens
 
 
+# A `.matches("literal")` ... `.count()` occurrence-count expression. The
+# whitespace slots are not decoration: this corpus wraps the chain across
+# lines whenever the receiver is long (`browser_math_log2_log10.rs`'s json
+# branch spells it as `json["stdout"]\n.as_str()\n.expect(...)\n
+# .matches("3\n")\n.count()\n>= 2`), and an arm that only matched the
+# single-line spelling would read the raw-stdout branch of every migrated
+# helper and silently miss the json branch of the same helper -- half a
+# claim kind, in the direction that reports OK.
+_COUNT_MATCHES = re.compile(
+    rf'\.\s*matches\(\s*(?:&)?({_STR_LITERAL})\s*\)\s*\.\s*count\(\s*\)',
+    _STR_LITERAL_FLAGS,
+)
+# The comparison immediately following a `.count()` inside an `assert!`:
+# `>= K` (CountBound::AtLeast) or `== K` (CountBound::Exact). Deliberately
+# closed at the two comparisons `model.rs`'s `CountBound` admits -- a `<`/
+# `>`/`!=` count assertion has no representable case-file form, so pairing
+# one with a bound here would invent a correspondence that cannot exist.
+# A `.count()` whose comparison this does not recognize still yields its
+# NEEDLE as a claim; only the bound goes unaudited, and `main` says so out
+# loud rather than passing it silently.
+_COUNT_BOUND_TAIL = re.compile(r'\s*(>=|==)\s*([0-9]+)')
+_INTEGER_LITERAL = re.compile(r'[0-9]+')
+
+
+def count_claim_sites(source: str) -> list[tuple[str, tuple[str, int] | None]]:
+    """Every occurrence-count claim asserted in `source`, as
+    `(raw_literal_token, bound)` where `bound` is `("at_least"|"exact", K)`
+    or `None` when the comparison was not one of the two representable ones.
+
+    Only `.matches("lit").count()` occurrences inside an `assert!`/
+    `assert_eq!` argument count: outside an assertion the same expression is
+    arithmetic, not a claim (see the module docstring). The scan reuses
+    `_find_calls`/`_split_top_level_args` -- the same balanced-paren,
+    string-aware machinery `_assert_eq_literal_tokens` uses -- rather than a
+    regex over raw text, so a `)` inside a fixture string cannot end an
+    assertion's argument list early.
+
+    Only the condition argument of `assert!` (index 0) and the two compared
+    arguments of `assert_eq!` (indices 0 and 1) are read; a trailing panic-
+    message format string is never inspected, matching every other arm's
+    scope.
+
+    The scan runs over `_mask_comments_outside_strings(source)`, unlike the other
+    claim arms.
+    That is deliberate and it is not the (deliberately out-of-scope) fix for
+    this script's known phantom-claims-from-`//!`-prose defect -- it is a
+    refusal to INHERIT it here, for a reason specific to this arm: count
+    claims are the one kind checked in the reverse direction too
+    (`count_claim_correspondence`), so a §5.11 retention header quoting
+    `assert!(stdout.matches("0\\n").count() >= 3)` as prose would not merely
+    manufacture a phantom claim against the case files -- it would ALSO
+    manufacture a source assertion for a fabricated case claim to correspond
+    to, i.e. it would weaken the fabrication check with text that no compiler
+    ever saw. Every file the count keys exist to rescue carries exactly such
+    a header (`browser_math_asinh_acosh_atanh_identities.rs`'s quotes
+    `stdout.matches(<needle>).count() >= 3` verbatim), so this is live, not
+    theoretical. The other arms are unchanged and still read `//!` prose;
+    that defect is recorded elsewhere and is not touched here.
+    """
+    source = _mask_comments_outside_strings(source)
+    out: list[tuple[str, tuple[str, int] | None]] = []
+    for macro, arity in (("assert!", 1), ("assert_eq!", 2)):
+        for arg_text in _find_calls(source, macro):
+            args = _split_top_level_args(arg_text)
+            for index, argument in enumerate(args[:arity]):
+                for match in _COUNT_MATCHES.finditer(argument):
+                    bound: tuple[str, int] | None = None
+                    tail = _COUNT_BOUND_TAIL.match(argument[match.end():])
+                    if tail:
+                        bound = (
+                            "at_least" if tail.group(1) == ">=" else "exact",
+                            int(tail.group(2)),
+                        )
+                    elif macro == "assert_eq!" and len(args) >= 2:
+                        # `assert_eq!(x.matches(L).count(), K)` -- the bound
+                        # is the OTHER compared argument, on either side of
+                        # the comma (`assert_eq!(K, x.matches(L).count())`
+                        # is the same claim written backwards).
+                        other = args[1 - index].strip()
+                        if _INTEGER_LITERAL.fullmatch(other):
+                            bound = ("exact", int(other))
+                    out.append((match.group(1), bound))
+    return out
+
+
+class _CountNeedles:
+    """Duck-types `re.Pattern`'s `.findall(source) -> list[str]` so
+    `LITERAL_KINDS` can hold the count-claim scanner alongside the real
+    compiled regexes, exactly as `_AssertEqLiterals` does."""
+
+    def findall(self, source: str) -> list[str]:
+        return [token for token, _bound in count_claim_sites(source)]
+
+
+COUNT_NEEDLES = _CountNeedles()
+
+
 class _AssertEqLiterals:
     """Duck-types `re.Pattern`'s `.findall(source) -> list[str]` so
     `LITERAL_KINDS` can hold this scanner alongside real compiled regexes
@@ -742,6 +950,7 @@ LITERAL_KINDS: dict[str, list] = {
     "contains literals": [CONTAINS],
     "rule constants": [CONST],
     "assert_eq values": [ASSERT_EQ_LITERALS],
+    "count needles": [COUNT_NEEDLES],
 }
 
 # Per-kind values with no discriminating power, excluded so they can't produce
@@ -756,6 +965,13 @@ BORING: dict[str, set[str]] = {
     # (A bare "" is excluded everywhere below: it is a substring of every
     # string, so checking for it is a permanent no-op regardless of kind.)
     "assert_eq values": {"0", "1"},
+    # Same reasoning, same two values, for count needles: `runtime_smoke`'s
+    # `stdout.matches("0").count() >= 3` needles a bare "0", whose presence
+    # in the joined new text discriminates nothing. Excluding it costs
+    # nothing real -- a count claim's substance (its bound, and whether its
+    # needle corresponds to a source claim at all) is checked structurally
+    # by `count_claim_correspondence`, which BORING does not touch.
+    "count needles": {"0", "1"},
 }
 
 
@@ -896,6 +1112,14 @@ _STEP_LIST_KEYS = (
 )
 _STEP_SCALAR_KEYS = ("stdout", "stderr")
 _STEP_JSON_KEYS = ("json", "fields")
+# Occurrence-count claim keys. These are lists of TABLES, not lists of
+# strings, which is exactly why naming them in `_STEP_LIST_KEYS` would be a
+# no-op: that tuple's consumer filters `isinstance(v, str)` and would discard
+# every table. They need their own reader (`_step_count_claims`), and they get
+# one -- `Invariant8`'s key-sync test only proves a key is NAMED in one of
+# these tuples, so `CountKeyExtraction` in the regression suite pins the
+# extractor's OUTPUT for every key in all four tuples instead.
+_STEP_COUNT_KEYS = ("stdout_count", "json_count")
 # Keys inside a case's non-step namespace (name/rationale/ignore/step) that
 # are never assertion-bearing and must not be treated as the inline step.
 _CASE_NON_STEP_KEYS = frozenset({"name", "rationale", "ignore", "step"})
@@ -939,6 +1163,45 @@ def _step_assertion_strings(step: dict) -> list[str]:
     for key in _STEP_JSON_KEYS:
         if key in step:
             out.extend(_json_like_strings(step[key]))
+    for _key, claim in _step_count_claims(step):
+        for field in ("needle", "path"):
+            value = claim.get(field)
+            if isinstance(value, str):
+                out.append(value)
+    return out
+
+
+def _step_count_claims(step: dict) -> list[tuple[str, dict]]:
+    """Every `stdout_count`/`json_count` table on one resolved step, as
+    `(key, table)`. Non-table entries are skipped rather than raising: this
+    script is a gate, not a schema validator -- `model.rs`'s
+    `deny_unknown_fields` deserialization is what rejects a malformed claim,
+    and it does so with a better message."""
+    out: list[tuple[str, dict]] = []
+    for key in _STEP_COUNT_KEYS:
+        for claim in step.get(key, []) or []:
+            if isinstance(claim, dict):
+                out.append((key, claim))
+    return out
+
+
+def resolved_steps(doc: dict) -> list[tuple[str, dict]]:
+    """Every step in one parsed case file, as `(case_name, step)` -- each
+    case's inline step and/or its `[[case.step]]` list, in file order. One
+    traversal, shared by `assertion_strings` (which reads the steps' strings)
+    and `case_count_claims` (which reads their count tables), so a case shape
+    the one can see is never a shape the other silently cannot."""
+    out: list[tuple[str, dict]] = []
+    for case in doc.get("case", []) or []:
+        if not isinstance(case, dict):
+            continue
+        name = case.get("name") if isinstance(case.get("name"), str) else "<unnamed>"
+        inline = {k: v for k, v in case.items() if k not in _CASE_NON_STEP_KEYS}
+        if inline:
+            out.append((name, inline))
+        step_list = case.get("step")
+        if isinstance(step_list, list):
+            out.extend((name, s) for s in step_list if isinstance(s, dict))
     return out
 
 
@@ -951,20 +1214,187 @@ def assertion_strings(doc: dict) -> list[str]:
     if isinstance(constants, dict):
         out.extend(v for v in constants.values() if isinstance(v, str))
 
-    for case in doc.get("case", []) or []:
-        if not isinstance(case, dict):
-            continue
-        steps: list[dict] = []
-        inline = {k: v for k, v in case.items() if k not in _CASE_NON_STEP_KEYS}
-        if inline:
-            steps.append(inline)
-        step_list = case.get("step")
-        if isinstance(step_list, list):
-            steps.extend(s for s in step_list if isinstance(s, dict))
-        for step in steps:
-            out.extend(_step_assertion_strings(step))
+    for _name, step in resolved_steps(doc):
+        out.extend(_step_assertion_strings(step))
 
     return out
+
+
+def case_count_claims(doc: dict) -> list[dict]:
+    """Every `stdout_count`/`json_count` claim in one parsed case file, as
+    `{"key", "case", "needle", "path", "bound"}` -- `bound` being
+    `("at_least"|"exact", K)` or `None` when the table spells neither (which
+    `model.rs` rejects at parse time, so it is reported as unauditable rather
+    than guessed at)."""
+    out: list[dict] = []
+    for name, step in resolved_steps(doc):
+        for key, claim in _step_count_claims(step):
+            bound: tuple[str, int] | None = None
+            for word in ("at_least", "exact"):
+                value = claim.get(word)
+                if isinstance(value, int) and not isinstance(value, bool):
+                    bound = (word, value)
+                    break
+            out.append(
+                {
+                    "key": key,
+                    "case": name,
+                    "needle": claim.get("needle"),
+                    "path": claim.get("path"),
+                    "bound": bound,
+                }
+            )
+    return out
+
+
+def _needle_correspondence(case_needle: str, variants: frozenset[str]) -> bool:
+    """Does a case file's count `needle` correspond to a source count
+    claim's literal (given in both of its spellings)?
+
+    Exact equality against either spelling, except when the needle carries an
+    unexpanded `${...}` reference -- a `[matrix]` axis or `[constants]` value
+    substituted in at expansion time (`expand.rs` substitutes count needles
+    and `json_count` paths exactly like `stdout_contains` needles). Those are
+    matched as a pattern with `${...}` standing for any text, so
+    `needle = "${value}\\n"` still corresponds to a source `.matches("3\\n")`
+    -- and a needle with no literal text at all is handled by the caller as
+    unauditable rather than trivially accepted here."""
+    if "${" not in case_needle:
+        return case_needle in variants
+    pattern = re.compile(
+        ".*".join(re.escape(part) for part in re.split(r'\$\{[^}]*\}', case_needle)),
+        re.DOTALL,
+    )
+    return any(pattern.fullmatch(variant) for variant in variants)
+
+
+def count_claim_correspondence(
+    case_claims: list[dict],
+    source_sites: list[tuple[str, frozenset[str], tuple[str, int] | None]],
+    source_json_keys: set[str],
+) -> tuple[list[str], list[str], list[str]]:
+    """Check every count claim the NEW files make against the OLD source --
+    the reverse of every other check in this script (see the module
+    docstring on why the count keys need it and the other keys don't).
+
+    Returns `(failures, unauditable, unmirrored)`:
+
+    - `failures`: hard failures that must fail the audit.
+    - `unauditable`: claims this tool provably cannot decide, which `main`
+      prints so an unaudited claim is never mistaken for an audited one.
+    - `unmirrored`: SOURCE count claims that no case count claim reproduces.
+      Advisory, not a failure, and the module docstring says why: measured
+      against this corpus, two shipped migrations legitimately replaced a
+      count claim with a STRONGER exact-`stdout` equality, which a literal-
+      coverage tool cannot recognize as implying the count. Failing on those
+      would report two true migrations as broken; saying nothing would leave
+      "the count claim was quietly downgraded to a `stdout_contains` of the
+      same needle" invisible, since the needle is present either way. So it
+      prints, by name, and the reader dispositions it.
+    """
+    failures: list[str] = []
+    unauditable: list[str] = []
+
+    for claim in case_claims:
+        where = f"case {claim['case']!r} {claim['key']}"
+        needle = claim["needle"]
+        if not isinstance(needle, str) or not needle:
+            failures.append(f"{where}: claim has no `needle` string")
+            continue
+
+        if claim["key"] == "json_count":
+            path = claim["path"]
+            if not isinstance(path, str) or not path:
+                failures.append(f"{where}: claim has no `path` string")
+                continue
+            for segment in path.split("."):
+                if "${" in segment or not _IDENTIFIER_KEY.fullmatch(segment):
+                    # An array index, or a matrix/constant reference resolved
+                    # only at expansion time -- neither is a JSON key the old
+                    # source could have indexed by name.
+                    continue
+                if segment not in source_json_keys:
+                    failures.append(
+                        f"{where}: `path` segment {segment!r} is not a JSON key the "
+                        f"source ever indexed (path {path!r})"
+                    )
+
+        if not any(part for part in re.split(r'\$\{[^}]*\}', needle)):
+            unauditable.append(
+                f"{where}: needle {needle!r} is entirely a `${{...}}` reference, so "
+                "there is no literal text to correspond against a source claim"
+            )
+            continue
+
+        matching = [bound for _canonical, variants, bound in source_sites
+                    if _needle_correspondence(needle, variants)]
+        if not matching:
+            failures.append(
+                f"{where}: needle {needle!r} corresponds to no "
+                "`.matches(...).count()` assertion in the source -- a count claim "
+                "the source never made (if this needle belongs to a DIFFERENT "
+                "source file, audit that pair separately rather than passing both "
+                "case files here)"
+            )
+            continue
+
+        bound = claim["bound"]
+        if bound is None:
+            failures.append(f"{where}: claim sets neither `at_least` nor `exact`")
+            continue
+        if bound in matching:
+            continue
+        if all(source_bound is None for source_bound in matching):
+            unauditable.append(
+                f"{where}: needle {needle!r} matches a source count assertion whose "
+                "comparison this script does not recognize, so its bound "
+                f"({bound[0]} = {bound[1]}) is unaudited"
+            )
+            continue
+        stated = ", ".join(
+            f"{kind} {value}" for kind, value in sorted({b for b in matching if b})
+        )
+        failures.append(
+            f"{where}: needle {needle!r} is claimed {bound[0]} = {bound[1]}, but the "
+            f"source's count assertion(s) on that needle state: {stated}"
+        )
+
+    unmirrored: list[str] = []
+    seen: set[tuple[str, tuple[str, int] | None]] = set()
+    for canonical, variants, bound in source_sites:
+        if (canonical, bound) in seen:
+            continue
+        seen.add((canonical, bound))
+        if any(
+            isinstance(claim["needle"], str)
+            and _needle_correspondence(claim["needle"], variants)
+            and claim["bound"] == bound
+            for claim in case_claims
+        ):
+            continue
+        spelled = f"{bound[0]} = {bound[1]}" if bound else "an unrecognized comparison"
+        unmirrored.append(
+            f"the source asserts {canonical!r} occurs {spelled} times, and no "
+            "`stdout_count`/`json_count` claim in the case files reproduces it -- "
+            "confirm it was carried by a STRONGER claim (an exact `stdout`, say) "
+            "and not silently downgraded to a plain `contains` of the same needle"
+        )
+
+    return failures, unauditable, unmirrored
+
+
+def load_new_docs(paths: list[Path]) -> list[tuple[Path, dict]]:
+    """Parse every new case file once. Both the forward search text and the
+    reverse count-claim check read these same parsed documents, so neither
+    can be run against a file the other did not see."""
+    docs: list[tuple[Path, dict]] = []
+    for path in paths:
+        try:
+            docs.append((path, tomllib.loads(path.read_text())))
+        except tomllib.TOMLDecodeError as error:
+            print(f"error: {path}: invalid TOML: {error}", file=sys.stderr)
+            raise SystemExit(2) from error
+    return docs
 
 
 def load_new_text(paths: list[Path]) -> str:
@@ -972,12 +1402,7 @@ def load_new_text(paths: list[Path]) -> str:
     strings, joined for substring search. See the module docstring for why
     this is a parse, not a text search over the raw file."""
     pieces: list[str] = []
-    for path in paths:
-        try:
-            doc = tomllib.loads(path.read_text())
-        except tomllib.TOMLDecodeError as error:
-            print(f"error: {path}: invalid TOML: {error}", file=sys.stderr)
-            raise SystemExit(2) from error
+    for _path, doc in load_new_docs(paths):
         pieces.extend(assertion_strings(doc))
     return "\n".join(pieces)
 
@@ -1012,9 +1437,28 @@ def main() -> int:
         submodule_sources.append(submodule_path.read_text())
     old_source_combined = "\n".join([old_source, *submodule_sources])
 
-    new_text = load_new_text(new_paths)
+    new_docs = load_new_docs(new_paths)
+    new_text = "\n".join(
+        piece for _path, doc in new_docs for piece in assertion_strings(doc)
+    )
 
     old_claims = claims(old_source_combined)
+
+    # The reverse direction, for the count keys only (module docstring):
+    # every count claim the case files make must correspond to a real
+    # `.matches("lit").count()` assertion in the source, needle AND bound.
+    case_claims: list[dict] = []
+    for path, doc in new_docs:
+        for claim in case_count_claims(doc):
+            claim["case"] = f"{path.name}:{claim['case']}"
+            case_claims.append(claim)
+    source_sites = [
+        (unquote(token), literal_variants(token), bound)
+        for token, bound in count_claim_sites(old_source_combined)
+    ]
+    fabricated, unauditable, unmirrored = count_claim_correspondence(
+        case_claims, source_sites, set(old_claims["json keys"])
+    )
 
     missing: list[tuple[str, str]] = []
     for kind, entries in old_claims.items():
@@ -1032,6 +1476,14 @@ def main() -> int:
     print(f"{old_path}: {len(old_tests)} #[test] fns")
     for kind, entries in old_claims.items():
         print(f"  {kind}: {len(entries)}")
+    print(f"  count claims in the case files (checked back against the source): "
+          f"{len(case_claims)}")
+    # Printed unconditionally, before any verdict: a claim this script cannot
+    # decide must never be indistinguishable from one it decided in favour.
+    for note in unauditable:
+        print(f"  UNAUDITED — {note}")
+    for note in unmirrored:
+        print(f"  NOT MIRRORED — {note}")
 
     # A file this script is asked to audit is, by construction, one being
     # migrated FROM -- it is expected to have real tests. Zero found (even
@@ -1054,10 +1506,18 @@ def main() -> int:
         )
         return 1
 
-    if missing:
-        print(f"\nAUDIT FAILED — {len(missing)} claim(s) absent from the case files:")
-        for kind, value in missing:
-            print(f"  [{kind}] {value!r}")
+    if missing or fabricated:
+        if missing:
+            print(f"\nAUDIT FAILED — {len(missing)} claim(s) absent from the case files:")
+            for kind, value in missing:
+                print(f"  [{kind}] {value!r}")
+        if fabricated:
+            print(
+                f"\nAUDIT FAILED — {len(fabricated)} count claim(s) in the case files "
+                "do not correspond to a source assertion:"
+            )
+            for note in fabricated:
+                print(f"  [count claim] {note}")
         return 1
 
     print("\nAUDIT OK — every literal claim is present in the case files.")
