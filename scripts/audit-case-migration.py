@@ -187,116 +187,259 @@ TEST_FN = re.compile(r'#\[test\][^\n]*\n(?:\s*#\[[^\]]*\]\s*\n)*\s*(?:async\s+)?
 # (often zero) top-level #[test] fns and pulls the rest in from sibling
 # files; `grep -c '#\[test\]'` on the top-level file alone silently drops
 # every test that lives in a submodule. FIXED (Task 18 pilot review round
-# 1, finding 5; broadened in round 2 after re-review): this script
-# originally resolved only `#[path]`-annotated mods, one level deep, from
-# the single file named on argv[1]. Two real corpus chains defeated that:
-# `browser_cdp_smoke.rs` reaches 14 more #[test] fns through a PLAIN
-# `mod cdp_driver;` (round 1's fix left this file printing "1 #[test] fns"
-# / "AUDIT OK", examining 1 of 15 real tests -- the same false-negative
-# shape finding 5 was raised to close, just via `mod` instead of
-# `#[path]`), and `inprocess.rs` reaches its CDP driver through a SECOND
-# level of `mod` nesting (`#[path]`-loaded file -> plain `mod cdp_driver;`
-# -> that file's own two `#[path]` mods) that round 1's one-level-deep
-# resolution never followed. Both shapes are now resolved, recursively,
-# with a visited-set so a self-referential (or mutually-referential) mod
-# graph cannot hang the script.
+# 1, finding 5; broadened in round 2; hardened in round 3 after two more
+# re-reviews): this script originally resolved only `#[path]`-annotated
+# mods, one level deep, from the single file named on argv[1]. Real corpus
+# chains defeated that at every stage:
+#   - `browser_cdp_smoke.rs` reaches 14 more #[test] fns through a PLAIN
+#     `mod cdp_driver;` (round 1's fix printed "1 #[test] fns" / "AUDIT OK",
+#     examining 1 of 15 real tests).
+#   - `inprocess.rs` reaches its CDP driver through a SECOND level of `mod`
+#     nesting (`#[path]`-loaded file -> plain `mod cdp_driver;` -> that
+#     file's own two `#[path]` mods) that one-level-deep resolution never
+#     followed.
+#   - (round 3) `PLAIN_MOD`, run against raw source text, matched `mod x;`
+#     appearing inside a comment, a doc comment, or a string/raw-string
+#     literal -- LIVE in this corpus: `inprocess/cdp_driver.rs`'s own `//!`
+#     doc comment says "...resolve its unqualified `mod cdp_driver;`...",
+#     which the unmasked regex read as a real (phantom) declaration. Only
+#     harmless there because the phantom name happened to already be
+#     visited; a `//!` comment naming a module that does NOT exist would
+#     have been a hard, blocking exit-2 error on a legitimate migration.
+#     `PLAIN_MOD` was also unanchored on its left side, so `submod x;`
+#     would have matched as if it were `mod x;`.
+# All of the above are fixed: both mod shapes are resolved, recursively,
+# from source text that has every comment and string/char literal masked
+# out first (see `_mask_comments_and_strings`), with a left word-boundary
+# guard on `mod` itself, and with a visited-set of `.resolve()`d (truly
+# canonical, `..`-collapsed) paths so a self-referential or mutually-
+# referential mod graph -- including one spelled through a `..`-climbing
+# `#[path]` that never lexically repeats -- terminates instead of hanging
+# or growing an unbounded path string.
 #
-# The `#[path]` attribute's string is a path relative to the CONTAINING
-# FILE'S OWN DIRECTORY (confirmed against `browser_math_atan2_bracketed_
-# root.rs`'s `#[path = "browser_math_atan2_bracketed_root/run.rs"] mod
-# run;`, resolved relative to `crates/kali_cli/tests/`), not a Rust
-# module path. A plain `mod name;` (no `#[path]`) resolves the same way
-# Rust itself does for a file loaded outside the classic `src/`-crate
-# layout: `name.rs` OR `name/mod.rs`, both relative to the CONTAINING
-# FILE'S OWN DIRECTORY -- confirmed against every plain-`mod` chain in this
-# corpus at fix time (`browser_cdp_smoke.rs`'s `mod cdp_driver;` ->
-# `cdp_driver/mod.rs`; that file's own `mod driver;`/`mod protocol;` ->
-# `cdp_driver/driver.rs`/`cdp_driver/protocol.rs`, siblings of `mod.rs`
-# itself, not a further subdirectory; `inprocess/browser_harness_cdp_in_
-# page_trap_propagates.rs`'s `mod cdp_driver;` -> the sibling file
-# `inprocess/cdp_driver.rs`). Neither form does any further Rust
-# module-path translation (no crate-root-relative resolution, no
-# `#[path]`-changes-the-implicit-base-for-siblings edge case beyond what's
-# already covered by "relative to the containing file's own directory" --
-# this is a regex-based tool over a corpus with one consistent convention,
-# not a Rust module resolver).
+# The `#[path]` attribute's string is ALWAYS a path relative to the
+# CONTAINING FILE'S OWN DIRECTORY (confirmed against `browser_math_atan2_
+# bracketed_root.rs`'s `#[path = "browser_math_atan2_bracketed_root/run.rs"]
+# mod run;`, resolved relative to `crates/kali_cli/tests/`; and against
+# `inprocess/cdp_driver.rs`'s `#[path = "../cdp_driver/driver.rs"]`, which
+# only resolves to the real file when taken relative to `cdp_driver.rs`'s
+# OWN directory, `tests/inprocess/`, regardless of how `cdp_driver.rs`
+# itself was loaded -- `#[path]` is Rust's escape hatch specifically FROM
+# the nesting convention below, so it is never subject to it), not a Rust
+# module path.
+#
+# A PLAIN `mod name;` (no `#[path]`), by contrast, IS subject to Rust's
+# real directory-nesting convention, which this script now implements
+# rather than approximates with one rule for every file:
+#   - A "directory-style" module -- the top-level file named on argv[1]
+#     (a crate/binary root), a `#[path]`-loaded file, or a `name/mod.rs`
+#     file -- has its OWN plain-mod children resolve `child.rs` or
+#     `child/mod.rs` relative to ITS OWN directory (confirmed:
+#     `browser_cdp_smoke.rs` -> `cdp_driver/mod.rs`; that file's own
+#     `mod driver;`/`mod protocol;` -> `cdp_driver/driver.rs`/
+#     `cdp_driver/protocol.rs`, siblings of `mod.rs` itself, not a further
+#     subdirectory).
+#   - A "leaf-style" module -- an ordinary `name.rs` sibling file found via
+#     a PLAIN `mod name;` from ITS OWN including file (i.e., NOT found via
+#     `#[path]` and NOT a `mod.rs`) -- has its OWN plain-mod children
+#     resolve relative to a SUBDIRECTORY named after itself
+#     (`name/child.rs` or `name/child/mod.rs`), matching real Rust
+#     semantics for a normally-loaded non-`mod.rs` module file.
+#     Unexercised by any file in this corpus at fix time (no flat sibling
+#     file here further nests a plain `mod`), but load-bearing for safety:
+#     this corpus's submodule names are generic (`run.rs`, `build.rs`,
+#     `check.rs`, `test.rs`, `misc.rs`), so a same-named sibling one
+#     directory up is a realistic coincidence, and treating every plain
+#     mod as directory-style (the round-2 approximation) would have
+#     silently resolved such a case to the WRONG, unrelated file --
+#     folding foreign claims into the audit, the dangerous direction.
 PATH_MOD = re.compile(
     r'#\[path\s*=\s*"([^"]+)"\]'
     r'(?:\s*#\[[^\]]*\])*'  # an intervening attribute, e.g. #[cfg(test)]
-    r'\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;',
+    r'\s*(?:pub(?:\([^)]*\))?\s+)?(?<![A-Za-z0-9_])mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;',
 )
 # A plain (no `#[path]`) `mod name;` / `pub mod name;` declaration, with the
 # same intervening-attribute tolerance. Matched separately from PATH_MOD and
 # reconciled by masking (see `_find_mod_declarations`) rather than by one
 # combined regex, so neither pattern can accidentally swallow the other's
 # match or mis-pair a `#[path]` string with the wrong `mod` name.
+#
+# `(?<![A-Za-z0-9_])` immediately before the literal `mod` (round 3 fix): a
+# plain identifier-char lookbehind, so `submod x;` (or any identifier ending
+# in "mod") is correctly rejected -- without it, "mod" is matched as a
+# substring of any longer word ending the same way.
 PLAIN_MOD = re.compile(
-    r'(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;',
+    r'(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?(?<![A-Za-z0-9_])mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;',
 )
+
+
+def _mask_comments(source: str) -> str:
+    """`source` with every `//...` (including `///`/`//!`) and `/* ... */`
+    comment replaced by spaces (newlines preserved). Does NOT mask string
+    literals -- unlike `_mask_comments_and_strings` below, this is used
+    ahead of `PATH_MOD` matching, which needs a `#[path = "..."]`
+    attribute's own string argument to stay intact and readable."""
+    out: list[str] = []
+    i = 0
+    n = len(source)
+    while i < n:
+        c = source[i]
+        if c == '/' and i + 1 < n and source[i + 1] == '/':
+            end = source.find('\n', i)
+            if end == -1:
+                end = n
+            out.append(' ' * (end - i))
+            i = end
+            continue
+        if c == '/' and i + 1 < n and source[i + 1] == '*':
+            close = source.find('*/', i + 2)
+            end = (close + 2) if close != -1 else n
+            segment = source[i:end]
+            out.append(''.join(ch if ch == '\n' else ' ' for ch in segment))
+            i = end
+            continue
+        out.append(c)
+        i += 1
+    return ''.join(out)
+
+
+def _mask_strings(source: str) -> str:
+    """`source` (already comment-masked) with every string/char literal
+    replaced by spaces (newlines preserved). Reuses `_skip_string` (below),
+    the same masking technique `_blank_raw_strings` already uses for
+    `JSON_KEY`. Used ahead of `PLAIN_MOD` matching only -- `PATH_MOD` needs
+    its own `#[path = "..."]` string intact, so it runs on comment-masked-
+    only text (see `_find_mod_declarations`)."""
+    out: list[str] = []
+    i = 0
+    n = len(source)
+    while i < n:
+        c = source[i]
+        if c == '"' or c == 'r' or c == "'":
+            skip_end = _skip_string(source, i)
+            if skip_end is not None:
+                segment = source[i:skip_end]
+                out.append(''.join(ch if ch == '\n' else ' ' for ch in segment))
+                i = skip_end
+                continue
+        out.append(c)
+        i += 1
+    return ''.join(out)
 
 
 def _find_mod_declarations(source: str) -> list[tuple[str | None, str]]:
     """Every submodule declaration in `source`, in order: `(explicit_path,
     mod_name)` where `explicit_path` is the `#[path = "..."]` string (or
-    `None` for a plain `mod`/`pub mod`). `PATH_MOD` is matched first and its
-    full matched spans are blanked out before running `PLAIN_MOD`, so a
+    `None` for a plain `mod`/`pub mod`).
+
+    FIXED (Task 18 pilot review round 3): both patterns used to run against
+    raw source text, so a comment or string that merely MENTIONS a
+    `mod x;`-shaped substring -- documentation prose describing the module
+    structure (this corpus's own files do this constantly, e.g.
+    `inprocess/cdp_driver.rs`'s `//!` header, "...resolve its unqualified
+    `mod cdp_driver;`..."), or a fixture string, or a commented-out
+    declaration -- was read as a real one, live in this corpus (harmless
+    there only because the phantom name happened to already be visited).
+
+    `PATH_MOD` is matched against a COMMENT-masked (not string-masked) copy
+    of `source`: a `#[path = "..."]` attribute's own string argument must
+    stay intact for its capture group to read the real path, so blanking
+    strings before this pass would blank that argument along with every
+    other string -- an earlier version of this fix did exactly that and
+    broke every `#[path]` resolution in the corpus (caught immediately by
+    the existing regression suite, not shipped). `PATH_MOD`'s full matched
+    spans (including that intact string) are then blanked out of a second,
+    NOW string-masked copy, and `PLAIN_MOD` runs against that -- so a
     `#[path = "a.rs"] mod b;` is never ALSO picked up as a plain `mod b;`
-    (which would otherwise resolve the wrong file, `b.rs`/`b/mod.rs`,
-    instead of the explicit `a.rs`)."""
+    (which would resolve the wrong file, `b.rs`/`b/mod.rs`, instead of the
+    explicit `a.rs`), and a `mod x;` inside any OTHER string or comment is
+    invisible to the plain-mod pass."""
+    comments_masked = _mask_comments(source)
     out: list[tuple[str | None, str]] = []
-    masked = source
-    for match in PATH_MOD.finditer(source):
+    path_mod_matches = list(PATH_MOD.finditer(comments_masked))
+    for match in path_mod_matches:
         out.append((match.group(1), match.group(2)))
+
+    fully_masked = _mask_strings(comments_masked)
+    working = fully_masked
+    for match in path_mod_matches:
         start, end = match.span()
-        masked = masked[:start] + (" " * (end - start)) + masked[end:]
-    for match in PLAIN_MOD.finditer(masked):
+        working = working[:start] + (" " * (end - start)) + working[end:]
+    for match in PLAIN_MOD.finditer(working):
         out.append((None, match.group(1)))
     return out
 
 
-def _resolve_one_mod(including_path: Path, explicit_path: str | None, mod_name: str) -> Path:
-    """The file `mod_name`'s declaration in `including_path` refers to.
-    `explicit_path`, if given, is resolved relative to `including_path`'s
-    parent directory (a `#[path]`, never ambiguous -- exactly one
-    candidate). Otherwise tries `mod_name.rs` then `mod_name/mod.rs`, both
-    relative to the same directory, returning whichever exists; if neither
-    exists, returns the `.rs` candidate anyway so the caller's existence
-    check produces a clear, single-path error message rather than this
-    function raising."""
-    base = including_path.parent
+def _resolve_one_mod(
+    including_path: Path, plain_base: Path, explicit_path: str | None, mod_name: str
+) -> tuple[Path, Path]:
+    """Resolve one `mod_name` declaration found in `including_path`.
+    Returns `(resolved_file, base_for_its_own_plain_mod_children)` -- see
+    the module-level comment above `PATH_MOD` for the directory-style vs
+    leaf-style distinction the second element encodes.
+
+    `explicit_path` (a `#[path]` string) always resolves relative to
+    `including_path.parent` -- never `plain_base` -- since `#[path]` is not
+    subject to the nesting convention `plain_base` exists to track. A
+    resolved `#[path]` target is always directory-style for ITS OWN
+    children (its own directory becomes their base).
+
+    A plain `mod_name` (no `#[path]`) resolves relative to `plain_base`:
+    `mod_name.rs` is tried first (leaf-style: a further nested plain mod
+    inside it would need `mod_name/`, so its own children's base is
+    `flat.parent / flat.stem`), then `mod_name/mod.rs` (directory-style:
+    already its own directory). If neither exists, the `.rs` candidate is
+    returned anyway (with a leaf-style child base, moot since resolution
+    stops at the caller's existence check) so the caller produces one
+    clear, single-path error message rather than this function raising.
+    """
     if explicit_path is not None:
-        return base / explicit_path
-    flat = base / f"{mod_name}.rs"
+        resolved = including_path.parent / explicit_path
+        return resolved, resolved.parent
+    flat = plain_base / f"{mod_name}.rs"
     if flat.is_file():
-        return flat
-    nested = base / mod_name / "mod.rs"
+        return flat, flat.parent / flat.stem
+    nested = plain_base / mod_name / "mod.rs"
     if nested.is_file():
-        return nested
-    return flat
+        return nested, nested.parent
+    return flat, flat.parent / flat.stem
 
 
 def resolve_path_mods(old_path: Path, source: str) -> list[Path]:
     """Every submodule file reachable from `old_path`/`source` by following
     `#[path = "..."] mod ...;` and plain `mod ...;`/`pub mod ...;`
     declarations, RECURSIVELY (a resolved submodule's own mod declarations
-    are followed too), in breadth-first discovery order. A visited-set of
-    resolved (not just textually-distinct) paths makes a self-cycle or a
-    mutual cycle between two submodules terminate instead of hang -- neither
-    is observed in this corpus at fix time, but a regex-driven resolver has
-    no independent way to know a cycle isn't there short of tracking one."""
+    are followed too, with the correct per-file base directory -- see
+    `_resolve_one_mod`), in breadth-first discovery order.
+
+    The visited-set holds `Path.resolve()`d (truly canonical, `..`-collapsed
+    and symlink-resolved) paths, not the lexically-assembled ones `resolved`
+    returns -- so a cycle spelled through a `..`-climbing `#[path]` that
+    never lexically repeats (e.g. `sub/mod.rs` containing
+    `#[path = "../sub/mod.rs"] mod sub;`, which re-derives a
+    longer-and-longer but never-identical string on every hop without
+    `.resolve()`) is still caught on the first repeat, not after `is_file()`
+    starts failing on an over-long path. `Path.resolve(strict=False)` (the
+    default) works on non-existent paths too, so this applies uniformly
+    whether or not the target exists."""
     resolved: list[Path] = []
-    visited: set[Path] = {old_path}
-    queue: list[tuple[Path, str]] = [(old_path, source)]
+    visited: set[Path] = {old_path.resolve()}
+    # The top-level file is always directory-style for module-resolution
+    # purposes (a crate/binary root, not a leaf module of some parent).
+    queue: list[tuple[Path, str, Path]] = [(old_path, source, old_path.parent)]
     while queue:
-        current_path, current_source = queue.pop(0)
+        current_path, current_source, plain_base = queue.pop(0)
         for explicit_path, mod_name in _find_mod_declarations(current_source):
-            child = _resolve_one_mod(current_path, explicit_path, mod_name)
-            if child in visited:
+            child, child_plain_base = _resolve_one_mod(
+                current_path, plain_base, explicit_path, mod_name
+            )
+            child_resolved = child.resolve()
+            if child_resolved in visited:
                 continue
-            visited.add(child)
+            visited.add(child_resolved)
             resolved.append(child)
             if child.is_file():
-                queue.append((child, child.read_text()))
+                queue.append((child, child.read_text(), child_plain_base))
             # A missing child is left for `main`'s existence check (which
             # reports it with the same "does not exist" message either
             # shape produces) -- not re-checked or raised here, so every

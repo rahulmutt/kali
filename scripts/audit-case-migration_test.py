@@ -990,6 +990,318 @@ class Bug8Round2_PlainModAndNestedResolution(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Round 3 (second re-review): round 2's 12 tests all put the ONLY #[test]
+# behind the submodule, so the zero-test guard alone carried every one of
+# them -- a mutation that disabled resolution entirely whenever the
+# top-level file had ANY #[test] of its own (reproducing browser_cdp_
+# smoke.rs's exact pre-fix "1 #[test] fns / AUDIT OK") still passed all 45.
+# Round 3 also found PLAIN_MOD was comment-blind, string-blind, and
+# unanchored (a live phantom in inprocess/cdp_driver.rs's own `//!` doc
+# comment), a pathological non-terminating `..` cycle, and an unimplemented
+# (and mis-documented) Rust directory-nesting rule for plain-mod children.
+# ---------------------------------------------------------------------------
+class Bug8Round3_MutationHardening(unittest.TestCase):
+    def test_top_level_fn_and_submodule_fn_are_BOTH_examined(self):
+        # THE MUST-FIX test: a top-level #[test] carrying its OWN claim,
+        # PLUS a plain-mod child carrying a DIFFERENT claim. Round 2's
+        # tests could not distinguish "resolution works" from "the
+        # zero-test guard alone saved us," because every one of them put
+        # the only #[test] behind the submodule (0 at the top level). This
+        # one has 1 at the top level (non-zero, so the guard alone cannot
+        # explain a passing result) and 1 more reachable only through
+        # `mod child;`.
+        old_source = (
+            '#[test]\n'
+            'fn top_level_test() {\n'
+            '    assert!(stdout.contains("top level claim"));\n'
+            '}\n'
+            'mod child;\n'
+        )
+        child_source = (
+            '#[test]\n'
+            'fn child_test() {\n'
+            '    assert!(stdout.contains("child claim"));\n'
+            '}\n'
+        )
+        toml_full = (
+            '[[case]]\nname = "top_level_test"\nargs = ["run"]\n'
+            'stdout_contains = ["top level claim"]\n'
+            '\n[[case]]\nname = "child_test"\nargs = ["run"]\n'
+            'stdout_contains = ["child claim"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_full},
+            extra_files={"child.rs": child_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("2 #[test] fns", out)
+
+        # Drop the CHILD's claim (not the top-level one) -- if resolution
+        # were silently skipped (the exact mutation the reviewer applied:
+        # `submodule_paths = [] if TEST_FN.findall(old_source) else
+        # resolve_path_mods(...)`, which only resolves submodules when the
+        # top-level file has ZERO #[test] fns of its own), the audit would
+        # never even look for "child claim" and would wrongly report OK.
+        toml_dropped = (
+            '[[case]]\nname = "top_level_test"\nargs = ["run"]\n'
+            'stdout_contains = ["top level claim"]\n'
+            '\n[[case]]\nname = "child_test"\nargs = ["run"]\n'
+            'stdout_contains = ["something else entirely"]\n'
+        )
+        rc2, out2 = _run_audit(
+            old_source, {"new.toml": toml_dropped},
+            extra_files={"child.rs": child_source},
+        )
+        self.assertEqual(rc2, 1, out2)
+        self.assertIn("AUDIT FAILED", out2)
+        self.assertIn("child claim", out2)
+
+    def test_mod_mentioned_in_a_line_comment_is_not_a_phantom_declaration(self):
+        # Live in this corpus: inprocess/cdp_driver.rs's own `//!` header
+        # says "...resolve its unqualified `mod cdp_driver;`..." -- a
+        # DOCUMENTATION mention, not a real declaration. A `//!` naming a
+        # module that does not exist must not become a hard error.
+        old_source = (
+            '//! See also its sibling `mod ghost;` for context.\n'
+            '#[test]\n'
+            'fn t() { assert!(true); }\n'
+        )
+        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("does not exist", out)
+        self.assertNotIn("resolved submodule", out)
+
+    def test_mod_mentioned_in_a_doc_comment_slash_slash_bang_is_not_a_phantom(self):
+        old_source = (
+            '/// mentions `mod ghost;` in its own doc text\n'
+            '#[test]\n'
+            'fn t() { assert!(true); }\n'
+        )
+        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("does not exist", out)
+        self.assertNotIn("resolved submodule", out)
+
+    def test_mod_mentioned_in_a_block_comment_is_not_a_phantom(self):
+        old_source = (
+            '/* mod ghost; */\n'
+            '#[test]\n'
+            'fn t() { assert!(true); }\n'
+        )
+        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("does not exist", out)
+        self.assertNotIn("resolved submodule", out)
+
+    def test_mod_mentioned_inside_a_plain_string_is_not_a_phantom(self):
+        old_source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let s = "mod ghost;";\n'
+            '    assert!(s.contains("ghost"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\nname = "t"\nargs = ["run"]\nstdout_contains = ["ghost"]\n'
+        )
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("does not exist", out)
+        self.assertNotIn("resolved submodule", out)
+
+    def test_mod_mentioned_inside_a_raw_string_is_not_a_phantom(self):
+        old_source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let s = r#"mod ghost;"#;\n'
+            '    assert!(s.contains("ghost"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\nname = "t"\nargs = ["run"]\nstdout_contains = ["ghost"]\n'
+        )
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("does not exist", out)
+        self.assertNotIn("resolved submodule", out)
+
+    def test_path_attribute_string_survives_comment_masking(self):
+        # The regression the FIRST attempt at fixing comment-blindness
+        # introduced and caught before shipping: masking ALL strings
+        # (including a #[path]'s own argument) before matching PATH_MOD
+        # destroys the very path it needs to capture. This pins that the
+        # real path is still read correctly even with comment-masking in
+        # front of it.
+        old_source = (
+            '// a comment mentioning mod ghost; for good measure\n'
+            '#[path = "real/child.rs"]\n'
+            'mod fake_name;\n'
+        )
+        child_source = (
+            '#[test]\n'
+            'fn only_test() {\n'
+            '    assert!(stdout.contains("from real child"));\n'
+            '}\n'
+        )
+        toml_source = (
+            '[[case]]\nname = "only_test"\nargs = ["run"]\n'
+            'stdout_contains = ["from real child"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={"real/child.rs": child_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("real", out)
+        self.assertIn("child.rs", out)
+
+    def test_submod_identifier_is_not_mistaken_for_mod(self):
+        # `submod` ends in the three letters "mod" but is a different
+        # identifier entirely -- must not be read as `mod ghost;` was
+        # somehow spelled "sub" + "mod ghost;".
+        old_source = (
+            '#[test]\n'
+            'fn t() { assert!(true); }\n'
+            'fn submod_ghost_helper() {}\n'
+        )
+        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        rc, out = _run_audit(old_source, {"new.toml": toml_source})
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("does not exist", out)
+        self.assertNotIn("resolved submodule", out)
+
+    def test_dotdot_cycle_terminates_quickly_via_resolve(self):
+        # A cycle spelled through a `..`-climbing #[path] that never
+        # lexically repeats: `sub/mod.rs` contains
+        # `#[path = "../sub/mod.rs"] mod sub;`, which re-derives a
+        # longer-and-longer (but never textually identical) path string on
+        # every hop without `.resolve()`. Must terminate on the first
+        # semantic repeat (a handful of iterations), not after path-length
+        # limits start making `is_file()` false naturally.
+        old_source = 'mod sub;\n#[test]\nfn t() { assert!(true); }\n'
+        sub_source = '#[path = "../sub/mod.rs"]\nmod sub;\n'
+        rc, out = _run_audit(
+            old_source, {"new.toml": '[[case]]\nname = "t"\nargs = ["run"]\n'},
+            extra_files={"sub/mod.rs": sub_source},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        # Exactly the top-level fn -- the cycle contributes no tests of its
+        # own and must not multiply "1 #[test] fns" into something else.
+        self.assertIn("1 #[test] fns", out)
+
+    def test_leaf_style_flat_sibling_nests_children_in_its_own_named_subdirectory(self):
+        # Real Rust semantics: a plain `mod leaf;` resolving to an ordinary
+        # sibling file `leaf.rs` (not a #[path], not a `mod.rs`) is a
+        # LEAF-style module -- ITS OWN nested `mod deeper;` must resolve to
+        # `leaf/deeper.rs`, a SUBDIRECTORY named after `leaf`, not a
+        # coincidentally-same-named sibling file one level up. This corpus
+        # uses generic submodule names (run.rs/build.rs/check.rs/...), so a
+        # same-named file one directory up is a realistic collision --
+        # treating every plain mod as directory-style would silently fold
+        # in a foreign file's claims here (the dangerous direction).
+        old_source = 'mod leaf;\n'
+        leaf_source = 'mod deeper;\n'
+        deeper_source_correct = (
+            '#[test]\n'
+            'fn deeper_test() { assert!(stdout.contains("correct deeper")); }\n'
+        )
+        # A DECOY at the wrong (directory-style) location -- if the bug
+        # were present, this is what would get pulled in instead.
+        decoy_source = (
+            '#[test]\n'
+            'fn decoy_test() { assert!(stdout.contains("WRONG decoy")); }\n'
+        )
+        toml_source = (
+            '[[case]]\nname = "deeper_test"\nargs = ["run"]\n'
+            'stdout_contains = ["correct deeper"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={
+                "leaf.rs": leaf_source,
+                "leaf/deeper.rs": deeper_source_correct,
+                "deeper.rs": decoy_source,
+            },
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+        # The decoy must never have been read at all.
+        self.assertNotIn("decoy", out)
+        self.assertNotIn("WRONG", out)
+
+    def test_directory_style_mod_rs_nests_children_beside_itself(self):
+        # The other half of the same distinction, as a control: a
+        # `name/mod.rs` (directory-style) file's OWN nested `mod` DOES
+        # resolve beside itself, not into a further subdirectory --
+        # matching the real `cdp_driver/mod.rs` -> `cdp_driver/driver.rs`
+        # shape.
+        old_source = 'mod container;\n'
+        container_source = 'mod sibling;\n'
+        sibling_source = (
+            '#[test]\n'
+            'fn sibling_test() { assert!(stdout.contains("sibling claim")); }\n'
+        )
+        toml_source = (
+            '[[case]]\nname = "sibling_test"\nargs = ["run"]\n'
+            'stdout_contains = ["sibling claim"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={
+                "container/mod.rs": container_source,
+                "container/sibling.rs": sibling_source,
+            },
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+
+    def test_path_attribute_inside_a_flat_leaf_file_still_resolves_relative_to_itself(self):
+        # #[path] is NEVER subject to the leaf-vs-directory nesting
+        # distinction -- confirmed against the real
+        # inprocess/cdp_driver.rs -> `#[path = "../cdp_driver/driver.rs"]`
+        # shape: even though cdp_driver.rs itself is leaf-style (found via
+        # a plain mod from its own parent, `inprocess/browser_harness_cdp_
+        # in_page_trap_propagates.rs`, itself #[path]-loaded from
+        # `inprocess.rs`), its own #[path] children resolve relative to ITS
+        # OWN directory, never a hypothetical leaf-nesting subdirectory.
+        # Mirrors the real 3-level structure exactly: old.rs (top-level) ->
+        # (plain mod) -> sub/mod.rs (directory-style) -> (plain mod) ->
+        # sub/leafy.rs (leaf-style, found via the flat branch) ->
+        # (#[path], climbing back OUT of sub/) -> climbed.rs (a sibling of
+        # sub/, at the top level).
+        old_source = 'mod sub;\n'
+        sub_source = 'mod leafy;\n'
+        leafy_source = '#[path = "../climbed.rs"]\nmod climbed;\n'
+        climbed_source = (
+            '#[test]\n'
+            'fn climbed_test() { assert!(stdout.contains("climbed claim")); }\n'
+        )
+        toml_source = (
+            '[[case]]\nname = "climbed_test"\nargs = ["run"]\n'
+            'stdout_contains = ["climbed claim"]\n'
+        )
+        rc, out = _run_audit(
+            old_source, {"new.toml": toml_source},
+            extra_files={
+                "sub/mod.rs": sub_source,
+                "sub/leafy.rs": leafy_source,
+                "climbed.rs": climbed_source,
+            },
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("1 #[test] fns", out)
+
+
+# ---------------------------------------------------------------------------
 # Documented, accepted limitations -- pinned as CURRENT behavior, not as a
 # desired property. A future change that accidentally alters any of these
 # should show up here, not slip through silently.
