@@ -1,4 +1,5 @@
 use super::*;
+use crate::model::CountBound;
 use crate::parse_case_file;
 
 #[test]
@@ -483,6 +484,57 @@ json_null = ["payload.${ext}Stdout"]
     .expect("parse");
     let trials = expand("x/y", &file).expect("expand");
     assert_eq!(trials[0].steps[0].json_null, vec!["payload.jsStdout"]);
+}
+
+// A count claim is a table, not a string, so it is neither `list`-routed nor
+// `substitute_value`-routed -- it gets its own pair of closures in
+// `substitute_step`, and both of its string-bearing members need pinning. An
+// unsubstituted `${...}` surviving into a *needle* is the dangerous case: the
+// needle would then match nothing, and an `exact`-bounded claim could pass on
+// a count of 0 while asserting nothing real.
+#[test]
+fn substitution_reaches_count_needles_and_json_count_paths() {
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["ts"]
+
+[constants]
+VALUE = "3"
+
+[[case]]
+name = "c"
+args = ["run", "main.${ext}"]
+stdout_count = [{ needle = "${VALUE}\n", at_least = 2 }]
+json_count = [{ path = "payload.${ext}Stdout", needle = "${VALUE}\n", exact = 6 }]
+"#,
+    )
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let step = &trials[0].steps[0];
+    assert_eq!(step.stdout_count[0].needle, "3\n");
+    assert_eq!(step.stdout_count[0].bound, CountBound::AtLeast(2));
+    assert_eq!(step.json_count[0].path, "payload.tsStdout");
+    assert_eq!(step.json_count[0].needle, "3\n");
+    assert_eq!(step.json_count[0].bound, CountBound::Exact(6));
+}
+
+#[test]
+fn an_unresolved_placeholder_in_a_count_needle_is_a_hard_error_naming_it() {
+    let file = parse_case_file(
+        r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+stdout_count = [{ needle = "${nope}\n", at_least = 2 }]
+"#,
+    )
+    .expect("parse");
+    let err = expand("x/y", &file).expect_err("must reject the unresolved placeholder");
+    assert!(
+        err.contains("nope"),
+        "error must name the placeholder: {err}"
+    );
 }
 
 #[test]

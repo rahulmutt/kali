@@ -150,6 +150,140 @@ pub enum ExitStatusWord {
     Failure,
 }
 
+// The two raw count-claim tables. `at_least` and `exact` are both `Option`
+// here and collapsed into exactly one `CountBound` by `count_bound`: the
+// format admits no other comparison, and requiring exactly one of the two to
+// be spelled is what keeps `{ needle = "3\n" }` (a table that would assert
+// nothing) from parsing. `deny_unknown_fields` applies to the table itself,
+// so `{ needle = "3\n", atleast = 2 }` is rejected rather than read as a
+// claim with no bound.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawCountClaim {
+    needle: String,
+    #[serde(default)]
+    at_least: Option<usize>,
+    #[serde(default)]
+    exact: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawJsonCountClaim {
+    path: String,
+    needle: String,
+    #[serde(default)]
+    at_least: Option<usize>,
+    #[serde(default)]
+    exact: Option<usize>,
+}
+
+/// How many non-overlapping occurrences of a needle a surface must hold.
+///
+/// Deliberately closed at the two comparisons the migrated corpus actually
+/// contains -- `count() >= n` (29 sites) and `count() == n` (3 sites). No
+/// `<`, `<=`, `>`, or `!=`: no source assertion spells them, and an operator
+/// no case can justify is a vocabulary the format has to keep honest forever.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CountBound {
+    AtLeast(usize),
+    Exact(usize),
+}
+
+impl CountBound {
+    /// Rendered into failure text, so it reads as prose: "expected at least
+    /// 2 non-overlapping occurrences of ...".
+    pub fn describe(self) -> String {
+        match self {
+            CountBound::AtLeast(n) => format!("at least {n}"),
+            CountBound::Exact(n) => format!("exactly {n}"),
+        }
+    }
+
+    pub fn holds(self, actual: usize) -> bool {
+        match self {
+            CountBound::AtLeast(n) => actual >= n,
+            CountBound::Exact(n) => actual == n,
+        }
+    }
+}
+
+/// One `stdout_count` claim: how many non-overlapping occurrences of `needle`
+/// the step's captured stdout must hold.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CountClaim {
+    pub needle: String,
+    pub bound: CountBound,
+}
+
+/// One `json_count` claim: the same count, taken against the JSON string leaf
+/// at `path` in the step's captured stdout rather than against raw stdout.
+/// The two surfaces are separate keys, not one key with an optional `path`,
+/// because the same helper in a migrated source file routinely asserts the
+/// same count on *both* (the `--output json` branch reads `json["stdout"]`,
+/// the text branch reads the process's stdout) and the case file must be able
+/// to say which without the reader inferring it from a field's absence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JsonCountClaim {
+    pub path: String,
+    pub needle: String,
+    pub bound: CountBound,
+}
+
+/// Collapse a raw claim's `at_least`/`exact` pair into the single bound the
+/// evaluator sees, rejecting the two ways an author can write a table that
+/// asserts nothing:
+///
+/// - neither spelled (`{ needle = "3\n" }`) -- there is no default bound to
+///   fall back on that would not be a guess about the author's intent;
+/// - both spelled -- the two could disagree, and there is no rule for which
+///   one wins that is not silently discarding half of what was written.
+///
+/// `at_least = 0` is rejected for the same family of reason: every string
+/// contains at least zero occurrences of anything, so it is a claim that can
+/// never fail. `exact = 0` is *not* rejected -- "this needle appears zero
+/// times" is a real, falsifiable claim (a stricter `stdout_absent`).
+fn count_bound(
+    at_least: Option<usize>,
+    exact: Option<usize>,
+    case_name: &str,
+    key: &str,
+) -> Result<CountBound, String> {
+    match (at_least, exact) {
+        (Some(_), Some(_)) => Err(format!(
+            "case `{case_name}`: a `{key}` claim sets both `at_least` and `exact` -- set exactly \
+             one"
+        )),
+        (None, None) => Err(format!(
+            "case `{case_name}`: a `{key}` claim sets neither `at_least` nor `exact` -- set \
+             exactly one, or the claim asserts nothing"
+        )),
+        (Some(0), None) => Err(format!(
+            "case `{case_name}`: a `{key}` claim sets `at_least = 0`, which every possible output \
+             satisfies -- use `exact = 0` to claim the needle is absent"
+        )),
+        (Some(n), None) => Ok(CountBound::AtLeast(n)),
+        (None, Some(n)) => Ok(CountBound::Exact(n)),
+    }
+}
+
+/// An empty needle is rejected rather than evaluated. Rust's `str::matches`
+/// yields `haystack.chars().count() + 1` matches for `""` (one at every
+/// character boundary, including both ends), which is a number no case author
+/// writing `count() >= 2` ever meant; reproducing it faithfully would be
+/// correct and useless, and special-casing it to 0 would silently diverge
+/// from the `str::matches` semantics every migrated claim was written
+/// against. Refusing it at parse time is the only option that does neither.
+fn count_needle(needle: String, case_name: &str, key: &str) -> Result<String, String> {
+    if needle.is_empty() {
+        return Err(format!(
+            "case `{case_name}`: a `{key}` claim has an empty `needle` -- `str::matches(\"\")` \
+             matches at every character boundary, which is never the claim being made"
+        ));
+    }
+    Ok(needle)
+}
+
 // `kind` is `Option` here, not defaulted straight to `StepKind::Cli` the way
 // the public `Step` below has it. `finalize_step` is what applies the
 // default -- and only when no kind-specific field (`path`/`fields`/
@@ -174,6 +308,8 @@ struct RawStep {
     #[serde(default)]
     stdout_absent: Vec<String>,
     #[serde(default)]
+    stdout_count: Vec<RawCountClaim>,
+    #[serde(default)]
     stderr: Option<String>,
     #[serde(default)]
     stderr_contains: Vec<String>,
@@ -183,6 +319,8 @@ struct RawStep {
     json: Option<toml::Value>,
     #[serde(default)]
     json_null: Vec<String>,
+    #[serde(default)]
+    json_count: Vec<RawJsonCountClaim>,
     #[serde(default)]
     path: Option<String>,
     #[serde(default)]
@@ -202,6 +340,15 @@ pub struct Step {
     pub stdout: Option<String>,
     pub stdout_contains: Vec<String>,
     pub stdout_absent: Vec<String>,
+    /// Occurrence-count claims against the step's captured stdout, one per
+    /// `{ needle = "...", at_least | exact = n }` table. Added when the
+    /// `.matches(needle).count()` shape -- 32 sites across 13 otherwise
+    /// un-migratable browser files -- turned out to have no expressible
+    /// form: `stdout_contains` is satisfied by a *single* occurrence, so
+    /// migrating `count() >= 2` to it silently weakens the claim to
+    /// `count() >= 1`, and output that folded two constants into one would
+    /// still pass. See `assertions::check_count` for the counting semantics.
+    pub stdout_count: Vec<CountClaim>,
     /// Exact stderr equality, symmetric with `stdout` above. Added when a
     /// migrated source assertion (`stderr.is_empty()`, or any exact-stderr
     /// claim) had no expressible form: `stderr_contains`/`stderr_absent`
@@ -223,6 +370,16 @@ pub struct Step {
     /// This is that claim's only expressible form; see `check`'s doc
     /// comment on why it is deliberately not folded into `json` itself.
     pub json_null: Vec<String>,
+    /// `stdout_count`'s claim taken against a JSON string leaf of the
+    /// captured stdout instead of raw stdout. Both surfaces exist because a
+    /// single migrated helper asserts the same count on both branches of its
+    /// `--output json` split (`browser_math_log2_log10.rs:177-179` against
+    /// `json["stdout"].as_str()`, `:186` against the raw stdout); a key that
+    /// covered only one surface would leave half of every such helper
+    /// hand-written. A path that does not resolve, or resolves to a
+    /// non-string, is a hard failure -- §5.10, the same rule `json_null`
+    /// follows.
+    pub json_count: Vec<JsonCountClaim>,
     /// `file_json` only.
     pub path: Option<String>,
     /// `file_json` only.
@@ -280,7 +437,8 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
 
     // Field applicability by kind: `cli` and `browser_bundle_harness` both
     // run a process and can assert on its exit/stdout/stderr (including
-    // `json`/`json_null`, both read from that process's captured stdout);
+    // `json`/`json_null`/`json_count`, all read from that process's captured
+    // stdout);
     // `file_json` reads a file off disk and never runs anything, so none of
     // that applies to it. `args` is `cli`-only (it's the argv passed to
     // `kali`). `path`/`fields` are `file_json`-only; `entry`/`body` are
@@ -320,6 +478,9 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             if !raw.stdout_absent.is_empty() {
                 inapplicable.push("stdout_absent");
             }
+            if !raw.stdout_count.is_empty() {
+                inapplicable.push("stdout_count");
+            }
             if raw.stderr.is_some() {
                 inapplicable.push("stderr");
             }
@@ -334,6 +495,9 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             }
             if !raw.json_null.is_empty() {
                 inapplicable.push("json_null");
+            }
+            if !raw.json_count.is_empty() {
+                inapplicable.push("json_count");
             }
             if raw.entry.is_some() {
                 inapplicable.push("entry");
@@ -363,6 +527,28 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
         ));
     }
 
+    let stdout_count = raw
+        .stdout_count
+        .into_iter()
+        .map(|claim| {
+            Ok(CountClaim {
+                needle: count_needle(claim.needle, case_name, "stdout_count")?,
+                bound: count_bound(claim.at_least, claim.exact, case_name, "stdout_count")?,
+            })
+        })
+        .collect::<Result<Vec<CountClaim>, String>>()?;
+    let json_count = raw
+        .json_count
+        .into_iter()
+        .map(|claim| {
+            Ok(JsonCountClaim {
+                path: claim.path,
+                needle: count_needle(claim.needle, case_name, "json_count")?,
+                bound: count_bound(claim.at_least, claim.exact, case_name, "json_count")?,
+            })
+        })
+        .collect::<Result<Vec<JsonCountClaim>, String>>()?;
+
     Ok(Step {
         kind,
         args: raw.args,
@@ -371,11 +557,13 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
         stdout: raw.stdout,
         stdout_contains: raw.stdout_contains,
         stdout_absent: raw.stdout_absent,
+        stdout_count,
         stderr: raw.stderr,
         stderr_contains: raw.stderr_contains,
         stderr_absent: raw.stderr_absent,
         json: raw.json,
         json_null: raw.json_null,
+        json_count,
         path: raw.path,
         fields: raw.fields,
         entry: raw.entry,

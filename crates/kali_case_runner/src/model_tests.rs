@@ -126,6 +126,161 @@ json_null = ["stderr"]
     );
 }
 
+// `stdout_count`/`json_count` are the third key added mid-migration (after
+// `json_null` and `stderr`), for the `.matches(needle).count()` shape. Both
+// spellings and both surfaces parse from one step.
+#[test]
+fn count_claims_parse_on_both_surfaces_and_in_both_spellings() {
+    let text = r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+stdout_count = [
+  { needle = "3\n", at_least = 2 },
+  { needle = "ok 1", exact = 1 },
+]
+json_count = [{ path = "payload.stdout", needle = "1.2649110640673518", exact = 6 }]
+"#;
+    let parsed = parse_case_file(text).expect("parse");
+    let inline = parsed.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(
+        inline.stdout_count,
+        vec![
+            CountClaim {
+                needle: "3\n".to_string(),
+                bound: CountBound::AtLeast(2),
+            },
+            CountClaim {
+                needle: "ok 1".to_string(),
+                bound: CountBound::Exact(1),
+            },
+        ]
+    );
+    assert_eq!(
+        inline.json_count,
+        vec![JsonCountClaim {
+            path: "payload.stdout".to_string(),
+            needle: "1.2649110640673518".to_string(),
+            bound: CountBound::Exact(6),
+        }]
+    );
+}
+
+// A claim table with no bound would parse into "count the needle, compare it
+// against nothing" -- exactly the assert-nothing degradation this format
+// exists to close. There is no defensible default to fall back on, so it is
+// a hard error.
+#[test]
+fn a_count_claim_with_no_bound_is_a_hard_error() {
+    let text = r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+stdout_count = [{ needle = "3\n" }]
+"#;
+    let err = parse_case_file(text).expect_err("must reject a claim with neither bound");
+    assert!(err.contains("stdout_count"), "must name the key: {err}");
+    assert!(err.contains("at_least"), "must explain: {err}");
+}
+
+#[test]
+fn a_count_claim_setting_both_bounds_is_a_hard_error() {
+    let text = r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+json_count = [{ path = "stdout", needle = "3\n", at_least = 2, exact = 3 }]
+"#;
+    let err = parse_case_file(text).expect_err("must reject a claim with both bounds");
+    assert!(err.contains("json_count"), "must name the key: {err}");
+    assert!(err.contains("exactly one"), "must explain: {err}");
+}
+
+// `at_least = 0` holds against every possible output, so it is a claim that
+// can never fail -- rejected for the same reason a typo'd key is. `exact = 0`
+// is a real claim (a stricter `stdout_absent`) and stays legal.
+#[test]
+fn an_at_least_zero_count_claim_is_rejected_but_exact_zero_is_not() {
+    let vacuous = r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+stdout_count = [{ needle = "3\n", at_least = 0 }]
+"#;
+    let err = parse_case_file(vacuous).expect_err("must reject a claim nothing can violate");
+    assert!(err.contains("at_least = 0"), "must explain: {err}");
+
+    let meaningful = r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+stdout_count = [{ needle = "3\n", exact = 0 }]
+"#;
+    let parsed = parse_case_file(meaningful).expect("`exact = 0` is a falsifiable claim");
+    let inline = parsed.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(inline.stdout_count[0].bound, CountBound::Exact(0));
+}
+
+// Rust's `str::matches("")` matches at every character boundary, yielding
+// `len + 1` -- a number no author writing `count() >= 2` ever meant.
+// Rejecting the needle at parse time avoids both reproducing that surprise
+// and special-casing it into a silent divergence from `str::matches`.
+#[test]
+fn an_empty_count_needle_is_a_hard_error() {
+    let text = r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+stdout_count = [{ needle = "", at_least = 2 }]
+"#;
+    let err = parse_case_file(text).expect_err("must reject an empty needle");
+    assert!(err.contains("needle"), "must name the field: {err}");
+}
+
+// The claim table itself carries `deny_unknown_fields`, so a misspelt bound
+// cannot be read as "a claim with no bound at all" (which the check above
+// would then have to catch by accident) or, worse, silently dropped.
+#[test]
+fn an_unknown_key_inside_a_count_claim_is_a_hard_error_naming_it() {
+    let text = r#"
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+stdout_count = [{ needle = "3\n", atleast = 2 }]
+"#;
+    let err = parse_case_file(text).expect_err("must reject the misspelt bound");
+    assert!(err.contains("atleast"), "error must name the key: {err}");
+}
+
+// `stdout_count` and `json_count` share the applicability rule of the keys
+// they extend (`stdout_contains` and `json`/`json_null`): all read the step's
+// captured process output, so a `file_json` step -- which never runs a
+// process -- must reject them rather than parse a claim it can never
+// evaluate.
+#[test]
+fn a_file_json_step_rejects_both_count_keys() {
+    let stdout_side = r#"
+[[case]]
+name = "c"
+kind = "file_json"
+path = "o.json"
+stdout_count = [{ needle = "3\n", at_least = 2 }]
+"#;
+    let err =
+        parse_case_file(stdout_side).expect_err("must reject stdout_count on a file_json step");
+    assert!(err.contains("stdout_count"), "must name the field: {err}");
+
+    let json_side = r#"
+[[case]]
+name = "c"
+kind = "file_json"
+path = "o.json"
+json_count = [{ path = "stdout", needle = "3\n", at_least = 2 }]
+"#;
+    let err = parse_case_file(json_side).expect_err("must reject json_count on a file_json step");
+    assert!(err.contains("json_count"), "must name the field: {err}");
+}
+
 #[test]
 fn dotted_json_keys_parse_into_a_nested_table() {
     let text = r#"
@@ -397,7 +552,7 @@ fields.ok = true
 // own risk: a converter that silently drops a field would make every case
 // file that relies on that field assert nothing, which is the exact class
 // of bug this whole format exists to prevent. These three tests pin every
-// one of `Step`'s sixteen fields through the inline (flatten + manual
+// one of `Step`'s eighteen fields through the inline (flatten + manual
 // convert) path, split one case per `kind` since `finalize_step` now
 // rejects kind-inapplicable fields -- a single case can no longer carry
 // every field the way the original all-in-one version did.
@@ -413,11 +568,13 @@ exit = "success"
 stdout = "out\n"
 stdout_contains = ["a"]
 stdout_absent = ["b"]
+stdout_count = [{ needle = "e", at_least = 2 }]
 stderr = "err\n"
 stderr_contains = ["c"]
 stderr_absent = ["d"]
 json.schemaVersion = 1
 json_null = ["stderr"]
+json_count = [{ path = "payload.stdout", needle = "f", exact = 3 }]
 "#;
     let parsed = parse_case_file(text).expect("parse");
     let step = parsed.case[0].inline.as_ref().expect("inline step");
@@ -428,6 +585,7 @@ json_null = ["stderr"]
     assert_eq!(step.stdout.as_deref(), Some("out\n"));
     assert_eq!(step.stdout_contains, vec!["a"]);
     assert_eq!(step.stdout_absent, vec!["b"]);
+    assert_eq!(step.stdout_count, vec![at_least_claim("e", 2)]);
     assert_eq!(step.stderr.as_deref(), Some("err\n"));
     assert_eq!(step.stderr_contains, vec!["c"]);
     assert_eq!(step.stderr_absent, vec!["d"]);
@@ -436,6 +594,21 @@ json_null = ["stderr"]
         Some(1)
     );
     assert_eq!(step.json_null, vec!["stderr"]);
+    assert_eq!(
+        step.json_count,
+        vec![JsonCountClaim {
+            path: "payload.stdout".to_string(),
+            needle: "f".to_string(),
+            bound: CountBound::Exact(3),
+        }]
+    );
+}
+
+fn at_least_claim(needle: &str, n: usize) -> CountClaim {
+    CountClaim {
+        needle: needle.to_string(),
+        bound: CountBound::AtLeast(n),
+    }
 }
 
 #[test]
@@ -465,11 +638,13 @@ exit = "failure"
 stdout = "out\n"
 stdout_contains = ["a"]
 stdout_absent = ["b"]
+stdout_count = [{ needle = "e", at_least = 2 }]
 stderr = "err\n"
 stderr_contains = ["c"]
 stderr_absent = ["d"]
 json.schemaVersion = 2
 json_null = ["stdout"]
+json_count = [{ path = "stdout", needle = "f", at_least = 4 }]
 entry = "app"
 body = "await mod.f();"
 "#;
@@ -489,6 +664,15 @@ body = "await mod.f();"
         Some(2)
     );
     assert_eq!(step.json_null, vec!["stdout"]);
+    assert_eq!(step.stdout_count, vec![at_least_claim("e", 2)]);
+    assert_eq!(
+        step.json_count,
+        vec![JsonCountClaim {
+            path: "stdout".to_string(),
+            needle: "f".to_string(),
+            bound: CountBound::AtLeast(4),
+        }]
+    );
     assert_eq!(step.entry.as_deref(), Some("app"));
     assert_eq!(step.body.as_deref(), Some("await mod.f();"));
 }

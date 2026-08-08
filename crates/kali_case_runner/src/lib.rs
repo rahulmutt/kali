@@ -14,5 +14,8 @@ pub use assertions::{check, check_json, Captured};
 pub use discover::{discover, main_with};
 pub use expand::{expand, Trial};
 pub use jsonpath::{flatten_expected, lookup, values_equal};
-pub use model::{parse_case_file, Case, CaseFile, Exit, ExitStatusWord, Step, StepKind};
+pub use model::{
+    parse_case_file, Case, CaseFile, CountBound, CountClaim, Exit, ExitStatusWord, JsonCountClaim,
+    Step, StepKind,
+};
 pub use steps::{run_trial, RunnerConfig};

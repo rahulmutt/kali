@@ -5,7 +5,7 @@
 //! changes assertions rather than substituting uniformly (text vs JSON output,
 //! for instance) belongs in sibling `[[case]]` blocks, not here.
 
-use crate::model::{Case, CaseFile, Step};
+use crate::model::{Case, CaseFile, CountClaim, JsonCountClaim, Step};
 use std::collections::BTreeMap;
 
 #[derive(Debug)]
@@ -42,7 +42,7 @@ fn substitute(text: &str, bindings: &BTreeMap<String, String>) -> Result<String,
 /// tree, recursing through tables and arrays. Non-string leaves (integers,
 /// booleans, floats, datetimes) pass through untouched.
 ///
-/// `json` and `fields` are two of the ten assertion keys (design spec
+/// `json` and `fields` are two of the twelve assertion keys (design spec
 /// §5.4), and §5.10's unresolved-placeholder hard-failure
 /// rule applies to them exactly as it does to every other string-bearing
 /// field -- a `${...}` in a `json`/`fields` key is the more dangerous case,
@@ -94,6 +94,35 @@ fn substitute_step(step: &Step, bindings: &BTreeMap<String, String>) -> Result<S
             .map(|v| substitute_value(v, bindings))
             .transpose()
     };
+    // Count needles and `json_count` paths are string-bearing exactly like
+    // `stdout_contains` needles and `json_null` paths, so they carry the same
+    // §5.10 obligation: a `${...}` that survives into a needle would produce
+    // a needle that matches nothing, and an `exact`-bounded claim could then
+    // *pass* on a count of 0 while asserting nothing real. The `bound` is a
+    // plain number pair and has no text to substitute.
+    let counts = |claims: &Vec<CountClaim>| -> Result<Vec<CountClaim>, String> {
+        claims
+            .iter()
+            .map(|claim| {
+                Ok(CountClaim {
+                    needle: substitute(&claim.needle, bindings)?,
+                    bound: claim.bound,
+                })
+            })
+            .collect()
+    };
+    let json_counts = |claims: &Vec<JsonCountClaim>| -> Result<Vec<JsonCountClaim>, String> {
+        claims
+            .iter()
+            .map(|claim| {
+                Ok(JsonCountClaim {
+                    path: substitute(&claim.path, bindings)?,
+                    needle: substitute(&claim.needle, bindings)?,
+                    bound: claim.bound,
+                })
+            })
+            .collect()
+    };
     let mut env = BTreeMap::new();
     for (key, value) in &step.env {
         env.insert(substitute(key, bindings)?, substitute(value, bindings)?);
@@ -106,11 +135,13 @@ fn substitute_step(step: &Step, bindings: &BTreeMap<String, String>) -> Result<S
         stdout: opt(&step.stdout)?,
         stdout_contains: list(&step.stdout_contains)?,
         stdout_absent: list(&step.stdout_absent)?,
+        stdout_count: counts(&step.stdout_count)?,
         stderr: opt(&step.stderr)?,
         stderr_contains: list(&step.stderr_contains)?,
         stderr_absent: list(&step.stderr_absent)?,
         json: opt_value(&step.json)?,
         json_null: list(&step.json_null)?,
+        json_count: json_counts(&step.json_count)?,
         path: opt(&step.path)?,
         fields: opt_value(&step.fields)?,
         entry: opt(&step.entry)?,

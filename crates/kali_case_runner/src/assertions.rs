@@ -1,11 +1,11 @@
-//! Evaluate a step's ten assertion keys against captured process output.
+//! Evaluate a step's twelve assertion keys against captured process output.
 //!
 //! Failure messages are indented with two spaces, never four. `scripts/test-gate.sh`
 //! parses `^    [A-Za-z_]` as a failed-test name, and a four-space-indented
 //! detail line would be misread as a test that does not exist.
 
 use crate::jsonpath::{describe_absence, flatten_expected, lookup, values_equal};
-use crate::model::{Exit, ExitStatusWord, Step, StepKind};
+use crate::model::{CountBound, Exit, ExitStatusWord, Step, StepKind};
 
 pub struct Captured {
     pub code: Option<i32>,
@@ -92,6 +92,9 @@ pub fn check(step: &Step, captured: &Captured) -> Result<(), String> {
             return Err(fail(format!("stdout must not contain {needle:?}")));
         }
     }
+    for claim in &step.stdout_count {
+        check_count("stdout", &captured.stdout, &claim.needle, claim.bound).map_err(fail)?;
+    }
 
     if let Some(expected) = &step.stderr {
         if &captured.stderr != expected {
@@ -113,7 +116,7 @@ pub fn check(step: &Step, captured: &Captured) -> Result<(), String> {
         }
     }
 
-    if step.json.is_some() || !step.json_null.is_empty() {
+    if step.json.is_some() || !step.json_null.is_empty() || !step.json_count.is_empty() {
         let actual: serde_json::Value = serde_json::from_str(&captured.stdout)
             .map_err(|error| fail(format!("stdout is not valid json: {error}")))?;
         if let Some(expected) = &step.json {
@@ -122,9 +125,79 @@ pub fn check(step: &Step, captured: &Captured) -> Result<(), String> {
         for path in &step.json_null {
             check_json_null(path, &actual).map_err(fail)?;
         }
+        for claim in &step.json_count {
+            check_json_count(claim.bound, &claim.path, &claim.needle, &actual).map_err(fail)?;
+        }
     }
 
     Ok(())
+}
+
+/// The `stdout_count` / `json_count` evaluator.
+///
+/// **Counting is non-overlapping, left-to-right**, because that is what
+/// `str::matches` does and every claim being migrated into this key was
+/// written as `haystack.matches(needle).count()` against exactly those
+/// semantics. `"aaa".matches("aa").count()` is **1**, not 2: the scan resumes
+/// after the end of each match, never inside it. This function therefore
+/// *delegates* to `str::matches` rather than reimplementing the scan -- a
+/// hand-rolled counter that advanced by one byte per hit instead of by
+/// `needle.len()` would count overlapping occurrences, and would silently
+/// *strengthen* every migrated claim (reporting more matches than the source
+/// assertion ever saw, so an at-least claim passes on output the original
+/// rejected). `count_is_non_overlapping_exactly_as_str_matches_is` in
+/// `assertions_tests.rs` pins this against that specific mistake.
+///
+/// The needle is never empty -- `model::count_needle` rejects an empty one at
+/// parse time, so the `len + 1` result `str::matches("")` would produce here
+/// is unreachable rather than merely undocumented.
+///
+/// `surface` names where the count was taken (`"stdout"`, or `json path
+/// payload.stdout`) so the failure message is diagnosable without reading the
+/// case file: §5.9 requires the needle, the expectation, and the actual count
+/// all be named.
+fn check_count(
+    surface: &str,
+    haystack: &str,
+    needle: &str,
+    bound: CountBound,
+) -> Result<(), String> {
+    let actual = haystack.matches(needle).count();
+    if bound.holds(actual) {
+        return Ok(());
+    }
+    Err(format!(
+        "{surface}: expected {} non-overlapping occurrences of {needle:?}, found {actual}",
+        bound.describe()
+    ))
+}
+
+/// `check_count` against a JSON string leaf of the captured stdout.
+///
+/// Both non-resolving ways this can go wrong are hard failures, never a
+/// silent pass, for the same reason `check_json_null` treats an absent path
+/// as one (§5.10): an unresolvable path is "nothing was checked," not
+/// "nothing to check." A leaf that resolves to a non-string is the subtler of
+/// the two -- `json["stdout"]` being `null` (a real shape in this CLI's
+/// envelope, which is why `json_null` exists) has no text to count needles
+/// in, and quietly treating it as zero matches would turn every `at_least`
+/// claim into a failure for the wrong reason and every `exact = 0` claim into
+/// a vacuous pass.
+fn check_json_count(
+    bound: CountBound,
+    path: &str,
+    needle: &str,
+    actual: &serde_json::Value,
+) -> Result<(), String> {
+    let label = describe_path(path);
+    match lookup(actual, path) {
+        None => Err(missing_path_message(&label, actual, path)),
+        Some(serde_json::Value::String(text)) => check_count(&label, text, needle, bound),
+        Some(found) => Err(format!(
+            "{label} is not a json string, so {needle:?} cannot be counted in it\n  actual:   \
+             {found}"
+        )),
+    }
 }
 
 /// A `json_null` path claim: `Step::json_null`'s doc comment explains why
