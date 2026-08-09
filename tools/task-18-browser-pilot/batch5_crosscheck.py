@@ -18,6 +18,16 @@ consisted of:
      A citation whose line is out of range, or whose line does not contain the
      construct it is attached to, is a hard failure.
 
+     A citation may name a `#[path = "..."] mod` SUBMODULE first --
+     ``snippet` (build.rs:5)` -- and is then resolved against that submodule.
+     U10 targets keep every `#[test]` fn in such a sibling, so a case file
+     migrated from one has no other way to point at the test it came from; and
+     a bare `:N` was actively wrong there, because the unqualified pattern
+     matches `(build.rs:5)` as well and would have resolved line 5 of the
+     CARRIER. A qualified citation naming a file that is not a submodule of the
+     target is a hard failure, not a skip. Both directions are mutation-tested
+     in `--selftest`.
+
 Both are checked against the shipped `.toml`, not against the generator, so a
 generator that renders the right thing and writes the wrong file is still
 caught.
@@ -49,6 +59,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from enumerate_invocations import strip_block_comments_and_strings  # noqa: E402
+from submodules import submodule_paths  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -71,6 +82,19 @@ SECTIONS = [
 
 # A backticked snippet followed by a parenthesised or bare `:N` citation.
 CITE = re.compile(r"`([^`\n]{3,120})`[^`\n]{0,40}?\(?:(\d+)(?:-(\d+))?\)?")
+
+# The same, but naming a SUBMODULE FILE first: `` `snippet` (build.rs:5) ``.
+#
+# U10 targets keep their `#[test]` fns in `#[path = "..."] mod` siblings, so a
+# case file migrated from one cites constructs in up to five different files and
+# a bare `:N` is ambiguous between them. Worse than ambiguous: `CITE` matches
+# `(build.rs:5)` too, and would silently resolve line 5 of the CARRIER --
+# reporting a pass or a failure about a file the author never named. So the
+# qualified form is recognised explicitly, and it is matched FIRST; a `CITE` hit
+# starting at the same offset as a `SUBMOD_CITE` hit is that same citation seen
+# through the weaker pattern and is skipped.
+SUBMOD_CITE = re.compile(
+    r"`([^`\n]{3,120})`[^`\n]{0,40}?\(?([A-Za-z0-9_]+\.rs):(\d+)(?:-(\d+))?\)?")
 
 
 @functools.lru_cache(maxsize=64)
@@ -396,7 +420,11 @@ def check(spec, citations_only=False):
     # never read those citations at all. Ruling 11 exempts `:N` figures from the
     # no-moving-numbers rule *because* they are mechanically gated, so the gate
     # has to actually resolve them for the exemption to be earned.
-    problems += _cite_arm(stem, "case file", text, rs_lines)
+    submodules = {}
+    if os.path.exists(rs_path):
+        for p in submodule_paths(rs_path):
+            submodules[os.path.basename(p)] = p.read_text().split("\n")
+    problems += _cite_arm(stem, "case file", text, rs_lines, submodules)
     if rs_header:
         problems += _header_cite_arm(stem, "\n".join(rs_header), live_lines)
     print(f"{stem}: {len(header)} header line(s) "
@@ -466,9 +494,42 @@ def _header_cite_arm(stem, body, lines):
     return out
 
 
-def _cite_arm(stem, origin, body, lines):
+def _cite_arm(stem, origin, body, lines, submodules=None):
+    """`submodules`: {basename: [line, ...]} for a `#[path]` carrier's siblings.
+
+    A citation naming a file not in that map is a hard failure, not a skip: the
+    author pointed at something, and a pointer nobody can resolve is the figure
+    in disguise ruling 11 forbids.
+    """
     out = []
+    submodules = submodules or {}
+    qualified = {}
+    for m in SUBMOD_CITE.finditer(body):
+        snippet, name, first = m.group(1), m.group(2), int(m.group(3))
+        end = int(m.group(4)) if m.group(4) else first
+        qualified[m.start()] = True
+        if name not in submodules:
+            out.append(f"{stem}: {origin} citation {name}:{first} for "
+                       f"`{snippet[:40]}` names a file that is not a submodule of "
+                       f"this target (known: {sorted(submodules) or 'none'})")
+            continue
+        sub_lines = submodules[name]
+        if end > len(sub_lines):
+            out.append(f"{stem}: {origin} citation {name}:{first} for `{snippet[:40]}` "
+                       f"is past end of {name} ({len(sub_lines)} lines)")
+            continue
+        needles = _needles(snippet)
+        if not needles:
+            continue
+        window = "\n".join(_statement(sub_lines, first, end))
+        for tok in needles:
+            if tok not in window:
+                out.append(f"{stem}: {origin} citation {name}:{first}"
+                           f"{'-' + str(end) if end != first else ''} does not contain "
+                           f"{tok!r} (from `{snippet[:50]}`)")
     for m in CITE.finditer(body):
+        if m.start() in qualified:
+            continue
         snippet, first, last = m.group(1), int(m.group(2)), m.group(3)
         end = int(last) if last else first
         # RANGE CHECK FIRST (fix round 1, finding I2). This used to sit AFTER the
@@ -559,14 +620,115 @@ def selftest():
         if not problems:
             failures.append(f"drift onto the {label} (:{n}) was NOT caught")
 
+    failures += _submodule_selftest()
+
     if failures:
         print("\nSELFTEST FAILED")
         for f in failures:
             print(f"  {f}")
         return 1
-    print("\nSELFTEST OK — the `.all` -> `.any` citation move is caught, and the "
-          "correct citation is not")
+    print("\nSELFTEST OK — the `.all` -> `.any` citation move is caught, the "
+          "correct citation is not, and a `<submodule>.rs:N` citation resolves "
+          "against that submodule rather than against the carrier")
     return 0
+
+
+# A SYNTHETIC carrier/submodule pair, written into a temp dir by the selftest
+# itself. Deliberately not a real tree file: every `#[path]` carrier in
+# `crates/kali_cli/tests` is deleted by batch 8, so a selftest anchored on one
+# would start skipping (or failing) the moment the migration it guards
+# completes -- a gate that retires itself exactly when its subject ships.
+_SUBMOD_SELFTEST_CARRIER = '''use std::fs;
+
+fn helper_that_lives_in_the_carrier(source: &str) {
+    assert!(source.contains("literal array"), "carrier claim");
+}
+
+#[path = "sub/leaf.rs"]
+mod leaf;
+'''
+
+_SUBMOD_SELFTEST_LEAF = '''use super::*;
+
+#[test]
+fn leaf_asserts_the_first_thing() {
+    helper_that_lives_in_the_carrier("literal array");
+}
+
+#[test]
+fn leaf_asserts_the_second_thing() {
+    assert!(stderr.contains("E5506"), "leaf claim");
+}
+'''
+
+
+def _submodule_selftest():
+    """Mutation kill for the `<submodule>.rs:N` citation arm.
+
+    Four properties, all against a synthetic carrier + `#[path]` submodule:
+
+      1. a correct `leaf.rs:N` citation resolves (no false red);
+      2. the SAME citation shifted onto a different statement in `leaf.rs` is
+         reported (the drift kill);
+      3. a citation naming a file that is not a submodule is reported, rather
+         than silently skipped;
+      4. `leaf.rs:N` is NOT resolved against the carrier. This is the property
+         the bare `CITE` pattern got wrong: it matches `(leaf.rs:5)` too, and
+         without `SUBMOD_CITE` taking precedence it would check line 5 of the
+         CARRIER. The check is that a citation whose line number is valid in the
+         carrier and wrong in the submodule still fails.
+    """
+    import tempfile
+
+    out = []
+    with tempfile.TemporaryDirectory() as d:
+        carrier = os.path.join(d, "browser_selftest_carrier.rs")
+        subdir = os.path.join(d, "sub")
+        os.makedirs(subdir)
+        with open(carrier, "w") as f:
+            f.write(_SUBMOD_SELFTEST_CARRIER)
+        with open(os.path.join(subdir, "leaf.rs"), "w") as f:
+            f.write(_SUBMOD_SELFTEST_LEAF)
+
+        leaf_lines = _SUBMOD_SELFTEST_LEAF.split("\n")
+        carrier_lines = _SUBMOD_SELFTEST_CARRIER.split("\n")
+        subs = {os.path.basename(p): p.read_text().split("\n")
+                for p in submodule_paths(carrier)}
+        if list(subs) != ["leaf.rs"]:
+            return [f"submodule selftest: resolved {list(subs)}, expected ['leaf.rs']"]
+
+        def line_in(lines, fragment):
+            hits = [n for n, l in enumerate(lines, 1) if fragment in l]
+            return hits[0] if len(hits) == 1 else None
+
+        good = line_in(leaf_lines, 'stderr.contains("E5506")')
+        other = line_in(leaf_lines, "helper_that_lives_in_the_carrier(")
+        carrier_hit = line_in(carrier_lines, 'source.contains("literal array")')
+        if None in (good, other, carrier_hit):
+            return ["submodule selftest: could not locate its own fixture lines"]
+
+        def cite(n, name="leaf.rs"):
+            return _cite_arm("selftest", "case file",
+                             f'`stderr.contains("E5506")` ({name}:{n})',
+                             carrier_lines, subs)
+
+        checks = [
+            ("correct leaf.rs citation", cite(good), False),
+            ("drift onto another leaf.rs statement", cite(other), True),
+            ("citation naming a non-submodule file", cite(good, "nope.rs"), True),
+            ("leaf.rs:N silently resolved against the carrier",
+             cite(carrier_hit), True),
+        ]
+        for label, problems, want_problem in checks:
+            got = bool(problems)
+            print(f"  submodule arm -- {label}: "
+                  f"{'reported' if got else 'clean'}")
+            if got != want_problem:
+                out.append(
+                    f"submodule arm: {label} was "
+                    f"{'reported' if got else 'NOT reported'}, expected the "
+                    f"{'opposite' if want_problem else 'opposite'}")
+    return out
 
 
 def main(argv):

@@ -38,6 +38,7 @@ import tomllib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from case_emit import fixture_in_fn  # noqa: E402
 from lexer import find_string_literals  # noqa: E402
+from submodules import read_with_submodules  # noqa: E402
 
 SOURCE_FN = re.compile(r"\bfn\s+([a-z0-9_]*source[a-z0-9_]*)\s*\(\s*\)\s*->\s*&'static\s+str")
 # A literal is "program-shaped" if it spans lines or reads like JS/TS.
@@ -71,7 +72,13 @@ def main(argv):
     if len(argv) < 2:
         raise SystemExit(__doc__)
     rs_path, toml_paths = argv[0], argv[1:]
-    text = open(rs_path).read()
+    # U10: a submodule carrier may declare its fixtures in the carrier, in a
+    # submodule, or in both. Reading only the carrier would report "VACUOUS: no
+    # fixture-shaped literals" -- exit 2, not a green -- for a carrier that
+    # holds only `mod` declarations, but would report a FALSE GREEN for one that
+    # holds some fixtures and leaves others in a submodule. Same resolution
+    # `audit-case-migration.py` does for itself.
+    text = read_with_submodules(rs_path)
 
     wanted = {}
     for m in SOURCE_FN.finditer(text):

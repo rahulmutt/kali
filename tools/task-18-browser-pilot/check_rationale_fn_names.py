@@ -24,6 +24,9 @@ import re
 import sys
 import tomllib
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from submodules import read_with_submodules  # noqa: E402
+
 BACKTICKED = re.compile(r"`([^`]+)`")
 FN_SHAPED = re.compile(r"^[a-z][a-z0-9_]{4,}$")
 
@@ -63,7 +66,12 @@ def cited_names(toml_path):
 
 
 def source_names(rs_path):
-    text = open(rs_path).read()
+    # U10: a `#[path]` carrier's `#[test]` fns all live in its submodules, and a
+    # rationale that names the fn it was migrated from is naming one of those.
+    # Reading the carrier alone flagged every single one as "not a fn/binding",
+    # i.e. the gate went red on correct prose and could no longer distinguish a
+    # real invention. Same submodule resolution `audit-case-migration.py` does.
+    text = read_with_submodules(rs_path)
     names = set(re.findall(r"\bfn\s+([a-z_][a-z0-9_]*)", text))
     names |= set(re.findall(r"\blet\s+([a-z_][a-z0-9_]*)", text))
     names |= set(re.findall(r"\b([a-z_][a-z0-9_]*)\s*:", text))

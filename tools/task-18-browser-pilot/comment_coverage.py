@@ -28,9 +28,14 @@ The file's `#` header is still parsed but is no longer treated as
 coverage on its own -- it can duplicate case rationale content, but it can't
 substitute for it.
 """
+import os
 import re
 import sys
 import tomllib
+from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from submodules import submodule_paths  # noqa: E402
 
 
 def extract_comment_paragraphs(text):
@@ -66,12 +71,20 @@ def normalize(s):
 
 def check(rs_path, toml_path):
     """Returns (total_lines_checked, missing), where `missing` is a list of
-    (source_line_no, line_text, case_name) for every (paragraph line, case)
+    (source_position, line_text, case_name) for every (paragraph line, case)
     pair where that case's OWN rationale does not contain the line's text.
     A case with no `rationale` at all is reported missing for every line
-    (there is nothing to check membership against)."""
-    src = open(rs_path, encoding='utf-8').read()
-    paragraphs = extract_comment_paragraphs(src)
+    (there is nothing to check membership against).
+
+    U10: a `#[path = "..."] mod ...;` carrier's prose can live in the carrier,
+    in any submodule, or in both, and reading only the carrier would report a
+    green (or, worse, a `--allow-empty` VACUOUS green) for a target whose entire
+    comment budget sits one hop away. Every reachable submodule is scanned too.
+    `source_position` is therefore `"<basename>:<line>"`, not a bare integer --
+    a line number alone is ambiguous once more than one file is in scope, which
+    is the same ambiguity that makes a `:N` citation into a carrier meaningless
+    when the construct is in a submodule."""
+    files = [Path(rs_path)] + submodule_paths(rs_path)
     doc = tomllib.load(open(toml_path, 'rb'))
     cases = doc.get('case', []) or []
 
@@ -82,20 +95,22 @@ def check(rs_path, toml_path):
 
     missing = []
     total = 0
-    for start, para in paragraphs:
-        if is_divider(para):
-            continue
-        for j, line in enumerate(para):
-            line = line.strip()
-            if not line:
+    for path in files:
+        src = path.read_text(encoding='utf-8')
+        for start, para in extract_comment_paragraphs(src):
+            if is_divider(para):
                 continue
-            total += 1
-            norm = normalize(line)
-            if not norm:
-                continue
-            for case_name, blob in case_blobs:
-                if norm not in blob:
-                    missing.append((start + j, line, case_name))
+            for j, line in enumerate(para):
+                line = line.strip()
+                if not line:
+                    continue
+                total += 1
+                norm = normalize(line)
+                if not norm:
+                    continue
+                for case_name, blob in case_blobs:
+                    if norm not in blob:
+                        missing.append((f"{path.name}:{start + j}", line, case_name))
     return total, missing, len(cases)
 
 
@@ -120,9 +135,9 @@ def main() -> int:
           f"{len(by_line)} line(s) with at least one case missing them")
     for (ln, line), case_names in sorted(by_line.items()):
         if len(case_names) == n_cases:
-            print(f"  MISSING line {ln} from ALL {n_cases} cases: {line!r}")
+            print(f"  MISSING {ln} from ALL {n_cases} cases: {line!r}")
         else:
-            print(f"  MISSING line {ln} from {len(case_names)}/{n_cases} cases "
+            print(f"  MISSING {ln} from {len(case_names)}/{n_cases} cases "
                   f"(e.g. {case_names[0]!r}): {line!r}")
     # FIXED (Task 18 pilot review round 2, blocker C): this checker used to
     # report failures without ever calling sys.exit, so it always exited 0

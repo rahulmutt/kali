@@ -41,6 +41,9 @@ import re
 import sys
 import tomllib
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from submodules import read_with_submodules  # noqa: E402
+
 _AUDIT = os.path.join(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))), "scripts", "audit-case-migration.py")
 
@@ -113,7 +116,14 @@ def main(argv):
         raise SystemExit(__doc__)
     rs_path, toml_path = argv
     mod = _audit_module()
-    rs_text = open(rs_path).read()
+    # U10: for a `#[path = "..."] mod ...;` carrier, the top-level `.rs` holds
+    # the helpers and the SUBMODULES hold every `#[test]` fn -- so the argv
+    # tokens ("build", "main.js") and the literals this gate accepts as
+    # "present verbatim in the source" mostly live one hop away. Reading the
+    # carrier alone reported them all as unexplained inventions. Same
+    # resolution `audit-case-migration.py` does for itself; a file with no
+    # `mod` declaration is unaffected.
+    rs_text = read_with_submodules(rs_path, mod)
 
     source_claims = {v for vals in mod.claims(rs_text).values() for v in vals}
     toml_claims = expanded_assertion_strings(mod, toml_path)

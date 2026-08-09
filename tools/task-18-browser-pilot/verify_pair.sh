@@ -37,9 +37,26 @@
 # nine retention pairs in this family: all nine exit 0 against their own ref,
 # and five of the nine are red without it.
 #
-# Usage: verify_pair.sh <stem> [--pretrim <ref>] [--structure] [--allow-empty]
+# --rs AND --companion EXIST FOR A SOURCE SPLIT ACROSS SEVERAL CASE FILES.
+# U2 forces one `.rs` into two or more `.toml`s whenever a fixture's presence is
+# a case's whole point (a `kali.json` manifest, a lockfile, a sibling module) --
+# `[source]` is file-wide, so a `[[case]]` cannot opt out of one. When that
+# happens the case files no longer share a stem with the `.rs` (--rs names it),
+# and the two LITERAL-COVERAGE arms have to see the whole set at once
+# (--companion adds them): auditing one half alone reports the other half's
+# argv tokens and fixtures as dropped claims. Batch 3 ran that joint audit by
+# hand for `bundle_cjs_source_classes` + `_inherited`; this makes it a flag.
+# The other six arms are per-file by construction and take only this file.
+#
+# Usage: verify_pair.sh <stem> [--rs <stem>] [--companion <stem>]...
+#                              [--pretrim <ref>] [--structure] [--allow-empty]
 #   stem: e.g. math_asinh_acosh_atanh_identities
 #         -> browser_<stem>.rs  vs  cases/browser/<stem>.toml
+#   --rs <stem>: take the source from browser_<stem>.rs instead (for a case file
+#         whose stem differs from its source's, i.e. a U2 split).
+#   --companion <stem>: cases/browser/<stem>.toml is part of the same migration
+#         from the same source; passed to the AUDIT and FIXTURE arms so their
+#         left-hand side is the whole migrated set. Repeatable.
 #   --pretrim <ref>: resolve the case file's citations against
 #         `<ref>:crates/kali_cli/tests/browser_<stem>.rs` instead of the working
 #         tree. The retention header's OWN citations are always resolved against
@@ -55,11 +72,15 @@ STEM="${1:?usage: verify_pair.sh <stem> [--pretrim <ref>] [--structure] [--allow
 shift || true
 
 PRETRIM=""
+RS_STEM=""
+COMPANIONS=()
 XCHECK_FLAGS=(--citations-only)
 CC_FLAGS=()
 while (( $# )); do
   case "$1" in
     --pretrim)   PRETRIM="${2:?--pretrim needs a git ref}"; shift 2 ;;
+    --rs)        RS_STEM="${2:?--rs needs a stem}"; shift 2 ;;
+    --companion) COMPANIONS+=("${2:?--companion needs a stem}"); shift 2 ;;
     --structure) XCHECK_FLAGS=(); shift ;;
     *)           CC_FLAGS+=("$1"); shift ;;
   esac
@@ -67,11 +88,20 @@ done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TESTS="$REPO/crates/kali_cli/tests"
-RS="$TESTS/browser_$STEM.rs"
+RS="$TESTS/browser_${RS_STEM:-$STEM}.rs"
 TOML="$TESTS/cases/browser/$STEM.toml"
 
 [[ -f "$RS"   ]] || { echo "missing $RS"; exit 2; }
 [[ -f "$TOML" ]] || { echo "missing $TOML"; exit 2; }
+
+# Case files migrated from the same source, for the two arms whose subject is
+# the whole migration rather than this one file.
+JOINT=("$TOML")
+for c in ${COMPANIONS[@]+"${COMPANIONS[@]}"}; do
+  ct="$TESTS/cases/browser/$c.toml"
+  [[ -f "$ct" ]] || { echo "missing companion $ct"; exit 2; }
+  JOINT+=("$ct")
+done
 
 fail=0
 note() { printf '\n=== %s ===\n' "$1"; }
@@ -82,7 +112,7 @@ rc=$?; echo "$cargo_out" | grep -E "^test result" || echo "$cargo_out" | tail -3
 (( rc )) && fail=1
 
 note "AUDIT   (rule 3 -- absolute)"
-( cd "$TESTS" && python3 "$REPO/scripts/audit-case-migration.py" "$RS" "$TOML" )
+( cd "$TESTS" && python3 "$REPO/scripts/audit-case-migration.py" "$RS" "${JOINT[@]}" )
 rc=$?; echo "audit exit=$rc"; (( rc )) && fail=1
 
 note "COMMENT COVERAGE (rule 12)"
@@ -94,7 +124,7 @@ python3 "$REPO/tools/task-18-browser-pilot/check_rationale_fn_names.py" "$RS" "$
 rc=$?; echo "check_rationale_fn_names exit=$rc"; (( rc )) && fail=1
 
 note "FIXTURES (rule 9 -- every program text survives verbatim)"
-python3 "$REPO/tools/task-18-browser-pilot/check_fixtures.py" "$RS" "$TOML"
+python3 "$REPO/tools/task-18-browser-pilot/check_fixtures.py" "$RS" "${JOINT[@]}"
 rc=$?; echo "check_fixtures exit=$rc"; (( rc )) && fail=1
 
 note "EXTRA CLAIMS (U14 extra direction -- rule 2, never invent)"
@@ -115,6 +145,9 @@ echo "fidelity exit=$fidelity_rc (report only; enforcement is check_extra_claims
 
 note "CITATIONS (ruling 11 -- :N is exempt ONLY because it is mechanically gated)"
 xcheck_spec="$STEM"
+# A --rs split pair has no browser_<case stem>.rs, so the citation gate is given
+# the real source through the same `=PATH` override --pretrim uses.
+[[ -n "$RS_STEM" ]] && xcheck_spec="$STEM=$RS"
 if [[ -n "$PRETRIM" ]]; then
   pretrim_rs="$(mktemp -t "verify_pair_${STEM}_pretrim_XXXXXX.rs")"
   if git -C "$REPO" show "$PRETRIM:crates/kali_cli/tests/browser_$STEM.rs" > "$pretrim_rs" 2>/dev/null; then
