@@ -27,9 +27,12 @@ consistent and that its citations resolve. U8 is explicit that rationale prose i
 audited by nothing; this narrows that gap, it does not close it.
 
 Usage: batch5_crosscheck.py [--citations-only] STEM[=PRETRIM.rs] ...
+       batch5_crosscheck.py --selftest
   --citations-only skips the batch-5 header-section structure arm, so the
   citation arms can gate pilot/batch-2/3/4 pairs, whose headers predate those
   section names. Batches 6-8 should run the citation arms family-wide.
+  --selftest is the mutation kill for the `.all`/`.any` needle blind spot batch
+  6A closed; see `selftest()`. Run it whenever `_needles` is touched.
 Exit 0 if every file passes, 1 otherwise.
 
 A trimmed U4 retention pair MUST be given its pre-trim blob with `=PATH`: every
@@ -299,9 +302,33 @@ def _needles(snippet):
     if not tok:
         return []
     # M4: every `.method(` in the snippet joins the leading identifier as a
-    # needle. Short names are dropped for the same reason `_distinctive` drops
-    # them -- `.all(`/`.any(` would match far too much prose to discriminate.
-    methods = [m for m in _METHOD.findall(s) if len(m) >= 4 and m != tok]
+    # needle.
+    #
+    # THE LENGTH FLOOR IS GONE (batch 6A). It used to read `len(m) >= 4`, on the
+    # reasoning that `.all(`/`.any(` "would match far too much prose to
+    # discriminate" -- true of a needle used ALONE, which is the case
+    # `_distinctive` guards, and false here: a method needle is only ever added
+    # ALONGSIDE a leading identifier that `_distinctive` has already required to
+    # be >= 4 chars, so the conjunction is what discriminates and the floor only
+    # deleted the one token that told two sibling statements apart. The cost was
+    # exactly the blind spot M4 was written to close, one method pair over:
+    # `errors.iter().all(...)` and `errors.iter().any(...)` both reduced to
+    # ['errors', 'iter'], so a citation could sit on either and pass.
+    #
+    # Demonstrated on the shipped tree and now gated by `--selftest` below:
+    # moving `browser_math_pow_optional_chain_harness.rs`'s `.all` citation onto
+    # the `.any` statement was NOT caught before this change and is caught after.
+    # That construct is the design spec 5.11 shape carried by both of batch 6A's
+    # retentions, so the blind spot sat directly under the batch that exercises
+    # it most.
+    #
+    # A short bare needle cannot produce a FALSE RED here: the snippet is quoted
+    # from the statement it cites, so every method name in it occurs in that
+    # statement by construction. Measured across the full family sweep (70
+    # pairs + retentions), removing the floor changes nothing -- the residual
+    # stays at the 7 known-ungateable bare `:N` in
+    # `browser_generator_default_export_rejection.rs`, batch 8's to reword.
+    methods = [m for m in _METHOD.findall(s) if m != tok]
     return [tok] + sorted(set(methods))
 
 
@@ -465,7 +492,86 @@ def _cite_arm(stem, origin, body, lines):
     return out
 
 
+# The file the `.all`/`.any` blind spot was demonstrated on. It is a whole-file
+# design-spec 5.11 retention, so it stays in the tree after batch 8's family-wide
+# deletion of the migrated `.rs` files -- which is what makes it usable as a
+# fixture. Its LINE NUMBERS are never written down here: they are searched for at
+# run time, because a hardcoded 135/139 is precisely the moving figure ruling 11
+# forbids, and an edit to that file's own `//!` header moves both.
+_SELFTEST_RS = os.path.join(TESTS, "browser_math_pow_optional_chain_harness.rs")
+_SELFTEST_SNIPPET = "errors.iter().all(...)"
+
+
+def selftest():
+    """Mutation kill for the `.all`/`.any` needle blind spot (batch 6A).
+
+    The defect: `_needles` dropped method names shorter than 4 characters, so
+    `errors.iter().all(...)` and `errors.iter().any(...)` both reduced to
+    ['errors', 'iter'] and a citation onto either statement resolved against the
+    other. This asserts, against the real shipped file:
+
+      1. the short method name is IN the needle set (the regression itself);
+      2. a citation on the `.all` statement resolves (no false red);
+      3. the SAME citation moved onto the `.any` statement is reported (the
+         mutation kill -- this was silent before the floor was removed);
+      4. a citation moved onto the non-JSON `stderr.contains("E5506")` arm is
+         reported (this one was already caught; it is here so a future change
+         that trades one arm's sensitivity for the other's is visible).
+    """
+    if not os.path.exists(_SELFTEST_RS):
+        print(f"SELFTEST CANNOT RUN: missing {_SELFTEST_RS}")
+        return 2
+    lines = open(_SELFTEST_RS).read().split("\n")
+
+    def line_of(fragment):
+        hits = [n for n, l in enumerate(lines, 1)
+                if fragment in l and not l.lstrip().startswith("//")]
+        if len(hits) != 1:
+            print(f"SELFTEST CANNOT RUN: {fragment!r} occurs {len(hits)} time(s) "
+                  f"in {os.path.basename(_SELFTEST_RS)}, expected exactly 1")
+            return None
+        return hits[0]
+
+    all_line = line_of("errors.iter().all(")
+    any_line = line_of("errors.iter().any(")
+    stderr_line = line_of('stderr.contains("E5506")')
+    if None in (all_line, any_line, stderr_line):
+        return 2
+
+    def cite(n):
+        return _header_cite_arm("selftest",
+                                f"//! quantifier at `{_SELFTEST_SNIPPET}` (`:{n}`).",
+                                lines)
+
+    failures = []
+    needles = _needles(_SELFTEST_SNIPPET)
+    print(f"needles for `{_SELFTEST_SNIPPET}`: {needles}")
+    if "all" not in needles:
+        failures.append("the short method name 'all' is not a needle -- the "
+                        "length floor is back and the blind spot with it")
+    if cite(all_line):
+        failures.append(f"the correct citation :{all_line} was reported (false red)")
+    for label, n in (("`.any` sibling statement", any_line),
+                     ("non-JSON `stderr` arm", stderr_line)):
+        problems = cite(n)
+        print(f"  drift onto the {label} (:{n}): "
+              f"{'CAUGHT' if problems else 'SILENT'}")
+        if not problems:
+            failures.append(f"drift onto the {label} (:{n}) was NOT caught")
+
+    if failures:
+        print("\nSELFTEST FAILED")
+        for f in failures:
+            print(f"  {f}")
+        return 1
+    print("\nSELFTEST OK — the `.all` -> `.any` citation move is caught, and the "
+          "correct citation is not")
+    return 0
+
+
 def main(argv):
+    if "--selftest" in argv:
+        return selftest()
     if len(argv) < 2:
         print(__doc__)
         return 2
