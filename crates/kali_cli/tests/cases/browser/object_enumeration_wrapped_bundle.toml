@@ -21,7 +21,7 @@
 # BODY is not uniform over it: the helper picks its source with an `if
 # filename.ends_with(".js")` `let source = if filename.ends_with(".js")` (:134), so `app.js` gets a DIFFERENT program
 # from `app.ts`/`app.jsx`/`app.tsx` -- the js variant declares a plain object
-# literal and adds three spread re-checks, the non-js variant declares
+# literal and adds spread re-checks, the non-js variant declares
 # `as const` / `satisfies unknown` wrappers. A `[matrix]` axis substitutes one
 # string uniformly into every case (design spec 5.6: "only for variation that
 # substitutes uniformly"); it cannot select a body.

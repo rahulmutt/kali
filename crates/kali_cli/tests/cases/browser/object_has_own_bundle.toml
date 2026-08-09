@@ -56,8 +56,9 @@
 #
 # RULE 8 / RULE 9 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. Both builders are
 # one inline `format!` with `{{`/`}}` brace-collapse whose three arguments are computed
-# by FOUR kali_common::object helpers, each of which joins a thirty-plus entry alias
-# table. That is rule 8's `format!` trap and rule 9's "one level removed inside a
+# by FOUR kali_common::object helpers, some of which join an alias table and some of
+# which wrap another helper's output. That is rule 8's `format!` trap and rule 9's
+# "one level removed inside a
 # library crate" case at once, and a hand-derived approximation would still be a valid
 # program that still built, so the real-binary run would verify the corrupted fixture
 # against itself. The two texts below are the byte-exact output of EXECUTING the real

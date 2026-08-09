@@ -20,8 +20,8 @@
 # (4 command/output-mode combinations x 4 extensions = 16 = the invocation
 # count), but the fixture BODY is not uniform over it. Both fixture builders
 # take an `include_ts_as_const: bool`, and each `#[test]` fn passes it
-# explicitly: the `.ts`/`.tsx` cells get a five-line `as const` /
-# `satisfies unknown` block spliced in and the `.js`/`.jsx` cells get nothing.
+# explicitly: the `.ts`/`.tsx` cells get an `as const` / `satisfies unknown`
+# block spliced in and the `.js`/`.jsx` cells get nothing.
 # A `[matrix]` axis substitutes one string uniformly into every case (design
 # spec 5.6: "only for variation that substitutes uniformly"); it cannot select
 # a body.
@@ -55,7 +55,7 @@
 # RULE 8 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. Both builders resolve their
 # text with `source.replace("  __TS_ONLY__", ...)` (`source.replace(` (:56), `source.replace(` (:106)),
 # and the needle CARRIES TWO LEADING SPACES while the replacement is either the empty
-# string or a five-line block that supplies its own indentation. Hand-applying that is
+# string or a block that supplies its own indentation. Hand-applying that is
 # exactly the substitution trap rule 8 exists to prevent -- a mis-indented result is
 # still a valid program and would still fail closed, so the real-binary run would
 # verify the corrupted fixture against itself. The four texts below are the byte-exact

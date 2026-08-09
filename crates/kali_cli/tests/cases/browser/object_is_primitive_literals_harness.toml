@@ -82,8 +82,8 @@
 #     empty `errors` array.
 # On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed.
 #     The same pin serves `run` and `test`: the `test` fixture's Kali.test body prints
-#     the identical eighteen lines, and the `ok 1` TAP line is written to the process's
-#     own stdout rather than into the JSON leaf. That is not assumed -- the generator
+#     the identical lines, and the `ok 1` TAP line is written to the process's own
+#     stdout rather than into the JSON leaf. That is not assumed -- the generator
 #     re-captures all eight cells (4 extensions x run/test) and requires them equal.
 
 [matrix]
