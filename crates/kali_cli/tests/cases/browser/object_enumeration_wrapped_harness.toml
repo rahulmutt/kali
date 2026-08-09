@@ -1,0 +1,670 @@
+# Migrated from tests/browser_object_enumeration_wrapped_harness.rs.
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale`, not just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_enumeration_wrapped_harness.rs returns 2 Rust comment line(s)
+# in 1 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Every block sits inside `assert_browser_harness_wrapped_object_enumeration`,
+# which every `[[case]]` below reaches, so U6's bottom-up attribution puts all of it in
+# every rationale: the attribution is per helper and this helper is universal in this
+# file, which is NOT the over-attribution U6 forbids (that is copying a block into cases
+# its producing helper does not reach).
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded.
+# `ext` LOOKS like a clean four-value axis and the arithmetic would close
+# (4 command/output-mode combinations x 4 extensions = 16 = the invocation
+# count), but the fixture BODY is not uniform over it. This source has FOUR
+# fixture builders, and each `#[test]` fn passes the source explicitly: the
+# `.js` cells get `..._js_run_source` / `..._js_test_source` (a plain object
+# literal plus spread re-checks) and the `.ts`/`.jsx`/`.tsx` cells get
+# `..._run_source` / `..._test_source` (`as const` and `satisfies unknown`
+# wrappers). A `[matrix]` axis substitutes one string uniformly into every case
+# (design spec 5.6: "only for variation that substitutes uniformly"); it
+# cannot select a body.
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 16 invocations -> 16 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main.js`, `main.jsx`, `main.ts`, `main.tsx`, `smoke.test.js`, `smoke.test.jsx`, `smoke.test.ts`, `smoke.test.tsx`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULING 7 -- DUPLICATE `[source]` BODIES ARE NOT HOISTED. Several entries below hold
+# byte-identical program text. U13 would hoist them into `[constants]`; controller ruling 7
+# declines that for `browser/` (a hoisted body makes `check_fixtures.py` go red on a correct
+# file, and hoisting moves program text onto the surface `assertion_strings()` searches).
+# The mandatory half of that ruling is honoured instead: the duplication is asserted
+# MECHANICALLY in this file's generator, not eyeballed -- the generator compares the
+# extracted fixture strings and raises if they are not byte-identical.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_harness_wrapped_object_enumeration_run_source`,
+#   `browser_harness_wrapped_object_enumeration_js_run_source`,
+#   `browser_harness_wrapped_object_enumeration_test_source`,
+#   `browser_harness_wrapped_object_enumeration_js_test_source`,
+#   `assert_browser_harness_wrapped_object_enumeration` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step, so its call chain never reaches
+# `kali_runtime_contract`'s two harness helpers and ruling 6's exemption is not stated.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * run/test: `[--output json] <run|test> --api browser --max-threads 0
+#              --max-spawned-processes 0 <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand, and both thread flags are always passed.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+# The env value is `KALI_BROWSER_BUNDLE_HARNESS_COMMAND`, read from the
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` constant the source passes by
+# name `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:261) rather than assumed.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# The source's only assertion is at `assert!(!output.status.success()` (:280), for every one of its 16 fns, in both
+# output modes. There is no stdout, stderr, exit-code or JSON claim in the file.
+
+[source]
+"main.js" = """function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedObject = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const objectKeys = Object.keys(wrappedObject);
+  const objectValues = Object.values(wrappedObject);
+  const objectEntries = Object.entries(wrappedObject);
+  assertWrappedObjectEnumeration(objectKeys, objectValues, objectEntries);
+
+  const spreadObjectKeys = [...Object.keys(wrappedObject)];
+  const spreadObjectValues = [...Object.values(wrappedObject)];
+  const spreadObjectEntries = [...Object.entries(wrappedObject)];
+  assertWrappedObjectEnumeration(spreadObjectKeys, spreadObjectValues, spreadObjectEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
+
+  const spreadFrozenKeys = [...Object.keys(frozenFromEntries)];
+  const spreadFrozenValues = [...Object.values(frozenFromEntries)];
+  const spreadFrozenEntries = [...Object.entries(frozenFromEntries)];
+  assertWrappedObjectEnumeration(spreadFrozenKeys, spreadFrozenValues, spreadFrozenEntries);
+  console.log('browser wrapped object enumeration ok');
+}
+
+browserWrappedObjectEnumeration();
+"""
+"main.ts" = """function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
+  const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const constKeys = Object.keys(wrappedConst);
+  const constValues = Object.values(wrappedConst);
+  const constEntries = Object.entries(wrappedConst);
+  assertWrappedObjectEnumeration(constKeys, constValues, constEntries);
+
+  const satisfiesKeys = Object.keys(wrappedSatisfies);
+  const satisfiesValues = Object.values(wrappedSatisfies);
+  const satisfiesEntries = Object.entries(wrappedSatisfies);
+  assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
+  console.log('browser wrapped object enumeration ok');
+}
+
+browserWrappedObjectEnumeration();
+"""
+"main.jsx" = """function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
+  const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const constKeys = Object.keys(wrappedConst);
+  const constValues = Object.values(wrappedConst);
+  const constEntries = Object.entries(wrappedConst);
+  assertWrappedObjectEnumeration(constKeys, constValues, constEntries);
+
+  const satisfiesKeys = Object.keys(wrappedSatisfies);
+  const satisfiesValues = Object.values(wrappedSatisfies);
+  const satisfiesEntries = Object.entries(wrappedSatisfies);
+  assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
+  console.log('browser wrapped object enumeration ok');
+}
+
+browserWrappedObjectEnumeration();
+"""
+"main.tsx" = """function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
+  const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const constKeys = Object.keys(wrappedConst);
+  const constValues = Object.values(wrappedConst);
+  const constEntries = Object.entries(wrappedConst);
+  assertWrappedObjectEnumeration(constKeys, constValues, constEntries);
+
+  const satisfiesKeys = Object.keys(wrappedSatisfies);
+  const satisfiesValues = Object.values(wrappedSatisfies);
+  const satisfiesEntries = Object.entries(wrappedSatisfies);
+  assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
+  console.log('browser wrapped object enumeration ok');
+}
+
+browserWrappedObjectEnumeration();
+"""
+"smoke.test.js" = """Kali.test('wrapped object enumeration', () => {
+  function assertWrappedObjectEnumeration(keys, values, entries) {
+    if (
+      keys.length !== 4 ||
+      keys[0] !== '1' ||
+      keys[1] !== '2' ||
+      keys[2] !== 'b' ||
+      keys[3] !== 'a' ||
+      values.length !== 4 ||
+      values[0] !== 4 ||
+      values[1] !== 2 ||
+      values[2] !== 1 ||
+      values[3] !== 3 ||
+      entries.length !== 4 ||
+      entries[0][0] !== '1' ||
+      entries[0][1] !== 4 ||
+      entries[1][0] !== '2' ||
+      entries[1][1] !== 2 ||
+      entries[2][0] !== 'b' ||
+      entries[2][1] !== 1 ||
+      entries[3][0] !== 'a' ||
+      entries[3][1] !== 3
+    ) {
+      throw new Error('unexpected wrapped object enumeration ordering');
+    }
+  }
+
+  const wrappedObject = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const objectKeys = Object.keys(wrappedObject);
+  const objectValues = Object.values(wrappedObject);
+  const objectEntries = Object.entries(wrappedObject);
+  assertWrappedObjectEnumeration(objectKeys, objectValues, objectEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+
+  console.log('browser wrapped object enumeration ok');
+});
+"""
+"smoke.test.ts" = """Kali.test('wrapped object enumeration', () => {
+  function assertWrappedObjectEnumeration(keys, values, entries) {
+    if (
+      keys.length !== 4 ||
+      keys[0] !== '1' ||
+      keys[1] !== '2' ||
+      keys[2] !== 'b' ||
+      keys[3] !== 'a' ||
+      values.length !== 4 ||
+      values[0] !== 4 ||
+      values[1] !== 2 ||
+      values[2] !== 1 ||
+      values[3] !== 3 ||
+      entries.length !== 4 ||
+      entries[0][0] !== '1' ||
+      entries[0][1] !== 4 ||
+      entries[1][0] !== '2' ||
+      entries[1][1] !== 2 ||
+      entries[2][0] !== 'b' ||
+      entries[2][1] !== 1 ||
+      entries[3][0] !== 'a' ||
+      entries[3][1] !== 3
+    ) {
+      throw new Error('unexpected wrapped object enumeration ordering');
+    }
+  }
+
+  const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
+  const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const constKeys = Object.keys(wrappedConst);
+  const constValues = Object.values(wrappedConst);
+  const constEntries = Object.entries(wrappedConst);
+  assertWrappedObjectEnumeration(constKeys, constValues, constEntries);
+
+  const satisfiesKeys = Object.keys(wrappedSatisfies);
+  const satisfiesValues = Object.values(wrappedSatisfies);
+  const satisfiesEntries = Object.entries(wrappedSatisfies);
+  assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
+
+  console.log('browser wrapped object enumeration ok');
+});
+"""
+"smoke.test.jsx" = """Kali.test('wrapped object enumeration', () => {
+  function assertWrappedObjectEnumeration(keys, values, entries) {
+    if (
+      keys.length !== 4 ||
+      keys[0] !== '1' ||
+      keys[1] !== '2' ||
+      keys[2] !== 'b' ||
+      keys[3] !== 'a' ||
+      values.length !== 4 ||
+      values[0] !== 4 ||
+      values[1] !== 2 ||
+      values[2] !== 1 ||
+      values[3] !== 3 ||
+      entries.length !== 4 ||
+      entries[0][0] !== '1' ||
+      entries[0][1] !== 4 ||
+      entries[1][0] !== '2' ||
+      entries[1][1] !== 2 ||
+      entries[2][0] !== 'b' ||
+      entries[2][1] !== 1 ||
+      entries[3][0] !== 'a' ||
+      entries[3][1] !== 3
+    ) {
+      throw new Error('unexpected wrapped object enumeration ordering');
+    }
+  }
+
+  const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
+  const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const constKeys = Object.keys(wrappedConst);
+  const constValues = Object.values(wrappedConst);
+  const constEntries = Object.entries(wrappedConst);
+  assertWrappedObjectEnumeration(constKeys, constValues, constEntries);
+
+  const satisfiesKeys = Object.keys(wrappedSatisfies);
+  const satisfiesValues = Object.values(wrappedSatisfies);
+  const satisfiesEntries = Object.entries(wrappedSatisfies);
+  assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
+
+  console.log('browser wrapped object enumeration ok');
+});
+"""
+"smoke.test.tsx" = """Kali.test('wrapped object enumeration', () => {
+  function assertWrappedObjectEnumeration(keys, values, entries) {
+    if (
+      keys.length !== 4 ||
+      keys[0] !== '1' ||
+      keys[1] !== '2' ||
+      keys[2] !== 'b' ||
+      keys[3] !== 'a' ||
+      values.length !== 4 ||
+      values[0] !== 4 ||
+      values[1] !== 2 ||
+      values[2] !== 1 ||
+      values[3] !== 3 ||
+      entries.length !== 4 ||
+      entries[0][0] !== '1' ||
+      entries[0][1] !== 4 ||
+      entries[1][0] !== '2' ||
+      entries[1][1] !== 2 ||
+      entries[2][0] !== 'b' ||
+      entries[2][1] !== 1 ||
+      entries[3][0] !== 'a' ||
+      entries[3][1] !== 3
+    ) {
+      throw new Error('unexpected wrapped object enumeration ordering');
+    }
+  }
+
+  const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
+  const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const constKeys = Object.keys(wrappedConst);
+  const constValues = Object.values(wrappedConst);
+  const constEntries = Object.entries(wrappedConst);
+  assertWrappedObjectEnumeration(constKeys, constValues, constEntries);
+
+  const satisfiesKeys = Object.keys(wrappedSatisfies);
+  const satisfiesValues = Object.values(wrappedSatisfies);
+  const satisfiesEntries = Object.entries(wrappedSatisfies);
+  assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
+
+  console.log('browser wrapped object enumeration ok');
+});
+"""
+
+[[case]]
+name = "run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration run fixture to main.ts and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the js wrapped-object-enumeration run fixture to main.js and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration run fixture to main.jsx and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration run fixture to main.tsx and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration test fixture to smoke.test.ts and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the js wrapped-object-enumeration test fixture to smoke.test.js and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration test fixture to smoke.test.jsx and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration test fixture to smoke.test.tsx and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration run fixture to main.ts and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the js wrapped-object-enumeration run fixture to main.js and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration run fixture to main.jsx and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration run fixture to main.tsx and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration test fixture to smoke.test.ts and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the js wrapped-object-enumeration test fixture to smoke.test.js and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration test fixture to smoke.test.jsx and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_harness.rs, the source fn `json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input` (one case per source fn, rule 6). `assert_browser_harness_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration test fixture to smoke.test.tsx and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names, pins the integer-first ordering through Object.keys / Object.values / Object.entries, and re-checks it through five frozen bracketed-root spellings of `Object.freeze((globalThis["Object"]))["keys"]`. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:280), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"

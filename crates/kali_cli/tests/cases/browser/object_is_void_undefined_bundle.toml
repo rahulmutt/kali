@@ -1,0 +1,147 @@
+# Migrated from tests/browser_object_is_void_undefined_bundle.rs.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_object_is_void_undefined_bundle.rs returns NOTHING -- the file has no Rust comment lines at
+# all. The generator re-derives that on every run and RAISES rather than emitting this
+# block if the source ever grows one, so the `--allow-empty` discharge below cannot
+# become a vacuous green by drift.
+# The file's only other `//` sequences are kali-tree-shake markers inside its
+# JS fixture bodies -- program text carried verbatim into [source], not Rust
+# prose. The generator checks that every one of them is such a marker:
+#   * // kali-tree-shake: objectIsVoidUndefined
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 8 `#[test]` fns, 8 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_object_is_void_undefined` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), a complete cross product. Every `#[test]` fn is one unlooped call and the file contains no loop at all; the single fixture builder is parameterless, so `ext` is uniform.
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 2 `[[case]]` entries x ext(4) = 8 trials = 8 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_object_is_void_undefined_source`,
+#   `assert_browser_bundle_object_is_void_undefined` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * build: `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#            pair is appended AFTER the subcommand and its flags.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# THE `browser_bundle_harness` STEP is the migrated form of the source's own harness run.
+# The source writes `kali_runtime_contract::browser_bundle_harness_script("app", false,
+# <body>)` next to the emitted bundle directory and executes it under
+# `browser_harness_command_parts_for`; the case runner does exactly that from the step's
+# `entry` and `body` (crates/kali_case_runner/src/steps.rs). The prelude resolves the
+# bundle relative to the harness script's own URL rather than to the process working
+# directory, so the runner's cwd (the trial root) and the source's cwd (the bundle dir)
+# produce the same resolution -- which is why every previously shipped `browser/` bundle
+# case file spells it this way.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+#   * `exit = "success"` on the build `output.status.success(),` (:44) and on the browser-bundle
+#     harness `output.status.success(),` (:96).
+#   * In json mode, the envelope's schemaVersion/command/success/exitCode and the
+#     payload's artifactKind/bundleFormat `assert_eq!(payload["bundleFormat"], "esm")` (:58).
+#     THERE IS NO `errors = []` CLAIM HERE. Most bundle targets in this family assert
+#     the envelope's `errors` array is empty; this source does not, and rule 2 forbids
+#     adding an assertion the source never made, so `errors` is absent from the json
+#     claims below. That omission is deliberate and is the reason it is called out.
+#   * `app/app.meta.json`'s apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:66), asserted in BOTH modes,
+#     because the source reads that file outside the `if json_output` block.
+#   * The harness's one stdout claim, `stdout.contains("1\n1\n1\n")` (:102).
+# The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: objectIsVoidUndefined
+function objectIsVoidUndefined() {
+  const alias = void 0;
+  console.log(Object.is(alias, void 0));
+  console.log(globalThis.Object.is(alias, void 0));
+  console.log(globalThis["Object"]["is"](alias, void 0));
+  return [Object.is(alias, void 0), globalThis.Object.is(alias, void 0), globalThis["Object"]["is"](alias, void 0)];
+}
+"""
+
+[[case]]
+name = "build_emits_object_is_void_undefined"
+rationale = """Migrated from browser_object_is_void_undefined_bundle.rs, the four `build_emits_object_is_void_undefined_in_*_input` fns (one per extension). `assert_browser_bundle_object_is_void_undefined` writes the void-0 Object.is fixture, builds it with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program aliases `void 0` and prints Object.is(alias, void 0) through the dotted and bracketed `globalThis` roots -- three `true` lines -- then returns them as an array. Both processes succeed (`output.status.success(),` (:44), `output.status.success(),` (:96)), and the harness's only output claim is `stdout.contains("1\\n1\\n1\\n")` (:102). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.objectIsVoidUndefined();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n1\n"]
+
+[[case]]
+name = "json_build_emits_object_is_void_undefined"
+rationale = """Migrated from browser_object_is_void_undefined_bundle.rs, the four `json_build_emits_object_is_void_undefined_in_*_input` fns (one per extension). `assert_browser_bundle_object_is_void_undefined` writes the void-0 Object.is fixture, builds it with `kali build --bundle --api browser` with `--output json`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program aliases `void 0` and prints Object.is(alias, void 0) through the dotted and bracketed `globalThis` roots -- three `true` lines -- then returns them as an array. Both processes succeed (`output.status.success(),` (:44), `output.status.success(),` (:96)), and the harness's only output claim is `stdout.contains("1\\n1\\n1\\n")` (:102). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope -- schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat `assert_eq!(payload["bundleFormat"], "esm")` (:58) -- rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case. Note this source makes NO `errors = []` claim, unlike most bundle targets in this family, so none is asserted here (rule 2)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.objectIsVoidUndefined();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n1\n"]

@@ -1,0 +1,585 @@
+# Migrated from tests/browser_object_from_entries_harness.rs.
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale`, not just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_from_entries_harness.rs returns 2 Rust comment line(s)
+# in 1 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Every block sits inside `assert_browser_harness_object_from_entries`,
+# which every `[[case]]` below reaches, so U6's bottom-up attribution puts all of it in
+# every rationale: the attribution is per helper and this helper is universal in this
+# file, which is NOT the over-attribution U6 forbids (that is copying a block into cases
+# its producing helper does not reach).
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded.
+# `ext` LOOKS like a clean four-value axis and the arithmetic would close
+# (4 command/output-mode combinations x 4 extensions = 16 = the invocation
+# count), but the fixture BODY is not uniform over it. Both fixture builders
+# take an `include_ts_as_const: bool`, and each `#[test]` fn passes it
+# explicitly: the `.ts`/`.tsx` cells get a five-line `as const` /
+# `satisfies unknown` block spliced in and the `.js`/`.jsx` cells get nothing.
+# A `[matrix]` axis substitutes one string uniformly into every case (design
+# spec 5.6: "only for variation that substitutes uniformly"); it cannot select
+# a body.
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 16 invocations -> 16 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main.js`, `main.jsx`, `main.ts`, `main.tsx`, `smoke.test.js`, `smoke.test.jsx`, `smoke.test.ts`, `smoke.test.tsx`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULING 7 -- DUPLICATE `[source]` BODIES ARE NOT HOISTED. Several entries below hold
+# byte-identical program text. U13 would hoist them into `[constants]`; controller ruling 7
+# declines that for `browser/` (a hoisted body makes `check_fixtures.py` go red on a correct
+# file, and hoisting moves program text onto the surface `assertion_strings()` searches).
+# The mandatory half of that ruling is honoured instead: the duplication is asserted
+# MECHANICALLY in this file's generator, not eyeballed -- the generator compares the
+# extracted fixture strings and raises if they are not byte-identical.
+#
+# RULE 8 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. Both builders resolve their
+# text with `source.replace("  __TS_ONLY__", ...)` (`source.replace(` (:56), `source.replace(` (:106)),
+# and the needle CARRIES TWO LEADING SPACES while the replacement is either the empty
+# string or a five-line block that supplies its own indentation. Hand-applying that is
+# exactly the substitution trap rule 8 exists to prevent -- a mis-indented result is
+# still a valid program and would still fail closed, so the real-binary run would
+# verify the corrupted fixture against itself. The four texts below are the byte-exact
+# output of EXECUTING the real builders (see tools/task-18-browser-pilot/
+# batch7a_captures.py for the capture procedure), and the generator re-checks each one
+# against anchors present in both the producing Rust source and the captured text
+# before emitting it.
+#
+# CHECK_FIXTURES.PY GOES RED ON THIS PAIR, AND THAT REPORT IS CORRECT.
+# `verify_pair.sh object_from_entries_harness` exits non-zero at the rule-9 fixture arm,
+# reporting both of this source's program-shaped literals as UNMATCHED. That is a true
+# statement about them: they are the UNRESOLVED `.replace` TEMPLATES, each carrying a
+# `__TS_ONLY__` needle, and the case file correctly holds the four RESOLVED texts
+# instead -- rule 8 requires the resolved string, so an exact match is the wrong test
+# here. The gate's own tolerance for this shape is its `format!`-segment arm, which
+# splits a template on `{...}` placeholders and requires each literal segment to
+# survive; a `.replace` template has no `{...}`, so the whole template is one segment
+# and the arm cannot fire. It is a gap in the gate for `.replace`-built fixtures, NOT a
+# dropped or rewritten program, and it is reported rather than worked around.
+# WHAT REPLACES IT is a stronger check with two measured sides, asserted in this file's
+# generator on every run: each of the four texts below must equal the source's own
+# template with the source's own `__TS_ONLY__` needle replaced by the source's own
+# as-const block (or by the empty string) -- template, needle and block all pulled out
+# of the `.rs` by the lexer, never retyped. The gate compares one measured string
+# against one literal; this compares one EXECUTED string against an independently
+# reconstructed one, so a capture from the wrong builder or from before a source edit
+# fails the generator.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_harness_object_from_entries_run_source`,
+#   `browser_harness_object_from_entries_test_source`,
+#   `assert_browser_harness_object_from_entries` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step, so ruling 6's exemption has nothing
+# to exempt and is not stated.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * run/test: `[--output json] <run|test> --api browser --max-threads 0
+#              --max-spawned-processes 0 <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand, and both thread flags are always passed.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+# The env value is `KALI_BROWSER_BUNDLE_HARNESS_COMMAND`, read from the
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` constant the source passes by
+# name `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:128) rather than assumed.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# The source's only assertion is at `assert!(!output.status.success()` (:147), for every one of its 16 fns, in both
+# output modes.
+
+[source]
+"main.js" = """function assertFromEntriesShape(fromEntries) {
+  const keys = Object.keys(fromEntries);
+  const entries = Object.entries(fromEntries);
+  const values = Object.values(fromEntries);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'b' ||
+    keys[1] !== 'a' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 1 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected Object.fromEntries semantics');
+  }
+}
+
+const wrappedEntries = ([["b", 1], ["a", 2]]);
+const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+const directFromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+const wrappedFromEntries = Object.fromEntries(wrappedEntries);
+const frozenFromEntries = Object.fromEntries(frozenEntries);
+const dottedFromEntries = globalThis.Object.fromEntries([["b", 1], ["a", 2]]);
+const mixedDottedFromEntries = globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]);
+const mixedBracketedFromEntries = globalThis["Object"].fromEntries([["b", 1], ["a", 2]]);
+const mixedBracketedQuotedFromEntries = globalThis["Object"]['fromEntries']([["b", 1], ["a", 2]]);
+const mixedSingleQuotedFromEntries = globalThis['Object']["fromEntries"]([["b", 1], ["a", 2]]);
+const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]);
+assertFromEntriesShape(directFromEntries);
+assertFromEntriesShape(wrappedFromEntries);
+assertFromEntriesShape(frozenFromEntries);
+assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+assertFromEntriesShape(dottedFromEntries);
+assertFromEntriesShape(mixedDottedFromEntries);
+assertFromEntriesShape(mixedBracketedFromEntries);
+assertFromEntriesShape(mixedBracketedQuotedFromEntries);
+assertFromEntriesShape(mixedSingleQuotedFromEntries);
+assertFromEntriesShape(bracketedFromEntries);
+console.log('browser object fromEntries ok');
+"""
+"main.jsx" = """function assertFromEntriesShape(fromEntries) {
+  const keys = Object.keys(fromEntries);
+  const entries = Object.entries(fromEntries);
+  const values = Object.values(fromEntries);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'b' ||
+    keys[1] !== 'a' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 1 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected Object.fromEntries semantics');
+  }
+}
+
+const wrappedEntries = ([["b", 1], ["a", 2]]);
+const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+const directFromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+const wrappedFromEntries = Object.fromEntries(wrappedEntries);
+const frozenFromEntries = Object.fromEntries(frozenEntries);
+const dottedFromEntries = globalThis.Object.fromEntries([["b", 1], ["a", 2]]);
+const mixedDottedFromEntries = globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]);
+const mixedBracketedFromEntries = globalThis["Object"].fromEntries([["b", 1], ["a", 2]]);
+const mixedBracketedQuotedFromEntries = globalThis["Object"]['fromEntries']([["b", 1], ["a", 2]]);
+const mixedSingleQuotedFromEntries = globalThis['Object']["fromEntries"]([["b", 1], ["a", 2]]);
+const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]);
+assertFromEntriesShape(directFromEntries);
+assertFromEntriesShape(wrappedFromEntries);
+assertFromEntriesShape(frozenFromEntries);
+assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+assertFromEntriesShape(dottedFromEntries);
+assertFromEntriesShape(mixedDottedFromEntries);
+assertFromEntriesShape(mixedBracketedFromEntries);
+assertFromEntriesShape(mixedBracketedQuotedFromEntries);
+assertFromEntriesShape(mixedSingleQuotedFromEntries);
+assertFromEntriesShape(bracketedFromEntries);
+console.log('browser object fromEntries ok');
+"""
+"main.ts" = """function assertFromEntriesShape(fromEntries) {
+  const keys = Object.keys(fromEntries);
+  const entries = Object.entries(fromEntries);
+  const values = Object.values(fromEntries);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'b' ||
+    keys[1] !== 'a' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 1 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected Object.fromEntries semantics');
+  }
+}
+
+const wrappedEntries = ([["b", 1], ["a", 2]]);
+const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+  const wrappedEntriesConst = ([["b", 1], ["a", 2]] as const);
+  const wrappedFromEntriesConst = Object.fromEntries(wrappedEntriesConst);
+  assertFromEntriesShape(wrappedFromEntriesConst);
+  const wrappedEntriesSatisfies = ([["b", 1], ["a", 2]] satisfies unknown);
+  const wrappedFromEntriesSatisfies = Object.fromEntries(wrappedEntriesSatisfies);
+  assertFromEntriesShape(wrappedFromEntriesSatisfies);
+const directFromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+const wrappedFromEntries = Object.fromEntries(wrappedEntries);
+const frozenFromEntries = Object.fromEntries(frozenEntries);
+const dottedFromEntries = globalThis.Object.fromEntries([["b", 1], ["a", 2]]);
+const mixedDottedFromEntries = globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]);
+const mixedBracketedFromEntries = globalThis["Object"].fromEntries([["b", 1], ["a", 2]]);
+const mixedBracketedQuotedFromEntries = globalThis["Object"]['fromEntries']([["b", 1], ["a", 2]]);
+const mixedSingleQuotedFromEntries = globalThis['Object']["fromEntries"]([["b", 1], ["a", 2]]);
+const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]);
+assertFromEntriesShape(directFromEntries);
+assertFromEntriesShape(wrappedFromEntries);
+assertFromEntriesShape(frozenFromEntries);
+assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+assertFromEntriesShape(dottedFromEntries);
+assertFromEntriesShape(mixedDottedFromEntries);
+assertFromEntriesShape(mixedBracketedFromEntries);
+assertFromEntriesShape(mixedBracketedQuotedFromEntries);
+assertFromEntriesShape(mixedSingleQuotedFromEntries);
+assertFromEntriesShape(bracketedFromEntries);
+console.log('browser object fromEntries ok');
+"""
+"main.tsx" = """function assertFromEntriesShape(fromEntries) {
+  const keys = Object.keys(fromEntries);
+  const entries = Object.entries(fromEntries);
+  const values = Object.values(fromEntries);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'b' ||
+    keys[1] !== 'a' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 1 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected Object.fromEntries semantics');
+  }
+}
+
+const wrappedEntries = ([["b", 1], ["a", 2]]);
+const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+  const wrappedEntriesConst = ([["b", 1], ["a", 2]] as const);
+  const wrappedFromEntriesConst = Object.fromEntries(wrappedEntriesConst);
+  assertFromEntriesShape(wrappedFromEntriesConst);
+  const wrappedEntriesSatisfies = ([["b", 1], ["a", 2]] satisfies unknown);
+  const wrappedFromEntriesSatisfies = Object.fromEntries(wrappedEntriesSatisfies);
+  assertFromEntriesShape(wrappedFromEntriesSatisfies);
+const directFromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+const wrappedFromEntries = Object.fromEntries(wrappedEntries);
+const frozenFromEntries = Object.fromEntries(frozenEntries);
+const dottedFromEntries = globalThis.Object.fromEntries([["b", 1], ["a", 2]]);
+const mixedDottedFromEntries = globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]);
+const mixedBracketedFromEntries = globalThis["Object"].fromEntries([["b", 1], ["a", 2]]);
+const mixedBracketedQuotedFromEntries = globalThis["Object"]['fromEntries']([["b", 1], ["a", 2]]);
+const mixedSingleQuotedFromEntries = globalThis['Object']["fromEntries"]([["b", 1], ["a", 2]]);
+const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]);
+assertFromEntriesShape(directFromEntries);
+assertFromEntriesShape(wrappedFromEntries);
+assertFromEntriesShape(frozenFromEntries);
+assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+assertFromEntriesShape(dottedFromEntries);
+assertFromEntriesShape(mixedDottedFromEntries);
+assertFromEntriesShape(mixedBracketedFromEntries);
+assertFromEntriesShape(mixedBracketedQuotedFromEntries);
+assertFromEntriesShape(mixedSingleQuotedFromEntries);
+assertFromEntriesShape(bracketedFromEntries);
+console.log('browser object fromEntries ok');
+"""
+"smoke.test.js" = """Kali.test('object fromEntries ordering', () => {
+  function assertFromEntriesShape(fromEntries) {
+    const keys = Object.keys(fromEntries);
+    const entries = Object.entries(fromEntries);
+    const values = Object.values(fromEntries);
+    if (
+      keys.length !== 2 ||
+      keys[0] !== 'b' ||
+      keys[1] !== 'a' ||
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 1 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2 ||
+      values.length !== 2 ||
+      values[0] !== 1 ||
+      values[1] !== 2
+    ) {
+      throw new Error('unexpected Object.fromEntries semantics');
+    }
+  }
+
+  const wrappedEntries = ([["b", 1], ["a", 2]]);
+  const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+  const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+  assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(Object.fromEntries(wrappedEntries));
+  assertFromEntriesShape(Object.fromEntries(frozenEntries));
+  assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+  assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]['fromEntries']([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis['Object']["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]));
+  console.log('browser object fromEntries ok');
+});
+"""
+"smoke.test.jsx" = """Kali.test('object fromEntries ordering', () => {
+  function assertFromEntriesShape(fromEntries) {
+    const keys = Object.keys(fromEntries);
+    const entries = Object.entries(fromEntries);
+    const values = Object.values(fromEntries);
+    if (
+      keys.length !== 2 ||
+      keys[0] !== 'b' ||
+      keys[1] !== 'a' ||
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 1 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2 ||
+      values.length !== 2 ||
+      values[0] !== 1 ||
+      values[1] !== 2
+    ) {
+      throw new Error('unexpected Object.fromEntries semantics');
+    }
+  }
+
+  const wrappedEntries = ([["b", 1], ["a", 2]]);
+  const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+  const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+  assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(Object.fromEntries(wrappedEntries));
+  assertFromEntriesShape(Object.fromEntries(frozenEntries));
+  assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+  assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]['fromEntries']([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis['Object']["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]));
+  console.log('browser object fromEntries ok');
+});
+"""
+"smoke.test.ts" = """Kali.test('object fromEntries ordering', () => {
+  function assertFromEntriesShape(fromEntries) {
+    const keys = Object.keys(fromEntries);
+    const entries = Object.entries(fromEntries);
+    const values = Object.values(fromEntries);
+    if (
+      keys.length !== 2 ||
+      keys[0] !== 'b' ||
+      keys[1] !== 'a' ||
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 1 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2 ||
+      values.length !== 2 ||
+      values[0] !== 1 ||
+      values[1] !== 2
+    ) {
+      throw new Error('unexpected Object.fromEntries semantics');
+    }
+  }
+
+  const wrappedEntries = ([["b", 1], ["a", 2]]);
+  const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+  const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+  const wrappedEntriesConst = ([["b", 1], ["a", 2]] as const);
+  assertFromEntriesShape(Object.fromEntries(wrappedEntriesConst));
+  const wrappedEntriesSatisfies = ([["b", 1], ["a", 2]] satisfies unknown);
+  assertFromEntriesShape(Object.fromEntries(wrappedEntriesSatisfies));
+  assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(Object.fromEntries(wrappedEntries));
+  assertFromEntriesShape(Object.fromEntries(frozenEntries));
+  assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+  assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]['fromEntries']([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis['Object']["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]));
+  console.log('browser object fromEntries ok');
+});
+"""
+"smoke.test.tsx" = """Kali.test('object fromEntries ordering', () => {
+  function assertFromEntriesShape(fromEntries) {
+    const keys = Object.keys(fromEntries);
+    const entries = Object.entries(fromEntries);
+    const values = Object.values(fromEntries);
+    if (
+      keys.length !== 2 ||
+      keys[0] !== 'b' ||
+      keys[1] !== 'a' ||
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 1 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2 ||
+      values.length !== 2 ||
+      values[0] !== 1 ||
+      values[1] !== 2
+    ) {
+      throw new Error('unexpected Object.fromEntries semantics');
+    }
+  }
+
+  const wrappedEntries = ([["b", 1], ["a", 2]]);
+  const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+  const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+  const wrappedEntriesConst = ([["b", 1], ["a", 2]] as const);
+  assertFromEntriesShape(Object.fromEntries(wrappedEntriesConst));
+  const wrappedEntriesSatisfies = ([["b", 1], ["a", 2]] satisfies unknown);
+  assertFromEntriesShape(Object.fromEntries(wrappedEntriesSatisfies));
+  assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(Object.fromEntries(wrappedEntries));
+  assertFromEntriesShape(Object.fromEntries(frozenEntries));
+  assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+  assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]['fromEntries']([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis['Object']["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]));
+  console.log('browser object fromEntries ok');
+});
+"""
+
+[[case]]
+name = "run_supports_object_from_entries_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `run_supports_object_from_entries_when_browser_harness_is_configured_in_js_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries run fixture to main.js -- the variant WITHOUT the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: false` -- and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `run_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries run fixture to main.ts -- the variant WITH the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: true` -- and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `run_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries run fixture to main.jsx -- the variant WITHOUT the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: false` -- and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `run_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries run fixture to main.tsx -- the variant WITH the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: true` -- and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_from_entries_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `test_supports_object_from_entries_when_browser_harness_is_configured_in_js_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries test fixture to smoke.test.js -- the variant WITHOUT the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: false` -- and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `test_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries test fixture to smoke.test.ts -- the variant WITH the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: true` -- and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `test_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries test fixture to smoke.test.jsx -- the variant WITHOUT the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: false` -- and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `test_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries test fixture to smoke.test.tsx -- the variant WITH the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: true` -- and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_object_from_entries_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `json_run_supports_object_from_entries_when_browser_harness_is_configured_in_js_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries run fixture to main.js -- the variant WITHOUT the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: false` -- and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `json_run_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries run fixture to main.ts -- the variant WITH the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: true` -- and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `json_run_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries run fixture to main.jsx -- the variant WITHOUT the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: false` -- and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `json_run_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries run fixture to main.tsx -- the variant WITH the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: true` -- and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_object_from_entries_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `json_test_supports_object_from_entries_when_browser_harness_is_configured_in_js_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries test fixture to smoke.test.js -- the variant WITHOUT the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: false` -- and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `json_test_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries test fixture to smoke.test.ts -- the variant WITH the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: true` -- and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `json_test_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries test fixture to smoke.test.jsx -- the variant WITHOUT the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: false` -- and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_object_from_entries_harness.rs, the source fn `json_test_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input` (one case per source fn, rule 6). `assert_browser_harness_object_from_entries` writes the Object.fromEntries test fixture to smoke.test.tsx -- the variant WITH the `as const` / `satisfies unknown` block, because this cell passes `include_ts_as_const: true` -- and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program builds objects from entry pairs through ten bracketed, single-quoted, frozen and conditional `Object.fromEntries` spellings and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:147), so this step carries `exit = "failure"` and nothing else; adding a claim the source never made would be a rule-2 invention. The fixture text is the byte-exact output of executing the real `source.replace(...)` (rule 8, `source.replace(` (:56)), never hand-derived. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_from_entries_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"

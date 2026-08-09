@@ -1,0 +1,394 @@
+# Migrated from tests/browser_object_enumeration_wrapped_bundle.rs.
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale`, not just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_enumeration_wrapped_bundle.rs returns 2 Rust comment line(s)
+# in 1 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Every block sits inside `assert_browser_bundle_wrapped_object_enumeration`,
+# which every `[[case]]` below reaches, so U6's bottom-up attribution puts all of it in
+# every rationale: the attribution is per helper and this helper is universal in this
+# file, which is NOT the over-attribution U6 forbids (that is copying a block into cases
+# its producing helper does not reach).
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 6 `#[test]` fns, 8 real helper invocations with every loop
+# expanded.
+# `ext` LOOKS like a clean four-value axis and the arithmetic would even close
+# (2 output modes x 4 extensions = 8 = the invocation count), but the fixture
+# BODY is not uniform over it: the helper picks its source with an `if
+# filename.ends_with(".js")` `let source = if filename.ends_with(".js")` (:134), so `app.js` gets a DIFFERENT program
+# from `app.ts`/`app.jsx`/`app.tsx` -- the js variant declares a plain object
+# literal and adds three spread re-checks, the non-js variant declares
+# `as const` / `satisfies unknown` wrappers. A `[matrix]` axis substitutes one
+# string uniformly into every case (design spec 5.6: "only for variation that
+# substitutes uniformly"); it cannot select a body.
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 8 invocations -> 8 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+# Two of the six source fns are LOOPS over `["app.jsx", "app.tsx"]`
+# (`for filename in ["app.jsx", "app.tsx"]` (:176) and `for filename in ["app.jsx", "app.tsx"]` (:193)), each making two independent invocations against two
+# independent programs. Rule 5 splits those into two named siblings each, suffixed with
+# the extension they ran -- not numbered -- which is why 6 fns become 8 cases.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.js`, `app.jsx`, `app.ts`, `app.tsx`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULING 7 -- DUPLICATE `[source]` BODIES ARE NOT HOISTED. Several entries below hold
+# byte-identical program text. U13 would hoist them into `[constants]`; controller ruling 7
+# declines that for `browser/` (a hoisted body makes `check_fixtures.py` go red on a correct
+# file, and hoisting moves program text onto the surface `assertion_strings()` searches).
+# The mandatory half of that ruling is honoured instead: the duplication is asserted
+# MECHANICALLY in this file's generator, not eyeballed -- the generator compares the
+# extracted fixture strings and raises if they are not byte-identical.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_wrapped_object_enumeration_source`,
+#   `browser_bundle_wrapped_object_enumeration_js_source`,
+#   `assert_browser_bundle_wrapped_object_enumeration` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step -- the build never succeeds, so the
+# source never gets as far as writing one -- and its call chain therefore never reaches
+# `kali_runtime_contract`'s harness helpers. Ruling 6's exemption is not stated because
+# it has nothing to exempt here.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * build: `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#            pair is appended AFTER the subcommand and its flags.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# This source makes ONE further claim beyond the failure `assert!(!output.status.success()` (:155), and it is
+# OR-SHAPED (rule 11):
+#   `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\nstderr: {stderr}")`
+#   -- whose cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:159).
+# The case format has no disjunction, so per rule 11 the OR was RESOLVED against the
+# real built `kali`, not reproduced and not dropped. Both modes were run for all four
+# extensions, and the answer is per output mode and is unambiguous in each:
+#   * text mode          -> the code lands on stderr, so those cases carry
+#                           `stderr_contains = ["E5506"]`.
+#   * `--output json`    -> it lands on stdout (inside the JSON envelope), so
+#                           those cases carry `stdout_contains = ["E5506"]`.
+# The generator refuses to emit if a cell shows the needle on both streams or neither,
+# or if the four extensions disagree -- a disjunction that does not resolve to exactly
+# one stream is not narrowable. This is a PRESENCE claim, so narrowing it is a verified
+# strengthening (every run satisfying the new assertion satisfies the old); rule 2's
+# asymmetry forbids the same narrowing for an ABSENCE claim, and none is made here.
+# The source's full disjunction sentence is carried into every affected rationale, so
+# the narrowing is recorded rather than silent.
+# The json cases assert the code as a plain `stdout_contains` substring rather than as
+# `json.errors.0.code`: the source spells it as a substring search over raw stdout, and
+# mirroring the source is ruling 3.
+
+[source]
+"app.js" = """// kali-tree-shake: browserWrappedObjectEnumeration
+function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedObject = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const objectKeys = Object.keys(wrappedObject);
+  const objectValues = Object.values(wrappedObject);
+  const objectEntries = Object.entries(wrappedObject);
+  assertWrappedObjectEnumeration(objectKeys, objectValues, objectEntries);
+
+  const spreadObjectKeys = [...Object.keys(wrappedObject)];
+  const spreadObjectValues = [...Object.values(wrappedObject)];
+  const spreadObjectEntries = [...Object.entries(wrappedObject)];
+  assertWrappedObjectEnumeration(spreadObjectKeys, spreadObjectValues, spreadObjectEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+
+  const spreadFrozenKeys = [...Object.keys(frozenFromEntries)];
+  const spreadFrozenValues = [...Object.values(frozenFromEntries)];
+  const spreadFrozenEntries = [...Object.entries(frozenFromEntries)];
+  assertWrappedObjectEnumeration(spreadFrozenKeys, spreadFrozenValues, spreadFrozenEntries);
+}
+"""
+"app.ts" = """// kali-tree-shake: browserWrappedObjectEnumeration
+function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
+  const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const constKeys = Object.keys(wrappedConst);
+  const constValues = Object.values(wrappedConst);
+  const constEntries = Object.entries(wrappedConst);
+  assertWrappedObjectEnumeration(constKeys, constValues, constEntries);
+
+  const satisfiesKeys = Object.keys(wrappedSatisfies);
+  const satisfiesValues = Object.values(wrappedSatisfies);
+  const satisfiesEntries = Object.entries(wrappedSatisfies);
+  assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+}
+"""
+"app.jsx" = """// kali-tree-shake: browserWrappedObjectEnumeration
+function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
+  const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const constKeys = Object.keys(wrappedConst);
+  const constValues = Object.values(wrappedConst);
+  const constEntries = Object.entries(wrappedConst);
+  assertWrappedObjectEnumeration(constKeys, constValues, constEntries);
+
+  const satisfiesKeys = Object.keys(wrappedSatisfies);
+  const satisfiesValues = Object.values(wrappedSatisfies);
+  const satisfiesEntries = Object.entries(wrappedSatisfies);
+  assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+}
+"""
+"app.tsx" = """// kali-tree-shake: browserWrappedObjectEnumeration
+function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
+  const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const constKeys = Object.keys(wrappedConst);
+  const constValues = Object.values(wrappedConst);
+  const constEntries = Object.entries(wrappedConst);
+  assertWrappedObjectEnumeration(constKeys, constValues, constEntries);
+
+  const satisfiesKeys = Object.keys(wrappedSatisfies);
+  const satisfiesValues = Object.values(wrappedSatisfies);
+  const satisfiesEntries = Object.entries(wrappedSatisfies);
+  assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozenFromEntries);
+  const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
+  const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
+  const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+}
+"""
+
+[[case]]
+name = "build_emits_wrapped_object_enumeration_semantics_in_ts_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_bundle.rs, the source fn `build_emits_wrapped_object_enumeration_semantics_in_ts_input`. `assert_browser_bundle_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration fixture to app.ts and runs `kali build --bundle --api browser`. The program enumerates a four-key object whose keys mix integer-like and string names through Object.keys / Object.values / Object.entries, pins the integer-first ordering, and re-checks it through frozen bracketed-root `Object.freeze((globalThis["Object"]))["keys"]` spellings. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:155) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:159). The case format has no disjunction, so per rule 11 that OR was resolved against the real binary rather than reproduced: in this output mode the code lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "build_emits_wrapped_object_enumeration_semantics_in_js_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_bundle.rs, the source fn `build_emits_wrapped_object_enumeration_semantics_in_js_input`. `assert_browser_bundle_wrapped_object_enumeration` writes the js wrapped-object-enumeration fixture to app.js and runs `kali build --bundle --api browser`. The program enumerates a four-key object whose keys mix integer-like and string names through Object.keys / Object.values / Object.entries, pins the integer-first ordering, and re-checks it through frozen bracketed-root `Object.freeze((globalThis["Object"]))["keys"]` spellings. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:155) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:159). The case format has no disjunction, so per rule 11 that OR was resolved against the real binary rather than reproduced: in this output mode the code lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input_jsx"
+rationale = """Migrated from browser_object_enumeration_wrapped_bundle.rs, the source fn `build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input`, the jsx half of its two-filename loop (rule 5: two independent programs become two named siblings, never one folded case). `assert_browser_bundle_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration fixture to app.jsx and runs `kali build --bundle --api browser`. The program enumerates a four-key object whose keys mix integer-like and string names through Object.keys / Object.values / Object.entries, pins the integer-first ordering, and re-checks it through frozen bracketed-root `Object.freeze((globalThis["Object"]))["keys"]` spellings. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:155) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:159). The case format has no disjunction, so per rule 11 that OR was resolved against the real binary rather than reproduced: in this output mode the code lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input_tsx"
+rationale = """Migrated from browser_object_enumeration_wrapped_bundle.rs, the source fn `build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input`, the tsx half of its two-filename loop (rule 5: two independent programs become two named siblings, never one folded case). `assert_browser_bundle_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration fixture to app.tsx and runs `kali build --bundle --api browser`. The program enumerates a four-key object whose keys mix integer-like and string names through Object.keys / Object.values / Object.entries, pins the integer-first ordering, and re-checks it through frozen bracketed-root `Object.freeze((globalThis["Object"]))["keys"]` spellings. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:155) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:159). The case format has no disjunction, so per rule 11 that OR was resolved against the real binary rather than reproduced: in this output mode the code lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_wrapped_object_enumeration_semantics_in_ts_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_bundle.rs, the source fn `json_build_emits_wrapped_object_enumeration_semantics_in_ts_input`. `assert_browser_bundle_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration fixture to app.ts and runs `kali build --bundle --api browser` with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names through Object.keys / Object.values / Object.entries, pins the integer-first ordering, and re-checks it through frozen bracketed-root `Object.freeze((globalThis["Object"]))["keys"]` spellings. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:155) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:159). The case format has no disjunction, so per rule 11 that OR was resolved against the real binary rather than reproduced: in this output mode the code lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "failure"
+stdout_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_wrapped_object_enumeration_semantics_in_js_input"
+rationale = """Migrated from browser_object_enumeration_wrapped_bundle.rs, the source fn `json_build_emits_wrapped_object_enumeration_semantics_in_js_input`. `assert_browser_bundle_wrapped_object_enumeration` writes the js wrapped-object-enumeration fixture to app.js and runs `kali build --bundle --api browser` with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names through Object.keys / Object.values / Object.entries, pins the integer-first ordering, and re-checks it through frozen bracketed-root `Object.freeze((globalThis["Object"]))["keys"]` spellings. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:155) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:159). The case format has no disjunction, so per rule 11 that OR was resolved against the real binary rather than reproduced: in this output mode the code lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "failure"
+stdout_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input_jsx"
+rationale = """Migrated from browser_object_enumeration_wrapped_bundle.rs, the source fn `json_build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input`, the jsx half of its two-filename loop (rule 5: two independent programs become two named siblings, never one folded case). `assert_browser_bundle_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration fixture to app.jsx and runs `kali build --bundle --api browser` with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names through Object.keys / Object.values / Object.entries, pins the integer-first ordering, and re-checks it through frozen bracketed-root `Object.freeze((globalThis["Object"]))["keys"]` spellings. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:155) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:159). The case format has no disjunction, so per rule 11 that OR was resolved against the real binary rather than reproduced: in this output mode the code lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "failure"
+stdout_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input_tsx"
+rationale = """Migrated from browser_object_enumeration_wrapped_bundle.rs, the source fn `json_build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input`, the tsx half of its two-filename loop (rule 5: two independent programs become two named siblings, never one folded case). `assert_browser_bundle_wrapped_object_enumeration` writes the non-js wrapped-object-enumeration fixture to app.tsx and runs `kali build --bundle --api browser` with `--output json`. The program enumerates a four-key object whose keys mix integer-like and string names through Object.keys / Object.values / Object.entries, pins the integer-first ordering, and re-checks it through frozen bracketed-root `Object.freeze((globalThis["Object"]))["keys"]` spellings. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:155) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:159). The case format has no disjunction, so per rule 11 that OR was resolved against the real binary rather than reproduced: in this output mode the code lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_enumeration_wrapped_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "failure"
+stdout_contains = ["E5506"]
