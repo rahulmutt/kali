@@ -19,7 +19,7 @@
 # enumerator cannot see why: `assert_browser_harness_math_inverse_trig(command,
 # filename, source)` takes no json_output parameter, because the HELPER carries
 # its own `for output_json in [false, true]` loop wrapping its entire body
-# (:26-87). enumerate_invocations.py only expands loops inside #[test] fn
+# (`.arg("0")` :26-87). enumerate_invocations.py only expands loops inside #[test] fn
 # bodies, so it reports 4; the real figure is 4 #[test] fns x 2 helper-internal
 # iterations = 8 invocations. Derived by reading the helper, as rule 7 requires.
 #
@@ -37,7 +37,7 @@
 #
 # THE CONDITIONAL CLAIM. The non-json branch makes an EXTRA assertion the json
 # branch does not, and it is guarded: `if command == "test"` it also asserts
-# stdout contains "ok 1" (:83-85). That claim therefore belongs to exactly ONE
+# stdout contains "ok 1" (`stdout.contains("ok 1")` :83-85). That claim therefore belongs to exactly ONE
 # of the four cases -- the non-json `test` sibling -- and is written only there.
 # Attaching it to the `run` siblings would invent a claim the source never made
 # (rule 2); dropping it would weaken the migration (rule 1). It is also a second
@@ -57,11 +57,11 @@
 # shipped before this batch does the same.
 #
 # ASSERTION SHAPE, mirrored and nothing more. This source asserts NO `errors`
-# array on the harness envelope (:57-79), so no `errors` claim is written; it
-# DOES assert json["stderr"] == "" (:72). Note the needle is "0\n0\n0" with NO
+# array on the harness envelope (`serde_json::from_slice(&output.stdout).expect("json stdout")` :57-79), so no `errors` claim is written; it
+# DOES assert json["stderr"] == "" (`json["stderr"]` :72). Note the needle is "0\n0\n0" with NO
 # trailing newline -- three values printed by Math.asin(0), Math.acos(1) and
 # Math.atan(0) -- and it is carried exactly as written, not tidied. The source
-# passes --max-threads 0 and --max-spawned-processes 0 (:42-45), so both appear
+# passes --max-threads 0 and --max-spawned-processes 0 (`.arg("0")` :42-45), so both appear
 # on argv.
 
 [matrix]
@@ -89,7 +89,7 @@ stdout_contains = ["0\n0\n0"]
 
 [[case]]
 name = "json_run_supports_math_inverse_trig_identity_literals_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_inverse_trig_identities.rs, the `run_supports_math_inverse_trig_identity_literals_when_browser_harness_is_configured_in_*_input` fns (one per extension) -- specifically the `output_json == true` iteration of the helper's own `for output_json in [false, true]` loop, which is why 4 source fns produce 8 trials. `assert_browser_harness_math_inverse_trig` runs `kali run --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program calling Math.asin(0), Math.acos(1) and Math.atan(0) -- each printing 0. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (run), plus stderr exactly empty (:72). The source makes NO `errors` claim on this envelope, so none is written. Its stdout claim here is `.contains("0\\n0\\n0")` taken against json["stdout"] (:73-79). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+rationale = """Migrated from browser_math_inverse_trig_identities.rs, the `run_supports_math_inverse_trig_identity_literals_when_browser_harness_is_configured_in_*_input` fns (one per extension) -- specifically the `output_json == true` iteration of the helper's own `for output_json in [false, true]` loop, which is why 4 source fns produce 8 trials. `assert_browser_harness_math_inverse_trig` runs `kali run --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program calling Math.asin(0), Math.acos(1) and Math.atan(0) -- each printing 0. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (run), plus stderr exactly empty (`json["stderr"]` :72). The source makes NO `errors` claim on this envelope, so none is written. Its stdout claim here is `.contains("0\\n0\\n0")` taken against json["stdout"] (:73-79). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
 args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -105,7 +105,7 @@ stdout_contains = ["0\n0\n0", "ok 1"]
 
 [[case]]
 name = "json_test_supports_math_inverse_trig_identity_literals_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_inverse_trig_identities.rs, the `test_supports_math_inverse_trig_identity_literals_when_browser_harness_is_configured_in_*_input` fns (one per extension) -- specifically the `output_json == true` iteration of the helper's own `for output_json in [false, true]` loop, which is why 4 source fns produce 8 trials. `assert_browser_harness_math_inverse_trig` runs `kali test --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program calling Math.asin(0), Math.acos(1) and Math.atan(0) -- each printing 0. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (test), plus stderr exactly empty (:72). The source makes NO `errors` claim on this envelope, so none is written. Its stdout claim here is `.contains("0\\n0\\n0")` taken against json["stdout"] (:73-79). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+rationale = """Migrated from browser_math_inverse_trig_identities.rs, the `test_supports_math_inverse_trig_identity_literals_when_browser_harness_is_configured_in_*_input` fns (one per extension) -- specifically the `output_json == true` iteration of the helper's own `for output_json in [false, true]` loop, which is why 4 source fns produce 8 trials. `assert_browser_harness_math_inverse_trig` runs `kali test --output json --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program calling Math.asin(0), Math.acos(1) and Math.atan(0) -- each printing 0. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (test), plus stderr exactly empty (`json["stderr"]` :72). The source makes NO `errors` claim on this envelope, so none is written. Its stdout claim here is `.contains("0\\n0\\n0")` taken against json["stdout"] (:73-79). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"

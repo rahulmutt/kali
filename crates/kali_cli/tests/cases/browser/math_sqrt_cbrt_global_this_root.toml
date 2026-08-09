@@ -69,12 +69,12 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # BUNDLE helper: `exit = "success"` on the build (:58) and on the
-# harness process (:110); in json mode the envelope's
+# harness process (`output.status.success()` :110); in json mode the envelope's
 # schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat
-# (:66-72) -- this source makes NO `errors` claim on
+# (`envelope["payload"].as_object().expect("payload object")` :66-72) -- this source makes NO `errors` claim on
 # the build envelope, so no `errors = []` is written, unlike
 # browser_math_sqrt_cbrt_bundle.rs migrated alongside it in this batch; the emitted
-# app/app.meta.json apiSurface/artifactKind (:80-81) in BOTH
+# app/app.meta.json apiSurface/artifactKind (`metadata["apiSurface"]` :80-81) in BOTH
 # modes, because the source reads that file outside the `if json_output`; then the
 # harness step's two plain `.contains` claims (:116 and the line after
 # it), which stay `stdout_contains`.
@@ -83,13 +83,13 @@
 # the environment carries the variable named by
 # `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:133), set to node.
 # json mode carries schemaVersion/command/success/payload(hostContract,
-# runtimeBackend) (:158-162), plus `exitCode` at both levels
+# runtimeBackend) (`json["command"]` :158-162), plus `exitCode` at both levels
 # for `run` (:164) or payload total/passed/failed for `test`
-# (:169 is the last of the three) -- the source asserts NO `skipped` and
+# (`json["payload"]["failed"]` :169 is the last of the three) -- the source asserts NO `skipped` and
 # NO `errors` on this envelope, so neither is written; then the exact `json.stdout`
 # pin standing for the two `.contains` claims against that leaf (:172 is
 # the first) and `stderr = ""` (:185).
-# Text mode carries the two raw-stdout claims (:188, :189) and
+# Text mode carries the two raw-stdout claims (`stdout.contains(...)` :188, `stdout.contains(...)` :189) and
 # nothing else -- there is no `ok 1` claim anywhere in this file.
 # This file uses no count key: the source makes no `.matches(...).count()` claim.
 
@@ -163,7 +163,7 @@ stdout_contains = ["2\n", "-3\n"]
 
 [[case]]
 name = "run_supports_global_this_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_sqrt_cbrt_global_this_root.rs, the four `run_supports_global_this_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_*_input` fns (one per extension). `assert_browser_harness_global_this_math_sqrt_cbrt` writes the same globalThis-rooted slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node and both concurrency limits pinned to 0. Its two stdout claims are separate source lines (:188, :189). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_math_sqrt_cbrt_global_this_root.rs, the four `run_supports_global_this_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_*_input` fns (one per extension). `assert_browser_harness_global_this_math_sqrt_cbrt` writes the same globalThis-rooted slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node and both concurrency limits pinned to 0. Its two stdout claims are separate source lines (`stdout.contains(...)` :188, `stdout.contains(...)` :189). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -179,7 +179,7 @@ json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, paylo
 
 [[case]]
 name = "test_supports_global_this_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_sqrt_cbrt_global_this_root.rs, the four `test_supports_global_this_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_*_input` fns (one per extension). `assert_browser_harness_global_this_math_sqrt_cbrt` writes the same globalThis-rooted slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node and both concurrency limits pinned to 0. Its two stdout claims are separate source lines (:188, :189). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_math_sqrt_cbrt_global_this_root.rs, the four `test_supports_global_this_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_*_input` fns (one per extension). `assert_browser_harness_global_this_math_sqrt_cbrt` writes the same globalThis-rooted slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node and both concurrency limits pinned to 0. Its two stdout claims are separate source lines (`stdout.contains(...)` :188, `stdout.contains(...)` :189). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"

@@ -70,7 +70,7 @@
 # `entry = "app_plain"`, and likewise for the await-wrapped pair.
 #
 # RULE 8 / RULE 9 -- the two browser-bundle harness BODIES are `format!`-built,
-# inline inside the assert helper (:95) with a placeholder for the
+# inline inside the assert helper (`import(bundleJs.href)` :95) with a placeholder for the
 # exported function name, so neither exists as a string literal anywhere. Both are
 # the byte-exact OUTPUT of executing the real code, captured by running this
 # target's own tests with KALI_BROWSER_BUNDLE_HARNESS_COMMAND pointed at a wrapper that copies the
@@ -106,16 +106,16 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the `kali build` process (:59) and on the
-# browser-bundle harness process (:117).
+# browser-bundle harness process (`output.status.success()` :117).
 # In json mode, the build envelope's schemaVersion/command/success/exitCode and the
-# payload's artifactKind/bundleFormat (:67-73), plus
+# payload's artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :67-73), plus
 # the empty `errors` array (:74).
 # The emitted <entry>/<entry>.meta.json apiSurface/artifactKind
-# (:85-86) is asserted in BOTH modes, because the source reads
+# (`metadata["apiSurface"]` :85-86) is asserted in BOTH modes, because the source reads
 # that file outside the `if json_output` block.
 # The harness step carries the file's three stdout claims, `.contains("neg")`
-# (:123), `.contains("pos")` on the next line and `.contains("zero")`
-# (:125), all of which stay `stdout_contains`.
+# (`stdout.contains("neg")` :123), `.contains("pos")` on the next line and `.contains("zero")`
+# (`stdout.contains("zero")` :125), all of which stay `stdout_contains`.
 # There is no count claim, no stderr claim on either process, and the build
 # envelope's stdout leaf is never read, so no `json.stdout` pin.
 # The source passes no --max-threads / --max-spawned-processes arguments, so neither
@@ -148,7 +148,7 @@ export async function computedNumericObjectKeysWithAwaitWrappers() {
 
 [[case]]
 name = "build_emits_computed_numeric_object_keys"
-rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `build_emits_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys with unary signs and a negative zero (`[-1]`, `[+2]`, `[(-0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:123 and the two after it, ending at :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `build_emits_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys with unary signs and a negative zero (`[-1]`, `[+2]`, `[(-0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (`stdout.contains("neg")` :123 and the two after it, ending at `stdout.contains("zero")` :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "app_plain.${ext}"]
@@ -170,7 +170,7 @@ stdout_contains = ["neg", "pos", "zero"]
 
 [[case]]
 name = "json_build_emits_computed_numeric_object_keys"
-rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `json_build_emits_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys with unary signs and a negative zero (`[-1]`, `[+2]`, `[(-0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:123 and the two after it, ending at :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `json_build_emits_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys with unary signs and a negative zero (`[-1]`, `[+2]`, `[(-0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (`stdout.contains("neg")` :123 and the two after it, ending at `stdout.contains("zero")` :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_plain.${ext}"]
@@ -193,7 +193,7 @@ stdout_contains = ["neg", "pos", "zero"]
 
 [[case]]
 name = "build_emits_await_wrapped_computed_numeric_object_keys"
-rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `build_emits_await_wrapped_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys wrapped in await expressions (`[await 1]`, `[+(await 2)]`, `[(0, await 0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:123 and the two after it, ending at :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `build_emits_await_wrapped_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys wrapped in await expressions (`[await 1]`, `[+(await 2)]`, `[(0, await 0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (`stdout.contains("neg")` :123 and the two after it, ending at `stdout.contains("zero")` :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "app_await.${ext}"]
@@ -215,7 +215,7 @@ stdout_contains = ["neg", "pos", "zero"]
 
 [[case]]
 name = "json_build_emits_await_wrapped_computed_numeric_object_keys"
-rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `json_build_emits_await_wrapped_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys wrapped in await expressions (`[await 1]`, `[+(await 2)]`, `[(0, await 0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:123 and the two after it, ending at :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `json_build_emits_await_wrapped_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys wrapped in await expressions (`[await 1]`, `[+(await 2)]`, `[(0, await 0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (`stdout.contains("neg")` :123 and the two after it, ending at `stdout.contains("zero")` :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_await.${ext}"]

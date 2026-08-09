@@ -2,10 +2,10 @@
 #
 # PARTIAL MIGRATION (U4 trim-and-keep) -- 8 of the source's 9 `#[test]`
 # fns are migrated here. The remaining one, `browser_bundle_bracketed_global_this_math_pow_frozen_source_includes_parenthesized_bracketed_aliases`, is a FIXTURE
-# SELF-INSPECTION test: its whole body (:37-38) is
+# SELF-INSPECTION test: its whole body (`source.contains(expected)` :37-38) is
 # `assert!(source.contains(expected))` looped over kali_common's
 # math_pow_bracketed_frozen_callable_aliases, taken against the text the fixture
-# builder itself returns (the fn is declared at :33). It builds no command, runs no binary, and asserts
+# builder itself returns (the fn is declared at `browser_bundle_bracketed_global_this_math_pow_frozen_source_includes_parenthesized_bracketed_aliases(` :33). It builds no command, runs no binary, and asserts
 # nothing about behaviour -- it checks the fixture's own text. That claim has no
 # expressible form in the case format (no step kind asserts on `[source]` text;
 # `[source]` is program text by construction, not a claim), and it is invisible to
@@ -28,7 +28,7 @@
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_pow_bracketed_frozen_wrapper.rs returns NOTHING -- the file has no Rust comments
 # at all.
-# The 1 other `//` occurrence(s) in the file (:17) sit
+# The 1 other `//` occurrence(s) in the file (`bracketedGlobalThisMathPowFrozenWrapper()` :17) sit
 # inside JS fixture bodies, which is program text carried verbatim into
 # [source], not Rust prose.
 # There is therefore no prose to move into any `rationale`, and
@@ -62,7 +62,7 @@
 # a trial dir are inert.
 #
 # RULE 8 / RULE 9 -- the [source] program is `format!`-built and therefore appears in NO
-# string literal in the .rs (:16). Its body below is the byte-exact OUTPUT of
+# string literal in the .rs (`bracketedGlobalThisMathPowFrozenWrapper()` :16). Its body below is the byte-exact OUTPUT of
 # executing the real builder, captured by a temporary test target that include!d this .rs
 # and dumped the fn's return value; it is never a hand-applied `{}` substitution. That
 # matters concretely here: the template indents the placeholder by two spaces and the
@@ -107,17 +107,17 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the `kali build` process (:64) and on the harness
-# process (:116).
+# process (`output.status.success()` :116).
 # In json mode, the build envelope's schemaVersion/command/success/exitCode and the
-# payload's artifactKind/bundleFormat (:72-78).
+# payload's artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :72-78).
 # The source makes NO `errors` claim on that envelope -- compare
 # browser_math_sin_cos_tan_zero_identities.rs, migrated in this same group, whose json
 # branch does assert the errors array is empty -- so no `errors = []` is written here.
-# The emitted app/app.meta.json apiSurface/artifactKind (:86-87) is
+# The emitted app/app.meta.json apiSurface/artifactKind (`metadata["apiSurface"]` :86-87) is
 # asserted in BOTH modes, because the source reads that file outside the `if json_output`
 # block.
 # The harness step carries the file's ONE stdout claim, `.contains("8\n8")`
-# (:122).
+# (`stdout.contains(...)` :122).
 # There is no count claim in this file, so no `stdout_count`; no stderr claim on either
 # process; and the build envelope's stdout leaf is never read, so no `json.stdout` pin.
 # The source passes no --max-threads / --max-spawned-processes arguments, so neither

@@ -72,11 +72,11 @@
 # Raised in the batch 4 report as a standing question rather than decided here.
 #
 # ASSERTION SHAPE, mirrored and nothing more. This source asserts NO `errors`
-# array anywhere -- neither on the build envelope (:65-74) nor on the harness
-# envelope (:152-169) -- so no `errors = []` is written, unlike several siblings
+# array anywhere -- neither on the build envelope (`envelope["payload"].as_object().expect("payload object")` :65-74) nor on the harness
+# envelope (`stdout.matches(...).count()` :152-169) -- so no `errors = []` is written, unlike several siblings
 # in this batch that do assert it. The harness json branch DOES assert
 # `json["stderr"] == ""` (:169). The bundle harness step carries only the count
-# claim (:117); there is no accompanying `.contains`. The source passes no
+# claim (`stdout.matches(...).count()` :117); there is no accompanying `.contains`. The source passes no
 # `--max-threads`/`--max-spawned-processes`, so neither appears on argv.
 
 [matrix]

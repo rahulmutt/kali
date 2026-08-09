@@ -78,7 +78,7 @@
 # under test (rule 9).
 #
 # RULE 8 / RULE 9 -- the two `test` fixtures are `format!`-built
-# (:18 is the first), so their resolved text appears in no string literal
+# (`Kali.test` :18 is the first), so their resolved text appears in no string literal
 # in the `.rs`: the `.rs` holds the template and the shared `body` separately. All
 # four bodies below are the byte-exact OUTPUT of executing the real builders,
 # captured by a temporary test target that `include!`d this `.rs` and dumped the
@@ -115,7 +115,7 @@
 # the environment carries the variable named by
 # `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:56), set to node.
 # json mode carries schemaVersion/command/success/payload(hostContract,
-# runtimeBackend) (:83-87), then for `run` the payload's
+# runtimeBackend) (`json["command"]` :83-87), then for `run` the payload's
 # `exitCode` ONLY (:89) -- this source does NOT assert the envelope-level
 # `exitCode` that most of the family does, and that absence is preserved -- or for
 # `test` the payload total/passed/failed (:93 is the last of the three),
@@ -123,9 +123,9 @@
 # The three `.contains` claims on the json stdout leaf (:96 and the two
 # after it) become one exact `json.stdout` pin, because a JSON leaf has no substring
 # form; then `stderr = ""` (:99) and the empty `errors` array
-# (:100).
-# Text mode carries the same three claims against raw stdout (:103 to
-# :105) and nothing else -- there is no `ok 1` claim anywhere in this file.
+# (`json["errors"].as_array().expect("errors array").is_empty()` :100).
+# Text mode carries the same three claims against raw stdout (`stdout.contains("neg")` :103 to
+# `stdout.contains("zero")` :105) and nothing else -- there is no `ok 1` claim anywhere in this file.
 # THE FOUR PINS ARE NOT ALL THE SAME STRING. Three of the four (run/plain, run/await,
 # test/plain) print neg, pos, zero once; test/await prints them TWICE, because that
 # fixture both calls the async function at top level and returns it from the
@@ -179,7 +179,7 @@ computedNumericObjectKeysWithAwaitWrappers();
 
 [[case]]
 name = "run_supports_computed_numeric_object_keys_when_browser_harness_is_configured"
-rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `run_supports_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys with unary signs and a negative zero, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:103 to :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `run_supports_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys with unary signs and a negative zero, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (`stdout.contains("neg")` :103 to `stdout.contains("zero")` :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_plain.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -195,7 +195,7 @@ json = { schemaVersion = 1, command = "run", success = true, payload = { hostCon
 
 [[case]]
 name = "test_supports_computed_numeric_object_keys_when_browser_harness_is_configured"
-rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `test_supports_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys with unary signs and a negative zero, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:103 to :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `test_supports_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys with unary signs and a negative zero, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (`stdout.contains("neg")` :103 to `stdout.contains("zero")` :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_plain.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -211,7 +211,7 @@ json = { schemaVersion = 1, command = "test", success = true, payload = { hostCo
 
 [[case]]
 name = "run_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured"
-rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `run_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys wrapped in await expressions, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:103 to :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `run_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys wrapped in await expressions, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (`stdout.contains("neg")` :103 to `stdout.contains("zero")` :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -227,7 +227,7 @@ json = { schemaVersion = 1, command = "run", success = true, payload = { hostCon
 
 [[case]]
 name = "test_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured"
-rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `test_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys wrapped in await expressions, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:103 to :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `test_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys wrapped in await expressions, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (`stdout.contains("neg")` :103 to `stdout.contains("zero")` :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"

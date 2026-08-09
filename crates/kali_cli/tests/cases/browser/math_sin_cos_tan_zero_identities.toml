@@ -37,7 +37,7 @@
 #
 # THE COUNT KEYS. The source makes exactly one occurrence-count claim, on the raw
 # stdout of the browser-bundle harness process: `.matches("0\n").count() >= 2`
-# (:103). It is carried as `stdout_count` with `at_least = 2` -- the bound the
+# (`stdout.matches(...).count()` :103). It is carried as `stdout_count` with `at_least = 2` -- the bound the
 # source states, neither weakened nor strengthened. The preceding line's separate
 # `.contains("1\n")` (:102) is a DIFFERENT claim about the same surface and is
 # carried alongside it as `stdout_contains`; collapsing the two into one would drop a
@@ -69,19 +69,19 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the `kali build` process (:40) and on the harness
-# process (:96).
+# process (`output.status.success()` :96).
 # In json mode, the build envelope's schemaVersion/command/success/exitCode and the
-# payload's artifactKind/bundleFormat (:48-54), AND an empty
+# payload's artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :48-54), AND an empty
 # `errors` array: this source really does assert
 # `envelope["errors"].as_array().is_empty()` (:55-58), so
 # `errors = []` is written here. (The three `Math.pow` sources migrated alongside it in
 # this group assert no such thing and get no `errors` claim -- the difference is real and
 # is not normalised away.)
-# The emitted app/app.meta.json apiSurface/artifactKind (:66-67) is
+# The emitted app/app.meta.json apiSurface/artifactKind (`metadata["apiSurface"]` :66-67) is
 # asserted in BOTH modes, because the source reads that file outside the `if json_output`
 # block.
 # The harness step carries `stdout_contains` (:102) and `stdout_count`
-# (:103).
+# (`stdout.matches(...).count()` :103).
 # The source asserts NOTHING about stderr on either process, and never reads the build
 # envelope's stdout leaf, so no stderr claim and no `json.stdout` pin are written.
 # It passes no --max-threads / --max-spawned-processes arguments, so neither appears on

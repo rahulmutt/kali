@@ -40,7 +40,7 @@
 #     source of truth.
 #
 # RULE 12 (carry every source comment verbatim): the source's one comment block
-# (:65) is the `///` doc on `assert_browser_harness_math_sqrt_success`, the
+# (`Math.sqrt` :65) is the `///` doc on `assert_browser_harness_math_sqrt_success`, the
 # helper every case below is produced by, so it is carried into every rationale.
 # It is also this file's rule-13 material -- same text, one obligation discharged
 # twice over -- and it is COPIED out of the `.rs` by this file's generator, never
@@ -106,17 +106,17 @@
 # ARGV ORDER is transcribed in the exact order the source's `Command` builder appends
 # it, and THIS SOURCE DOES NOT HAVE THE FAMILY'S USUAL TWO SHAPES. It has TWO
 # builders, one per helper (`Command::new(kali_bin())` at :21 and
-# :80) -- but they are not the family's build-vs-run/test pair: they
+# `kali_bin()` :80) -- but they are not the family's build-vs-run/test pair: they
 # append argv in the IDENTICAL order, so the two helpers differ in what they assert
 # and not in how they invoke. That single order appends the `--output json` pair
 # BEFORE the subcommand (:83, immediately above `cli.arg(command)` at
-# :86) -- for EVERY command, `build` included. That is not the shape most
+# `cli.arg(command)` :86) -- for EVERY command, `build` included. That is not the shape most
 # of this family's bundle helpers use, where the pair is appended after the subcommand
 # and its flags, so the shared boilerplate is deliberately not used here:
 #   * every command: `[--output json] <build|run|test> [--bundle] --api browser <entry>`
 # `--bundle` is appended after the subcommand (:87) and only when the
 # caller asks for it, which only the `build` fns do; `--api browser` and the entry
-# follow (:90).
+# follow (`cli.arg("--api").arg("browser").arg(&source_path)` :90).
 # The source passes NO --max-threads and NO --max-spawned-processes argument, on any
 # command, so neither appears on any argv below.
 # The source passes an absolute `dir.path().join(filename)` as the entry; the case
@@ -126,8 +126,8 @@
 # THE COUNT KEYS. The source makes exactly one occurrence-count claim per branch, and
 # it is spelled with `==`, not `>=`:
 #   * `assert_eq!(stdout.matches("1.2649110640673518").count(), 6)` against the JSON stdout
-#     leaf (:109) -> `json_count` with `path = "stdout"` and `exact = 6`.
-#   * the same claim against raw stdout (:117) -> `stdout_count` with
+#     leaf (`stdout.matches("1.2649110640673518").count()` :109) -> `json_count` with `path = "stdout"` and `exact = 6`.
+#   * the same claim against raw stdout (`stdout.matches("1.2649110640673518").count()` :117) -> `stdout_count` with
 #     `exact = 6`.
 # `exact`, never `at_least`: ruling 3's mirror-the-source direction makes an exact
 # source assertion an exact pin, and `at_least = 6` would be a weakening the source
@@ -140,7 +140,7 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the one `kali` process (:94).
-# json mode carries schemaVersion/command/success (:102-104)
+# json mode carries schemaVersion/command/success (`json["command"]` :102-104)
 # and the empty `errors` array (:105), plus the `json_count` claim above
 # for run and test. It reads NO payload field and NO stderr leaf, so neither is
 # written.

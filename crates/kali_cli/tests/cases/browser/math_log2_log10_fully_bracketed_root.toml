@@ -77,12 +77,12 @@
 # ASSERTION SHAPE, mirrored and nothing more. Bundle: `exit = "success"`; the
 # json sibling adds schemaVersion/command/success/exitCode, payload
 # artifactKind/bundleFormat, AND `errors = []` -- this file DOES assert the
-# build envelope's errors array is empty (:84-87), unlike the four other
+# build envelope's errors array is empty (`.as_array()` :84-87), unlike the four other
 # root-shape files migrated alongside it, which do not; then the emitted
 # `app/app.meta.json` apiSurface/artifactKind; then the bundle-harness
 # `stdout_contains` + `stdout_count` above and the harness process's own
 # `exit = "success"` (:124). Harness: argv DOES carry `--max-threads 0
-# --max-spawned-processes 0` (:156-159); env
+# --max-spawned-processes 0` (`.arg("0")` :156-159); env
 # KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node; text mode asserts
 # `stdout.contains("3\n")` (:196); json mode asserts
 # schemaVersion/command/success/payload(hostContract, runtimeBackend),

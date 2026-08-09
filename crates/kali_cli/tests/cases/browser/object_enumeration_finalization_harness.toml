@@ -80,7 +80,7 @@
 # diagnostic-code or stdout claim the source never made would be a rule-2 invention,
 # and `exit = "failure"` is exactly as strong as the assertion it replaces.
 # The `!success` assertion is at :416. The argv carries `--max-threads 0`
-# (:406) and `--max-spawned-processes 0` (:408), and the environment
+# (`.arg("--max-threads")` :406) and `--max-spawned-processes 0` (:408), and the environment
 # carries the variable named by
 # `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:397), set to node.
 # There is no json claim on either branch: the source parses no envelope at all, in

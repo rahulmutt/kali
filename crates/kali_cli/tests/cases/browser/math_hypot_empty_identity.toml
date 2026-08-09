@@ -49,20 +49,20 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # Bundle helper: `exit = "success"` on the build (:65) and on the harness process
-# (:121); in json mode schemaVersion/command/success/exitCode and payload
-# artifactKind/bundleFormat (:74-80) PLUS `errors = []` (:81-84) -- this file DOES
+# (`output.status.success()` :121); in json mode schemaVersion/command/success/exitCode and payload
+# artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :74-80) PLUS `errors = []` (:81-84) -- this file DOES
 # assert the empty errors array on its build envelope, unlike
 # `math_imul_omitted_operands`, so it is written here and not there; the emitted
 # `app/app.meta.json` metadata (:92-93), read outside the `if json_output` and so
 # asserted in both modes; then the bundle-harness `stdout_contains` (:128).
 # Harness helper: `exit = "success"` (:160); non-json `stdout_contains` (:192);
 # json mode schemaVersion/command/success/payload(hostContract, runtimeBackend)
-# (:168-172), `exitCode` plus `payload.exitCode` for run (:174-175) or
-# payload total/passed/failed for test (:177-179), the exact `json.stdout` pin
-# resolving :181-187, `stderr = ""` (:188) and `errors = []` (:189) -- this file
+# (`json["command"]` :168-172), `exitCode` plus `payload.exitCode` for run (:174-175) or
+# payload total/passed/failed for test (`json["payload"]["total"]` :177-179), the exact `json.stdout` pin
+# resolving `.as_str()` :181-187, `stderr = ""` (:188) and `errors = []` (:189) -- this file
 # asserts BOTH, which several siblings in this batch do not.
 # The source DOES pass `--max-threads 0 --max-spawned-processes 0` on the harness
-# argv (:151-155), so both flags appear; the build argv has neither.
+# argv (`.arg("0")` :151-155), so both flags appear; the build argv has neither.
 # The stdout claim at every site is a plain contiguous
 # `.contains("0\n0\n0\n0\n0\n")` -- it is NOT a `.matches(...).count()`, so no
 # `stdout_count`/`json_count` key appears in this file, and the contiguous
@@ -157,7 +157,7 @@ stdout_contains = ["0\n0\n0\n0\n0\n"]
 
 [[case]]
 name = "run_supports_global_this_math_hypot_empty_identity_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_hypot_empty_identity.rs. `assert_browser_harness_global_this_math_hypot_empty_identity` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.hypot()` with no arguments through five spellings of the Math root, each printing `0`. This is the non-json branch (:190-193): the only output claim is `stdout.contains("0\\n0\\n0\\n0\\n0\\n")`, carried as `stdout_contains` at the same strength."""
+rationale = """Migrated from browser_math_hypot_empty_identity.rs. `assert_browser_harness_global_this_math_hypot_empty_identity` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.hypot()` with no arguments through five spellings of the Math root, each printing `0`. This is the non-json branch (`stdout.contains(...)` :190-193): the only output claim is `stdout.contains("0\\n0\\n0\\n0\\n0\\n")`, carried as `stdout_contains` at the same strength."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -165,7 +165,7 @@ stdout_contains = ["0\n0\n0\n0\n0\n"]
 
 [[case]]
 name = "test_supports_global_this_math_hypot_empty_identity_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_hypot_empty_identity.rs. `assert_browser_harness_global_this_math_hypot_empty_identity` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.hypot()` with no arguments through five spellings of the Math root, each printing `0`. This is the non-json branch (:190-193): the only output claim is `stdout.contains("0\\n0\\n0\\n0\\n0\\n")`, carried as `stdout_contains` at the same strength."""
+rationale = """Migrated from browser_math_hypot_empty_identity.rs. `assert_browser_harness_global_this_math_hypot_empty_identity` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.hypot()` with no arguments through five spellings of the Math root, each printing `0`. This is the non-json branch (`stdout.contains(...)` :190-193): the only output claim is `stdout.contains("0\\n0\\n0\\n0\\n0\\n")`, carried as `stdout_contains` at the same strength."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -173,7 +173,7 @@ stdout_contains = ["0\n0\n0\n0\n0\n"]
 
 [[case]]
 name = "run_supports_global_this_math_hypot_empty_identity_when_browser_harness_is_configured_in_json"
-rationale = """Migrated from browser_math_hypot_empty_identity.rs. `assert_browser_harness_global_this_math_hypot_empty_identity` runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.hypot()` with no arguments through five spellings of the Math root, each printing `0`. This is the json branch (:166-189). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is "0\\n0\\n0\\n0\\n0\\n", identical for both commands and all four extensions. `stderr` is asserted exactly empty (:188) and `errors` exactly empty (:189); both are real source assertions in this file, unlike its expm1/log1p siblings which assert `stderr` only."""
+rationale = """Migrated from browser_math_hypot_empty_identity.rs. `assert_browser_harness_global_this_math_hypot_empty_identity` runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.hypot()` with no arguments through five spellings of the Math root, each printing `0`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :166-189). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is "0\\n0\\n0\\n0\\n0\\n", identical for both commands and all four extensions. `stderr` is asserted exactly empty (:188) and `errors` exactly empty (:189); both are real source assertions in this file, unlike its expm1/log1p siblings which assert `stderr` only."""
 args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -181,7 +181,7 @@ json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, paylo
 
 [[case]]
 name = "test_supports_global_this_math_hypot_empty_identity_when_browser_harness_is_configured_in_json"
-rationale = """Migrated from browser_math_hypot_empty_identity.rs. `assert_browser_harness_global_this_math_hypot_empty_identity` runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.hypot()` with no arguments through five spellings of the Math root, each printing `0`. This is the json branch (:166-189). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is "0\\n0\\n0\\n0\\n0\\n", identical for both commands and all four extensions. `stderr` is asserted exactly empty (:188) and `errors` exactly empty (:189); both are real source assertions in this file, unlike its expm1/log1p siblings which assert `stderr` only."""
+rationale = """Migrated from browser_math_hypot_empty_identity.rs. `assert_browser_harness_global_this_math_hypot_empty_identity` runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.hypot()` with no arguments through five spellings of the Math root, each printing `0`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :166-189). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is "0\\n0\\n0\\n0\\n0\\n", identical for both commands and all four extensions. `stderr` is asserted exactly empty (:188) and `errors` exactly empty (:189); both are real source assertions in this file, unlike its expm1/log1p siblings which assert `stderr` only."""
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"

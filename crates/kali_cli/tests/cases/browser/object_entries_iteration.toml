@@ -132,16 +132,16 @@
 #     its two cases are a single `cli` step with `exit = "failure"`, and the json
 #     sibling differs from the text one on argv alone.
 #   * `assert_browser_bundle_direct_object_entries_iteration` asserts the build SUCCEEDS
-#     (:206); in json mode the envelope's
-#     schemaVersion/command/success/exitCode (:214-217) and the
+#     (`output.status.success()` :206); in json mode the envelope's
+#     schemaVersion/command/success/exitCode (`envelope["command"]` :214-217) and the
 #     empty `errors` array (:218) -- and NO payload claim, unlike every
 #     other bundle helper in this batch, which is preserved rather than
 #     normalised; the emitted metadata's apiSurface/artifactKind
-#     (:229-230) in BOTH modes; and then that the
-#     browser-bundle HARNESS process fails (:263).
+#     (`metadata["apiSurface"]` :229-230) in BOTH modes; and then that the
+#     browser-bundle HARNESS process fails (`output.status.success()` :263).
 #   * `assert_browser_bundle_global_object_entries_iteration` is the same shape as the
 #     direct one, on its own fixture, ending in the same harness-level failure
-#     (:345); its build-success assert is at :288.
+#     (`output.status.success()` :345); its build-success assert is at `output.status.success()` :288.
 # No helper makes any stdout, stderr or count claim, so none is written.
 
 [matrix]

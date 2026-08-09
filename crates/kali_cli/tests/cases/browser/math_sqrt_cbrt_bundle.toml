@@ -41,7 +41,7 @@
 # a trial dir are inert.
 #
 # RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.
-# The browser-bundle harness body (:77) interpolates the JS binding the
+# The browser-bundle harness body (`console.log` :77) interpolates the JS binding the
 # fixture itself declares into an Error message, with a real JS template literal.
 # `expand.rs`'s `substitute()` hard-fails on any `${...}` it cannot resolve, and a
 # step `body` IS substituted, so this file declares `[constants] dollar = "$"` and
@@ -79,16 +79,16 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the `kali build` process (:38) and on the
-# browser-bundle harness process (:98).
+# browser-bundle harness process (`output.status.success()` :98).
 # In json mode, the build envelope's schemaVersion/command/success/exitCode and the
-# payload's artifactKind/bundleFormat (:46-52), AND an
+# payload's artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :46-52), AND an
 # empty `errors` array (:53-56).
-# The emitted app/app.meta.json apiSurface/artifactKind (:64-65)
+# The emitted app/app.meta.json apiSurface/artifactKind (`metadata["apiSurface"]` :64-65)
 # is asserted in BOTH modes, because the source reads that file outside the
 # `if json_output` block.
 # The harness step carries this file's THREE stdout claims: `.contains("2\n")`
-# (:104), `.contains("-3\n")` (:105) and `.contains('0')`
-# (:106). The third is a CHAR literal, which
+# (`stdout.contains(...)` :104), `.contains("-3\n")` (:105) and `.contains('0')`
+# (`stdout.contains('0')` :106). The third is a CHAR literal, which
 # `audit-case-migration.py`'s `.contains` extractor does not see (its literal pattern
 # requires double quotes), so nothing would have reported it missing -- it is carried
 # anyway, because rule 1 is about the source's claims and not about what the audit

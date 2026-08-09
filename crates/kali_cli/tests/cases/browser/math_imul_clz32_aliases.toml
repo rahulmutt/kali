@@ -33,14 +33,14 @@
 # presence or absence.
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
-# `exit = "success"` on the build (:83) and on the harness process (:135); json
+# `exit = "success"` on the build (:83) and on the harness process (`output.status.success()` :135); json
 # mode carries the envelope's schemaVersion/command/success/exitCode and payload
-# artifactKind/bundleFormat (:92-98) -- the source asserts NO `errors` array, so
+# artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :92-98) -- the source asserts NO `errors` array, so
 # none is written; the emitted `app/app.meta.json` metadata (:106-107) is
 # asserted in BOTH modes, because the source reads it outside the
 # `if json_output`.
 # THE TWO HARNESS CLAIMS ARE PLAIN `.contains`, NOT COUNTS: `stdout.contains
-# ("-2\n")` (:142) and `stdout.contains("31\n")` (:143). There is no
+# ("-2\n")` (`stdout.contains(...)` :142) and `stdout.contains("31\n")` (:143). There is no
 # `.matches().count()` anywhere in this file, so no `stdout_count`/`json_count`
 # appears -- and neither claim is strengthened to an exact `stdout` pin, because
 # `stdout` has a substring form and ruling 3 keeps a plain `.contains` as a

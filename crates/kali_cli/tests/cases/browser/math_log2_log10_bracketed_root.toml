@@ -65,9 +65,9 @@
 # already distinct keys.
 #
 # THE COUNT CLAIM -- this is batch 4's second count-carrying target. Sites:
-#   :111  `stdout.contains("3\n")`                     raw bundle-harness stdout
-#   :112  `stdout.matches("3\n").count() >= 2`         raw bundle-harness stdout
-# :111 and :112 are TWO SEPARATE source claims about the same needle, so BOTH are
+#   `stdout.contains(...)` :111  `stdout.contains("3\n")`                     raw bundle-harness stdout
+#   `stdout.matches(...).count()` :112  `stdout.matches("3\n").count() >= 2`         raw bundle-harness stdout
+# `stdout.contains(...)` :111 and `stdout.matches(...).count()` :112 are TWO SEPARATE source claims about the same needle, so BOTH are
 # carried on the bundle-harness step -- `stdout_contains = ["3\n"]` and
 # `stdout_count = [{ needle = "3\n", at_least = 2 }]`. Collapsing them into
 # either one alone would drop a claim. The count is mirrored exactly: not
@@ -108,18 +108,18 @@
 #
 # ASSERTION SHAPE, mirrored and nothing more.
 # Bundle group: `exit = "success"` on the build (:52) and on the harness process
-# (:104); json mode carries schemaVersion/command/success/exitCode and payload
-# artifactKind/bundleFormat (:61-67) -- no `errors` claim in the source, so none
+# (`output.status.success()` :104); json mode carries schemaVersion/command/success/exitCode and payload
+# artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :61-67) -- no `errors` claim in the source, so none
 # is written; `app/app.meta.json` metadata (:75-76) in BOTH modes, since the
 # source reads it outside the `if json_output`; then the harness step's
 # `stdout_contains` + `stdout_count`.
 # Harness group: `exit = "success"` (:212); json mode carries schemaVersion/
-# command/success/payload(hostContract, runtimeBackend) (:220-224), `exitCode`
+# command/success/payload(hostContract, runtimeBackend) (`json["command"]` :220-224), `exitCode`
 # and `payload.exitCode` for `run` (:226-227) or payload total/passed/failed for
 # `test` (:229-231), the exact `stdout` pin above, and `stderr = ""` (:237); no
 # `errors` claim, so none is written.
 # ARGV: the harness invocations pass `--max-threads 0 --max-spawned-processes 0`
-# (:204-207); the bundle build does not. Mirrored per group.
+# (`.arg("0")` :204-207); the bundle build does not. Mirrored per group.
 
 [source]
 "app.js" = """// kali-tree-shake: bracketedGlobalThisMathLog2Log10Identities

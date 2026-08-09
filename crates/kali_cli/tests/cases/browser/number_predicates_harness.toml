@@ -98,24 +98,24 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the one `kali` process (:44); the environment carries
-# KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node (:31). The source passes no --max-threads /
+# KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node (`.env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")` :31). The source passes no --max-threads /
 # --max-spawned-processes arguments, so neither appears on argv.
 # json mode carries schemaVersion/command/success/payload(hostContract,
-# runtimeBackend) (:52-56).
+# runtimeBackend) (`json["command"]` :52-56).
 # THE TWO JSON BRANCHES ASSERT THE SAME LEAF IN DIFFERENT SHAPES, and the difference
 # is preserved rather than normalised:
 #   * `run` asserts `exitCode` at both levels (:58) and then an EXACT
 #     `assert_eq!(json["stdout"], ...)` (:61) -- already exact in
 #     the source, so ruling 3's exact-source-assertion direction applies directly.
-#   * `test` asserts payload total/passed/failed/skipped (:68 is the
+#   * `test` asserts payload total/passed/failed/skipped (`json["payload"]["skipped"]` :68 is the
 #     last of the four) and a `.contains(...)` on the same leaf
-#     (:69) -- a plain `.contains` against a JSON leaf, which
+#     (`json["stdout"]` :69) -- a plain `.contains` against a JSON leaf, which
 #     has no substring form, so ruling 3 makes it an exact pin, live-captured.
 # Both land on the same string, and the live capture asserts that across all eight
 # run/test x ext cells before either is emitted.
 # Both branches then carry `stderr = ""` (:74). Neither reads `errors`,
 # so no `errors` claim is written.
-# Text mode carries the same needle against raw stdout (:78) and, for
+# Text mode carries the same needle against raw stdout (`contains(` :78) and, for
 # `test` only, `.contains("ok 1")` (:84).
 # This file uses no count key: the source makes no `.matches(...).count()` claim.
 

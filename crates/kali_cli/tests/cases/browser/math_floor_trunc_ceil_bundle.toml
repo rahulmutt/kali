@@ -34,7 +34,7 @@
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_floor_trunc_ceil_bundle.rs returns NOTHING -- the file has no Rust comments
 # at all.
-# The 1 other `//` occurrence(s) in the file (:23) sit
+# The 1 other `//` occurrence(s) in the file (`Math.ceil(alias)` :23) sit
 # inside JS fixture bodies, which is program text carried verbatim into
 # [source], not Rust prose.
 # There is therefore no prose to move into any `rationale`, and
@@ -90,9 +90,9 @@
 #
 # ASSERTION SHAPE, mirrored and nothing more. The build envelope assertions stop
 # at schemaVersion/command/success/exitCode and payload
-# artifactKind/bundleFormat (:69-78): this source makes NO `errors` claim there,
+# artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :69-78): this source makes NO `errors` claim there,
 # unlike browser_math_hypot_global_this_root.rs, so none is written. The
-# metadata file claims (apiSurface/artifactKind, :85-86) are carried as a
+# metadata file claims (apiSurface/artifactKind, `metadata["apiSurface"]` :85-86) are carried as a
 # file_json step. The only stdout claims in the whole helper are the two plain
 # `.contains` calls on the bundle harness output (:121-122), so both cases carry
 # stdout_contains on the harness step and the non-json build step asserts only

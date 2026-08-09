@@ -64,7 +64,7 @@
 # ASSERTION SHAPE, mirrored and nothing more. Bundle: `exit = "success"`; the
 # json sibling adds schemaVersion/command/success/exitCode and payload
 # artifactKind/bundleFormat -- the source asserts NO `errors` array on this
-# envelope (:65-74), so no `errors = []` is written; then the emitted
+# envelope (`envelope["payload"].as_object().expect("payload object")` :65-74), so no `errors = []` is written; then the emitted
 # `app/app.meta.json` apiSurface/artifactKind; then the bundle-harness
 # `stdout_contains = ["0\n"]` (:117, a single plain `.contains`) and the
 # harness process's own `exit = "success"` (:110). Harness: argv DOES carry

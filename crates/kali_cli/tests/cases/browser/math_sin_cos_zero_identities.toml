@@ -74,16 +74,16 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # Both branches assert `exit = "success"` (:49).
-# JSON branch: schemaVersion (:57), command (:58), success (:59), payload
-# hostContract (:60) and runtimeBackend (:61); for `run`, `exitCode` at the envelope
-# level (:63) AND at the payload level (:64); for `test`, payload
-# total/passed/failed (:66-68) and NOTHING ELSE. THE SOURCE MAKES NO `skipped`
+# JSON branch: schemaVersion (`json["schemaVersion"]` :57), command (`json["command"]` :58), success (`json["success"]` :59), payload
+# hostContract (`json["payload"]["hostContract"]` :60) and runtimeBackend (`json["payload"]["runtimeBackend"]` :61); for `run`, `exitCode` at the envelope
+# level (`json["exitCode"]` :63) AND at the payload level (`json["payload"]["exitCode"]` :64); for `test`, payload
+# total/passed/failed (`json["payload"]["total"]` :66-68) and NOTHING ELSE. THE SOURCE MAKES NO `skipped`
 # CLAIM (contrast browser_math_pow_harness.rs, which does), so none is written.
-# Then the two stdout claims (:71, :72) and `stderr` exactly empty (:73).
+# Then the two stdout claims (`stdout.contains(...)` :71, `stdout.contains(...)` :72) and `stderr` exactly empty (:73).
 # THE SOURCE MAKES NO `errors` CLAIM on this envelope either, so no `errors = []`
 # appears below -- rule 2, checked by re-searching the source in this file's
 # generator rather than by reading it once.
-# TEXT branch: two separate plain `.contains` claims (:76, :77) and nothing else --
+# TEXT branch: two separate plain `.contains` claims (:76, `stdout.contains(...)` :77) and nothing else --
 # this source has NO `if command == "test"` arm and makes NO `ok 1` claim, so the
 # test case carries the same two needles as the run case and no third one.
 # The source passes NO `--max-threads` / `--max-spawned-processes`, so neither
@@ -105,7 +105,7 @@ ext = ["js", "ts", "jsx", "tsx"]
 
 [[case]]
 name = "run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_sin_cos_zero_identities.rs, the four `run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_sin_cos` runs `kali run --api browser` with the browser harness backed by node, against a program that takes Math.sin and Math.cos of a zero binding, so the two zero identities print 0 and then 1. Its stdout claims are `stdout.contains("0\\n")` and `stdout.contains("1\\n")` against raw stdout (:76, :77). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_math_sin_cos_zero_identities.rs, the four `run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_sin_cos` runs `kali run --api browser` with the browser harness backed by node, against a program that takes Math.sin and Math.cos of a zero binding, so the two zero identities print 0 and then 1. Its stdout claims are `stdout.contains("0\\n")` and `stdout.contains("1\\n")` against raw stdout (:76, `stdout.contains(...)` :77). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 args = ["run", "--api", "browser", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -113,7 +113,7 @@ stdout_contains = ["0\n", "1\n"]
 
 [[case]]
 name = "test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_sin_cos_zero_identities.rs, the four `test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_sin_cos` runs `kali test --api browser` with the browser harness backed by node, against a program that takes Math.sin and Math.cos of a zero binding, so the two zero identities print 0 and then 1. Its stdout claims are `stdout.contains("0\\n")` and `stdout.contains("1\\n")` against raw stdout (:76, :77). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+rationale = """Migrated from browser_math_sin_cos_zero_identities.rs, the four `test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_sin_cos` runs `kali test --api browser` with the browser harness backed by node, against a program that takes Math.sin and Math.cos of a zero binding, so the two zero identities print 0 and then 1. Its stdout claims are `stdout.contains("0\\n")` and `stdout.contains("1\\n")` against raw stdout (:76, `stdout.contains(...)` :77). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
 args = ["test", "--api", "browser", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -121,7 +121,7 @@ stdout_contains = ["0\n", "1\n"]
 
 [[case]]
 name = "json_run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_sin_cos_zero_identities.rs, the four `json_run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_sin_cos` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that takes Math.sin and Math.cos of a zero binding, so the two zero identities print 0 and then 1. This sibling asserts the JSON envelope: schemaVersion/command/success (:57-59), payload hostContract/runtimeBackend (:60-61), and `exitCode` at both the envelope (:63) and the payload (:64) level for `run`, and `stderr` exactly empty (:73). The source makes NO `errors` claim and NO `skipped` claim on this envelope, so neither is written (rule 2). The same two claims are taken against json["stdout"] (:71, :72). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+rationale = """Migrated from browser_math_sin_cos_zero_identities.rs, the four `json_run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_sin_cos` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that takes Math.sin and Math.cos of a zero binding, so the two zero identities print 0 and then 1. This sibling asserts the JSON envelope: schemaVersion/command/success (`json["command"]` :57-59), payload hostContract/runtimeBackend (`json["payload"]["hostContract"]` :60-61), and `exitCode` at both the envelope (:63) and the payload (`json["payload"]["exitCode"]` :64) level for `run`, and `stderr` exactly empty (:73). The source makes NO `errors` claim and NO `skipped` claim on this envelope, so neither is written (rule 2). The same two claims are taken against json["stdout"] (`stdout.contains(...)` :71, `stdout.contains(...)` :72). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
 args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -129,7 +129,7 @@ json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, paylo
 
 [[case]]
 name = "json_test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_sin_cos_zero_identities.rs, the four `json_test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_sin_cos` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that takes Math.sin and Math.cos of a zero binding, so the two zero identities print 0 and then 1. This sibling asserts the JSON envelope: schemaVersion/command/success (:57-59), payload hostContract/runtimeBackend (:60-61), payload total/passed/failed (:66-68) for `test`, and `stderr` exactly empty (:73). The source makes NO `errors` claim and NO `skipped` claim on this envelope, so neither is written (rule 2). The same two claims are taken against json["stdout"] (:71, :72). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+rationale = """Migrated from browser_math_sin_cos_zero_identities.rs, the four `json_test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_math_sin_cos` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that takes Math.sin and Math.cos of a zero binding, so the two zero identities print 0 and then 1. This sibling asserts the JSON envelope: schemaVersion/command/success (`json["command"]` :57-59), payload hostContract/runtimeBackend (`json["payload"]["hostContract"]` :60-61), payload total/passed/failed (`json["payload"]["total"]` :66-68) for `test`, and `stderr` exactly empty (:73). The source makes NO `errors` claim and NO `skipped` claim on this envelope, so neither is written (rule 2). The same two claims are taken against json["stdout"] (`stdout.contains(...)` :71, `stdout.contains(...)` :72). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
 args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"

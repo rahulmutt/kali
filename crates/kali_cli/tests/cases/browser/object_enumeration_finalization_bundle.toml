@@ -67,7 +67,7 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "failure"` on the `kali build` process (:321), plus the E5506
-# diagnostic (:325).
+# diagnostic (`stderr.contains("E5506")` :325).
 # RULE 11 -- THE DIAGNOSTIC CLAIM IS AN OR ACROSS TWO STREAMS, AND IT IS RESOLVED
 # AGAINST THE REAL BINARY RATHER THAN REPRODUCED. The source accepts E5506 on
 # EITHER stderr or stdout; the case format has no disjunction. Running the real

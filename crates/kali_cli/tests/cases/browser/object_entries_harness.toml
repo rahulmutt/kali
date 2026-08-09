@@ -73,7 +73,7 @@
 # under test (rule 9).
 #
 # RULE 9 -- the two frozen fixtures are built by a Rust str::replace call over the
-# unfrozen ones (:120), so their resolved text appears in no
+# unfrozen ones (`Object.freeze(...)` :120), so their resolved text appears in no
 # string literal in the `.rs`. Both are the byte-exact OUTPUT of executing the
 # real builders,
 # captured by a temporary test target that `include!`d this `.rs`; the procedure
@@ -124,7 +124,7 @@
 # diagnostic-code or stdout claim the source never made would be a rule-2 invention,
 # and `exit = "failure"` is exactly as strong as the assertion it replaces.
 # The `!success` assertion is at :162. The argv carries `--max-threads 0`
-# (:152) and `--max-spawned-processes 0` (:154), and the environment
+# (`.arg("--max-threads")` :152) and `--max-spawned-processes 0` (:154), and the environment
 # carries the variable named by
 # `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:143), set to node.
 # There is no json claim on either branch: the source parses no envelope at all, in

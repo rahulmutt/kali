@@ -66,16 +66,16 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the one `kali` process (:48); the environment carries
-# KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node (:35), spelled as a string literal in this source rather
+# KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node (`.env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")` :35), spelled as a string literal in this source rather
 # than through the `kali_runtime_contract` constant. The source passes no
 # --max-threads / --max-spawned-processes arguments, so neither appears on argv.
 # json mode carries schemaVersion/command/success/payload(hostContract,
-# runtimeBackend) (:56-60), plus `exitCode` at both levels
+# runtimeBackend) (`json["command"]` :56-60), plus `exitCode` at both levels
 # for `run` (:62) or payload total/passed/failed/skipped for `test`
-# (:68 is the last of the four), then the exact `json.stdout` pin
+# (`json["payload"]["skipped"]` :68 is the last of the four), then the exact `json.stdout` pin
 # standing for the `.contains("2\n-3")` claim at :71, `stderr = ""`
-# (:72) and the empty `errors` array (:73).
-# Text mode carries the same needle against raw stdout (:76) and, for
+# (`json["stderr"]` :72) and the empty `errors` array (:73).
+# Text mode carries the same needle against raw stdout (`stdout.contains(...)` :76) and, for
 # `test` only, `.contains("ok 1")` (:78).
 # This file uses no count key: the source makes no `.matches(...).count()` claim.
 

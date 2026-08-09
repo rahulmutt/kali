@@ -79,12 +79,12 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # BUNDLE helper: `exit = "success"` on the `kali build` process
-# (:104) and on the browser-bundle harness process
-# (:160); in json mode the envelope's
+# (`output.status.success()` :104) and on the browser-bundle harness process
+# (`output.status.success()` :160); in json mode the envelope's
 # schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat
-# (:112-118) plus the empty `errors` array
-# (:119); the emitted app/app.meta.json apiSurface/artifactKind
-# (:130-131) in BOTH modes, because the source reads that file
+# (`envelope["payload"].as_object().expect("payload object")` :112-118) plus the empty `errors` array
+# (`envelope["errors"]` :119); the emitted app/app.meta.json apiSurface/artifactKind
+# (`metadata["apiSurface"]` :130-131) in BOTH modes, because the source reads that file
 # outside the `if json_output`; then the harness step's single long
 # `.contains(...)` claim (:167), which stays `stdout_contains`.
 # HARNESS helper: `exit = "success"` (:333); the environment carries
@@ -92,12 +92,12 @@
 # through the `kali_runtime_contract` constant; it passes no --max-threads /
 # --max-spawned-processes arguments, so neither appears on argv.
 # json mode carries schemaVersion/command/success/payload(hostContract,
-# runtimeBackend) (:341-345), plus `exitCode` at both levels
+# runtimeBackend) (`json["command"]` :341-345), plus `exitCode` at both levels
 # for `run` (:347) or payload total/passed/failed/skipped for `test`
-# (:353 is the last of the four), then the exact `json.stdout` pin
+# (`json["payload"]["skipped"]` :353 is the last of the four), then the exact `json.stdout` pin
 # standing for the `.contains(...)` claim at :357, `stderr = ""`
-# (:360) and the empty `errors` array (:361).
-# Text mode carries the same long needle against raw stdout (:365) and,
+# (`json["stderr"]` :360) and the empty `errors` array (:361).
+# Text mode carries the same long needle against raw stdout (`stdout.contains(...)` :365) and,
 # for `test` only, `.contains("ok 1")` (:369).
 # This file uses no count key: the source makes no `.matches(...).count()` claim.
 

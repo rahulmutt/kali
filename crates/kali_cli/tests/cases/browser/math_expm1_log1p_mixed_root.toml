@@ -74,18 +74,18 @@
 # ASSERTION SHAPE, mirrored and nothing more. Bundle: `exit = "success"`; the
 # json sibling adds schemaVersion/command/success/exitCode and payload
 # artifactKind/bundleFormat -- the source asserts NO `errors` array on this
-# envelope (:62-71), so no `errors = []` is written; then the emitted
+# envelope (`envelope["payload"].as_object().expect("payload object")` :62-71), so no `errors = []` is written; then the emitted
 # `app/app.meta.json` apiSurface/artifactKind; then the bundle-harness
 # `stdout_contains = ["0\n"]` and the harness process's own `exit = "success"`
-# (:107). MIGRATION NOTE on that needle: the source writes the SAME assertion
-# twice, `assert!(stdout.contains("0\n"))` on :114 and again verbatim on :115.
+# (`output.status.success()` :107). MIGRATION NOTE on that needle: the source writes the SAME assertion
+# twice, `assert!(stdout.contains("0\n"))` on :114 and again verbatim on `stdout.contains(...)` :115.
 # Two identical claims are one claim -- `stdout_contains` is a set of needles
 # and listing `"0\n"` twice would assert nothing further -- so it appears once.
 # No claim is dropped: the duplicated line is satisfied by exactly the same
 # check. Harness: argv DOES carry `--max-threads 0 --max-spawned-processes 0`
-# (:215-218); env KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node; text mode asserts
+# (`.arg("0")` :215-218); env KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node; text mode asserts
 # `stdout.contains(expected_stdout)` where the loop's own literal is `0\n0`
-# (:254); json mode asserts schemaVersion/command/success/payload(hostContract,
+# (`stdout.contains(expected_stdout)` :254); json mode asserts schemaVersion/command/success/payload(hostContract,
 # runtimeBackend), `exitCode` + `payload.exitCode` for run or
 # `payload.total/passed/failed` for test, an exact `json.stdout` pin and
 # `json.stderr = ""` (:251). No `errors` claim on the harness envelope either.

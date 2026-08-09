@@ -66,18 +66,18 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more, and this file's shape
 # is unusual: IT MAKES NO STDOUT CLAIM AT ALL.
-# The source asserts the process succeeded (:51) and then, separately, that its
+# The source asserts the process succeeded (`output.status.success()` :51) and then, separately, that its
 # exit code is exactly `Some(0)` (:56). The exact form is the stronger of the
 # two and implies the other, so the migrated step carries `exit = 0` rather than
 # `exit = "success"` -- ruling 3's mirror-the-source direction, an exact source
 # assertion becoming an exact pin.
-# In json mode it carries schemaVersion/command/success (:60-
+# In json mode it carries schemaVersion/command/success (`json["schemaVersion"]` :60-
 # 62) and the empty `errors` array (:63). It reads NO
 # payload field, NO stdout leaf and NO stderr leaf, so none is written -- the program
 # prints 3 and the source never looks at it. Inventing a stdout claim here because
 # the output is knowable is exactly the rule-2 invention the `extra` gate exists for.
 # The argv carries `--max-threads 0` (:42) and `--max-spawned-processes 0`
-# (:44), and the environment carries the variable named by
+# (`.arg("--max-spawned-processes")` :44), and the environment carries the variable named by
 # `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:33), set to node.
 
 [matrix]

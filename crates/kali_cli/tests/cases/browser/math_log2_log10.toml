@@ -38,8 +38,8 @@
 #
 # THE COUNT KEYS (first use in the tree). The source makes the same
 # `.matches("3\n").count() >= 2` claim at four sites: :107 (bundle harness
-# stdout), :177-179 (`json["stdout"].as_str()` in the harness helper's json
-# branch), :186 (raw stdout in that helper's else branch), and via :106's
+# stdout), `.count()` :177-179 (`json["stdout"].as_str()` in the harness helper's json
+# branch), `stdout.matches(...).count()` :186 (raw stdout in that helper's else branch), and via `stdout.contains(...)` :106's
 # separate `.contains("3\n")`. Per ruling 3 (mirror the source) every one is
 # transcribed directly -- `count() >= 2` becomes `at_least = 2`, on the raw
 # surface as `stdout_count` and on the JSON leaf as `json_count`. The bound is
@@ -68,16 +68,16 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # Bundle helper: `exit = "success"` on the build (:43) and on the harness
-# process (:99); in json mode the envelope's schemaVersion/command/success/
+# process (`output.status.success()` :99); in json mode the envelope's schemaVersion/command/success/
 # exitCode/payload(artifactKind, bundleFormat) and `errors = []` (:52-62); the
 # emitted `app/app.meta.json` metadata (:70-71), asserted in BOTH modes because
 # the source reads it outside the `if json_output`; then the harness step's
 # `stdout_contains` + `stdout_count`.
 # Harness helper: `exit = "success"` (:151); json mode carries schemaVersion/
-# command/success/payload(hostContract, runtimeBackend) (:160-164), plus
+# command/success/payload(hostContract, runtimeBackend) (`json["command"]` :160-164), plus
 # `exitCode`/`payload.exitCode` for `run` (:166-167) or payload total/passed/
 # failed for `test` (:169-171), then `json_count` for :173-181, `stderr = ""`
-# (:182) and `errors = []` (:183). NO `json.stdout` pin is written: the source
+# (`json["stderr"]` :182) and `errors = []` (:183). NO `json.stdout` pin is written: the source
 # makes only a count claim about that leaf, never an equality one.
 # The source adds no `--max-threads`/`--max-spawned-processes` arguments (unlike
 # several siblings in this batch), so neither is added here.

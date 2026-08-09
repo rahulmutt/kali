@@ -27,10 +27,10 @@
 # `expected_stdout` where its siblings in this batch take `json_output`, and it
 # never adds `--output json`; it has no json branch at all. So
 # `json_run_supports_math_imul_omitted_operands_when_browser_harness_is_configured_in_js_input`
-# (:291) issues byte-identically the same command, with byte-identically the same
+# (`json_run_supports_math_imul_omitted_operands_when_browser_harness_is_configured_in_js_input()` :291) issues byte-identically the same command, with byte-identically the same
 # assertions, as
 # `run_supports_math_imul_omitted_operands_when_browser_harness_is_configured_in_js_input`
-# (:211) -- the eight `json_`-named fns are duplicates of the eight unprefixed
+# (`run_supports_math_imul_omitted_operands_when_browser_harness_is_configured_in_js_input()` :211) -- the eight `json_`-named fns are duplicates of the eight unprefixed
 # ones. They are kept as four separate [[case]] entries (fanned to 8 trials)
 # rather than folded away, per rule 6: the case is the only remaining trace of
 # the fn, and two distinct #[test] fns are not merged even when their invocations
@@ -59,23 +59,23 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # Bundle helper: `exit = "success"` on the build (:71) and on the harness process
-# (:123); in json mode schemaVersion/command/success/exitCode and payload
-# artifactKind/bundleFormat (:80-86) and NOTHING ELSE -- this file makes NO
+# (`output.status.success()` :123); in json mode schemaVersion/command/success/exitCode and payload
+# artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :80-86) and NOTHING ELSE -- this file makes NO
 # `errors` claim on the build envelope (contrast :81-84 of
 # `browser_math_hypot_empty_identity.rs`, which does), so `errors = []` is
 # deliberately absent here; the emitted `app/app.meta.json` metadata (:94-95),
 # read outside the `if json_output`; then the bundle-harness `stdout_contains`
-# (:130), a contiguous SEVEN-line needle because the bundled program routes
+# (`stdout.contains(...)` :130), a contiguous SEVEN-line needle because the bundled program routes
 # `Math.imul()` through seven spellings including two `Object.freeze` aliases.
 # Harness helper: `exit = "success"` (:159) and `stdout.contains(expected_stdout)`
-# (:167). `expected_stdout` is a real parameter that IS read, not a dead literal:
+# (`stdout.contains(expected_stdout)` :167). `expected_stdout` is a real parameter that IS read, not a dead literal:
 # its value comes from the call site, `"0\n0\n0\n0\n0"` for `run` (:216) and
 # `"0\n0\n0\n0\n0\nok 1"` for `test` (:236), and each is carried as that case's
 # `stdout_contains` needle. Note the run needle has no trailing newline and
 # covers only five of the seven printed zeros -- transcribed exactly as the
 # source spells it, neither extended to seven nor newline-terminated.
 # The source DOES pass `--max-threads 0 --max-spawned-processes 0` on the harness
-# argv (:151-154); the build argv has neither. No `.matches(...).count()` claim
+# argv (`.arg("0")` :151-154); the build argv has neither. No `.matches(...).count()` claim
 # exists anywhere in this file, so no `stdout_count`/`json_count` key appears.
 
 [matrix]
@@ -139,7 +139,7 @@ stdout_contains = ["0\n0\n0\n0\n0\n0\n0\n"]
 
 [[case]]
 name = "json_build_emits_math_imul_omitted_operands"
-rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_bundle_math_imul_omitted_operands` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls `Math.imul()` with both operands omitted through seven spellings -- bare, dotted globalThis, three bracketed roots, and two `Object.freeze`d callables -- and the omitted-operand identity makes each print `0`. The source asserts that as one contiguous `stdout.contains("0\\n0\\n0\\n0\\n0\\n0\\n0\\n")` (:130), carried verbatim as a single `stdout_contains` needle at the same strength (controller ruling 3: mirror the source; a plain `.contains` against a field that has a substring form stays a `*_contains`). This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat, :80-86) instead of plain text. The source makes NO `errors` claim on this envelope, so none is written."""
+rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_bundle_math_imul_omitted_operands` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program calls `Math.imul()` with both operands omitted through seven spellings -- bare, dotted globalThis, three bracketed roots, and two `Object.freeze`d callables -- and the omitted-operand identity makes each print `0`. The source asserts that as one contiguous `stdout.contains("0\\n0\\n0\\n0\\n0\\n0\\n0\\n")` (:130), carried verbatim as a single `stdout_contains` needle at the same strength (controller ruling 3: mirror the source; a plain `.contains` against a field that has a substring form stays a `*_contains`). This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat, `envelope["payload"].as_object().expect("payload object")` :80-86) instead of plain text. The source makes NO `errors` claim on this envelope, so none is written."""
 
 [[case.step]]
 args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
@@ -162,7 +162,7 @@ stdout_contains = ["0\n0\n0\n0\n0\n0\n0\n"]
 
 [[case]]
 name = "run_supports_math_imul_omitted_operands_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_harness_math_imul_omitted_operands` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.imul()` with both operands omitted through seven spellings, each printing `0`. Its only output claim is `stdout.contains(expected_stdout)` (:167), and `expected_stdout` is supplied by the call site as "0\\n0\\n0\\n0\\n0" (:216) -- carried as this case's `stdout_contains` needle exactly as spelled. The needle deliberately has no trailing newline and covers five of the seven printed zeros; it is transcribed as written, not tidied."""
+rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_harness_math_imul_omitted_operands` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.imul()` with both operands omitted through seven spellings, each printing `0`. Its only output claim is `stdout.contains(expected_stdout)` (:167), and `expected_stdout` is supplied by the call site as "0\\n0\\n0\\n0\\n0" (`main.js` :216) -- carried as this case's `stdout_contains` needle exactly as spelled. The needle deliberately has no trailing newline and covers five of the seven printed zeros; it is transcribed as written, not tidied."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -170,7 +170,7 @@ stdout_contains = ["0\n0\n0\n0\n0"]
 
 [[case]]
 name = "test_supports_math_imul_omitted_operands_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_harness_math_imul_omitted_operands` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.imul()` with both operands omitted through seven spellings, each printing `0`. Its only output claim is `stdout.contains(expected_stdout)` (:167), and `expected_stdout` is supplied by the call site as "0\\n0\\n0\\n0\\n0\\nok 1" (:236) -- carried as this case's `stdout_contains` needle exactly as spelled. The `ok 1` tail is the harness's own TAP-style line for the single passing `Kali.test` case, so this needle additionally pins that the test body ran to completion."""
+rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_harness_math_imul_omitted_operands` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.imul()` with both operands omitted through seven spellings, each printing `0`. Its only output claim is `stdout.contains(expected_stdout)` (:167), and `expected_stdout` is supplied by the call site as "0\\n0\\n0\\n0\\n0\\nok 1" (`smoke.test.js` :236) -- carried as this case's `stdout_contains` needle exactly as spelled. The `ok 1` tail is the harness's own TAP-style line for the single passing `Kali.test` case, so this needle additionally pins that the test body ran to completion."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -178,7 +178,7 @@ stdout_contains = ["0\n0\n0\n0\n0\nok 1"]
 
 [[case]]
 name = "json_run_supports_math_imul_omitted_operands_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_harness_math_imul_omitted_operands` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.imul()` with both operands omitted through seven spellings, each printing `0`. Its only output claim is `stdout.contains(expected_stdout)` (:167), and `expected_stdout` is supplied by the call site as "0\\n0\\n0\\n0\\n0" (:296) -- carried as this case's `stdout_contains` needle exactly as spelled. This case comes from the `json_`-prefixed source fns, which despite the name request no JSON output: the helper has no `json_output` parameter and never adds `--output json`, so these fns issue the identical command and make the identical assertion as their unprefixed counterparts. Kept as a separate case per rule 6 (a case is the only remaining trace of its fn) rather than folded; no JSON envelope claim is written, because the source makes none (rule 2)."""
+rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_harness_math_imul_omitted_operands` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.imul()` with both operands omitted through seven spellings, each printing `0`. Its only output claim is `stdout.contains(expected_stdout)` (:167), and `expected_stdout` is supplied by the call site as "0\\n0\\n0\\n0\\n0" (`main.js` :296) -- carried as this case's `stdout_contains` needle exactly as spelled. This case comes from the `json_`-prefixed source fns, which despite the name request no JSON output: the helper has no `json_output` parameter and never adds `--output json`, so these fns issue the identical command and make the identical assertion as their unprefixed counterparts. Kept as a separate case per rule 6 (a case is the only remaining trace of its fn) rather than folded; no JSON envelope claim is written, because the source makes none (rule 2)."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
@@ -186,7 +186,7 @@ stdout_contains = ["0\n0\n0\n0\n0"]
 
 [[case]]
 name = "json_test_supports_math_imul_omitted_operands_when_browser_harness_is_configured"
-rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_harness_math_imul_omitted_operands` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.imul()` with both operands omitted through seven spellings, each printing `0`. Its only output claim is `stdout.contains(expected_stdout)` (:167), and `expected_stdout` is supplied by the call site as "0\\n0\\n0\\n0\\n0\\nok 1" (:316) -- carried as this case's `stdout_contains` needle exactly as spelled. This case comes from the `json_`-prefixed source fns, which despite the name request no JSON output: the helper has no `json_output` parameter and never adds `--output json`, so these fns issue the identical command and make the identical assertion as their unprefixed counterparts. Kept as a separate case per rule 6 (a case is the only remaining trace of its fn) rather than folded; no JSON envelope claim is written, because the source makes none (rule 2)."""
+rationale = """Migrated from browser_math_imul_omitted_operands.rs. `assert_browser_harness_math_imul_omitted_operands` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program calling `Math.imul()` with both operands omitted through seven spellings, each printing `0`. Its only output claim is `stdout.contains(expected_stdout)` (:167), and `expected_stdout` is supplied by the call site as "0\\n0\\n0\\n0\\n0\\nok 1" (`smoke.test.js` :316) -- carried as this case's `stdout_contains` needle exactly as spelled. This case comes from the `json_`-prefixed source fns, which despite the name request no JSON output: the helper has no `json_output` parameter and never adds `--output json`, so these fns issue the identical command and make the identical assertion as their unprefixed counterparts. Kept as a separate case per rule 6 (a case is the only remaining trace of its fn) rather than folded; no JSON envelope claim is written, because the source makes none (rule 2)."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"

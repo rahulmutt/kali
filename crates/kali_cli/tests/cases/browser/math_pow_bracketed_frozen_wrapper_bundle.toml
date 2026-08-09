@@ -3,7 +3,7 @@
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_pow_bracketed_frozen_wrapper_bundle.rs returns NOTHING -- the file has no Rust comments
 # at all.
-# The 1 other `//` occurrence(s) in the file (:13) sit
+# The 1 other `//` occurrence(s) in the file (`mathPowBracketedFrozenCallable()` :13) sit
 # inside JS fixture bodies, which is program text carried verbatim into
 # [source], not Rust prose.
 # There is therefore no prose to move into any `rationale`, and
@@ -36,7 +36,7 @@
 # a trial dir are inert.
 #
 # RULE 8 / RULE 9 -- the [source] program is `format!`-built and therefore appears in NO
-# string literal in the .rs (:12). Its body below is the byte-exact OUTPUT of
+# string literal in the .rs (`mathPowBracketedFrozenCallable()` :12). Its body below is the byte-exact OUTPUT of
 # executing the real builder, captured by a temporary test target that include!d this .rs
 # and dumped the fn's return value; it is never a hand-applied `{}` substitution. That
 # matters concretely here: the template indents the placeholder by two spaces and the
@@ -79,17 +79,17 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the `kali build` process (:46) and on the harness
-# process (:98).
+# process (`output.status.success()` :98).
 # In json mode, the build envelope's schemaVersion/command/success/exitCode and the
-# payload's artifactKind/bundleFormat (:54-60).
+# payload's artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :54-60).
 # The source makes NO `errors` claim on that envelope -- compare
 # browser_math_sin_cos_tan_zero_identities.rs, migrated in this same group, whose json
 # branch does assert the errors array is empty -- so no `errors = []` is written here.
-# The emitted app/app.meta.json apiSurface/artifactKind (:68-69) is
+# The emitted app/app.meta.json apiSurface/artifactKind (`metadata["apiSurface"]` :68-69) is
 # asserted in BOTH modes, because the source reads that file outside the `if json_output`
 # block.
 # The harness step carries the file's ONE stdout claim, `.contains("8\n8")`
-# (:104).
+# (`stdout.contains(...)` :104).
 # There is no count claim in this file, so no `stdout_count`; no stderr claim on either
 # process; and the build envelope's stdout leaf is never read, so no `json.stdout` pin.
 # The source passes no --max-threads / --max-spawned-processes arguments, so neither

@@ -13,8 +13,8 @@
 # expanded.
 # THE FIXTURE BODY DIFFERS BY EXTENSION, so no `[matrix]` can carry this file.
 # `app.js` and `app.jsx` are built from
-# kali_common::number_predicates_browser_bundle_source("1") (:11);
-# `app.ts` and `app.tsx` from the same builder with "1 as const" (:15),
+# kali_common::number_predicates_browser_bundle_source("1") (`kali_common::number_predicates_browser_bundle_source("1")` :11);
+# `app.ts` and `app.tsx` from the same builder with "1 as const" (`kali_common::number_predicates_browser_bundle_source("1 as const")` :15),
 # which emits a TypeScript `as const` assertion the JS inputs must not carry.
 # A `[matrix] ext` axis substitutes into the `[source]` KEY `app.${ext}`, and one key
 # can hold exactly one body, so the axis cannot express two programs.
@@ -93,11 +93,11 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the `kali build` process (:36) and on the
-# browser-bundle harness process (:92).
+# browser-bundle harness process (`output.status.success()` :92).
 # In json mode, the build envelope's schemaVersion/command/success/exitCode and the
-# payload's artifactKind/bundleFormat (:44-50), plus
+# payload's artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :44-50), plus
 # the empty `errors` array (:51).
-# The emitted app/app.meta.json apiSurface/artifactKind (:62-63)
+# The emitted app/app.meta.json apiSurface/artifactKind (`metadata["apiSurface"]` :62-63)
 # is asserted in BOTH modes, because the source reads that file outside the
 # `if json_output` block.
 # The harness step carries this file's ONE stdout claim,

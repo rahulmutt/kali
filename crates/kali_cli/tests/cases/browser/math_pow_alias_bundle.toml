@@ -15,7 +15,7 @@
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_pow_alias_bundle.rs returns NOTHING -- the file has no Rust comments
 # at all.
-# The 2 other `//` occurrence(s) in the file (:13, :27) sit
+# The 2 other `//` occurrence(s) in the file (`Math.pow(2, alias)` :13, `globalThis.Math.pow(2, alias)` :27) sit
 # inside JS fixture bodies, which is program text carried verbatim into
 # [source], not Rust prose.
 # There is therefore no prose to move into any `rationale`, and
@@ -84,7 +84,7 @@
 #     emitted line carries four spaces and the rest two -- an asymmetry a hand
 #     substitution gets wrong in one direction or the other.
 #   * the browser-bundle-harness `body`, built by an inline `format!`
-#     (:103) with an `{export_name}` placeholder inside
+#     (`import(bundleJs.href)` :103) with an `{export_name}` placeholder inside
 #     `assert_browser_bundle_math_pow_alias_with_source`, which makes it
 #     unreachable as a value at all. It was captured by running that real helper with
 #     the harness
@@ -136,15 +136,15 @@
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = "success"` on the `kali build` process (:71) and on the harness
-# process (:125).
+# process (`output.status.success()` :125).
 # In json mode, the build envelope's schemaVersion/command/success/exitCode and the
-# payload's artifactKind/bundleFormat (:79-85). The source
+# payload's artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :79-85). The source
 # makes NO `errors` claim on that envelope, so no `errors = []` is written.
-# The emitted <stem>/<stem>.meta.json apiSurface/artifactKind (:93-94)
+# The emitted <stem>/<stem>.meta.json apiSurface/artifactKind (`metadata["apiSurface"]` :93-94)
 # is asserted in BOTH modes, because the source reads that file outside the
 # `if json_output` block.
 # The harness step carries the file's ONE stdout claim, `.contains("8\n")`
-# (:131) -- note the single trailing newline, unlike the `"8\n8"` its two
+# (`stdout.contains(...)` :131) -- note the single trailing newline, unlike the `"8\n8"` its two
 # bracketed-frozen siblings in this group assert; the weaker needle is what this source
 # says and it is not upgraded.
 # There is no count claim in this file, so no `stdout_count`; no stderr claim on either
