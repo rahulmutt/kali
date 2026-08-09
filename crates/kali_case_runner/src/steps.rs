@@ -12,12 +12,57 @@ pub struct RunnerConfig {
     pub cases_dir: PathBuf,
 }
 
+/// How many times a spawn is retried after `ETXTBSY`, and the first backoff.
+///
+/// Ten doublings from 1ms is ~1s of total sleep in the worst case, which never
+/// happens: the window this closes is the lifetime of a `fork`ed child's
+/// duplicated file descriptors, measured in microseconds. The budget is large
+/// because the cost of exhausting it is a flaky gate and the cost of a spare
+/// retry is nothing.
+const ETXTBSY_RETRIES: u32 = 10;
+const ETXTBSY_FIRST_BACKOFF: std::time::Duration = std::time::Duration::from_millis(1);
+
+/// Run `attempt`, retrying while it fails with `ETXTBSY` ("Text file busy").
+///
+/// WHY THIS EXISTS. The test suite writes an executable stub, `chmod +x`es it
+/// and immediately execs it. On Linux that races: `Command::output` forks, and
+/// between the fork and the exec the child holds duplicates of every descriptor
+/// its parent had open -- including a WRITE descriptor on a stub some sibling
+/// test thread is still creating. Exec'ing a file that any process holds open
+/// for writing fails with `ETXTBSY`. Nothing is wrong with either side; the
+/// kernel is reporting a transient overlap.
+///
+/// It is not hypothetical and it is not confined to one test. Reproduced at
+/// `--test-threads=32` under eight spinning CPU hogs: 1 failure in 80 runs of
+/// `steps::`, landing on
+/// `an_ordinary_nested_relative_source_key_still_writes_normally` -- a different
+/// test from the one that first exposed it, which is the point. Any `stub_bin`
+/// test can draw it, so the fix belongs at the spawn, not in a test.
+///
+/// Retrying is safe here in the way retries usually are not: `ETXTBSY` is
+/// raised by `execve` BEFORE the program runs, so no side effect of the command
+/// can have happened. A retry cannot double anything.
+fn retry_on_etxtbsy<T>(mut attempt: impl FnMut() -> std::io::Result<T>) -> std::io::Result<T> {
+    let mut backoff = ETXTBSY_FIRST_BACKOFF;
+    for _ in 0..ETXTBSY_RETRIES {
+        match attempt() {
+            Err(error) if error.kind() == std::io::ErrorKind::ExecutableFileBusy => {
+                std::thread::sleep(backoff);
+                backoff *= 2;
+            }
+            settled => return settled,
+        }
+    }
+    // The last attempt is returned as-is, so an ETXTBSY that genuinely will not
+    // clear still surfaces as itself rather than as a made-up error.
+    attempt()
+}
+
 fn capture(mut command: Command, step: &Step) -> Result<Captured, String> {
     for (key, value) in &step.env {
         command.env(key, value);
     }
-    let output = command
-        .output()
+    let output = retry_on_etxtbsy(|| command.output())
         .map_err(|error| format!("failed to spawn: {error}"))?;
     Ok(Captured {
         code: output.status.code(),

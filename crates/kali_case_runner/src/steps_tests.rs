@@ -319,3 +319,54 @@ stdout = "hello\n"
     run_trial(&config_for(bin), &trials[0])
         .expect("trial should pass -- nested subdirectories are legitimate");
 }
+
+// `retry_on_etxtbsy` (I3). The race it closes cannot be forced deterministically
+// through a real spawn, so the retry loop is exercised directly: these assert
+// that it retries the one error kind it is meant to, gives up on any other, and
+// surfaces a persistent ETXTBSY as itself rather than inventing a result.
+#[test]
+fn an_etxtbsy_spawn_is_retried_until_it_succeeds() {
+    let mut attempts = 0;
+    let out = retry_on_etxtbsy(|| {
+        attempts += 1;
+        if attempts < 3 {
+            Err(std::io::Error::from(std::io::ErrorKind::ExecutableFileBusy))
+        } else {
+            Ok("ran")
+        }
+    })
+    .expect("must succeed once the descriptor closes");
+    assert_eq!(out, "ran");
+    assert_eq!(attempts, 3, "must have retried twice, not spun or given up");
+}
+
+#[test]
+fn a_non_etxtbsy_spawn_error_is_not_retried() {
+    let mut attempts = 0;
+    let err = retry_on_etxtbsy(|| {
+        attempts += 1;
+        Err::<(), _>(std::io::Error::from(std::io::ErrorKind::NotFound))
+    })
+    .expect_err("a missing binary must surface immediately");
+    assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
+    assert_eq!(
+        attempts, 1,
+        "a non-transient error must not be retried at all"
+    );
+}
+
+#[test]
+fn a_persistent_etxtbsy_still_surfaces_as_itself() {
+    let mut attempts = 0;
+    let err = retry_on_etxtbsy(|| {
+        attempts += 1;
+        Err::<(), _>(std::io::Error::from(std::io::ErrorKind::ExecutableFileBusy))
+    })
+    .expect_err("must not invent a success");
+    assert_eq!(err.kind(), std::io::ErrorKind::ExecutableFileBusy);
+    assert_eq!(
+        attempts,
+        ETXTBSY_RETRIES as usize + 1,
+        "the budget must be spent exactly once, then the last error returned"
+    );
+}
