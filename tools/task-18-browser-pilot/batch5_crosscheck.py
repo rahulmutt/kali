@@ -1320,6 +1320,7 @@ def selftest():
 
     failures += _submodule_selftest()
     failures += _gated_selftest()
+    failures += _check_surface_selftest()
     failures += _declares_mods_selftest()
     failures += _residual_tier_selftest()
 
@@ -1707,8 +1708,129 @@ def _gated_selftest():
     print(f"  gated arm -- count comparison on the blind-spot probe: written={written} "
           f"matched={matched} ({'BLIND' if written == matched else 'would catch'})")
     if written != matched:
-        out.append("gated arm: probe 5 no longer demonstrates the count "
-                   "comparison's blind spot -- re-pick the probe or drop the claim")
+        out.append("gated arm: the blind-spot probe no longer demonstrates the "
+                   "count comparison's blind spot -- re-pick the probe or drop "
+                   "the claim")
+    return out
+
+
+# THE `check()`-SURFACE PROBE FILES (batch 7 fix round 4, I-3).
+#
+# Line numbers matter and are asserted, so CONTROL and POISON are the same shape
+# with line 3 swapped: the poison replaces one filler `//!` line rather than
+# adding one, which is what lets both probes cite `:6` and differ ONLY in the
+# poison. `helper_named_here` is declared at line 6 of both.
+_CHECK_SURFACE_STEM = "selftest_check_surface_probe"
+_CHECK_SURFACE_FILLER = "//! Filler; the poison probe replaces this line."
+_CHECK_SURFACE_POISON = "//! JSON envelope: schemaVersion (:6), command (:6)"
+_CHECK_SURFACE_RS = """\
+//! Selftest probe for `check()`'s retention-header surface -- written into
+//! `crates/kali_cli/tests` by `--selftest` and deleted again. `helper_named_here` (`:6`)
+{filler}
+
+#[allow(dead_code)]
+fn helper_named_here(source: &str) {{
+    assert!(source.contains("selftest probe"), "probe");
+}}
+"""
+# Deliberately citation-free and backtick-free: the case-file arms must
+# contribute nothing, so every problem the paired probe reports comes from the
+# retention-header surface under test.
+_CHECK_SURFACE_TOML = """\
+# Selftest probe written and deleted by --selftest.
+name = "selftest_check_surface_probe"
+"""
+
+
+def _check_surface_selftest():
+    """I-3: does `check()` REACH `_gated_arm` on the retention-header surface?
+
+    The three probes `_gated_selftest` added in fix round 3 call `_gated_arm`
+    DIRECTLY. They prove the arm behaves; they cannot prove `check()` calls it.
+    That is exactly the gap round 2 fell through -- it deleted the two
+    retention-header invocations, `--selftest` stayed OK and the sweep stayed at
+    `EXIT=0`, and the coverage was gone for a whole round. Restoring the calls
+    without a probe on `check()` itself leaves the identical regression
+    available: delete both call sites again and nothing in the tree fails.
+
+    So this probe drives the real `check()` over a real (temporary) tree file,
+    on BOTH surfaces that call the arm:
+
+      * the WHOLE-FILE RETENTION branch (`.rs` with a `//!` header, no case
+        file);
+      * the PAIRED branch (case file + `//!` header), which is a separate call
+        site and was separately deleted.
+
+    Each is run twice against text differing only in the poison, and the poison
+    run asserts on the REPORT -- two problems, both naming the retention-header
+    surface and both the UNGATED message -- rather than on a bare boolean. An
+    un-backticked `:N` is invisible to `_header_cite_arm` (it iterates
+    `BARE_CITE`), so `_gated_arm` is the only thing that can produce it, and no
+    other arm can make this probe green.
+
+    THE PROBE FILES ARE WRITTEN INTO THE REAL TREE, because `check()` resolves
+    both paths itself (`TESTS/browser_<stem>.rs`, `CASES/<stem>.toml`) and a
+    temp dir cannot be reached through it -- driving the real call site is the
+    whole point. They exist for the duration of four `check()` calls and are
+    removed in a `finally`; the `.rs` carries no `#[test]` and the `.toml` no
+    case, so a concurrent `cargo test` in that window sees an empty target
+    rather than a failing one. A leftover file from a killed run is refused
+    rather than overwritten.
+    """
+    out = []
+    rs_path = os.path.join(TESTS, f"browser_{_CHECK_SURFACE_STEM}.rs")
+    toml_path = os.path.join(CASES, f"{_CHECK_SURFACE_STEM}.toml")
+    for path in (rs_path, toml_path):
+        if os.path.exists(path):
+            return [f"check() surface: {path} already exists -- refusing to "
+                    "overwrite a tree file"]
+
+    def run(filler, paired):
+        with open(rs_path, "w") as fh:
+            fh.write(_CHECK_SURFACE_RS.format(filler=filler))
+        if paired:
+            with open(toml_path, "w") as fh:
+                fh.write(_CHECK_SURFACE_TOML)
+        elif os.path.exists(toml_path):
+            os.unlink(toml_path)
+        with open(os.devnull, "w") as devnull:
+            saved, sys.stdout = sys.stdout, devnull
+            try:
+                return check(_CHECK_SURFACE_STEM, citations_only=True)
+            finally:
+                sys.stdout = saved
+
+    try:
+        for surface, paired in (("whole-file retention", False),
+                                ("paired case file + header", True)):
+            clean = run(_CHECK_SURFACE_FILLER, paired)
+            poisoned = run(_CHECK_SURFACE_POISON, paired)
+            gated = [p for p in poisoned
+                     if "retention header citation" in p and "UNGATED" in p]
+            print(f"  check() surface -- {surface}: control "
+                  f"{len(clean)} problem(s), poisoned {len(poisoned)} "
+                  f"({len(gated)} UNGATED)")
+            if clean:
+                out.append(f"check() surface ({surface}): the control reported "
+                           f"{clean} -- the probe is red for a reason other than "
+                           "the poison, so its kill power is not attributable")
+            if len(gated) != 2:
+                out.append(
+                    f"check() surface ({surface}): the two un-backticked `:N` in "
+                    f"the `//!` header produced {len(gated)} UNGATED report(s), "
+                    "expected 2 -- `check()` is not reaching `_gated_arm` on this "
+                    "surface (this is the N4 regression, and it is silent by "
+                    "definition without this probe)")
+            if len(poisoned) != len(gated):
+                out.append(
+                    f"check() surface ({surface}): {len(poisoned) - len(gated)} "
+                    "problem(s) came from somewhere other than the gatedness arm; "
+                    "the probe files are supposed to be clean but for the poison")
+    finally:
+        for path in (rs_path, toml_path):
+            if os.path.exists(path):
+                os.unlink(path)
+        _NO_NEEDLE.pop(_CHECK_SURFACE_STEM, None)
     return out
 
 
