@@ -48,6 +48,31 @@ spawns a process nor reads the environment -- that exclusion is what keeps
 `kali_bin()` out, and with it every `stdout.contains(...)` in the corpus, which
 is an assertion about OUTPUT and precisely not this shape.
 
+KNOWN-UNHANDLED RECEIVER SHAPES. This is a heuristic over masked text, not a
+Rust front end, and the following shapes are NOT resolved. None occurs in
+`browser_*.rs` today -- each was probed synthetically and then searched for in
+the corpus -- so there is no live loss, but a future file using one is invisible
+here and the list is what a later reader needs in order to judge that:
+
+  * a fixture held in a struct field
+  * a method chain through `as_str()` (or any non-string-slicing adapter)
+  * a `let` RE-binding of an already-fixture-valued local
+  * a fixture reached through a `Vec` index
+  * further members of the string-slicing family beyond lines/matches/
+    starts_with (deliberately excluded -- see the site block for the sweep)
+  * a builder returning `Cow<'static, str>`, or a non-`'static` `&str`
+  * a builder declared with a `where` clause, or as `pub fn`
+  * `#[test]` with another attribute between it and the `fn`
+  * `#[test]` inside an inline `mod`
+
+SCOPE. The default scan is `crates/kali_cli/tests/browser_*.rs` only. The seven
+`#[path]` submodule DIRECTORIES are outside it entirely. Measured rather than
+assumed: running this predicate over all 59 `.rs` files in those directories
+returns 0 hits, so nothing is lost today. Note the reason is NOT that every
+`.contains` receiver there is process output -- receivers include `source`,
+`script`, `js` and `body` -- but that none of them is bound to a fixture
+builder. If those directories are ever migrated, scan them explicitly.
+
 Usage:
   find_fixture_self_inspection.py --selftest        # ground-truth check, exit 1 on miss
   find_fixture_self_inspection.py [FILE.rs ...]     # default: every browser_*.rs
@@ -69,8 +94,8 @@ from enumerate_invocations import strip_block_comments_and_strings  # noqa: E402
 # predicate; three are batch 5's own; two were named by the batch-5 review as
 # unmigrated targets carrying the shape.
 KNOWN = {
-    # adjudicated retentions the OLD predicate could not see (receiver is a param
-    # or the helper also builds the Command)
+    # adjudicated retentions the SUPERSEDED predicate could not see (receiver is
+    # a param, or the helper also builds the Command)
     "browser_array_from_set_map_bundle.rs",
     "browser_array_from_set_map_harness.rs",
     "browser_generator_default_export_rejection.rs",
@@ -79,7 +104,20 @@ KNOWN = {
     "browser_math_max_min_frozen_aliases.rs",
     "browser_math_pow_bracketed_frozen_wrapper.rs",
     "browser_math_pow_bracketed_frozen_wrapper_harness.rs",
-    # unmigrated batch 6-8 targets named in the batch-5 review
+    # batch 3 / batch 4 adjudicated retentions. OMITTED from the first version of
+    # this set, which is why its selftest passed 9/9 while the predicate was blind
+    # to a fourteenth instance: the one file it could not find was also the one
+    # left out of the ground truth. Ground truth chosen after the fact grades
+    # nothing.
+    "browser_math_abs_sign_frozen_aliases.rs",
+    "browser_math_atan2_global_this_root.rs",
+    "browser_math_floor_trunc_ceil_aliases.rs",
+    "browser_math_floor_trunc_ceil_bundle.rs",
+    # the fourteenth: its `.contains` sits on a closure parameter, with `.lines()`
+    # between the fixture binding and the call. Found only once the site match was
+    # widened past a direct `.contains` on the bound identifier.
+    "browser_array_iteration_spread.rs",
+    # unmigrated batch 6-8 targets carrying the shape
     "browser_promise_any_bundle.rs",
     "browser_promise_any_harness.rs",
 }
@@ -105,11 +143,11 @@ def fn_spans(masked):
     return out
 
 
-def signature(raw, start, body_start):
-    return raw[start:body_start]
+def signature(text, start, body_start):
+    return text[start:body_start]
 
 
-def fixture_builders(raw, masked, spans):
+def fixture_builders(masked, spans):
     """Fns whose return value is program text, not process output."""
     out = set()
     for name, start, body_start, end in spans:
@@ -175,7 +213,7 @@ def analyse(path):
     spans = fn_spans(masked)
     if not spans:
         return None
-    builders = fixture_builders(raw, masked, spans)
+    builders = fixture_builders(masked, spans)
     by_name = {n: (s, b, e) for n, s, b, e in spans}
 
     def owner(off):
@@ -185,8 +223,7 @@ def analyse(path):
         return None
 
     # fixture-valued locals, then fixture-valued params, to a fixed point
-    fixture_vals = {n: set() for n, _, _, _ in by_name.items()} if False else {
-        n: set() for n in by_name}
+    fixture_vals = {n: set() for n in by_name}
     for _ in range(4):
         changed = False
         # locals: scan the WHOLE initializer, to its depth-0 `;`, not just the
@@ -256,16 +293,47 @@ def analyse(path):
                 reach.add(other)
                 frontier.append(other)
 
-    # the sites
+    # The sites. Two shapes: `fixture.contains(...)` directly, and a fixture
+    # receiver that takes a string-slicing method FIRST and reaches `.contains`
+    # further along the chain -- `source.lines().filter(|l| l.contains(..))`,
+    # where the `.contains` receiver is a closure parameter and no amount of
+    # receiver-name matching finds it.
+    #
+    # The chain set is closed at lines/matches/starts_with, and that boundary was
+    # swept rather than guessed: `+lines` adds exactly one file
+    # (browser_array_iteration_spread.rs), `+matches` and `+starts_with` add
+    # nothing on today's corpus but are near-miss shapes of the same idea, and
+    # extending to ends_with/split/find admits a false positive --
+    # `let source = if filename.ends_with(".js")` in
+    # browser_object_enumeration_wrapped_bundle.rs, where the receiver is a
+    # literal-fed parameter and the `.contains` further down is about stderr.
     sites = []
-    for m in re.finditer(r"([A-Za-z_][\w:]*)\s*(?:\(\s*\))?\s*\.contains\s*\(", masked):
+    CHAIN = r"lines\s*\(\s*\)|matches\s*\([^)]*\)|starts_with\s*\([^)]*\)"
+    direct = re.compile(r"([A-Za-z_][\w:]*)\s*(?:\(\s*\))?\s*\.contains\s*\(")
+    via_chain = re.compile(
+        r"([A-Za-z_][\w:]*)\s*(?:\(\s*\))?\s*((?:\.\s*(?:" + CHAIN + r")\s*)+)")
+    seen_offsets = set()
+    for m in direct.finditer(masked):
         recv = m.group(1).split("::")[-1]
         host = owner(m.start())
         if host is None or host not in reach:
             continue
         if not (recv in builders or recv in fixture_vals.get(host, ())):
             continue
+        seen_offsets.add(m.start())
         sites.append((raw[:m.start()].count("\n") + 1, host, recv))
+    for m in via_chain.finditer(masked):
+        recv = m.group(1).split("::")[-1]
+        host = owner(m.start())
+        if host is None or host not in reach or m.start() in seen_offsets:
+            continue
+        if not (recv in builders or recv in fixture_vals.get(host, ())):
+            continue
+        # bounded lookahead: the `.contains` must belong to this chain
+        if ".contains" not in masked[m.end():m.end() + 200]:
+            continue
+        sites.append((raw[:m.start()].count("\n") + 1, host,
+                      recv + " (via " + m.group(2).strip().split("(")[0].lstrip(". ") + ")"))
 
     if not sites:
         return None
@@ -299,17 +367,56 @@ def analyse(path):
             "hosts": sorted(hosts)}
 
 
+def superseded_hits(paths):
+    """The predicate this tool replaced: files with a Command-free `#[test]`.
+
+    Kept, and run as a selftest case, for one reason: a replacement detector must
+    be a SUPERSET of what it replaces, and nobody checked that the first time. A
+    predicate was retired for a false-negative class and one with a DIFFERENT
+    false-negative class accepted in its place -- the superseded predicate would
+    have found browser_array_iteration_spread.rs, which the replacement missed.
+    Containment is now asserted rather than assumed.
+    """
+    out = set()
+    for path in paths:
+        masked = strip_block_comments_and_strings(open(path).read())
+        spans = fn_spans(masked)
+        by = {n: (s, b, e) for n, s, b, e in spans}
+        tests = [m.group(1) for m in re.finditer(r"#\[test\]\s*\nfn\s+(\w+)", masked)]
+        for tname in tests:
+            if tname not in by:
+                continue
+            seen, stack, spawns = set(), [tname], False
+            while stack:
+                cur = stack.pop()
+                if cur in seen or cur not in by:
+                    continue
+                seen.add(cur)
+                s, b, e = by[cur]
+                body = masked[b:e]
+                if "Command::new" in body:
+                    spawns = True
+                    break
+                stack += [o for o in by if o not in seen and
+                          re.search(r"\b" + re.escape(o) + r"\s*\(", body)]
+            if not spawns:
+                out.add(os.path.basename(path))
+                break
+    return out
+
+
 def main(argv):
     selftest = "--selftest" in argv
     argv = [a for a in argv[1:] if not a.startswith("--")]
     paths = ([os.path.join(TESTS, f) for f in sorted(os.listdir(TESTS))
               if f.startswith("browser_") and f.endswith(".rs")]
-             if not argv else argv)
-    found = {}
+             if not argv else [os.path.abspath(a) for a in argv])
+    found, paths_by_name = {}, {}
     for p in paths:
         r = analyse(p)
         if r:
             found[os.path.basename(p)] = r
+            paths_by_name[os.path.basename(p)] = p
 
     print(f"{len(found)} of {len(paths)} browser_*.rs carry the fixture-self-inspection shape\n")
     todo = []
@@ -318,7 +425,7 @@ def main(argv):
         disp = ("WHOLE-FILE retention" if r["reaching"] == r["tests"]
                 else f"U4 TRIM-AND-KEEP: retain {r['reaching']}, migrate "
                      f"{r['tests'] - r['reaching']}")
-        rs_path = os.path.join(TESTS, name)
+        rs_path = paths_by_name[name]
         adjudicated = open(rs_path).read().startswith("//!")
         stem = name[len("browser_"):-3]
         has_toml = os.path.exists(os.path.join(TESTS, "cases/browser", stem + ".toml"))
@@ -355,10 +462,23 @@ def main(argv):
                 print(f"  FOUND {n}")
             else:
                 print(f"  MISS  {n}")
-        if missing:
-            print(f"\nSELFTEST FAILED — {len(missing)} known instance(s) not found: {missing}")
+        sup = superseded_hits(paths)
+        not_contained = sorted(sup - names)
+        print("\n--- CONTAINMENT against the superseded predicate ---")
+        print(f"  superseded predicate hits {len(sup)} file(s); "
+              f"{len(sup & names)} of them are also found here")
+        for n in not_contained:
+            print(f"  NOT CONTAINED: {n}")
+        if missing or not_contained:
+            if missing:
+                print(f"\nSELFTEST FAILED — {len(missing)} known instance(s) not found: "
+                      f"{missing}")
+            if not_contained:
+                print(f"SELFTEST FAILED — the replacement is not a superset of the "
+                      f"predicate it replaced: {not_contained}")
             return 1
-        print(f"\nSELFTEST OK — all {len(KNOWN) - len(gone)} known instances re-found")
+        print(f"\nSELFTEST OK — all {len(KNOWN) - len(gone)} known instances re-found, "
+              f"and the superseded predicate's hits are a strict subset")
     return 0
 
 

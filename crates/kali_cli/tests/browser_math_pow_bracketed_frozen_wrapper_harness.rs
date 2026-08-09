@@ -16,8 +16,8 @@
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_harness_bracketed_global_this_math_pow_frozen_source_includes_parenthesized_bracketed_aliases`
 //! (`:130`) has no helper: its whole body is a single `assert!(...)` self-check
-//! (`:135`) run in a `for` loop over `kali_common`'s bracketed-frozen-callable
-//! alias list, against
+//! (`:135`) run in a `for` loop over
+//! `kali_common::math_pow_bracketed_frozen_callable_aliases()`, against
 //! `browser_harness_bracketed_global_this_math_pow_frozen_run_source`
 //! (`:122`)'s OWN TEXT, before any command is built and without ever invoking
 //! `kali`.

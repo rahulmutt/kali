@@ -14,11 +14,11 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_harness_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory`
-//! (`:118-127`) has no helper: its whole body is a single
-//! `assert!(source.contains(expected))` self-check (`:122-125`) run in a `for`
+//! (`:124-124`) has no helper: its whole body is a single
+//! `assert!(source.contains(expected))` self-check (`:128-131`) run in a `for`
 //! loop over `kali_common::math_floor_trunc_ceil_frozen_callable_aliases()`,
 //! against `browser_harness_math_floor_trunc_ceil_run_source()`'s OWN TEXT
-//! (`:105-115`), before any command is built and without ever invoking `kali`.
+//! (`:111-125`), before any command is built and without ever invoking `kali`.
 //!
 //! It is doubly unmigratable, and the second reason is the sharper one:
 //!   1. `scripts/audit-case-migration.py` extracts every `.contains(<literal>)`
@@ -76,8 +76,14 @@
 //!        durable fact is the classification, not the integer.
 //!   RED  check_rationale_fn_names.py  exit 1, 2 unexplained -- cites helpers
 //!        that left with the migrated cases and no longer exist here.
-//!   RED  check_extra_claims.py        exit 1, 25 unexplained extras -- the
+//!   RED  check_extra_claims.py        exit 1 -- the
 //!        migrated cases' claims are absent from the trimmed remainder.
+//!        NO COUNT IS GIVEN, a ruling-11 correction applied after this
+//!        paragraph shipped with one. `check_extra_claims.py` counts a claim as
+//!        justified if the string occurs verbatim ANYWHERE in the `.rs`,
+//!        comments included, so this header is part of the gate's own input and
+//!        its prose moves the figure -- measured, not supposed. The durable
+//!        fact is the classification; run the gate for today's number.
 //!   GREEN audit-case-migration.py     exit 0 -- the retained test's claim has
 //!        no extractable literal (its needle is a loop variable), so there is
 //!        nothing for the audit to report missing. Do not read this green as

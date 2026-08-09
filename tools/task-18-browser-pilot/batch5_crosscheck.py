@@ -39,9 +39,13 @@ artefacts of the trim rather than stale citations -- the exact confusion ruling
 9 exists to prevent.
 """
 
+import functools
 import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from enumerate_invocations import strip_block_comments_and_strings  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -66,6 +70,33 @@ SECTIONS = [
 CITE = re.compile(r"`([^`\n]{3,120})`[^`\n]{0,40}?\(?:(\d+)(?:-(\d+))?\)?")
 
 
+@functools.lru_cache(maxsize=64)
+def _depths(text, n_lines):
+    """Bracket depth entering each line, over MASKED text. Cached: the masker
+    runs over the whole file, and a header can cite it dozens of times."""
+    # LINE-PRESERVING mask. `strip_block_comments_and_strings` replaces each
+    # masked span with spaces of EQUAL LENGTH, so total length is preserved --
+    # but the newlines inside a multi-line string or comment become spaces, and
+    # the masked text then has FEWER lines than the source (269 vs 277 on
+    # browser_math_round.rs). Splitting it and indexing by line number silently
+    # compares the wrong lines, which is how the first version of this fix
+    # produced 1-line windows for citations sitting inside a 7-line `assert!`.
+    # Restoring the newlines by position is exact and keeps the verified masker.
+    blanked = strip_block_comments_and_strings(text)
+    assert len(blanked) == len(text), "masker changed length; index mapping unsafe"
+    masked = "".join("\n" if c == "\n" else b
+                     for c, b in zip(text, blanked)).split("\n")
+    out, d = [], 0
+    for line in masked:
+        out.append(d)
+        d += line.count("(") + line.count("[") - line.count(")") - line.count("]")
+    # The masker blanks content but can drop a trailing line; pad defensively
+    # rather than letting the gate crash on a file whose last line is masked.
+    while len(out) <= n_lines:
+        out.append(d)
+    return out
+
+
 def _statement(lines, first, last):
     """The cited line(s), widened to the whole SYNTACTIC STATEMENT they sit in.
 
@@ -80,16 +111,26 @@ def _statement(lines, first, last):
     expansion stops precisely at statement boundaries and can never wander into
     a neighbouring statement -- which is what an off-by-N citation lands in.
     """
-    depth_before = []
-    d = 0
-    for line in lines:
-        depth_before.append(d)
-        code = re.sub(r'"(?:\\.|[^"\\])*"', "", line)
-        d += code.count("(") + code.count("[") - code.count(")") - code.count("]")
+    # Mask with the project's EXISTING, verified Rust masker rather than a second
+    # hand-rolled one. That is the whole lesson of this bug: the first version of
+    # this expander stripped only ordinary `"..."` literals, so a `(` inside a
+    # `//!` comment or an r##"..."## JS fixture put the running depth permanently
+    # off zero and expansion ran to both file boundaries -- 625- and 794-line
+    # windows on two adjudicated retentions, strictly weaker than the +-3 window
+    # it replaced. A second attempt that hand-rolled raw-string tracking was
+    # WORSE (103 files ending at non-zero depth, against 9 before). The masker in
+    # `enumerate_invocations` already handles strings, raw strings and comments
+    # and is used by the audit tooling; reusing it is both correct and the point.
+    depth_before = _depths("\n".join(lines), len(lines))
     start, end = first, min(last, len(lines))
-    while start > 1 and depth_before[start - 1] > 0:
+    # Hard clamp regardless. Even with a correct masker, a parser bug must not be
+    # able to produce an unbounded window again: a gate that silently widens to
+    # the whole file passes everything. MAX_EXPAND is far larger than any real
+    # statement in this corpus and far smaller than a file.
+    MAX_EXPAND = 40
+    while start > 1 and depth_before[start - 1] > 0 and first - start < MAX_EXPAND:
         start -= 1
-    while end < len(lines) and depth_before[end] > 0:
+    while end < len(lines) and depth_before[end] > 0 and end - last < MAX_EXPAND:
         end += 1
     return lines[start - 1:end]
 
