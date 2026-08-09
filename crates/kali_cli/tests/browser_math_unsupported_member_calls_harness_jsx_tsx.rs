@@ -13,25 +13,25 @@
 //!
 //! WHAT BLOCKS THE THREE RETAINED TESTS. Each of
 //! `run_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input`
-//! (`:225`),
+//! (`:247`),
 //! `test_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input`
-//! (`:246`) and
+//! (`:268`) and
 //! `build_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input`
-//! (`:267`) routes through
-//! `assert_browser_harness_unsupported_math_rejection` (`:154`), and each
+//! (`:289`) routes through
+//! `assert_browser_harness_unsupported_math_rejection` (`:176`), and each
 //! calls it twice per extension inside its own `for extension in [...]` loop, once
 //! with the JSON-output flag false and once true. The true call is unconditional,
 //! so 3 of 3 retained tests reach the blocking construct on every iteration.
 //!
 //! The blocking construct is a QUANTIFIER over the JSON `errors` array,
-//! `errors.iter().all(...)` (`:194`). The case-file format offers only closed
+//! `errors.iter().all(...)` (`:216`). The case-file format offers only closed
 //! dotted-path indexing into JSON -- design spec 5.4 is explicit that there are
 //! "no slices, no wildcards, no negative-from-end indexing, no filters" -- so a
 //! dotted path can pin the FIRST array element and nothing more. Narrowing "every
 //! error has this code" to "error 0 has this code" is a weakening (a second,
 //! differently-coded diagnostic would satisfy the migration and fail the source),
 //! and rule 1 forbids weakening. Nothing in the twelve assertion keys expresses it.
-//! The neighbouring `assert!(!errors.is_empty(), ...)` (`:192`) is not the
+//! The neighbouring `assert!(!errors.is_empty(), ...)` (`:214`) is not the
 //! problem and would migrate on its own; the quantifier is.
 //!
 //! ADJUDICATED, NOT PROPOSED. The human partner has ruled this quantifier a design
@@ -43,7 +43,7 @@
 //! proposing a wildcard dotted path or a quantified-array key.
 //!
 //! The non-JSON half of these three tests WOULD have migrated cleanly -- its arm is
-//! `stderr.contains("E5506")` (`:199`) plus a three-way OR that rule 11
+//! `stderr.contains("E5506")` (`:221`) plus a three-way OR that rule 11
 //! resolves against the real binary -- but a source `#[test]` fn cannot be split
 //! across the two halves: each fn's own loop body runs both, on every iteration.
 //! U4's trim-and-keep unit is the `#[test]` fn, so the split is 3 migrated / 3
@@ -57,32 +57,54 @@
 //!   PRE-TRIM REF:  fe6a403411   (the commit before batch 6A's migration commit)
 //!   git show fe6a403411:crates/kali_cli/tests/browser_math_unsupported_member_calls_harness_jsx_tsx.rs > /tmp/pretrim.rs
 //!
-//! THIS RETENTION NEEDS A THIRD LEFT-HAND SIDE, AND SO DOES EVERY TRIM ALREADY IN
-//! THE TREE. Ruling 9's pre-trim rule assumes the pre-trim blob is the right
+//! THIS RETENTION NEEDS A THIRD LEFT-HAND SIDE, AND THE CONDITION FOR THAT IS NOT
+//! "being a trim". Ruling 9's pre-trim rule assumes the pre-trim blob is the right
 //! comparison for every gate. It is right for citations and for comment coverage.
-//! It is NOT right for `audit-case-migration.py` or `check_fixtures.py` when the
-//! RETAINED tests carry literal claims of their own, as this file's do -- `E5506`,
-//! `Math.sqrt`, `Math.atan2`, `unsupported math`, and the JSON key `code`, which no
-//! migrated case may claim. Against the post-trim file the case file's claims are
-//! compared with a source stripped of the half that makes them; against the
-//! pre-trim blob the retained half's claims are compared with a case file that
-//! carries only the migrated half's. Both red, for opposite reasons.
+//! It is NOT right for `audit-case-migration.py` or `check_fixtures.py` WHEN THE
+//! RETAINED TESTS CARRY LITERAL CLAIMS OF THEIR OWN -- as this file's do: `E5506`,
+//! `Math.sqrt`, `Math.atan2`, `unsupported math`, and the JSON key `code`, none of
+//! which any migrated case may claim.
 //!
-//! AN EARLIER VERSION OF THIS PARAGRAPH CALLED THAT NEW, AND IT IS NOT. It said
-//! batch 5's trims were green on both sides "only because their retained tests'
-//! needles were loop variables". Measured, one command per file, each against the
-//! ref in its own header: `browser_math_max_min_frozen_aliases.rs` is red pre-trim
-//! with 8 missing claims, `browser_math_abs_sign_frozen_aliases.rs` with 4,
-//! `browser_math_atan2_global_this_root.rs` with 4, and
-//! `browser_math_pow_exponent_one.rs` with 14 -- and all four go green against the
-//! complement described below. Those four headers currently describe their audit
-//! red as the escalation itself rather than as an artifact of the trim; correcting
-//! them is scoped to BATCH 7, following the precedent of batch 5's retroactive
-//! ruling-9 sweep, and is not done here. The four retentions themselves stand
-//! unchanged: every one is adjudicated on the FIXTURE SELF-INSPECTION ground and
-//! every one is in `find_fixture_self_inspection.py`'s `KNOWN` list. The audit red
-//! was never their escalation ground, and it is not this file's either -- the
-//! quantifier above is.
+//! The two sides fail differently, and the post-trim one fails BOTH WAYS AT ONCE:
+//! those same five claims are absent from the case file, AND 24 count claims in the
+//! case file no longer correspond to any `.matches(...).count()` in a source that no
+//! longer holds the helper making them -- 5 forward and 24 reverse, in one run.
+//! Pre-trim it is red in the forward direction only, because the blob holds both
+//! halves while the case file carries one. (The measured red-list further down says
+//! the post-trim audit "fails in the REVERSE direction instead"; that word is wrong
+//! for this same reason. Correcting it is batch 7's, together with the four headers
+//! named below, and it is deliberately not edited here.)
+//!
+//! TWO EARLIER VERSIONS OF THIS PARAGRAPH GOT THE SCOPE WRONG, IN OPPOSITE
+//! DIRECTIONS. The first said batch 5's trims were green on both sides "only
+//! because their retained tests' needles were loop variables" and that this file
+//! was the first where they are not -- too narrow. Its replacement said "and so
+//! does every trim already in the tree" -- too broad. Measured over every stem in
+//! the family carrying a `PRE-TRIM REF:` and a case file, TEN of them, each against
+//! the ref in its OWN header: FIVE are green on both pre-trim gates and need no
+//! third side at all (`browser_array_iteration_spread`,
+//! `browser_math_floor_trunc_ceil_aliases`, `browser_math_floor_trunc_ceil_bundle`,
+//! `browser_math_pow_bracketed_frozen_wrapper_harness`,
+//! `browser_math_pow_bracketed_frozen_wrapper`), and FIVE need it
+//! (`browser_math_abs_sign_frozen_aliases` and
+//! `browser_math_atan2_global_this_root` and `browser_math_max_min_frozen_aliases`,
+//! red on the audit alone; `browser_math_pow_exponent_one` and this file, red on
+//! the audit and on `check_fixtures.py`). All five go green against the complement
+//! below. The discriminator is the condition in the first paragraph, not the fact
+//! of being a trim.
+//!
+//! SCOPE FOR BATCH 7, STATED EXACTLY, because a wrong scope in a handoff sentence
+//! is how both earlier versions went wrong. The retroactive header sweep is FOUR
+//! files -- `browser_math_max_min_frozen_aliases.rs`,
+//! `browser_math_abs_sign_frozen_aliases.rs`,
+//! `browser_math_atan2_global_this_root.rs` and
+//! `browser_math_pow_exponent_one.rs` -- because those four, and only those, carry
+//! a sentence calling their audit red "the escalation itself, not a trim artifact".
+//! The five green trims say no such thing and need no edit. The four retentions
+//! themselves stand unchanged: every one is adjudicated on the FIXTURE
+//! SELF-INSPECTION ground and every one is in
+//! `find_fixture_self_inspection.py`'s `KNOWN` list. The audit red was never their
+//! escalation ground, and it is not this file's either -- the quantifier above is.
 //!
 //! The right left-hand side for those two gates is the DIFFERENCE of the two blobs
 //! -- the migrated half -- reconstructed mechanically by

@@ -2555,6 +2555,12 @@ def gen_math_unsupported_member_calls():
         "    source of truth.",
     ]
 
+    # TWO builders, one per helper. Derived rather than asserted: fix round 2's
+    # N2 was this block claiming a single shared builder, contradicting the
+    # comment below it that already said "each of the two helpers".
+    c_builder_reject, c_builder_success = P.cite_line(
+        text, r"^    let mut cli = Command::new\(kali_bin\(\)\);$",
+        label="the per-helper Command builders", expect=2)
     # Four matches: each of the two helpers has an argv `if json_output {` and an
     # assertion-branch one. Index 2 is the argv guard inside the MIGRATED helper.
     c_json_flag = P.cite_line(text, r"^    if json_output \{$", expect=4)[2]
@@ -2564,9 +2570,12 @@ def gen_math_unsupported_member_calls():
 
     argv_order = [
         "ARGV ORDER is transcribed in the exact order the source's `Command` builder appends",
-        "it, and THIS SOURCE DOES NOT HAVE THE FAMILY'S USUAL TWO SHAPES. It has one builder,",
-        "shared by both of its helpers, and it appends the `--output json` pair BEFORE the",
-        f"subcommand (:{c_json_flag}, immediately above `cli.arg(command)` at",
+        "it, and THIS SOURCE DOES NOT HAVE THE FAMILY'S USUAL TWO SHAPES. It has TWO",
+        f"builders, one per helper (`Command::new(kali_bin())` at :{c_builder_reject} and",
+        f":{c_builder_success}) -- but they are not the family's build-vs-run/test pair: they",
+        "append argv in the IDENTICAL order, so the two helpers differ in what they assert",
+        "and not in how they invoke. That single order appends the `--output json` pair",
+        f"BEFORE the subcommand (:{c_json_flag}, immediately above `cli.arg(command)` at",
         f":{c_subcommand}) -- for EVERY command, `build` included. That is not the shape most",
         "of this family's bundle helpers use, where the pair is appended after the subcommand",
         "and its flags, so the shared boilerplate is deliberately not used here:",

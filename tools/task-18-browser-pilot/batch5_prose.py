@@ -72,15 +72,22 @@ def ruling3_count_exact(needle_desc, bound, key="stdout_count"):
     because the shared sentence was patched with two `str.replace` calls that
     fixed its first half and missed its second. Hoisted on first use, as this
     module's own note asks, rather than patched again.
+
+    EVERY NUMBER IN THE SENTENCE IS DERIVED FROM `bound` (fix round 2, N3). The
+    first version wrote "a seventh time" while parameterising `bound` -- correct
+    for the only call site that exists, and a sentence contradicting its own
+    number for the next `==` site with any other bound. That is exactly the trap
+    `ruling3_count` set for batch 6A, one level down, and it is not left in
+    place for the same reason.
     """
     return (
         f"The source spells this as `.matches({needle_desc}).count() == {bound}` -- an "
         f"exact assertion, not a lower bound -- so it is carried as `{key}` with "
         f"`exact = {bound}` per controller ruling 3 (mirror the source): NOT weakened to "
-        f"`at_least = {bound}`, which output repeating the value a seventh time would "
-        "still satisfy, and NOT weakened to a plain contains, which a single occurrence "
-        "would satisfy. Counting is non-overlapping and left-to-right, as Rust's "
-        "`str::matches` is."
+        f"`at_least = {bound}`, which output carrying the value MORE than {bound} times "
+        "would still satisfy, and NOT weakened to a plain contains, which a single "
+        "occurrence would satisfy. Counting is non-overlapping and left-to-right, as "
+        "Rust's `str::matches` is."
     )
 
 

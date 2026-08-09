@@ -12,29 +12,50 @@ RETAINED tests carry literal claims of their own:
   * against the PRE-trim blob, it compares BOTH halves' claims with a case file
     that carries only the migrated half's -> also red.
 
-THIS IS NOT NEW, AND AN EARLIER VERSION OF THIS PARAGRAPH SAID IT WAS. It
-claimed batch 5's trims were green on both sides "because their retained tests'
-needles were loop variables" and that batch 6A's
-`browser_math_unsupported_member_calls_harness_jsx_tsx.rs` was "the first" where
-they are not. Both halves of that are false, and measuring took one command per
-file. Every already-adjudicated trim in this family is red on its own pre-trim
-audit, and every one goes green against the complement this script builds:
+THE CONDITION IN THAT SENTENCE IS LOAD-BEARING, AND TWO EARLIER VERSIONS OF THIS
+PARAGRAPH DROPPED IT IN OPPOSITE DIRECTIONS. The first claimed batch 5's trims
+were all green "because their retained tests' needles were loop variables" and
+that batch 6A's trim was "the first" where they are not -- too narrow. Its
+replacement then said "every already-adjudicated trim in this family is red on
+its own pre-trim audit" -- too broad. Neither was measured; both were one
+command per file away from being measured.
 
-  target (ref from its own header)   pre-trim audit   complement
-  browser_math_max_min_frozen_aliases      8 missing       green
-  browser_math_abs_sign_frozen_aliases     4 missing       green
-  browser_math_atan2_global_this_root      4 missing       green
-  browser_math_pow_exponent_one           14 missing       green
+Measured, over every stem in the family carrying a `PRE-TRIM REF:` and a case
+file -- TEN of them -- each against the ref in its OWN header, `audit` and
+`check_fixtures` both run against the pre-trim blob:
+
+  trim (ref from its own header)                     pre-trim  needs this script
+  browser_array_iteration_spread          f0bfb76d79^  green     no
+  browser_math_floor_trunc_ceil_aliases   b44fd6acf9^  green     no
+  browser_math_floor_trunc_ceil_bundle    b44fd6acf9^  green     no
+  browser_math_pow_bracketed_frozen_
+      wrapper_harness                     f712bdbf4b   green     no
+  browser_math_pow_bracketed_frozen_
+      wrapper                             f712bdbf4b   green     no
+  browser_math_abs_sign_frozen_aliases    1db95b469f^  audit red      yes
+  browser_math_atan2_global_this_root     1db95b469f^  audit red      yes
+  browser_math_max_min_frozen_aliases     f712bdbf4b   audit red      yes
+  browser_math_pow_exponent_one           d7fc768c1f^  audit + fixtures red   yes
   browser_math_unsupported_member_calls_
-      harness_jsx_tsx (batch 6A)           5 missing       green
+      harness_jsx_tsx (batch 6A)          fe6a403411   audit + fixtures red   yes
 
-Those four headers currently describe their audit red as the escalation itself
-rather than as an artifact of the trim; correcting them is scoped to batch 7,
-following the precedent of batch 5's retroactive ruling-9 sweep. The retentions
-themselves stand unchanged: all four are adjudicated on the FIXTURE
-SELF-INSPECTION ground and all four are in
-`find_fixture_self_inspection.py`'s `KNOWN` list. The audit red was never their
-escalation ground.
+So: FIVE of the ten need a third left-hand side and five do not, and the
+discriminator is the condition above -- whether the RETAINED half carries
+literal claims -- not the fact of being a trim. Of the five that do, only two
+are red on pre-trim `check_fixtures` as well; the other three are red on the
+audit alone. All five go green against the complement this script builds.
+
+SCOPE FOR BATCH 7, STATED EXACTLY BECAUSE A WRONG SCOPE IN A HANDOFF SENTENCE IS
+HOW THIS WENT WRONG TWICE. The retroactive header sweep is FOUR files, not ten
+and not five: `browser_math_max_min_frozen_aliases.rs`,
+`browser_math_abs_sign_frozen_aliases.rs`,
+`browser_math_atan2_global_this_root.rs` and `browser_math_pow_exponent_one.rs`.
+Those four, and only those, carry a sentence saying their audit red is "the
+escalation itself, not a trim artifact", which is what needs correcting. The
+five green trims say no such thing and need no edit. The retentions themselves
+stand unchanged: all four are adjudicated on the FIXTURE SELF-INSPECTION ground
+and all four are in `find_fixture_self_inspection.py`'s `KNOWN` list. The audit
+red was never their escalation ground.
 
 The right left-hand side is neither blob but their DIFFERENCE: the pre-trim
 source minus the retained half, i.e. exactly the part that was migrated. This
