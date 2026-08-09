@@ -906,17 +906,20 @@ _REDLIST_HIT = set()
 #               `assert_eq!(json["exitCode"], 0)`.
 #
 # (The round-3 illustration of the CONSTRUCT case cited `let errors = ...`. That
-# binding occurs in one source; `json["errors"]` occurs in all 74 -- which is the
-# observation the rule above is built on.)
+# binding occurs in a single source, while the indexing expression is what every
+# one of those citations sits on -- which is the observation the rule above is
+# built on. `--bare-rule` prints the rule's admitted set and its cost; the
+# comparative claim is not restated here as a count, for the reason the whole of
+# fix round 5 is about.)
 #
 # THE COST OF ADMITTING MORE, and the correction of the figure round 3 gave for
 # it. That comment said admitting every bare identifier "admits `expected_stdout`,
 # `run`, `test` and `app/app.meta.json` too, and those produce 211 FALSE reds".
 # Three things are wrong with it and all three are population errors:
 #
-#   * 211 is a CITATION count -- `--admissible`'s FALSE RED row -- presented as a
-#     FAILURE count. The failure counts are different numbers entirely, and
-#     which one you get depends on which population is meant: every bare
+#   * the figure it quoted is `--admissible`'s FALSE RED row, which counts
+#     CITATIONS, presented as a count of FAILURES. Those are different numbers,
+#     and which one you get depends on which population is meant: every bare
 #     identifier in the tier, the same at this file's own >= 4-char floor, or
 #     every declared shape bare or not. `--bare-rule` prints all three, each
 #     labelled with its population, precisely so they cannot be averaged again.
@@ -936,23 +939,37 @@ _REDLIST_HIT = set()
 # single instance passing is luck, not a property, and admitting it would encode
 # the luck. `--admissible` prints both columns.
 #
-# ADMITTING THESE IS A STRENGTHENING, and here is the honest version of what it
-# buys. All 174 citations PASS today. Passing is not pinning: at the gate's own
-# +-1 standard, a drift would be caught on 143 of the 174 -- all of `stderr`,
-# most of `errors`, and 1 of the 14 `exitCode`, because `exitCode` is indexed on
-# so many neighbouring lines that a one-line shift usually still finds it. Round
-# 3 wrote "a future drift in ANY of them is now caught"; `any` is false, and
-# `any`/`none`/`every` are ruling 13's own trigger words. `--bare-rule` prints
-# the per-snippet split.
+# ADMITTING THESE IS A STRENGTHENING, AND EXACTLY HOW MUCH OF ONE IS DECLARED AND
+# CHECKED, not described (fix round 5, N-1). Every one of these citations passes
+# today. Passing is not pinning: the gate's grip on a citation is whether a +-1
+# drift would be CAUGHT, and it is caught on some of them and not others --
+# `exitCode` in particular is indexed on so many neighbouring lines that the
+# check is close to vacuous for it. The split, per stem, is `PINNED_SPLIT_DECLARED`
+# below, compared for equality on every run; `--bare-rule` prints the per-snippet
+# breakdown.
 #
-# THIS DECLARATION IS GATED, TRANSITIVELY -- it is not ungoverned prose, which is
-# what the round-3 report flagged it as, in its own disfavour. Every edit to this
-# set moves citations across the NO-NEEDLE boundary, and `NO_NEEDLE_DECLARED` is
-# checked for EQUALITY per stem: admitting a snippet takes its citations OUT of
-# the tier and the counts fall below their declaration; removing one puts them
-# back and the counts rise above it. Either way the sweep exits 1. Proved by
-# mutation on the shipped tree -- removing `stderr`, adding a label (`run`), and
-# adding a free-but-undeclared identifier (`build`) each give `SWEEP EXIT=1`.
+# This paragraph used to give that split as prose, and it was demonstrated stale
+# by a one-string edit to a neighbouring source line with `SWEEP EXIT=0`. The
+# figures are gone from here and declared there instead. Round 3's version of the
+# same sentence -- "a future drift in ANY of them is now caught" -- was simply
+# false; `any`/`none`/`every` are ruling 13's trigger words and this is the third
+# round one of them has been wrong in this comment.
+#
+# THIS DECLARATION IS GATED THREE WAYS, none of them prose:
+#
+#   1. TRANSITIVELY, through `NO_NEEDLE_DECLARED`'s per-stem equality check --
+#      admitting a snippet takes its citations OUT of the NO-NEEDLE tier and the
+#      counts fall below their declaration; removing one puts them back and the
+#      counts rise above it.
+#   2. DIRECTLY, through `PINNED_SPLIT_DECLARED` -- which fires on both of those
+#      edits as well, and additionally on the corpus change that moves the gate's
+#      grip without moving any citation, which (1) cannot see.
+#   3. AGAINST ITS OWN DERIVABLE RULE, through `_rule_divergence` -- so
+#      `--bare-rule`'s "admits exactly it" is a CHECKED fact rather than a
+#      printed one.
+#
+# Each proved by mutation on the shipped tree rather than by the sweep staying
+# green; see the fix round 5 report section.
 BARE_NEEDLE_ADMITTED = frozenset({"stderr", "errors", "exitCode"})
 
 # THE THIRD TIER, DECLARED (batch 7 fix round 1, I1).
@@ -1061,6 +1078,131 @@ NO_NEEDLE_DECLARED = {
 }
 
 _NO_NEEDLE = collections.Counter()
+
+# HOW MUCH `BARE_NEEDLE_ADMITTED` ACTUALLY BUYS, PER STEM, DECLARED AND
+# EQUALITY-CHECKED (fix round 5, N-1).
+#
+# `(admitted, pinned)`. ADMITTED is the citations in that stem whose only needle
+# is a declared bare identifier. PINNED is the subset a one-line drift would be
+# CAUGHT on -- both the +1 and the -1 shift of the cited range lose the needle,
+# which is the same standard `--mutation` uses and the only sense in which the
+# gate "checks" these citations at all.
+#
+# WHY IT IS A DECLARATION AND NOT A SENTENCE, which is the whole point of this
+# round. The comment on `BARE_NEEDLE_ADMITTED` used to carry this split as prose
+# -- "a drift would be caught on 143 of the 174, all of `stderr`, most of
+# `errors`, and 1 of the 14 `exitCode`". True when written, corpus-dependent, and
+# GATED BY NOTHING. Demonstrated rather than argued: changing one string on the
+# line above a pinned `stderr` citation in
+# `browser_math_asinh_acosh_atanh_identities.rs` (`"json: {json}"` ->
+# `"json stderr: {json}"`, no change in line count) moved the split by two with
+# `SWEEP EXIT=0`. The sentence was written in the same round, and by the same
+# hand, as the rule it broke: "if a later corpus change would make this sentence
+# false and nothing would fail, it should be a command instead of a sentence".
+#
+# A pointer to a command would NOT have been the fix. `143`/`174` sat in a
+# paragraph that already cited `citation_tiers.py --bare-rule`, so any lint
+# keyed on "is there a command nearby" whitelists exactly this defect --
+# proximity is the wrong predicate. The fix is the one category already declared
+# exempt: a figure that something re-derives and compares on every run.
+#
+# EQUALITY, BOTH DIRECTIONS, per stem, in `main()` -- the same shape as
+# `NO_NEEDLE_DECLARED`. A stem whose ADMITTED count moves has gained or lost a
+# citation of a declared snippet; a stem whose PINNED count moves has had the
+# gate's grip on one of them change without the citation itself changing, which
+# is the direction that was invisible. Per stem rather than as three totals so a
+# single-stem invocation still checks its own share, and so a rise in one stem
+# cannot mask a fall in another.
+#
+# Regenerate BY RUNNING THE REAL GATE (never by re-deriving it -- three of this
+# project's measurement bugs came from a second implementation of an existing
+# predicate):
+#     $ python3 tools/task-18-browser-pilot/citation_tiers.py --declare-pinned
+PINNED_SPLIT_DECLARED = {
+    "math_asinh_acosh_atanh_identities": (2, 2),
+    "math_expm1_log1p_frozen_aliases": (8, 8),
+    "math_expm1_log1p_global_this_root": (6, 6),
+    "math_floor_trunc_ceil_bracketed_root": (8, 8),
+    "math_hypot_empty_identity": (5, 4),
+    "math_hypot_frozen_aliases": (28, 24),
+    "math_hypot_global_this_root": (17, 12),
+    "math_log2_log10_bracketed_root": (8, 8),
+    "math_log2_log10_mixed_root": (3, 2),
+    "math_max_min_frozen_aliases": (4, 4),
+    "math_pow_bracketed_frozen_wrapper_harness": (4, 3),
+    "math_pow_harness": (6, 5),
+    "math_round": (42, 34),
+    "math_round_bracketed_root": (4, 4),
+    "math_sin_cos_tan_frozen_root": (5, 4),
+    "math_sin_cos_tan_zero_identities": (1, 0),
+    "math_sin_cos_zero_identities": (4, 3),
+    "math_sinh_cosh_tanh_global_this_root": (2, 2),
+    "math_sinh_cosh_tanh_zero_identities": (4, 3),
+    "math_sqrt_cbrt_bracketed_root": (2, 2),
+    "math_sqrt_cbrt_bundle": (2, 0),
+    "math_sqrt_cbrt_frozen_aliases": (1, 1),
+    "math_sqrt_cbrt_harness": (1, 1),
+    "math_unsupported_member_calls_harness_jsx_tsx": (1, 1),
+    "nullish_coalescing_harness": (1, 1),
+    "number_predicates_bundle": (1, 0),
+    "number_predicates_harness": (1, 0),
+    "object_computed_numeric_keys_bundle": (1, 0),
+    "object_computed_numeric_keys_harness": (1, 1),
+    "object_entries_iteration": (1, 0),
+}
+
+_PINNED = collections.defaultdict(lambda: [0, 0])
+
+
+def _rule_divergence(stem, origin, snippet, lines):
+    """The derivable rule and the hand-maintained set must not drift apart.
+
+    `BARE_NEEDLE_ADMITTED` is a declaration, but fix round 4 recorded that a
+    LEXICAL RULE derives it exactly on this corpus -- the source json-indexes a
+    name of its own by that spelling -- and `citation_tiers.py --bare-rule`
+    prints `admits exactly it: True`. That was a PRINTED fact, not a CHECKED one:
+    nothing exited 1 when it became False. Demonstrated on the shipped tree by
+    adding `json["expected_stdout"]` to one source as a trailing comment (no
+    change in line count, so no citation moved): the rule went to four snippets,
+    `admits exactly it` went False, and `SWEEP EXIT=0`.
+
+    So it is checked here, where the source text is in hand and `_needles` -- the
+    reason the rule is not implemented in the gate -- is not. This reports a
+    snippet the RULE would admit but the DECLARATION does not, which is the only
+    direction that can appear without any other check firing: a snippet the
+    declaration admits and the rule would not still moves the pinned split.
+
+    It is empty on the shipped tree, so it costs nothing today. When it does
+    fire, the two honest resolutions are to admit the snippet (measuring its cost
+    with `--admissible` first) or to record why the rule over-reaches on it --
+    never to delete the check.
+    """
+    s = snippet.strip()
+    if s in BARE_NEEDLE_ADMITTED or not BARE_IDENT.fullmatch(s) or len(s) < 4:
+        return []
+    if f'["{s}"]' not in "\n".join(lines):
+        return []
+    return [f"{stem}: {origin} citation `{s}` yields no needle, but its source "
+            f"json-indexes `{s}` -- the rule that derives BARE_NEEDLE_ADMITTED "
+            "admits it and the declaration does not, so the two have diverged. "
+            "Measure the cost (`citation_tiers.py --admissible`) and either admit "
+            "it or record why the rule over-reaches here."]
+
+
+def _record_pinned(stem, snippet, needles, lines, first, end):
+    """Count a citation carried by a declared bare needle, and whether it is
+    pinned. Called from both `_cite_arm` loops, so the declaration is produced by
+    the gate itself rather than by a second implementation of it."""
+    s = snippet.strip()
+    if needles != [s] or s not in BARE_NEEDLE_ADMITTED:
+        return
+    _PINNED[stem][0] += 1
+    for delta in (1, -1):
+        a, b = first + delta, end + delta
+        if a >= 1 and b <= len(lines) and _needle_found(
+                s, "\n".join(_statement(lines, a, b))):
+            return          # a shifted range still satisfies it: not pinned
+    _PINNED[stem][1] += 1
 
 
 def _gated_arm(stem, origin, body):
@@ -1252,7 +1394,9 @@ def _cite_arm(stem, origin, body, lines, submodules=None):
         needles = _needles(snippet, _source_items("\n".join(sub_lines)))
         if not needles:
             _NO_NEEDLE[stem] += 1
+            out += _rule_divergence(stem, origin, snippet, sub_lines)
             continue
+        _record_pinned(stem, snippet, needles, sub_lines, first, end)
         window = "\n".join(_statement(sub_lines, first, end))
         for tok in needles:
             if not _needle_found(tok, window):
@@ -1286,7 +1430,9 @@ def _cite_arm(stem, origin, body, lines, submodules=None):
         needles = _needles(snippet, _source_items("\n".join(lines)))
         if not needles:
             _NO_NEEDLE[stem] += 1
+            out += _rule_divergence(stem, origin, snippet, lines)
             continue
+        _record_pinned(stem, snippet, needles, lines, first, end)
         window = "\n".join(_statement(lines, first, end))
         for tok in needles:
             if not _needle_found(tok, window):
@@ -1366,6 +1512,7 @@ def selftest():
     failures += _submodule_selftest()
     failures += _gated_selftest()
     failures += _check_surface_selftest()
+    failures += _declared_needle_gate_selftest()
     failures += _declares_mods_selftest()
     failures += _residual_tier_selftest()
 
@@ -1661,6 +1808,72 @@ def _residual_tier_selftest():
     return out
 
 
+def _declared_needle_gate_selftest():
+    """Kill power for the two checks fix round 5 added (N-1, and concern 2).
+
+    Both exist because a figure that only gets PRINTED is not gated, so both are
+    probed against a synthetic source held here rather than against the corpus --
+    the corpus is what they are supposed to notice changing.
+
+      1. `_record_pinned` must distinguish PINNED from not. A probe that only
+         counted admitted citations would stay green under exactly the mutation
+         N-1 was found by: a neighbouring line edited so a shifted range still
+         satisfies the needle, which weakens the check without changing any
+         citation.
+      2. `_rule_divergence` must fire on a snippet the derivable rule admits and
+         the declaration does not, and must NOT fire on a declared one, on one
+         the source does not json-index, or on one below the four-char floor.
+    """
+    out = []
+    lines = ["let alpha = 1;",          # 1
+             "let bravo = 2;",          # 2   pinned: neither neighbour has it
+             "let charlie = 3;",        # 3
+             "let bravo = 4;",          # 4   NOT pinned: line 5 has it too
+             "let bravo = 5;",          # 5
+             'let gamma = json["gamma"];']   # 6
+
+    global BARE_NEEDLE_ADMITTED
+    saved = BARE_NEEDLE_ADMITTED
+    try:
+        BARE_NEEDLE_ADMITTED = saved | {"bravo"}
+        for label, line, want_pinned in (("no neighbour carries it", 2, 1),
+                                         ("the next line carries it too", 4, 0)):
+            _PINNED.pop("selftest_pin", None)
+            _record_pinned("selftest_pin", "bravo", ["bravo"], lines, line, line)
+            got = tuple(_PINNED.get("selftest_pin", (0, 0)))
+            print(f"  pinned split -- `bravo` at :{line} ({label}): "
+                  f"admitted={got[0]} pinned={got[1]}")
+            if got != (1, want_pinned):
+                out.append(f"pinned split: `bravo` at :{line} gave {got}, expected "
+                           f"(1, {want_pinned}) -- the +-1 shift is not being "
+                           "applied, so the declared split would not notice a "
+                           "neighbouring line weakening the check")
+        # A snippet that is NOT declared must not be counted at all, or the
+        # declaration would track the whole tier instead of the admitted part.
+        _PINNED.pop("selftest_pin", None)
+        _record_pinned("selftest_pin", "charlie", ["charlie"], lines, 3, 3)
+        if tuple(_PINNED.get("selftest_pin", (0, 0))) != (0, 0):
+            out.append("pinned split: an UNDECLARED bare needle was counted")
+    finally:
+        BARE_NEEDLE_ADMITTED = saved
+        _PINNED.pop("selftest_pin", None)
+
+    for label, snippet, want in (
+            ("the rule admits it, the declaration does not", "gamma", True),
+            ("the source does not json-index it", "charlie", False),
+            ("already declared", sorted(BARE_NEEDLE_ADMITTED)[0], False),
+            ("below the four-char floor", "abc", False)):
+        got = bool(_rule_divergence("selftest", "case file", snippet, lines))
+        print(f"  rule divergence -- `{snippet}` ({label}): "
+              f"{'reported' if got else 'clean'}")
+        if got != want:
+            out.append(f"rule divergence: `{snippet}` was "
+                       f"{'reported' if got else 'NOT reported'}, expected the "
+                       "opposite -- the derivable rule and BARE_NEEDLE_ADMITTED "
+                       "can drift apart unnoticed again")
+    return out
+
+
 def _declares_mods_selftest():
     """Item 3.3: a PLAIN-`mod` carrier is recognised as declaring submodules.
 
@@ -1935,6 +2148,25 @@ def main(argv):
                if got > want else
                "The tier shrank -- lower the declaration so it keeps tracking the "
                "corpus rather than sitting above it."))
+    # THE PINNED SPLIT, CHECKED AGAINST ITS DECLARATION (N-1). Equality, both
+    # directions, same as the tier above -- see `PINNED_SPLIT_DECLARED`.
+    for stem in sorted(visited):
+        got = tuple(_PINNED.get(stem, (0, 0)))
+        want = tuple(PINNED_SPLIT_DECLARED.get(stem, (0, 0)))
+        if got == want:
+            continue
+        all_problems.append(
+            f"{stem}: declared bare needles carry {got[0]} citation(s) of which "
+            f"{got[1]} are PINNED (a +-1 drift is caught); PINNED_SPLIT_DECLARED "
+            f"says {want[0]}/{want[1]}. "
+            + ("The gate's grip on these citations changed without the citations "
+               "changing -- usually an edit to a neighbouring source line that "
+               "made the needle reachable from a shifted range, which silently "
+               "weakens the check. "
+               if got[0] == want[0] else
+               "The number of citations resting on a declared bare needle moved. ")
+            + "Re-derive with `citation_tiers.py --declare-pinned` and say in the "
+              "report which direction it moved and why.")
     for key in sorted(UNGATED_REDLIST):
         if key[0] in visited and key not in _REDLIST_HIT:
             all_problems.append(
