@@ -2179,8 +2179,9 @@ def main(argv):
             print(f"  {p}")
         return 1
     print("\nCROSSCHECK OK — header structure consistent, every code citation the "
-          "gate can resolve resolves, and every one it cannot is declared "
-          "(UNGATED_REDLIST / NO_NEEDLE_DECLARED)")
+          "gate can resolve resolves, every one it cannot is declared "
+          "(UNGATED_REDLIST / NO_NEEDLE_DECLARED), and how much the declared bare "
+          "needles actually pin matches PINNED_SPLIT_DECLARED")
     return 0
 
 
