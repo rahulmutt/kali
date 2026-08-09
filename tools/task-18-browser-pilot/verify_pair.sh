@@ -10,15 +10,52 @@
 #   2. audit-case-migration.py  (rule 3: absolute gate)
 #   3. comment_coverage.py      (rule 12)
 #   4. fidelity.py              (U14: BOTH directions printed)
+#   5. batch5_crosscheck.py     (ruling 11: every `:N` citation resolves)
 #
-# Usage: verify_pair.sh <stem> [--allow-empty]
+# GATE 5 WAS WIRED IN BY BATCH 6, and the reason is not tidiness. Ruling 11
+# exempts `:N` code citations from "no figure an edit can move" ONLY because
+# they are mechanically gated -- "a pointer nothing re-resolves is a figure in
+# disguise". Until now the citation gate ran when someone remembered to run it,
+# which made that exemption unearned; it had already caught seven stale
+# citations that hand-verification missed, and wiring it immediately surfaced
+# three more (two adjudicated retentions whose header citations were shifted by
+# a retroactive batch-5 edit, and one that had been silently wrong for longer).
+#
+# --pretrim <ref> IS MANDATORY FOR A U4 TRIM-AND-KEEP RETENTION PAIR. Every `:N`
+# in such a case file is a PRE-TRIM line number, so resolving it against the
+# post-trim working tree reports failures that are artefacts of the trim -- the
+# exact confusion ruling 9 exists to prevent. Each retained `.rs` names its own
+# ref in its CONSEQUENCE FOR THE GATES block; use that one. Measured across the
+# nine retention pairs in this family: all nine exit 0 against their own ref,
+# and five of the nine are red without it.
+#
+# Usage: verify_pair.sh <stem> [--pretrim <ref>] [--structure] [--allow-empty]
 #   stem: e.g. math_asinh_acosh_atanh_identities
 #         -> browser_<stem>.rs  vs  cases/browser/<stem>.toml
+#   --pretrim <ref>: resolve the case file's citations against
+#         `<ref>:crates/kali_cli/tests/browser_<stem>.rs` instead of the working
+#         tree. The retention header's OWN citations are always resolved against
+#         the working tree regardless -- it describes the shipped file.
+#   --structure: also run the batch-5 header-section-order arm. Off by default,
+#         because pilot/batch-2/3/4 headers predate those section names and
+#         would fail an arm that is about batch-5-and-later house style, not
+#         about correctness.
+#   remaining flags are passed to comment_coverage.py (e.g. --allow-empty).
 set -uo pipefail
 
-STEM="${1:?usage: verify_pair.sh <stem> [--allow-empty]}"
+STEM="${1:?usage: verify_pair.sh <stem> [--pretrim <ref>] [--structure] [--allow-empty]}"
 shift || true
-CC_FLAGS=("$@")
+
+PRETRIM=""
+XCHECK_FLAGS=(--citations-only)
+CC_FLAGS=()
+while (( $# )); do
+  case "$1" in
+    --pretrim)   PRETRIM="${2:?--pretrim needs a git ref}"; shift 2 ;;
+    --structure) XCHECK_FLAGS=(); shift ;;
+    *)           CC_FLAGS+=("$1"); shift ;;
+  esac
+done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TESTS="$REPO/crates/kali_cli/tests"
@@ -67,6 +104,25 @@ fidelity_rc=$?
 echo "$fidelity_out" | grep -E "^(source claims|MISSING \(|EXTRA \()" || true
 echo "fidelity exit=$fidelity_rc (report only; enforcement is check_extra_claims)"
 (( fidelity_rc )) && fail=1
+
+note "CITATIONS (ruling 11 -- :N is exempt ONLY because it is mechanically gated)"
+xcheck_spec="$STEM"
+if [[ -n "$PRETRIM" ]]; then
+  pretrim_rs="$(mktemp -t "verify_pair_${STEM}_pretrim_XXXXXX.rs")"
+  if git -C "$REPO" show "$PRETRIM:crates/kali_cli/tests/browser_$STEM.rs" > "$pretrim_rs" 2>/dev/null; then
+    xcheck_spec="$STEM=$pretrim_rs"
+    echo "resolving case-file citations against pre-trim ref $PRETRIM"
+  else
+    # Do NOT fall back to the working tree: that would silently run the very
+    # comparison the --pretrim flag exists to avoid, and report its artefacts as
+    # real drift. Fail loudly instead.
+    echo "cannot read browser_$STEM.rs at ref $PRETRIM"; rm -f "$pretrim_rs"; exit 2
+  fi
+fi
+python3 "$REPO/tools/task-18-browser-pilot/batch5_crosscheck.py" \
+  "${XCHECK_FLAGS[@]+"${XCHECK_FLAGS[@]}"}" "$xcheck_spec"
+rc=$?; echo "batch5_crosscheck exit=$rc"; (( rc )) && fail=1
+[[ -n "${pretrim_rs:-}" ]] && rm -f "$pretrim_rs"
 
 printf '\n==== %s: %s ====\n' "$STEM" "$( ((fail)) && echo 'ATTENTION -- a gate exited non-zero' || echo 'gates exit 0' )"
 exit $fail

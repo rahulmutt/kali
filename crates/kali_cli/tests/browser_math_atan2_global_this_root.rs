@@ -18,11 +18,11 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`
-//! (`:127-127`) has no helper: its whole body is three
-//! `assert!(source.contains(<needle>))` self-checks (`:73-85`) --
+//! (`:138-138`) has no helper: its whole body is three
+//! `assert!(source.contains(<needle>))` self-checks (`:140-149`) --
 //! one of them itself an OR across two quoting spellings -- run against
 //! `browser_bundle_global_this_math_atan2_frozen_source()`'s OWN TEXT
-//! (`:108-128`), before any command is built and without ever
+//! (`:119-133`), before any command is built and without ever
 //! invoking `kali`. The four blocking literals are
 //! `Object.freeze(globalThis.Math.atan2)`,
 //! `Object.freeze(globalThis['Math']['atan2'])`, its double-quoted sibling
@@ -78,6 +78,16 @@
 //!        post-trim excess is the `assert_browser_*` helpers and source fn names
 //!        that left with the migrated cases.
 //!   check_fixtures.py            GREEN / GREEN.
+//!   batch5_crosscheck.py         GREEN / GREEN -- the citation gate, wired into
+//!        `verify_pair.sh` by batch 6; this row is part of that same wiring
+//!        change, as ruling 9 requires. The post-trim green is INCIDENTAL and
+//!        must not be read as a property of retention pairs: it means only that
+//!        this file's case-file citations happen to still resolve against the
+//!        trimmed remainder. Run it with the pre-trim ref regardless -- that is
+//!        the run this migration is gated on, and on the sibling batch-4 pairs
+//!        the same gate is red post-trim. NO COUNT IS GIVEN: this gate also
+//!        resolves THIS header's own `:N` citations, so every edit to this
+//!        paragraph is an input to the figure it would report (ruling 11).
 //!   check_extra_claims.py        RED / RED, both sides. Most pre-trim entries are U5-renamed `[source]` keys and
 //!        live-captured exact pins, which is what the `# EXTRA-OK:` mechanism
 //!        exists to declare -- but that mechanism, and this gate, shipped in
@@ -94,9 +104,10 @@
 //!        is the classification. Run the gate for today's number.
 //!
 //! SO: this pair does NOT go all-green against the pre-trim ref. Only the
-//! fixture check is green on both sides; four of the five are red pre-trim too,
-//! for three unrelated reasons -- the escalation, a retention header no case can
-//! carry, and two gates that postdate the file. Recording that is the point; a
+//! fixture check and the citation check are green on both sides; the remaining
+//! four of the six are red pre-trim too, for three unrelated reasons -- the
+//! escalation, a retention header no case can carry, and two gates that
+//! postdate the file. Recording that is the point; a
 //! red-list that claimed otherwise would be worse than none.
 //!
 //! Adding a new gate to `verify_pair.sh` includes updating this paragraph, in

@@ -4,7 +4,7 @@
 //! ALL 28 `#[test]` fns in this file reach
 //! `assert_browser_harness_generator_rejection_with_expected_messages`
 //! (`:162-226`) -- 16 of them indirectly, through the four-branch dispatcher
-//! `assert_browser_harness_generator_rejection` (`:134-160`), and 12 directly
+//! `assert_browser_harness_generator_rejection` (`:162-188`), and 12 directly
 //! -- so U4's
 //! trim-and-keep degenerates to whole-file retention: there is no complementary
 //! migratable subset to split off. (Batch 3's two OTHER escalations,
@@ -20,10 +20,10 @@
 //! arrays, must satisfy BOTH before reopening this target:
 //!
 //! (1) FIXTURE SELF-INSPECTION (audit blind spot; reaches 16 of the 28 fns).
-//!     `assert_browser_harness_generator_rejection` (`:134-160`) selects its
-//!     `expected_messages` by reading the JS fixture's OWN TEXT at `:142`,
-//!     `:144` and `:146` (the blocking construct is the `if`/`else if` chain
-//!     `:142-150`), before any command is built:
+//!     `assert_browser_harness_generator_rejection` (`:162-188`) selects its
+//!     `expected_messages` by reading the JS fixture's OWN TEXT at `:170`,
+//!     `:172` and `:174` (the blocking construct is the `if`/`else if` chain
+//!     `:170-178`), before any command is built:
 //!
 //!     ```text
 //!     if source.contains("(0, async function*") && matches!(command, "check" | "build") { ... }
@@ -45,7 +45,7 @@
 //!
 //! (2) UNIVERSALLY-QUANTIFIED JSON-ARRAY CLAIMS (format gap, spec 5.11; reaches
 //!     all 28 fns). In `--output json` mode the shared helper asserts, at
-//!     `:201`, `:202-205` and `:210-215`,
+//!     `:229`, `:230-233` and `:238-243`,
 //!
 //!     ```text
 //!     assert!(!errors.is_empty(), "errors array should not be empty");
@@ -100,8 +100,22 @@
 //! no pre-trim ref to run anything against. There is also no right-hand side:
 //! `verify_pair.sh generator_default_export_rejection` exits 2 with
 //! `missing .../cases/browser/generator_default_export_rejection.toml` before
-//! running any gate, and every one of the five gates takes a `.rs`/`.toml` pair.
-//! Verified by running it, not assumed. The batch-8 family gate's carve-out for
+//! gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
+//! run here at all. The SIXTH is the exception, and it changes this paragraph:
+//! `batch5_crosscheck.py`, the citation gate that batch 6 wired into
+//! `verify_pair.sh`, needs no case file -- it resolves THIS header's own `:N`
+//! citations against this very file. So a whole-file retention is no longer
+//! ungated: run it directly, as
+//! `batch5_crosscheck.py --citations-only generator_default_export_rejection`, because `verify_pair.sh`
+//! still exits 2 before reaching it. It exits 1 today, and that is a KNOWN, ACCEPTED state deferred to
+//! batch 8: this file's header cites in a bare `:N` prose form with no
+//! adjacent backticked construct, so the gate cannot resolve those
+//! citations and reports them as unresolvable rather than pretending to
+//! check them. The fix is to reword the header so each citation names its
+//! construct in backticks -- making the artifact gateable rather than the
+//! gate blind -- and that rewording is batch 8's, not batch 6's. Ruling 11 exempts `:N` from the
+//! no-moving-numbers rule only because it is mechanically gated, and this is
+//! where that gating applies to a file with no pair. Verified by running it, not assumed. The batch-8 family gate's carve-out for
 //! this file is the "must NOT be deleted" line above, not a gate red-list.
 use std::{fs, process::Command};
 

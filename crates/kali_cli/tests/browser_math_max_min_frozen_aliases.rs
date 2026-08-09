@@ -15,10 +15,10 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_global_this_math_max_min_frozen_source_includes_direct_frozen_math_aliases`
-//! (`:176`) has no helper: its whole body is five `assert!(...)` self-checks
-//! (`:178-196`) run
+//! (`:186`) has no helper: its whole body is five `assert!(...)` self-checks
+//! (`:188-206`) run
 //! against `browser_bundle_global_this_math_max_min_frozen_source()`'s OWN TEXT
-//! (`:118`), before any command is built and without ever invoking `kali`.
+//! (`:128`), before any command is built and without ever invoking `kali`.
 //! Between them they name 8 distinct frozen-alias spellings.
 //!
 //! `scripts/audit-case-migration.py` extracts each of those 8 arguments as a
@@ -74,6 +74,16 @@
 //!        migrated cases; the checker resolves names only against the `.rs` it
 //!        is handed.
 //!   check_fixtures.py            green / green.
+//!   batch5_crosscheck.py         RED / green -- the citation gate, wired into
+//!        `verify_pair.sh` by batch 6; this row is part of that same wiring
+//!        change, which is what ruling 9 requires and what batch 4 failed to do
+//!        when it added `check_extra_claims.py`. Every `:N` in the case file is
+//!        a PRE-TRIM line number -- this header says so above -- so resolving
+//!        them against the trimmed remainder lands them in unrelated code. That
+//!        is precisely the artifact the tool's `STEM=PRETRIM.rs` argument
+//!        exists for. NO COUNT IS GIVEN: this gate also resolves THIS header's
+//!        own `:N` citations, so every edit to this paragraph is an input to
+//!        the figure it would report (ruling 11).
 //!   check_extra_claims.py        RED / green. Post-trim the migrated cases'
 //!        claim strings are absent from the trimmed remainder, so they all
 //!        report as unexplained extras; pre-trim every one of them resolves.
@@ -90,7 +100,7 @@
 //!        edit to it. Run the gate for today's figure; the durable fact is the
 //!        classification.
 //!
-//! Against the PRE-TRIM ref, four of the five gates exit 0. The fifth,
+//! Against the PRE-TRIM ref, five of the six gates exit 0. The exception,
 //! `audit-case-migration.py`, stays red for the reason given above, and that
 //! red IS the escalation -- not a defect in the migration. That is the run that
 //! gates this

@@ -1,8 +1,8 @@
 //! Task 18 batch 2 audit escalation: kept 100% hand-written, not migrated.
 //!
 //! All 8 `#[test]` fns in this file route through
-//! `assert_browser_harness_array_from_set_map` (`:242`), which runs 21
-//! `assert!(source.contains(...))` self-checks (`:250-270`) on the JS
+//! `assert_browser_harness_array_from_set_map` (`:264`), which runs 21
+//! `assert!(source.contains(...))` self-checks (`:272-292`) on the JS
 //! fixture's OWN TEXT -- a dev-time invariant check that the fixture still
 //! literally embeds every `Array.from`/bracket-notation/logical-operator
 //! variant this file means to exercise -- before the fixture is ever
@@ -36,7 +36,16 @@
 //! divergence and no pre-trim ref to run anything against. There is also no
 //! right-hand side -- `verify_pair.sh array_from_set_map_harness` exits 2 with
 //! `missing .../cases/browser/array_from_set_map_harness.toml` before running any
-//! gate, and every one of the five gates takes a `.rs`/`.toml` pair. Verified by
+//! gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
+//! run here at all. The SIXTH is the exception, and it changes this paragraph:
+//! `batch5_crosscheck.py`, the citation gate that batch 6 wired into
+//! `verify_pair.sh`, needs no case file -- it resolves THIS header's own `:N`
+//! citations against this very file. So a whole-file retention is no longer
+//! ungated: run it directly, as
+//! `batch5_crosscheck.py --citations-only array_from_set_map_harness`, because `verify_pair.sh`
+//! still exits 2 before reaching it. It exits 0 today. Ruling 11 exempts `:N` from the
+//! no-moving-numbers rule only because it is mechanically gated, and this is
+//! where that gating applies to a file with no pair. Verified by
 //! running it, not assumed. The batch-8 family gate's carve-out for this file is
 //! the retention statement above, not a gate red-list.
 use std::{fs, process::Command};

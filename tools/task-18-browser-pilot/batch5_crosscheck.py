@@ -125,8 +125,28 @@ def _statement(lines, first, last):
     start, end = first, min(last, len(lines))
     # Hard clamp regardless. Even with a correct masker, a parser bug must not be
     # able to produce an unbounded window again: a gate that silently widens to
-    # the whole file passes everything. MAX_EXPAND is far larger than any real
-    # statement in this corpus and far smaller than a file.
+    # the whole file passes everything.
+    #
+    # CORRECTED, batch 6 (recorded instrument defect 3). This comment used to
+    # read "MAX_EXPAND is far larger than any real statement in this corpus",
+    # which is FALSE: `browser_reflect_own_keys.rs:14` is a single `format!`
+    # statement spanning 184 lines, and two `browser_object_has_own_harness.rs`
+    # statements span 49 and 51. What actually makes the clamp sound is the
+    # DIRECTION of its error, not its size:
+    #
+    #   * 40 is per-DIRECTION, so the widest window a one-line citation can get
+    #     is 40 back + the cited span + 40 forward -- 81 lines for a single `:N`.
+    #   * Truncating the window is strictness-INCREASING. A shorter window can
+    #     only make the cited token harder to find, so the clamp can turn a pass
+    #     into a failure but can NEVER turn a failure into a pass. It cannot
+    #     produce a false green, which is the only direction a gate must not err
+    #     in (ledger `progress.md:2455-2461`: "a vacuous green is a false
+    #     negative, the dangerous direction").
+    #
+    # So a citation into the interior of one of those 184-line statements, more
+    # than 40 lines from its cited anchor, is reported rather than silently
+    # passed -- and the fix for such a report is to cite a line nearer the
+    # construct, not to raise the clamp.
     MAX_EXPAND = 40
     while start > 1 and depth_before[start - 1] > 0 and first - start < MAX_EXPAND:
         start -= 1
@@ -143,6 +163,22 @@ def _header(text):
         elif line.strip():
             break
     return out
+
+
+# The case format's own key names (design spec 5.4's twelve assertion keys plus
+# the structural keys). A backticked snippet led by one of these is describing
+# the MIGRATED form, not a construct in the `.rs`; see `_needles`.
+CASE_KEYS = {
+    "exit", "stdout", "stdout_contains", "stdout_absent", "stdout_count",
+    "stderr", "stderr_contains", "stderr_absent", "json", "json_null",
+    "json_count", "env",
+    "name", "rationale", "ignore", "kind", "args", "path", "fields",
+    "entry", "body", "matrix", "source", "constants", "case",
+}
+
+# String literals inside a backticked TOML snippet, as they appear as RAW TEXT
+# in a `#` comment or a rationale (no TOML escape processing has run on them).
+_SNIPPET_LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"')
 
 
 def _distinctive(snippet):
@@ -162,6 +198,55 @@ def _distinctive(snippet):
         return None
     tok = m.group(0)
     return tok if len(tok) >= 4 else None
+
+
+def _needles(snippet):
+    """Every token that must appear inside the cited statement. May be empty.
+
+    Added in batch 6, when wiring this gate into `verify_pair.sh` turned its
+    false positives from noise into a hard failure on SIX already-shipped,
+    CORRECT pairs. Two shapes were being mishandled, both by feeding
+    `_distinctive` a snippet that is not a `.rs` construct at all:
+
+      1. A TOML KEY ASSIGNMENT -- ``stdout_contains = ["1\\n", "0\\n"]` (:116-117)`.
+         The snippet is the MIGRATED form and the `:N` points at the SOURCE
+         lines it was migrated from, so the key name provably never appears in
+         the `.rs` and the citation was reported broken on every such header.
+         The right check is not to skip it: the string literals the key carries
+         ARE the source literals the citation points at, so they are required to
+         appear in the cited statement. That is strictly stronger than skipping,
+         and it is what the citation is actually claiming.
+      2. An ELIDED FAMILY NAME -- ``test_supports_...` fns (:311, :323, ...)`.
+         An ellipsis means the author is naming a group of fns, not a construct
+         at a line; the citation belongs to a nearby backtick (`main.js` here)
+         and binding it to the elision is a mis-bind, not a drift. Elisions are
+         skipped, exactly as ordinary prose backticks already are.
+
+    Neither change can mask a real drift: (1) replaces an unsatisfiable token
+    with the snippet's own literals, and (2) only drops snippets that name no
+    single position.
+
+    VERIFIED BY MUTATION, and the exact claim matters. Shifting the WHOLE cited
+    range by +1 and by -1 on each of the six repaired citations is caught in all
+    twelve cases. What is NOT caught is WIDENING a multi-line range at one end
+    (`:116-117` -> `:115-117`), and that is correct rather than a gap: this arm
+    resolves at enclosing-statement granularity by design (ruling 11), so a
+    range that still contains the construct is a valid pointer, not drift. The
+    gate checks that a citation POINTS AT the construct; it does not, and is not
+    meant to, check that the range is minimal.
+    """
+    s = snippet.strip()
+    if "..." in s:
+        return []
+    lead = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)", s)
+    if lead and lead.group(1) in CASE_KEYS:
+        lits = [l for l in _SNIPPET_LITERAL.findall(s[lead.end():]) if l]
+        # Only when the assignment actually carries literals. A key whose value
+        # is a bare number or bool (`exit = 2`) names nothing greppable, and
+        # inventing a needle for it would reintroduce the false positive.
+        return lits
+    tok = _distinctive(s)
+    return [tok] if tok else []
 
 
 def check(spec, citations_only=False):
@@ -294,18 +379,20 @@ def _cite_arm(stem, origin, body, lines):
     out = []
     for m in CITE.finditer(body):
         snippet, first, last = m.group(1), int(m.group(2)), m.group(3)
-        tok = _distinctive(snippet)
-        if tok is None:
+        needles = _needles(snippet)
+        if not needles:
             continue
         end = int(last) if last else first
         if end > len(lines):
             out.append(f"{stem}: {origin} citation :{first} for `{snippet[:40]}` is "
                        f"past end of the source ({len(lines)} lines)")
             continue
-        if tok not in "\n".join(_statement(lines, first, end)):
-            out.append(f"{stem}: {origin} citation :{first}"
-                       f"{'-' + str(end) if end != first else ''} does not contain "
-                       f"{tok!r} (from `{snippet[:50]}`)")
+        window = "\n".join(_statement(lines, first, end))
+        for tok in needles:
+            if tok not in window:
+                out.append(f"{stem}: {origin} citation :{first}"
+                           f"{'-' + str(end) if end != first else ''} does not contain "
+                           f"{tok!r} (from `{snippet[:50]}`)")
     return out
 
 

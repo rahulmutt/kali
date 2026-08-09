@@ -3,17 +3,17 @@
 //!
 //! WHAT BLOCKS IT. Both of this file's `#[test]` fns --
 //! `build_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_with_js_ts_jsx_and_tsx_input`
-//! (`:147`) and
+//! (`:155`) and
 //! `check_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_with_js_ts_jsx_and_tsx_input`
-//! (`:166`) -- route through `assert_browser_math_pow_optional_chain_rejection`
-//! (`:85`), and each calls it twice per extension inside its own
+//! (`:174`) -- route through `assert_browser_math_pow_optional_chain_rejection`
+//! (`:93`), and each calls it twice per extension inside its own
 //! `for extension in [...]` loop, once with the JSON-output flag false and once
 //! true. The true call is unconditional, so 2 of 2 tests reach the blocking
 //! construct and U4's trim-and-keep degenerates to whole-file retention: there
 //! is no complementary migratable subset to split off.
 //!
 //! The blocking construct is a pair of QUANTIFIERS over the JSON `errors` array,
-//! at `errors.iter().all(...)` (`:127`) and `errors.iter().any(...)` (`:131`).
+//! at `errors.iter().all(...)` (`:135`) and `errors.iter().any(...)` (`:139`).
 //! The case-file format offers
 //! only closed dotted-path indexing into JSON -- design spec 5.4 is explicit that
 //! there are "no slices, no wildcards, no negative-from-end indexing, no
@@ -41,8 +41,16 @@
 //! from. Nothing was trimmed here, so there is no pre-trim/post-trim divergence
 //! and no pre-trim ref to run anything against; and there is no right-hand side,
 //! since `verify_pair.sh math_pow_optional_chain_harness` exits 2 with a missing
-//! case file before running any gate and all five gates take a `.rs`/`.toml`
-//! pair. Verified by running it, not assumed.
+//! gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
+//! run here at all. The SIXTH is the exception, and it changes this paragraph:
+//! `batch5_crosscheck.py`, the citation gate that batch 6 wired into
+//! `verify_pair.sh`, needs no case file -- it resolves THIS header's own `:N`
+//! citations against this very file. So a whole-file retention is no longer
+//! ungated: run it directly, as
+//! `batch5_crosscheck.py --citations-only math_pow_optional_chain_harness`, because `verify_pair.sh`
+//! still exits 2 before reaching it. It exits 0 today. Ruling 11 exempts `:N` from the
+//! no-moving-numbers rule only because it is mechanically gated, and this is
+//! where that gating applies to a file with no pair. Verified by running it, not assumed.
 //!
 //! Escalated per rule 3/4 rather than shipped with a false green or a fabricated
 //! claim. This file must NOT be deleted by the family-wide sweep after batch 8.

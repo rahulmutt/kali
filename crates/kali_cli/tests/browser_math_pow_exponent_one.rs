@@ -93,6 +93,16 @@
 //!        pre-trim. Both are helper names that left with the migrated cases or
 //!        live in `kali_common`; the checker resolves names only against the
 //!        `.rs` it is handed.
+//!   batch5_crosscheck.py         GREEN / GREEN -- the citation gate, wired into
+//!        `verify_pair.sh` by batch 6; this row is part of that same wiring
+//!        change, as ruling 9 requires. The post-trim green is INCIDENTAL and
+//!        must not be read as a property of retention pairs: it means only that
+//!        this file's case-file citations happen to still resolve against the
+//!        trimmed remainder. Run it with the pre-trim ref regardless -- that is
+//!        the run this migration is gated on, and on the sibling batch-4 pairs
+//!        the same gate is red post-trim. NO COUNT IS GIVEN: this gate also
+//!        resolves THIS header's own `:N` citations, so every edit to this
+//!        paragraph is an input to the figure it would report (ruling 11).
 //!   check_fixtures.py            RED / RED -- 3 fixtures unmatched, the same 3
 //!        both ways. They are `format!` templates whose placeholders are
 //!        unresolved in the source text, so a verbatim search cannot match them.
@@ -112,8 +122,9 @@
 //!        is the classification. Run the gate for today's number.
 //!
 //! SO: this pair does NOT go all-green against the pre-trim ref. Three of the
-//! five gates are red on both sides, for three unrelated reasons -- an
-//! escalation, a `format!` limitation, and two gates that postdate the file.
+//! five of the six gates are red on both sides, for three unrelated reasons --
+//! an escalation, a `format!` limitation, and two gates that postdate the file.
+//! The sixth, the citation gate, is green on both sides.
 //! Recording that is the point; a red-list that claimed otherwise would be worse
 //! than none.
 //!

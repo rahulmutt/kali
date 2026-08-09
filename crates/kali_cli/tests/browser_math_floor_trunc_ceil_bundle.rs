@@ -13,11 +13,11 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory`
-//! (`:138-138`) has no helper: its whole body is a single
-//! `assert!(source.contains(expected))` self-check (`:142-145`) run in a `for`
+//! (`:148-148`) has no helper: its whole body is a single
+//! `assert!(source.contains(expected))` self-check (`:152-155`) run in a `for`
 //! loop over `kali_common::math_floor_trunc_ceil_frozen_callable_aliases()`,
 //! against `browser_bundle_math_floor_trunc_ceil_alias_source()`'s OWN TEXT
-//! (`:114-139`), before any command is built and without ever invoking `kali`.
+//! (`:124-138`), before any command is built and without ever invoking `kali`.
 //!
 //! It is doubly unmigratable, and the second reason is the sharper one:
 //!   1. `scripts/audit-case-migration.py` extracts every `.contains(<literal>)`
@@ -88,8 +88,18 @@
 //!        nothing for the audit to report missing. Do not read this green as
 //!        the migration being audited; that is the pre-trim run below.
 //!   GREEN check_fixtures.py           exit 0.
+//!   RED  batch5_crosscheck.py         exit 1 -- the citation gate, wired into
+//!        `verify_pair.sh` by batch 6. This row is part of that same wiring
+//!        change, which is what ruling 9 requires and what batch 4 failed to do
+//!        when it added `check_extra_claims.py`. Every `:N` in the case file is
+//!        a PRE-TRIM line number -- this header says so above -- so resolving
+//!        them against the trimmed remainder lands them in unrelated code. That
+//!        is precisely the artifact the tool's `STEM=PRETRIM.rs` argument
+//!        exists for. NO COUNT IS GIVEN: this gate also resolves THIS header's
+//!        own `:N` citations, so every edit to this paragraph is an input to
+//!        the figure it would report (ruling 11).
 //!
-//! Against the PRE-TRIM ref, ALL FIVE exit 0. That is the run that gates this
+//! Against the PRE-TRIM ref, ALL SIX exit 0. That is the run that gates this
 //! migration; it is the one to reproduce.
 //!
 //! Adding a new gate to `verify_pair.sh` includes updating this paragraph, in

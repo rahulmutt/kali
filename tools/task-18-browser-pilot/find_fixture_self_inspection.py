@@ -49,10 +49,20 @@ spawns a process nor reads the environment -- that exclusion is what keeps
 is an assertion about OUTPUT and precisely not this shape.
 
 KNOWN-UNHANDLED RECEIVER SHAPES. This is a heuristic over masked text, not a
-Rust front end, and the following shapes are NOT resolved. None occurs in
-`browser_*.rs` today -- each was probed synthetically and then searched for in
-the corpus -- so there is no live loss, but a future file using one is invisible
-here and the list is what a later reader needs in order to judge that:
+Rust front end, and the following shapes are NOT resolved. Each was probed
+synthetically and then searched for in the corpus; all but one are absent from
+`browser_*.rs` today, so there is no live loss, but a future file using one is
+invisible here and the list is what a later reader needs in order to judge that.
+
+CORRECTED, batch 6 (recorded instrument defect 2). This used to read "None
+occurs in `browser_*.rs` today", and that is FALSE for the intervening-attribute
+bullet: `browser_cdp_smoke.rs` has `#[test]` at `:103`, `#[ignore = "..."]` at
+`:104` and the `fn` at `:105`, which is exactly the shape. It is still not a
+live loss -- that file's only `.contains` is `relative.contains("..")` at `:82`,
+whose receiver is a path component and not fixture text -- but the sentence was
+wrong, and a blanket "none occurs" is precisely the kind of claim a later reader
+would rely on instead of re-measuring. The corpus is swept with the exact list
+below, not with this sentence.
 
   * a fixture held in a struct field
   * a method chain through `as_str()` (or any non-string-slicing adapter)
@@ -66,12 +76,33 @@ here and the list is what a later reader needs in order to judge that:
   * `#[test]` inside an inline `mod`
 
 SCOPE. The default scan is `crates/kali_cli/tests/browser_*.rs` only. The seven
-`#[path]` submodule DIRECTORIES are outside it entirely. Measured rather than
-assumed: running this predicate over all 59 `.rs` files in those directories
-returns 0 hits, so nothing is lost today. Note the reason is NOT that every
-`.contains` receiver there is process output -- receivers include `source`,
-`script`, `js` and `body` -- but that none of them is bound to a fixture
-builder. If those directories are ever migrated, scan them explicitly.
+`browser_*` `#[path]` submodule DIRECTORIES are outside it entirely. Measured
+rather than assumed: running this predicate over them returns 0 hits, so nothing
+is lost today.
+
+CORRECTED, batch 6 (recorded instrument defect 1). This paragraph used to say
+"all 59 `.rs` files in those directories", and to give as the REASON that
+receivers there "include `source`, `script`, `js` and `body`" but are not bound
+to fixture builders. Both halves were measured over the wrong file set, and the
+stated reason is simply false. State the set with every figure:
+
+  * The seven `browser_*` `#[path]` directories hold **18** `.rs` files
+    (non_literal_iterator_sources 4, object_keys_iteration 2, reflect_own_keys
+    4, and runtime_summary_fallback_{js,jsx,ts,tsx}_input 2 each).
+  * **59** is the count of `.rs` files under EVERY `tests/` subdirectory --
+    which also sweeps in `inprocess/`, `runtime_smoke/`, `package_corpus/`,
+    `schema_docs/`, `node_api_surface/` and the `late_compat_browser_*`
+    directories. Those are not `browser_*` `#[path]` targets and were never in
+    scope for this predicate.
+  * The `.contains` RECEIVER census over the 18 is `{'stdout': 40}` -- 40 of 40,
+    every one of them process output. So the true reason nothing is lost is the
+    strongest one available, and the opposite of what was written: there is no
+    fixture-text receiver in those files at all, not merely no fixture-BOUND
+    one.
+
+The substantive claim (0 hits) survives over both the 18 and the 59; only the
+rationale was wrong, and it sat in a load-bearing docstring. If those
+directories are ever migrated, scan them explicitly.
 
 Usage:
   find_fixture_self_inspection.py --selftest        # ground-truth check, exit 1 on miss

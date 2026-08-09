@@ -12,11 +12,11 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_bracketed_global_this_math_pow_frozen_source_includes_parenthesized_bracketed_aliases`
-//! (`:138`) has no helper: its whole body is a single `assert!(...)` self-check
-//! (`:143`) run in a `for` loop over
+//! (`:148`) has no helper: its whole body is a single `assert!(...)` self-check
+//! (`:153`) run in a `for` loop over
 //! `kali_common::math_pow_bracketed_frozen_callable_aliases()`, against
 //! `browser_bundle_bracketed_global_this_math_pow_frozen_source`
-//! (`:120`)'s OWN TEXT, before any command is built and without ever invoking
+//! (`:130`)'s OWN TEXT, before any command is built and without ever invoking
 //! `kali`.
 //!
 //! It is doubly unmigratable, and the second reason is the sharper one:
@@ -76,6 +76,16 @@
 //!        migrated cases; the checker resolves names only against the `.rs` it
 //!        is handed.
 //!   check_fixtures.py            green / green.
+//!   batch5_crosscheck.py         RED / green -- the citation gate, wired into
+//!        `verify_pair.sh` by batch 6; this row is part of that same wiring
+//!        change, which is what ruling 9 requires and what batch 4 failed to do
+//!        when it added `check_extra_claims.py`. Every `:N` in the case file is
+//!        a PRE-TRIM line number -- this header says so above -- so resolving
+//!        them against the trimmed remainder lands them in unrelated code. That
+//!        is precisely the artifact the tool's `STEM=PRETRIM.rs` argument
+//!        exists for. NO COUNT IS GIVEN: this gate also resolves THIS header's
+//!        own `:N` citations, so every edit to this paragraph is an input to
+//!        the figure it would report (ruling 11).
 //!   check_extra_claims.py        RED / green. Post-trim the migrated cases'
 //!        claim strings are absent from the trimmed remainder, so they all
 //!        report as unexplained extras; pre-trim every one of them resolves.
@@ -91,7 +101,7 @@
 //!        edit to it. Run the gate for today's figure; the durable fact is the
 //!        classification.
 //!
-//! Against the PRE-TRIM ref, ALL FIVE gates exit 0. That is the run that
+//! Against the PRE-TRIM ref, ALL SIX gates exit 0. That is the run that
 //! gates this migration; it is the one to reproduce.
 //!
 //! NOTE FOR WHOEVER EDITS THIS BLOCK, and it is the reason the extra-claims

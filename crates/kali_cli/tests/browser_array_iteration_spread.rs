@@ -62,6 +62,16 @@
 //!        can resolve. The post-trim excess is the migrated helpers and fn names
 //!        that left with the trim.
 //!   check_fixtures.py            GREEN / GREEN.
+//!   batch5_crosscheck.py         GREEN / GREEN -- the citation gate, wired into
+//!        `verify_pair.sh` by batch 6; this row is part of that same wiring
+//!        change, as ruling 9 requires. The post-trim green is INCIDENTAL and
+//!        must not be read as a property of retention pairs: it means only that
+//!        this file's case-file citations happen to still resolve against the
+//!        trimmed remainder. Run it with the pre-trim ref regardless -- that is
+//!        the run this migration is gated on, and on the sibling batch-4 pairs
+//!        the same gate is red post-trim. NO COUNT IS GIVEN: this gate also
+//!        resolves THIS header's own `:N` citations, so every edit to this
+//!        paragraph is an input to the figure it would report (ruling 11).
 //!   check_extra_claims.py        RED / RED, both sides. This gate and the U8 checker were both shipped in ef0b2cf3f5,
 //!        AFTER this pair; the `# EXTRA-OK:` declaration mechanism it reads did
 //!        not exist when the case file was written, so its U5-renamed source

@@ -15,10 +15,10 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen_math_aliases`
-//! (`:144-144`) has no helper: its whole body is four
-//! `assert!(source.contains(<needle>))` self-checks (`:146-158`)
+//! (`:154-154`) has no helper: its whole body is four
+//! `assert!(source.contains(<needle>))` self-checks (`:156-168`)
 //! run against `browser_bundle_global_this_math_abs_sign_frozen_source()`'s OWN
-//! TEXT (`:114-145`), before any command is built and without ever
+//! TEXT (`:124-152`), before any command is built and without ever
 //! invoking `kali`. The four blocking literals are
 //! `Object.freeze(globalThis.Math.abs)`, `Object.freeze(globalThis.Math.sign)`,
 //! `Object.freeze(Math.abs)` and `Object.freeze(Math.sign)`.
@@ -74,6 +74,16 @@
 //!        genuinely rescues: both unexplained names are the two `assert_browser_*`
 //!        helpers that left with the migrated cases.
 //!   check_fixtures.py            GREEN / GREEN.
+//!   batch5_crosscheck.py         GREEN / GREEN -- the citation gate, wired into
+//!        `verify_pair.sh` by batch 6; this row is part of that same wiring
+//!        change, as ruling 9 requires. The post-trim green is INCIDENTAL and
+//!        must not be read as a property of retention pairs: it means only that
+//!        this file's case-file citations happen to still resolve against the
+//!        trimmed remainder. Run it with the pre-trim ref regardless -- that is
+//!        the run this migration is gated on, and on the sibling batch-4 pairs
+//!        the same gate is red post-trim. NO COUNT IS GIVEN: this gate also
+//!        resolves THIS header's own `:N` citations, so every edit to this
+//!        paragraph is an input to the figure it would report (ruling 11).
 //!   check_extra_claims.py        RED / RED, both sides. The pre-trim side reduces
 //!        to a single entry, which is a live-captured exact pin on a
 //!        JSON string leaf, which is exactly what the `# EXTRA-OK:` mechanism
