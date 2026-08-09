@@ -143,12 +143,20 @@ def rule13_carried(docs):
     )
 
 
-def rule13_header(chain_fns, docs_carried=(), extra=None):
+def rule13_header(chain_fns, docs_carried=(), extra=None, runner_exemption=True):
     """The file-header rule-13 accounting block.
 
     `chain_fns`: every fn in the migrated call chain that carries NO `///` doc.
     `docs_carried`: the `///` texts that ARE carried (into every rationale the
                     producing helper reaches, per U6 -- not pooled here).
+    `runner_exemption`: emit the ruling-6 paragraph about
+                    `browser_bundle_harness_script` / `browser_harness_command_
+                    parts_for`. It was unconditional until batch 6B, whose two
+                    files run no harness step at all and whose call chain
+                    therefore never reaches either helper -- printing the
+                    paragraph there would be prose describing a state the file
+                    does not have, which is the failure class this module
+                    exists to stop. Defaults to the old behaviour.
     """
     lines = ["RULE 13 -- transitive helper docs. Checked every fn in each call chain:"]
     lines += _wrap_list(chain_fns, "-- none carries a `///` doc comment.")
@@ -165,7 +173,8 @@ def rule13_header(chain_fns, docs_carried=(), extra=None):
         lines.append(
             'carry the docs if the migrated case still depends on what the helper computed).'
         )
-    lines += RULE13_RUNNER_EXEMPTION
+    if runner_exemption:
+        lines += RULE13_RUNNER_EXEMPTION
     if extra:
         lines += extra
     return lines
@@ -325,11 +334,18 @@ def u2_source_file_wide(fixtures, *, entry_named_on_argv=True):
 # --- U5 ------------------------------------------------------------------
 
 
-def u5_renames(renames):
-    """renames: list of (original filename, new [source] key, why)."""
+def u5_renames(renames, collision="two different program texts to the same filename"):
+    """renames: list of (original filename, new [source] key, why).
+
+    `collision` states what actually collides in THIS source. It was the fixed
+    phrase "two different program texts to the same filename" until batch 6B,
+    whose source writes EIGHT programs to two filenames -- the sentence would
+    have described a state that file does not have, which is the failure class
+    this module exists to stop. Defaults to the old wording.
+    """
     lines = [
         "U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this",
-        "source writes two different program texts to the same filename in different tests, so",
+        f"source writes {collision} in different tests, so",
         "the keys are variant-suffixed:",
     ]
     for original, new, why in renames:
@@ -472,6 +488,44 @@ def assert_identical(label, *values):
                 f"({v[:60]!r} vs {first[:60]!r})"
             )
     return first
+
+
+def assert_rename_is_argv_only(source, renamed, exts):
+    """U5's safety condition, CHECKED rather than asserted in prose.
+
+    Ported verbatim in substance from `gen_batch5_group_d.assert_rename_is_argv_only`
+    (batch 5 implemented it; batch 6A shipped the sentence without the check, which
+    is fix round 1's finding I4 -- "a pointer nothing re-resolves is a figure in
+    disguise" applies to a claimed verification exactly as it does to a citation).
+    HOISTED HERE IN BATCH 6B, on its third call site. `EXTRA_OK_U5_RENAME` above
+    says the property is "checked mechanically in this file's generator"; a
+    sentence and the check that makes it true belong in one place, or the next
+    generator writes the sentence without the check for the second time.
+
+    A rename is behaviour-neutral only if the filename is passed to `kali` on argv
+    and is never referenced BY STRING from inside a fixture body (an
+    `import()`/`require()` specifier). Checked against every `[source]` value in
+    the file, for the `${ext}`-templated keys AND for every name they expand to,
+    because `check_extra_claims.py` and the runner both see the expanded form.
+    """
+    names = set(renamed)
+    for name in renamed:
+        stem = name.replace("${ext}", "")
+        for ext in exts:
+            names.add(name.replace("${ext}", ext))
+            names.add(stem.rstrip(".") + "." + ext)
+    for key, body in source.items():
+        for name in sorted(names):
+            if name and name in body:
+                raise AssertionError(
+                    f"[source] body {key!r} references {name!r}; the rename would "
+                    "rewrite the program under test (rule 9)")
+        for marker in ("import(", "require("):
+            if marker in body:
+                raise AssertionError(
+                    f"[source] body {key!r} contains {marker!r}: a dynamic specifier "
+                    "could name a renamed file, so the rename is not provably argv-only")
+    return True
 
 
 def _wrap_list(names, tail):

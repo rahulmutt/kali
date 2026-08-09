@@ -263,38 +263,9 @@ def _pin(label, embedded, cells):
 # same reason batch5_prose exists.
 # --------------------------------------------------------------------------
 
-def assert_rename_is_argv_only(source, renamed, exts):
-    """U5's safety condition, CHECKED rather than asserted in prose.
-
-    Ported verbatim in substance from `gen_batch5_group_d.assert_rename_is_argv_only`
-    (batch 5 implemented it; batch 6A shipped the sentence without the check, which
-    is fix round 1's finding I4 -- "a pointer nothing re-resolves is a figure in
-    disguise" applies to a claimed verification exactly as it does to a citation).
-
-    A rename is behaviour-neutral only if the filename is passed to `kali` on argv
-    and is never referenced BY STRING from inside a fixture body (an
-    `import()`/`require()` specifier). Checked against every `[source]` value in
-    the file, for the `${ext}`-templated keys AND for every name they expand to,
-    because `check_extra_claims.py` and the runner both see the expanded form.
-    """
-    names = set(renamed)
-    for name in renamed:
-        stem = name.replace("${ext}", "")
-        for ext in exts:
-            names.add(name.replace("${ext}", ext))
-            names.add(stem.rstrip(".") + "." + ext)
-    for key, body in source.items():
-        for name in sorted(names):
-            if name and name in body:
-                raise AssertionError(
-                    f"[source] body {key!r} references {name!r}; the rename would "
-                    "rewrite the program under test (rule 9)")
-        for marker in ("import(", "require("):
-            if marker in body:
-                raise AssertionError(
-                    f"[source] body {key!r} contains {marker!r}: a dynamic specifier "
-                    "could name a renamed file, so the rename is not provably argv-only")
-    return True
+# HOISTED to batch5_prose in batch 6B, on its third call site; re-exported
+# here so this generator's call sites are unchanged.
+assert_rename_is_argv_only = P.assert_rename_is_argv_only
 
 
 def extra_ok_renames(pairs, exts):

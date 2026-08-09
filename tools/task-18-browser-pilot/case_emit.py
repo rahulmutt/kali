@@ -135,7 +135,7 @@ _STEP_ORDER = [
     "exit",
     "stdout", "stdout_contains", "stdout_absent", "stdout_count",
     "stderr", "stderr_contains", "stderr_absent",
-    "json", "json_null", "json_count",
+    "json", "json_paths", "json_null", "json_count",
 ]
 
 
@@ -144,10 +144,26 @@ def _render_step(step, prefix):
     unknown = [k for k in step if k not in _STEP_ORDER]
     if unknown:
         raise AssertionError(f"unknown step key(s) {unknown} -- typo, or a new 5.4 key")
+    if "json" in step and "json_paths" in step:
+        raise AssertionError("a step declares both `json` and `json_paths`")
     for key in _STEP_ORDER:
         if key not in step:
             continue
         v = step[key]
+        if key == "json_paths":
+            # The SAME §5.4 `json` key, rendered one dotted path per line
+            # instead of as one inline table. Not a new assertion: TOML parses
+            # `json.errors.0.code = "E5506"` into exactly the nested table the
+            # inline form produces, so the runner, `audit-case-migration.py`
+            # and `check_extra_claims.py` all see an identical document. It
+            # exists because a deep, long-valued path (a pinned diagnostic
+            # `message` is ~230 characters) is unreadable inside an inline
+            # table, and `cases/array/concat_static.toml` already spells this
+            # shape by hand. Added in batch 6B; nothing that does not ask for
+            # it renders differently.
+            for path, val in v.items():
+                out.append(f"json.{path} = {_toml_scalar(val)}")
+            continue
         if key == "body":
             out.append(f"{key} = {toml_string(v)}")
         elif key in ("stdout", "stderr") and isinstance(v, str):

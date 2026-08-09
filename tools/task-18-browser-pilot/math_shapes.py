@@ -187,6 +187,33 @@ def rule12_no_comments_prose(rs_path, stem):
             "from every rationale; that is expected for a trimmed retention -- the\n"
             "header describes the RETAINED test, which by construction has no case.)"
         )
+    # U10: a `#[path = "..."] mod ...;` carrier's prose can sit in a submodule,
+    # where a grep over the carrier alone never sees it -- the same blind spot
+    # `comment_coverage.py` had until it was taught to resolve the chain. Each
+    # submodule is scanned by the identical rule, and the result is stated
+    # per-file rather than pooled. A source with no `mod` declaration produces
+    # byte-identical prose to before this block existed.
+    import sys as _sys2
+    import os as _os2
+    _sys2.path.insert(0, _os2.path.dirname(_os2.path.abspath(__file__)))
+    from submodules import submodule_paths as _submodule_paths
+    subs = _submodule_paths(rs_path)
+    if subs:
+        head += (
+            f"\nThat grep is run over the `#[path]` SUBMODULES too -- {len(subs)} of them, "
+            "where\nevery `#[test]` fn in this target actually lives:"
+        )
+        for sub in subs:
+            sub_lines = sub.read_text().split("\n")
+            sub_comments = [i + 1 for i, ln in enumerate(sub_lines)
+                            if _re.match(r"\s*//", ln)]
+            if sub_comments:
+                raise AssertionError(
+                    f"{sub} has Rust comment(s) at line(s) {sub_comments} -- see above")
+            sub_markers = [i + 1 for i, ln in enumerate(sub_lines) if "//" in ln]
+            where = (", ".join(f":{n}" for n in sub_markers) if sub_markers
+                     else "no `//` of any kind")
+            head += f"\n  * {sub.name}: 0 Rust comment line(s); {where}."
     head += (
         "\nThere is therefore no prose to move into any `rationale`, and\n"
         "comment_coverage.py is run with --allow-empty for this pair."
