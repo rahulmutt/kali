@@ -514,30 +514,67 @@ CONTRACT_DOC = contract_doc_line()
 
 
 def contract_doc_precedent():
-    """How many shipped case files set that env, and how many carry its doc.
+    """GATE the shipped-precedent claim; do not hand its numbers to the header.
 
     Ruling 13: a sentence quantifying over a set of files runs its enumerating
-    command BEFORE the sentence is written. This IS that command, and its two
-    numbers go into the header beside the claim.
+    command BEFORE the sentence is written. This IS that command. It used to
+    RETURN both counts and the header interpolated them, which is what batch 7A
+    fix round 4 came back for:
+
+      * The population count (`setters`) is a live-corpus figure about OTHER
+        case files. Batch 7A's migration added eight files that set the env var
+        and moved it from 80 to 88 the moment it landed. Batch 7A deleted it
+        from the shipped artifact -- and this function silently PUT IT BACK on
+        the next generator run, with a freshly derived integer. A figure written
+        automatically is still a figure; deriving it live makes it correct at
+        emission and no more durable than a typed one, because nothing compares
+        it to anything afterwards.
+      * The interesting count (`documented`) is not a magnitude at all. It is a
+        CLAIM -- "no shipped case file that sets this env var carries the
+        helper's doc line" -- and a claim belongs in a gate.
+
+    So the walk stays and its result is ASSERTED here rather than printed. The
+    header states the class and keeps both enumerating commands; this function
+    raises if the class is ever false, which is the "gate that derives the
+    population and compares" that the artifact could not host, sitting where it
+    actually can. Returns nothing.
+
+    THE SURVIVING UNIVERSAL STILL QUANTIFIES OVER A LIVE CORPUS. Deleting the
+    integer removes the thing that rots silently; it does not make the sentence
+    permanent. What it buys is that the claim is now re-verified on every run of
+    this generator instead of being re-verified by nobody -- cheaper
+    re-verification, not immunity. The header says so.
     """
-    setters = documented = 0
+    setters, documented = [], []
     root = os.path.join(TESTS, "cases")
     for dirpath, _dirs, files in os.walk(root):
         for name in sorted(files):
             # THIS BATCH'S OWN TWO FILES ARE EXCLUDED, and the exclusion is
-            # printed in the header beside the numbers. Both strings occur in
-            # the header that reports the count -- the env var because the
+            # named in the header beside the commands. Both strings occur in
+            # the header that makes the claim -- the env var because the
             # run/test cases set it, the doc line because the header quotes it
-            # -- so an unfiltered grep would count the sentence's own file and
-            # the figure would move by being written. Ruling 11, third disguise.
+            # -- so an unfiltered grep would include the sentence's own file and
+            # the answer would move by being written. Ruling 11, third disguise.
             if not name.endswith(".toml") or STEM in name:
                 continue
             body = open(os.path.join(dirpath, name)).read()
             if HARNESS_ENV in body:
-                setters += 1
+                setters.append(name)
                 if CONTRACT_DOC in body:
-                    documented += 1
-    return setters, documented
+                    documented.append(name)
+    if not setters:
+        # A vacuity floor, the same one `comment_coverage.py` grew in batch 3: a
+        # claim about an empty population is not precedent, and "none of zero
+        # files carries it" would be a vacuous green rather than an argument.
+        raise AssertionError(
+            "no shipped case file sets " + HARNESS_ENV + " -- the shipped-precedent "
+            "claim in this header would be vacuous")
+    if documented:
+        raise AssertionError(
+            "the shipped-precedent claim in this header is now FALSE: "
+            f"{sorted(documented)} carry the doc line "
+            f"{CONTRACT_DOC!r} while setting {HARNESS_ENV}. Rule 13's "
+            "accounting for this file has to be rewritten, not re-emitted.")
 
 
 # --------------------------------------------------------------------------
@@ -1081,7 +1118,7 @@ def rule13_block(rows):
             "accounting; repeating it here would describe a state this file does not have.",
         ]
         return out
-    setters, documented = contract_doc_precedent()
+    contract_doc_precedent()   # gates the claim below; deliberately returns nothing
     return out + [
         "One `///`-documented item IS touched: the constant",
         "`kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV`, whose doc reads",
@@ -1092,13 +1129,33 @@ def rule13_block(rows):
         "Shipped precedent agrees and was ENUMERATED before this sentence was written",
         "(ruling 13), not recalled:",
         f"  grep -rl \"{HARNESS_ENV}\" crates/kali_cli/tests/cases/ \\",
-        f"    | grep -vc {STEM}          -> {setters}",
+        f"    | grep -v {STEM}",
         f"  grep -rl \"{CONTRACT_DOC}\" \\",
-        f"    crates/kali_cli/tests/cases/ | grep -vc {STEM}   -> {documented}",
-        f"{documented} of the {setters} case files that set that variable carry the doc line;",
-        "this file follows them. The `grep -v` is not decoration: both strings occur in",
-        "THIS header, so an unfiltered count would count the sentence's own file and the",
-        "figure would move by being written (ruling 11).",
+        f"    crates/kali_cli/tests/cases/ | grep -v {STEM}",
+        "NO case file that sets that variable carries the doc line -- the second command",
+        "lists nothing -- and this file follows them. The `grep -v` is not decoration: both",
+        "strings occur in THIS header, so an unfiltered enumeration would include the",
+        "sentence's own file and the answer would move by being written (ruling 11).",
+        "",
+        "NO `-> N` COUNT IS WRITTEN AFTER EITHER COMMAND, and the absence is the point.",
+        "This header used to carry two, and the generator derived them live at emission.",
+        "The population one counted OTHER case files, so batch 7A's migration falsified it on",
+        "landing simply by adding case files that set the same variable -- and no number is",
+        "quoted for it here either, in any tense. Deriving a figure live does not make it",
+        "durable: it makes it correct at emission and unchecked forever after, which is",
+        "the same defect with a shorter fuse. A family-wide count written inside a case file",
+        "is invalidated by every subsequent batch BY CONSTRUCTION.",
+        "What replaced it is not silence but a GATE, in the one place that can host one:",
+        "`gen_batch6b.contract_doc_precedent()` still walks every shipped case file, and it",
+        "RAISES if any file that sets the variable is ever found carrying the doc line, or",
+        "if the population is empty. The claim above is therefore re-derived and re-checked",
+        "on every run of the generator that owns this file, rather than quoted here and",
+        "re-checked by nobody.",
+        "HONEST LIMIT: the surviving sentence is still a universal over a LIVE CORPUS. A",
+        "future batch that quotes that doc line falsifies it exactly as the integer rotted,",
+        "just with no number to make the rot visible. Deleting the count buys cheaper",
+        "re-verification -- one generator run -- not immunity, and the gate above is what",
+        "makes that re-verification actually happen.",
     ]
 
 

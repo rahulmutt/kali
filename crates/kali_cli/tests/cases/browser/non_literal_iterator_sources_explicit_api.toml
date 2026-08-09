@@ -173,30 +173,29 @@
 #   grep -rl "Environment variable used to override the browser harness command." \
 #     crates/kali_cli/tests/cases/ | grep -v non_literal_iterator_sources
 # NO case file that sets that variable carries the doc line -- the second command
-# lists nothing -- and this file follows them. The `grep -v` is not decoration:
-# both strings occur in THIS header, so an unfiltered enumeration would include
-# the sentence's own file and the answer would move by being written (ruling 11).
+# lists nothing -- and this file follows them. The `grep -v` is not decoration: both
+# strings occur in THIS header, so an unfiltered enumeration would include the
+# sentence's own file and the answer would move by being written (ruling 11).
 #
-# THE TWO `-> N` COUNTS THAT USED TO SIT AFTER THOSE COMMANDS ARE DELETED, and the
-# deletion is the point rather than a tidy-up (ruling 15, batch 7A fix round 3).
-# The first was a POPULATION count of OTHER case files. It was right when it was
-# written, and batch 7A's migration falsified it the moment it landed, by adding
-# case files that set the variable. That is not a mistake anyone made -- a
-# family-wide count written inside a case file is invalidated by every subsequent
-# batch BY CONSTRUCTION, so 7B and batch 8 would each falsify it again. No
-# replacement integer is written here, for the same reason: the two commands
-# above are the enumeration, and they answer for whatever tree they are run
-# against.
-# Ruling 15 offers three answers and only one of them is available in this
-# position. It cannot be PINNED: it counts a live corpus, and pinning it to a ref
-# would make it describe a tree that no longer exists. It cannot be GATED FROM
-# HERE: nothing reads a `#` header, so the gate would have to live outside the
-# artifact and be re-run by every future batch -- which is exactly "record the
-# command beside the figure", the answer ruling 15 rejects. So it is DELETED, and
-# what survives is the claim the sentence was actually making, stated as a class
-# with its enumerating commands beside it. If a future batch wants the count back,
-# the sound home for it is a gate that derives the population and compares, not a
-# comment that quotes it.
+# NO `-> N` COUNT IS WRITTEN AFTER EITHER COMMAND, and the absence is the point.
+# This header used to carry two, and the generator derived them live at emission.
+# The population one counted OTHER case files, so batch 7A's migration falsified it on
+# landing simply by adding case files that set the same variable -- and no number is
+# quoted for it here either, in any tense. Deriving a figure live does not make it
+# durable: it makes it correct at emission and unchecked forever after, which is
+# the same defect with a shorter fuse. A family-wide count written inside a case file
+# is invalidated by every subsequent batch BY CONSTRUCTION.
+# What replaced it is not silence but a GATE, in the one place that can host one:
+# `gen_batch6b.contract_doc_precedent()` still walks every shipped case file, and it
+# RAISES if any file that sets the variable is ever found carrying the doc line, or
+# if the population is empty. The claim above is therefore re-derived and re-checked
+# on every run of the generator that owns this file, rather than quoted here and
+# re-checked by nobody.
+# HONEST LIMIT: the surviving sentence is still a universal over a LIVE CORPUS. A
+# future batch that quotes that doc line falsifies it exactly as the integer rotted,
+# just with no number to make the rot visible. Deleting the count buys cheaper
+# re-verification -- one generator run -- not immunity, and the gate above is what
+# makes that re-verification actually happen.
 #
 # ARGV ORDER is transcribed in the exact order the source's `Command` builder
 # appends it, and is not normalised:
