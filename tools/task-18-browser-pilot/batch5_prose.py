@@ -61,6 +61,29 @@ def ruling3_count(needle_desc, bound, key="stdout_count"):
     )
 
 
+def ruling3_count_exact(needle_desc, bound, key="stdout_count"):
+    """A `.matches(<literal>).count() == N` claim -- the EXACT bound.
+
+    Added in batch 6A fix round 1 (finding I2). `ruling3_count` above is the
+    `>=` sentence, and it ends "NOT strengthened to `exact`, which the source
+    never says" -- correct for all eleven files that carry it, and the exact
+    OPPOSITE of the truth for a source spelling `assert_eq!(...count(), N)`.
+    Batch 6A shipped 16 rationales that said it above an `exact = 6` key,
+    because the shared sentence was patched with two `str.replace` calls that
+    fixed its first half and missed its second. Hoisted on first use, as this
+    module's own note asks, rather than patched again.
+    """
+    return (
+        f"The source spells this as `.matches({needle_desc}).count() == {bound}` -- an "
+        f"exact assertion, not a lower bound -- so it is carried as `{key}` with "
+        f"`exact = {bound}` per controller ruling 3 (mirror the source): NOT weakened to "
+        f"`at_least = {bound}`, which output repeating the value a seventh time would "
+        "still satisfy, and NOT weakened to a plain contains, which a single occurrence "
+        "would satisfy. Counting is non-overlapping and left-to-right, as Rust's "
+        "`str::matches` is."
+    )
+
+
 def extra_ok(value, why):
     """The `# EXTRA-OK: <repr> -- <why>` declaration `check_extra_claims.py` reads."""
     return f"EXTRA-OK: {value!r} -- {why}"

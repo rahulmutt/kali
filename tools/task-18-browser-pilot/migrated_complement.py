@@ -3,23 +3,38 @@
 
 WHY THIS EXISTS. Ruling 9 says a U4 retention pair's gates are run against the
 PRE-TRIM blob, because the case file was migrated from the file as it stood
-before the trim. That is right for `comment_coverage.py` and for citations, and
-it was sufficient for every retention shipped through batch 5 -- but only by
-accident of those files' contents. It is NOT sufficient for
-`audit-case-migration.py` or `check_fixtures.py` whenever the RETAINED tests
-carry literal claims of their own:
+before the trim. That is right for `comment_coverage.py` and for citations. It
+is NOT right for `audit-case-migration.py` or `check_fixtures.py` whenever the
+RETAINED tests carry literal claims of their own:
 
-  * against the POST-trim `.rs`, the audit compares the retained half's claims
-    against a case file that by construction does not carry them -> red;
-  * against the PRE-trim blob, it compares BOTH halves' claims against a case
-    file that carries only the migrated half's -> also red.
+  * against the POST-trim `.rs`, the audit compares the case file's claims with
+    a source stripped of the half that makes them -> red;
+  * against the PRE-trim blob, it compares BOTH halves' claims with a case file
+    that carries only the migrated half's -> also red.
 
-Batch 5's three trims were green on both sides because their retained tests'
-needles were loop variables, so the retained half contributed no literal. Batch
-6A's `browser_math_unsupported_member_calls_harness_jsx_tsx.rs` is the first
-where it does: the three retained tests assert `E5506`, `Math.sqrt`,
-`Math.atan2`, `unsupported math` and the JSON key `code`, none of which any
-migrated case may claim.
+THIS IS NOT NEW, AND AN EARLIER VERSION OF THIS PARAGRAPH SAID IT WAS. It
+claimed batch 5's trims were green on both sides "because their retained tests'
+needles were loop variables" and that batch 6A's
+`browser_math_unsupported_member_calls_harness_jsx_tsx.rs` was "the first" where
+they are not. Both halves of that are false, and measuring took one command per
+file. Every already-adjudicated trim in this family is red on its own pre-trim
+audit, and every one goes green against the complement this script builds:
+
+  target (ref from its own header)   pre-trim audit   complement
+  browser_math_max_min_frozen_aliases      8 missing       green
+  browser_math_abs_sign_frozen_aliases     4 missing       green
+  browser_math_atan2_global_this_root      4 missing       green
+  browser_math_pow_exponent_one           14 missing       green
+  browser_math_unsupported_member_calls_
+      harness_jsx_tsx (batch 6A)           5 missing       green
+
+Those four headers currently describe their audit red as the escalation itself
+rather than as an artifact of the trim; correcting them is scoped to batch 7,
+following the precedent of batch 5's retroactive ruling-9 sweep. The retentions
+themselves stand unchanged: all four are adjudicated on the FIXTURE
+SELF-INSPECTION ground and all four are in
+`find_fixture_self_inspection.py`'s `KNOWN` list. The audit red was never their
+escalation ground.
 
 The right left-hand side is neither blob but their DIFFERENCE: the pre-trim
 source minus the retained half, i.e. exactly the part that was migrated. This

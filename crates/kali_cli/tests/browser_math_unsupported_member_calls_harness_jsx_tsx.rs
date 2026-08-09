@@ -13,25 +13,25 @@
 //!
 //! WHAT BLOCKS THE THREE RETAINED TESTS. Each of
 //! `run_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input`
-//! (`:209`),
+//! (`:225`),
 //! `test_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input`
-//! (`:230`) and
+//! (`:246`) and
 //! `build_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input`
-//! (`:251`) routes through
-//! `assert_browser_harness_unsupported_math_rejection` (`:138`), and each
+//! (`:267`) routes through
+//! `assert_browser_harness_unsupported_math_rejection` (`:154`), and each
 //! calls it twice per extension inside its own `for extension in [...]` loop, once
 //! with the JSON-output flag false and once true. The true call is unconditional,
 //! so 3 of 3 retained tests reach the blocking construct on every iteration.
 //!
 //! The blocking construct is a QUANTIFIER over the JSON `errors` array,
-//! `errors.iter().all(...)` (`:178`). The case-file format offers only closed
+//! `errors.iter().all(...)` (`:194`). The case-file format offers only closed
 //! dotted-path indexing into JSON -- design spec 5.4 is explicit that there are
 //! "no slices, no wildcards, no negative-from-end indexing, no filters" -- so a
 //! dotted path can pin the FIRST array element and nothing more. Narrowing "every
 //! error has this code" to "error 0 has this code" is a weakening (a second,
 //! differently-coded diagnostic would satisfy the migration and fail the source),
 //! and rule 1 forbids weakening. Nothing in the twelve assertion keys expresses it.
-//! The neighbouring `assert!(!errors.is_empty(), ...)` (`:176`) is not the
+//! The neighbouring `assert!(!errors.is_empty(), ...)` (`:192`) is not the
 //! problem and would migrate on its own; the quantifier is.
 //!
 //! ADJUDICATED, NOT PROPOSED. The human partner has ruled this quantifier a design
@@ -43,7 +43,7 @@
 //! proposing a wildcard dotted path or a quantified-array key.
 //!
 //! The non-JSON half of these three tests WOULD have migrated cleanly -- its arm is
-//! `stderr.contains("E5506")` (`:183`) plus a three-way OR that rule 11
+//! `stderr.contains("E5506")` (`:199`) plus a three-way OR that rule 11
 //! resolves against the real binary -- but a source `#[test]` fn cannot be split
 //! across the two halves: each fn's own loop body runs both, on every iteration.
 //! U4's trim-and-keep unit is the `#[test]` fn, so the split is 3 migrated / 3
@@ -57,19 +57,35 @@
 //!   PRE-TRIM REF:  fe6a403411   (the commit before batch 6A's migration commit)
 //!   git show fe6a403411:crates/kali_cli/tests/browser_math_unsupported_member_calls_harness_jsx_tsx.rs > /tmp/pretrim.rs
 //!
-//! THIS RETENTION NEEDS A THIRD LEFT-HAND SIDE, AND THAT IS NEW. Ruling 9's
-//! pre-trim rule assumes the pre-trim blob is the right comparison for every gate.
-//! It is right for citations and for comment coverage. It is NOT right for
-//! `audit-case-migration.py` or `check_fixtures.py` here, because THIS retention's
-//! retained tests carry literal claims of their own -- `E5506`, `Math.sqrt`,
-//! `Math.atan2`, `unsupported math`, and the JSON key `code` -- which no migrated
-//! case may claim. Against the post-trim file those claims are missing from the
-//! case file; against the pre-trim blob they are still missing, because the blob
-//! contains both halves while the case file carries only one. Batch 5's three
-//! trims were green on both sides only because their retained tests' needles were
-//! loop variables, so their retained half contributed no literal at all. The right
-//! left-hand side for those two gates is the DIFFERENCE of the two blobs -- the
-//! migrated half -- reconstructed mechanically by
+//! THIS RETENTION NEEDS A THIRD LEFT-HAND SIDE, AND SO DOES EVERY TRIM ALREADY IN
+//! THE TREE. Ruling 9's pre-trim rule assumes the pre-trim blob is the right
+//! comparison for every gate. It is right for citations and for comment coverage.
+//! It is NOT right for `audit-case-migration.py` or `check_fixtures.py` when the
+//! RETAINED tests carry literal claims of their own, as this file's do -- `E5506`,
+//! `Math.sqrt`, `Math.atan2`, `unsupported math`, and the JSON key `code`, which no
+//! migrated case may claim. Against the post-trim file the case file's claims are
+//! compared with a source stripped of the half that makes them; against the
+//! pre-trim blob the retained half's claims are compared with a case file that
+//! carries only the migrated half's. Both red, for opposite reasons.
+//!
+//! AN EARLIER VERSION OF THIS PARAGRAPH CALLED THAT NEW, AND IT IS NOT. It said
+//! batch 5's trims were green on both sides "only because their retained tests'
+//! needles were loop variables". Measured, one command per file, each against the
+//! ref in its own header: `browser_math_max_min_frozen_aliases.rs` is red pre-trim
+//! with 8 missing claims, `browser_math_abs_sign_frozen_aliases.rs` with 4,
+//! `browser_math_atan2_global_this_root.rs` with 4, and
+//! `browser_math_pow_exponent_one.rs` with 14 -- and all four go green against the
+//! complement described below. Those four headers currently describe their audit
+//! red as the escalation itself rather than as an artifact of the trim; correcting
+//! them is scoped to BATCH 7, following the precedent of batch 5's retroactive
+//! ruling-9 sweep, and is not done here. The four retentions themselves stand
+//! unchanged: every one is adjudicated on the FIXTURE SELF-INSPECTION ground and
+//! every one is in `find_fixture_self_inspection.py`'s `KNOWN` list. The audit red
+//! was never their escalation ground, and it is not this file's either -- the
+//! quantifier above is.
+//!
+//! The right left-hand side for those two gates is the DIFFERENCE of the two blobs
+//! -- the migrated half -- reconstructed mechanically by
 //! `tools/task-18-browser-pilot/migrated_complement.py`:
 //!
 //!   python3 tools/task-18-browser-pilot/migrated_complement.py \

@@ -263,6 +263,40 @@ def _pin(label, embedded, cells):
 # same reason batch5_prose exists.
 # --------------------------------------------------------------------------
 
+def assert_rename_is_argv_only(source, renamed, exts):
+    """U5's safety condition, CHECKED rather than asserted in prose.
+
+    Ported verbatim in substance from `gen_batch5_group_d.assert_rename_is_argv_only`
+    (batch 5 implemented it; batch 6A shipped the sentence without the check, which
+    is fix round 1's finding I4 -- "a pointer nothing re-resolves is a figure in
+    disguise" applies to a claimed verification exactly as it does to a citation).
+
+    A rename is behaviour-neutral only if the filename is passed to `kali` on argv
+    and is never referenced BY STRING from inside a fixture body (an
+    `import()`/`require()` specifier). Checked against every `[source]` value in
+    the file, for the `${ext}`-templated keys AND for every name they expand to,
+    because `check_extra_claims.py` and the runner both see the expanded form.
+    """
+    names = set(renamed)
+    for name in renamed:
+        stem = name.replace("${ext}", "")
+        for ext in exts:
+            names.add(name.replace("${ext}", ext))
+            names.add(stem.rstrip(".") + "." + ext)
+    for key, body in source.items():
+        for name in sorted(names):
+            if name and name in body:
+                raise AssertionError(
+                    f"[source] body {key!r} references {name!r}; the rename would "
+                    "rewrite the program under test (rule 9)")
+        for marker in ("import(", "require("):
+            if marker in body:
+                raise AssertionError(
+                    f"[source] body {key!r} contains {marker!r}: a dynamic specifier "
+                    "could name a renamed file, so the rename is not provably argv-only")
+    return True
+
+
 def extra_ok_renames(pairs, exts):
     """`EXTRA-OK` lines for U5-renamed entry filenames, one per expanded cell.
 
@@ -1643,9 +1677,10 @@ def gen_object_computed_numeric_keys_bundle():
                      "assertion shape, so it is a separate case.") if jo else None),
                 "steps": steps,
             })
-    return emit(header, {"ext": EXTS4},
-                {"app_plain.${ext}": plain_program, "app_await.${ext}": await_program},
-                cases)
+    source = {"app_plain.${ext}": plain_program, "app_await.${ext}": await_program}
+    assert_rename_is_argv_only(
+        source, ["app.${ext}", "app_plain.${ext}", "app_await.${ext}"], EXTS4)
+    return emit(header, {"ext": EXTS4}, source, cases)
 
 
 # ==========================================================================
@@ -1823,10 +1858,14 @@ def gen_object_computed_numeric_keys_harness():
                         json_claims=_computed_keys_json(command, pins[(command, kind)]),
                         thread_flags=True, env_var=HARNESS_ENV)],
                 })
-    return emit(header, {"ext": EXTS4},
-                {"main_plain.${ext}": plain_run, "main_await.${ext}": await_run,
-                 "smoke_plain.test.${ext}": plain_test,
-                 "smoke_await.test.${ext}": await_test}, cases)
+    source = {"main_plain.${ext}": plain_run, "main_await.${ext}": await_run,
+              "smoke_plain.test.${ext}": plain_test,
+              "smoke_await.test.${ext}": await_test}
+    assert_rename_is_argv_only(
+        source, ["main.${ext}", "smoke.test.${ext}", "main_plain.${ext}",
+                 "main_await.${ext}", "smoke_plain.test.${ext}",
+                 "smoke_await.test.${ext}"], EXTS4)
+    return emit(header, {"ext": EXTS4}, source, cases)
 
 
 # ==========================================================================
@@ -1983,10 +2022,14 @@ def gen_object_entries_harness():
                         "exit": "failure",
                     }],
                 })
-    return emit(header, {"ext": EXTS4},
-                {"main_plain.${ext}": plain_run, "main_frozen.${ext}": frozen_run,
-                 "smoke_plain.test.${ext}": plain_test,
-                 "smoke_frozen.test.${ext}": frozen_test}, cases)
+    source = {"main_plain.${ext}": plain_run, "main_frozen.${ext}": frozen_run,
+              "smoke_plain.test.${ext}": plain_test,
+              "smoke_frozen.test.${ext}": frozen_test}
+    assert_rename_is_argv_only(
+        source, ["main.${ext}", "smoke.test.${ext}", "main_plain.${ext}",
+                 "main_frozen.${ext}", "smoke_plain.test.${ext}",
+                 "smoke_frozen.test.${ext}"], EXTS4)
+    return emit(header, {"ext": EXTS4}, source, cases)
 
 
 # ==========================================================================
@@ -2193,9 +2236,12 @@ def gen_object_entries_iteration():
                      if jo else None)),
                 "steps": steps,
             })
-    return emit(header, {"ext": EXTS4},
-                {"app_alias.${ext}": alias_program, "app_direct.${ext}": direct_program,
-                 "app_global.${ext}": global_program}, cases)
+    source = {"app_alias.${ext}": alias_program, "app_direct.${ext}": direct_program,
+              "app_global.${ext}": global_program}
+    assert_rename_is_argv_only(
+        source, ["app.${ext}", "app_alias.${ext}", "app_direct.${ext}",
+                 "app_global.${ext}"], EXTS4)
+    return emit(header, {"ext": EXTS4}, source, cases)
 
 
 # ==========================================================================
@@ -2509,6 +2555,32 @@ def gen_math_unsupported_member_calls():
         "    source of truth.",
     ]
 
+    # Four matches: each of the two helpers has an argv `if json_output {` and an
+    # assertion-branch one. Index 2 is the argv guard inside the MIGRATED helper.
+    c_json_flag = P.cite_line(text, r"^    if json_output \{$", expect=4)[2]
+    c_subcommand = P.cite_line(text, r"^    cli\.arg\(command\);$", expect=2)[1]
+    c_bundle_if = P.cite_line(text, r"^    if bundle \{$", expect=2)[1]
+    c_api = P.cite_line(text, r'^    cli\.arg\("--api"\)\.arg\("browser"\)\.arg', expect=2)[1]
+
+    argv_order = [
+        "ARGV ORDER is transcribed in the exact order the source's `Command` builder appends",
+        "it, and THIS SOURCE DOES NOT HAVE THE FAMILY'S USUAL TWO SHAPES. It has one builder,",
+        "shared by both of its helpers, and it appends the `--output json` pair BEFORE the",
+        f"subcommand (:{c_json_flag}, immediately above `cli.arg(command)` at",
+        f":{c_subcommand}) -- for EVERY command, `build` included. That is not the shape most",
+        "of this family's bundle helpers use, where the pair is appended after the subcommand",
+        "and its flags, so the shared boilerplate is deliberately not used here:",
+        "  * every command: `[--output json] <build|run|test> [--bundle] --api browser <entry>`",
+        f"`--bundle` is appended after the subcommand (:{c_bundle_if}) and only when the",
+        f"caller asks for it, which only the `build` fns do; `--api browser` and the entry",
+        f"follow (:{c_api}).",
+        "The source passes NO --max-threads and NO --max-spawned-processes argument, on any",
+        "command, so neither appears on any argv below.",
+        "The source passes an absolute `dir.path().join(filename)` as the entry; the case",
+        "runner passes the bare filename relative to the trial dir, matching every previously",
+        "shipped `browser/` case file.",
+    ]
+
     count_keys = [
         "THE COUNT KEYS. The source makes exactly one occurrence-count claim per branch, and",
         "it is spelled with `==`, not `>=`:",
@@ -2582,9 +2654,7 @@ def gen_math_unsupported_member_calls():
                    "six times), so it is claim prose in ruling 6's sense and not runner",
                    "infrastructure."]),
         "",
-        P.ARGV_ORDER,
-        "The `build` cases additionally pass `--bundle`, which the source appends after the",
-        "subcommand and before `--api browser`.",
+        argv_order,
         "",
         count_keys,
         "",
@@ -2631,10 +2701,8 @@ def gen_math_unsupported_member_calls():
                 ("This case makes no count claim: the source guards both count assertions "
                  f"with `if command != \"build\"` (:{c_build_skip}), because a build emits no "
                  "program output." if command == "build" else
-                 P.ruling3_count(f'"{needle}"', 6,
-                                 key="json_count" if jo else "stdout_count")
-                 .replace("count() >= 6", "count() == 6")
-                 .replace("`at_least = 6`", "`exact = 6`")),
+                 P.ruling3_count_exact(f'"{needle}"', 6,
+                                       key="json_count" if jo else "stdout_count")),
                 (f"For `test` the source also asserts `.contains(\"ok 1\")` (:{c_ok1}), which "
                  "the json branch does not make."
                  if command == "test" and not jo else None)),
