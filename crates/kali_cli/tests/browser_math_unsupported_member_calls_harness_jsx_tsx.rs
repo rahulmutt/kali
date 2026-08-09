@@ -13,25 +13,25 @@
 //!
 //! WHAT BLOCKS THE THREE RETAINED TESTS. Each of
 //! `run_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input`
-//! (`:247`),
+//! (`:267`),
 //! `test_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input`
-//! (`:268`) and
+//! (`:288`) and
 //! `build_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input`
-//! (`:289`) routes through
-//! `assert_browser_harness_unsupported_math_rejection` (`:176`), and each
+//! (`:309`) routes through
+//! `assert_browser_harness_unsupported_math_rejection` (`:196`), and each
 //! calls it twice per extension inside its own `for extension in [...]` loop, once
 //! with the JSON-output flag false and once true. The true call is unconditional,
 //! so 3 of 3 retained tests reach the blocking construct on every iteration.
 //!
 //! The blocking construct is a QUANTIFIER over the JSON `errors` array,
-//! `errors.iter().all(...)` (`:216`). The case-file format offers only closed
+//! `errors.iter().all(...)` (`:236`). The case-file format offers only closed
 //! dotted-path indexing into JSON -- design spec 5.4 is explicit that there are
 //! "no slices, no wildcards, no negative-from-end indexing, no filters" -- so a
 //! dotted path can pin the FIRST array element and nothing more. Narrowing "every
 //! error has this code" to "error 0 has this code" is a weakening (a second,
 //! differently-coded diagnostic would satisfy the migration and fail the source),
 //! and rule 1 forbids weakening. Nothing in the twelve assertion keys expresses it.
-//! The neighbouring `assert!(!errors.is_empty(), ...)` (`:214`) is not the
+//! The neighbouring `assert!(!errors.is_empty(), ...)` (`:234`) is not the
 //! problem and would migrate on its own; the quantifier is.
 //!
 //! ADJUDICATED, NOT PROPOSED. The human partner has ruled this quantifier a design
@@ -43,7 +43,7 @@
 //! proposing a wildcard dotted path or a quantified-array key.
 //!
 //! The non-JSON half of these three tests WOULD have migrated cleanly -- its arm is
-//! `stderr.contains("E5506")` (`:221`) plus a three-way OR that rule 11
+//! `stderr.contains("E5506")` (`:241`) plus a three-way OR that rule 11
 //! resolves against the real binary -- but a source `#[test]` fn cannot be split
 //! across the two halves: each fn's own loop body runs both, on every iteration.
 //! U4's trim-and-keep unit is the `#[test]` fn, so the split is 3 migrated / 3
@@ -65,15 +65,23 @@
 //! `Math.sqrt`, `Math.atan2`, `unsupported math`, and the JSON key `code`, none of
 //! which any migrated case may claim.
 //!
-//! The two sides fail differently, and the post-trim one fails BOTH WAYS AT ONCE:
-//! those same five claims are absent from the case file, AND 24 count claims in the
-//! case file no longer correspond to any `.matches(...).count()` in a source that no
-//! longer holds the helper making them -- 5 forward and 24 reverse, in one run.
+//! The two sides fail differently, and the post-trim one fails BOTH WAYS AT ONCE
+//! (measured; batch 7 corrected an earlier "in the REVERSE direction instead" in
+//! the red-list below, which said the post-trim run replaced one direction with
+//! the other). Post-trim, the retained half's literal claims are absent from the
+//! case file AND the case file's count claims no longer correspond to a source
+//! that no longer holds the helper making them -- forward and reverse in one run.
 //! Pre-trim it is red in the forward direction only, because the blob holds both
-//! halves while the case file carries one. (The measured red-list further down says
-//! the post-trim audit "fails in the REVERSE direction instead"; that word is wrong
-//! for this same reason. Correcting it is batch 7's, together with the four headers
-//! named below, and it is deliberately not edited here.)
+//! halves while the case file carries one.
+//!
+//! NO INTEGER IS GIVEN FOR THE FORWARD DIRECTION, and that is a ruling-11
+//! correction batch 7 applied after this header shipped with one. The forward
+//! figure is HEADER-MOVABLE: `audit-case-migration.py`'s `.contains` arm reads
+//! `//!` prose, so a single extra `//!` line carrying a quoted construct adds a
+//! source claim no case file can satisfy and the figure goes up. Measured, not
+//! supposed -- inserting one such line moves the forward count by exactly one
+//! while leaving the reverse count untouched. The reverse figure is NOT movable
+//! that way (its input is the case file's count claims), so it is stated below.
 //!
 //! TWO EARLIER VERSIONS OF THIS PARAGRAPH GOT THE SCOPE WRONG, IN OPPOSITE
 //! DIRECTIONS. The first said batch 5's trims were green on both sides "only
@@ -120,14 +128,26 @@
 //! here and is absent from the complement by construction.
 //!
 //!   audit-case-migration.py      RED / RED / green, and the two reds have DIFFERENT
-//!        causes, which is why both are named. PRE-trim it fails forward with
-//!        exactly five claims absent from the case file -- `E5506`, `Math.atan2`,
-//!        `Math.sqrt`, `unsupported math` and the JSON key `code` -- every one of
-//!        them made by a retained test and by nothing else. POST-trim it fails in
-//!        the REVERSE direction instead: the case file's `stdout_count`/`json_count`
-//!        claims no longer correspond to any `.matches(...).count()` in a source
-//!        that no longer contains the helper making them. Green against the migrated
-//!        half, which is the run that actually audits this migration.
+//!        causes, which is why both are named. PRE-trim it fails FORWARD ONLY: the
+//!        absent claims are the retained tests' own literals -- the E5506 code, the
+//!        two unsupported member-call spellings, the diagnostic phrase and the JSON
+//!        error-code key -- every one made by a retained test and by nothing else.
+//!        NO INTEGER, per the ruling-11 note above: that figure is header-movable.
+//!        POST-trim it fails in BOTH DIRECTIONS AT ONCE, not in the reverse
+//!        direction INSTEAD (corrected by batch 7; the old word claimed the
+//!        post-trim run swapped one direction for the other, and measured it adds
+//!        the reverse to the forward). The reverse half is 24 gate failure
+//!        ENTRIES, and 24 is not the number of count claims in the case file --
+//!        that is 16, which the gate prints on its own line. The 24 entries fall
+//!        in two classes, which the earlier wording collapsed into one:
+//!          * 16 of `stdout_count`/`json_count` needles that correspond to no
+//!            `.matches(...).count()` in a source that no longer contains the
+//!            helper making them -- one per count claim;
+//!          * 8 of `path segment 'stdout' is not a JSON key the source ever
+//!            indexed`, raised for the `json_count` claims only, so the eight
+//!            JSON-mode cases are reported twice, once in each class.
+//!        Green against the migrated half, which is the run that actually audits
+//!        this migration.
 //!   check_fixtures.py            RED / RED / green. Same cause as the pre-trim
 //!        audit red: `browser_harness_run_atan2_source` is retained-half program
 //!        text and appears in no case file, correctly. (Its `test` sibling passes

@@ -18,11 +18,11 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`
-//! (`:138-138`) has no helper: its whole body is three
-//! `assert!(source.contains(<needle>))` self-checks (`:140-149`) --
+//! (`:179-179`) has no helper: its whole body is three
+//! `assert!(source.contains(<needle>))` self-checks (`:181-190`) --
 //! one of them itself an OR across two quoting spellings -- run against
 //! `browser_bundle_global_this_math_atan2_frozen_source()`'s OWN TEXT
-//! (`:119-133`), before any command is built and without ever
+//! (`:160-174`), before any command is built and without ever
 //! invoking `kali`. The four blocking literals are
 //! `Object.freeze(globalThis.Math.atan2)`,
 //! `Object.freeze(globalThis['Math']['atan2'])`, its double-quoted sibling
@@ -55,30 +55,62 @@
 //!   PRE-TRIM REF:  1db95b469f^   (= 50061950a4)
 //!   git show 1db95b469f^:crates/kali_cli/tests/browser_math_atan2_global_this_root.rs > /tmp/pretrim.rs
 //!
-//! Read the two columns as POST-trim (the plain `verify_pair.sh
-//! math_atan2_global_this_root` run, against this file) then PRE-trim.
+//! THIRD COLUMN ADDED BY BATCH 7 UNDER RULING 12. Ruling 9's pre-trim rule
+//! assumes the pre-trim blob is the right comparison for every gate. It is right
+//! for citations and for comment coverage. It is NOT right for
+//! `audit-case-migration.py` or `check_fixtures.py` when the RETAINED tests
+//! carry literal claims of their own -- as this file's do. Those literals are in
+//! the pre-trim blob too, so the audit is red against BOTH older sides and the
+//! red looks permanent. The correct left-hand side is the part that was actually
+//! migrated: the complement of the retained half, built mechanically by
 //!
-//!   audit-case-migration.py      RED / RED, and BYTE-IDENTICAL both ways -- the
-//!        same 4 claims absent, the same 4 fixture-self-inspection literals named
-//!        in the paragraph above. This is the escalation itself, not a trim
-//!        artifact, and the pre-trim ref does not rescue this gate: the literals
-//!        are read by the retained test, never asserted on output, so no case
-//!        file can carry them at any strength.
-//!   comment_coverage.py          RED / RED. Post-trim, every non-blank line of
+//!   python3 tools/task-18-browser-pilot/migrated_complement.py \
+//!       /tmp/pretrim.rs \
+//!       crates/kali_cli/tests/browser_math_atan2_global_this_root.rs \
+//!       > /tmp/migrated_part.rs
+//!
+//! Read the three columns as POST-trim (the plain `verify_pair.sh math_atan2_global_this_root` run,
+//! against this file) / PRE-trim / MIGRATED-PART. The migrated part is a GATE
+//! INPUT, not a compilable file. Every cell below was produced by RUNNING the
+//! gate on that side.
+//!
+//!   audit-case-migration.py      RED / RED / GREEN. The two reds are
+//!        BYTE-IDENTICAL -- the same 4 claims absent, the same 4
+//!        fixture-self-inspection literals named in the paragraph above.
+//!        CORRECTED BY BATCH 7 (ruling 12). This paragraph used to say that red
+//!        "is the escalation itself, not a trim artifact". That is FALSE, and
+//!        the third column is the proof: against the migrated complement -- the
+//!        half the case file was actually produced from -- the audit exits 0
+//!        with nothing absent. The red was always a CONSEQUENCE of the trim,
+//!        appearing on both older sides because both contain the retained half
+//!        whose literals no case may carry. THE RETENTION ITSELF IS UNAFFECTED
+//!        AND STANDS: its ground is FIXTURE SELF-INSPECTION -- the literals are
+//!        read by the retained test, never asserted on output, so no case file
+//!        can carry them at any strength -- and this file is in
+//!        `find_fixture_self_inspection.py`'s `KNOWN` list on that ground. What
+//!        changed is the DESCRIPTION of a gate result, not the adjudication.
+//!   comment_coverage.py          RED / RED / RED. Post-trim, every non-blank line of
 //!        this header comes back missing: the header is prose about the RETAINED
 //!        test, which by construction has no case. NO COUNT IS GIVEN,
 //!        deliberately -- any figure would count this header's own length and
 //!        would be invalidated by every edit to it, including the edit that
 //!        corrected it. PRE-trim it is red for the same reason, because the
 //!        migration commit added this header before the trim commit removed the
-//!        migrated tests.
-//!   check_rationale_fn_names.py  RED / RED -- 8 unexplained post-trim, 4
-//!        pre-trim. The pre-trim 4 are backticked words in rationale prose that
-//!        merely look fn-shaped (case-variant labels, not identifiers); the
-//!        post-trim excess is the `assert_browser_*` helpers and source fn names
-//!        that left with the migrated cases.
-//!   check_fixtures.py            GREEN / GREEN.
-//!   batch5_crosscheck.py         GREEN / GREEN -- the citation gate, wired into
+//!        migrated tests. Against the migrated part it is red for the same
+//!        reason: the complement carries the `//!` block, which no rationale
+//!        reproduces.
+//!   check_rationale_fn_names.py  RED / RED / RED. The pre-trim red is the
+//!        backticked words in rationale prose that merely look fn-shaped
+//!        (case-variant labels, not identifiers); the post-trim excess is the
+//!        `assert_browser_*` helpers and source fn names that left with the
+//!        migrated cases; against the migrated part the RETAINED half's names go
+//!        unresolved instead. NO COUNT IS GIVEN on any side: the checker resolves
+//!        names only against the `.rs` it is handed, and this header is part of
+//!        that text.
+//!   check_fixtures.py            GREEN / GREEN / GREEN. The retained half
+//!        carries no program text of its own that a case file would have to
+//!        reproduce, which is why this row is unaffected by the third column.
+//!   batch5_crosscheck.py         GREEN / GREEN / n-a -- the citation gate, wired into
 //!        `verify_pair.sh` by batch 6; this row is part of that same wiring
 //!        change, as ruling 9 requires. The post-trim green is INCIDENTAL and
 //!        must not be read as a property of retention pairs: it means only that
@@ -88,7 +120,7 @@
 //!        the same gate is red post-trim. NO COUNT IS GIVEN: this gate also
 //!        resolves THIS header's own `:N` citations, so every edit to this
 //!        paragraph is an input to the figure it would report (ruling 11).
-//!   check_extra_claims.py        RED / RED, both sides. Most pre-trim entries are U5-renamed `[source]` keys and
+//!   check_extra_claims.py        RED / RED / RED, all three sides. Most pre-trim entries are U5-renamed `[source]` keys and
 //!        live-captured exact pins, which is what the `# EXTRA-OK:` mechanism
 //!        exists to declare -- but that mechanism, and this gate, shipped in
 //!        ef0b2cf3f5, AFTER this pair, so the declarations are absent by
@@ -103,12 +135,21 @@
 //!        that an edit to the surrounding prose can move, so the durable fact
 //!        is the classification. Run the gate for today's number.
 //!
-//! SO: this pair does NOT go all-green against the pre-trim ref. Only the
-//! fixture check and the citation check are green on both sides; the remaining
-//! four of the six are red pre-trim too, for three unrelated reasons -- the
-//! escalation, a retention header no case can carry, and two gates that
-//! postdate the file. Recording that is the point; a
-//! red-list that claimed otherwise would be worse than none.
+//! SO: this pair does NOT go all-green against any single side, and batch 7's
+//! third column changes which red is which rather than removing them. The
+//! fixture check and the citation check are green. Against the MIGRATED
+//! COMPLEMENT the AUDIT flips to green -- that is the correction ruling 12
+//! requires here, because the audit red was a trim artifact and not, as this
+//! block used to say, the escalation. Comment coverage, the U8 checker and the
+//! extra-claims gate stay red on all three sides, for two unrelated reasons --
+//! a retention header no case can carry, and two gates that postdate the file.
+//! Recording that is the point; a red-list that claimed otherwise would be
+//! worse than none.//!
+//! The RETENTION is not in question here and no part of this correction reopens
+//! it. Ruling 12 changes which blob a gate is measured against; it does not
+//! change why the retained tests cannot be migrated, which is the fixture
+//! self-inspection ground recorded above and in
+//! `find_fixture_self_inspection.py`'s `KNOWN` list.
 //!
 //! Adding a new gate to `verify_pair.sh` includes updating this paragraph, in
 //! the same change (ruling 9).

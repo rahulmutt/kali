@@ -70,30 +70,60 @@
 //!   PRE-TRIM REF:  d7fc768c1f^   (= eaf12ff4a4)
 //!   git show d7fc768c1f^:crates/kali_cli/tests/browser_math_pow_exponent_one.rs > /tmp/pretrim.rs
 //!
-//! Read the two columns as POST-trim (the plain `verify_pair.sh
-//! math_pow_exponent_one` run, against this file) then PRE-trim.
+//! THIRD COLUMN ADDED BY BATCH 7 UNDER RULING 12. Ruling 9's pre-trim rule
+//! assumes the pre-trim blob is the right comparison for every gate. It is right
+//! for citations and for comment coverage. It is NOT right for
+//! `audit-case-migration.py` or `check_fixtures.py` when the RETAINED tests
+//! carry literal claims of their own -- as this file's do. Those literals are in
+//! the pre-trim blob too, so the audit is red against BOTH older sides and the
+//! red looks permanent. The correct left-hand side is the part that was actually
+//! migrated: the complement of the retained half, built mechanically by
 //!
-//!   audit-case-migration.py      RED / RED, and BYTE-IDENTICAL both ways --
-//!        14 claims absent, the same 14. This is the escalation itself, not a
-//!        trim artifact: the claims belong to the 32 tests RETAINED here, which
-//!        by construction have no case, so no case file can carry them and the
-//!        pre-trim ref does not rescue this gate. Rule 3's "never ship a file
-//!        whose audit exits non-zero" was discharged for this pair by the
-//!        pilot's escalation, recorded above, not by a green run.
-//!   comment_coverage.py          RED / green(--allow-empty). Post-trim, every
+//!   python3 tools/task-18-browser-pilot/migrated_complement.py \
+//!       /tmp/pretrim.rs \
+//!       crates/kali_cli/tests/browser_math_pow_exponent_one.rs \
+//!       > /tmp/migrated_part.rs
+//!
+//! Read the three columns as POST-trim (the plain `verify_pair.sh math_pow_exponent_one` run,
+//! against this file) / PRE-trim / MIGRATED-PART. The migrated part is a GATE
+//! INPUT, not a compilable file. Every cell below was produced by RUNNING the
+//! gate on that side.
+//!
+//!   audit-case-migration.py      RED / RED / GREEN. The two reds are
+//!        BYTE-IDENTICAL -- 14 claims absent, the same 14, belonging to the
+//!        tests RETAINED here.
+//!        CORRECTED BY BATCH 7 (ruling 12). This paragraph used to say that red
+//!        "is the escalation itself, not a trim artifact". That is FALSE, and
+//!        the third column is the proof: against the migrated complement -- the
+//!        half the case file was actually produced from -- the audit exits 0
+//!        with nothing absent. The red was always a CONSEQUENCE of the trim,
+//!        appearing on both older sides because both contain the retained half
+//!        whose claims no case may carry. THE RETENTION ITSELF IS UNAFFECTED AND
+//!        STANDS: its ground is FIXTURE SELF-INSPECTION, and this file is in
+//!        `find_fixture_self_inspection.py`'s `KNOWN` list on that ground. Rule
+//!        3's "never ship a file whose audit exits non-zero" was discharged for
+//!        this pair by the pilot's escalation, recorded above; ruling 12 now also
+//!        supplies a side on which it exits 0. What changed is the DESCRIPTION
+//!        of a gate result, not the adjudication.
+//!   comment_coverage.py          RED / green(vacuous) / green(vacuous), where
+//!        "vacuous" is the ruling-5 floor -- the checker exits 2 with `VACUOUS:
+//!        0 non-divider comment lines checked` until given `--allow-empty`,
+//!        because both older sides predate this header and carry no Rust
+//!        comment at all. Post-trim, every
 //!        non-blank line of this header comes back missing: the checker requires
 //!        each source comment line to appear in some case's rationale, and this
 //!        header is prose about the RETAINED tests, which have no case. NO COUNT
 //!        IS GIVEN, deliberately -- any figure would count this header's own
 //!        length and would be invalidated by every edit to it, including the
 //!        edit that corrected it. Pre-trim the ref predates this header, so the
-//!        source has no Rust comments at all and the run is the vacuous green
-//!        `--allow-empty` acknowledges.
-//!   check_rationale_fn_names.py  RED / RED -- 2 unexplained post-trim, 1
-//!        pre-trim. Both are helper names that left with the migrated cases or
-//!        live in `kali_common`; the checker resolves names only against the
-//!        `.rs` it is handed.
-//!   batch5_crosscheck.py         GREEN / GREEN -- the citation gate, wired into
+//!        source has no Rust comments at all.
+//!   check_rationale_fn_names.py  RED / RED / RED. The unexplained names are
+//!        helper names that left with the migrated cases or live in
+//!        `kali_common`; against the migrated part the RETAINED half's names go
+//!        unresolved instead. NO COUNT IS GIVEN on any side: the checker resolves
+//!        names only against the `.rs` it is handed, and this header is part of
+//!        that text.
+//!   batch5_crosscheck.py         GREEN / GREEN / n-a -- the citation gate, wired into
 //!        `verify_pair.sh` by batch 6; this row is part of that same wiring
 //!        change, as ruling 9 requires. The post-trim green is INCIDENTAL and
 //!        must not be read as a property of retention pairs: it means only that
@@ -103,11 +133,14 @@
 //!        the same gate is red post-trim. NO COUNT IS GIVEN: this gate also
 //!        resolves THIS header's own `:N` citations, so every edit to this
 //!        paragraph is an input to the figure it would report (ruling 11).
-//!   check_fixtures.py            RED / RED -- 3 fixtures unmatched, the same 3
-//!        both ways. They are `format!` templates whose placeholders are
+//!   check_fixtures.py            RED / RED / GREEN. Post- and pre-trim the same
+//!        3 fixtures are unmatched: `format!` templates whose placeholders are
 //!        unresolved in the source text, so a verbatim search cannot match them.
-//!        Not a trim artifact and not a migration defect.
-//!   check_extra_claims.py        RED / RED, both sides. This gate and the U8 checker were both shipped in ef0b2cf3f5,
+//!        They belong to the RETAINED half, which is why the migrated complement
+//!        is green -- so this row too was a trim artifact rather than, as the
+//!        old wording had it, neither. This is one of only two trims in the
+//!        family red on pre-trim `check_fixtures.py` as well as on the audit.
+//!   check_extra_claims.py        RED / RED / RED, all three sides. This gate and the U8 checker were both shipped in ef0b2cf3f5,
 //!        AFTER this pair; the `# EXTRA-OK:` declaration mechanism it reads did
 //!        not exist when the case file was written, so its live-captured exact
 //!        pins and its U5-renamed source keys are undeclared by construction.
@@ -121,17 +154,27 @@
 //!        that an edit to the surrounding prose can move, so the durable fact
 //!        is the classification. Run the gate for today's number.
 //!
-//! SO: this pair does NOT go all-green against the pre-trim ref. FOUR of the
-//! six gates are red on both sides -- the audit, the U8 checker, the fixture
-//! check and the extra-claims gate -- for three unrelated reasons: an
-//! escalation, a `format!` limitation, and two gates that postdate the file.
+//! SO: this pair does NOT go all-green against any single side, and batch 7's
+//! third column changes which red is which rather than removing them. Four of
+//! the six gates are red on both OLDER sides -- the audit, the U8 checker, the
+//! fixture check and the extra-claims gate. Against the MIGRATED COMPLEMENT two
+//! of those four flip to green, the AUDIT and the FIXTURE check, and both flips
+//! are ruling 12's correction: each red was a trim artifact, not, as this block
+//! used to say of the audit, the escalation. The U8 checker and the
+//! extra-claims gate stay red on all three sides, for one reason between them --
+//! two gates that postdate the file. The citation gate is green; comment
+//! coverage is red post-trim only.
 //! (The text said "three of the five" until batch 6's fix round. THREE was
 //! already wrong before a sixth gate existed: the reasons list has always
 //! enumerated four gates across three reasons. Corrected by counting the rows
-//! above, not by adjusting five to six.) The citation gate is green on both
-//! sides; comment coverage is red post-trim only.
+//! above, not by adjusting five to six.)
 //! Recording that is the point; a red-list that claimed otherwise would be worse
-//! than none.
+//! than none.//!
+//! The RETENTION is not in question here and no part of this correction reopens
+//! it. Ruling 12 changes which blob a gate is measured against; it does not
+//! change why the retained tests cannot be migrated, which is the fixture
+//! self-inspection ground recorded above and in
+//! `find_fixture_self_inspection.py`'s `KNOWN` list.
 //!
 //! Adding a new gate to `verify_pair.sh` includes updating this paragraph, in
 //! the same change (ruling 9). This file must NOT be deleted by the family-wide
