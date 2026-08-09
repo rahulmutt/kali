@@ -1854,6 +1854,88 @@ class CountClaimCorrespondence(unittest.TestCase):
 # desired property. A future change that accidentally alters any of these
 # should show up here, not slip through silently.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Rule 11: a DISJUNCTIVE `.contains(...)` claim needs one branch, not all.
+# ---------------------------------------------------------------------------
+class DisjunctiveContainsClaims(unittest.TestCase):
+    """`disjunctive_contains_groups` -- added for Task 18 batch 6B.
+
+    Rule 11 resolves an OR-shaped source assertion against the real binary and
+    pins the branch that occurs; this script's model is otherwise conjunctive,
+    so before this arm existed a rule-11 migration of a two-DIFFERENT-literal
+    OR failed the audit for a claim the source never made. These pin both
+    directions, including the fail-closed cases -- an arm that only ever
+    relaxes is how a gate stops being one.
+    """
+
+    OR_SOURCE = (
+        "#[test]\n"
+        "fn t() {\n"
+        "    assert!(\n"
+        '        message.contains("alpha branch")\n'
+        '            || message.contains("beta branch"),\n'
+        '        "unexpected: {message}"\n'
+        "    );\n"
+        "}\n"
+    )
+
+    def _toml(self, needle):
+        return (
+            '[[case]]\nname = "c"\nargs = ["check", "a.js"]\n'
+            f'stderr_contains = ["{needle}"]\n'
+        )
+
+    def test_one_branch_pinned_passes_and_says_so(self):
+        rc, out = _run_audit(self.OR_SOURCE, {"new.toml": self._toml("beta branch")})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("DISJUNCTION", out)
+        self.assertIn("alpha branch", out)
+
+    def test_neither_branch_pinned_still_fails(self):
+        rc, out = _run_audit(self.OR_SOURCE, {"new.toml": self._toml("gamma")})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("alpha branch", out)
+        self.assertIn("beta branch", out)
+
+    def test_the_other_branch_is_equally_acceptable(self):
+        rc, out = _run_audit(self.OR_SOURCE, {"new.toml": self._toml("alpha branch")})
+        self.assertEqual(rc, 0, out)
+
+    def test_a_conjunction_is_untouched_and_still_requires_both(self):
+        source = (
+            "#[test]\n"
+            "fn t() {\n"
+            '    assert!(a.contains("alpha branch") && b.contains("beta branch"));\n'
+            "}\n"
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml("beta branch")})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("alpha branch", out)
+
+    def test_a_mixed_and_or_forms_no_group(self):
+        # Fails closed: `a && (b || c)` is audited exactly as before this arm.
+        source = (
+            '    assert!(x.contains("alpha") && (y.contains("beta") '
+            '|| z.contains("gamma")));\n'
+        )
+        self.assertEqual(audit.disjunctive_contains_groups(source), [])
+
+    def test_same_literal_on_two_streams_forms_no_group(self):
+        # rule 11's own cited shape -- `stderr.contains(C) || stdout.contains(C)`
+        # -- has ONE distinct literal, so it never becomes a group and the
+        # already-shipped files carrying it are unaffected by this arm.
+        source = (
+            '    assert!(stderr.contains("E5506") || stdout.contains("E5506"));\n'
+        )
+        self.assertEqual(audit.disjunctive_contains_groups(source), [])
+
+    def test_an_or_inside_a_string_literal_is_not_an_operator(self):
+        source = (
+            '    assert!(out.contains("alpha || beta"), "m");\n'
+        )
+        self.assertEqual(audit.disjunctive_contains_groups(source), [])
+
+
 class DocumentedLimitations(unittest.TestCase):
     def test_rprefix_inside_a_line_comment_is_still_read_as_a_raw_string_open(self):
         # `_RAW_STRING`'s own doc comment names this residual directly: the

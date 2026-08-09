@@ -45,6 +45,13 @@ ALLOW = {
     "kali_common", "kali_runtime_contract", "kali_case_runner", "tempdir",
     "browser_bundle_harness_script", "browser_harness_command_parts_for",
     "audit", "contains", "matches", "count", "lines", "starts_with", "ends_with",
+    # Named gate machinery a header legitimately cites when it records WHY a
+    # gate behaves as it does. `disjunctive_contains_groups` is
+    # `audit-case-migration.py`'s rule-11 OR arm (added in batch 6B);
+    # `resolve_path_mods` is its U10 submodule resolver. Both are functions in
+    # the gate, never in the source under migration, so the prefix rule below
+    # can never explain them.
+    "disjunctive_contains_groups", "resolve_path_mods", "assertion_diff",
 }
 
 

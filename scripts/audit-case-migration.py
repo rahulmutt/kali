@@ -1062,6 +1062,120 @@ def literal_variants(token: str) -> frozenset[str]:
     return frozenset({raw_body(token), unquote(token)})
 
 
+def disjunctive_contains_groups(source: str) -> list[list[str]]:
+    """Groups of `.contains(...)` literals that the source asserts DISJUNCTIVELY.
+
+    Rule 11 is explicit that an OR-shaped source assertion is resolved against
+    the real binary and the branch that actually occurs is pinned -- "a verified
+    strengthening (every run satisfying the new assertion satisfies the old)".
+    This script's claim model is conjunctive: every extracted literal must
+    appear somewhere in the case files. Those two are in direct conflict for the
+    one OR shape where the disjuncts are DIFFERENT literals rather than the same
+    code on two streams:
+
+        assert!(
+            message.contains("array callback-produced iterables")
+                || message.contains("literal array"),
+            "unexpected error message: {message}"
+        );
+
+    The source does not claim both texts are present -- it claims at least one
+    is -- so requiring both is the tool asserting something the source never
+    did, and it fails a migration that is strictly STRONGER than its
+    predecessor. Measured when this was added, by running this very function over
+    every `browser_*.rs` with its `#[path]` submodules resolved: EIGHT targets
+    form a group -- `math_atan2_global_this_root`,
+    `math_unsupported_member_calls_harness_jsx_tsx`,
+    `non_literal_dynamic_import_harness_jsx_tsx`, `non_literal_iterator_sources`,
+    `object_keys_entries_spread_bundle`, `object_keys_entries_spread_harness`,
+    `object_values_spread_harness`, `wasm_threads_browser_surface`. Of the 79
+    already-shipped stem-matched pairs, ZERO change verdict and zero even print a
+    DISJUNCTION line -- checked by running the whole family against a copy of this
+    script with the arm neutered and diffing every pair's output; in the two
+    shipped pairs that do form a group no member is present, so nothing is
+    suppressed. The same-literal-two-streams shape rule 11's evidence cites --
+    `stderr.contains("E5506") || stdout.contains("E5506")` -- never forms a group
+    at all: it has ONE distinct literal, and whichever stream is pinned carries it
+    either way.
+
+    So a group is required to have AT LEAST ONE member present, not all. The
+    resolution is never silent: `main` prints a DISJUNCTION line naming the
+    group and the member that satisfied it, exactly as it prints UNAUDITED and
+    NOT MIRRORED notes, so a reviewer sees which branch was pinned.
+
+    FAILS CLOSED, deliberately. A group is formed only when the assertion is a
+    pure top-level disjunction: the balanced-paren macro body is split at
+    depth-zero `||`, and the group is abandoned (every literal reverting to an
+    independent, conjunctive claim) if any disjunct contains a top-level `&&`,
+    or if fewer than two disjuncts yield a literal. A mixed `a && (b || c)` is
+    therefore audited exactly as it was before this function existed. Nothing
+    here can turn a wholesale drop green: if NO member of a group appears in the
+    case files, every member is still reported missing.
+    """
+    masked = _mask_strings(_mask_comments_outside_strings(source))
+    groups: list[list[str]] = []
+    for m in re.finditer(r"\bassert!\s*\(", masked):
+        depth, i, n = 0, m.end() - 1, len(masked)
+        while i < n:
+            if masked[i] == "(":
+                depth += 1
+            elif masked[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        if i >= n:
+            continue
+        body_start, body_end = m.end(), i
+        # Split the MASKED body at depth-zero `||`, then read the literals out
+        # of the corresponding slice of the UNMASKED source.
+        cuts, depth = [body_start], 0
+        j = body_start
+        while j < body_end:
+            ch = masked[j]
+            if ch in "([{":
+                depth += 1
+            elif ch in ")]}":
+                depth -= 1
+            elif depth == 0 and masked.startswith("||", j):
+                cuts.append(j + 2)
+                j += 2
+                continue
+            j += 1
+        cuts.append(body_end + 1)
+        if len(cuts) < 3:                      # no top-level `||`
+            continue
+        members: list[str] = []
+        ok = True
+        for a, b in zip(cuts, cuts[1:]):
+            segment_masked = masked[a:b - 1]
+            if _has_top_level(segment_masked, "&&"):
+                ok = False
+                break
+            lits = [unquote(tok) for tok in CONTAINS.findall(source[a:b - 1])]
+            if not lits:
+                continue
+            members.extend(lits)
+        if ok and len({m for m in members}) >= 2:
+            groups.append(sorted(set(members)))
+    return groups
+
+
+def _has_top_level(segment: str, operator: str) -> bool:
+    depth = 0
+    i = 0
+    while i < len(segment):
+        ch = segment[i]
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif depth == 0 and segment.startswith(operator, i):
+            return True
+        i += 1
+    return False
+
+
 def claims(source: str) -> dict[str, dict[str, frozenset[str]]]:
     """kind -> {canonical display value -> spellings to search for}."""
     out: dict[str, dict[str, frozenset[str]]] = {kind: {} for kind in LITERAL_KINDS}
@@ -1450,11 +1564,40 @@ def main() -> int:
         case_claims, source_sites, set(old_claims["json keys"])
     )
 
+    # Rule 11's OR shape: a group of `.contains` literals the source asserts
+    # DISJUNCTIVELY needs one member present, not all. See
+    # `disjunctive_contains_groups` for why, and for why it fails closed.
+    or_groups = disjunctive_contains_groups(old_source_combined)
+    contains_variants = old_claims["contains literals"]
+
+    def _present(canonical: str) -> bool:
+        return any(v and v in new_text
+                   for v in contains_variants.get(canonical, frozenset({canonical})))
+
+    satisfied_by_disjunction: dict[str, str] = {}
+    disjunction_notes: list[str] = []
+    for group in or_groups:
+        winners = [g for g in group if _present(g)]
+        if not winners:
+            continue                     # every member stays a hard missing
+        for member in group:
+            if member not in winners:
+                satisfied_by_disjunction[member] = winners[0]
+        disjunction_notes.append(
+            f"source asserts {' || '.join(repr(g) for g in group)} as ONE "
+            f"disjunctive claim (rule 11); the case files pin "
+            f"{', '.join(repr(w) for w in winners)}, so the unpinned branch(es) "
+            f"{', '.join(repr(g) for g in group if g not in winners) or '(none)'} "
+            "are NOT reported missing"
+        )
+
     missing: list[tuple[str, str]] = []
     for kind, entries in old_claims.items():
         exclude = BORING.get(kind, set())
         for canonical, variants in sorted(entries.items()):
             if not canonical or canonical in exclude:
+                continue
+            if kind == "contains literals" and canonical in satisfied_by_disjunction:
                 continue
             if not any(variant and variant in new_text for variant in variants):
                 missing.append((kind, canonical))
@@ -1470,6 +1613,8 @@ def main() -> int:
           f"{len(case_claims)}")
     # Printed unconditionally, before any verdict: a claim this script cannot
     # decide must never be indistinguishable from one it decided in favour.
+    for note in disjunction_notes:
+        print(f"  DISJUNCTION — {note}")
     for note in unauditable:
         print(f"  UNAUDITED — {note}")
     for note in unmirrored:
