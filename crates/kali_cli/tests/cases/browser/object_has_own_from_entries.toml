@@ -186,10 +186,14 @@
 # The live-captured value is 'browser object hasOwn fromEntries ok\n'. The generator
 # re-captures it from the real binary and requires every capture to be byte-identical to
 # every other AND to the embedded constant before a single pin is emitted, so the pin
-# cannot drift from what the binary does without failing the generator. NO CELL COUNT IS
-# WRITTEN HERE: it would be a figure nothing re-resolves, and the capture set is a
-# property of the generator rather than of this file's cases -- the cases that carry
-# this pin are enumerable from the file itself.
+# cannot drift from what the binary does without failing the generator -- CONDITIONAL ON
+# THE BINARY BEING BUILT. `_pin` prints a loud skip and falls back to the embedded
+# constant when the built `kali` is absent, so a generator run without it re-derives
+# nothing here; the guarantee is only as strong as that precondition, and the sentence
+# says so rather than overstating what the code does. NO CELL COUNT IS WRITTEN HERE: it
+# would be a figure nothing re-resolves, and the capture set is a property of the
+# generator rather than of this file's cases -- the cases that carry this pin are
+# enumerable from the file itself.
 
 [source]
 "app.js" = """// kali-tree-shake: browserObjectHasOwnFromEntries
