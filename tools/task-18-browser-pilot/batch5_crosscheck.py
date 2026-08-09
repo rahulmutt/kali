@@ -152,7 +152,25 @@ def _statement(lines, first, last):
         start -= 1
     while end < len(lines) and depth_before[end] > 0 and end - last < MAX_EXPAND:
         end += 1
-    return lines[start - 1:end]
+    # HEADER SELF-SATISFACTION (batch 6 fix round 1, finding I3). A `//!` line is
+    # blanked before the needle is searched for. Without this, a citation that has
+    # drifted far enough to land inside the file's own `//!` retention header is
+    # checked against that header's PROSE -- and retention prose is precisely the
+    # text that names, in words, the construct the citation points at. So the
+    # drifted citation self-satisfies and the gate reports green.
+    #
+    # Not hypothetical: `browser_math_atan2_global_this_root.rs` carried a
+    # citation that had slipped to `:73-85`, which is header prose containing the
+    # word `assert`, and this gate passed it. It was found by reading, not by the
+    # gate that exists to find it. Over six retention headers, 1-10 of each
+    # header's 50-125 lines will accept a given citation as a single-line target,
+    # and EVERY citation is satisfiable by pointing at its own citing line.
+    #
+    # Measured cost of closing it: 0 new failures across all 69 pairs and
+    # retentions. A citation must point at code; there is no legitimate citation
+    # into a `//!` block, so nothing correct is lost.
+    return ["" if l.lstrip().startswith("//!") else l
+            for l in lines[start - 1:end]]
 
 
 def _header(text):
@@ -200,6 +218,18 @@ def _distinctive(snippet):
     return tok if len(tok) >= 4 else None
 
 
+# An ellipsis used as a NAME ELISION -- `test_supports_...`, `..._in_js_input` --
+# where it stands for omitted identifier characters. An ellipsis that is NOT
+# adjacent to an identifier character is an omitted ARGUMENT LIST
+# (`source.contains(...)`, `errors.iter().all(...)`), which names a perfectly
+# good construct and must stay checked. See `_needles`.
+_NAME_ELISION = re.compile(r"\w\.\.\.|\.\.\.\w")
+
+# `receiver.method(` inside a snippet. The method name is a needle in its own
+# right; see M4 in `_needles`.
+_METHOD = re.compile(r"\.\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(")
+
+
 def _needles(snippet):
     """Every token that must appear inside the cited statement. May be empty.
 
@@ -226,6 +256,26 @@ def _needles(snippet):
     with the snippet's own literals, and (2) only drops snippets that name no
     single position.
 
+    CORRECTED, fix round 1 (finding I2). (2) used to be `if "..." in s`, which
+    skipped a snippet containing an ellipsis ANYWHERE -- including
+    `source.contains(...)`, `errors.iter().all(...)` and
+    `source.contains("Object.freeze(...)")`, where the ellipsis is an omitted
+    ARGUMENT LIST and the snippet names a perfectly checkable construct. That
+    silently disabled 28 citation instances, three of them genuine constructs,
+    and the docstring's claim that it "only drops snippets that name no single
+    position" was untrue as written. The skip is now restricted to an ellipsis
+    ADJACENT TO AN IDENTIFIER CHARACTER, which is what a name elision looks like
+    (`test_supports_...`) and what an omitted argument list never does.
+
+    M4, fix round 1: a `receiver.method()` snippet yields the METHOD NAME as an
+    additional needle, not just the leading identifier. `stdout.lines()` used to
+    reduce to the single needle `stdout`, which is satisfied by any
+    `stdout.contains(...)` line in the file -- so a `stdout.lines()` citation
+    could drift onto an unrelated `stdout` assertion and pass. That is exactly
+    how three stale citations in `browser_math_round_global_this_root.rs`
+    survived this gate (C1). Requiring `lines` as well kills the whole class
+    mechanically, which is the point: fix the mechanism, not the three numbers.
+
     VERIFIED BY MUTATION, and the exact claim matters. Shifting the WHOLE cited
     range by +1 and by -1 on each of the six repaired citations is caught in all
     twelve cases. What is NOT caught is WIDENING a multi-line range at one end
@@ -236,7 +286,7 @@ def _needles(snippet):
     meant to, check that the range is minimal.
     """
     s = snippet.strip()
-    if "..." in s:
+    if _NAME_ELISION.search(s):
         return []
     lead = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)", s)
     if lead and lead.group(1) in CASE_KEYS:
@@ -246,7 +296,13 @@ def _needles(snippet):
         # inventing a needle for it would reintroduce the false positive.
         return lits
     tok = _distinctive(s)
-    return [tok] if tok else []
+    if not tok:
+        return []
+    # M4: every `.method(` in the snippet joins the leading identifier as a
+    # needle. Short names are dropped for the same reason `_distinctive` drops
+    # them -- `.all(`/`.any(` would match far too much prose to discriminate.
+    methods = [m for m in _METHOD.findall(s) if len(m) >= 4 and m != tok]
+    return [tok] + sorted(set(methods))
 
 
 def check(spec, citations_only=False):
@@ -357,21 +413,29 @@ def _header_cite_arm(stem, body, lines):
         window = body[max(0, m.start() - 200):m.start()]
         cands = [mm for mm in re.finditer(r"`([^`\n]{2,120})`", window)
                  if not mm.group(1).startswith(":")]
-        tok = None
+        needles = []
         if cands and len(window) - cands[-1].end() <= 30:
             raw_tok = cands[-1].group(1)
-            tok = _distinctive(raw_tok)
-            if tok is None and re.fullmatch(r"[A-Za-z_][\w]{3,}", raw_tok):
-                tok = raw_tok
-        if tok is None:
+            # M4 (fix round 1): the SAME needle derivation the case-file arm
+            # uses, so `stdout.lines()` requires `lines` here too. This arm used
+            # to call `_distinctive` directly, which reduced that snippet to
+            # `stdout` -- satisfied by any `stdout.contains(...)` line in the
+            # file. That is exactly how C1's three stale citations, all of them
+            # in a `//!` header, survived this gate.
+            needles = _needles(raw_tok)
+            if not needles and re.fullmatch(r"[A-Za-z_][\w]{3,}", raw_tok):
+                needles = [raw_tok]
+        if not needles:
             out.append(f"{stem}: retention-header citation :{first} has no adjacent "
                        f"backticked construct to resolve against -- reword so the gate "
                        f"can check it (ruling 11 exempts :N only because it is gated)")
             continue
-        if tok not in "\n".join(_statement(lines, first, end)):
-            out.append(f"{stem}: retention-header citation :{first}"
-                       f"{'-' + str(end) if end != first else ''} does not contain "
-                       f"{tok!r}")
+        stmt = "\n".join(_statement(lines, first, end))
+        for tok in needles:
+            if tok not in stmt:
+                out.append(f"{stem}: retention-header citation :{first}"
+                           f"{'-' + str(end) if end != first else ''} does not contain "
+                           f"{tok!r}")
     return out
 
 
@@ -379,13 +443,18 @@ def _cite_arm(stem, origin, body, lines):
     out = []
     for m in CITE.finditer(body):
         snippet, first, last = m.group(1), int(m.group(2)), m.group(3)
-        needles = _needles(snippet)
-        if not needles:
-            continue
         end = int(last) if last else first
+        # RANGE CHECK FIRST (fix round 1, finding I2). This used to sit AFTER the
+        # needle gate, so a snippet the gate declined to resolve also escaped the
+        # past-end-of-file check -- a citation could point at `:9999` in a
+        # 300-line file and be reported as nothing at all. Whether a citation is
+        # in range is knowable without any needle, so it is checked unconditionally.
         if end > len(lines):
             out.append(f"{stem}: {origin} citation :{first} for `{snippet[:40]}` is "
                        f"past end of the source ({len(lines)} lines)")
+            continue
+        needles = _needles(snippet)
+        if not needles:
             continue
         window = "\n".join(_statement(lines, first, end))
         for tok in needles:

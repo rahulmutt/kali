@@ -3,7 +3,7 @@
 //!
 //! ALL 28 `#[test]` fns in this file reach
 //! `assert_browser_harness_generator_rejection_with_expected_messages`
-//! (`:162-226`) -- 16 of them indirectly, through the four-branch dispatcher
+//! (`:190-254`) -- 16 of them indirectly, through the four-branch dispatcher
 //! `assert_browser_harness_generator_rejection` (`:162-188`), and 12 directly
 //! -- so U4's
 //! trim-and-keep degenerates to whole-file retention: there is no complementary
@@ -100,7 +100,7 @@
 //! no pre-trim ref to run anything against. There is also no right-hand side:
 //! `verify_pair.sh generator_default_export_rejection` exits 2 with
 //! `missing .../cases/browser/generator_default_export_rejection.toml` before
-//! gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
+//! running any gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
 //! run here at all. The SIXTH is the exception, and it changes this paragraph:
 //! `batch5_crosscheck.py`, the citation gate that batch 6 wired into
 //! `verify_pair.sh`, needs no case file -- it resolves THIS header's own `:N`

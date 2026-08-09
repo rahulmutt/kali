@@ -93,8 +93,9 @@
 //!        that an edit to the surrounding prose can move, so the durable fact
 //!        is the classification. Run the gate for today's number.
 //!
-//! SO: this pair does NOT go all-green against the pre-trim ref. The audit and
-//! the fixture check do; the other three are red on both sides, for three
+//! SO: this pair does NOT go all-green against the pre-trim ref. The audit, the
+//! fixture check and the citation gate do; the other three are red on both
+//! sides, for three
 //! unrelated reasons -- a U6 attribution limit, and two gates that postdate the
 //! file. Recording that is the point; a red-list that claimed otherwise would be
 //! worse than none.

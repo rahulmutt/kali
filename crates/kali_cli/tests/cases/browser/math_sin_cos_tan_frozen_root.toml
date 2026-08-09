@@ -51,8 +51,9 @@
 # bound this file mirrors:
 #   * the bundle harness process's raw stdout, `stdout.matches("0\n").count() >= 4`
 #     (:131) -- `stdout_count` with `at_least = 4`
-#   * the harness helper's JSON branch, the same count taken against
-#     `json["stdout"].as_str()` (:188) -- `json_count` with `at_least = 4`
+#   * the harness helper's JSON branch, `stdout.matches("0\n").count() >= 4`
+#     (:188), taken against the leaf bound by `json["stdout"].as_str()`
+#     (:186) -- `json_count` with `at_least = 4`
 #   * the harness helper's text branch, against raw stdout (:194) -- `stdout_count` with
 #     `at_least = 4`
 # Each bound is transcribed, never re-derived: `count() >= N` becomes `at_least = N`,

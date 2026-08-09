@@ -121,10 +121,15 @@
 //!        that an edit to the surrounding prose can move, so the durable fact
 //!        is the classification. Run the gate for today's number.
 //!
-//! SO: this pair does NOT go all-green against the pre-trim ref. Three of the
-//! five of the six gates are red on both sides, for three unrelated reasons --
-//! an escalation, a `format!` limitation, and two gates that postdate the file.
-//! The sixth, the citation gate, is green on both sides.
+//! SO: this pair does NOT go all-green against the pre-trim ref. FOUR of the
+//! six gates are red on both sides -- the audit, the U8 checker, the fixture
+//! check and the extra-claims gate -- for three unrelated reasons: an
+//! escalation, a `format!` limitation, and two gates that postdate the file.
+//! (The text said "three of the five" until batch 6's fix round. THREE was
+//! already wrong before a sixth gate existed: the reasons list has always
+//! enumerated four gates across three reasons. Corrected by counting the rows
+//! above, not by adjusting five to six.) The citation gate is green on both
+//! sides; comment coverage is red post-trim only.
 //! Recording that is the point; a red-list that claimed otherwise would be worse
 //! than none.
 //!

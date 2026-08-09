@@ -41,7 +41,7 @@
 //! from. Nothing was trimmed here, so there is no pre-trim/post-trim divergence
 //! and no pre-trim ref to run anything against; and there is no right-hand side,
 //! since `verify_pair.sh math_pow_optional_chain_harness` exits 2 with a missing
-//! gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
+//! case file before running any gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
 //! run here at all. The SIXTH is the exception, and it changes this paragraph:
 //! `batch5_crosscheck.py`, the citation gate that batch 6 wired into
 //! `verify_pair.sh`, needs no case file -- it resolves THIS header's own `:N`

@@ -15,10 +15,10 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen_math_aliases`
-//! (`:154-154`) has no helper: its whole body is four
-//! `assert!(source.contains(<needle>))` self-checks (`:156-168`)
+//! (`:155-155`) has no helper: its whole body is four
+//! `assert!(source.contains(<needle>))` self-checks (`:157-169`)
 //! run against `browser_bundle_global_this_math_abs_sign_frozen_source()`'s OWN
-//! TEXT (`:124-152`), before any command is built and without ever
+//! TEXT (`:125-152`), before any command is built and without ever
 //! invoking `kali`. The four blocking literals are
 //! `Object.freeze(globalThis.Math.abs)`, `Object.freeze(globalThis.Math.sign)`,
 //! `Object.freeze(Math.abs)` and `Object.freeze(Math.sign)`.
@@ -110,7 +110,8 @@
 //! SO: this pair does NOT go all-green against the pre-trim ref. Only the U8
 //! checker flips; the audit, the comment coverage and the extra-claims gate stay
 //! red on both sides, for three unrelated reasons -- the escalation, a retention
-//! header no case can carry, and a gate that postdates the file. Recording that
+//! header no case can carry, and a gate that postdates the file. The fixture
+//! check and the citation gate are green on both sides. Recording that
 //! is the point; a red-list that claimed otherwise would be worse than none.
 //!
 //! Adding a new gate to `verify_pair.sh` includes updating this paragraph, in

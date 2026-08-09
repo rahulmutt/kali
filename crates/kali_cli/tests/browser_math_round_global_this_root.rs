@@ -5,9 +5,9 @@
 //! helpers -- `assert_browser_bundle_global_this_math_round` (`:191`), which
 //! 8 of them call, and `assert_browser_harness_global_this_math_round`
 //! (`:316`), which the ninth calls 16 times from an inlined loop -- and
-//! BOTH helpers end in a line-oriented count -- `stdout.lines()` (`:302`) in the
-//! bundle helper, and `stdout.lines()` (`:384`, JSON branch) and
-//! `stdout.lines()` (`:432`, text branch) in the harness helper. The
+//! BOTH helpers end in a line-oriented count -- `stdout.lines()` (`:310`) in the
+//! bundle helper, and `stdout.lines()` (`:392`, JSON branch) and
+//! `stdout.lines()` (`:440`, text branch) in the harness helper. The
 //! harness helper's two sites sit on opposite arms of its output-shape `if`, so
 //! every call reaches exactly one of them. 9 of 9 tests reach the construct
 //! unconditionally, so U4's trim-and-keep degenerates to whole-file retention:
@@ -45,7 +45,7 @@
 //! from. Nothing was trimmed here, so there is no pre-trim/post-trim divergence
 //! and no pre-trim ref to run anything against; and there is no right-hand side,
 //! since `verify_pair.sh math_round_global_this_root` exits 2 with a missing case
-//! gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
+//! file before running any gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
 //! run here at all. The SIXTH is the exception, and it changes this paragraph:
 //! `batch5_crosscheck.py`, the citation gate that batch 6 wired into
 //! `verify_pair.sh`, needs no case file -- it resolves THIS header's own `:N`

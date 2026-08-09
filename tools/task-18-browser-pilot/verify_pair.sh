@@ -7,12 +7,20 @@
 # collapsed into a single OK.
 #
 #   1. the case file's trials actually run
-#   2. audit-case-migration.py  (rule 3: absolute gate)
-#   3. comment_coverage.py      (rule 12)
-#   4. fidelity.py              (U14: BOTH directions printed)
-#   5. batch5_crosscheck.py     (ruling 11: every `:N` citation resolves)
+#   2. audit-case-migration.py       (rule 3: absolute gate)
+#   3. comment_coverage.py           (rule 12)
+#   4. check_rationale_fn_names.py   (U8: rationale prose is audited by nothing)
+#   5. check_fixtures.py             (rule 9: program text survives verbatim)
+#   6. check_extra_claims.py         (U14 `extra` / rule 2: never invent)
+#   7. fidelity.py                   (U14: BOTH directions printed; report only)
+#   8. batch5_crosscheck.py          (ruling 11: every `:N` citation resolves)
 #
-# GATE 5 WAS WIRED IN BY BATCH 6, and the reason is not tidiness. Ruling 11
+# That list said "four" and named only 1-4 even after batch 4 added two gates and
+# batch 6 added a seventh; corrected in batch 6's fix round 1. Eight steps, of
+# which seven enforce -- fidelity.py always exits 0 and is a report, its
+# enforcing counterpart being check_extra_claims.py.
+#
+# STEP 8 WAS WIRED IN BY BATCH 6, and the reason is not tidiness. Ruling 11
 # exempts `:N` code citations from "no figure an edit can move" ONLY because
 # they are mechanically gated -- "a pointer nothing re-resolves is a figure in
 # disguise". Until now the citation gate ran when someone remembered to run it,
