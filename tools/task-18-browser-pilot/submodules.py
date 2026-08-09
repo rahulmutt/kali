@@ -48,7 +48,7 @@ def audit_module():
     return mod
 
 
-def submodule_paths(rs_path, mod=None):
+def submodule_paths(rs_path, mod=None, base=None):
     """Every `.rs` reachable from `rs_path` by `#[path]`/plain `mod`, in order.
 
     Missing files are dropped here rather than raised: this module's callers are
@@ -56,10 +56,19 @@ def submodule_paths(rs_path, mod=None):
     `audit-case-migration.py` already fails hard (exit 2) on a `mod` naming a
     file that does not exist, so a second, differently-worded hard failure in
     five more places buys nothing.
+
+    `base` separates WHERE THE TEXT COMES FROM (`rs_path`) from WHERE ITS `mod`
+    declarations RESOLVE (`base`, defaulting to `rs_path`). `batch5_crosscheck.py`
+    needs that split: a `--pretrim`/`=PATH` override hands it a git blob written
+    to a temp file, whose `#[path = "sub/leaf.rs"]` would otherwise resolve under
+    `/tmp` and silently yield NO submodules -- turning every qualified citation
+    in a `#[path]` retention pair into a spurious "names a file that is not a
+    submodule". The blob is a copy of a tree file, so the tree file's directory
+    is the right base for it (fix round 1, I5).
     """
     mod = mod or audit_module()
     path = Path(rs_path)
-    paths = mod.resolve_path_mods(path, path.read_text())
+    paths = mod.resolve_path_mods(Path(base) if base else path, path.read_text())
     return [p for p in paths if p.is_file()]
 
 

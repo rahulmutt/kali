@@ -160,7 +160,13 @@ def _fanout_body():
 
 
 def enumerate_all():
-    """[(submodule, fn_name, helper, args)] -- every real invocation, loops expanded."""
+    """[(submodule, fn_name, helper, args, via_fanout)] -- every real invocation.
+
+    `via_fanout` records whether the call reached its helper THROUGH the
+    carrier-level looping helper. It is read off the expansion rather than
+    re-inferred downstream from (fixture, helper, sibling-count), which was a
+    guess that happened to be right.
+    """
     fanout, unparsed = invocations(_fanout_body())
     if unparsed:
         raise AssertionError(f"could not parse {FANOUT_HELPER}: {unparsed}")
@@ -182,9 +188,9 @@ def enumerate_all():
                         resolved = [command if a == "command" else
                                     bundle if a == "bundle" else a
                                     for a in inner_args]
-                        rows.append((sub, fn_name, inner_helper, resolved))
+                        rows.append((sub, fn_name, inner_helper, resolved, True))
                 else:
-                    rows.append((sub, fn_name, helper, args))
+                    rows.append((sub, fn_name, helper, args, False))
     return rows
 
 
@@ -199,7 +205,7 @@ def unq(tok):
     raise AssertionError(f"unexpected argument token {tok!r}")
 
 
-def parse_row(sub, fn_name, helper, args):
+def parse_row(sub, fn_name, helper, args, via_fanout):
     """One invocation as a dict of the five things that decide its case."""
     if helper in ENV_HELPERS:
         fixture_fn, filename, json_output, command = args
@@ -219,6 +225,7 @@ def parse_row(sub, fn_name, helper, args):
         "inherited": helper in INHERITED_HELPERS,
         "env": helper in ENV_HELPERS,
         "or_message": helper in OR_HELPERS,
+        "fanout": via_fanout,
     }
 
 
@@ -438,8 +445,30 @@ FANOUT_CITE = carrier_cite(r"^fn " + re.escape(FANOUT_HELPER) + r"\(")
 # 5. Rule 13 -- every helper in every call chain, checked mechanically.
 # --------------------------------------------------------------------------
 
-CHAIN_FNS = (["kali_bin"] + sorted(FIXTURE_STEMS)
-             + sorted({r["helper"] for r in ROWS}) + [FANOUT_HELPER])
+def chain_fns(rows):
+    """The call chain THIS half's cases actually go through.
+
+    Fix round 1, I3: this was one module-level constant shared by both files, so
+    the inherited half's header said "Checked every fn in each call chain (16 of
+    them)" and listed `for_of_source`, `for_await_source` and the two
+    `assert_browser_requested_*` helpers -- none of which its 12 `#[test]` fns
+    reach. Rule 13 is about the chain a case is PRODUCED THROUGH; a list that
+    over-reports it is prose describing a state the file does not have, which is
+    the same class `runner_exemption=` was parameterised to avoid.
+    """
+    fns = ["kali_bin"]
+    fns += sorted({r["fixture"] for r in rows})
+    fns += sorted({r["helper"] for r in rows})
+    if any(r["fanout"] for r in rows):
+        fns.append(FANOUT_HELPER)
+    return fns
+
+
+# The union, for the one thing that IS whole-source: the doc-comment check runs
+# over every fn either half can reach, so a `///` appearing anywhere in the
+# migrated chain fails the generator regardless of which file would carry it.
+CHAIN_FNS_ALL = (["kali_bin"] + sorted(FIXTURE_STEMS)
+                 + sorted({r["helper"] for r in ROWS}) + [FANOUT_HELPER])
 
 
 def assert_no_doc_comments(fns):
@@ -464,7 +493,7 @@ def assert_no_doc_comments(fns):
     return len(fns)
 
 
-CHAIN_CHECKED = assert_no_doc_comments(CHAIN_FNS)
+CHAIN_CHECKED = assert_no_doc_comments(CHAIN_FNS_ALL)
 
 
 def contract_doc_line():
@@ -710,16 +739,13 @@ def build_cases(rows, *, matrix_fold, sources):
                 if exts != sorted(EXTS4):
                     raise AssertionError(
                         f"{sub}:{fn} json={json_output} covers {exts}, not {EXTS4}")
-                row = dict(cell[0], looped=True, n_siblings=len(fn_rows), fanout=False)
+                row = dict(cell[0], looped=True, n_siblings=len(fn_rows))
                 entry = f"{FIXTURE_STEMS[row['fixture']]}.${{ext}}"
                 name = f"{fn}__{'json' if json_output else 'text'}"
                 cases.append((name, row, entry, cell))
         else:
             for r in fn_rows:
-                row = dict(r, looped=len(fn_rows) > 1, n_siblings=len(fn_rows),
-                           fanout=(r["fixture"] == "map_constructor_call_expression_source"
-                                   and r["helper"] == "assert_browser_iterator_source_rejects"
-                                   and len(fn_rows) == 8))
+                row = dict(r, looped=len(fn_rows) > 1, n_siblings=len(fn_rows))
                 entry = newname(r["fixture"], r["filename"])
                 cases.append((fn + suffix_for(r, varies), row, entry, [r]))
     for name, _row, _entry, _cell in cases:
@@ -821,16 +847,40 @@ def u2_block(half):
     ]
 
 
-def argv_order_block(half):
+def half_helpers(rows):
+    """The helper names THIS half actually exercises, plus its two archetypes.
+
+    Fix round 1, I2: `argv_order_block` and `assertion_shape_block` hardcoded
+    `HELPER_CITE[PLAIN]`/`[ARRCB]`, so the inherited file's header cited the
+    EXPLICIT helpers (carrier 108-163 / 281-338) while describing the inherited
+    ones (165-225 / 340-402) -- 13 citations that resolve perfectly, because the
+    construct really is on the cited line, in a helper the file never runs. The
+    `cite_in` mechanism was sound; the fn handed to it was a hand-chosen
+    constant. It is derived from the rows now, and asserted to be present.
+    """
+    used = {r["helper"] for r in rows}
+    inherited = any(r["inherited"] for r in rows)
+    base = INHERITED if inherited else PLAIN
+    arrcb = ARRCB_INH if inherited else ARRCB
+    for name in (base, arrcb):
+        if name not in used:
+            raise AssertionError(
+                f"header archetype `{name}` is not among this half's helpers {sorted(used)}")
+    return base, arrcb, sorted(used)
+
+
+def argv_order_block(half, rows):
+    base, arrcb, used = half_helpers(rows)
+    n_helpers = len(used)
     lines = [
         "ARGV ORDER is transcribed in the exact order the source's `Command` builder",
         "appends it, and is not normalised:",
         f"  * build/check: `[--output json] <build|check> [--bundle] "
         f"{'' if half == 'inherited' else '--api browser '}<entry>`. The",
         f"             `--output json` pair is appended FIRST, before the subcommand",
-        f"             (`cmd.arg(\"--output\").arg(\"json\")` (:{HELPER_CITE[PLAIN]['output_json']})),",
+        f"             (`cmd.arg(\"--output\").arg(\"json\")` (:{HELPER_CITE[base]['output_json']})),",
         f"             then the subcommand, then `--bundle` "
-        f"(`cmd.arg(\"--bundle\")` (:{HELPER_CITE[PLAIN]['bundle_flag']}))",
+        f"(`cmd.arg(\"--bundle\")` (:{HELPER_CITE[base]['bundle_flag']}))",
         "             for `build` only.",
     ]
     if half == "explicit":
@@ -841,32 +891,41 @@ def argv_order_block(half):
             f"(:{HELPER_CITE[REQUESTED]['env']})).",
             "             This shape never passes `--bundle`.",
             "  * `--api browser` is the last pair before the entry, on the statement that",
-            f"             ends `.expect(\"run kali\")` (:{HELPER_CITE[PLAIN]['run_kali']}).",
+            f"             ends `.expect(\"run kali\")` (:{HELPER_CITE[base]['run_kali']}).",
         ]
     else:
         lines += [
             "  * NO `--api` pair at all: the inherited helpers append the entry directly,",
             f"             on the statement that ends `.expect(\"run kali\")` "
-            f"(:{HELPER_CITE[INHERITED]['run_kali']}).",
+            f"(:{HELPER_CITE[base]['run_kali']}).",
             "             That absence is the case, not an omission.",
         ]
     lines += [
+        "Every `:N` in this block cites the helper THIS FILE runs "
+        f"(`{base}`), not a",
+        f"look-alike; the {n_helpers} helper(s) this file reaches each repeat the same",
+        "construct.",
         "The source passes an ABSOLUTE path as the entry -- "
-        f"`dir.path().join(filename)` (:{HELPER_CITE[PLAIN]['abs_path']}), and once per",
+        f"`dir.path().join(filename)` (:{HELPER_CITE[base]['abs_path']}) here, once per",
         "helper besides -- while the case runner passes the bare filename relative to the",
         "trial dir, matching every previously shipped `browser/` case file.",
     ]
     return lines
 
 
-def assertion_shape_block(half):
-    c = HELPER_CITE[PLAIN]
+def assertion_shape_block(half, rows):
+    base, arrcb, used = half_helpers(rows)
+    c = HELPER_CITE[base]
+    a = HELPER_CITE[arrcb]
+    n_arrcb = len({r["helper"] for r in rows if r["or_message"]})
     return [
         "ASSERTION SHAPE, mirrored from the source and nothing more.",
         "`exit = 1`, not the weaker `exit = \"failure\"` status class: the source pins",
         "the code exactly with",
-        f"`assert_eq!(output.status.code(), Some(1))` (:{c['exit_code']}, and once per",
-        "helper besides), which rule 1 makes an exact pin rather than a choice. The",
+        f"`assert_eq!(output.status.code(), Some(1))` (:{c['exit_code']}, in "
+        f"`{base}`;",
+        f"once per helper besides), which rule 1 makes an exact pin rather than a choice. "
+        "The",
         f"companion `assert!(!output.status.success()` (:{c['success']}) is implied by it.",
         "In `--output json` mode the envelope's four fields are four exact `assert_eq!`",
         f"claims -- `assert_eq!(json[\"schemaVersion\"], 1)` (:{c['schema']}) through",
@@ -886,10 +945,12 @@ def assertion_shape_block(half):
         f"`stderr.contains(\"literal array\")` (:{c['stderr_message']}) -- stay",
         "`stderr_contains` and are NOT strengthened to an exact `stderr` pin even though",
         "the exact text was observed: controller ruling 3, mirror the source.",
-        "RULE 11 -- the three array-callback helpers accept EITHER message text",
-        f"(`message.contains(\"array callback-produced iterables\")` "
-        f"(:{HELPER_CITE[ARRCB]['message_or']}) `|| message.contains(\"literal array\")`",
-        f"(:{HELPER_CITE[ARRCB]['message']}), and the same disjunction on `stderr`). The",
+        f"RULE 11 -- this file's {n_arrcb} array-callback helper(s) accept EITHER message",
+        f"text: `message.contains(\"array callback-produced iterables\")` "
+        f"(:{a['message_or']})",
+        f"or `message.contains(\"literal array\")` (:{a['message']}), both in "
+        f"`{arrcb}`,",
+        "and the same disjunction on `stderr`. The",
         "format has no disjunction, so the real binary decides: it emits the `literal",
         "array` branch for every one of these programs, and that branch is what is pinned.",
         "Every run satisfying the pin satisfies the source's OR, so this is a verified",
@@ -902,14 +963,15 @@ def assertion_shape_block(half):
     ]
 
 
-def escalation_block():
+def escalation_block(rows):
     """Rule 3's escalation, recorded in the artifact and not only in the report."""
     or_rows = [r for r in ROWS if r["or_message"]]
     or_fns = {(r["sub"], r["fn"]) for r in or_rows}
     helpers = sorted({r["helper"] for r in or_rows})
+    n_tests = _audit_disjunction_tests()
     return [
-        "ESCALATION (rule 3), RATIFICATION PENDING -- the audit's claim model was",
-        "CONJUNCTIVE, and this file's rule-11 narrowing made it RED.",
+        "ESCALATION (rule 3), RATIFIED IN PRINCIPLE BY CONTROLLER RULING 14 -- the audit's",
+        "claim model was CONJUNCTIVE, and this file's rule-11 narrowing made it RED.",
         "`audit-case-migration.py` required EVERY `.contains` literal in the source to",
         "appear somewhere in the case files. This source asserts two DIFFERENT literals",
         "DISJUNCTIVELY (the array-callback message, above), and rule 11 resolves an OR",
@@ -923,14 +985,35 @@ def escalation_block():
         "exception is permanently REJECTED (rule 4's evidence), so that was not an option.",
         "`disjunctive_contains_groups` was therefore added to `audit-case-migration.py`: a",
         "pure top-level `||` of `.contains` literals inside one `assert!` needs ONE member",
-        "present, not all. It FAILS CLOSED -- a disjunct carrying a top-level `&&` forms no",
-        "group at all, a single-distinct-literal OR (rule 11's own two-streams shape) forms",
-        "no group, and if NO member appears every member is still reported missing -- and",
-        "the resolution is PRINTED as a `DISJUNCTION` line on every run, so which branch",
-        "was pinned is never silent. Seven tests in `scripts/audit-case-migration_test.py`",
-        "pin both directions.",
-        "THE CONTROLLER MAY PREFER THE OTHER DISPOSITION, and this is the sentence that",
-        f"makes that choice visible from the artifact. Reverting the arm makes the "
+        "present, not all.",
+        "",
+        "SUPPRESSION IS SITE-SCOPED, not literal-scoped, and the first version was not.",
+        "As first shipped, a literal that is an unpinned disjunct in one assertion and an",
+        "UNCONDITIONAL claim in another was suppressed EVERYWHERE -- so `AUDIT OK` could",
+        "mean 'a claim the source asserts unconditionally is absent', which standing ruling",
+        "R2 forbids outright. It is live, not hypothetical:",
+        "browser_wasm_threads_browser_surface.rs carries the OR in its shared",
+        "stderr-rejection helper and asserts one of that OR's two branches on its own, in",
+        "the JSON branch of its per-command helper -- and batch 7 migrates it. (No `:N`",
+        "here: a citation into a THIRD file is one this pair's citation gate cannot",
+        "resolve, and ruling 11 exempts `:N` only because it is gated.) An unpinned member",
+        "is now suppressed only when EVERY `.contains` site of that literal in the combined",
+        "source lies inside a satisfied group.",
+        "",
+        "IT FAILS CLOSED on four paths, and each one is MUTATION-TESTED rather than merely",
+        "exercised (the earlier wording claimed three and two of them had no coverage --",
+        "batch 6A's I4 in a new place): a disjunct carrying a top-level `&&` forms no",
+        "group; a single-distinct-literal OR (rule 11's own two-streams shape) forms no",
+        "group; an empty winner set suppresses nothing, so if NO member appears every",
+        "member is still reported missing; and a literal asserted outside the disjunction",
+        "keeps its claim. The resolution is PRINTED as a `DISJUNCTION` line on every run,",
+        "naming which unpinned branches were suppressed and which were NOT and why, so no",
+        "branch is silently dropped.",
+        f"{n_tests} tests in `scripts/audit-case-migration_test.py` cover this arm; seven",
+        "mutants of the arm were run against the whole suite and all seven died.",
+        "",
+        "THE OTHER DISPOSITION REMAINS AVAILABLE, and this is the sentence that makes it",
+        "visible from the artifact. Reverting the arm makes the "
         f"{len(or_fns)} `#[test]`",
         f"fns that reach {' / '.join('`' + h + '`' for h in helpers)}",
         f"({len(or_rows)} of the source's {len(ROWS)} invocations) a U4 trim-and-keep",
@@ -938,7 +1021,20 @@ def escalation_block():
     ]
 
 
-def u9_block(n_trials):
+def _audit_disjunction_tests():
+    """How many tests in the audit suite cover the disjunction arm.
+
+    Counted from the suite itself rather than typed, because the last count in
+    this paragraph ("Seven tests") went stale in the same round that added more.
+    """
+    path = os.path.join(REPO, "scripts", "audit-case-migration_test.py")
+    text = open(path).read()
+    cls = text[text.index("class DisjunctiveContainsClaims"):]
+    cls = cls[:cls.index("\nclass ")]
+    return len(re.findall(r"^    def test_", cls, re.M))
+
+
+def u9_block(n_trials, matrix_fold):
     return [
         "U9 -- LIVE VERIFICATION, per case and not a sample.",
         f"Every one of this file's {n_trials} trials was run against the real built `kali`",
@@ -948,32 +1044,49 @@ def u9_block(n_trials):
         "below, and re-checks the source's own predicates -- exit code 1, the four envelope",
         "fields, a non-empty `errors` array, `code == E5506`, and the message/stderr",
         "predicate INCLUDING the disjunction -- before any pin is emitted. The",
-        "`json.errors.0.message` pins are the values that run produced; where a case is",
-        "matrix-fanned, all cells were captured and asserted byte-identical to each other",
-        "before one pin was written.",
+        "`json.errors.0.message` pins are the values that run produced.",
         "A live run proves REALISM, not FIDELITY (U9): the source-vs-TOML direction is",
         "`audit-case-migration.py`, `check_fixtures.py` and `check_extra_claims.py`.",
-    ]
+    ] + ([
+        "Every case here is matrix-fanned, so all 4 `ext` cells were captured and asserted",
+        "byte-identical to each other before one pin was written.",
+    ] if matrix_fold else [
+        "This file declares no `[matrix]`, so there are no cells to reconcile: each case is",
+        "one invocation and carries the pin that invocation produced.",
+    ])
 
 
-def rule13_block():
-    docs = (
-        "RULE 13 -- transitive helper docs. Checked every fn in each call chain "
-        f"({CHAIN_CHECKED} of them):"
-    )
-    setters, documented = contract_doc_precedent()
-    return [docs] + P._wrap_list(
-        CHAIN_FNS, "-- none carries a `///` doc comment, asserted mechanically in "
-                   "gen_batch6b.py's doc-comment check (it walks back from each fn's "
-                   "signature line and raises on a `///` above it), not read by eye."
+def rule13_block(rows):
+    fns = chain_fns(rows)
+    assert_no_doc_comments(fns)          # this half's chain, re-checked as cited
+    sets_env = any(r["env"] for r in rows)
+    out = [
+        "RULE 13 -- transitive helper docs. Checked every fn in THIS FILE's call chain "
+        f"({len(fns)} of them):"
+    ] + P._wrap_list(
+        fns, "-- none carries a `///` doc comment, asserted mechanically in "
+             "gen_batch6b.py's doc-comment check (it walks back from each fn's "
+             "signature line and raises on a `///` above it), not read by eye."
     ) + [
         "The chain reaches no `kali_common` helper and no `browser_bundle_harness` step,",
         "so ruling 6's runner-infrastructure exemption is not in play here at all -- this",
         "file's cases never build a harness script or a harness command.",
+    ]
+    if not sets_env:
+        out += [
+            "No case in this file sets any `env`, so the one `///`-documented item the",
+            "OTHER half touches -- `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV`, a",
+            "`pub const &str` whose value is that half's `env` key -- is not in this",
+            f"file's chain either. See {EXPLICIT_STEM}.toml for that",
+            "accounting; repeating it here would describe a state this file does not have.",
+        ]
+        return out
+    setters, documented = contract_doc_precedent()
+    return out + [
         "One `///`-documented item IS touched: the constant",
-        f"`kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV`, whose doc reads",
+        "`kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV`, whose doc reads",
         f"\"{CONTRACT_DOC}\" and whose value is the",
-        f"`{HARNESS_ENV}` key the run/test cases set as `env`.",
+        f"`{HARNESS_ENV}` key this file's run/test cases set as `env`.",
         "It is a `pub const &str`, not a helper in a call chain, and rule 13 is about doc",
         "comments on HELPERS; the case reproduces its value, not anything it computed.",
         "Shipped precedent agrees and was ENUMERATED before this sentence was written",
@@ -1141,14 +1254,16 @@ def build_file(half):
     if dupe_groups:
         header += P.RULING7_NO_HOIST
         header += [
-            "In this file that check runs on the RENDERED TOML, re-parsed: each of the",
-            f"{dupe_groups} duplicate-bodied `[source]` group(s) below must be "
-            "byte-identical,",
-            "and every `[source]` value must match exactly one `fn *_source()` literal in",
-            "the carrier -- so an emitter or escaping bug that wrote the wrong literal fails",
-            "the generator rather than shipping. Asserting it over the generator's in-memory",
-            "dict instead would be vacuous: every key there is filled from the same object,",
-            "so equality would hold by construction and the check could never fail.",
+            "In this file that check runs on the RENDERED TOML, re-parsed, and it is a",
+            "PER-KEY match, not a pairwise comparison: every `[source]` value must equal",
+            "exactly one `fn *_source()` literal in the carrier (and `kali.json`, where",
+            "present, the manifest literal the two inherited helpers embed). That is what",
+            "an emitter or escaping bug trips; the byte-identity of this file's",
+            f"{dupe_groups} duplicate-bodied `[source]` group(s) is a CONSEQUENCE of it,",
+            "reported as a count rather than re-asserted -- a pairwise comparison at that",
+            "point could not fail, and a check that cannot fail is not a check. Running it",
+            "over the generator's in-memory dict would be vacuous for the same reason:",
+            "every key there is filled from the same object.",
         ]
     else:
         header += [
@@ -1162,24 +1277,99 @@ def build_file(half):
             "shipping.",
         ]
     header += [""]
-    header += rule13_block()
+    header += rule13_block(rows)
     header += [""]
-    header += argv_order_block(half)
+    header += argv_order_block(half, rows)
     header += [""]
-    header += assertion_shape_block(half)
+    header += assertion_shape_block(half, rows)
     header += [""]
-    header += escalation_block()
+    header += escalation_block(rows)
     header += [""]
-    header += u9_block(len(rows))
+    header += u9_block(len(rows), matrix_fold)
 
     matrix = {"ext": EXTS4} if matrix_fold else None
     text = emit(header, matrix, sources, cases)
     dupes = assert_ruling7_identity(text)
+    assert_every_citation_is_gated(text)
+    assert_header_citations_stay_in_chain(text, rows)
     if dupes != dupe_groups:
         raise AssertionError(
             f"header states {dupe_groups} duplicate-bodied [source] group(s), the "
             f"rendered file has {dupes}")
     return text, len(cases), n_fns, n_inv, dupes
+
+
+def assert_header_citations_stay_in_chain(text, rows):
+    """No header `:N` may land in a carrier fn THIS file's cases never run.
+
+    Fix round 1, I2. The citation gate resolves a `:N` against the construct
+    named beside it and reports 0 problems when it matches -- which it does
+    perfectly for a look-alike helper, because this carrier defines six
+    near-identical ones and the construct really is on the cited line. So the
+    gate is blind to "right construct, wrong helper" BY CONSTRUCTION, and 13
+    citations in the inherited half pointed at the EXPLICIT helpers while the
+    prose around them described the inherited ones.
+
+    The fix was to derive the archetype from the rows (`half_helpers`); this is
+    the check that keeps it fixed. Allowed = this half's own call chain, plus
+    the two manifest-writing helpers, which the U2 block legitimately cites in
+    BOTH halves because that `if` is what the split is about.
+    """
+    import batch5_crosscheck as X
+    allowed = set(chain_fns(rows)) | set(INHERITED_HELPERS)
+    spans = {fn: _fn_span(CARRIER_TEXT, fn)
+             for fn in set(CHAIN_FNS_ALL) | set(INHERITED_HELPERS)}
+    header = "\n".join(l for l in text.split("\n") if l.startswith("#"))
+    qualified = {m.start() for m in X.SUBMOD_CITE.finditer(header)}
+    bad = []
+    for m in X.CITE.finditer(header):
+        if m.start() in qualified:
+            continue                     # resolved against a submodule, not the carrier
+        line = int(m.group(2))
+        owner = [fn for fn, (lo, hi) in spans.items() if lo <= line <= hi]
+        if owner and owner[0] not in allowed:
+            bad.append(f":{line} -> `{owner[0]}` (from `{m.group(1)[:50]}`)")
+    if bad:
+        raise AssertionError(
+            "header citation(s) point into a carrier fn this file's cases never "
+            "run: " + "; ".join(bad))
+    return True
+
+
+def assert_every_citation_is_gated(text):
+    """Every `:N` in the rendered file must be one `batch5_crosscheck.py` READS.
+
+    Ruling 11 exempts `:N` from "no figure an edit can move" ONLY because it is
+    mechanically gated -- "a pointer nothing re-resolves is a figure in
+    disguise". The gate's `CITE`/`SUBMOD_CITE` patterns require the backticked
+    construct and its citation to sit on the SAME line (`[^`\n]{0,40}?`), so a
+    citation that the `#`-comment wrapper pushed onto the next line is not drift
+    and not stale -- it is simply invisible, and reports `0 problem(s)` whether
+    it is right or wrong. Fix round 1, M6 found two of those; this makes the
+    class impossible to ship rather than fixing the two.
+
+    Counts, deliberately, rather than re-resolving: resolution is the gate's
+    job, and duplicating it here would be the second implementation this project
+    keeps being bitten by. What the generator owns is that it emitted nothing
+    the gate cannot see.
+    """
+    import batch5_crosscheck as X
+    written = len(re.findall(r"\((?:[A-Za-z0-9_]+\.rs)?:\d+", text))
+    seen = len(list(X.CITE.finditer(text))) + len(list(X.SUBMOD_CITE.finditer(text)))
+    # A qualified citation matches BOTH patterns (the gate de-duplicates them by
+    # start offset), so count distinct start offsets the way the gate does.
+    starts = {m.start() for m in X.CITE.finditer(text)}
+    starts |= {m.start() for m in X.SUBMOD_CITE.finditer(text)}
+    if len(starts) != written:
+        direction = ("the gate's patterns match FEWER: a citation whose backticked "
+                     "construct is not on the same line is ungated"
+                     if len(starts) < written else
+                     "the gate's patterns match MORE: something reads as a citation "
+                     "that was not written as one (a bare `:N` in prose, most likely)")
+        raise AssertionError(
+            f"{written} `:N` citation(s) written, {len(starts)} matched -- {direction} "
+            "(ruling 11)")
+    return written
 
 
 def assert_ruling7_identity(text):
@@ -1211,9 +1401,13 @@ def assert_ruling7_identity(text):
                 f"[source] {key!r} matches {len(matches)} fixture literal(s) in the "
                 "carrier, wanted exactly 1")
         groups.setdefault(matches[0], []).append(key)
-    for fn, keys in groups.items():
-        P.assert_identical(f"{fn} across {sorted(keys)}",
-                           *[doc["source"][k] for k in keys])
+    # NO separate pairwise comparison here (fix round 1, M4). Every value has
+    # just been required to equal exactly one carrier literal, and the keys are
+    # grouped BY that literal, so a pairwise `assert_identical` over a group
+    # could not fail -- an unreachable check whose prose claimed it was the
+    # check. What actually does the work is the per-key match above; group
+    # identity is its consequence, and is reported as a count, not as a second
+    # assertion.
     return sum(1 for keys in groups.values() if len(keys) > 1)
 
 

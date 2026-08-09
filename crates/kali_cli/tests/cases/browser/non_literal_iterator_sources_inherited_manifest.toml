@@ -123,64 +123,51 @@
 # helpers embed -- so an emitter or escaping bug fails the generator rather than
 # shipping.
 #
-# RULE 13 -- transitive helper docs. Checked every fn in each call chain (16 of them):
-#   `kali_bin`, `array_callback_iteration_source`, `for_await_source`, `for_of_source`,
+# RULE 13 -- transitive helper docs. Checked every fn in THIS FILE's call chain (9 of them):
+#   `kali_bin`, `array_callback_iteration_source`,
 #   `map_constructor_call_expression_source`, `object_entries_source`,
 #   `object_keys_source`, `object_values_source`,
 #   `set_constructor_call_expression_source`,
-#   `assert_browser_array_callback_iteration_source_rejects`,
-#   `assert_browser_iterator_source_rejects`,
-#   `assert_browser_requested_array_callback_iteration_source_rejects`,
-#   `assert_browser_requested_iterator_source_rejects`,
 #   `assert_inherited_browser_array_callback_iteration_source_rejects`,
-#   `assert_inherited_browser_iterator_source_rejects`,
-#   `assert_map_constructor_iteration_from_call_expression_source_rejects` -- none carries a `///` doc comment, asserted mechanically in gen_batch6b.py's doc-comment check (it walks back from each fn's signature line and raises on a `///` above it), not read by eye.
+#   `assert_inherited_browser_iterator_source_rejects` -- none carries a `///` doc comment, asserted mechanically in gen_batch6b.py's doc-comment check (it walks back from each fn's signature line and raises on a `///` above it), not read by eye.
 # The chain reaches no `kali_common` helper and no `browser_bundle_harness` step,
 # so ruling 6's runner-infrastructure exemption is not in play here at all -- this
 # file's cases never build a harness script or a harness command.
-# One `///`-documented item IS touched: the constant
-# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV`, whose doc reads
-# "Environment variable used to override the browser harness command." and whose value is the
-# `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` key the run/test cases set as `env`.
-# It is a `pub const &str`, not a helper in a call chain, and rule 13 is about doc
-# comments on HELPERS; the case reproduces its value, not anything it computed.
-# Shipped precedent agrees and was ENUMERATED before this sentence was written
-# (ruling 13), not recalled:
-#   grep -rl "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" crates/kali_cli/tests/cases/ \
-#     | grep -vc non_literal_iterator_sources          -> 80
-#   grep -rl "Environment variable used to override the browser harness command." \
-#     crates/kali_cli/tests/cases/ | grep -vc non_literal_iterator_sources   -> 0
-# 0 of the 80 case files that set that variable carry the doc line;
-# this file follows them. The `grep -v` is not decoration: both strings occur in
-# THIS header, so an unfiltered count would count the sentence's own file and the
-# figure would move by being written (ruling 11).
+# No case in this file sets any `env`, so the one `///`-documented item the
+# OTHER half touches -- `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV`, a
+# `pub const &str` whose value is that half's `env` key -- is not in this
+# file's chain either. See non_literal_iterator_sources_explicit_api.toml for that
+# accounting; repeating it here would describe a state this file does not have.
 #
 # ARGV ORDER is transcribed in the exact order the source's `Command` builder
 # appends it, and is not normalised:
 #   * build/check: `[--output json] <build|check> [--bundle] <entry>`. The
 #              `--output json` pair is appended FIRST, before the subcommand
-#              (`cmd.arg("--output").arg("json")` (:121)),
-#              then the subcommand, then `--bundle` (`cmd.arg("--bundle")` (:126))
+#              (`cmd.arg("--output").arg("json")` (:188)),
+#              then the subcommand, then `--bundle` (`cmd.arg("--bundle")` (:193))
 #              for `build` only.
 #   * NO `--api` pair at all: the inherited helpers append the entry directly,
 #              on the statement that ends `.expect("run kali")` (:195).
 #              That absence is the case, not an omission.
-# The source passes an ABSOLUTE path as the entry -- `dir.path().join(filename)` (:116), and once per
+# Every `:N` in this block cites the helper THIS FILE runs (`assert_inherited_browser_iterator_source_rejects`), not a
+# look-alike; the 2 helper(s) this file reaches each repeat the same
+# construct.
+# The source passes an ABSOLUTE path as the entry -- `dir.path().join(filename)` (:173) here, once per
 # helper besides -- while the case runner passes the bare filename relative to the
 # trial dir, matching every previously shipped `browser/` case file.
 #
 # ASSERTION SHAPE, mirrored from the source and nothing more.
 # `exit = 1`, not the weaker `exit = "failure"` status class: the source pins
 # the code exactly with
-# `assert_eq!(output.status.code(), Some(1))` (:136, and once per
-# helper besides), which rule 1 makes an exact pin rather than a choice. The
-# companion `assert!(!output.status.success()` (:135) is implied by it.
+# `assert_eq!(output.status.code(), Some(1))` (:198, in `assert_inherited_browser_iterator_source_rejects`;
+# once per helper besides), which rule 1 makes an exact pin rather than a choice. The
+# companion `assert!(!output.status.success()` (:197) is implied by it.
 # In `--output json` mode the envelope's four fields are four exact `assert_eq!`
-# claims -- `assert_eq!(json["schemaVersion"], 1)` (:140) through
-# `assert_eq!(json["exitCode"], 1)` (:143) -- and become four exact
-# `json.*` pins; `assert_eq!(errors[0]["code"], "E5506")` (:150) becomes
+# claims -- `assert_eq!(json["schemaVersion"], 1)` (:202) through
+# `assert_eq!(json["exitCode"], 1)` (:205) -- and become four exact
+# `json.*` pins; `assert_eq!(errors[0]["code"], "E5506")` (:212) becomes
 # `json.errors.0.code`.
-# The source's `!errors.is_empty()` (:146) gets NO key of its
+# The source's `!errors.is_empty()` (:208) gets NO key of its
 # own and is not dropped: design spec 5.4 makes an out-of-range numeric segment a
 # HARD failure, never a silent skip, so `json.errors.0.code` cannot pass against an
 # empty array and implies the claim.
@@ -189,13 +176,14 @@
 # `json.errors.0.message` pin per controller ruling 3 -- live-captured, per case,
 # from the real built `kali` (see U9 below).
 # In text mode: `stderr` HAS a substring form, so the two claims --
-# `stderr.contains("E5506")` (:157) and
-# `stderr.contains("literal array")` (:159) -- stay
+# `stderr.contains("E5506")` (:219) and
+# `stderr.contains("literal array")` (:221) -- stay
 # `stderr_contains` and are NOT strengthened to an exact `stderr` pin even though
 # the exact text was observed: controller ruling 3, mirror the source.
-# RULE 11 -- the three array-callback helpers accept EITHER message text
-# (`message.contains("array callback-produced iterables")` (:325) `|| message.contains("literal array")`
-# (:326), and the same disjunction on `stderr`). The
+# RULE 11 -- this file's 1 array-callback helper(s) accept EITHER message
+# text: `message.contains("array callback-produced iterables")` (:389)
+# or `message.contains("literal array")` (:390), both in `assert_inherited_browser_array_callback_iteration_source_rejects`,
+# and the same disjunction on `stderr`. The
 # format has no disjunction, so the real binary decides: it emits the `literal
 # array` branch for every one of these programs, and that branch is what is pinned.
 # Every run satisfying the pin satisfies the source's OR, so this is a verified
@@ -206,8 +194,8 @@
 # `stdout`/`stdout_contains`, no `file_json` step, no `browser_bundle_harness` step
 # and no count key anywhere in this file. Adding any would be a rule 2 invention.
 #
-# ESCALATION (rule 3), RATIFICATION PENDING -- the audit's claim model was
-# CONJUNCTIVE, and this file's rule-11 narrowing made it RED.
+# ESCALATION (rule 3), RATIFIED IN PRINCIPLE BY CONTROLLER RULING 14 -- the audit's
+# claim model was CONJUNCTIVE, and this file's rule-11 narrowing made it RED.
 # `audit-case-migration.py` required EVERY `.contains` literal in the source to
 # appear somewhere in the case files. This source asserts two DIFFERENT literals
 # DISJUNCTIVELY (the array-callback message, above), and rule 11 resolves an OR
@@ -221,14 +209,35 @@
 # exception is permanently REJECTED (rule 4's evidence), so that was not an option.
 # `disjunctive_contains_groups` was therefore added to `audit-case-migration.py`: a
 # pure top-level `||` of `.contains` literals inside one `assert!` needs ONE member
-# present, not all. It FAILS CLOSED -- a disjunct carrying a top-level `&&` forms no
-# group at all, a single-distinct-literal OR (rule 11's own two-streams shape) forms
-# no group, and if NO member appears every member is still reported missing -- and
-# the resolution is PRINTED as a `DISJUNCTION` line on every run, so which branch
-# was pinned is never silent. Seven tests in `scripts/audit-case-migration_test.py`
-# pin both directions.
-# THE CONTROLLER MAY PREFER THE OTHER DISPOSITION, and this is the sentence that
-# makes that choice visible from the artifact. Reverting the arm makes the 6 `#[test]`
+# present, not all.
+#
+# SUPPRESSION IS SITE-SCOPED, not literal-scoped, and the first version was not.
+# As first shipped, a literal that is an unpinned disjunct in one assertion and an
+# UNCONDITIONAL claim in another was suppressed EVERYWHERE -- so `AUDIT OK` could
+# mean 'a claim the source asserts unconditionally is absent', which standing ruling
+# R2 forbids outright. It is live, not hypothetical:
+# browser_wasm_threads_browser_surface.rs carries the OR in its shared
+# stderr-rejection helper and asserts one of that OR's two branches on its own, in
+# the JSON branch of its per-command helper -- and batch 7 migrates it. (No `:N`
+# here: a citation into a THIRD file is one this pair's citation gate cannot
+# resolve, and ruling 11 exempts `:N` only because it is gated.) An unpinned member
+# is now suppressed only when EVERY `.contains` site of that literal in the combined
+# source lies inside a satisfied group.
+#
+# IT FAILS CLOSED on four paths, and each one is MUTATION-TESTED rather than merely
+# exercised (the earlier wording claimed three and two of them had no coverage --
+# batch 6A's I4 in a new place): a disjunct carrying a top-level `&&` forms no
+# group; a single-distinct-literal OR (rule 11's own two-streams shape) forms no
+# group; an empty winner set suppresses nothing, so if NO member appears every
+# member is still reported missing; and a literal asserted outside the disjunction
+# keeps its claim. The resolution is PRINTED as a `DISJUNCTION` line on every run,
+# naming which unpinned branches were suppressed and which were NOT and why, so no
+# branch is silently dropped.
+# 13 tests in `scripts/audit-case-migration_test.py` cover this arm; seven
+# mutants of the arm were run against the whole suite and all seven died.
+#
+# THE OTHER DISPOSITION REMAINS AVAILABLE, and this is the sentence that makes it
+# visible from the artifact. Reverting the arm makes the 6 `#[test]`
 # fns that reach `assert_browser_array_callback_iteration_source_rejects` / `assert_browser_requested_array_callback_iteration_source_rejects` / `assert_inherited_browser_array_callback_iteration_source_rejects`
 # (48 of the source's 220 invocations) a U4 trim-and-keep
 # retention instead; nothing else in either case file changes.
@@ -241,11 +250,11 @@
 # below, and re-checks the source's own predicates -- exit code 1, the four envelope
 # fields, a non-empty `errors` array, `code == E5506`, and the message/stderr
 # predicate INCLUDING the disjunction -- before any pin is emitted. The
-# `json.errors.0.message` pins are the values that run produced; where a case is
-# matrix-fanned, all cells were captured and asserted byte-identical to each other
-# before one pin was written.
+# `json.errors.0.message` pins are the values that run produced.
 # A live run proves REALISM, not FIDELITY (U9): the source-vs-TOML direction is
 # `audit-case-migration.py`, `check_fixtures.py` and `check_extra_claims.py`.
+# Every case here is matrix-fanned, so all 4 `ext` cells were captured and asserted
+# byte-identical to each other before one pin was written.
 
 [matrix]
 ext = ["js", "ts", "jsx", "tsx"]

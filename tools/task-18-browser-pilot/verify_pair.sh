@@ -149,15 +149,22 @@ xcheck_spec="$STEM"
 # the real source through the same `=PATH` override --pretrim uses.
 [[ -n "$RS_STEM" ]] && xcheck_spec="$STEM=$RS"
 if [[ -n "$PRETRIM" ]]; then
+  # THE BLOB IS TAKEN FROM THE SOURCE STEM, NOT THE CASE STEM (fix round 1, I5).
+  # This used to read browser_$STEM.rs unconditionally, so `--rs` + `--pretrim`
+  # together looked for a `.rs` named after the CASE file -- which, for a U2
+  # split, is exactly the file that does not exist -- and exited 2. No shipped
+  # pair combines the two flags today; batches 7-8 meet `#[path]` carriers with
+  # retentions, which is that combination.
+  pretrim_stem="${RS_STEM:-$STEM}"
   pretrim_rs="$(mktemp -t "verify_pair_${STEM}_pretrim_XXXXXX.rs")"
-  if git -C "$REPO" show "$PRETRIM:crates/kali_cli/tests/browser_$STEM.rs" > "$pretrim_rs" 2>/dev/null; then
+  if git -C "$REPO" show "$PRETRIM:crates/kali_cli/tests/browser_$pretrim_stem.rs" > "$pretrim_rs" 2>/dev/null; then
     xcheck_spec="$STEM=$pretrim_rs"
-    echo "resolving case-file citations against pre-trim ref $PRETRIM"
+    echo "resolving case-file citations against pre-trim ref $PRETRIM (browser_$pretrim_stem.rs)"
   else
     # Do NOT fall back to the working tree: that would silently run the very
     # comparison the --pretrim flag exists to avoid, and report its artefacts as
     # real drift. Fail loudly instead.
-    echo "cannot read browser_$STEM.rs at ref $PRETRIM"; rm -f "$pretrim_rs"; exit 2
+    echo "cannot read browser_$pretrim_stem.rs at ref $PRETRIM"; rm -f "$pretrim_rs"; exit 2
   fi
 fi
 python3 "$REPO/tools/task-18-browser-pilot/batch5_crosscheck.py" \

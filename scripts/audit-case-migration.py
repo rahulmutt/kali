@@ -1062,8 +1062,14 @@ def literal_variants(token: str) -> frozenset[str]:
     return frozenset({raw_body(token), unquote(token)})
 
 
-def disjunctive_contains_groups(source: str) -> list[list[str]]:
+def disjunctive_contains_groups(source: str) -> list[dict]:
     """Groups of `.contains(...)` literals that the source asserts DISJUNCTIVELY.
+
+    Returns `[{"literals": [canonical, ...], "sites": frozenset[offset]}, ...]`.
+    `sites` are the absolute offsets, into `source`, of the `.contains(` matches
+    that make up the group, and they are what makes suppression SITE-scoped
+    rather than literal-scoped -- see `contains_sites` for why that distinction
+    is the difference between this arm and a false `AUDIT OK`.
 
     Rule 11 is explicit that an OR-shaped source assertion is resolved against
     the real binary and the branch that actually occurs is pinned -- "a verified
@@ -1098,10 +1104,13 @@ def disjunctive_contains_groups(source: str) -> list[list[str]]:
     at all: it has ONE distinct literal, and whichever stream is pinned carries it
     either way.
 
-    So a group is required to have AT LEAST ONE member present, not all. The
-    resolution is never silent: `main` prints a DISJUNCTION line naming the
-    group and the member that satisfied it, exactly as it prints UNAUDITED and
-    NOT MIRRORED notes, so a reviewer sees which branch was pinned.
+    So a group is required to have AT LEAST ONE member present, not all -- and
+    an unpinned member is suppressed only if EVERY `.contains` site of that
+    literal in the combined source lies inside a satisfied group (fix round 1,
+    C1; `contains_sites`). The resolution is never silent: `main` prints a
+    DISJUNCTION line naming the group, the member that satisfied it, which
+    unpinned branches were suppressed and which were NOT and why, exactly as it
+    prints UNAUDITED and NOT MIRRORED notes.
 
     FAILS CLOSED, deliberately. A group is formed only when the assertion is a
     pure top-level disjunction: the balanced-paren macro body is split at
@@ -1146,19 +1155,41 @@ def disjunctive_contains_groups(source: str) -> list[list[str]]:
         if len(cuts) < 3:                      # no top-level `||`
             continue
         members: list[str] = []
+        sites: set[int] = set()
         ok = True
         for a, b in zip(cuts, cuts[1:]):
             segment_masked = masked[a:b - 1]
             if _has_top_level(segment_masked, "&&"):
                 ok = False
                 break
-            lits = [unquote(tok) for tok in CONTAINS.findall(source[a:b - 1])]
-            if not lits:
-                continue
-            members.extend(lits)
-        if ok and len({m for m in members}) >= 2:
-            groups.append(sorted(set(members)))
+            for hit in CONTAINS.finditer(source[a:b - 1]):
+                members.append(unquote(hit.group(1)))
+                # ABSOLUTE offset into `source`. This is what makes suppression
+                # SITE-SCOPED rather than literal-scoped; see the `sites` note
+                # in this function's docstring.
+                sites.add(a + hit.start())
+        if ok and len(set(members)) >= 2:
+            groups.append({"literals": sorted(set(members)), "sites": frozenset(sites)})
     return groups
+
+
+def contains_sites(source: str) -> dict[str, frozenset[int]]:
+    """Every `.contains("lit")` site in `source`: canonical literal -> offsets.
+
+    The other half of site-scoped suppression. A literal may be an unpinned
+    disjunct at one site and an UNCONDITIONAL claim at another --
+    `browser_wasm_threads_browser_surface.rs` does exactly that with
+    `"runtime profile"` (`:31` inside the OR, `:81` on its own in the JSON
+    branch) -- so suppressing by literal alone makes `AUDIT OK` mean "a claim
+    the source asserts unconditionally is absent". Standing ruling R2 forbids
+    precisely that. Offsets are produced by the same `CONTAINS` pattern
+    `disjunctive_contains_groups` records its sites with, so the two sets are
+    directly comparable.
+    """
+    out: dict[str, set[int]] = {}
+    for hit in CONTAINS.finditer(source):
+        out.setdefault(unquote(hit.group(1)), set()).add(hit.start())
+    return {k: frozenset(v) for k, v in out.items()}
 
 
 def _has_top_level(segment: str, operator: str) -> bool:
@@ -1574,22 +1605,43 @@ def main() -> int:
         return any(v and v in new_text
                    for v in contains_variants.get(canonical, frozenset({canonical})))
 
-    satisfied_by_disjunction: dict[str, str] = {}
-    disjunction_notes: list[str] = []
+    # SITE-SCOPED, not literal-scoped (controller ruling 14 / fix round 1 C1).
+    # Pass 1 finds the satisfied groups and unions their `.contains` SITES;
+    # pass 2 suppresses an unpinned member only when EVERY site of that literal
+    # in the combined source lies inside one of those groups. A literal that is
+    # also asserted unconditionally somewhere else keeps its site outside the
+    # union and is still reported missing.
+    all_sites = contains_sites(old_source_combined)
+    satisfied: list[tuple[list[str], list[str]]] = []      # (literals, winners)
+    satisfied_sites: set[int] = set()
     for group in or_groups:
-        winners = [g for g in group if _present(g)]
+        winners = [g for g in group["literals"] if _present(g)]
         if not winners:
             continue                     # every member stays a hard missing
-        for member in group:
-            if member not in winners:
-                satisfied_by_disjunction[member] = winners[0]
-        disjunction_notes.append(
-            f"source asserts {' || '.join(repr(g) for g in group)} as ONE "
-            f"disjunctive claim (rule 11); the case files pin "
-            f"{', '.join(repr(w) for w in winners)}, so the unpinned branch(es) "
-            f"{', '.join(repr(g) for g in group if g not in winners) or '(none)'} "
-            "are NOT reported missing"
-        )
+        satisfied.append((group["literals"], winners))
+        satisfied_sites |= group["sites"]
+
+    satisfied_by_disjunction: set[str] = set()
+    disjunction_notes: list[str] = []
+    for literals, winners in satisfied:
+        unpinned = [g for g in literals if g not in winners]
+        suppressed = [g for g in unpinned
+                      if all_sites.get(g, frozenset()) <= satisfied_sites]
+        satisfied_by_disjunction.update(suppressed)
+        note = (f"source asserts {' || '.join(repr(g) for g in literals)} as ONE "
+                f"disjunctive claim (rule 11); the case files pin "
+                f"{', '.join(repr(w) for w in winners)}")
+        if suppressed:
+            note += (f". Unpinned and NOT reported missing: "
+                     f"{', '.join(repr(g) for g in suppressed)}")
+        still = [g for g in unpinned if g not in suppressed]
+        if still:
+            note += (f". Unpinned but STILL reported missing, because the source "
+                     f"also asserts it outside this disjunction: "
+                     f"{', '.join(repr(g) for g in still)}")
+        if not unpinned:
+            note += ". Every branch is pinned; nothing is suppressed"
+        disjunction_notes.append(note)
 
     missing: list[tuple[str, str]] = []
     for kind, entries in old_claims.items():

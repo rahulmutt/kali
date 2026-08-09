@@ -1863,9 +1863,15 @@ class DisjunctiveContainsClaims(unittest.TestCase):
     Rule 11 resolves an OR-shaped source assertion against the real binary and
     pins the branch that occurs; this script's model is otherwise conjunctive,
     so before this arm existed a rule-11 migration of a two-DIFFERENT-literal
-    OR failed the audit for a claim the source never made. These pin both
-    directions, including the fail-closed cases -- an arm that only ever
-    relaxes is how a gate stops being one.
+    OR failed the audit for a claim the source never made.
+
+    EVERY relaxation path below is mutation-tested, not merely exercised. Fix
+    round 1 found two that were not: removing the top-level `&&` guard, and
+    letting an empty winner set suppress, both survived the first version of
+    this class -- because its negative tests either never reached the guard
+    (`x && (y || z)` puts the `||` inside parens) or asserted on the whole
+    output, which the `DISJUNCTION` note itself satisfies. Assertions here are
+    on the MISSING LIST, and the end-to-end cases drive `main`.
     """
 
     OR_SOURCE = (
@@ -1879,27 +1885,47 @@ class DisjunctiveContainsClaims(unittest.TestCase):
         "}\n"
     )
 
-    def _toml(self, needle):
+    def _toml(self, *needles):
+        listed = ", ".join(f'"{n}"' for n in needles)
         return (
             '[[case]]\nname = "c"\nargs = ["check", "a.js"]\n'
-            f'stderr_contains = ["{needle}"]\n'
+            f"stderr_contains = [{listed}]\n"
         )
+
+    @staticmethod
+    def _missing(out):
+        """The audit's MISSING LIST only -- never the whole output.
+
+        The `DISJUNCTION` note repeats every literal in the group, so
+        `assertIn("alpha branch", out)` passes whether or not the claim was
+        actually reported. That is how fix round 1's mutation B survived.
+        """
+        return {m.group(1) for m in re.finditer(r"^  \[[^\]]+\] (.+)$", out, re.M)}
 
     def test_one_branch_pinned_passes_and_says_so(self):
         rc, out = _run_audit(self.OR_SOURCE, {"new.toml": self._toml("beta branch")})
         self.assertEqual(rc, 0, out)
         self.assertIn("DISJUNCTION", out)
-        self.assertIn("alpha branch", out)
-
-    def test_neither_branch_pinned_still_fails(self):
-        rc, out = _run_audit(self.OR_SOURCE, {"new.toml": self._toml("gamma")})
-        self.assertEqual(rc, 1, out)
-        self.assertIn("alpha branch", out)
-        self.assertIn("beta branch", out)
+        self.assertIn("NOT reported missing: \'alpha branch\'", out)
 
     def test_the_other_branch_is_equally_acceptable(self):
         rc, out = _run_audit(self.OR_SOURCE, {"new.toml": self._toml("alpha branch")})
         self.assertEqual(rc, 0, out)
+
+    def test_neither_branch_pinned_still_fails(self):
+        rc, out = _run_audit(self.OR_SOURCE, {"new.toml": self._toml("gamma")})
+        self.assertEqual(rc, 1, out)
+        self.assertEqual(self._missing(out),
+                         {"\'alpha branch\'", "\'beta branch\'"}, out)
+
+    def test_both_branches_pinned_suppresses_nothing(self):
+        rc, out = _run_audit(
+            self.OR_SOURCE,
+            {"new.toml": self._toml("alpha branch", "beta branch")})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("Every branch is pinned; nothing is suppressed", out)
+
+    # -- the fail-closed paths, each pinned END-TO-END so a mutation dies ----
 
     def test_a_conjunction_is_untouched_and_still_requires_both(self):
         source = (
@@ -1910,10 +1936,34 @@ class DisjunctiveContainsClaims(unittest.TestCase):
         )
         rc, out = _run_audit(source, {"new.toml": self._toml("beta branch")})
         self.assertEqual(rc, 1, out)
-        self.assertIn("alpha branch", out)
+        self.assertEqual(self._missing(out), {"\'alpha branch\'"}, out)
 
-    def test_a_mixed_and_or_forms_no_group(self):
-        # Fails closed: `a && (b || c)` is audited exactly as before this arm.
+    def test_an_and_beside_a_top_level_or_forms_no_group(self):
+        """`a && c || b` -- the mutation kill for the top-level `&&` guard.
+
+        Rust parses this as `(a && c) || b`, so pinning only `b` genuinely
+        DROPS both `a` and `c`. Without the guard the whole thing became one
+        group and the drop turned `AUDIT OK` -- a real weakening, and this is
+        the shape the old `x && (y || z)` test could never reach, because its
+        `||` sits inside parens and the depth-zero scan never sees it.
+        """
+        source = (
+            "#[test]\n"
+            "fn t() {\n"
+            '    assert!(a.contains("alpha") && c.contains("charlie")'
+            ' || b.contains("bravo"));\n'
+            "}\n"
+        )
+        self.assertEqual(audit.disjunctive_contains_groups(source), [])
+        rc, out = _run_audit(source, {"new.toml": self._toml("bravo")})
+        self.assertEqual(rc, 1, out)
+        self.assertEqual(self._missing(out), {"\'alpha\'", "\'charlie\'"}, out)
+
+    def test_a_parenthesised_or_inside_an_and_forms_no_group(self):
+        # `a && (b || c)`: the `||` is at depth 1, so the depth-zero scan never
+        # splits at all. Kept as a separate, HONESTLY LABELLED case -- it pins
+        # the depth scan, not the `&&` guard, which is what it was mislabelled
+        # as covering.
         source = (
             '    assert!(x.contains("alpha") && (y.contains("beta") '
             '|| z.contains("gamma")));\n'
@@ -1929,11 +1979,98 @@ class DisjunctiveContainsClaims(unittest.TestCase):
         )
         self.assertEqual(audit.disjunctive_contains_groups(source), [])
 
-    def test_an_or_inside_a_string_literal_is_not_an_operator(self):
+    def test_a_panic_message_is_masked_before_the_operator_scan(self):
+        """Masking kill, and the FIRST attempt at it was vacuous.
+
+        The obvious test -- a `||` inside a `.contains(...)` literal -- proves
+        nothing: that literal always sits inside `contains(`, i.e. at depth >= 1,
+        where the depth-zero scan ignores it whether or not strings are masked.
+        The only string at depth ZERO in an `assert!` body is the PANIC MESSAGE,
+        so that is where masking is actually load-bearing. Here the message
+        carries a `&&`: masked, the body is a clean two-way disjunction; unmasked,
+        the message's own text lands in a disjunct and trips the top-level `&&`
+        guard, so the group vanishes and a correct rule-11 migration goes red.
+        """
         source = (
-            '    assert!(out.contains("alpha || beta"), "m");\n'
+            '    assert!(a.contains("A") || b.contains("B"), "A && B || C");\n'
         )
-        self.assertEqual(audit.disjunctive_contains_groups(source), [])
+        groups = audit.disjunctive_contains_groups(source)
+        self.assertEqual([g["literals"] for g in groups], [["A", "B"]])
+
+    def test_a_trailing_comment_is_masked_before_the_operator_scan(self):
+        # The other half of the same composition
+        # (`_mask_strings(_mask_comments_outside_strings(...))`): a comment at
+        # depth zero, carrying an `&&`, would trip the guard if comments were
+        # not blanked first.
+        source = (
+            "    assert!(\n"
+            '        a.contains("A")\n'
+            '            || b.contains("B"), // A && B\n'
+            "    );\n"
+        )
+        groups = audit.disjunctive_contains_groups(source)
+        self.assertEqual([g["literals"] for g in groups], [["A", "B"]])
+
+    # -- C1: suppression is SITE-scoped, not literal-scoped -----------------
+
+    WASM_SHAPE = (
+        "fn assert_rejection(stderr: &str) {\n"
+        '    assert!(stderr.contains("E5506"), "stderr: {stderr}");\n'
+        "    assert!(\n"
+        '        stderr.contains("runtime profile") || stderr.contains("wasm-threads"),\n'
+        '        "stderr: {stderr}"\n'
+        "    );\n"
+        "}\n"
+        "\n"
+        "#[test]\n"
+        "fn t() {\n"
+        '    assert!(errors[0]["message"].as_str().expect("m")'
+        '.contains("runtime profile"));\n'
+        '    assert_rejection("x");\n'
+        "}\n"
+    )
+
+    def test_a_literal_also_asserted_unconditionally_is_still_reported(self):
+        """Reduced from `browser_wasm_threads_browser_surface.rs` (`:31`, `:81`).
+
+        `"runtime profile"` is an unpinned disjunct at one site and an
+        UNCONDITIONAL claim at another. Literal-scoped suppression made
+        `AUDIT OK` mean "a claim the source asserts unconditionally is absent"
+        -- standing ruling R2, head on. Suppression therefore requires EVERY
+        site of the literal to lie inside a satisfied group.
+        """
+        rc, out = _run_audit(
+            self.WASM_SHAPE,
+            {"new.toml": self._toml("E5506", "wasm-threads")})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("\'runtime profile\'", self._missing(out))
+        self.assertIn("STILL reported missing", out)
+
+    def test_the_same_shape_without_the_unconditional_site_is_suppressed(self):
+        """The control: delete the unconditional site and suppression returns.
+
+        Without this pair, `test_a_literal_also_asserted_unconditionally...`
+        would also pass if the arm were deleted outright, and would be pinning
+        nothing about site scoping.
+        """
+        source = self.WASM_SHAPE.replace(
+            '    assert!(errors[0]["message"].as_str().expect("m")'
+            '.contains("runtime profile"));\n', "")
+        self.assertNotIn('.contains("runtime profile"));', source)
+        rc, out = _run_audit(
+            source, {"new.toml": self._toml("E5506", "wasm-threads")})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("NOT reported missing: \'runtime profile\'", out)
+
+    def test_sites_are_recorded_for_every_member_of_a_group(self):
+        groups = audit.disjunctive_contains_groups(self.WASM_SHAPE)
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(len(groups[0]["sites"]), 2)
+        every = audit.contains_sites(self.WASM_SHAPE)
+        # Three `.contains` sites for the two group literals plus the
+        # unconditional one; the group knows about only two of them.
+        self.assertEqual(len(every["runtime profile"]), 2)
+        self.assertFalse(every["runtime profile"] <= groups[0]["sites"])
 
 
 class DocumentedLimitations(unittest.TestCase):

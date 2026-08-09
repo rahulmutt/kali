@@ -80,7 +80,7 @@ def check(rs_path, toml_path):
     in any submodule, or in both, and reading only the carrier would report a
     green (or, worse, a `--allow-empty` VACUOUS green) for a target whose entire
     comment budget sits one hop away. Every reachable submodule is scanned too.
-    `source_position` is therefore `"<basename>:<line>"`, not a bare integer --
+    `source_position` is therefore `(basename, line)`, not a bare integer --
     a line number alone is ambiguous once more than one file is in scope, which
     is the same ambiguity that makes a `:N` citation into a carrier meaningless
     when the construct is in a submodule."""
@@ -110,7 +110,14 @@ def check(rs_path, toml_path):
                     continue
                 for case_name, blob in case_blobs:
                     if norm not in blob:
-                        missing.append((f"{path.name}:{start + j}", line, case_name))
+                        # (file, line, text) -- the FILE and LINE stay separate
+                        # values so the report can sort NUMERICALLY. Batch 6B
+                        # first shipped a pre-joined `"name:12"` string, which
+                        # sorted lexicographically (1, 10, 100, ..., 2, 20) for
+                        # every file in the corpus, `mod`-free ones included.
+                        # Same content, same exit code, different reading order:
+                        # a behaviour change where the commit claimed none.
+                        missing.append(((path.name, start + j), line, case_name))
     return total, missing, len(cases)
 
 
@@ -129,15 +136,16 @@ def main() -> int:
     # Group by (line, text) so a comment paragraph missing from every case
     # isn't printed N times; report the case COUNT it's missing from instead.
     by_line = {}
-    for ln, line, case_name in missing:
-        by_line.setdefault((ln, line), []).append(case_name)
+    for where, line, case_name in missing:
+        by_line.setdefault((where, line), []).append(case_name)
     print(f"{total} non-divider comment lines checked against {n_cases} cases, "
           f"{len(by_line)} line(s) with at least one case missing them")
-    for (ln, line), case_names in sorted(by_line.items()):
+    for ((name, ln), line), case_names in sorted(by_line.items()):
+        where = f"{name}:{ln}"
         if len(case_names) == n_cases:
-            print(f"  MISSING {ln} from ALL {n_cases} cases: {line!r}")
+            print(f"  MISSING {where} from ALL {n_cases} cases: {line!r}")
         else:
-            print(f"  MISSING {ln} from {len(case_names)}/{n_cases} cases "
+            print(f"  MISSING {where} from {len(case_names)}/{n_cases} cases "
                   f"(e.g. {case_names[0]!r}): {line!r}")
     # FIXED (Task 18 pilot review round 2, blocker C): this checker used to
     # report failures without ever calling sys.exit, so it always exited 0

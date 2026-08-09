@@ -81,7 +81,16 @@ SECTIONS = [
 ]
 
 # A backticked snippet followed by a parenthesised or bare `:N` citation.
-CITE = re.compile(r"`([^`\n]{3,120})`[^`\n]{0,40}?\(?:(\d+)(?:-(\d+))?\)?")
+# The snippet bound is 200, not 120. Raised in Task 18 batch 6B's fix round 1
+# (M6): this corpus's `#[test]` fn names run to 161 characters, and a citation
+# whose snippet is longer than the bound is not "unresolved" -- it is INVISIBLE,
+# reported as `0 problem(s)` whether it is right or wrong. Ruling 11 exempts
+# `:N` only because it is gated, so a bound that silently drops the longest
+# names in the family is the exemption unearned. Measured before and after
+# across the whole family: the residual is unchanged (the 7 known ungateable
+# bare `:N` in `browser_generator_default_export_rejection.rs`) and 24 batch-6B
+# citations that matched nothing now resolve.
+CITE = re.compile(r"`([^`\n]{3,200})`[^`\n]{0,40}?\(?:(\d+)(?:-(\d+))?\)?")
 
 # The same, but naming a SUBMODULE FILE first: `` `snippet` (build.rs:5) ``.
 #
@@ -94,7 +103,7 @@ CITE = re.compile(r"`([^`\n]{3,120})`[^`\n]{0,40}?\(?:(\d+)(?:-(\d+))?\)?")
 # starting at the same offset as a `SUBMOD_CITE` hit is that same citation seen
 # through the weaker pattern and is skipped.
 SUBMOD_CITE = re.compile(
-    r"`([^`\n]{3,120})`[^`\n]{0,40}?\(?([A-Za-z0-9_]+\.rs):(\d+)(?:-(\d+))?\)?")
+    r"`([^`\n]{3,200})`[^`\n]{0,40}?\(?([A-Za-z0-9_]+\.rs):(\d+)(?:-(\d+))?\)?")
 
 
 @functools.lru_cache(maxsize=64)
@@ -420,10 +429,43 @@ def check(spec, citations_only=False):
     # never read those citations at all. Ruling 11 exempts `:N` figures from the
     # no-moving-numbers rule *because* they are mechanically gated, so the gate
     # has to actually resolve them for the exemption to be earned.
+    # SUBMODULE RESOLUTION SURVIVES A `=PATH` OVERRIDE (fix round 1, I5).
+    # The override's text is a git blob in a temp dir, so resolving its
+    # `#[path]` declarations relative to ITSELF finds nothing, and every
+    # qualified citation in the pair is then reported as naming a
+    # non-submodule -- a green pair turned red by an artefact of the override,
+    # which is the exact confusion `--pretrim` exists to prevent. The blob is a
+    # copy of a tree file, so a TREE directory is the right base; the text still
+    # comes from the override. Bases are tried in order of confidence, and if
+    # the source declares `#[path]` mods and NONE resolve, that is ONE loud
+    # problem rather than N misleading ones. No shipped pair needs this today;
+    # batches 7-8 meet `#[path]` carriers WITH retentions, which is exactly the
+    # combination.
     submodules = {}
+    declares_mods = False
     if os.path.exists(rs_path):
-        for p in submodule_paths(rs_path):
-            submodules[os.path.basename(p)] = p.read_text().split("\n")
+        declares_mods = "#[path" in open(rs_path).read()
+        bases = []
+        if os.path.dirname(os.path.abspath(rs_path)) == os.path.abspath(TESTS):
+            bases.append(rs_path)          # a --rs split: already a tree file
+        if os.path.exists(live_path):
+            bases.append(live_path)        # a --pretrim blob of a live stem
+        named = _migrated_from(text)       # the case file names its own source
+        if named:
+            bases.append(os.path.join(TESTS, named))
+        for base in bases:
+            if not os.path.exists(base):
+                continue
+            found = submodule_paths(rs_path, base=base)
+            if found:
+                submodules = {os.path.basename(f): f.read_text().split("\n")
+                              for f in found}
+                break
+    if declares_mods and not submodules:
+        problems.append(
+            f"{stem}: the source declares `#[path]` submodule(s) but none could be "
+            f"resolved from {rs_path} -- qualified `<file>.rs:N` citations cannot "
+            "be checked, so they must not be reported as unresolvable names")
     problems += _cite_arm(stem, "case file", text, rs_lines, submodules)
     if rs_header:
         problems += _header_cite_arm(stem, "\n".join(rs_header), live_lines)
@@ -434,6 +476,17 @@ def check(spec, citations_only=False):
 
 
 BARE_CITE = re.compile(r"`:(\d+)(?:-(\d+))?`")
+
+# The `Migrated from tests/browser_X.rs` line every case file's header opens
+# with. It is the only in-tree statement of which source a case file came from,
+# and for a U2 SPLIT (whose stem deliberately differs from its source's) it is
+# the only way to find that source at all.
+MIGRATED_FROM = re.compile(r"Migrated from tests/(browser_[A-Za-z0-9_]+\.rs)")
+
+
+def _migrated_from(case_text):
+    m = MIGRATED_FROM.search(case_text)
+    return m.group(1) if m else None
 
 
 def _header_cite_arm(stem, body, lines):
@@ -638,10 +691,27 @@ def selftest():
 # `crates/kali_cli/tests` is deleted by batch 8, so a selftest anchored on one
 # would start skipping (or failing) the moment the migration it guards
 # completes -- a gate that retires itself exactly when its subject ships.
+# THE TWO FILES ARE LINE-ALIGNED ON PURPOSE (fix round 1, I4). Property 4 below
+# -- "a `leaf.rs:N` citation is not resolved against the carrier" -- had NO kill
+# power in its first form: the carrier line it probed did not contain the cited
+# snippet either, so the right and the wrong resolution both produced a problem
+# and the assertion (`bool(problems)`) could not tell them apart. A mutation
+# resolving qualified citations against the carrier whenever the line was in
+# range left `--selftest` fully green.
+#
+# So the carrier now carries `stderr.contains("E5506")` at a line whose LEAF
+# counterpart does not, and the probe cites that line number. Correct behaviour
+# reports a problem (leaf's line does not contain the snippet); the mutation
+# reports none (the carrier's does). The line numbers are never written down --
+# they are searched for at run time, for the reason `_SELFTEST_RS` gives.
 _SUBMOD_SELFTEST_CARRIER = '''use std::fs;
 
 fn helper_that_lives_in_the_carrier(source: &str) {
     assert!(source.contains("literal array"), "carrier claim");
+}
+
+fn carrier_only_stderr_claim(stderr: &str) {
+    assert!(stderr.contains("E5506"), "carrier stderr claim");
 }
 
 #[path = "sub/leaf.rs"]
@@ -653,6 +723,10 @@ _SUBMOD_SELFTEST_LEAF = '''use super::*;
 #[test]
 fn leaf_asserts_the_first_thing() {
     helper_that_lives_in_the_carrier("literal array");
+}
+
+fn leaf_filler_so_the_files_do_not_line_up() {
+    let _unrelated = 1;
 }
 
 #[test]
@@ -701,11 +775,22 @@ def _submodule_selftest():
             hits = [n for n, l in enumerate(lines, 1) if fragment in l]
             return hits[0] if len(hits) == 1 else None
 
-        good = line_in(leaf_lines, 'stderr.contains("E5506")')
+        good = line_in(leaf_lines, 'assert!(stderr.contains("E5506"), "leaf claim")')
         other = line_in(leaf_lines, "helper_that_lives_in_the_carrier(")
-        carrier_hit = line_in(carrier_lines, 'source.contains("literal array")')
+        # The DISCRIMINATING line: the carrier contains the cited snippet here,
+        # the leaf does not. Asserted, not assumed -- if a future edit lines the
+        # two files up again this returns a hard "cannot run" instead of a
+        # silently toothless green.
+        carrier_hit = line_in(carrier_lines, 'assert!(stderr.contains("E5506"), "carrier')
         if None in (good, other, carrier_hit):
             return ["submodule selftest: could not locate its own fixture lines"]
+        if carrier_hit > len(leaf_lines):
+            return ["submodule selftest: the discriminating carrier line is past "
+                    "the end of leaf.rs, so property 4 cannot discriminate"]
+        if 'stderr.contains("E5506")' in leaf_lines[carrier_hit - 1]:
+            return ["submodule selftest: leaf.rs line {} also carries the cited "
+                    "snippet, so property 4 has no kill power -- re-stagger the "
+                    "two fixtures".format(carrier_hit)]
 
         def cite(n, name="leaf.rs"):
             return _cite_arm("selftest", "case file",
