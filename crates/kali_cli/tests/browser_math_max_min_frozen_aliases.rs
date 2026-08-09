@@ -15,9 +15,10 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_global_this_math_max_min_frozen_source_includes_direct_frozen_math_aliases`
-//! (`:175`) has no helper: its whole body is five self-checks (`:177-195`) run
+//! (`:176`) has no helper: its whole body is five `assert!(...)` self-checks
+//! (`:178-196`) run
 //! against `browser_bundle_global_this_math_max_min_frozen_source()`'s OWN TEXT
-//! (`:117`), before any command is built and without ever invoking `kali`.
+//! (`:118`), before any command is built and without ever invoking `kali`.
 //! Between them they name 8 distinct frozen-alias spellings.
 //!
 //! `scripts/audit-case-migration.py` extracts each of those 8 arguments as a

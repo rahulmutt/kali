@@ -2,15 +2,27 @@
 //! migrated. No case file exists for this target.
 //!
 //! WHAT BLOCKS IT. All 9 `#[test]` fns in this file route through one of two
-//! helpers -- `assert_browser_bundle_global_this_math_round` (`:171`), which
+//! helpers -- `assert_browser_bundle_global_this_math_round` (`:183`), which
 //! 8 of them call, and `assert_browser_harness_global_this_math_round`
-//! (`:296`), which the ninth calls 16 times from an inlined loop -- and
-//! BOTH helpers end in a line-oriented count, at `:290` in the bundle helper and
-//! at `:372` (JSON branch) and `:420` (text branch) in the harness helper. The
+//! (`:308`), which the ninth calls 16 times from an inlined loop -- and
+//! BOTH helpers end in a line-oriented count -- `stdout.lines()` (`:302`) in the
+//! bundle helper, and `stdout.lines()` (`:384`, JSON branch) and
+//! `stdout.lines()` (`:432`, text branch) in the harness helper. The
 //! harness helper's two sites sit on opposite arms of its output-shape `if`, so
 //! every call reaches exactly one of them. 9 of 9 tests reach the construct
 //! unconditionally, so U4's trim-and-keep degenerates to whole-file retention:
 //! there is no complementary migratable subset to split off.
+//!
+//! MIGRATION NOTE (controller ruling 8): the retained looping fn
+//! `run_and_test_supports_global_this_math_round_identity_when_browser_harness_is_configured_in_js_and_ts_input`
+//! has a name that misdescribes its own body -- it says `js_and_ts`, but its
+//! literal table covers js, ts, jsx AND tsx, so it makes 16 invocations rather
+//! than the 8 the name implies. The source is NOT corrected: a fn name is not a
+//! comment so U7 does not literally apply, and editing a source invalidates
+//! every audit run against its blob. This file is a WHOLE-FILE retention with no
+//! case file, so there is no `rationale` for the note to live in -- ruling 8's
+//! usual home -- and it is recorded here instead, which is the only place a
+//! later reader will look.
 //!
 //! The construct splits the captured output into lines, keeps the lines equal to
 //! a literal, and pins how many there are. Design spec 5.4's closing paragraph

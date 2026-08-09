@@ -15,11 +15,12 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_harness_bracketed_global_this_math_pow_frozen_source_includes_parenthesized_bracketed_aliases`
-//! (`:129`) has no helper: its whole body is a single self-check (`:134-134`)
-//! run in a `for` loop over `kali_common::math_pow_bracketed_frozen_callable_
-//! aliases()`, against `browser_harness_bracketed_global_this_math_pow_frozen_
-//! run_source()`'s OWN TEXT (`:121`), before any command is built and without
-//! ever invoking `kali`.
+//! (`:130`) has no helper: its whole body is a single `assert!(...)` self-check
+//! (`:135`) run in a `for` loop over `kali_common`'s bracketed-frozen-callable
+//! alias list, against
+//! `browser_harness_bracketed_global_this_math_pow_frozen_run_source`
+//! (`:122`)'s OWN TEXT, before any command is built and without ever invoking
+//! `kali`.
 //!
 //! It is doubly unmigratable, and the second reason is the sharper one:
 //!   1. `scripts/audit-case-migration.py` extracts a `.contains` argument as a

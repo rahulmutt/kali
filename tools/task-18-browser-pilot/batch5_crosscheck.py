@@ -26,7 +26,10 @@ Deliberate non-goal: this does not check that the prose is TRUE, only that it is
 consistent and that its citations resolve. U8 is explicit that rationale prose is
 audited by nothing; this narrows that gap, it does not close it.
 
-Usage: batch5_crosscheck.py STEM[=PRETRIM.rs] [STEM[=PRETRIM.rs] ...]
+Usage: batch5_crosscheck.py [--citations-only] STEM[=PRETRIM.rs] ...
+  --citations-only skips the batch-5 header-section structure arm, so the
+  citation arms can gate pilot/batch-2/3/4 pairs, whose headers predate those
+  section names. Batches 6-8 should run the citation arms family-wide.
 Exit 0 if every file passes, 1 otherwise.
 
 A trimmed U4 retention pair MUST be given its pre-trim blob with `=PATH`: every
@@ -63,6 +66,34 @@ SECTIONS = [
 CITE = re.compile(r"`([^`\n]{3,120})`[^`\n]{0,40}?\(?:(\d+)(?:-(\d+))?\)?")
 
 
+def _statement(lines, first, last):
+    """The cited line(s), widened to the whole SYNTACTIC STATEMENT they sit in.
+
+    Replaces a fixed +-3-line window. The window was the wrong instrument for a
+    drift gate twice over: it let a citation that had slipped by one or two
+    lines pass (the very defect this checker exists to catch), and it was still
+    arbitrary -- rustfmt routinely splits one `assert!(...)` across five lines,
+    so a strict single-line rule reports correct citations as broken.
+
+    Widening by SYNTAX instead is exact in both directions. A line is a
+    continuation exactly when the bracket depth entering it is non-zero, so
+    expansion stops precisely at statement boundaries and can never wander into
+    a neighbouring statement -- which is what an off-by-N citation lands in.
+    """
+    depth_before = []
+    d = 0
+    for line in lines:
+        depth_before.append(d)
+        code = re.sub(r'"(?:\\.|[^"\\])*"', "", line)
+        d += code.count("(") + code.count("[") - code.count(")") - code.count("]")
+    start, end = first, min(last, len(lines))
+    while start > 1 and depth_before[start - 1] > 0:
+        start -= 1
+    while end < len(lines) and depth_before[end] > 0:
+        end += 1
+    return lines[start - 1:end]
+
+
 def _header(text):
     out = []
     for line in text.split("\n"):
@@ -92,15 +123,33 @@ def _distinctive(snippet):
     return tok if len(tok) >= 4 else None
 
 
-def check(spec):
+def check(spec, citations_only=False):
     stem, _, override = spec.partition("=")
     toml_path = os.path.join(CASES, f"{stem}.toml")
     rs_path = override or os.path.join(TESTS, f"browser_{stem}.rs")
     problems = []
-    if not os.path.exists(toml_path):
-        return [f"{stem}: no case file at {toml_path}"]
+    # The working-tree source, ALWAYS, regardless of `=PRETRIM.rs`. A retention
+    # header cites its OWN file, so it must be resolved against the shipped
+    # `.rs`; only the case file's citations are pre-trim. Conflating the two
+    # would have made the override silently skip the retention-header arm --
+    # i.e. skip exactly the place the one real drift defect occurred.
+    live_path = os.path.join(TESTS, f"browser_{stem}.rs")
     if not os.path.exists(rs_path):
         return [f"{stem}: no source at {rs_path}"]
+    live_lines = open(live_path).read().split("\n") if os.path.exists(live_path) else []
+    rs_header = [l for l in live_lines if l.startswith("//!")]
+
+    if not os.path.exists(toml_path):
+        # A whole-file retention has no pair, but it does have a header full of
+        # citations, and those are gateable on their own.
+        if not rs_header:
+            return [f"{stem}: no case file at {toml_path} and no retention header"]
+        problems += _header_cite_arm(stem, "\n".join(rs_header), live_lines)
+        print(f"{stem}: no case file (whole-file retention); "
+              f"{len(rs_header)} retention-header line(s) checked, "
+              f"{len(problems)} problem(s)")
+        return problems
+
     text = open(toml_path).read()
     rs_lines = open(rs_path).read().split("\n")
     header = _header(text)
@@ -118,7 +167,7 @@ def check(spec):
                 starts[marker] = n
 
     pos = -1
-    for marker, required in SECTIONS:
+    for marker, required in (() if citations_only else SECTIONS):
         idx = starts.get(marker, -1)
         if idx == -1:
             if required:
@@ -128,37 +177,105 @@ def check(spec):
             problems.append(f"{stem}: header section out of order: {marker!r}")
         pos = idx
 
-    # Citations, over the WHOLE file (header + every rationale).
-    checked = 0
-    for m in CITE.finditer(text):
+    # Citations, over the WHOLE case file (its header + every rationale) AND
+    # over the source's own `//!` retention header.
+    #
+    # The retention-header arm was missing until the batch-5 review pointed it
+    # out, and its absence mattered: the one real citation-drift defect batch 5
+    # produced was in a `//!` header (rewrapping a paragraph moved every line
+    # below it), and the report claimed this gate closed that class when it
+    # never read those citations at all. Ruling 11 exempts `:N` figures from the
+    # no-moving-numbers rule *because* they are mechanically gated, so the gate
+    # has to actually resolve them for the exemption to be earned.
+    problems += _cite_arm(stem, "case file", text, rs_lines)
+    if rs_header:
+        problems += _header_cite_arm(stem, "\n".join(rs_header), live_lines)
+    print(f"{stem}: {len(header)} header line(s) "
+          f"({'+ retention header' if rs_header else 'no retention header'}), "
+          f"{len(problems)} problem(s)")
+    return problems
+
+
+BARE_CITE = re.compile(r"`:(\d+)(?:-(\d+))?`")
+
+
+def _header_cite_arm(stem, body, lines):
+    """Every `:N` in a retention header must resolve, and must be RESOLVABLE.
+
+    Retention headers cite in two forms -- ``fn_name` (`:171`)` and a bare
+    `at `:290` in the bundle helper` -- and only the first carries a token the
+    checker can match. The bare form was silently skipped, which is how a
+    deliberately drifted citation survived this gate on its first mutation test.
+
+    Silently skipping is the wrong answer: ruling 11 exempts `:N` figures from
+    the no-moving-numbers rule *because* they are mechanically gated, so a
+    citation nothing can check must not be allowed to look checked. An
+    unresolvable citation is reported as a problem, and the fix is to reword the
+    header so the construct is named in backticks next to its line number --
+    making the artifact gateable rather than making the gate blind.
+    """
+    out = []
+    for m in BARE_CITE.finditer(body):
+        first = int(m.group(1))
+        end = int(m.group(2)) if m.group(2) else first
+        if end > len(lines):
+            out.append(f"{stem}: retention-header citation :{first} is past end of "
+                       f"the source ({len(lines)} lines)")
+            continue
+        # The nearest backticked, non-citation token, which must be ADJACENT.
+        # The window is generous (a fn name in this corpus can be 100 chars and
+        # sit on the previous header line) but the token must END within 30
+        # chars of the citation. Without the adjacency bound a long window
+        # happily binds a citation to an unrelated fn name two sentences back
+        # and reports a false pass -- which is worse than reporting nothing.
+        window = body[max(0, m.start() - 200):m.start()]
+        cands = [mm for mm in re.finditer(r"`([^`\n]{2,120})`", window)
+                 if not mm.group(1).startswith(":")]
+        tok = None
+        if cands and len(window) - cands[-1].end() <= 30:
+            raw_tok = cands[-1].group(1)
+            tok = _distinctive(raw_tok)
+            if tok is None and re.fullmatch(r"[A-Za-z_][\w]{3,}", raw_tok):
+                tok = raw_tok
+        if tok is None:
+            out.append(f"{stem}: retention-header citation :{first} has no adjacent "
+                       f"backticked construct to resolve against -- reword so the gate "
+                       f"can check it (ruling 11 exempts :N only because it is gated)")
+            continue
+        if tok not in "\n".join(_statement(lines, first, end)):
+            out.append(f"{stem}: retention-header citation :{first}"
+                       f"{'-' + str(end) if end != first else ''} does not contain "
+                       f"{tok!r}")
+    return out
+
+
+def _cite_arm(stem, origin, body, lines):
+    out = []
+    for m in CITE.finditer(body):
         snippet, first, last = m.group(1), int(m.group(2)), m.group(3)
         tok = _distinctive(snippet)
         if tok is None:
             continue
-        span = range(first, (int(last) if last else first) + 1)
-        if span[-1] > len(rs_lines):
-            problems.append(
-                f"{stem}: citation :{first} for `{snippet[:40]}` is past end of "
-                f"browser_{stem}.rs ({len(rs_lines)} lines)")
+        end = int(last) if last else first
+        if end > len(lines):
+            out.append(f"{stem}: {origin} citation :{first} for `{snippet[:40]}` is "
+                       f"past end of the source ({len(lines)} lines)")
             continue
-        checked += 1
-        window = "\n".join(rs_lines[max(0, first - 3):span[-1] + 2])
-        if tok not in window:
-            problems.append(
-                f"{stem}: citation :{first} does not contain {tok!r} "
-                f"(from `{snippet[:50]}`)")
-    print(f"{stem}: {len(header)} header line(s), {checked} code citation(s) checked, "
-          f"{len(problems)} problem(s)")
-    return problems
+        if tok not in "\n".join(_statement(lines, first, end)):
+            out.append(f"{stem}: {origin} citation :{first}"
+                       f"{'-' + str(end) if end != first else ''} does not contain "
+                       f"{tok!r} (from `{snippet[:50]}`)")
+    return out
 
 
 def main(argv):
     if len(argv) < 2:
         print(__doc__)
         return 2
+    citations_only = "--citations-only" in argv
     all_problems = []
-    for stem in argv[1:]:
-        all_problems += check(stem)
+    for stem in [a for a in argv[1:] if not a.startswith("--")]:
+        all_problems += check(stem, citations_only)
     if all_problems:
         print("\nCROSSCHECK FAILED")
         for p in all_problems:

@@ -97,11 +97,19 @@
 //!        both ways. They are `format!` templates whose placeholders are
 //!        unresolved in the source text, so a verbatim search cannot match them.
 //!        Not a trim artifact and not a migration defect.
-//!   check_extra_claims.py        RED / RED -- 16 unexplained post-trim, 10
-//!        pre-trim. This gate and the U8 checker were both shipped in ef0b2cf3f5,
+//!   check_extra_claims.py        RED / RED, both sides. This gate and the U8 checker were both shipped in ef0b2cf3f5,
 //!        AFTER this pair; the `# EXTRA-OK:` declaration mechanism it reads did
 //!        not exist when the case file was written, so its live-captured exact
 //!        pins and its U5-renamed source keys are undeclared by construction.
+//!        NO COUNT IS GIVEN, and that is a ruling-11 correction applied after
+//!        this paragraph first shipped with one. `check_extra_claims.py`
+//!        counts a claim as justified if the string occurs verbatim ANYWHERE
+//!        in the `.rs`, comments included, so this header is part of the
+//!        gate's own input and its prose moves the figure. Measured, not
+//!        supposed: running the gate against this file with and without the
+//!        header block gives two different numbers. Ruling 11 forbids a figure
+//!        that an edit to the surrounding prose can move, so the durable fact
+//!        is the classification. Run the gate for today's number.
 //!
 //! SO: this pair does NOT go all-green against the pre-trim ref. Three of the
 //! five gates are red on both sides, for three unrelated reasons -- an

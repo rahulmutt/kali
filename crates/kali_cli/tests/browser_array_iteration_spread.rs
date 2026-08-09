@@ -62,8 +62,7 @@
 //!        can resolve. The post-trim excess is the migrated helpers and fn names
 //!        that left with the trim.
 //!   check_fixtures.py            GREEN / GREEN.
-//!   check_extra_claims.py        RED / RED -- 33 unexplained post-trim, 17
-//!        pre-trim. This gate and the U8 checker were both shipped in ef0b2cf3f5,
+//!   check_extra_claims.py        RED / RED, both sides. This gate and the U8 checker were both shipped in ef0b2cf3f5,
 //!        AFTER this pair; the `# EXTRA-OK:` declaration mechanism it reads did
 //!        not exist when the case file was written, so its U5-renamed source
 //!        keys and its grandfathered exact output pins are undeclared by
@@ -74,6 +73,15 @@
 //!        here for that reason. (Measured on the sibling retention
 //!        `browser_math_abs_sign_frozen_aliases.rs`, where a draft of the same
 //!        paragraph did exactly that.)
+//!        NO COUNT IS GIVEN, and that is a ruling-11 correction applied after
+//!        this paragraph first shipped with one. `check_extra_claims.py`
+//!        counts a claim as justified if the string occurs verbatim ANYWHERE
+//!        in the `.rs`, comments included, so this header is part of the
+//!        gate's own input and its prose moves the figure. Measured, not
+//!        supposed: running the gate against this file with and without the
+//!        header block gives two different numbers. Ruling 11 forbids a figure
+//!        that an edit to the surrounding prose can move, so the durable fact
+//!        is the classification. Run the gate for today's number.
 //!
 //! SO: this pair does NOT go all-green against the pre-trim ref. The audit and
 //! the fixture check do; the other three are red on both sides, for three

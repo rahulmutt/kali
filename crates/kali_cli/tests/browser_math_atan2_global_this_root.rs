@@ -18,11 +18,11 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases`
-//! (`:71-86`) has no helper: its whole body is three
+//! (`:127-127`) has no helper: its whole body is three
 //! `assert!(source.contains(<needle>))` self-checks (`:73-85`) --
 //! one of them itself an OR across two quoting spellings -- run against
 //! `browser_bundle_global_this_math_atan2_frozen_source()`'s OWN TEXT
-//! (`:52-68`), before any command is built and without ever
+//! (`:108-128`), before any command is built and without ever
 //! invoking `kali`. The four blocking literals are
 //! `Object.freeze(globalThis.Math.atan2)`,
 //! `Object.freeze(globalThis['Math']['atan2'])`, its double-quoted sibling
@@ -78,12 +78,20 @@
 //!        post-trim excess is the `assert_browser_*` helpers and source fn names
 //!        that left with the migrated cases.
 //!   check_fixtures.py            GREEN / GREEN.
-//!   check_extra_claims.py        RED / RED -- 64 unexplained post-trim, 38
-//!        pre-trim. Most pre-trim entries are U5-renamed `[source]` keys and
+//!   check_extra_claims.py        RED / RED, both sides. Most pre-trim entries are U5-renamed `[source]` keys and
 //!        live-captured exact pins, which is what the `# EXTRA-OK:` mechanism
 //!        exists to declare -- but that mechanism, and this gate, shipped in
 //!        ef0b2cf3f5, AFTER this pair, so the declarations are absent by
 //!        construction rather than by oversight.
+//!        NO COUNT IS GIVEN, and that is a ruling-11 correction applied after
+//!        this paragraph first shipped with one. `check_extra_claims.py`
+//!        counts a claim as justified if the string occurs verbatim ANYWHERE
+//!        in the `.rs`, comments included, so this header is part of the
+//!        gate's own input and its prose moves the figure. Measured, not
+//!        supposed: running the gate against this file with and without the
+//!        header block gives two different numbers. Ruling 11 forbids a figure
+//!        that an edit to the surrounding prose can move, so the durable fact
+//!        is the classification. Run the gate for today's number.
 //!
 //! SO: this pair does NOT go all-green against the pre-trim ref. Only the
 //! fixture check is green on both sides; four of the five are red pre-trim too,

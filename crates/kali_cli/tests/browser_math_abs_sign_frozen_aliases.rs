@@ -15,10 +15,10 @@
 //!
 //! WHAT BLOCKS THE ONE RETAINED TEST.
 //! `browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen_math_aliases`
-//! (`:80-98`) has no helper: its whole body is four
-//! `assert!(source.contains(<needle>))` self-checks (`:82-97`)
+//! (`:144-144`) has no helper: its whole body is four
+//! `assert!(source.contains(<needle>))` self-checks (`:146-158`)
 //! run against `browser_bundle_global_this_math_abs_sign_frozen_source()`'s OWN
-//! TEXT (`:50-77`), before any command is built and without ever
+//! TEXT (`:114-145`), before any command is built and without ever
 //! invoking `kali`. The four blocking literals are
 //! `Object.freeze(globalThis.Math.abs)`, `Object.freeze(globalThis.Math.sign)`,
 //! `Object.freeze(Math.abs)` and `Object.freeze(Math.sign)`.
@@ -74,21 +74,28 @@
 //!        genuinely rescues: both unexplained names are the two `assert_browser_*`
 //!        helpers that left with the migrated cases.
 //!   check_fixtures.py            GREEN / GREEN.
-//!   check_extra_claims.py        RED / RED -- 38 unexplained post-trim, 1
-//!        pre-trim. The single pre-trim entry is a live-captured exact pin on a
+//!   check_extra_claims.py        RED / RED, both sides. The pre-trim side reduces
+//!        to a single entry, which is a live-captured exact pin on a
 //!        JSON string leaf, which is exactly what the `# EXTRA-OK:` mechanism
 //!        exists to declare -- but that mechanism, and this gate, shipped in
 //!        ef0b2cf3f5, AFTER this pair, so the declaration is absent by
 //!        construction rather than by oversight.
+//!        NO COUNT IS GIVEN, and that is a ruling-11 correction applied after
+//!        this paragraph first shipped with one. `check_extra_claims.py`
+//!        counts a claim as justified if the string occurs verbatim ANYWHERE
+//!        in the `.rs`, comments included, so this header is part of the
+//!        gate's own input and its prose moves the figure. Measured, not
+//!        supposed: running the gate against this file with and without the
+//!        header block gives two different numbers. Ruling 11 forbids a figure
+//!        that an edit to the surrounding prose can move, so the durable fact
+//!        is the classification. Run the gate for today's number.
 //!
-//!        THE FIGURE 38 IS LOAD-BEARING AND WAS BRIEFLY WRONG WHILE THIS
-//!        PARAGRAPH WAS BEING WRITTEN, WHICH IS WORTH RECORDING. An earlier draft
-//!        spelled the leaf's dotted path here; `check_extra_claims.py` accepts
-//!        any claim string that appears verbatim anywhere in the `.rs`, INCLUDING
-//!        in a comment, so writing the path in this header supplied the missing
-//!        justification for one claim and the gate dropped to 37. Retention-header
-//!        prose can therefore silently green a gate. No claim-shaped literal is
-//!        spelled anywhere in this header for that reason.
+//!        THE HAZARD THIS RECORDS, now that the figure itself is gone: an
+//!        earlier draft of this paragraph spelled a JSON leaf's dotted path,
+//!        which supplied the missing justification for one claim and moved
+//!        the gate's result. The figure was corrected, then removed under
+//!        ruling 11 -- correcting a number that prose can move only postpones
+//!        it going stale. No claim-shaped literal is spelled here.
 //!
 //! SO: this pair does NOT go all-green against the pre-trim ref. Only the U8
 //! checker flips; the audit, the comment coverage and the extra-claims gate stay

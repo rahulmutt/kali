@@ -3,17 +3,18 @@
 //!
 //! WHAT BLOCKS IT. Both of this file's `#[test]` fns --
 //! `build_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_with_js_ts_jsx_and_tsx_input`
-//! (`:146`) and
+//! (`:147`) and
 //! `check_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_with_js_ts_jsx_and_tsx_input`
-//! (`:165`) -- route through `assert_browser_math_pow_optional_chain_rejection`
-//! (`:84`), and each calls it twice per extension inside its own
+//! (`:166`) -- route through `assert_browser_math_pow_optional_chain_rejection`
+//! (`:85`), and each calls it twice per extension inside its own
 //! `for extension in [...]` loop, once with the JSON-output flag false and once
 //! true. The true call is unconditional, so 2 of 2 tests reach the blocking
 //! construct and U4's trim-and-keep degenerates to whole-file retention: there
 //! is no complementary migratable subset to split off.
 //!
 //! The blocking construct is a pair of QUANTIFIERS over the JSON `errors` array,
-//! at `:126` (universal) and `:130` (existential). The case-file format offers
+//! at `errors.iter().all(...)` (`:127`) and `errors.iter().any(...)` (`:131`).
+//! The case-file format offers
 //! only closed dotted-path indexing into JSON -- design spec 5.4 is explicit that
 //! there are "no slices, no wildcards, no negative-from-end indexing, no
 //! filters" -- so a dotted path can pin the FIRST array element and nothing more.
