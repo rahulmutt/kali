@@ -96,44 +96,37 @@ SECTIONS = [
 # the first two to 200 and left the third at 120, which is how a single notion
 # ("how long a construct can a citation name?") came to have two values.
 #
-# CORRECTED IN BATCH 7 (item 3.1). The comment this replaces justified the 200
-# with "this corpus's `#[test]` fn names reach 161 characters". 161 is not
-# reproducible under any definition and was the first violation of ruling 13
-# committed into source. The derivations, each command run before this sentence
-# was written:
+# CORRECTED IN BATCH 7 (item 3.1), AND THE FIGURES MOVED OUT IN FIX ROUND 4.
+# The comment this replaces justified the 200 with "this corpus's `#[test]` fn
+# names reach 161 characters". 161 is not reproducible under any definition and
+# was the first violation of ruling 13 committed into source. Item 3.1 replaced
+# it with two derived figures and the `python3 -c` blob that produced each --
+# right, but still four corpus-dependent numbers sitting in a comment where
+# nothing fails when they drift. They are now a committed section:
 #
-#   longest cited snippet in the family today -- 137 chars, in
-#   `cases/browser/non_literal_iterator_sources_explicit_api.toml`; 69 cited
-#   snippets exceed 120 and 0 exceed 200. Run from the repo root:
-#     $ python3 -c '
-#       import sys, glob, os
-#       sys.path.insert(0, "tools/task-18-browser-pilot")
-#       import batch5_crosscheck as X
-#       lens = []
-#       for p in glob.glob(X.CASES+"/*.toml") + glob.glob(X.TESTS+"/browser_*.rs"):
-#           t = open(p).read()
-#           if p.endswith(".rs"):
-#               t = "".join(l for l in t.splitlines(True) if l.startswith("//!"))
-#           for m in list(X.CITE.finditer(t)) + list(X.SUBMOD_CITE.finditer(t)):
-#               lens.append((len(m.group(1)), os.path.basename(p)))
-#       print(max(lens), sum(n>120 for n,_ in lens), sum(n>200 for n,_ in lens))'
+#     $ python3 tools/task-18-browser-pilot/citation_tiers.py --bounds
 #
-#   longest `#[test]` fn name anywhere in `crates/kali_cli/tests` -- 226 chars:
-#     $ grep -rh -A1 '^#\[test\]' crates/kali_cli/tests --include='*.rs' \
-#         | grep -oP '(?<=fn )[a-z0-9_]+' | awk '{print length}' | sort -rn | head -1
+# It prints the longest CITED snippet in the family, how many exceed 120, how
+# many exceed `SNIPPET_MAX`, and the longest `#[test]` fn name in the tree.
 #
-# So the CONCLUSION the old comment drew still holds and is now derived: 120 was
-# too small (it dropped 69 of the family's cited snippets, which is 69 citations
-# reported as `0 problem(s)` whether right or wrong) and 200 covers every
-# citation the family actually writes (0 over).
+# The two CONCLUSIONS, which are what this constant rests on and are stated as
+# shapes rather than magnitudes:
+#
+#   * 120 was too small -- it dropped cited snippets the family actually writes,
+#     and a dropped snippet means `CITE` does not match, which means the citation
+#     reports `0 problem(s)` whether it is right or wrong.
+#   * 200 covers every citation the family actually writes. `--bounds` prints 0
+#     over the bound, and that row is the claim.
 #
 # What 200 does NOT do, and the old comment implied it did: cover every citation
-# that COULD be written. The longest `#[test]` fn name in this tree is 226, so a
-# citation naming it would still exceed the bound. That is no longer a silent
-# drop, and the reason is `_gated_arm`: a snippet over the bound means `CITE`
-# does not match, and an unmatched citation is now a reported UNGATED problem
-# rather than nothing at all. The bound fails LOUD, which is what makes leaving
-# it at 200 defensible instead of chasing the corpus's longest identifier.
+# that COULD be written. The tree's longest `#[test]` fn name exceeds it, so a
+# citation naming that fn would still be over the bound. That is no longer a
+# silent drop, and the reason is `_gated_arm`: a snippet over the bound means
+# `CITE` does not match, and an unmatched citation is now a reported UNGATED
+# problem rather than nothing at all. The bound fails LOUD, which is what makes
+# leaving it at 200 defensible instead of chasing the corpus's longest
+# identifier -- and it is why the exact figures belong in the instrument rather
+# than here: none of them changes the argument, only the illustration.
 SNIPPET_MAX = 200
 
 # A backticked snippet followed by a parenthesised or bare `:N` citation.
@@ -452,26 +445,25 @@ def _needles(snippet, source_items=None):
         # before and after: 0 change in reported problems, so nothing correct is
         # lost.
         #
-        # WHAT IT BUYS, derived rather than asserted -- and CORRECTED TWICE.
-        # Batch 7 wrote "~90 citations" with no command (M4). Fix round 1
-        # replaced it with 419 and a hand-written command that printed `1392 223`
-        # instead, because the command silently skipped the 23 sourceless stems
-        # and the two U2 splits whose source is named by `Migrated from` (N1).
-        # A command that does not produce the number beside it is the same
-        # defect as a number nobody can reproduce.
-        #
-        # Both are now regenerated by a COMMITTED instrument over one stated
-        # population -- the 81 resolving specs, i.e. every spec that has a case
-        # file AND a source the gate resolves against:
+        # WHAT IT BUYS -- THE COMMAND, NOT THE NUMBER (fix round 4, I-4).
         #
         #     $ python3 tools/task-18-browser-pilot/citation_tiers.py --fallbacks
-        #     citation matches                        3551
-        #     carrying needles                        3163
-        #     depending on a batch-7 fallback          448
         #
-        # (Both figures moved when fix round 2 recovered the `::`-path and
-        # quoted-literal classes below: 3134/419 before that change, 3163/448
-        # after. Re-run the command rather than trusting either.)
+        # over the resolving specs: every spec with a case file AND a source the
+        # gate resolves against.
+        #
+        # This block has now been wrong in four different ways, and every one of
+        # them was a figure someone typed here instead of running: "~90
+        # citations" with no command at all (M4); 419 beside a hand-written
+        # command that printed `1392 223`, because the command skipped the 23
+        # sourceless stems and the two U2 splits (N1); then the instrument's real
+        # output pasted in as `3551 / 3163 / 448` -- which fix round 3's OWN tier
+        # move invalidated by exactly 174 in the same commit that wrote it, so
+        # the file shipped contradicting a command it had just declared
+        # authoritative. The figures are not reproduced here in any form. A
+        # comment naming a command cannot go stale; a comment naming a number
+        # goes stale the next time anyone moves a citation, and nothing fails
+        # when it does.
         methods = sorted(set(_METHOD.findall(s)))
         if methods:
             lits = sorted({l for l in _SNIPPET_LITERAL.findall(s)
@@ -501,59 +493,57 @@ def _needles(snippet, source_items=None):
         # and keeps the one true positive, which is a real `CITE` mis-binding
         # (M8) fixed in this same round.
         #
-        # Measured family-wide through the real sweep. Regenerate from the tree
-        # (`--variants` re-runs every variant against the shipped corpus):
+        # Measured family-wide through the real sweep, and regenerated rather
+        # than quoted (fix round 4, I-4) -- `--variants` re-runs every variant
+        # against the shipped corpus, `--gains` switches this tier off and
+        # re-runs the whole sweep so its figure is the tier's own contribution
+        # rather than a hand-partition of the snippets:
+        #
         #     $ python3 tools/task-18-browser-pilot/citation_tiers.py --variants
-        # At the time of the triage, before the two M8 mis-bindings were
-        # repaired, that read 52 new failures / 24 files for the unfiltered
-        # variant against 1 / 1 for this one. On the repaired corpus the same
-        # command reads 50 / 23 against 0 / 0 -- the two that disappeared ARE
-        # the M8 pair, which is the check that the triage found real defects
-        # rather than noise.
-        # and 65 citations that previously yielded NO needles at all now resolve.
-        # Regenerate from the tree -- the tier is switched off and the whole
-        # sweep re-run, so the figure is the tier's own contribution rather than
-        # a hand-partition of the snippets:
         #     $ python3 tools/task-18-browser-pilot/citation_tiers.py --gains
-        #     shipped                                  388
-        #     without the source-defined-item tier     453   (gives needles to 65)
-        # All 65 resolve rather than fail, across 16 distinct snippets.
-        # (Fix round 1 wrote 24 here. That was the FILE count copied off the
-        # "52 failures across 24 files" line two paragraphs up -- a figure
-        # transplanted between two sentences about different units, which is
-        # ruling 13's shape exactly.)
+        #
+        # The historical figures above (52 / 24, and 51 false of the 52) are the
+        # state of the corpus AT THE TIME OF THE TRIAGE, before the two M8
+        # mis-bindings were repaired, and are kept as the record of what the
+        # triage found. They are not the tree's current answer and must not be
+        # read as one; `--variants` gives that. Fix round 3 pasted `--gains`'s
+        # then-current output here as `388 / 453` and moved 174 citations out of
+        # the tier in the same commit, so the pasted block was wrong before it
+        # was pushed. Nothing regenerable is reproduced here now.
+        #
         # `source_items` is None only for a caller with no source in hand (the
         # gatedness-only path), where this tier is skipped rather than guessed.
         if source_items and BARE_IDENT.fullmatch(s) and len(s) >= 4:
             if s not in CASE_KEYS and s in source_items:
                 return [s]
-        # DECLARED BARE NEEDLES (fix round 3). See `BARE_NEEDLE_ADMITTED`.
-        if s in BARE_NEEDLE_ADMITTED:
-            return [s]
         # TWO MORE SHAPES THAT ARE UNAMBIGUOUSLY CODE (fix round 2). The review
         # measured the declared NO-NEEDLE tier and found the sentence describing
-        # it was false: it is not all "prose that names no code position". Of the
-        # 417, 276 occur verbatim in their own non-comment source. Two classes
+        # it was false: it is not all "prose that names no code position" --
+        # most of it occurs verbatim in its own non-comment source. Two classes
         # inside that are mechanically recoverable, and both cost 0 new failures
         # measured across the whole sweep:
         #
         #   * a `::` PATH EXPRESSION -- `kali_runtime_contract::BROWSER_HARNESS_
-        #     COMMAND_ENV`, 20 citations, which batch 7's own report happened to
-        #     quote as an example of a GENUINE citation while the gate was
-        #     declining to read it. `_distinctive` misses it because `::` is
-        #     none of `(`, `.`, `[`. The last segment is the needle: it is the
-        #     distinctive half and it is what appears at the cited line.
+        #     COMMAND_ENV`, which batch 7's own report happened to quote as an
+        #     example of a GENUINE citation while the gate was declining to read
+        #     it. `_distinctive` misses it because `::` is none of `(`, `.`, `[`.
+        #     The last segment is the needle: it is the distinctive half and it
+        #     is what appears at the cited line.
         #   * a snippet carrying a QUOTED LITERAL -- `if command == "test"`,
-        #     `if command != "build"`, 9 citations. The literal plus the
-        #     identifiers around it are exactly what the line contains.
-        #     Backslash-bearing literals are excluded for the reason the
-        #     no-leading-identifier tier gives: `"0\n"` is spelled differently in
-        #     a `#` comment and in a multi-line TOML string.
+        #     `if command != "build"`. The literal plus the identifiers around it
+        #     are exactly what the line contains. Backslash-bearing literals are
+        #     excluded for the reason the no-leading-identifier tier gives:
+        #     `"0\n"` is spelled differently in a `#` comment and in a
+        #     multi-line TOML string.
         #
-        # Together these move 29 citations out of the declared tier and into the
-        # checked one (417 -> 388). What remains is genuinely unresolvable by a
-        # construct search: bare `stderr`/`errors` locals, argv strings, file
-        # paths, CLI subcommands and case-format keys.
+        # For what the tier still holds after these two and after the declared
+        # bare needles below, run `citation_tiers.py --describe`. This block used
+        # to end with a characterisation of the remainder ("bare `stderr`/
+        # `errors` locals, argv strings, file paths, CLI subcommands and
+        # case-format keys") that fix round 3 falsified in its own commit by
+        # moving `stderr` and `errors` OUT -- leaving the file contradicting
+        # itself in two places about the same citations. `--describe` is the
+        # answer to "what is in it", and it is computed.
         if _PATH_EXPR.fullmatch(s):
             return [s.split("::")[-1]]
         lits = sorted({l for l in _SNIPPET_LITERAL.findall(s)
@@ -561,6 +551,18 @@ def _needles(snippet, source_items=None):
         if lits:
             idents = {i for i in BARE_IDENT.findall(s) if len(i) >= 4}
             return sorted(set(lits) | idents)
+        # DECLARED BARE NEEDLES (fix round 3), LAST (fix round 4, minor).
+        #
+        # This sat ABOVE the two tiers immediately above, where it shadowed them:
+        # a declared entry containing `::` or a quoted literal would have
+        # returned the weaker whole-snippet needle instead of the stronger
+        # derived one. Inert for the three current entries -- none of them
+        # contains either -- which is exactly why it should move now rather than
+        # after someone adds a fourth. Ordering it last costs nothing today and
+        # makes the declaration a FALLBACK, which is what it is: the entries are
+        # here because no rule in the tiers above derives a needle for them.
+        if s in BARE_NEEDLE_ADMITTED:
+            return [s]
         return []
     # M4: every `.method(` in the snippet joins the leading identifier as a
     # needle.
@@ -860,53 +862,97 @@ UNGATED_REDLIST = {
 
 _REDLIST_HIT = set()
 
-# BARE BACKTICKED SNIPPETS THIS CORPUS USES AS CONSTRUCTS, declared (fix round 3).
+# BARE BACKTICKED SNIPPETS THIS CORPUS USES AS CONSTRUCTS, declared (fix round 3;
+# the justification below rewritten in fix round 4, I-1 and I-2).
 #
-# The source-defined-item test above covers a bare identifier the source declares
-# as an item. It does not cover an identifier the source only BINDS or INDEXES --
-# `stderr`, `errors`, `exitCode` -- and those are the declared tier's two largest
-# classes plus its fifth.
+# The source-defined-item tier in `_needles` covers a bare identifier the source
+# declares as an ITEM. It does not cover one the source only BINDS or INDEXES,
+# which is what these three are. Their sizes and their rank within the tier are
+# printed by `--bare-rule`; the round-3 comment called `exitCode` the tier's
+# "fifth" largest class and it is the eighth, which is what a hand-typed ordinal
+# does the first time anything moves.
 #
-# WHY THIS IS A DECLARATION AND NOT A RULE, which matters because the obvious
-# rule is wrong by a factor of two. Admitting every bare identifier that occurs
-# in the source admits `expected_stdout`, `run`, `test` and `app/app.meta.json`
-# too, and those produce 211 FALSE reds -- because in this corpus a bare backtick
-# is used in two different ways and only one of them is a construct:
+# WHY IT IS A DECLARATION AND NOT A RULE. Because the rule is not shipped -- not
+# because none exists. Round 3 wrote "no lexical predicate separates a label from
+# a construct -- the difference is what the author meant the backtick to do", and
+# that is FALSE. One does, and it is the direct analogue of the source-defined-
+# item tier ("the source defines an item of that name"):
+#
+#     THE SOURCE JSON-INDEXES A NAME OF ITS OWN BY THAT SPELLING -- `["<name>"]`.
+#
+# Measured across the whole sweep by `--bare-rule`, that rule admits EXACTLY the
+# three entries below and every citation they carry, at zero new failures, and
+# admits nothing else: not `run`, `test`, `kali`, `expected_stdout`,
+# `stdout_contains`, `stdout_count`, `json_count`, `json_output`, `ext` or
+# `build`. Separation is perfect on this corpus. The instrument prints the
+# admitted set, the rejected set, and the cost, so this paragraph is checkable
+# rather than assertable:
+#
+#     $ python3 tools/task-18-browser-pilot/citation_tiers.py --bare-rule
+#
+# The rule is NOT implemented here because it is phrased over the source TEXT and
+# `_needles` receives only `_source_items`. That is a real signature change and
+# it belongs in a round that decides it deliberately, not in one appended to a
+# comment fix. Until then this stays a hand-maintained convenience with its
+# derivable rule recorded and measured beside it.
+#
+# WHAT THE CORPUS ACTUALLY DOES WITH A BARE BACKTICK, which is why any such rule
+# is needed at all -- two uses, only one a construct:
 #
 #   CONSTRUCT   ``errors` (:228)`  -> `:228` is `let errors = json["errors"]...`
 #   LABEL       ``expected_stdout` = "1\n1" (:204)` -> `:204` is `"1\n1",`; the
 #               citation points at the VALUE the label describes, not at the
 #               identifier. Same shape: ``for `run` (:228-229)` pointing at
-#               `assert_eq!(json["exitCode"], 0)`, and ``app/app.meta.json`
-#               metadata (:99-100)` pointing at the metadata assertions.
+#               `assert_eq!(json["exitCode"], 0)`.
 #
-# No lexical predicate separates a label from a construct -- the difference is
-# what the author meant the backtick to do. So this is an adjudicated list, the
-# same instrument as `UNGATED_REDLIST`, and each entry's cost was measured by
-# admitting it alone across the whole sweep:
+# (The round-3 illustration of the CONSTRUCT case cited `let errors = ...`. That
+# binding occurs in one source; `json["errors"]` occurs in all 74 -- which is the
+# observation the rule above is built on.)
 #
-#     stderr    86 citations   0 new failures
-#     errors    74 citations   0 new failures
-#     exitCode  14 citations   0 new failures
-#     ---- rejected, measured the same way ----
-#     app/app.meta.json  31    31 new failures (a path, always a label)
-#     run       22            17 new failures
-#     test      19            14 new failures
-#     expected_stdout 16      16 new failures
+# THE COST OF ADMITTING MORE, and the correction of the figure round 3 gave for
+# it. That comment said admitting every bare identifier "admits `expected_stdout`,
+# `run`, `test` and `app/app.meta.json` too, and those produce 211 FALSE reds".
+# Three things are wrong with it and all three are population errors:
 #
-# Regenerate the whole partition, including which snippets are admissible at zero
-# cost and which are not:
-#     $ python3 tools/task-18-browser-pilot/citation_tiers.py --admissible
+#   * 211 is a CITATION count -- `--admissible`'s FALSE RED row -- presented as a
+#     FAILURE count. The failure counts are different numbers entirely, and
+#     which one you get depends on which population is meant: every bare
+#     identifier in the tier, the same at this file's own >= 4-char floor, or
+#     every declared shape bare or not. `--bare-rule` prints all three, each
+#     labelled with its population, precisely so they cannot be averaged again.
+#   * the sentence named no population at all, so none of them was checkable.
+#   * `app/app.meta.json` -- the load-bearing example, and the largest single
+#     contributor -- IS NOT A BARE IDENTIFIER. `BARE_IDENT.fullmatch` rejects it.
+#     It could never have been admitted by the rule the sentence was arguing
+#     against. It is a genuine label, and it is genuinely costly, but it is
+#     evidence for a different claim.
 #
-# Two further snippets measure at zero cost and are deliberately NOT here: a
-# bare `"8"` (2 citations, not an identifier) and `build` (1 citation). `build`
-# is the same subcommand-label shape as `run` and `test`, which fail on 31 of
-# their 41 citations between them; its single instance passing is luck, not a
-# property, and admitting it would encode the luck.
+# The adjoining "the obvious rule is wrong by a factor of two" is deleted rather
+# than corrected: nothing in the tree derives it and no population makes it true.
 #
-# Admitting these is a STRENGTHENING: 174 citations move from "nothing searches
-# for them" to "the identifier must be at the cited line", and all 174 pass
-# today, so a future drift in any of them is now caught.
+# Two snippets measure at zero cost and are deliberately NOT here: a bare `"8"`
+# (not an identifier) and `build`. `build` is the same subcommand-label shape as
+# `run` and `test`, which fail on most of their citations between them; its
+# single instance passing is luck, not a property, and admitting it would encode
+# the luck. `--admissible` prints both columns.
+#
+# ADMITTING THESE IS A STRENGTHENING, and here is the honest version of what it
+# buys. All 174 citations PASS today. Passing is not pinning: at the gate's own
+# +-1 standard, a drift would be caught on 143 of the 174 -- all of `stderr`,
+# most of `errors`, and 1 of the 14 `exitCode`, because `exitCode` is indexed on
+# so many neighbouring lines that a one-line shift usually still finds it. Round
+# 3 wrote "a future drift in ANY of them is now caught"; `any` is false, and
+# `any`/`none`/`every` are ruling 13's own trigger words. `--bare-rule` prints
+# the per-snippet split.
+#
+# THIS DECLARATION IS GATED, TRANSITIVELY -- it is not ungoverned prose, which is
+# what the round-3 report flagged it as, in its own disfavour. Every edit to this
+# set moves citations across the NO-NEEDLE boundary, and `NO_NEEDLE_DECLARED` is
+# checked for EQUALITY per stem: admitting a snippet takes its citations OUT of
+# the tier and the counts fall below their declaration; removing one puts them
+# back and the counts rise above it. Either way the sweep exits 1. Proved by
+# mutation on the shipped tree -- removing `stderr`, adding a label (`run`), and
+# adding a free-but-undeclared identifier (`build`) each give `SWEEP EXIT=1`.
 BARE_NEEDLE_ADMITTED = frozenset({"stderr", "errors", "exitCode"})
 
 # THE THIRD TIER, DECLARED (batch 7 fix round 1, I1).
@@ -929,39 +975,39 @@ BARE_NEEDLE_ADMITTED = frozenset({"stderr", "errors", "exitCode"})
 # the number the corpus produces have to agree, which is what stops the tier
 # drifting back into silence.
 #
-# WHAT IS ACTUALLY IN IT, measured -- and this description has now been wrong
-# TWICE, both times as a false quantifier of ruling 13's own shape, so it is
-# regenerated rather than characterised:
+# WHAT IS ACTUALLY IN IT. Not written down here. Three rounds in a row the
+# *description* of this tier was the defect, and the third round's replacement
+# was falsified by the same commit that wrote it, so the composition is a
+# command and only a command:
 #
 #     $ python3 tools/task-18-browser-pilot/citation_tiers.py --describe
-#     citations in the tier                    214
-#     occurring verbatim in their own source    73
-#     resolving at their own cited line         14
-#     pinned (both +-1 shifts lose them)         2
-#     distinct snippets                         39
-#     of which case-format keys (CASE_KEYS)     14
+#     $ python3 tools/task-18-browser-pilot/citation_tiers.py --admissible
 #
-# Round 1 said the tier was "prose that names no code position at all". FALSE:
-# 276 of the 417 then in it occurred verbatim in their own non-comment source.
-# Round 2 replaced that with "none is a construct a search can pin to one
-# statement". Also FALSE: 188 of the 388 resolved at their cited line and 145
-# were killed by both +-1 shifts, including all 86 `stderr` and 56 of 74
-# `errors`. `none` is one of ruling 13's trigger words and it was wrong.
+# The record of the three wrong descriptions, kept because it is the argument for
+# not writing a fourth:
 #
-# Round 3 stopped redescribing and MOVED them: `stderr`, `errors` and `exitCode`
-# are declared needles now (see `BARE_NEEDLE_ADMITTED`), 174 citations at 0
-# measured cost. That is why the figures above are so much smaller than the ones
-# they replace -- the resolvable part of the tier left it.
+#   * round 1: "prose that names no code position at all". FALSE -- most of the
+#     tier occurred verbatim in its own non-comment source.
+#   * round 2: "none is a construct a search can pin to one statement". Also
+#     FALSE -- most of them resolved at their cited line, and `none` is one of
+#     ruling 13's trigger words.
+#   * round 3 stopped redescribing and MOVED the resolvable part out (see
+#     `BARE_NEEDLE_ADMITTED`) -- then quoted `--describe`'s output inline anyway,
+#     four lines below a paragraph saying it should be regenerated.
 #
-# What is left is 214 citations across 39 snippets, and the honest statement is
-# the measurement, not an adjective: 73 of them appear verbatim somewhere in
-# their own source, 14 appear at their own cited line, and 2 are pinned there.
-# Admitting any of them as its own needle was measured one snippet at a time and
-# 37 of the 39 produce new failures -- `app/app.meta.json` 31, `run` 17, `test`
-# 14, `expected_stdout` 16 -- because in every one of those the backtick is a
-# LABEL and the citation points at what the label describes, not at the label.
-# The two that would cost nothing (`"8"`, `build`, 3 citations between them) are
-# left out for the reason `BARE_NEEDLE_ADMITTED` gives.
+# `--describe` answers what is in it; `--admissible` answers what admitting any
+# of it would cost, one snippet at a time across the whole sweep. In every
+# snippet the two agree on rejecting, the backtick is a LABEL and the citation
+# points at what the label describes rather than at the label. The two that would
+# cost nothing (`"8"`, `build`) are left out for the reason
+# `BARE_NEEDLE_ADMITTED` gives.
+#
+# THE ONE FIGURE THAT MAY BE INLINE IS THE DICT ITSELF, and the reason is that it
+# is the only one that is equality-gated: `main()` compares every stem's count
+# against its entry and exits 1 on either direction, so a stale number here
+# cannot survive a single sweep. That is the test for whether a figure belongs in
+# source at all -- not "is it true today" but "does anything fail when it stops
+# being true".
 #
 # Regenerate this dict, from the tree:
 #     $ python3 tools/task-18-browser-pilot/citation_tiers.py --declare
@@ -1130,9 +1176,9 @@ def _header_cite_arm(stem, body, lines):
                        f"range ({'inverted' if end < first else f'past end of the source, {len(lines)} lines'})")
             continue
         # The nearest backticked, non-citation token, which must be ADJACENT.
-        # The window is generous (the family's longest CITED snippet is 137
-        # chars and can sit on the previous header line -- see `SNIPPET_MAX`
-        # for the derivation) but the token must END within 30
+        # The window is generous (the family's longest CITED snippet can sit
+        # on the previous header line -- `citation_tiers.py --bounds` prints its
+        # length) but the token must END within 30
         # chars of the citation. Without the adjacency bound a long window
         # happily binds a citation to an unrelated fn name two sentences back
         # and reports a false pass -- which is worse than reporting nothing.
@@ -1143,8 +1189,7 @@ def _header_cite_arm(stem, body, lines):
         # ITEM 3.2 (batch 7): this bound was `{2,120}`, left behind when batch
         # 6B raised `CITE` to 200, and its own comment ("a fn name in this
         # corpus can be 100 chars") is disproved by the finding that forced the
-        # 200 -- the family's longest CITED snippet is 137 and its longest
-        # `#[test]` fn name is 226. It failed CLOSED, so it was
+        # 200 (`citation_tiers.py --bounds`). It failed CLOSED, so it was
         # correctness-preserving: an over-long token yielded "no adjacent
         # backticked construct", a reported problem, never a false pass. It is
         # now the same derived constant as `CITE`'s, so the two cannot drift
@@ -1562,6 +1607,30 @@ def _residual_tier_selftest():
         if not _cite_arm("selftest", "case file", f"`{snippet}` (:2)", lines):
             out.append(f"{label}: a citation drifted onto an unrelated line was "
                        "NOT caught")
+
+    # 2d. THE DECLARED-BARE-NEEDLE TIER IS LAST (fix round 4, minor). It used to
+    #     sit above 2c, where a declared entry containing `::` or a quoted
+    #     literal would return the weak whole-snippet needle and shadow the
+    #     stronger derived one. Inert for the three current entries, so the
+    #     ordering is asserted here rather than left to be noticed by whoever
+    #     adds a fourth.
+    global BARE_NEEDLE_ADMITTED
+    _saved_declared = BARE_NEEDLE_ADMITTED
+    try:
+        for snippet, want in (("kali_runtime_contract::HARNESS_ENV",
+                               ["HARNESS_ENV"]),
+                              ('if command == "test"', ["command", "test"])):
+            BARE_NEEDLE_ADMITTED = _saved_declared | {snippet}
+            got = _needles(snippet, items)
+            print(f"  residual tier -- declared entry `{snippet[:34]}` yields the "
+                  f"DERIVED needle: {got}")
+            if sorted(got) != sorted(want):
+                out.append(
+                    f"declared-needle ordering: `{snippet}` gave {got}, expected "
+                    f"{want} -- BARE_NEEDLE_ADMITTED is being consulted before the "
+                    "`::`-path / quoted-literal tiers and is shadowing them")
+    finally:
+        BARE_NEEDLE_ADMITTED = _saved_declared
 
     # 3. The NO-NEEDLE counter actually counts. A prose snippet is matched by
     #    `CITE` and yields nothing; the tier must register that rather than

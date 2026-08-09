@@ -682,6 +682,38 @@ def bare_rule(specs):
     return counts, bare, bare4, rows, dict(admitted), per, pinned
 
 
+def bounds():
+    """The two figures `SNIPPET_MAX` is justified by.
+
+    Committed in fix round 4 for the reason every other section here was: they
+    were a pair of hand-written `python3 -c` blobs pasted into a source comment
+    beside their output. The commands were right, which is more than the earlier
+    ones managed, but the output was still a figure in a comment -- it drifts
+    with the corpus and nothing fails when it does. The one hand-written command
+    this file replaced printed `1392 223` next to a claim of 419.
+    """
+    lengths = []
+    for path in (sorted(glob.glob(os.path.join(X.CASES, "*.toml")))
+                 + sorted(glob.glob(os.path.join(X.TESTS, "browser_*.rs")))):
+        text = open(path).read()
+        if path.endswith(".rs"):
+            text = "".join(l for l in text.splitlines(True) if l.startswith("//!"))
+        for m in list(X.CITE.finditer(text)) + list(X.SUBMOD_CITE.finditer(text)):
+            lengths.append((len(m.group(1)), os.path.basename(path)))
+    longest = max(lengths) if lengths else (0, "-")
+    fn_names = []
+    for rs in glob.glob(os.path.join(X.TESTS, "**/*.rs"), recursive=True):
+        src = open(rs).read().split("\n")
+        for n, line in enumerate(src):
+            if line.strip().startswith("#[test]") and n + 1 < len(src):
+                m = re.search(r"\bfn\s+([a-z0-9_]+)", src[n + 1])
+                if m:
+                    fn_names.append(len(m.group(1)))
+    return (longest, sum(n > 120 for n, _ in lengths),
+            sum(n > X.SNIPPET_MAX for n, _ in lengths),
+            max(fn_names) if fn_names else 0)
+
+
 def tier_gains(specs):
     """How many citations each batch-7 `_needles` tier gives a needle to.
 
@@ -862,6 +894,18 @@ def main(argv):
         for s, n, f in cost[:10]:
             print(f"      {n:4d} (+{f} new failures)  `{s[:48]}`")
         print()
+
+    if want & {"--all", "--bounds"}:
+        (n, where), over120, over_max, longest_fn = bounds()
+        print("--- SNIPPET_MAX: what the corpus actually writes ---")
+        print(f"  longest CITED snippet in the family    {n:>5}   ({where})")
+        print(f"  cited snippets over 120                {over120:>5}"
+              f"   <- what a 120 bound would drop")
+        print(f"  cited snippets over SNIPPET_MAX={X.SNIPPET_MAX:<3}    {over_max:>5}"
+              f"   <- what the shipped bound drops")
+        print(f"  longest `#[test]` fn name in the tree  {longest_fn:>5}"
+              f"   <- what COULD be cited; > SNIPPET_MAX is")
+        print(f"  {'':>39}      expected and fails LOUD, see `SNIPPET_MAX`\n")
 
     if want & {"--all", "--bare-rule"}:
         counts, bare, bare4, rows, admitted, per, pinned = bare_rule(specs)
