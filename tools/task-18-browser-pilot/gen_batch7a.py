@@ -214,6 +214,109 @@ def cites(rs_text, snippet, expect):
     return [cite(rs_text, snippet, occurrence=i + 1, expect=expect) for i in range(expect)]
 
 
+# Small-integer number words, so a derived count can be spelled the way this
+# family's prose spells it. The lookup RAISES outside its range, which is what
+# keeps `WORDS[n]` a gate rather than a lookup that silently degrades: a count
+# that grows past the table fails the generator instead of printing a digit
+# where the sentence expects a word.
+WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+         7: "seven", 8: "eight", 9: "nine"}
+
+
+def word(n):
+    if n not in WORDS:
+        raise AssertionError(f"no number word for {n}; the derivation moved out of range")
+    return WORDS[n]
+
+
+# A backticked snippet AND the citation that names it must stay on ONE line.
+# `CITE` matches `` `snippet` `` with `[^`\n]` inside, so a wrap anywhere within
+# the backticks kills the match outright, and it allows at most 40 non-newline
+# characters between the closing backtick and the number, so a wrap between them
+# kills it too. Either way the citation silently becomes UNGATED -- which is what
+# happened on the first version of `wrap` below, when a snippet containing a
+# space (`"test" => format!(`) was broken across two lines and the sweep caught
+# it. So the protected unit is the WHOLE span: every backticked run, plus any
+# citation immediately following it.
+_PROTECT = re.compile(r"`[^`\n]+`(?:\s*\(:\d+(?:-\d+)?\))?")
+
+
+def wrap(text, width=86):
+    """Wrap a paragraph to `width` and return it as header lines.
+
+    ADDED IN FIX ROUND 2, and not for tidiness. The paragraphs that use it
+    interpolate DERIVED number words (`three`, `FOUR`, `two`) whose lengths
+    change with the source, so a hand-split f-string cannot stay evenly wrapped
+    -- fix round 1 shipped a 29-character orphan fragment mid-paragraph for
+    exactly that reason, and hand-rewrapping it would only postpone the next
+    one. Wrapping at emission makes the defect unrepresentable.
+
+    Backticked spans and their citations are protected first: each is collapsed
+    into a single unbreakable token, wrapped, and restored, so wrapping can
+    never split a snippet or separate a number from the construct that gates it.
+    A protected token longer than `width` overflows its line rather than being
+    broken, which is the right trade -- an over-long line is cosmetic, an
+    un-gated citation is not.
+    """
+    import textwrap
+    protected = _PROTECT.sub(lambda m: re.sub(r"\s+", "\x00", m.group(0)), text)
+    lines = textwrap.wrap(protected, width=width, break_long_words=False,
+                          break_on_hyphens=False)
+    return [line.replace("\x00", " ") for line in lines]
+
+
+def kali_common_imports(rs_text):
+    """The `kali_common` items THIS source imports, read from its own `use`.
+
+    Gates the "FOUR kali_common::object helpers" figure (ruling 15's first
+    answer, per the controller's fix-round-2 ruling: gate a true load-bearing
+    count, do not delete it). The number is the length of this list, derived
+    from the `.rs` on every run, so an import added or removed moves the prose
+    with it instead of leaving it stale.
+    """
+    m = re.search(r"use kali_common::\{([^}]*)\};", rs_text, re.S)
+    if not m:
+        raise AssertionError("no `use kali_common::{...}` in this source")
+    names = sorted(n.strip() for n in m.group(1).split(",") if n.strip())
+    unexpected = [n for n in names if not n.startswith("object_has_own_")]
+    if unexpected:
+        raise AssertionError(f"unexpected kali_common import(s): {unexpected}")
+    return names
+
+
+def format_arity(template):
+    """The number of `{...}` placeholders in a `format!` template.
+
+    Gates the "whose three arguments" figure. `{{`/`}}` are un-doubled first,
+    exactly as `check_fixtures._format_segments` does, so a brace-collapse
+    escape is never miscounted as a placeholder.
+    """
+    tmp = template.replace("{{", "\x00").replace("}}", "\x01")
+    n = len(re.findall(r"\{[^{}]*\}", tmp))
+    if n == 0:
+        raise AssertionError("no `{}` placeholder in what should be a format! template")
+    return n
+
+
+def count_in_fn(rs_text, fn_name, needle):
+    """Occurrences of `needle` inside `fn <fn_name>`'s body. Gates a count that
+    is about one function rather than about the whole file."""
+    marker = re.search(r"\bfn\s+" + re.escape(fn_name) + r"\s*[(<]", rs_text)
+    if not marker:
+        raise AssertionError(f"no `fn {fn_name}` in source")
+    brace = rs_text.find("{", marker.end() - 1)
+    depth, i, n = 0, brace, len(rs_text)
+    while i < n:
+        if rs_text[i] == "{":
+            depth += 1
+        elif rs_text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return rs_text[brace:i + 1].count(needle)
+
+
 def assert_count(rs_text, needle, expect):
     """Assert a source contains `expect` occurrences of `needle`, and print NO
     number into the artifact.
@@ -805,13 +908,13 @@ def gen_object_enumeration_wrapped_bundle():
             reason=[
                 "`ext` LOOKS like a clean four-value axis and the arithmetic would even close",
                 "(2 output modes x 4 extensions = 8 = the invocation count), but the fixture",
-                f"BODY is not uniform over it: the helper picks its source with an `if",
-                f"filename.ends_with(\".js\")` {c_sel}, so `app.js` gets a DIFFERENT program",
-                "from `app.ts`/`app.jsx`/`app.tsx` -- the js variant declares a plain object",
-                "literal and adds spread re-checks, the non-js variant declares",
-                "`as const` / `satisfies unknown` wrappers. A `[matrix]` axis substitutes one",
-                "string uniformly into every case (design spec 5.6: \"only for variation that",
-                "substitutes uniformly\"); it cannot select a body.",
+                *wrap(f"BODY is not uniform over it: the helper picks its source at {c_sel}, "
+                     "so `app.js` gets a DIFFERENT program from `app.ts`/`app.jsx`/`app.tsx` "
+                     "-- the js variant declares a plain object literal and adds spread "
+                     "re-checks, the non-js variant declares `as const` / `satisfies unknown` "
+                     "wrappers. A `[matrix]` axis substitutes one string uniformly into every "
+                     "case (design spec 5.6: \"only for variation that substitutes "
+                     "uniformly\"); it cannot select a body.", 84),
             ]),
         "",
         P.RULE6_ONE_TO_ONE,
@@ -1338,6 +1441,14 @@ def gen_object_has_own_bundle():
         fixture_starting(text, helper, "const mod = await import(bundleJs.href);"),
         must_contain="await mod.browserObjectHasOwn();")
 
+    imports = kali_common_imports(text)
+    arity = format_arity(fixture_starting(
+        text, "browser_bundle_object_has_own_js_source", "// kali-tree-shake"))
+    if arity != format_arity(fixture_starting(
+            text, "browser_bundle_object_has_own_ts_source", "// kali-tree-shake")):
+        raise AssertionError("the two builders' format! templates have different arity")
+    n_texts = len({js_body, ts_body})
+
     c_build_ok = cite(text, "output.status.success(),", occurrence=1, expect=2)
     c_env_json = cite(text, 'assert_eq!(envelope["schemaVersion"], 1)')
     c_errors = cite(text, 'assert!(envelope["errors"]')
@@ -1372,17 +1483,25 @@ def gen_object_has_own_bundle():
         "",
         P.RULING7_NO_HOIST,
         "",
-        "RULE 8 / RULE 9 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. Both builders are",
-        "one inline `format!` with `{{`/`}}` brace-collapse whose three arguments are computed",
-        "by FOUR kali_common::object helpers, some of which join an alias table and some of",
-        "which wrap another helper's output. That is rule 8's `format!` trap and rule 9's",
-        "\"one level removed inside a",
-        "library crate\" case at once, and a hand-derived approximation would still be a valid",
-        "program that still built, so the real-binary run would verify the corrupted fixture",
-        "against itself. The two texts below are the byte-exact output of EXECUTING the real",
-        "builders (see tools/task-18-browser-pilot/batch7a_captures.py for the capture",
-        "procedure), and the generator re-checks each against anchors present in both the",
-        "producing Rust source and the captured text before emitting it.",
+        wrap("RULE 8 / RULE 9 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. Both builders "
+             f"are one inline `format!` with `{{{{`/`}}}}` brace-collapse whose {word(arity)} "
+             f"arguments are computed by {word(len(imports)).upper()} kali_common::object "
+             "helpers, some of which join an alias table and some of which wrap another "
+             "helper's output. That is rule 8's `format!` trap and rule 9's \"one level "
+             "removed inside a library crate\" case at once, and a hand-derived approximation "
+             "would still be a valid program that still built, so the real-binary run would "
+             f"verify the corrupted fixture against itself. The {word(n_texts)} texts below "
+             "are the byte-exact output of EXECUTING the real builders (see "
+             "tools/task-18-browser-pilot/batch7a_captures.py for the capture procedure), and "
+             "the generator re-checks each against anchors present in both the producing Rust "
+             "source and the captured text before emitting it."),
+        wrap("EVERY COUNT IN THAT PARAGRAPH IS DERIVED FROM THE SOURCE ON EVERY GENERATOR RUN, "
+             "not typed here: the placeholder count comes from the `format!` template with "
+             "`{{`/`}}` un-doubled first, the helper count from this file's own "
+             "`use kali_common::{...}` list, and the text count from the captures actually "
+             "emitted below. That is ruling 15's first answer -- a figure is declared and "
+             "gated, not left to rot -- and it is why the numbers in this block are words the "
+             "generator computed rather than words anyone typed."),
         "",
         NO_TEMPLATE_LITERAL,
         "",
@@ -1656,9 +1775,13 @@ def gen_object_has_own_from_entries():
         "    array.",
         P.ruling3_substring(),
         P.ruling3_json_leaf(),
-        f"The live-captured value is {pin!r}, identical across all 16 cells "
-        "(4 extensions x plain/frozen x run/test) and re-captured by the generator on every",
-        "run.",
+        wrap(f"The live-captured value is {pin!r}. The generator re-captures it from the real "
+             "binary and requires every capture to be byte-identical to every other AND to the "
+             "embedded constant before a single pin is emitted, so the pin cannot drift from "
+             "what the binary does without failing the generator. NO CELL COUNT IS WRITTEN "
+             "HERE: it would be a figure nothing re-resolves, and the capture set is a "
+             "property of the generator rather than of this file's cases -- the cases that "
+             "carry this pin are enumerable from the file itself."),
     )
 
     cases = []
@@ -1880,6 +2003,13 @@ def gen_object_has_own_harness():
     c_env = cite(text, "kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV")
     c_format = [cite(text, "format!(", occurrence=2, expect=4),
                 cite(text, "format!(", occurrence=4, expect=4)]
+    imports = kali_common_imports(text)
+    arity = format_arity(fixture_starting(
+        text, "browser_harness_object_has_own_run_source", "const object = Object.fromEntries"))
+    if arity != format_arity(fixture_starting(
+            text, "browser_harness_object_has_own_test_source", "Kali.test(")):
+        raise AssertionError("the two builders' format! templates have different arity")
+    n_texts = len({run_body, test_body})
 
     header = hdr(
         f"Migrated from tests/browser_{stem}.rs.",
@@ -1901,14 +2031,20 @@ def gen_object_has_own_harness():
         P.u2_source_file_wide(["main.${ext}", "smoke.test.${ext}"]),
         "",
         "RULE 8 / RULE 9 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. Both builders are",
-        f"one inline `format!` with `{{{{`/`}}}}` brace-collapse ({c_format[0]}, {c_format[1]})",
-        "whose three arguments are computed by FOUR kali_common::object helpers, some of which",
-        "join an alias table and some of which wrap another helper's output. That is rule 8's",
-        "`format!` trap and rule 9's \"one level removed inside a library crate\" case at once,",
-        "and a hand-derived approximation would still be a valid program. The two texts below are",
-        "the byte-exact output of EXECUTING the real builders (see tools/task-18-browser-",
-        "pilot/batch7a_captures.py for the capture procedure), and the generator re-checks",
-        "each against anchors present in both the producing Rust source and the captured text.",
+        wrap("one inline `format!` with `{{`/`}}` brace-collapse "
+             f"({c_format[0]}, {c_format[1]}) whose {word(arity)} arguments are computed by "
+             f"{word(len(imports)).upper()} kali_common::object helpers, some of which join an "
+             "alias table and some of which wrap another helper's output. That is rule 8's "
+             "`format!` trap and rule 9's \"one level removed inside a library crate\" case at "
+             "once, and a hand-derived approximation would still be a valid program. The "
+             f"{word(n_texts)} texts below are the byte-exact output of EXECUTING the real "
+             "builders (see tools/task-18-browser-pilot/batch7a_captures.py for the capture "
+             "procedure), and the generator re-checks each against anchors present in both the "
+             "producing Rust source and the captured text."),
+        wrap("EVERY COUNT IN THAT PARAGRAPH IS DERIVED FROM THE SOURCE ON EVERY GENERATOR RUN, "
+             "not typed here -- placeholder count from the `format!` template, helper count "
+             "from this file's own `use kali_common::{...}` list, text count from the captures "
+             "emitted below. Ruling 15's first answer."),
         "",
         NO_TEMPLATE_LITERAL,
         "",
@@ -1993,6 +2129,8 @@ def gen_object_is_alias_chain_harness():
     c_ok1 = cite(text, 'stdout.contains("ok 1")')
     c_env = cite(text, "kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV")
     c_format = cite(text, '"test" => format!(')
+    n_format = count_in_fn(text, "browser_object_is_alias_chain_source", "format!(")
+    n_texts = len({run_body, test_body})
 
     run_pin = _pin("run stdout", "browser object is alias chain ok\n",
                    [(f"main.{e}", run_body, "run") for e in EXTS4])
@@ -2014,13 +2152,18 @@ def gen_object_is_alias_chain_harness():
         "",
         P.u2_source_file_wide(["main.${ext}", "smoke.test.${ext}"]),
         "",
-        "RULE 8 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. One builder produces both",
-        f"texts from a shared body with a `match command` and two `format!`s {c_format}: the",
-        "`test` arm wraps the body in `Kali.test('browser object is alias chain', () => {...})`",
-        "and every other arm appends a `console.log`. The two texts below are the byte-exact",
-        "output of EXECUTING the real builder (see tools/task-18-browser-pilot/",
-        "batch7a_captures.py), and the generator re-checks each against anchors present in both",
-        "the producing Rust source and the captured text.",
+        wrap("RULE 8 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. One builder produces "
+             f"both texts from a shared body with a `match command` and {word(n_format)} "
+             f"`format!`s {c_format}: the `test` arm wraps the body in "
+             "`Kali.test('browser object is alias chain', () => {...})` and every other arm "
+             f"appends a `console.log`. The {word(n_texts)} texts below are the byte-exact "
+             "output of EXECUTING the real builder (see "
+             "tools/task-18-browser-pilot/batch7a_captures.py), and the generator re-checks "
+             "each against anchors present in both the producing Rust source and the captured "
+             "text."),
+        wrap("BOTH COUNTS ARE DERIVED FROM THE SOURCE ON EVERY GENERATOR RUN, not typed here "
+             "-- the `format!` count from inside the builder's own body, the text count from "
+             "the captures emitted below. Ruling 15's first answer."),
         "",
         NO_TEMPLATE_LITERAL,
         "",
@@ -2050,8 +2193,8 @@ def gen_object_is_alias_chain_harness():
         "    here by rule 1's non-negotiable direction, not by strengthening; U9 re-captures",
         "    both from the real binary for all four `ext` cells on every generator run, and",
         f"    they are {run_pin!r} and {test_pin!r}.",
-        f"  * In text mode: `stdout_contains` -- the run cases `\"browser object is alias chain",
-        f"    ok\"` {c_text_run}, the test cases `\"ok 1\"` {c_ok1}.",
+        wrap(f"  * In text mode: `stdout_contains` -- the run cases at {c_text_run}, the test "
+             f"cases at {c_ok1}."),
         P.ruling3_substring(),
     )
 

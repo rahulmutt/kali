@@ -183,8 +183,13 @@
 #     array.
 # The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed.
 # On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed.
-# The live-captured value is 'browser object hasOwn fromEntries ok\n', identical across all 16 cells (4 extensions x plain/frozen x run/test) and re-captured by the generator on every
-# run.
+# The live-captured value is 'browser object hasOwn fromEntries ok\n'. The generator
+# re-captures it from the real binary and requires every capture to be byte-identical to
+# every other AND to the embedded constant before a single pin is emitted, so the pin
+# cannot drift from what the binary does without failing the generator. NO CELL COUNT IS
+# WRITTEN HERE: it would be a figure nothing re-resolves, and the capture set is a
+# property of the generator rather than of this file's cases -- the cases that carry
+# this pin are enumerable from the file itself.
 
 [source]
 "app.js" = """// kali-tree-shake: browserObjectHasOwnFromEntries

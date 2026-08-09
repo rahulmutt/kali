@@ -37,12 +37,16 @@
 # a trial dir are inert.
 #
 # RULE 8 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. One builder produces both
-# texts from a shared body with a `match command` and two `format!`s `"test" => format!(` (:41): the
-# `test` arm wraps the body in `Kali.test('browser object is alias chain', () => {...})`
-# and every other arm appends a `console.log`. The two texts below are the byte-exact
-# output of EXECUTING the real builder (see tools/task-18-browser-pilot/
-# batch7a_captures.py), and the generator re-checks each against anchors present in both
-# the producing Rust source and the captured text.
+# texts from a shared body with a `match command` and two `format!`s
+# `"test" => format!(` (:41): the `test` arm wraps the body in
+# `Kali.test('browser object is alias chain', () => {...})` and every other arm appends
+# a `console.log`. The two texts below are the byte-exact output of EXECUTING the real
+# builder (see tools/task-18-browser-pilot/batch7a_captures.py), and the generator
+# re-checks each against anchors present in both the producing Rust source and the
+# captured text.
+# BOTH COUNTS ARE DERIVED FROM THE SOURCE ON EVERY GENERATOR RUN, not typed here -- the
+# `format!` count from inside the builder's own body, the text count from the captures
+# emitted below. Ruling 15's first answer.
 #
 # RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
 # `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
@@ -85,8 +89,9 @@
 #     here by rule 1's non-negotiable direction, not by strengthening; U9 re-captures
 #     both from the real binary for all four `ext` cells on every generator run, and
 #     they are 'browser object is alias chain ok\n' and ''.
-#   * In text mode: `stdout_contains` -- the run cases `"browser object is alias chain
-#     ok"` `stdout.contains("browser object is alias chain ok")` (:99), the test cases `"ok 1"` `stdout.contains("ok 1")` (:103).
+#   * In text mode: `stdout_contains` -- the run cases at
+# `stdout.contains("browser object is alias chain ok")` (:99), the test cases at
+# `stdout.contains("ok 1")` (:103).
 # The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed.
 
 [matrix]

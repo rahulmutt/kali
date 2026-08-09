@@ -43,14 +43,19 @@
 # a trial dir are inert.
 #
 # RULE 8 / RULE 9 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. Both builders are
-# one inline `format!` with `{{`/`}}` brace-collapse (`format!(` (:25), `format!(` (:86))
-# whose three arguments are computed by FOUR kali_common::object helpers, some of which
-# join an alias table and some of which wrap another helper's output. That is rule 8's
-# `format!` trap and rule 9's "one level removed inside a library crate" case at once,
-# and a hand-derived approximation would still be a valid program. The two texts below are
-# the byte-exact output of EXECUTING the real builders (see tools/task-18-browser-
-# pilot/batch7a_captures.py for the capture procedure), and the generator re-checks
-# each against anchors present in both the producing Rust source and the captured text.
+# one inline `format!` with `{{`/`}}` brace-collapse (`format!(` (:25),
+# `format!(` (:86)) whose three arguments are computed by FOUR kali_common::object
+# helpers, some of which join an alias table and some of which wrap another helper's
+# output. That is rule 8's `format!` trap and rule 9's "one level removed inside a
+# library crate" case at once, and a hand-derived approximation would still be a valid
+# program. The two texts below are the byte-exact output of EXECUTING the real builders
+# (see tools/task-18-browser-pilot/batch7a_captures.py for the capture procedure), and
+# the generator re-checks each against anchors present in both the producing Rust source
+# and the captured text.
+# EVERY COUNT IN THAT PARAGRAPH IS DERIVED FROM THE SOURCE ON EVERY GENERATOR RUN, not
+# typed here -- placeholder count from the `format!` template, helper count from this
+# file's own `use kali_common::{...}` list, text count from the captures emitted below.
+# Ruling 15's first answer.
 #
 # RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
 # `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a

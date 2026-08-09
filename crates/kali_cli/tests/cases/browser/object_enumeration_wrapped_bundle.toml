@@ -18,13 +18,13 @@
 # expanded.
 # `ext` LOOKS like a clean four-value axis and the arithmetic would even close
 # (2 output modes x 4 extensions = 8 = the invocation count), but the fixture
-# BODY is not uniform over it: the helper picks its source with an `if
-# filename.ends_with(".js")` `let source = if filename.ends_with(".js")` (:134), so `app.js` gets a DIFFERENT program
-# from `app.ts`/`app.jsx`/`app.tsx` -- the js variant declares a plain object
-# literal and adds spread re-checks, the non-js variant declares
-# `as const` / `satisfies unknown` wrappers. A `[matrix]` axis substitutes one
-# string uniformly into every case (design spec 5.6: "only for variation that
-# substitutes uniformly"); it cannot select a body.
+# BODY is not uniform over it: the helper picks its source at
+# `let source = if filename.ends_with(".js")` (:134), so `app.js` gets a DIFFERENT
+# program from `app.ts`/`app.jsx`/`app.tsx` -- the js variant declares a plain object
+# literal and adds spread re-checks, the non-js variant declares `as const` /
+# `satisfies unknown` wrappers. A `[matrix]` axis substitutes one string uniformly
+# into every case (design spec 5.6: "only for variation that substitutes uniformly");
+# it cannot select a body.
 # Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
 # cross-product whether or not that case references the axis, and there is no per-case
 # opt-out -- so an axis that any one case does not vary over would manufacture trials
