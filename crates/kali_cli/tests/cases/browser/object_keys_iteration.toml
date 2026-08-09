@@ -52,7 +52,8 @@
 # when two groups of tests need DIFFERENT file-wide `[source]` tables -- specifically
 # when a fixture is written conditionally, or when a case's whole point is the PRESENCE
 # or ABSENCE of a file (6B's `kali.json` manifest: merging would have made it
-# unconditionally present and silently stopped 78 cases from discriminating). Neither
+# unconditionally present and silently stopped its explicit half -- 78 `#[test]` fns, 124
+# cases -- from discriminating). Neither
 # condition holds here, and all three were checked rather than assumed:
 #   * NO CONDITIONAL WRITE. Every fixture write in the carrier and in both submodules is
 #     unconditional within its test; the generator finds no `if` guarding one.
@@ -89,26 +90,25 @@
 # repetition, and N identical copies would be noise rather than coverage.
 #
 # U6 -- PROSE ATTRIBUTION IS PARTIAL HERE, AND `comment_coverage.py` GOES RED FOR IT.
-# This source's comment blocks do NOT all sit in one universal helper, so each block is
+# This source's comment prose does NOT all sit in one universal helper, so each block is
 # carried only into the rationales of the cases its producing helper actually reaches.
 # The figure below is COUNTED from the emitted rationales rather than asserted about
 # them, and it is deliberately the count `comment_coverage.py` itself would take --
-# "rationales whose text CONTAINS this block", not "cases this helper produced". Where
-# one block's text is a prefix of another's (which is the case here -- the shorter note
-# opens the longer one), a rationale carrying the longer block also contains the shorter,
-# so the two counts legitimately differ and the measured one is the one that predicts the
-# gate:
+# "rationales whose text CONTAINS this block", not "cases this helper produced".
+# No block's text is contained in any other's here, so for this file the two counts
+# coincide:
 #   * the three carrier assert helpers and the fail-closed `#[test]` fns that inline
 # their own `Command` -> present in 11 of the 13 rationales: "Honest re-pin (PR #16
 # rev2): kali fails closed/loud here; see
 # docs/superpowers/followups/pr16-honest-repin-inventory.md."
 # `comment_coverage.py` requires every comment LINE to appear in EVERY case's rationale,
-# so it reports a non-empty MISSING set here and exits 1. (It reports it per LINE, and
-# these blocks share lines, so the count it prints per line is not the complement of any
-# one block's reach.) That red is expected and is NOT suppressed: U6 forbids copying a
-# block into cases its producing helper does not reach even though doing so would turn
-# the checker green, and requires the checker's false `missing` to be documented in the
-# header instead. This is that documentation.
+# so it reports a non-empty MISSING set here and exits 1 -- and with a single block it
+# reports exactly the complement, 2 of 13 cases, against
+# every line of that block.
+# That red is expected and is NOT suppressed: U6 forbids copying a block into cases its
+# producing helper does not reach even though doing so would turn the checker green, and
+# requires the checker's false `missing` to be documented in the header instead. This is
+# that documentation.
 #
 # RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
 # 25 `#[test]` fns, 52 real helper invocations with every loop

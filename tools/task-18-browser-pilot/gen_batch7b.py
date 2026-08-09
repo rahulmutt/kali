@@ -304,18 +304,34 @@ def u6_partial_note(pairs, cases):
     A typed count would be a figure an unrelated edit to the case plan could
     move with nothing to catch it.
     """
+    texts = [t for _p, t in pairs]
+    # IS ANY BLOCK'S TEXT CONTAINED IN ANOTHER'S? Measured, not assumed. Fix round 1 (I-2): this
+    # paragraph used to explain the prefix overlap UNCONDITIONALLY, and shipped that explanation
+    # into the carrier -- a file with exactly ONE comment block, where nothing is a prefix of
+    # anything and the gate's per-line count IS the exact complement of the measured reach. The
+    # U6 diagnosis was right and its explanation was false, which is ruling 15's trap one level
+    # down. So the clause is emitted only when the overlap is real.
+    overlapping = any(a != b and a in b for a in texts for b in texts)
     lines = [
         "U6 -- PROSE ATTRIBUTION IS PARTIAL HERE, AND `comment_coverage.py` GOES RED FOR IT.",
-        "This source's comment blocks do NOT all sit in one universal helper, so each block is",
+        "This source's comment prose does NOT all sit in one universal helper, so each block is",
         "carried only into the rationales of the cases its producing helper actually reaches.",
         "The figure below is COUNTED from the emitted rationales rather than asserted about",
         "them, and it is deliberately the count `comment_coverage.py` itself would take --",
-        "\"rationales whose text CONTAINS this block\", not \"cases this helper produced\". Where",
-        "one block's text is a prefix of another's (which is the case here -- the shorter note",
-        "opens the longer one), a rationale carrying the longer block also contains the shorter,",
-        "so the two counts legitimately differ and the measured one is the one that predicts the",
-        "gate:",
+        "\"rationales whose text CONTAINS this block\", not \"cases this helper produced\".",
     ]
+    if overlapping:
+        lines += [
+            "Those two counts differ here, and the reason is measured rather than assumed: one",
+            "block's text is CONTAINED IN another's (the shorter note opens the longer one), so a",
+            "rationale carrying the longer block also contains the shorter. The measured count is",
+            "the one that predicts the gate:",
+        ]
+    else:
+        lines += [
+            "No block's text is contained in any other's here, so for this file the two counts",
+            "coincide:",
+        ]
     for producer, text in pairs:
         reached = sum(1 for c in cases if text in c["rationale"])
         if not reached or reached == len(cases):
@@ -325,14 +341,26 @@ def u6_partial_note(pairs, cases):
                 "does not have")
         lines += wrap(f"  * {producer} -> present in {reached} of the {len(cases)} "
                       f"rationales: \"{text}\"", 86)
+    lines.append(
+        "`comment_coverage.py` requires every comment LINE to appear in EVERY case's rationale,")
+    if overlapping:
+        lines += [
+            "so it reports a non-empty MISSING set here and exits 1. It reports it per LINE, and",
+            "these blocks share lines, so the count it prints against any one line is not the",
+            "complement of any one block's reach.",
+        ]
+    else:
+        reach = sum(1 for c in cases if texts[0] in c["rationale"])
+        lines += [
+            "so it reports a non-empty MISSING set here and exits 1 -- and with a single block it",
+            f"reports exactly the complement, {len(cases) - reach} of {len(cases)} cases, against",
+            "every line of that block.",
+        ]
     lines += [
-        "`comment_coverage.py` requires every comment LINE to appear in EVERY case's rationale,",
-        "so it reports a non-empty MISSING set here and exits 1. (It reports it per LINE, and",
-        "these blocks share lines, so the count it prints per line is not the complement of any",
-        "one block's reach.) That red is expected and is NOT suppressed: U6 forbids copying a",
-        "block into cases its producing helper does not reach even though doing so would turn",
-        "the checker green, and requires the checker's false `missing` to be documented in the",
-        "header instead. This is that documentation.",
+        "That red is expected and is NOT suppressed: U6 forbids copying a block into cases its",
+        "producing helper does not reach even though doing so would turn the checker green, and",
+        "requires the checker's false `missing` to be documented in the header instead. This is",
+        "that documentation.",
     ]
     return lines
 
@@ -376,11 +404,20 @@ def assert_frozen_pair(label, rs_text, plain_cap, frozen_cap, *, plain_literal, 
         raise AssertionError(
             f"{label}: applying the source's own replace to the plain capture does not "
             "reproduce the frozen capture -- one of the two captures is stale")
-    if not needle.startswith("  "):
+    # IS THE LEADING WHITESPACE LOAD-BEARING? Measured rather than asserted (fix round 1). The
+    # needle does carry two leading spaces, but for all four pairs in this batch it occurs
+    # exactly once and the stripped needle selects the same span, so the whitespace does not
+    # currently discriminate -- the hazard is LATENT. What actually forces the capture is that
+    # the fixture is not a string literal at all: it is produced by `str::replace` at run time,
+    # so there is nothing for the lexer to extract and any other route is hand-derivation
+    # (rule 8). The whitespace check stays as a staleness tripwire, and the measured answer is
+    # returned so the header can state which it is instead of overstating the hazard.
+    if not needle.startswith(" "):
         raise AssertionError(
-            f"{label}: the replace needle no longer carries leading whitespace, which is the "
-            "whole reason this fixture is captured rather than lexed")
-    return frozen_cap
+            f"{label}: the replace needle no longer carries leading whitespace -- the captures "
+            "were taken against a differently-indented source, so at least one is stale")
+    latent = plain_cap.replace(needle.lstrip(), repl.lstrip()) == frozen_cap
+    return frozen_cap, (not latent)
 
 
 # --------------------------------------------------------------------------
@@ -606,6 +643,76 @@ def expanded(keys):
     return [k.replace("${ext}", e) for k in keys for e in EXTS4]
 
 
+# The §5.6 non-axis paragraph for a fail-closed target that DOES carry a content claim.
+#
+# FIX ROUND 1 (I-1). `gen_batch7a.FAIL_CLOSED_NON_AXES` says "this target asserts nothing but
+# process failure, so neither dimension changes what is asserted -- they change the argv", and it
+# was applied unconditionally. That is TRUE of three files in this batch and FALSE of two: both
+# rule-11 harness targets pin a diagnostic needle, and `json_output` moves it from `stderr` to
+# `stdout`, so the output mode changes exactly what is asserted -- as those same headers' own
+# RULE 11 block states three paragraphs later. The conclusion (not an axis) was right; the reason
+# contradicted the file. Design spec §5.6 gives the correct one, so it is used, and
+# `assert_non_axis_reason_matches` below makes applying the wrong one a generator error rather
+# than a prose defect nothing reads.
+FAIL_CLOSED_NON_AXES_WITH_CLAIM = [
+    "`command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:",
+    "\"Varying output shape changes both the argv and the assertions\", and both dimensions do",
+    "exactly that here.",
+    "`json_output` changes WHAT IS ASSERTED, not merely the argv: this target's only content",
+    "claim is a single diagnostic needle, and the output mode moves the stream that carries it",
+    "(see the RULE 11 block below), so the text and json siblings pin DIFFERENT keys.",
+    "`command` selects a different `[source]` entry (`main*.<ext>` for run, `smoke*.test.<ext>`",
+    "for test), and a `[matrix]` axis substitutes ONE string uniformly across every case rather",
+    "than selecting among entries.",
+    "Each is written as sibling `[[case]]` entries instead. Note that BOTH files carrying this",
+    "block reach those siblings by rule 5 rather than rule 6 -- their `json_output` variation is",
+    "a loop INSIDE a `#[test]` fn, not a separate fn -- so the RULE 6 paragraph below states the",
+    "split, and no claim is made here that the source has a fn per combination.",
+]
+
+# The sentence each block hangs its reason on, used to check the reason against the emitted
+# steps. Matching on the CLAIM rather than on object identity is deliberate: a header assembled
+# from a copy of the list, or reworded downstream, is still checked.
+_CLAIM_FREE_MARKER = "this target asserts nothing but process"
+_HAS_CLAIM_MARKER = "this target's only content claim is a single diagnostic needle"
+
+# Every §5.4 assertion key except `exit`, plus `file_json`'s `fields`. A step carrying any of
+# these makes a CONTENT claim; a step carrying only `exit` does not.
+_CONTENT_KEYS = frozenset({
+    "stdout", "stdout_contains", "stdout_absent", "stdout_count",
+    "stderr", "stderr_contains", "stderr_absent",
+    "json", "json_paths", "json_null", "json_count", "fields",
+})
+
+
+def assert_non_axis_reason_matches(header, cases):
+    """A fail-closed non-axis paragraph must match what the file actually asserts.
+
+    Both directions, because both are silent failures: claiming "nothing but
+    process failure" on a file that pins a needle is the defect fix round 1
+    found, and claiming a content claim on a file that has none would be the
+    same defect mirrored. Nothing else reads `#` header prose (U8), so this is
+    the only thing that can catch either.
+    """
+    # Joined with a SPACE and whitespace-collapsed, not with a newline: these blocks are
+    # hand-wrapped at 86 columns, so a marker sentence spans two list entries and a
+    # newline-joined haystack would never contain it. The first version of this gate matched on
+    # `\n` and silently failed to fire in one of its two directions -- caught by the injection
+    # probe, which is the only reason this comment exists rather than a second silent gate.
+    text = re.sub(r"\s+", " ", " ".join(str(line) for line in header))
+    claims = sorted({k for case in cases for step in case["steps"]
+                     for k in step if k in _CONTENT_KEYS})
+    if _CLAIM_FREE_MARKER in text and claims:
+        raise AssertionError(
+            "the header says this target asserts nothing but process failure, but its steps "
+            f"carry content claim key(s) {claims} -- use FAIL_CLOSED_NON_AXES_WITH_CLAIM")
+    if _HAS_CLAIM_MARKER in text and not claims:
+        raise AssertionError(
+            "the header says this target carries a content claim, but no step carries one -- "
+            "use FAIL_CLOSED_NON_AXES")
+    return True
+
+
 def assert_entries_declared(source, cases):
     """Every entry a step names on argv must be a declared `[source]` key.
 
@@ -657,6 +764,7 @@ def assert_entries_declared(source, cases):
 def out(header, matrix, source, cases):
     assert_no_template_literals(source, cases)
     assert_entries_declared(source, cases)
+    assert_non_axis_reason_matches(header, cases)
     names = [c["name"] for c in cases]
     if len(set(names)) != len(names):
         dup = sorted({n for n in names if names.count(n) > 1})
@@ -1033,12 +1141,13 @@ def gen_object_keys_entries_spread_harness():
 
     run_plain = check_program("entries spread run", fixture_in_fn(text, builder, index=1))
     test_plain = check_program("entries spread test", fixture_in_fn(text, builder, index=0))
-    assert_frozen_pair("entries spread run", text, C.CAP_ENTRIES_SPREAD_RUN_PLAIN,
-                       C.CAP_ENTRIES_SPREAD_RUN_FROZEN, plain_literal=run_plain,
-                       replace_fn=frozen_builder)
-    assert_frozen_pair("entries spread test", text, C.CAP_ENTRIES_SPREAD_TEST_PLAIN,
-                       C.CAP_ENTRIES_SPREAD_TEST_FROZEN, plain_literal=test_plain,
-                       replace_fn=frozen_builder)
+    _run, ws_run = assert_frozen_pair(
+        "entries spread run", text, C.CAP_ENTRIES_SPREAD_RUN_PLAIN,
+        C.CAP_ENTRIES_SPREAD_RUN_FROZEN, plain_literal=run_plain, replace_fn=frozen_builder)
+    _test, ws_test = assert_frozen_pair(
+        "entries spread test", text, C.CAP_ENTRIES_SPREAD_TEST_PLAIN,
+        C.CAP_ENTRIES_SPREAD_TEST_FROZEN, plain_literal=test_plain, replace_fn=frozen_builder)
+    ws_active = ws_run or ws_test
 
     source = {
         "main.${ext}": C.CAP_ENTRIES_SPREAD_RUN_PLAIN,
@@ -1076,7 +1185,7 @@ def gen_object_keys_entries_spread_harness():
                       "json_output(false/true), a complete cross product. Both `#[test]` fns "
                       "loop all four extensions and make four calls per extension, so `ext` is "
                       "uniform.")],
-            non_axis_lines=FAIL_CLOSED_NON_AXES),
+            non_axis_lines=FAIL_CLOSED_NON_AXES_WITH_CLAIM),
         "",
         P.RULE6_ONE_TO_ONE,
         "That is the shape rule 5 governs rather than rule 6: this source has only TWO `#[test]`",
@@ -1098,10 +1207,19 @@ def gen_object_keys_entries_spread_harness():
         NO_TEMPLATE_LITERAL,
         "",
         "RULE 8 / RULE 9 -- TWO OF THESE FOUR PROGRAMS ARE NOT STRING LITERALS.",
-        f"{c_replace} builds the frozen variants by a str::replace off the plain ones, and the",
-        "needle carries TWO LEADING SPACES. Hand-applying that substitution is exactly the trap",
-        "rule 8 exists to prevent, so both frozen texts are the BYTE-EXACT OUTPUT of executing",
-        "the real code (see `batch7b_captures.py` for the capture procedure). The generator",
+        f"{c_replace} builds the frozen variants by a str::replace off the plain ones, so there",
+        "is no literal for the lexer to extract and every other route is hand-derivation --",
+        "exactly the trap rule 8 exists to prevent. Both frozen texts are therefore the",
+        "BYTE-EXACT OUTPUT of executing the real code (see `batch7b_captures.py` for the capture",
+        "procedure).",
+        "The replace needle also carries TWO LEADING SPACES, and the generator MEASURES whether",
+        "that is load-bearing rather than asserting it: "
+        + ("it is -- the stripped needle selects a different span."
+           if ws_active else
+           "it is not. The needle occurs exactly once and the stripped form selects the same "
+           "span, so the indentation hazard is LATENT here, not the operative reason. The check "
+           "stays as a staleness tripwire."),
+        "The generator",
         "re-proves each capture against this source before emitting it: the plain capture must",
         "be byte-identical to the literal the lexer extracts from the `.rs`, the needle and",
         "replacement are read out of the `.rs` rather than restated, and applying them to the",
@@ -1775,7 +1893,8 @@ def gen_object_keys_iteration():
         "when two groups of tests need DIFFERENT file-wide `[source]` tables -- specifically",
         "when a fixture is written conditionally, or when a case's whole point is the PRESENCE",
         "or ABSENCE of a file (6B's `kali.json` manifest: merging would have made it",
-        "unconditionally present and silently stopped 78 cases from discriminating). Neither",
+        "unconditionally present and silently stopped its explicit half -- 78 `#[test]` fns, 124",
+        "cases -- from discriminating). Neither",
         "condition holds here, and all three were checked rather than assumed:",
         "  * NO CONDITIONAL WRITE. Every fixture write in the carrier and in both submodules is",
         "    unconditional within its test; the generator finds no `if` guarding one.",
@@ -2135,12 +2254,13 @@ def gen_object_values_harness():
         text, "browser_harness_global_object_values_test_source"))
     spread_run = check_program("values spread run", fixture_in_fn(text, spread_builder, index=1))
     spread_test = check_program("values spread test", fixture_in_fn(text, spread_builder, index=0))
-    assert_frozen_pair("values spread run", text, C.CAP_VALUES_SPREAD_RUN_PLAIN,
-                       C.CAP_VALUES_SPREAD_RUN_FROZEN, plain_literal=spread_run,
-                       replace_fn=frozen_builder)
-    assert_frozen_pair("values spread test", text, C.CAP_VALUES_SPREAD_TEST_PLAIN,
-                       C.CAP_VALUES_SPREAD_TEST_FROZEN, plain_literal=spread_test,
-                       replace_fn=frozen_builder)
+    _run, ws_run = assert_frozen_pair(
+        "values spread run", text, C.CAP_VALUES_SPREAD_RUN_PLAIN,
+        C.CAP_VALUES_SPREAD_RUN_FROZEN, plain_literal=spread_run, replace_fn=frozen_builder)
+    _test, ws_test = assert_frozen_pair(
+        "values spread test", text, C.CAP_VALUES_SPREAD_TEST_PLAIN,
+        C.CAP_VALUES_SPREAD_TEST_FROZEN, plain_literal=spread_test, replace_fn=frozen_builder)
+    ws_active = ws_run or ws_test
 
     source = {
         "main.${ext}": plain_run,
@@ -2318,11 +2438,19 @@ def gen_object_values_harness():
         NO_TEMPLATE_LITERAL,
         "",
         "RULE 8 / RULE 9 -- TWO OF THESE EIGHT PROGRAMS ARE NOT STRING LITERALS.",
-        f"{c_replace} builds the frozen spread variants by a str::replace off the plain ones, and",
-        "the needle carries TWO LEADING SPACES. Hand-applying that substitution is exactly the",
-        "trap rule 8 exists to prevent, so both frozen texts are the BYTE-EXACT OUTPUT of",
-        "executing the real code (see `batch7b_captures.py` for the capture procedure). The",
-        "generator re-proves each capture against this source before emitting it: the plain",
+        f"{c_replace} builds the frozen spread variants by a str::replace off the plain ones, so",
+        "there is no literal for the lexer to extract and every other route is hand-derivation --",
+        "exactly the trap rule 8 exists to prevent. Both frozen texts are therefore the",
+        "BYTE-EXACT OUTPUT of executing the real code (see `batch7b_captures.py` for the capture",
+        "procedure).",
+        "The replace needle also carries TWO LEADING SPACES, and the generator MEASURES whether",
+        "that is load-bearing rather than asserting it: "
+        + ("it is -- the stripped needle selects a different span."
+           if ws_active else
+           "it is not. The needle occurs exactly once and the stripped form selects the same "
+           "span, so the indentation hazard is LATENT here, not the operative reason. The check "
+           "stays as a staleness tripwire."),
+        "The generator re-proves each capture against this source before emitting it: the plain",
         "capture must be byte-identical to the literal the lexer extracts from the `.rs`, the",
         "needle and replacement are read out of the `.rs` rather than restated, and applying",
         "them to the plain capture must reproduce the frozen capture exactly.",
@@ -2672,7 +2800,7 @@ def gen_object_values_spread_harness():
                       "command(run/test) x ext(js/ts/jsx/tsx) x json_output(false/true). Both "
                       "`#[test]` fns loop all four extensions and both output modes, so `ext` "
                       "is uniform.")],
-            non_axis_lines=FAIL_CLOSED_NON_AXES),
+            non_axis_lines=FAIL_CLOSED_NON_AXES_WITH_CLAIM),
         "",
         P.RULE6_ONE_TO_ONE,
         "That is rule 5's territory rather than rule 6's here: this source has only TWO `#[test]`",
