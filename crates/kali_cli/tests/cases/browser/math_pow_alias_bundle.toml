@@ -1,0 +1,378 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'app_alias.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_alias.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_alias.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_alias.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_global_this_alias.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_global_this_alias.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_global_this_alias.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_global_this_alias.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# Migrated from tests/browser_math_pow_alias_bundle.rs.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_pow_alias_bundle.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 2 other `//` occurrence(s) in the file (:13, :27) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_math_pow_alias` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true). This is a thin
+#     wrapper: its whole body forwards to the helper below with the
+#     mathPowAliasChain program and export name, so these 8 are also 8
+#     executions of that helper's body.
+#   * `assert_browser_bundle_math_pow_alias_with_source` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), called
+#     DIRECTLY by 8 further `#[test]` fns with the globalThisMathPowAliasChain
+#     program and export name. 16 `#[test]` fns, 16 real invocations, two entry
+#     points, one helper body, no loop anywhere in the file.
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app_alias.${ext}`, `app_global_this_alias.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `app.<ext>` -> `app_alias.${ext}` -- the mathPowAliasChain program, written by the eight
+#     `build_emits_math_pow_alias_chain_*` fns through the thin wrapper
+#     `assert_browser_bundle_math_pow_alias` (:39)
+#   * `app.<ext>` -> `app_global_this_alias.${ext}` -- the globalThisMathPowAliasChain program, written by the
+#     eight `build_emits_global_this_math_pow_alias_chain_*` fns, which call
+#     `assert_browser_bundle_math_pow_alias_with_source` (:48)
+#     directly
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+# The rename is NOT cosmetic bookkeeping: `kali build --bundle` names its output
+# directory and metadata file after the INPUT STEM, so `app_alias.js` emits
+# app_alias/app_alias.meta.json and a bundle the harness must import as
+# `entry = "app_alias"`. Every one of those three places follows the rename below, which
+# is exactly U5's own warning about a rename that reaches past the `[source]` key.
+# Both keys are suffixed rather than only the clashing one, so neither variant reads as
+# the default and a later editor cannot reintroduce the clash by adding a third program.
+#
+# RULE 8 / RULE 9 -- THREE `format!`-built texts, none of them present as a literal in
+# the .rs, all three captured by executing the real code rather than by hand-applying
+# `{}` substitution:
+#   * both [source] programs, dumped from a temporary test target that include!d this
+#     .rs and wrote each builder's return value out verbatim. The template indents its
+#     placeholder by two spaces and the kali_common helper indents again, so the first
+#     emitted line carries four spaces and the rest two -- an asymmetry a hand
+#     substitution gets wrong in one direction or the other.
+#   * the browser-bundle-harness `body`, built by an inline `format!`
+#     (:103) with an `{export_name}` placeholder inside
+#     `assert_browser_bundle_math_pow_alias_with_source`, which makes it
+#     unreachable as a value at all. It was captured by running that real helper with
+#     the harness
+#     command pointed at a wrapper that copies the script it is handed and then execs
+#     node (so the helper's own assertions still pass), then subtracting
+#     kali_runtime_contract's browser_bundle_harness_prelude from the captured script --
+#     browser_bundle_harness_script is defined as prelude followed by body, so the
+#     remainder is the resolved body.
+# The exact procedure is recorded in this file's generator,
+# tools/task-18-browser-pilot/gen_batch5_group_a.py.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_math_pow_alias_source`,
+#   `browser_bundle_global_this_math_pow_alias_source`,
+#   `assert_browser_bundle_math_pow_alias`,
+#   `assert_browser_bundle_math_pow_alias_with_source` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+# The documented chain, in call order, all in crates/kali_common/src/math.rs:
+#   math_pow_browser_alias_inventory_invocation_lines,
+#   math_pow_browser_alias_inventory_aliases, math_pow_aliases,
+#   math_pow_frozen_callable_aliases, math_pow_frozen_callable_direct_aliases,
+#   math_pow_frozen_callable_parenthesized_aliases,
+#   math_pow_frozen_callable_nullish_logical_aliases,
+#   math_pow_bracketed_frozen_callable_aliases, math_pow_invocation_lines_for_aliases.
+# Their `///` docs are extracted from that file by this generator, not retyped,
+# and carried verbatim into the rationale of every case they reach (U6).
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# `exit = "success"` on the `kali build` process (:71) and on the harness
+# process (:125).
+# In json mode, the build envelope's schemaVersion/command/success/exitCode and the
+# payload's artifactKind/bundleFormat (:79-85). The source
+# makes NO `errors` claim on that envelope, so no `errors = []` is written.
+# The emitted <stem>/<stem>.meta.json apiSurface/artifactKind (:93-94)
+# is asserted in BOTH modes, because the source reads that file outside the
+# `if json_output` block.
+# The harness step carries the file's ONE stdout claim, `.contains("8\n")`
+# (:131) -- note the single trailing newline, unlike the `"8\n8"` its two
+# bracketed-frozen siblings in this group assert; the weaker needle is what this source
+# says and it is not upgraded.
+# There is no count claim in this file, so no `stdout_count`; no stderr claim on either
+# process; and the build envelope's stdout leaf is never read, so no `json.stdout` pin.
+# The source passes no --max-threads / --max-spawned-processes arguments, so neither
+# appears on argv.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app_alias.${ext}" = """// kali-tree-shake: mathPowAliasChain
+function mathPowAliasChain() {
+  const exponent = 3;
+  const alias = exponent;
+    console.log(Math.pow(2, alias));
+  console.log(Math['pow'](2, alias));
+  console.log(Math["pow"](2, alias));
+  console.log(globalThis.Math.pow(2, alias));
+  console.log(globalThis.Math['pow'](2, alias));
+  console.log(globalThis.Math["pow"](2, alias));
+  console.log(globalThis['Math'].pow(2, alias));
+  console.log(globalThis['Math']['pow'](2, alias));
+  console.log(globalThis['Math']["pow"](2, alias));
+  console.log(globalThis["Math"].pow(2, alias));
+  console.log(globalThis["Math"]["pow"](2, alias));
+  console.log(globalThis["Math"]['pow'](2, alias));
+  console.log(Object.freeze(globalThis.Math['pow'])(2, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze(globalThis['Math']['pow'])(2, alias));
+  console.log(Object.freeze(globalThis['Math']["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]['pow'])(2, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(2, alias));
+  console.log(Object.freeze(globalThis['Math'].pow)(2, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
+  console.log(Object.freeze(Math.pow)(2, alias));
+  console.log(Object.freeze(Math['pow'])(2, alias));
+  console.log(Object.freeze(Math["pow"])(2, alias));
+  console.log(Object.freeze((globalThis.Math['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((globalThis['Math']["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis["Math"]['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((globalThis['Math'].pow))(2, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(2, alias));
+  console.log(Object.freeze((Math.pow))(2, alias));
+  console.log(Object.freeze((Math['pow']))(2, alias));
+  console.log(Object.freeze((Math["pow"]))(2, alias));
+  console.log(Object.freeze((null ?? Math.pow))(2, alias));
+  console.log(Object.freeze((true && Math.pow))(2, alias));
+  console.log(Object.freeze((false || Math.pow))(2, alias));
+  console.log(Object.freeze((null ?? globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((true && globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((false || globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((null ?? globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((true && globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((false || globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((null ?? globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((true && globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((false || globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math))["pow"](2, alias));
+  console.log(Object.freeze((globalThis.Math))['pow'](2, alias));
+  console.log(Object.freeze((globalThis.Math).pow)(2, alias));
+  console.log(Object.freeze((globalThis.Math)['pow'])(2, alias));
+  console.log(Object.freeze((globalThis["Math"]))["pow"](2, alias));
+  console.log(Object.freeze((globalThis['Math']))['pow'](2, alias));
+  console.log(Object.freeze((globalThis['Math'])["pow"])(2, alias));
+  console.log(Object.freeze((globalThis['Math'])['pow'])(2, alias));
+  console.log(Object.freeze((globalThis["Math"]).pow)(2, alias));
+  console.log(Object.freeze((globalThis['Math']).pow)(2, alias));
+  return Math.pow(2, alias);
+}
+"""
+"app_global_this_alias.${ext}" = """// kali-tree-shake: globalThisMathPowAliasChain
+function globalThisMathPowAliasChain() {
+  const exponent = 3;
+  const alias = exponent;
+    console.log(Math.pow(2, alias));
+  console.log(Math['pow'](2, alias));
+  console.log(Math["pow"](2, alias));
+  console.log(globalThis.Math.pow(2, alias));
+  console.log(globalThis.Math['pow'](2, alias));
+  console.log(globalThis.Math["pow"](2, alias));
+  console.log(globalThis['Math'].pow(2, alias));
+  console.log(globalThis['Math']['pow'](2, alias));
+  console.log(globalThis['Math']["pow"](2, alias));
+  console.log(globalThis["Math"].pow(2, alias));
+  console.log(globalThis["Math"]["pow"](2, alias));
+  console.log(globalThis["Math"]['pow'](2, alias));
+  console.log(Object.freeze(globalThis.Math['pow'])(2, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze(globalThis['Math']['pow'])(2, alias));
+  console.log(Object.freeze(globalThis['Math']["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]['pow'])(2, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(2, alias));
+  console.log(Object.freeze(globalThis['Math'].pow)(2, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
+  console.log(Object.freeze(Math.pow)(2, alias));
+  console.log(Object.freeze(Math['pow'])(2, alias));
+  console.log(Object.freeze(Math["pow"])(2, alias));
+  console.log(Object.freeze((globalThis.Math['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((globalThis['Math']["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((globalThis["Math"]['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((globalThis['Math'].pow))(2, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(2, alias));
+  console.log(Object.freeze((Math.pow))(2, alias));
+  console.log(Object.freeze((Math['pow']))(2, alias));
+  console.log(Object.freeze((Math["pow"]))(2, alias));
+  console.log(Object.freeze((null ?? Math.pow))(2, alias));
+  console.log(Object.freeze((true && Math.pow))(2, alias));
+  console.log(Object.freeze((false || Math.pow))(2, alias));
+  console.log(Object.freeze((null ?? globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((true && globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((false || globalThis.Math.pow))(2, alias));
+  console.log(Object.freeze((null ?? globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((true && globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((false || globalThis["Math"]["pow"]))(2, alias));
+  console.log(Object.freeze((null ?? globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((true && globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((false || globalThis['Math']['pow']))(2, alias));
+  console.log(Object.freeze((globalThis.Math))["pow"](2, alias));
+  console.log(Object.freeze((globalThis.Math))['pow'](2, alias));
+  console.log(Object.freeze((globalThis.Math).pow)(2, alias));
+  console.log(Object.freeze((globalThis.Math)['pow'])(2, alias));
+  console.log(Object.freeze((globalThis["Math"]))["pow"](2, alias));
+  console.log(Object.freeze((globalThis['Math']))['pow'](2, alias));
+  console.log(Object.freeze((globalThis['Math'])["pow"])(2, alias));
+  console.log(Object.freeze((globalThis['Math'])['pow'])(2, alias));
+  console.log(Object.freeze((globalThis["Math"]).pow)(2, alias));
+  console.log(Object.freeze((globalThis['Math']).pow)(2, alias));
+  return globalThis.Math.pow(2, alias);
+}
+"""
+
+[[case]]
+name = "build_emits_math_pow_alias_chain"
+rationale = """Migrated from browser_math_pow_alias_bundle.rs, the four `build_emits_math_pow_alias_chain_in_*_input` fns (one per extension). `assert_browser_bundle_math_pow_alias`, whose body is one forwarding call to `assert_browser_bundle_math_pow_alias_with_source`, builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted bundle metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that raises 2 to an aliased exponent of 3 through every alias in the canonical browser `Math.pow` inventory and returns Math.pow(2, alias), so every line of its output is 8. The file's only stdout claim is `.contains("8\\n")` (:131). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This case's program is written to app_alias.<ext> rather than the source's app.<ext>: the file writes two DIFFERENT programs to that one name and `[source]` is a single flat namespace (U5). The bundle directory, the metadata path and the harness entry all follow the renamed stem, because `kali build --bundle` names its output after the input stem. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-invocation lines for the supported `Math.pow` browser alias inventory.", "Canonical browser alias inventory for the supported `Math.pow` helper slice.", "Canonical direct aliases for the supported `Math.pow` helper slice.", "Canonical frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical direct frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical parenthesized frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical nullish/logical frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice." and "Canonical `console.log(...)` invocation lines for an arbitrary `Math.pow` alias inventory.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_alias.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_alias/app_alias.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_alias"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowAliasChain();
+"""
+exit = "success"
+stdout_contains = ["8\n"]
+
+[[case]]
+name = "json_build_emits_math_pow_alias_chain"
+rationale = """Migrated from browser_math_pow_alias_bundle.rs, the four `json_build_emits_math_pow_alias_chain_in_*_input` fns (one per extension). `assert_browser_bundle_math_pow_alias`, whose body is one forwarding call to `assert_browser_bundle_math_pow_alias_with_source`, builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted bundle metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that raises 2 to an aliased exponent of 3 through every alias in the canonical browser `Math.pow` inventory and returns Math.pow(2, alias), so every line of its output is 8. The file's only stdout claim is `.contains("8\\n")` (:131). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope -- schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat -- rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case. The source asserts no `errors` array on this envelope and none is written. This case's program is written to app_alias.<ext> rather than the source's app.<ext>: the file writes two DIFFERENT programs to that one name and `[source]` is a single flat namespace (U5). The bundle directory, the metadata path and the harness entry all follow the renamed stem, because `kali build --bundle` names its output after the input stem. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-invocation lines for the supported `Math.pow` browser alias inventory.", "Canonical browser alias inventory for the supported `Math.pow` helper slice.", "Canonical direct aliases for the supported `Math.pow` helper slice.", "Canonical frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical direct frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical parenthesized frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical nullish/logical frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice." and "Canonical `console.log(...)` invocation lines for an arbitrary `Math.pow` alias inventory.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_alias.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app_alias/app_alias.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_alias"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowAliasChain();
+"""
+exit = "success"
+stdout_contains = ["8\n"]
+
+[[case]]
+name = "build_emits_global_this_math_pow_alias_chain"
+rationale = """Migrated from browser_math_pow_alias_bundle.rs, the four `build_emits_global_this_math_pow_alias_chain_in_*_input` fns (one per extension). `assert_browser_bundle_math_pow_alias_with_source`, called directly, builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted bundle metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that raises 2 to an aliased exponent of 3 through the same canonical browser `Math.pow` inventory but returns globalThis.Math.pow(2, alias), so every line of its output is 8. The file's only stdout claim is `.contains("8\\n")` (:131). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This case's program is written to app_global_this_alias.<ext> rather than the source's app.<ext>: the file writes two DIFFERENT programs to that one name and `[source]` is a single flat namespace (U5). The bundle directory, the metadata path and the harness entry all follow the renamed stem, because `kali build --bundle` names its output after the input stem. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-invocation lines for the supported `Math.pow` browser alias inventory.", "Canonical browser alias inventory for the supported `Math.pow` helper slice.", "Canonical direct aliases for the supported `Math.pow` helper slice.", "Canonical frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical direct frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical parenthesized frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical nullish/logical frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice." and "Canonical `console.log(...)` invocation lines for an arbitrary `Math.pow` alias inventory.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_global_this_alias.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_global_this_alias/app_global_this_alias.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_global_this_alias"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathPowAliasChain();
+"""
+exit = "success"
+stdout_contains = ["8\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_pow_alias_chain"
+rationale = """Migrated from browser_math_pow_alias_bundle.rs, the four `json_build_emits_global_this_math_pow_alias_chain_in_*_input` fns (one per extension). `assert_browser_bundle_math_pow_alias_with_source`, called directly, builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted bundle metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that raises 2 to an aliased exponent of 3 through the same canonical browser `Math.pow` inventory but returns globalThis.Math.pow(2, alias), so every line of its output is 8. The file's only stdout claim is `.contains("8\\n")` (:131). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope -- schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat -- rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case. The source asserts no `errors` array on this envelope and none is written. This case's program is written to app_global_this_alias.<ext> rather than the source's app.<ext>: the file writes two DIFFERENT programs to that one name and `[source]` is a single flat namespace (U5). The bundle directory, the metadata path and the harness entry all follow the renamed stem, because `kali build --bundle` names its output after the input stem. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-invocation lines for the supported `Math.pow` browser alias inventory.", "Canonical browser alias inventory for the supported `Math.pow` helper slice.", "Canonical direct aliases for the supported `Math.pow` helper slice.", "Canonical frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical direct frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical parenthesized frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical nullish/logical frozen callable aliases for the supported `Math.pow` helper slice.", "Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice." and "Canonical `console.log(...)` invocation lines for an arbitrary `Math.pow` alias inventory.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_global_this_alias.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app_global_this_alias/app_global_this_alias.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_global_this_alias"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathPowAliasChain();
+"""
+exit = "success"
+stdout_contains = ["8\n"]

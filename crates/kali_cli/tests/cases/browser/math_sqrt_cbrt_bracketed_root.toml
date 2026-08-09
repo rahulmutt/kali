@@ -1,0 +1,190 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '2\n-3\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# Migrated from tests/browser_math_sqrt_cbrt_bracketed_root.rs.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_sqrt_cbrt_bracketed_root.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 1 other `//` occurrence(s) in the file (:11) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 24 `#[test]` fns, 24 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_bracketed_math_sqrt_cbrt` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true)
+#   * `assert_browser_harness_bracketed_math_sqrt_cbrt` -- 16 invocation(s) = command(run/test) x ext(4) x json_output(false/true)
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 6 `[[case]]` entries x ext(4) = 24 trials = 24 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+# There is no loop anywhere in this file: every one of the 24 invocations is a single
+# unlooped `#[test]` fn, so each fanned trial traces back to exactly one source fn.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`, `main.${ext}`, `smoke.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_bracketed_math_sqrt_cbrt_source`,
+#   `assert_browser_bundle_bracketed_math_sqrt_cbrt`,
+#   `browser_harness_bracketed_math_sqrt_cbrt_run_source`,
+#   `browser_harness_bracketed_math_sqrt_cbrt_test_source`,
+#   `assert_browser_harness_bracketed_math_sqrt_cbrt` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# Bundle helper: `exit = "success"` on the build (:58) and on the harness process (:110);
+# in json mode the envelope's schemaVersion/command/success/exitCode/payload(artifactKind,
+# bundleFormat) (:66-72) -- the source makes no `errors` claim on this build
+# envelope, so none is written; the emitted `app/app.meta.json` metadata (:80-81),
+# claimed in BOTH modes because the source reads it outside the `if json_output`; then
+# the harness step's two plain `.contains` claims (:116, :117), which stay
+# `stdout_contains`.
+# Harness helper: `exit = "success"` (:150); the argv carries `--max-threads 0`
+# (:141) and `--max-spawned-processes 0` (:143), and the environment carries
+# KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node (:133), spelled as a string literal in this
+# source rather than through the `kali_runtime_contract` constant.
+# json mode carries schemaVersion/command/success/payload(hostContract, runtimeBackend)
+# (:158-162), plus `exitCode` at both levels for `run` (:164-165) or payload
+# total/passed/failed for `test` (:167-169) -- the source asserts NO `skipped` and NO
+# `errors` on this envelope, so neither is written; then the exact `json.stdout` pin standing
+# for the two `.contains` claims (:175, :182) and `stderr = ""` (:185).
+# Text mode carries the two raw-stdout claims (:188, :189) and nothing else.
+# This file uses no count key: the source makes no `.matches(...).count()` claim anywhere.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: bracketedMathSqrtCbrtZeroIdentities
+function bracketedMathSqrtCbrtZeroIdentities() {
+  const four = 4;
+  const minusTwentySeven = -27;
+  console.log(globalThis["Math"]["sqrt"](four));
+  console.log(globalThis["Math"]["cbrt"](minusTwentySeven));
+  return [globalThis["Math"]["sqrt"](four), globalThis["Math"]["cbrt"](minusTwentySeven)];
+}
+"""
+"main.${ext}" = """const four = 4; const minusTwentySeven = -27; console.log(globalThis["Math"]["sqrt"](four)); console.log(globalThis["Math"]["cbrt"](minusTwentySeven));
+"""
+"smoke.test.${ext}" = """Kali.test('bracketed math sqrt/cbrt zero identities', () => {
+  const four = 4;
+  const minusTwentySeven = -27;
+  console.log(globalThis["Math"]["sqrt"](four));
+  console.log(globalThis["Math"]["cbrt"](minusTwentySeven));
+});
+"""
+
+[[case]]
+name = "build_emits_bracketed_math_sqrt_and_cbrt_zero_identities"
+rationale = """Migrated from browser_math_sqrt_cbrt_bracketed_root.rs, the four `build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_*_input` fns (one per extension). `assert_browser_bundle_bracketed_math_sqrt_cbrt` runs `kali build --bundle --api browser` on the tree-shake-marked bundle fixture, reads the emitted `app/app.meta.json` (:80-81), then runs the bundle glue under the browser-bundle-harness contract against a program that calls `globalThis["Math"]["sqrt"](4)` and `globalThis["Math"]["cbrt"](-27)`, so its two console.log calls print 2 and -3. Both exit statuses are asserted (:58 for the build, :110 for the harness process). Its two stdout claims are `stdout.contains("2\\n")` (:116) and `stdout.contains("-3\\n")` (:117). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedMathSqrtCbrtZeroIdentities();
+"""
+exit = "success"
+stdout_contains = ["2\n", "-3\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_math_sqrt_and_cbrt_zero_identities"
+rationale = """Migrated from browser_math_sqrt_cbrt_bracketed_root.rs, the four `build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_*_input` fns (one per extension). `assert_browser_bundle_bracketed_math_sqrt_cbrt` runs `kali build --bundle --api browser` on the tree-shake-marked bundle fixture, reads the emitted `app/app.meta.json` (:80-81), then runs the bundle glue under the browser-bundle-harness contract against a program that calls `globalThis["Math"]["sqrt"](4)` and `globalThis["Math"]["cbrt"](-27)`, so its two console.log calls print 2 and -3. Both exit statuses are asserted (:58 for the build, :110 for the harness process). Its two stdout claims are `stdout.contains("2\\n")` (:116) and `stdout.contains("-3\\n")` (:117). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the JSON build envelope -- schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat (:66-72). The source asserts no `errors` array on this envelope, so none is written. Output shape is not a matrix axis because it changes the assertion shape rather than substituting a string, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedMathSqrtCbrtZeroIdentities();
+"""
+exit = "success"
+stdout_contains = ["2\n", "-3\n"]
+
+[[case]]
+name = "run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_sqrt_cbrt_bracketed_root.rs, the four `run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_bracketed_math_sqrt_cbrt` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` (:141, :143) with the browser harness backed by node (:133), against a program that calls `globalThis["Math"]["sqrt"](4)` and `globalThis["Math"]["cbrt"](-27)`, so its two console.log calls print 2 and -3. The process exit status is asserted at :150. The text branch makes two plain claims about raw stdout: `stdout.contains("2\\n")` (:188) and `stdout.contains("-3\\n")` (:189). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2\n", "-3\n"]
+
+[[case]]
+name = "test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_sqrt_cbrt_bracketed_root.rs, the four `test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_bracketed_math_sqrt_cbrt` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` (:141, :143) with the browser harness backed by node (:133), against a program that calls `globalThis["Math"]["sqrt"](4)` and `globalThis["Math"]["cbrt"](-27)`, so its two console.log calls print 2 and -3. The process exit status is asserted at :150. The text branch makes two plain claims about raw stdout: `stdout.contains("2\\n")` (:188) and `stdout.contains("-3\\n")` (:189). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2\n", "-3\n"]
+
+[[case]]
+name = "json_run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_sqrt_cbrt_bracketed_root.rs, the four `json_run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_bracketed_math_sqrt_cbrt` runs `kali run --output json --api browser --max-threads 0 --max-spawned-processes 0` (:141, :143) with the browser harness backed by node (:133), against a program that calls `globalThis["Math"]["sqrt"](4)` and `globalThis["Math"]["cbrt"](-27)`, so its two console.log calls print 2 and -3. The process exit status is asserted at :150. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend (:158-162), `exitCode` at both the envelope and the payload level (:164-165), plus `stderr` exactly empty (:185). The source makes no `errors` claim on this envelope, so none is written. Its two claims about the JSON stdout leaf are `.contains("2\\n")` (:175) and `.contains("-3\\n")` (:182). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. One pin carries both, because an exact equality on that leaf implies every substring claim taken against it."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n-3\n", stderr = "" }
+
+[[case]]
+name = "json_test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_sqrt_cbrt_bracketed_root.rs, the four `json_test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_bracketed_math_sqrt_cbrt` runs `kali test --output json --api browser --max-threads 0 --max-spawned-processes 0` (:141, :143) with the browser harness backed by node (:133), against a program that calls `globalThis["Math"]["sqrt"](4)` and `globalThis["Math"]["cbrt"](-27)`, so its two console.log calls print 2 and -3. The process exit status is asserted at :150. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend (:158-162), payload total/passed/failed (:167-169); the source asserts no `skipped` on this envelope, so none is written, plus `stderr` exactly empty (:185). The source makes no `errors` claim on this envelope, so none is written. Its two claims about the JSON stdout leaf are `.contains("2\\n")` (:175) and `.contains("-3\\n")` (:182). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. One pin carries both, because an exact equality on that leaf implies every substring claim taken against it."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "2\n-3\n", stderr = "" }

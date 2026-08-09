@@ -1,0 +1,302 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# Migrated from tests/browser_math_max_min_frozen_aliases.rs.
+#
+# PARTIAL MIGRATION (U4 trim-and-keep) -- 12 of the source's 13 `#[test]`
+# fns are migrated here. The remaining one, `browser_bundle_global_this_math_max_min_frozen_source_includes_direct_frozen_math_aliases`, is a FIXTURE
+# SELF-INSPECTION test: its whole body is five `assert!(source.contains(<literal>))` self-checks against that builder's own returned text (:265). It builds no command, runs no binary, and asserts
+# nothing about behaviour -- it checks the fixture's own text. That claim has no
+# expressible form in the case format (no step kind asserts on `[source]` text;
+# `[source]` is program text by construction, not a claim), and it is invisible to
+# `audit-case-migration.py`, whose `.contains()` extractor cannot tell a fixture-text
+# read from an output assertion and which excludes everything under `[source]` from its
+# search by design. Migrating it would produce a false green. It is escalated per rule
+# 3/4 and RETAINED hand-written; controller ruling 4 is explicit that the audit script
+# is NOT extended for this shape.
+#
+# THE `.rs` HAS SINCE BEEN TRIMMED to exactly that test plus the fixture builders it
+# reads, carrying a `//!` retention header. TWO CONSEQUENCES A LATER READER MUST NOT
+# MISREAD:
+#   * EVERY `:N` LINE CITATION IN THIS FILE IS A PRE-TRIM LINE NUMBER. Audit and diff
+#     this pair against the pre-trim source from git history, not against the working
+#     tree.
+#   * THE POST-TRIM PAIR IS THE WRONG COMPARISON FOR EVERY GATE, not just the audit. The
+#     retained `.rs` carries the COMPLETE measured red-list (ruling 9) -- which gates go
+#     red post-trim and which are green. Read it there, so there is one source of truth.
+#
+# AUDIT STATUS FOR THIS PAIR, MEASURED AND ESCALATED, NOT SHIPPED AROUND (rule 3/4).
+# `audit-case-migration.py` EXITS 1 on this pair and reports 8 `[contains literals]`
+# claims absent from this file. Every one of them is a
+# `source.contains("Object.freeze(...)")` needle of the RETAINED test (:268-287) -- the
+# fixture-self-inspection claims described above, which are not migrated and which
+# controller ruling 4 says cannot be. They are not dropped behaviour claims: each of
+# those literals is present verbatim in this file's `[source]` bundle body, and the
+# audit excludes everything under `[source]` from its search by construction. That is
+# exactly the blind spot ruling 4 documents and forbids tooling around.
+# NOTHING was added to any assertion key to turn the gate green. Doing so would move
+# fixture text onto an assertion surface and manufacture a claim the source never made
+# about behaviour (rule 2) -- the false green ruling 4 exists to prevent. This generator
+# instead RUNS the audit after writing the file and hard-fails unless the reported
+# difference is exactly those needles, so the escalation cannot quietly grow to cover a
+# real dropped claim: every `assert_eq!` value, argv token, JSON key and
+# behaviour-`contains` literal of the migrated 12 is present.
+# The `.rs` is trimmed by the orchestrator, and per ruling 9 the trimmed file carries
+# the COMPLETE measured red-list for this pair, post-trim and pre-trim alike. Read it
+# there.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_max_min_frozen_aliases.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 1 other `//` occurrence(s) in the file (:14) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 12 `#[test]` fns, 12 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_global_this_math_max_min_frozen` -- 4 invocation(s) = ext(js/ts) x json_output(false/true)
+#   * `assert_browser_harness_global_this_math_max_min_frozen` -- 8 invocation(s) = command(run/test) x ext(js/ts) x json_output(false/true)
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 2 of its values, so a file-wide axis fans nothing the source never ran:
+# 6 `[[case]]` entries x ext(2) = 12 trials = 12 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+# (That 12 is the MIGRATED set. The file holds 13 `#[test]` fns; the 13th is the retained
+# fixture self-inspection named in the PARTIAL MIGRATION block above, and it makes no
+# helper invocation at all -- it never builds a command.)
+# THE AXIS HERE IS TWO VALUES, NOT FOUR. Every other bundle+harness file in this batch
+# runs js/ts/jsx/tsx; this one runs js and ts only, at every one of its 12 invocations.
+# Declaring `ext(4)` would fan 12 more trials the source never ran -- a rule-2 invention
+# wearing a matrix, and unfixable per-case because U1 makes the axis file-wide.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 2 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+# (`[ext=jsx]` in the sentence above is the shared vocabulary's generic illustration of a
+# fanned trial id. THIS file's axis is js/ts, so its trial ids read `[ext=js]` and
+# `[ext=ts]` and there is no jsx trial -- see THE AXIS HERE IS TWO VALUES above.)
+# There is no loop anywhere in this file: every one of the 12 migrated invocations is a
+# single unlooped `#[test]` fn, so each fanned trial traces back to exactly one source fn.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`, `main.${ext}`, `smoke.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_global_this_math_max_min_frozen_source`,
+#   `assert_browser_bundle_global_this_math_max_min_frozen`,
+#   `browser_harness_global_this_math_max_min_run_source`,
+#   `browser_harness_global_this_math_max_min_test_source`,
+#   `assert_browser_harness_global_this_math_max_min_frozen` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# Bundle helper: `exit = "success"` on the build (:132) and on the harness process (:184);
+# in json mode the envelope's schemaVersion/command/success/exitCode/payload(artifactKind,
+# bundleFormat) (:140-146) -- the source makes no `errors` claim on this build
+# envelope, so none is written; the emitted `app/app.meta.json` metadata (:154-155),
+# claimed in BOTH modes because the source reads it outside the `if json_output`; then
+# the harness step's two plain `.contains` claims (:190, :191), which stay
+# `stdout_contains`.
+# Harness helper: `exit = "success"` (:220); the environment carries
+# KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node (:207). THIS HELPER PASSES NEITHER
+# `--max-threads` NOR `--max-spawned-processes` -- unlike the other four files in this
+# group -- so neither appears on argv here. That absence was asserted mechanically in
+# this file's generator against the helper's body, not eyeballed.
+# json mode carries schemaVersion/command/success/payload(hostContract, runtimeBackend)
+# (:228-232), plus `exitCode` at both levels for `run` (:234-235) or payload
+# total/passed/failed for `test` (:237-239) -- no `skipped`, which the source never
+# asserts; then the exact `json.stdout` pin standing for the two `.contains` claims
+# (:245, :252), `stderr = ""` (:255) and `errors = []` (:256). This source DOES
+# assert the empty errors array on the HARNESS envelope (though not on the build one), so
+# it is written.
+# Text mode carries the two raw-stdout claims (:259, :260) and nothing else.
+# This file uses no count key: the source makes no `.matches(...).count()` claim anywhere.
+
+[matrix]
+ext = ["js", "ts"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: globalThisMathMaxMinFrozenAliases
+function globalThisMathMaxMinFrozenAliases() {
+  const value = 2;
+  const alias = value;
+  console.log(globalThis.Math.max(1, alias, 3));
+  console.log(globalThis.Math.min(3, alias, 1));
+  console.log(Object.freeze(Math.max)(1, alias, 3));
+  console.log(Object.freeze(Math.min)(3, alias, 1));
+  console.log(Object.freeze(globalThis.Math["max"])(1, alias, 3));
+  console.log(Object.freeze(globalThis.Math["min"])(3, alias, 1));
+  console.log(Object.freeze(globalThis.Math['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis.Math['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis["Math"]["max"])(1, alias, 3));
+  console.log(Object.freeze(globalThis["Math"]["min"])(3, alias, 1));
+  console.log(Object.freeze(globalThis["Math"]['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis["Math"]['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis['Math']['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis['Math']['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis['Math'].max)(1, alias, 3));
+  console.log(Object.freeze(globalThis['Math'].min)(3, alias, 1));
+  console.log(Object.freeze(Math["max"])(1, alias, 3));
+  console.log(Object.freeze(Math["min"])(3, alias, 1));
+  console.log(Object.freeze(Math['max'])(1, alias, 3));
+  console.log(Object.freeze(Math['min'])(3, alias, 1));
+  return [
+    globalThis.Math.max(1, alias, 3),
+    globalThis.Math.min(3, alias, 1),
+    Object.freeze(Math.max)(1, alias, 3),
+    Object.freeze(Math.min)(3, alias, 1),
+    Object.freeze(globalThis.Math["max"])(1, alias, 3),
+    Object.freeze(globalThis.Math["min"])(3, alias, 1),
+    Object.freeze(globalThis.Math['max'])(1, alias, 3),
+    Object.freeze(globalThis.Math['min'])(3, alias, 1),
+    Object.freeze(globalThis["Math"]["max"])(1, alias, 3),
+    Object.freeze(globalThis["Math"]["min"])(3, alias, 1),
+    Object.freeze(globalThis["Math"]['max'])(1, alias, 3),
+    Object.freeze(globalThis["Math"]['min'])(3, alias, 1),
+    Object.freeze(globalThis['Math']['max'])(1, alias, 3),
+    Object.freeze(globalThis['Math']['min'])(3, alias, 1),
+    Object.freeze(globalThis['Math'].max)(1, alias, 3),
+    Object.freeze(globalThis['Math'].min)(3, alias, 1),
+    Object.freeze(Math["max"])(1, alias, 3),
+    Object.freeze(Math["min"])(3, alias, 1),
+    Object.freeze(Math['max'])(1, alias, 3),
+    Object.freeze(Math['min'])(3, alias, 1),
+  ];
+}
+"""
+"main.${ext}" = """const value = 2; const alias = value; console.log(globalThis.Math.max(1, alias, 3)); console.log(globalThis.Math.min(3, alias, 1)); console.log(Object.freeze(Math.max)(1, alias, 3)); console.log(Object.freeze(Math.min)(3, alias, 1)); console.log(Object.freeze(globalThis.Math["max"])(1, alias, 3)); console.log(Object.freeze(globalThis.Math["min"])(3, alias, 1)); console.log(Object.freeze(globalThis.Math['max'])(1, alias, 3)); console.log(Object.freeze(globalThis.Math['min'])(3, alias, 1)); console.log(Object.freeze(globalThis["Math"]["max"])(1, alias, 3)); console.log(Object.freeze(globalThis["Math"]["min"])(3, alias, 1)); console.log(Object.freeze(globalThis["Math"]['max'])(1, alias, 3)); console.log(Object.freeze(globalThis["Math"]['min'])(3, alias, 1)); console.log(Object.freeze(globalThis['Math']['max'])(1, alias, 3)); console.log(Object.freeze(globalThis['Math']['min'])(3, alias, 1)); console.log(Object.freeze(globalThis['Math'].max)(1, alias, 3)); console.log(Object.freeze(globalThis['Math'].min)(3, alias, 1)); console.log(Object.freeze(Math["max"])(1, alias, 3)); console.log(Object.freeze(Math["min"])(3, alias, 1)); console.log(Object.freeze(Math['max'])(1, alias, 3)); console.log(Object.freeze(Math['min'])(3, alias, 1));
+"""
+"smoke.test.${ext}" = """Kali.test('globalThis.Math max min frozen aliases', () => {
+  const value = 2;
+  const alias = value;
+  console.log(globalThis.Math.max(1, alias, 3));
+  console.log(globalThis.Math.min(3, alias, 1));
+  console.log(Object.freeze(Math.max)(1, alias, 3));
+  console.log(Object.freeze(Math.min)(3, alias, 1));
+  console.log(Object.freeze(globalThis.Math["max"])(1, alias, 3));
+  console.log(Object.freeze(globalThis.Math["min"])(3, alias, 1));
+  console.log(Object.freeze(globalThis.Math['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis.Math['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis["Math"]["max"])(1, alias, 3));
+  console.log(Object.freeze(globalThis["Math"]["min"])(3, alias, 1));
+  console.log(Object.freeze(globalThis["Math"]['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis["Math"]['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis['Math']['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis['Math']['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis['Math'].max)(1, alias, 3));
+  console.log(Object.freeze(globalThis['Math'].min)(3, alias, 1));
+  console.log(Object.freeze(Math["max"])(1, alias, 3));
+  console.log(Object.freeze(Math["min"])(3, alias, 1));
+  console.log(Object.freeze(Math['max'])(1, alias, 3));
+  console.log(Object.freeze(Math['min'])(3, alias, 1));
+});
+"""
+
+[[case]]
+name = "build_emits_global_this_math_max_min_frozen_aliases"
+rationale = """Migrated from browser_math_max_min_frozen_aliases.rs, the two `build_emits_global_this_math_max_min_frozen_aliases_in_*_input` fns (one per extension -- this source runs js and ts only). `assert_browser_bundle_global_this_math_max_min_frozen` runs `kali build --bundle --api browser` on the tree-shake-marked bundle fixture, reads the emitted `app/app.meta.json` (:154-155), then runs the bundle glue under the browser-bundle-harness contract against a program that computes globalThis.Math.max(1, 2, 3) and globalThis.Math.min(3, 2, 1) -- the middle argument reaching them through a local alias bound to 2 -- and then re-invokes each through nine further frozen Object.freeze(...) spellings, so its twenty console.log calls alternate 3 and 1. Both exit statuses are asserted (:132 for the build, :184 for the harness process). Its two stdout claims are `stdout.contains("3\\n")` (:190) and `stdout.contains("1\\n")` (:191). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathMaxMinFrozenAliases();
+"""
+exit = "success"
+stdout_contains = ["3\n", "1\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_max_min_frozen_aliases"
+rationale = """Migrated from browser_math_max_min_frozen_aliases.rs, the two `build_emits_global_this_math_max_min_frozen_aliases_in_*_input` fns (one per extension -- this source runs js and ts only). `assert_browser_bundle_global_this_math_max_min_frozen` runs `kali build --bundle --api browser` on the tree-shake-marked bundle fixture, reads the emitted `app/app.meta.json` (:154-155), then runs the bundle glue under the browser-bundle-harness contract against a program that computes globalThis.Math.max(1, 2, 3) and globalThis.Math.min(3, 2, 1) -- the middle argument reaching them through a local alias bound to 2 -- and then re-invokes each through nine further frozen Object.freeze(...) spellings, so its twenty console.log calls alternate 3 and 1. Both exit statuses are asserted (:132 for the build, :184 for the harness process). Its two stdout claims are `stdout.contains("3\\n")` (:190) and `stdout.contains("1\\n")` (:191). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the JSON build envelope -- schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat (:140-146). The source asserts no `errors` array on THIS envelope (it does on the harness one), so none is written here. Output shape is not a matrix axis because it changes the assertion shape rather than substituting a string, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathMaxMinFrozenAliases();
+"""
+exit = "success"
+stdout_contains = ["3\n", "1\n"]
+
+[[case]]
+name = "run_supports_global_this_math_max_min_frozen_aliases_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_max_min_frozen_aliases.rs, the two `run_supports_global_this_math_max_min_frozen_aliases_when_browser_harness_is_configured_in_*_input` fns (one per extension -- this source runs js and ts only). `assert_browser_harness_global_this_math_max_min_frozen` runs `kali run --api browser` with the browser harness backed by node (:207), against a program that computes globalThis.Math.max(1, 2, 3) and globalThis.Math.min(3, 2, 1) -- the middle argument reaching them through a local alias bound to 2 -- and then re-invokes each through nine further frozen Object.freeze(...) spellings, so its twenty console.log calls alternate 3 and 1. This helper passes NO `--max-threads` and NO `--max-spawned-processes`, unlike the other harness helpers migrated in this batch, so neither appears on argv. The process exit status is asserted at :220. The text branch makes two plain claims about raw stdout: `stdout.contains("3\\n")` (:259) and `stdout.contains("1\\n")` (:260). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\n", "1\n"]
+
+[[case]]
+name = "test_supports_global_this_math_max_min_frozen_aliases_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_max_min_frozen_aliases.rs, the two `test_supports_global_this_math_max_min_frozen_aliases_when_browser_harness_is_configured_in_*_input` fns (one per extension -- this source runs js and ts only). `assert_browser_harness_global_this_math_max_min_frozen` runs `kali test --api browser` with the browser harness backed by node (:207), against a program that computes globalThis.Math.max(1, 2, 3) and globalThis.Math.min(3, 2, 1) -- the middle argument reaching them through a local alias bound to 2 -- and then re-invokes each through nine further frozen Object.freeze(...) spellings, so its twenty console.log calls alternate 3 and 1. This helper passes NO `--max-threads` and NO `--max-spawned-processes`, unlike the other harness helpers migrated in this batch, so neither appears on argv. The process exit status is asserted at :220. The text branch makes two plain claims about raw stdout: `stdout.contains("3\\n")` (:259) and `stdout.contains("1\\n")` (:260). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\n", "1\n"]
+
+[[case]]
+name = "json_run_supports_global_this_math_max_min_frozen_aliases_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_max_min_frozen_aliases.rs, the two `json_run_supports_global_this_math_max_min_frozen_aliases_when_browser_harness_is_configured_in_*_input` fns (one per extension -- this source runs js and ts only). `assert_browser_harness_global_this_math_max_min_frozen` runs `kali run --output json --api browser` with the browser harness backed by node (:207), against a program that computes globalThis.Math.max(1, 2, 3) and globalThis.Math.min(3, 2, 1) -- the middle argument reaching them through a local alias bound to 2 -- and then re-invokes each through nine further frozen Object.freeze(...) spellings, so its twenty console.log calls alternate 3 and 1. This helper passes NO `--max-threads` and NO `--max-spawned-processes`, unlike the other harness helpers migrated in this batch, so neither appears on argv. The process exit status is asserted at :220. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend (:228-232), `exitCode` at both the envelope and the payload level (:234-235), plus `stderr` exactly empty (:255) and an empty `errors` array (:256). Its two claims about the JSON stdout leaf are `.contains("3\\n")` (:245) and `.contains("1\\n")` (:252). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. One pin carries both, because an exact equality on that leaf implies every substring claim taken against it."""
+args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_global_this_math_max_min_frozen_aliases_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_max_min_frozen_aliases.rs, the two `json_test_supports_global_this_math_max_min_frozen_aliases_when_browser_harness_is_configured_in_*_input` fns (one per extension -- this source runs js and ts only). `assert_browser_harness_global_this_math_max_min_frozen` runs `kali test --output json --api browser` with the browser harness backed by node (:207), against a program that computes globalThis.Math.max(1, 2, 3) and globalThis.Math.min(3, 2, 1) -- the middle argument reaching them through a local alias bound to 2 -- and then re-invokes each through nine further frozen Object.freeze(...) spellings, so its twenty console.log calls alternate 3 and 1. This helper passes NO `--max-threads` and NO `--max-spawned-processes`, unlike the other harness helpers migrated in this batch, so neither appears on argv. The process exit status is asserted at :220. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend (:228-232), payload total/passed/failed (:237-239); the source asserts no `skipped` on this envelope, so none is written, plus `stderr` exactly empty (:255) and an empty `errors` array (:256). Its two claims about the JSON stdout leaf are `.contains("3\\n")` (:245) and `.contains("1\\n")` (:252). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. One pin carries both, because an exact equality on that leaf implies every substring claim taken against it."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n3\n1\n", stderr = "", errors = [] }

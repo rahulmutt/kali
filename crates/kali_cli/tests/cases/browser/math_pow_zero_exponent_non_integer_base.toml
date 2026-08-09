@@ -1,0 +1,689 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'app_bracketed.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_bracketed.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_bracketed.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_bracketed.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_bracketed.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_bracketed.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+#
+# Migrated from tests/browser_math_pow_zero_exponent_non_integer_base.rs.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_pow_zero_exponent_non_integer_base.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 2 other `//` occurrence(s) in the file (:11, :331) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 28 `#[test]` fns, 28 real helper invocations with every loop
+# expanded.
+# Four helpers, and they do not share one axis.
+# `assert_browser_bundle_math_pow_zero_exponent_non_integer_base` runs 8 =
+# ext(js/ts/jsx/tsx) x json_output(false/true).
+# `assert_browser_bundle_bracketed_global_this_math_pow_zero_exponent_non_integer_base`
+# runs only 4 = ext(js/ts) x json_output(false/true) -- TWO extensions, not four.
+# `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs 12 and
+# `assert_browser_harness_bracketed_global_this_math_pow_zero_exponent_non_integer_base`
+# runs 4, and neither takes a `json_output` parameter at all: both take an
+# `expected_stdout` instead and issue a NON-json command, so those 16 invocations have
+# no JSON sibling to pair with. An `ext` axis would fan the bracketed helpers to jsx
+# and tsx, which the source never runs; a `json_output` axis would manufacture JSON
+# envelopes for 16 invocations that never requested one.
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 28 invocations -> 28 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.<ext>`, `main.<ext>`, `smoke.test.<ext>`, `app_bracketed.<ext>`, `main_bracketed.<ext>`, `smoke_bracketed.test.<ext>`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `app.js / app.ts` -> `app_bracketed.js / app_bracketed.ts` -- the bracketed bundle program, which the source also writes to `app.<ext>`; the `file_json` path and the harness `entry` follow the rename, because `kali build --bundle` names its output directory after the input stem
+#   * `main.js / main.ts` -> `main_bracketed.js / main_bracketed.ts` -- the bracketed run program
+#   * `smoke.test.js / smoke.test.ts` -> `smoke_bracketed.test.js / smoke_bracketed.test.ts` -- the bracketed test program
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+#
+# RULING 7 -- DUPLICATE `[source]` BODIES ARE NOT HOISTED. Several entries below hold
+# byte-identical program text. U13 would hoist them into `[constants]`; controller ruling 7
+# declines that for `browser/` (a hoisted body makes `check_fixtures.py` go red on a correct
+# file, and hoisting moves program text onto the surface `assertion_strings()` searches).
+# The mandatory half of that ruling is honoured instead: the duplication is asserted
+# MECHANICALLY in this file's generator, not eyeballed -- the generator compares the
+# extracted fixture strings and raises if they are not byte-identical.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_math_pow_zero_exponent_non_integer_base_source`,
+#   `assert_browser_bundle_math_pow_zero_exponent_non_integer_base`,
+#   `browser_harness_math_pow_zero_exponent_non_integer_base_run_source`,
+#   `browser_harness_math_pow_zero_exponent_non_integer_base_test_source`,
+#   `assert_browser_harness_math_pow_zero_exponent_non_integer_base`,
+#   `browser_bundle_bracketed_global_this_math_pow_zero_exponent_non_integer_base_source`,
+#   `assert_browser_bundle_bracketed_global_this_math_pow_zero_exponent_non_integer_base`,
+#   `browser_harness_bracketed_global_this_math_pow_zero_exponent_non_integer_base_run_source`,
+#   `browser_harness_bracketed_global_this_math_pow_zero_exponent_non_integer_base_test_source`,
+#   `assert_browser_harness_bracketed_global_this_math_pow_zero_exponent_non_integer_base` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# MIGRATION NOTE (controller ruling 8): the source fn
+# `run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_jsx_input`
+# has a name that misdescribes its own body -- the name says `json`, but
+# `assert_browser_harness_math_pow_zero_exponent_non_integer_base` (:120) has no
+# `json_output` parameter, never appends `--output json`, and has no json branch, so
+# this fn (:286) issues a plain-text command. It is byte-identical to
+# `run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_jsx_input`
+# (:242) -- asserted mechanically in this file's generator by comparing the two fn
+# bodies, not eyeballed. Per rule 6 it still gets its own `[[case]]`: a case is the
+# only remaining trace of its fn, and no JSON envelope claim is written for it,
+# because the source makes none. The source is NOT corrected: a fn name is not a
+# comment so U7 does not literally apply, the `.rs` files are deleted wholesale after
+# batch 8, and editing a source invalidates every audit run against its pre-trim blob.
+# The discrepancy is recorded here so the case file preserves what the source actually
+# did.
+#
+# MIGRATION NOTE (controller ruling 8): the source fn
+# `run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_tsx_input`
+# has a name that misdescribes its own body -- the name says `json`, but
+# `assert_browser_harness_math_pow_zero_exponent_non_integer_base` (:120) has no
+# `json_output` parameter, never appends `--output json`, and has no json branch, so
+# this fn (:297) issues a plain-text command. It is byte-identical to
+# `run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_tsx_input`
+# (:253) -- asserted mechanically in this file's generator by comparing the two fn
+# bodies, not eyeballed. Per rule 6 it still gets its own `[[case]]`: a case is the
+# only remaining trace of its fn, and no JSON envelope claim is written for it,
+# because the source makes none. The source is NOT corrected: a fn name is not a
+# comment so U7 does not literally apply, the `.rs` files are deleted wholesale after
+# batch 8, and editing a source invalidates every audit run against its pre-trim blob.
+# The discrepancy is recorded here so the case file preserves what the source actually
+# did.
+#
+# MIGRATION NOTE (controller ruling 8): the source fn
+# `test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_jsx_input`
+# has a name that misdescribes its own body -- the name says `json`, but
+# `assert_browser_harness_math_pow_zero_exponent_non_integer_base` (:120) has no
+# `json_output` parameter, never appends `--output json`, and has no json branch, so
+# this fn (:308) issues a plain-text command. It is byte-identical to
+# `test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_jsx_input`
+# (:264) -- asserted mechanically in this file's generator by comparing the two fn
+# bodies, not eyeballed. Per rule 6 it still gets its own `[[case]]`: a case is the
+# only remaining trace of its fn, and no JSON envelope claim is written for it,
+# because the source makes none. The source is NOT corrected: a fn name is not a
+# comment so U7 does not literally apply, the `.rs` files are deleted wholesale after
+# batch 8, and editing a source invalidates every audit run against its pre-trim blob.
+# The discrepancy is recorded here so the case file preserves what the source actually
+# did.
+#
+# MIGRATION NOTE (controller ruling 8): the source fn
+# `test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_tsx_input`
+# has a name that misdescribes its own body -- the name says `json`, but
+# `assert_browser_harness_math_pow_zero_exponent_non_integer_base` (:120) has no
+# `json_output` parameter, never appends `--output json`, and has no json branch, so
+# this fn (:319) issues a plain-text command. It is byte-identical to
+# `test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_tsx_input`
+# (:275) -- asserted mechanically in this file's generator by comparing the two fn
+# bodies, not eyeballed. Per rule 6 it still gets its own `[[case]]`: a case is the
+# only remaining trace of its fn, and no JSON envelope claim is written for it,
+# because the source makes none. The source is NOT corrected: a fn name is not a
+# comment so U7 does not literally apply, the `.rs` files are deleted wholesale after
+# batch 8, and editing a source invalidates every audit run against its pre-trim blob.
+# The discrepancy is recorded here so the case file preserves what the source actually
+# did.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more. Both bundle helpers:
+# `exit = "success"` on the build (:46, :366) and on the harness process (:98, :418);
+# in json mode the envelope's schemaVersion/command/success/exitCode and payload
+# artifactKind/bundleFormat (:54-60, :374-380) with NO `errors` claim, so `errors =
+# []` appears nowhere in this file; the emitted bundle metadata (:68-69, :388-389),
+# read outside the `if json_output` and so asserted in BOTH modes; then the harness
+# step's `stdout.contains("1\n1\n")` (:104, :424).
+#
+# Both harness helpers: `exit = "success"` (:147, :469) and
+# `stdout.contains(expected_stdout)` (:154, :476), and NOTHING ELSE. There is no json
+# branch in either helper, so no case below carries a `json` envelope claim on a
+# run/test step, no `json.stdout` pin, and no `stderr` claim -- writing any of those
+# would invent a claim (rule 2). `expected_stdout` is supplied by the call site as
+# "1\n1" for `run` (:204 plain, :514 bracketed) and "1\n1\nok 1" for `test` (:226
+# plain, :536 bracketed), carried verbatim as each case's `stdout_contains` needle.
+#
+# Both harness helpers pass `--max-threads 0 --max-spawned-processes 0` (:138, :460)
+# and set the harness command through `kali_runtime_contract`'s
+# BROWSER_HARNESS_COMMAND_ENV constant (:132, :454), which resolves to
+# KALI_BROWSER_BUNDLE_HARNESS_COMMAND; neither build argv passes a thread flag or sets
+# an env var. No `.matches(...).count()` claim exists anywhere in this file, so no
+# `stdout_count`/`json_count` key appears.
+
+[source]
+"app.js" = """// kali-tree-shake: mathPowZeroExponentNonIntegerBase
+function mathPowZeroExponentNonIntegerBase() {
+  const base = 1.6;
+  console.log(Math.pow(base, 0));
+  console.log(globalThis.Math.pow(base, 0));
+  return [Math.pow(base, 0), globalThis.Math.pow(base, 0)];
+}
+"""
+"app.ts" = """// kali-tree-shake: mathPowZeroExponentNonIntegerBase
+function mathPowZeroExponentNonIntegerBase() {
+  const base = 1.6;
+  console.log(Math.pow(base, 0));
+  console.log(globalThis.Math.pow(base, 0));
+  return [Math.pow(base, 0), globalThis.Math.pow(base, 0)];
+}
+"""
+"app.jsx" = """// kali-tree-shake: mathPowZeroExponentNonIntegerBase
+function mathPowZeroExponentNonIntegerBase() {
+  const base = 1.6;
+  console.log(Math.pow(base, 0));
+  console.log(globalThis.Math.pow(base, 0));
+  return [Math.pow(base, 0), globalThis.Math.pow(base, 0)];
+}
+"""
+"app.tsx" = """// kali-tree-shake: mathPowZeroExponentNonIntegerBase
+function mathPowZeroExponentNonIntegerBase() {
+  const base = 1.6;
+  console.log(Math.pow(base, 0));
+  console.log(globalThis.Math.pow(base, 0));
+  return [Math.pow(base, 0), globalThis.Math.pow(base, 0)];
+}
+"""
+"main.js" = """const base = 1.6; console.log(Math.pow(base, 0)); console.log(globalThis.Math.pow(base, 0));
+"""
+"main.ts" = """const base = 1.6; console.log(Math.pow(base, 0)); console.log(globalThis.Math.pow(base, 0));
+"""
+"main.jsx" = """const base = 1.6; console.log(Math.pow(base, 0)); console.log(globalThis.Math.pow(base, 0));
+"""
+"main.tsx" = """const base = 1.6; console.log(Math.pow(base, 0)); console.log(globalThis.Math.pow(base, 0));
+"""
+"smoke.test.js" = """Kali.test('math pow zero exponent with non-integer base', () => {
+  const base = 1.6;
+  console.log(Math.pow(base, 0));
+  console.log(globalThis.Math.pow(base, 0));
+});
+"""
+"smoke.test.ts" = """Kali.test('math pow zero exponent with non-integer base', () => {
+  const base = 1.6;
+  console.log(Math.pow(base, 0));
+  console.log(globalThis.Math.pow(base, 0));
+});
+"""
+"smoke.test.jsx" = """Kali.test('math pow zero exponent with non-integer base', () => {
+  const base = 1.6;
+  console.log(Math.pow(base, 0));
+  console.log(globalThis.Math.pow(base, 0));
+});
+"""
+"smoke.test.tsx" = """Kali.test('math pow zero exponent with non-integer base', () => {
+  const base = 1.6;
+  console.log(Math.pow(base, 0));
+  console.log(globalThis.Math.pow(base, 0));
+});
+"""
+"app_bracketed.js" = """// kali-tree-shake: bracketedGlobalThisMathPowZeroExponentNonIntegerBase
+function bracketedGlobalThisMathPowZeroExponentNonIntegerBase() {
+  const base = 1.6;
+  console.log(globalThis["Math"].pow(base, 0));
+  console.log(globalThis["Math"]["pow"](base, 0));
+  return [globalThis["Math"].pow(base, 0), globalThis["Math"]["pow"](base, 0)];
+}
+"""
+"app_bracketed.ts" = """// kali-tree-shake: bracketedGlobalThisMathPowZeroExponentNonIntegerBase
+function bracketedGlobalThisMathPowZeroExponentNonIntegerBase() {
+  const base = 1.6;
+  console.log(globalThis["Math"].pow(base, 0));
+  console.log(globalThis["Math"]["pow"](base, 0));
+  return [globalThis["Math"].pow(base, 0), globalThis["Math"]["pow"](base, 0)];
+}
+"""
+"main_bracketed.js" = """const base = 1.6; console.log(globalThis["Math"].pow(base, 0)); console.log(globalThis["Math"]["pow"](base, 0));
+"""
+"main_bracketed.ts" = """const base = 1.6; console.log(globalThis["Math"].pow(base, 0)); console.log(globalThis["Math"]["pow"](base, 0));
+"""
+"smoke_bracketed.test.js" = """Kali.test('bracketed math pow zero exponent with non-integer base', () => {
+  const base = 1.6;
+  console.log(globalThis["Math"].pow(base, 0));
+  console.log(globalThis["Math"]["pow"](base, 0));
+});
+"""
+"smoke_bracketed.test.ts" = """Kali.test('bracketed math pow zero exponent with non-integer base', () => {
+  const base = 1.6;
+  console.log(globalThis["Math"].pow(base, 0));
+  console.log(globalThis["Math"]["pow"](base, 0));
+});
+"""
+
+[[case]]
+name = "build_emits_math_pow_zero_exponent_non_integer_base_in_js_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:68-69), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:104). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "build_emits_math_pow_zero_exponent_non_integer_base_in_ts_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:68-69), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:104). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "build_emits_math_pow_zero_exponent_non_integer_base_in_jsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:68-69), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:104). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "build_emits_math_pow_zero_exponent_non_integer_base_in_tsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:68-69), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:104). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "json_build_emits_math_pow_zero_exponent_non_integer_base_in_js_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:68-69), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:104). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat, :54-60) instead of plain text; the source makes no `errors` claim on it, so none is written (rule 2)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "json_build_emits_math_pow_zero_exponent_non_integer_base_in_ts_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:68-69), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:104). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat, :54-60) instead of plain text; the source makes no `errors` claim on it, so none is written (rule 2)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "json_build_emits_math_pow_zero_exponent_non_integer_base_in_jsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:68-69), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:104). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat, :54-60) instead of plain text; the source makes no `errors` claim on it, so none is written (rule 2)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "json_build_emits_math_pow_zero_exponent_non_integer_base_in_tsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:68-69), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:104). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat, :54-60) instead of plain text; the source makes no `errors` claim on it, so none is written (rule 2)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1" (:204), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1"]
+
+[[case]]
+name = "run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1" (:204), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1"]
+
+[[case]]
+name = "test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1\\nok 1" (:226), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1\nok 1"]
+
+[[case]]
+name = "test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1\\nok 1" (:226), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1\nok 1"]
+
+[[case]]
+name = "run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1" (:204), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1"]
+
+[[case]]
+name = "run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1" (:204), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1"]
+
+[[case]]
+name = "test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1\\nok 1" (:226), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1\nok 1"]
+
+[[case]]
+name = "test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1\\nok 1" (:226), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1\nok 1"]
+
+[[case]]
+name = "run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_jsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1" (:204), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none. MIGRATION NOTE (controller ruling 8) applies to this case: its source fn is named `..._in_json_<ext>_input` but issues a plain-text command, and is byte-identical to the `..._in_<ext>_input` fn above it -- asserted mechanically in this file's generator. Both are kept as separate cases because a `[[case]]` is the only remaining trace of its fn (rule 6); the source is not corrected. See the file header."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1"]
+
+[[case]]
+name = "run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_tsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1" (:204), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none. MIGRATION NOTE (controller ruling 8) applies to this case: its source fn is named `..._in_json_<ext>_input` but issues a plain-text command, and is byte-identical to the `..._in_<ext>_input` fn above it -- asserted mechanically in this file's generator. Both are kept as separate cases because a `[[case]]` is the only remaining trace of its fn (rule 6); the source is not corrected. See the file header."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1"]
+
+[[case]]
+name = "test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_jsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1\\nok 1" (:226), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none. MIGRATION NOTE (controller ruling 8) applies to this case: its source fn is named `..._in_json_<ext>_input` but issues a plain-text command, and is byte-identical to the `..._in_<ext>_input` fn above it -- asserted mechanically in this file's generator. Both are kept as separate cases because a `[[case]]` is the only remaining trace of its fn (rule 6); the source is not corrected. See the file header."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1\nok 1"]
+
+[[case]]
+name = "test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_tsx_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_math_pow_zero_exponent_non_integer_base` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :132), against a program that raises a non-integer base of 1.6 to the zero exponent through both a bare `Math.pow` and a dotted `globalThis.Math.pow`, so both print `1`. It asserts exit success (:147) and `stdout.contains(expected_stdout)` (:154) and nothing else; this call site supplies `expected_stdout` = "1\\n1\\nok 1" (:226), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none. MIGRATION NOTE (controller ruling 8) applies to this case: its source fn is named `..._in_json_<ext>_input` but issues a plain-text command, and is byte-identical to the `..._in_<ext>_input` fn above it -- asserted mechanically in this file's generator. Both are kept as separate cases because a `[[case]]` is the only remaining trace of its fn (rule 6); the source is not corrected. See the file header."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1\nok 1"]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_pow_zero_exponent_non_integer_base_in_js_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_bracketed_global_this_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:388-389), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through a bracketed `globalThis["Math"].pow` and a fully bracketed `globalThis["Math"]["pow"]`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:424). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U5: the source writes this program to the same filename its non-bracketed sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_bracketed.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_bracketed/app_bracketed.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_bracketed"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_pow_zero_exponent_non_integer_base_in_ts_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_bracketed_global_this_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:388-389), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through a bracketed `globalThis["Math"].pow` and a fully bracketed `globalThis["Math"]["pow"]`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:424). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U5: the source writes this program to the same filename its non-bracketed sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_bracketed.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_bracketed/app_bracketed.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_bracketed"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_pow_zero_exponent_non_integer_base_in_js_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_bracketed_global_this_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:388-389), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through a bracketed `globalThis["Math"].pow` and a fully bracketed `globalThis["Math"]["pow"]`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:424). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat, :374-380) instead of plain text; the source makes no `errors` claim on it, so none is written (rule 2). U5: the source writes this program to the same filename its non-bracketed sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_bracketed.js"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app_bracketed/app_bracketed.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_bracketed"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_pow_zero_exponent_non_integer_base_in_ts_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (ext, output shape) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_bundle_bracketed_global_this_math_pow_zero_exponent_non_integer_base` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata (:388-389), then runs the bundle glue under the browser-bundle-harness contract, against a program that raises a non-integer base of 1.6 to the zero exponent through a bracketed `globalThis["Math"].pow` and a fully bracketed `globalThis["Math"]["pow"]`, so both print `1`. The only output claim on that step is `stdout.contains("1\\n1\\n")` (:424). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat, :374-380) instead of plain text; the source makes no `errors` claim on it, so none is written (rule 2). U5: the source writes this program to the same filename its non-bracketed sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_bracketed.ts"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app_bracketed/app_bracketed.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_bracketed"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathPowZeroExponentNonIntegerBase();
+"""
+exit = "success"
+stdout_contains = ["1\n1\n"]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_bracketed_global_this_math_pow_zero_exponent_non_integer_base` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :454), against a program that raises a non-integer base of 1.6 to the zero exponent through a bracketed `globalThis["Math"].pow` and a fully bracketed `globalThis["Math"]["pow"]`, so both print `1`. It asserts exit success (:469) and `stdout.contains(expected_stdout)` (:476) and nothing else; this call site supplies `expected_stdout` = "1\\n1" (:514), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none. U5: the source writes this program to the same filename its non-bracketed sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_bracketed.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1"]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_bracketed_global_this_math_pow_zero_exponent_non_integer_base` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :454), against a program that raises a non-integer base of 1.6 to the zero exponent through a bracketed `globalThis["Math"].pow` and a fully bracketed `globalThis["Math"]["pow"]`, so both print `1`. It asserts exit success (:469) and `stdout.contains(expected_stdout)` (:476) and nothing else; this call site supplies `expected_stdout` = "1\\n1" (:514), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none. U5: the source writes this program to the same filename its non-bracketed sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_bracketed.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1"]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_bracketed_global_this_math_pow_zero_exponent_non_integer_base` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :454), against a program that raises a non-integer base of 1.6 to the zero exponent through a bracketed `globalThis["Math"].pow` and a fully bracketed `globalThis["Math"]["pow"]`, so both print `1`. It asserts exit success (:469) and `stdout.contains(expected_stdout)` (:476) and nothing else; this call site supplies `expected_stdout` = "1\\n1\\nok 1" (:536), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none. U5: the source writes this program to the same filename its non-bracketed sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_bracketed.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1\nok 1"]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_pow_zero_exponent_non_integer_base.rs, one `#[test]` fn per (command, ext) cell; `[matrix]` is declined file-wide, so this case is exactly one source fn (rule 6). `assert_browser_harness_bracketed_global_this_math_pow_zero_exponent_non_integer_base` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node (BROWSER_HARNESS_COMMAND_ENV, :454), against a program that raises a non-integer base of 1.6 to the zero exponent through a bracketed `globalThis["Math"].pow` and a fully bracketed `globalThis["Math"]["pow"]`, so both print `1`. It asserts exit success (:469) and `stdout.contains(expected_stdout)` (:476) and nothing else; this call site supplies `expected_stdout` = "1\\n1\\nok 1" (:536), carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The helper takes no `json_output` parameter and never adds `--output json`, so there is no JSON envelope claim, no `json.stdout` pin and no `stderr` claim on this case -- the source makes none. U5: the source writes this program to the same filename its non-bracketed sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_bracketed.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["1\n1\nok 1"]

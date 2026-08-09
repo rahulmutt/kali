@@ -1,0 +1,428 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'main_alias.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_alias.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_alias.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_alias.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_alias.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_alias.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_alias.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_alias.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# Migrated from tests/browser_math_round.rs.
+# (The exact `json.stdout` pin needs no EXTRA-OK: the source spells that same string
+# literally, as `.contains("2\n")`, so it is already one of the source's own extracted
+# claims.)
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_round.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The file contains no `//` of any kind -- it declares no bundle fixture,
+# so there is not even a `// kali-tree-shake:` marker in it.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 16 `#[test]` fns, 28 real helper invocations with every loop
+# expanded.
+#   * `assert_browser_harness_math_round` is the only helper. 12 invocations come
+#     from 12 unlooped `#[test]` fns and 16 from 4 looping ones, which is where
+#     16 fns turn into 28 invocations:
+#       - the plain-program text group: `run` over ts/js/jsx/tsx (4) and `test`
+#         over ts/js/jsx/tsx (4);
+#       - the alias-program text group: `run` over ts/js ONLY (2) and `test` over
+#         ts/js ONLY (2) -- there is no jsx or tsx fn for either;
+#       - four `json_`-prefixed fns, each looping a 4-element list of
+#         (filename, source) pairs and calling the helper once per element, so 4
+#         fns x 4 = 16 invocations, covering plain and alias at both commands over
+#         all four extensions.
+#     12 + 16 = 28.
+# THE ARITHMETIC CANNOT CLOSE ON `ext`. The two alias TEXT groups run js and ts
+# only, while every other group runs all four extensions, so a file-wide `ext`
+# axis would fan the four alias text cases over jsx and tsx as well -- four
+# (alias, text, jsx/tsx) combinations the source never ran.
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 28 invocations -> 28 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+# The 16 invocations made inside the four looping fns are rule-5 splits: one
+# sibling per loop element, named for the cell it runs rather than numbered, since
+# each element is an independent program/command pair. The other 12 cases keep
+# their source `#[test]` fn's name verbatim.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main.js`, `main.jsx`, `main.ts`, `main.tsx`, `main_alias.js`, `main_alias.jsx`, `main_alias.ts`, `main_alias.tsx`, `smoke.test.js`, `smoke.test.jsx`, `smoke.test.ts`, `smoke.test.tsx`, `smoke_alias.test.js`, `smoke_alias.test.jsx`, `smoke_alias.test.ts`, `smoke_alias.test.tsx`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `main.ts / main.js / main.jsx / main.tsx (alias program)` -> `main_alias.<ext>` -- the source writes TWO different run programs to `main.<ext>`: the plain one from `browser_harness_math_round_run_source` and the aliased one from `browser_harness_math_round_alias_run_source`. [source] is one flat namespace, so the aliased variant is suffixed and the plain one keeps the source spelling.
+#   * `smoke.test.ts / smoke.test.js / smoke.test.jsx / smoke.test.tsx (alias program)` -> `smoke_alias.test.<ext>` -- the same collision on the test programs, between `browser_harness_math_round_test_source` and `browser_harness_math_round_alias_test_source`. The `.test.<ext>` tail is kept so the renamed entry is still spelled the way the runner is given it.
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+#
+# RULING 7 -- DUPLICATE `[source]` BODIES ARE NOT HOISTED. Several entries below hold
+# byte-identical program text. U13 would hoist them into `[constants]`; controller ruling 7
+# declines that for `browser/` (a hoisted body makes `check_fixtures.py` go red on a correct
+# file, and hoisting moves program text onto the surface `assertion_strings()` searches).
+# The mandatory half of that ruling is honoured instead: the duplication is asserted
+# MECHANICALLY in this file's generator, not eyeballed -- the generator compares the
+# extracted fixture strings and raises if they are not byte-identical.
+# Concretely: the four `main.<ext>` values are one extracted string, the four
+# `smoke.test.<ext>` values another, the four `main_alias.<ext>` values a third and
+# the four `smoke_alias.test.<ext>` values a fourth, and this file's generator
+# compares each group with batch5_prose's identity assertion before emitting.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_harness_math_round_run_source`,
+#   `browser_harness_math_round_test_source`,
+#   `browser_harness_math_round_alias_run_source`,
+#   `browser_harness_math_round_alias_test_source`,
+#   `assert_browser_harness_math_round` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+# All four fixtures are plain `&'static str` literals in the .rs -- this file
+# reaches no kali_common helper at all, so there is no library doc to carry either.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# Both branches assert `exit = "success"` (:60).
+# JSON branch: schemaVersion (:68), command (:69), success (:70), payload
+# hostContract (:71) and runtimeBackend (:72); for `run`, `exitCode` at the envelope
+# level (:74) AND at the payload level (:75); for `test`, payload
+# total/passed/failed (:77-79). THE SOURCE MAKES NO `skipped` CLAIM (contrast
+# browser_math_pow_harness.rs, which does), so none is written. Then the stdout
+# claim (:85), `stderr` exactly empty (:88) and an empty `errors` array (:89).
+# TEXT branch: ONE claim, and it is the one an automated audit CANNOT SEE.
+# The source spells it `assert!(stdout.contains('2'), ...)` (:92) -- a Rust CHAR
+# literal, in single quotes, not a string literal. audit-case-migration.py's
+# `.contains` extractor matches string literals only (its CONTAINS pattern is
+# built from a double-quoted-literal regex), so this assertion produces NO audit
+# claim at all: it is not in the audit's `missing` set whether it is carried or
+# dropped, and its loss would have been completely invisible to every mechanical
+# gate in this pair's verification. IT WAS THEREFORE VERIFIED BY HAND, by reading
+# the source's non-json arm directly, and is carried here as
+# stdout_contains = ["2"].
+# Note what that needle is and is not: the text branch claims a BARE `2`, with no
+# newline, while the json branch claims `"2\n"`. They are different claims and are
+# transcribed differently -- the text needle is NOT quietly upgraded to `"2\n"`
+# just because the observed output ends in a newline (that would be a claim the
+# source never made, rule 2), and it is NOT strengthened to an exact `stdout` pin
+# either, because it is a plain `.contains` against a field that HAS a substring
+# form (controller ruling 3).
+# The source passes NO `--max-threads` / `--max-spawned-processes`, so neither
+# flag appears below. No `.matches(...).count()` claim exists in this file, so no
+# stdout_count / json_count key appears.
+
+[source]
+"main.ts" = """console.log(Math.round(1.6));
+"""
+"main.js" = """console.log(Math.round(1.6));
+"""
+"main.jsx" = """console.log(Math.round(1.6));
+"""
+"main.tsx" = """console.log(Math.round(1.6));
+"""
+"smoke.test.ts" = """Kali.test('math round', () => {
+  console.log(Math.round(1.6));
+});
+"""
+"smoke.test.js" = """Kali.test('math round', () => {
+  console.log(Math.round(1.6));
+});
+"""
+"smoke.test.jsx" = """Kali.test('math round', () => {
+  console.log(Math.round(1.6));
+});
+"""
+"smoke.test.tsx" = """Kali.test('math round', () => {
+  console.log(Math.round(1.6));
+});
+"""
+"main_alias.ts" = """const value = 1.6; const alias = value; console.log(Math.round(alias));
+"""
+"main_alias.js" = """const value = 1.6; const alias = value; console.log(Math.round(alias));
+"""
+"main_alias.jsx" = """const value = 1.6; const alias = value; console.log(Math.round(alias));
+"""
+"main_alias.tsx" = """const value = 1.6; const alias = value; console.log(Math.round(alias));
+"""
+"smoke_alias.test.ts" = """Kali.test('math round alias chain', () => {
+  const value = 1.6;
+  const alias = value;
+  console.log(Math.round(alias));
+});
+"""
+"smoke_alias.test.js" = """Kali.test('math round alias chain', () => {
+  const value = 1.6;
+  const alias = value;
+  console.log(Math.round(alias));
+});
+"""
+"smoke_alias.test.jsx" = """Kali.test('math round alias chain', () => {
+  const value = 1.6;
+  const alias = value;
+  console.log(Math.round(alias));
+});
+"""
+"smoke_alias.test.tsx" = """Kali.test('math round alias chain', () => {
+  const value = 1.6;
+  const alias = value;
+  console.log(Math.round(alias));
+});
+"""
+
+[[case]]
+name = "run_supports_math_round_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name (one of four, one per extension). `assert_browser_harness_math_round` runs `kali run --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["run", "--api", "browser", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "run_supports_math_round_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name (one of four, one per extension). `assert_browser_harness_math_round` runs `kali run --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["run", "--api", "browser", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "run_supports_math_round_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name (one of four, one per extension). `assert_browser_harness_math_round` runs `kali run --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["run", "--api", "browser", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "run_supports_math_round_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name (one of four, one per extension). `assert_browser_harness_math_round` runs `kali run --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["run", "--api", "browser", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "test_supports_math_round_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name (one of four, one per extension). `assert_browser_harness_math_round` runs `kali test --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["test", "--api", "browser", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "test_supports_math_round_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name (one of four, one per extension). `assert_browser_harness_math_round` runs `kali test --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["test", "--api", "browser", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "test_supports_math_round_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name (one of four, one per extension). `assert_browser_harness_math_round` runs `kali test --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["test", "--api", "browser", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "test_supports_math_round_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name (one of four, one per extension). `assert_browser_harness_math_round` runs `kali test --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["test", "--api", "browser", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name. The source has this fn for ts and js ONLY -- there is no jsx or tsx alias-chain run fn, and that gap is preserved by declining the matrix rather than filled in. `assert_browser_harness_math_round` runs `kali run --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["run", "--api", "browser", "main_alias.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name. The source has this fn for ts and js ONLY -- there is no jsx or tsx alias-chain run fn, and that gap is preserved by declining the matrix rather than filled in. `assert_browser_harness_math_round` runs `kali run --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["run", "--api", "browser", "main_alias.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name. The source has this fn for ts and js ONLY -- there is no jsx or tsx alias-chain test fn, and that gap is preserved by declining the matrix rather than filled in. `assert_browser_harness_math_round` runs `kali test --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["test", "--api", "browser", "smoke_alias.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_round.rs, the `#[test]` fn of that name. The source has this fn for ts and js ONLY -- there is no jsx or tsx alias-chain test fn, and that gap is preserved by declining the matrix rather than filled in. `assert_browser_harness_math_round` runs `kali test --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. THE AUDIT CANNOT SEE THIS CLAIM. The source spells it `assert!(stdout.contains('2'), ...)` (:92) with a Rust CHAR literal, and audit-case-migration.py's `.contains` extractor matches double-quoted string literals only, so it yields no audit claim in either direction. It was verified by hand against the source's non-json arm and is carried as stdout_contains = ["2"] -- a bare `2`, exactly as the source spells it, NOT the `"2\\n"` the json branch claims and NOT an exact stdout pin. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["test", "--api", "browser", "smoke_alias.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2"]
+
+[[case]]
+name = "json_run_supports_math_round_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_run_supports_math_round_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:217), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), and `exitCode` at both the envelope (:74) and the payload (:75) level for `run`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["--output", "json", "run", "--api", "browser", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_run_supports_math_round_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_run_supports_math_round_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:217), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), and `exitCode` at both the envelope (:74) and the payload (:75) level for `run`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["--output", "json", "run", "--api", "browser", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_run_supports_math_round_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_run_supports_math_round_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:217), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), and `exitCode` at both the envelope (:74) and the payload (:75) level for `run`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["--output", "json", "run", "--api", "browser", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_run_supports_math_round_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_run_supports_math_round_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:217), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), and `exitCode` at both the envelope (:74) and the payload (:75) level for `run`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["--output", "json", "run", "--api", "browser", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_math_round_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_test_supports_math_round_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:229), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), payload total/passed/failed (:77-79) for `test`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_math_round_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_test_supports_math_round_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:229), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), payload total/passed/failed (:77-79) for `test`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_math_round_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_test_supports_math_round_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:229), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), payload total/passed/failed (:77-79) for `test`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_math_round_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_test_supports_math_round_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:229), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that prints Math.round(1.6) directly, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), payload total/passed/failed (:77-79) for `test`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:241), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), and `exitCode` at both the envelope (:74) and the payload (:75) level for `run`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["--output", "json", "run", "--api", "browser", "main_alias.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:241), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), and `exitCode` at both the envelope (:74) and the payload (:75) level for `run`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["--output", "json", "run", "--api", "browser", "main_alias.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:241), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), and `exitCode` at both the envelope (:74) and the payload (:75) level for `run`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["--output", "json", "run", "--api", "browser", "main_alias.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:241), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), and `exitCode` at both the envelope (:74) and the payload (:75) level for `run`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["--output", "json", "run", "--api", "browser", "main_alias.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:254), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), payload total/passed/failed (:77-79) for `test`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["--output", "json", "test", "--api", "browser", "smoke_alias.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:254), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), payload total/passed/failed (:77-79) for `test`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["--output", "json", "test", "--api", "browser", "smoke_alias.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:254), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), payload total/passed/failed (:77-79) for `test`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["--output", "json", "test", "--api", "browser", "smoke_alias.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "2\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_round.rs, one of the four rule-5 siblings split out of the single `#[test]` fn `json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input` (:254), which loops a four-element list of (filename, source) pairs and calls the helper once per element -- four independent invocations, four siblings, no folding. `assert_browser_harness_math_round` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that binds 1.6 to a value, aliases it, and prints Math.round of the alias, so 2 is printed once. This case asserts the JSON envelope: schemaVersion/command/success (:68-70), payload hostContract/runtimeBackend (:71-72), payload total/passed/failed (:77-79) for `test`, and `stderr` exactly empty (:88) plus an empty `errors` array (:89); the source makes NO `skipped` claim, so none is written (rule 2). The stdout claim is `stdout.contains("2\\n")` taken against json["stdout"] (:85). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. [matrix] is declined for this whole file -- the two alias text groups run js and ts only while every other group runs all four extensions -- so this is one named case per real helper invocation; see the file header for the arithmetic. Its entry is a U5-renamed [source] key: the source writes this aliased program to the same filename as the plain one, and [source] is a single file-wide namespace, so the aliased variant carries a suffixed stem. The filename reaches kali on argv only and is referenced from inside no fixture body, which this file's generator asserts, so the rename does not rewrite the program under test (rule 9)."""
+args = ["--output", "json", "test", "--api", "browser", "smoke_alias.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "2\n", stderr = "", errors = [] }

@@ -175,7 +175,15 @@ def emit(header_lines, matrix, source, cases):
     """
     out = []
     for line in header_lines:
-        out.append(("# " + line).rstrip())
+        # Split on embedded newlines rather than prefixing once. A caller that
+        # builds a header entry with an f-string spanning several lines used to
+        # get ONE `# ` and the rest of its text bare, which is not a comment --
+        # `tomllib` then rejects the whole file with "key with no value". That
+        # is a hard, visible failure rather than a silent one, but it is also
+        # entirely avoidable, and it cost batch 5 a red `cargo test` on a file
+        # whose content was correct. Idempotent for single-line entries.
+        for piece in str(line).split("\n"):
+            out.append(("# " + piece).rstrip())
     out.append("")
 
     if matrix:

@@ -1,3 +1,45 @@
+//! Task 18 batch 5 design-spec 5.11 retention: kept 100% hand-written, not
+//! migrated. No case file exists for this target.
+//!
+//! WHAT BLOCKS IT. All 9 `#[test]` fns in this file route through one of two
+//! helpers -- `assert_browser_bundle_global_this_math_round` (`:171`), which
+//! 8 of them call, and `assert_browser_harness_global_this_math_round`
+//! (`:296`), which the ninth calls 16 times from an inlined loop -- and
+//! BOTH helpers end in a line-oriented count, at `:290` in the bundle helper and
+//! at `:372` (JSON branch) and `:420` (text branch) in the harness helper. The
+//! harness helper's two sites sit on opposite arms of its output-shape `if`, so
+//! every call reaches exactly one of them. 9 of 9 tests reach the construct
+//! unconditionally, so U4's trim-and-keep degenerates to whole-file retention:
+//! there is no complementary migratable subset to split off.
+//!
+//! The construct splits the captured output into lines, keeps the lines equal to
+//! a literal, and pins how many there are. Design spec 5.4's closing paragraph
+//! already places the line-oriented outliers outside the assertion vocabulary,
+//! and none of the twelve keys reaches this shape. In particular the occurrence-
+//! count keys added in batch 4 do NOT: they count NON-OVERLAPPING SUBSTRING
+//! occurrences, as Rust's substring-match iterator does, whereas this construct
+//! counts WHOLE LINES that equal the literal exactly. The two differ on real
+//! output -- a line holding the literal plus anything else is counted by the
+//! substring form and rejected by the line form -- so migrating onto a count key
+//! would be a silent weakening, not a transcription. Rule 1 forbids that.
+//!
+//! ADJUDICATED, NOT PROPOSED. The human partner has ruled the line-oriented
+//! sites design-spec 5.11 outliers: **no assertion key is being added for them.**
+//! Do not reopen this by proposing a line-equality or line-count key.
+//!
+//! CONSEQUENCE FOR THE GATES (ruling 9): THIS FILE HAS NO RED-LIST, and that is
+//! the finding, not an omission. Ruling 9 addresses a U4 trim-and-keep retention,
+//! where the on-disk `.rs` is shorter than the source its case file was migrated
+//! from. Nothing was trimmed here, so there is no pre-trim/post-trim divergence
+//! and no pre-trim ref to run anything against; and there is no right-hand side,
+//! since `verify_pair.sh math_round_global_this_root` exits 2 with a missing case
+//! file before running any gate and all five gates take a `.rs`/`.toml` pair.
+//! Verified by running it, not assumed.
+//!
+//! Escalated per rule 3/4 rather than shipped with a false green or a fabricated
+//! claim. This file must NOT be deleted by the family-wide sweep after batch 8.
+//! See `.superpowers/sdd/2026-07-29-test-binary-consolidation/
+//! task-18-batch5-report.md` for the full account.
 use std::{fs, process::Command};
 
 use serde_json::Value;
