@@ -5,8 +5,9 @@ Batch 4's review found a defect class that every per-file gate passed: four
 concurrent implementers described the same recurring fact four different ways,
 and one of them described a state the file no longer had. Nothing mechanical
 could see it, because no gate reads `#` header prose or `rationale` wording.
-This is the missing gate. It checks the two things that failure class actually
-consisted of:
+This is the missing gate. It checks what that failure class actually consisted
+of, plus the gatedness arm batch 7 added when the citation arm turned out not to
+read most of the family's citations at all:
 
   1. STRUCTURE. Every file in the batch carries the same fixed set of header
      sections, in the same order. A group that invented its own section, or
@@ -28,7 +29,14 @@ consisted of:
      target is a hard failure, not a skip. Both directions are mutation-tested
      in `--selftest`.
 
-Both are checked against the shipped `.toml`, not against the generator, so a
+  3. GATEDNESS (batch 7). Every citation WRITTEN must be one a reader actually
+     MATCHES. `CITE` needs a backticked construct on the same line, so a `:N`
+     written as bare prose matched nothing and was never read -- it reported
+     `0 problem(s)` whether it was right or wrong. Ruling 11 exempts `:N` from
+     the no-moving-figures rule only because it is gated, so an unread citation
+     makes that exemption unearned. See `_gated_arm` and `UNGATED_REDLIST`.
+
+All three are checked against the shipped `.toml`, not against the generator, so a
 generator that renders the right thing and writes the wrong file is still
 caught.
 
@@ -42,7 +50,9 @@ Usage: batch5_crosscheck.py [--citations-only] STEM[=PRETRIM.rs] ...
   citation arms can gate pilot/batch-2/3/4 pairs, whose headers predate those
   section names. Batches 6-8 should run the citation arms family-wide.
   --selftest is the mutation kill for the `.all`/`.any` needle blind spot batch
-  6A closed; see `selftest()`. Run it whenever `_needles` is touched.
+  6A closed, plus the submodule arm's four properties, the batch-7 `_gated_arm`
+  probes and the plain-`mod` declaration predicate; see `selftest()`. Run it
+  whenever `_needles`, `SNIPPET_MAX` or a citation pattern is touched.
 Exit 0 if every file passes, 1 otherwise.
 
 A trimmed U4 retention pair MUST be given its pre-trim blob with `=PATH`: every
@@ -59,7 +69,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from enumerate_invocations import strip_block_comments_and_strings  # noqa: E402
-from submodules import submodule_paths  # noqa: E402
+from submodules import declares_submodules, submodule_paths  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -80,17 +90,54 @@ SECTIONS = [
     ("ASSERTION SHAPE", True),
 ]
 
+# The bound on a backticked snippet that may carry a citation. ONE constant,
+# used by `CITE`, `SUBMOD_CITE` and `_header_cite_arm` alike -- batch 6B raised
+# the first two to 200 and left the third at 120, which is how a single notion
+# ("how long a construct can a citation name?") came to have two values.
+#
+# CORRECTED IN BATCH 7 (item 3.1). The comment this replaces justified the 200
+# with "this corpus's `#[test]` fn names reach 161 characters". 161 is not
+# reproducible under any definition and was the first violation of ruling 13
+# committed into source. The derivations, each command run before this sentence
+# was written:
+#
+#   longest cited snippet in the family today -- 137 chars, in
+#   `cases/browser/non_literal_iterator_sources_explicit_api.toml`; 69 cited
+#   snippets exceed 120 and 0 exceed 200. Run from the repo root:
+#     $ python3 -c '
+#       import sys, glob, os
+#       sys.path.insert(0, "tools/task-18-browser-pilot")
+#       import batch5_crosscheck as X
+#       lens = []
+#       for p in glob.glob(X.CASES+"/*.toml") + glob.glob(X.TESTS+"/browser_*.rs"):
+#           t = open(p).read()
+#           if p.endswith(".rs"):
+#               t = "".join(l for l in t.splitlines(True) if l.startswith("//!"))
+#           for m in list(X.CITE.finditer(t)) + list(X.SUBMOD_CITE.finditer(t)):
+#               lens.append((len(m.group(1)), os.path.basename(p)))
+#       print(max(lens), sum(n>120 for n,_ in lens), sum(n>200 for n,_ in lens))'
+#
+#   longest `#[test]` fn name anywhere in `crates/kali_cli/tests` -- 226 chars:
+#     $ grep -rh -A1 '^#\[test\]' crates/kali_cli/tests --include='*.rs' \
+#         | grep -oP '(?<=fn )[a-z0-9_]+' | awk '{print length}' | sort -rn | head -1
+#
+# So the CONCLUSION the old comment drew still holds and is now derived: 120 was
+# too small (it dropped 69 of the family's cited snippets, which is 69 citations
+# reported as `0 problem(s)` whether right or wrong) and 200 covers every
+# citation the family actually writes (0 over).
+#
+# What 200 does NOT do, and the old comment implied it did: cover every citation
+# that COULD be written. The longest `#[test]` fn name in this tree is 226, so a
+# citation naming it would still exceed the bound. That is no longer a silent
+# drop, and the reason is `_gated_arm`: a snippet over the bound means `CITE`
+# does not match, and an unmatched citation is now a reported UNGATED problem
+# rather than nothing at all. The bound fails LOUD, which is what makes leaving
+# it at 200 defensible instead of chasing the corpus's longest identifier.
+SNIPPET_MAX = 200
+
 # A backticked snippet followed by a parenthesised or bare `:N` citation.
-# The snippet bound is 200, not 120. Raised in Task 18 batch 6B's fix round 1
-# (M6): this corpus's `#[test]` fn names run to 161 characters, and a citation
-# whose snippet is longer than the bound is not "unresolved" -- it is INVISIBLE,
-# reported as `0 problem(s)` whether it is right or wrong. Ruling 11 exempts
-# `:N` only because it is gated, so a bound that silently drops the longest
-# names in the family is the exemption unearned. Measured before and after
-# across the whole family: the residual is unchanged (the 7 known ungateable
-# bare `:N` in `browser_generator_default_export_rejection.rs`) and 24 batch-6B
-# citations that matched nothing now resolve.
-CITE = re.compile(r"`([^`\n]{3,200})`[^`\n]{0,40}?\(?:(\d+)(?:-(\d+))?\)?")
+CITE = re.compile(
+    r"`([^`\n]{3,%d})`[^`\n]{0,40}?\(?:(\d+)(?:-(\d+))?\)?" % SNIPPET_MAX)
 
 # The same, but naming a SUBMODULE FILE first: `` `snippet` (build.rs:5) ``.
 #
@@ -103,7 +150,8 @@ CITE = re.compile(r"`([^`\n]{3,200})`[^`\n]{0,40}?\(?:(\d+)(?:-(\d+))?\)?")
 # starting at the same offset as a `SUBMOD_CITE` hit is that same citation seen
 # through the weaker pattern and is skipped.
 SUBMOD_CITE = re.compile(
-    r"`([^`\n]{3,200})`[^`\n]{0,40}?\(?([A-Za-z0-9_]+\.rs):(\d+)(?:-(\d+))?\)?")
+    r"`([^`\n]{3,%d})`[^`\n]{0,40}?\(?([A-Za-z0-9_]+\.rs):(\d+)(?:-(\d+))?\)?"
+    % SNIPPET_MAX)
 
 
 @functools.lru_cache(maxsize=64)
@@ -472,7 +520,19 @@ def check(spec, citations_only=False):
     submodules = {}
     declares_mods = False
     if os.path.exists(rs_path):
-        declares_mods = "#[path" in open(rs_path).read()
+        # ITEM 3.3 (batch 7). This used to read
+        # `"#[path" in open(rs_path).read()`: a `#[path]`-ONLY substring test,
+        # while `submodule_paths` also resolves plain `mod x;` / `pub mod x;`
+        # chains. A plain-`mod` carrier whose submodules failed to resolve was
+        # therefore judged not to declare any, fell past the single loud problem
+        # batch 6B added for that case, and produced N misleading "names a file
+        # that is not a submodule" problems instead.
+        # `browser_cdp_smoke.rs` carries the plain-`mod` shape, so this was not
+        # hypothetical. It also leaked the file handle; the text is read once
+        # here and reused.
+        with open(rs_path) as fh:
+            rs_text = fh.read()
+        declares_mods = declares_submodules(rs_text)
         bases = []
         if os.path.dirname(os.path.abspath(rs_path)) == os.path.abspath(TESTS):
             bases.append(rs_path)          # a --rs split: already a tree file
@@ -689,13 +749,27 @@ def _header_cite_arm(stem, body, lines):
                        f"the source ({len(lines)} lines)")
             continue
         # The nearest backticked, non-citation token, which must be ADJACENT.
-        # The window is generous (a fn name in this corpus can be 100 chars and
-        # sit on the previous header line) but the token must END within 30
+        # The window is generous (the family's longest CITED snippet is 137
+        # chars and can sit on the previous header line -- see `SNIPPET_MAX`
+        # for the derivation) but the token must END within 30
         # chars of the citation. Without the adjacency bound a long window
         # happily binds a citation to an unrelated fn name two sentences back
         # and reports a false pass -- which is worse than reporting nothing.
-        window = body[max(0, m.start() - 200):m.start()]
-        cands = [mm for mm in re.finditer(r"`([^`\n]{2,120})`", window)
+        # The lookbehind window is SNIPPET_MAX + the 40-char gap `CITE` allows
+        # between a snippet and its citation, so this arm can see exactly the
+        # snippets the case-file arm can and no more.
+        window = body[max(0, m.start() - (SNIPPET_MAX + 40)):m.start()]
+        # ITEM 3.2 (batch 7): this bound was `{2,120}`, left behind when batch
+        # 6B raised `CITE` to 200, and its own comment ("a fn name in this
+        # corpus can be 100 chars") is disproved by the finding that forced the
+        # 200 -- the family's longest CITED snippet is 137 and its longest
+        # `#[test]` fn name is 226. It failed CLOSED, so it was
+        # correctness-preserving: an over-long token yielded "no adjacent
+        # backticked construct", a reported problem, never a false pass. It is
+        # now the same derived constant as `CITE`'s, so the two cannot drift
+        # apart again. Measured across the full sweep before and after: no
+        # change in reported problems.
+        cands = [mm for mm in re.finditer(r"`([^`\n]{2,%d})`" % SNIPPET_MAX, window)
                  if not mm.group(1).startswith(":")]
         needles = []
         if cands and len(window) - cands[-1].end() <= 30:
@@ -851,6 +925,7 @@ def selftest():
 
     failures += _submodule_selftest()
     failures += _gated_selftest()
+    failures += _declares_mods_selftest()
 
     if failures:
         print("\nSELFTEST FAILED")
@@ -990,6 +1065,48 @@ def _submodule_selftest():
                     f"submodule arm: {label} was "
                     f"{'reported' if got else 'NOT reported'}, expected the "
                     f"{'opposite' if want_problem else 'opposite'}")
+    return out
+
+
+def _declares_mods_selftest():
+    """Item 3.3: a PLAIN-`mod` carrier is recognised as declaring submodules.
+
+    The regression: `declares_mods` was `"#[path" in <source>`, so a carrier
+    using `mod leaf;` instead of `#[path = "..."] mod leaf;` was judged to
+    declare nothing. When its submodule then failed to resolve, `check()` fell
+    past the single loud "cannot check qualified citations" problem and let the
+    per-citation arm emit N misleading "names a file that is not a submodule"
+    problems -- one per citation, all pointing the reader at the wrong defect.
+
+    Asserted against the real tree file that has the shape, and against the
+    `#[path]` form, and against a file with neither -- so the probe cannot pass
+    by returning True for everything.
+    """
+    out = []
+    probes = [
+        ("plain `mod x;` (browser_cdp_smoke.rs)", "browser_cdp_smoke.rs", True),
+        ("`#[path]` (browser_non_literal_iterator_sources.rs)",
+         "browser_non_literal_iterator_sources.rs", True),
+        ("no submodules (browser_math_pow_optional_chain_harness.rs)",
+         "browser_math_pow_optional_chain_harness.rs", False),
+    ]
+    for label, name, want in probes:
+        path = os.path.join(TESTS, name)
+        if not os.path.exists(path):
+            out.append(f"declares-mods selftest: missing fixture {name}")
+            continue
+        with open(path) as fh:
+            got = declares_submodules(fh.read())
+        print(f"  declares-mods -- {label}: {got}")
+        if got != want:
+            out.append(f"declares-mods: {label} returned {got}, expected {want}")
+        # The superseded predicate, run beside it so the regression stays
+        # visible: it is what returns the WRONG answer for the plain-`mod` case.
+        with open(path) as fh:
+            old = "#[path" in fh.read()
+        if want and not old and got:
+            print(f"    (superseded `'#[path' in source` predicate: {old} "
+                  "-- this is the case it got wrong)")
     return out
 
 

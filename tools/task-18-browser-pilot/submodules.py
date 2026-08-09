@@ -72,6 +72,37 @@ def submodule_paths(rs_path, mod=None, base=None):
     return [p for p in paths if p.is_file()]
 
 
+def declares_submodules(source_text, mod=None):
+    """Does `source_text` DECLARE any submodule -- `#[path]` or plain `mod x;`?
+
+    Separate from `submodule_paths`, which answers whether any declaration
+    RESOLVED. A gate needs both: a carrier that declares submodules and resolves
+    none must report ONE loud problem ("cannot check qualified citations") rather
+    than N misleading ones ("names a file that is not a submodule").
+
+    Added in batch 7 (item 3.3). `batch5_crosscheck.py` was asking the question
+    with `"#[path" in open(rs_path).read()`, a substring test that sees only the
+    explicit-path shape while `submodule_paths` resolves plain `mod x;` /
+    `pub mod x;` chains too. A plain-`mod` carrier whose submodules failed to
+    resolve therefore fell through to the per-citation arm and produced N
+    spurious "not a submodule" problems. Not hypothetical:
+
+        $ cd crates/kali_cli/tests && for f in browser_*.rs; do
+        >   grep -qE '^\\s*(pub )?mod [a-z_]+;' "$f" && ! grep -q '#\\[path' "$f" \\
+        >     && echo "$f"
+        > done
+        browser_cdp_smoke.rs
+
+    Delegates to `audit-case-migration.py`'s `_find_mod_declarations`, which is
+    already comment- and string-masked, so a `//!` header that merely MENTIONS
+    `mod cdp_driver;` is not read as a declaration. Re-implementing that
+    masking here is exactly the second-implementation trap this module exists to
+    avoid.
+    """
+    mod = mod or audit_module()
+    return bool(mod._find_mod_declarations(source_text))
+
+
 def read_with_submodules(rs_path, mod=None):
     """`rs_path`'s text with every reachable submodule's text appended.
 
