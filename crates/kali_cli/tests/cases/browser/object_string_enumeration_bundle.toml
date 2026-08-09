@@ -1,0 +1,492 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'app_await.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_await.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_await.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_await.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# Migrated from tests/browser_object_string_enumeration_bundle.rs.
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale` that its producing helper reaches, not
+# just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_string_enumeration_bundle.rs returns 4 Rust comment line(s)
+# in 2 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Both blocks are the same fail-closed re-pin note and they sit in the file's two assert
+# helpers, `assert_browser_bundle_object_string_enumeration` and
+# `assert_browser_bundle_object_string_enumeration_await`, which between them produce
+# every `[[case]]` below -- so U6's bottom-up attribution puts the text in every
+# rationale. That is not the over-attribution U6 forbids (copying a block into cases its
+# producing helper does not reach); here the two helpers partition the file and carry
+# identical prose.
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+# The 2 blocks are 1 distinct text(s) repeated; the
+# rationale below carries each distinct text once. `comment_coverage.py` checks each
+# comment LINE's text for membership in each rationale, so one copy discharges every
+# repetition, and N identical copies would be noise rather than coverage.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_object_string_enumeration` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), eight unlooped `#[test]` fns
+#   * `assert_browser_bundle_object_string_enumeration_await` -- 8 invocation(s) = the same eight-fn shape for the `for await` variant
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note, and the
+# reason here is not the usual one: this target asserts nothing but process failure, so
+# the output mode changes no assertion -- it appends an argv PAIR rather than
+# substituting a value, which a `[matrix]` axis cannot express.
+# It is written as sibling `[[case]]` entries instead, which is also what rule 6
+# requires: the source has its own `#[test]` fns for both.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`, `app_await.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `app.<ext>` -> `app_await.${ext}` -- the `for await` variant, which the source writes to the same `app.<ext>` name in a different test
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_object_string_enumeration_source`,
+#   `browser_bundle_object_string_enumeration_await_source`,
+#   `assert_browser_bundle_object_string_enumeration`,
+#   `assert_browser_bundle_object_string_enumeration_await` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step -- the build never succeeds, so the
+# source never gets as far as writing one -- and its call chain therefore never reaches
+# `kali_runtime_contract`'s harness helpers. Ruling 6's exemption is not stated because
+# it has nothing to exempt here.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * build: `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#            pair is appended AFTER the subcommand and its flags.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# Both helpers' only assertion is that the process fails -- `assert!(!output.status.success()` (:216)
+# in one and `assert!(!output.status.success()` (:466) in the other, each cited from the case it
+# actually produces. There is no stdout, stderr, exit-code or JSON claim anywhere in the
+# file, in either output mode.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserObjectStringEnumeration
+function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+}
+
+function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+}
+
+function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== '0' ||
+    entries[0][1] !== 'a' ||
+    entries[1][0] !== '1' ||
+    entries[1][1] !== 'b'
+  ) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+}
+
+function browserObjectStringEnumeration() {
+  const keys = [];
+  for (const key of Object.keys('ab')) {
+    keys.push(key);
+  }
+  const nullishKeys = [];
+  for (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+  const logicalOrKeys = [];
+  for (const key of Object.freeze((false || Object.keys))('ab')) {
+    logicalOrKeys.push(key);
+  }
+  const globalKeys = [];
+  for (const key of globalThis.Object.keys('ab')) {
+    globalKeys.push(key);
+  }
+  const bracketedRootKeys = [];
+  for (const key of Object["keys"]('ab')) {
+    bracketedRootKeys.push(key);
+  }
+  const mixedKeys = [];
+  for (const key of globalThis.Object["keys"]('ab')) {
+    mixedKeys.push(key);
+  }
+  const bracketedKeys = [];
+  for (const key of globalThis["Object"].keys('ab')) {
+    bracketedKeys.push(key);
+  }
+  const fullyBracketedKeys = [];
+  for (const key of globalThis["Object"]["keys"]('ab')) {
+    fullyBracketedKeys.push(key);
+  }
+  const singleBracketedKeys = [];
+  for (const key of globalThis['Object']['keys']('ab')) {
+    singleBracketedKeys.push(key);
+  }
+
+  const values = [];
+  for (const value of Object.values('ab')) {
+    values.push(value);
+  }
+  const nullishValues = [];
+  for (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalAndValues = [];
+  for (const value of Object.freeze((true && Object.values))('ab')) {
+    logicalAndValues.push(value);
+  }
+  const logicalOrValues = [];
+  for (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
+  }
+  const globalValues = [];
+  for (const value of globalThis.Object.values('ab')) {
+    globalValues.push(value);
+  }
+  const bracketedRootValues = [];
+  for (const value of Object["values"]('ab')) {
+    bracketedRootValues.push(value);
+  }
+  const mixedValues = [];
+  for (const value of globalThis.Object["values"]('ab')) {
+    mixedValues.push(value);
+  }
+  const bracketedValues = [];
+  for (const value of globalThis["Object"].values('ab')) {
+    bracketedValues.push(value);
+  }
+  const fullyBracketedValues = [];
+  for (const value of globalThis["Object"]["values"]('ab')) {
+    fullyBracketedValues.push(value);
+  }
+  const singleBracketedValues = [];
+  for (const value of globalThis['Object']['values']('ab')) {
+    singleBracketedValues.push(value);
+  }
+
+  const entries = [];
+  for (const entry of Object.entries('ab')) {
+    entries.push(entry);
+  }
+  const nullishEntries = [];
+  for (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
+  const globalEntries = [];
+  for (const entry of globalThis.Object.entries('ab')) {
+    globalEntries.push(entry);
+  }
+  const bracketedRootEntries = [];
+  for (const entry of Object["entries"]('ab')) {
+    bracketedRootEntries.push(entry);
+  }
+  const mixedEntries = [];
+  for (const entry of globalThis.Object["entries"]('ab')) {
+    mixedEntries.push(entry);
+  }
+  const bracketedEntries = [];
+  for (const entry of globalThis["Object"].entries('ab')) {
+    bracketedEntries.push(entry);
+  }
+  const fullyBracketedEntries = [];
+  for (const entry of globalThis["Object"]["entries"]('ab')) {
+    fullyBracketedEntries.push(entry);
+  }
+  const singleBracketedEntries = [];
+  for (const entry of globalThis['Object']['entries']('ab')) {
+    singleBracketedEntries.push(entry);
+  }
+
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectKeysIteration(logicalOrKeys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(bracketedRootKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(fullyBracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalAndValues);
+  assertObjectValuesIteration(logicalOrValues);
+  assertObjectValuesIteration(globalValues);
+  assertObjectValuesIteration(bracketedRootValues);
+  assertObjectValuesIteration(mixedValues);
+  assertObjectValuesIteration(bracketedValues);
+  assertObjectValuesIteration(fullyBracketedValues);
+  assertObjectValuesIteration(singleBracketedValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(bracketedRootEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(fullyBracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+}
+"""
+"app_await.${ext}" = """// kali-tree-shake: browserObjectStringEnumerationAwait
+function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+}
+
+function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+}
+
+function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== '0' ||
+    entries[0][1] !== 'a' ||
+    entries[1][0] !== '1' ||
+    entries[1][1] !== 'b'
+  ) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+}
+
+export async function browserObjectStringEnumerationAwait() {
+  const keys = [];
+  for await (const key of Object.keys('ab')) {
+    keys.push(key);
+  }
+  const nullishKeys = [];
+  for await (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for await (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+  const logicalOrKeys = [];
+  for await (const key of Object.freeze((false || Object.keys))('ab')) {
+    logicalOrKeys.push(key);
+  }
+  const globalKeys = [];
+  for await (const key of globalThis.Object.keys('ab')) {
+    globalKeys.push(key);
+  }
+  const bracketedRootKeys = [];
+  for await (const key of Object["keys"]('ab')) {
+    bracketedRootKeys.push(key);
+  }
+  const mixedKeys = [];
+  for await (const key of globalThis.Object["keys"]('ab')) {
+    mixedKeys.push(key);
+  }
+  const bracketedKeys = [];
+  for await (const key of globalThis["Object"].keys('ab')) {
+    bracketedKeys.push(key);
+  }
+  const fullyBracketedKeys = [];
+  for await (const key of globalThis["Object"]["keys"]('ab')) {
+    fullyBracketedKeys.push(key);
+  }
+  const singleBracketedKeys = [];
+  for await (const key of globalThis['Object']['keys']('ab')) {
+    singleBracketedKeys.push(key);
+  }
+
+  const values = [];
+  for await (const value of Object.values('ab')) {
+    values.push(value);
+  }
+  const nullishValues = [];
+  for await (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalAndValues = [];
+  for await (const value of Object.freeze((true && Object.values))('ab')) {
+    logicalAndValues.push(value);
+  }
+  const logicalOrValues = [];
+  for await (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
+  }
+  const globalValues = [];
+  for await (const value of globalThis.Object.values('ab')) {
+    globalValues.push(value);
+  }
+  const bracketedRootValues = [];
+  for await (const value of Object["values"]('ab')) {
+    bracketedRootValues.push(value);
+  }
+  const mixedValues = [];
+  for await (const value of globalThis.Object["values"]('ab')) {
+    mixedValues.push(value);
+  }
+  const bracketedValues = [];
+  for await (const value of globalThis["Object"].values('ab')) {
+    bracketedValues.push(value);
+  }
+  const fullyBracketedValues = [];
+  for await (const value of globalThis["Object"]["values"]('ab')) {
+    fullyBracketedValues.push(value);
+  }
+  const singleBracketedValues = [];
+  for await (const value of globalThis['Object']['values']('ab')) {
+    singleBracketedValues.push(value);
+  }
+
+  const entries = [];
+  for await (const entry of Object.entries('ab')) {
+    entries.push(entry);
+  }
+  const nullishEntries = [];
+  for await (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for await (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for await (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
+  const globalEntries = [];
+  for await (const entry of globalThis.Object.entries('ab')) {
+    globalEntries.push(entry);
+  }
+  const bracketedRootEntries = [];
+  for await (const entry of Object["entries"]('ab')) {
+    bracketedRootEntries.push(entry);
+  }
+  const mixedEntries = [];
+  for await (const entry of globalThis.Object["entries"]('ab')) {
+    mixedEntries.push(entry);
+  }
+  const bracketedEntries = [];
+  for await (const entry of globalThis["Object"].entries('ab')) {
+    bracketedEntries.push(entry);
+  }
+  const fullyBracketedEntries = [];
+  for await (const entry of globalThis["Object"]["entries"]('ab')) {
+    fullyBracketedEntries.push(entry);
+  }
+  const singleBracketedEntries = [];
+  for await (const entry of globalThis['Object']['entries']('ab')) {
+    singleBracketedEntries.push(entry);
+  }
+
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectKeysIteration(logicalOrKeys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(bracketedRootKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(fullyBracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalAndValues);
+  assertObjectValuesIteration(logicalOrValues);
+  assertObjectValuesIteration(globalValues);
+  assertObjectValuesIteration(bracketedRootValues);
+  assertObjectValuesIteration(mixedValues);
+  assertObjectValuesIteration(bracketedValues);
+  assertObjectValuesIteration(fullyBracketedValues);
+  assertObjectValuesIteration(singleBracketedValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(bracketedRootEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(fullyBracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+}
+"""
+
+[[case]]
+name = "build_emits_string_primitive_object_enumeration_semantics"
+rationale = """Migrated from browser_object_string_enumeration_bundle.rs, the four `build_emits_string_primitive_object_enumeration_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_object_string_enumeration` writes the plain string-enumeration fixture and runs `kali build --bundle --api browser`. The program iterates Object.keys, Object.values and Object.entries over the string primitive 'ab' through ten root spellings each -- dotted, bracketed, single-quoted, and `Object.freeze`d nullish/logical-and/logical-or wrappers -- and checks all thirty collected arrays. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:216), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_string_enumeration_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_string_primitive_object_enumeration_semantics"
+rationale = """Migrated from browser_object_string_enumeration_bundle.rs, the four `json_build_emits_string_primitive_object_enumeration_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_object_string_enumeration` writes the plain string-enumeration fixture and runs `kali build --bundle --api browser` with `--output json`. The program iterates Object.keys, Object.values and Object.entries over the string primitive 'ab' through ten root spellings each -- dotted, bracketed, single-quoted, and `Object.freeze`d nullish/logical-and/logical-or wrappers -- and checks all thirty collected arrays. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:216), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. This sibling issues the `--output json` argv; the source asserts nothing at all about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_string_enumeration_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "build_emits_for_await_string_primitive_object_enumeration_semantics"
+rationale = """Migrated from browser_object_string_enumeration_bundle.rs, the four `build_emits_for_await_string_primitive_object_enumeration_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_object_string_enumeration_await` writes the await string-enumeration fixture and runs `kali build --bundle --api browser`. The program does the same thirty enumerations with `for await` loops inside an exported async function. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:466), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_string_enumeration_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "app_await.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_for_await_string_primitive_object_enumeration_semantics"
+rationale = """Migrated from browser_object_string_enumeration_bundle.rs, the four `json_build_emits_for_await_string_primitive_object_enumeration_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_object_string_enumeration_await` writes the await string-enumeration fixture and runs `kali build --bundle --api browser` with `--output json`. The program does the same thirty enumerations with `for await` loops inside an exported async function. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:466), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. This sibling issues the `--output json` argv; the source asserts nothing at all about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_string_enumeration_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_await.${ext}"]
+exit = "failure"

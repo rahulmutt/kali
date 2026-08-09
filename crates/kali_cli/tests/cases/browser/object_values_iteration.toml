@@ -1,0 +1,265 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'app_direct.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_direct.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_direct.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_direct.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# Migrated from tests/browser_object_values_iteration.rs.
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale` that its producing helper reaches, not
+# just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_values_iteration.rs returns 4 Rust comment line(s)
+# in 2 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Both blocks are the same fail-closed re-pin note and they sit in the file's two assert
+# helpers, `assert_browser_bundle_direct_object_values_iteration` and
+# `assert_browser_bundle_global_object_values_iteration`, which between them produce
+# every `[[case]]` below -- so U6's bottom-up attribution puts the text in every
+# rationale. That is not the over-attribution U6 forbids; here the two helpers partition
+# the file and carry identical prose.
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+# The 2 blocks are 1 distinct text(s) repeated; the
+# rationale below carries each distinct text once. `comment_coverage.py` checks each
+# comment LINE's text for membership in each rationale, so one copy discharges every
+# repetition, and N identical copies would be noise rather than coverage.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 6 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_global_object_values_iteration` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), reached through four `#[test]` fns -- a js one and a ts/jsx/tsx loop, in each output mode
+#   * `assert_browser_bundle_direct_object_values_iteration` -- 8 invocation(s) = the same eight cells, reached through two `#[test]` fns that each loop all four extensions
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to either 2 source `#[test]` fns (a js one plus a ts/jsx/tsx loop) for the globalThis-rooted program, or one looping fn for the direct one; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`, `app_direct.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `app.<ext>` -> `app_direct.${ext}` -- the direct-literal program, which the source writes to the same `app.<ext>` name in a different test
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_direct_object_values_iteration_source`,
+#   `browser_bundle_global_object_values_iteration_source`,
+#   `assert_browser_bundle_direct_object_values_iteration`,
+#   `assert_browser_bundle_global_object_values_iteration` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step -- the build never succeeds, so the
+# source never gets as far as writing one -- and its call chain therefore never reaches
+# `kali_runtime_contract`'s harness helpers. Ruling 6's exemption is not stated because
+# it has nothing to exempt here.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * build: `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#            pair is appended AFTER the subcommand and its flags.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# Both helpers assert the process fails -- `assert!(!output.status.success()` (:153) in one and
+# `assert!(!output.status.success()` (:185) in the other, each cited from the case it actually
+# produces -- and both make ONE further claim, which is OR-SHAPED.
+#
+# RULE 11 -- THE SOURCE MAKES AN OR-SHAPED CLAIM, AND IT WAS RESOLVED AGAINST THE REAL
+# BINARY RATHER THAN REPRODUCED OR DROPPED. The case format has no disjunction.
+#   `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\nstderr: {stderr}")`
+#   -- whose cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:157).
+# Every cell was run against the real built `kali`, and the carrying STREAM is
+# unambiguous in each output mode:
+#   * text mode -> stderr
+#   * `--output json` -> stdout
+# The generator refuses to emit if a cell shows the needle on both streams or neither,
+# or if the cells disagree -- a disjunction that does not resolve to exactly one stream
+# is not narrowable.
+# This is a PRESENCE claim, so narrowing it is a verified strengthening (every run
+# satisfying the new assertion satisfies the old); rule 2's asymmetry forbids the same
+# narrowing for an ABSENCE claim, and none is made here. The source's full disjunction
+# sentence is carried into every affected rationale, so the narrowing is recorded rather
+# than silent.
+# The json cases assert the code as a plain substring rather than as `json.errors.0.code`:
+# the source spells it as a substring search over raw stdout, and mirroring the source is
+# ruling 3.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserGlobalObjectValuesIteration
+function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+    throw new Error('unexpected Object.values iteration semantics');
+  }
+}
+
+function browserGlobalObjectValuesIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const seen = [];
+  for (const value of globalThis.Object.values(alias)) {
+    seen.push(value);
+  }
+  const mixed = [];
+  for (const value of globalThis.Object["values"](alias)) {
+    mixed.push(value);
+  }
+  const mixedBracketed = [];
+  for (const value of globalThis["Object"].values(alias)) {
+    mixedBracketed.push(value);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const value of globalThis["Object"]['values'](alias)) {
+    doubleQuotedSingleQuoted.push(value);
+  }
+  const bracketed = [];
+  for (const value of globalThis["Object"]["values"](alias)) {
+    bracketed.push(value);
+  }
+  const parenthesizedReceiverBracketed = [];
+  for (const value of Object.freeze((globalThis["Object"])["values"])(alias)) {
+    parenthesizedReceiverBracketed.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const value of Object.freeze((globalThis['Object'])["values"])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const value of Object.freeze((globalThis['Object']).values)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(value);
+  }
+  const parenthesizedBracketed = [];
+  for (const value of Object.freeze((globalThis["Object"]).values)(alias)) {
+    parenthesizedBracketed.push(value);
+  }
+  const frozenBracketRootValues = Object.freeze((globalThis["Object"]))["values"](alias);
+  assertObjectValuesIteration(seen);
+  assertObjectValuesIteration(frozenBracketRootValues);
+  assertObjectValuesIteration(mixed);
+  assertObjectValuesIteration(mixedBracketed);
+  assertObjectValuesIteration(doubleQuotedSingleQuoted);
+  assertObjectValuesIteration(bracketed);
+  assertObjectValuesIteration(parenthesizedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
+  assertObjectValuesIteration(parenthesizedBracketed);
+}
+"""
+"app_direct.${ext}" = """// kali-tree-shake: browserDirectObjectValuesIteration
+function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+    throw new Error('unexpected Object.values iteration semantics');
+  }
+}
+
+function browserDirectObjectValuesIteration() {
+  const seen = [];
+  for (const value of Object.values({ "b": 1, "a": 2 })) {
+    seen.push(value);
+  }
+  const mixed = [];
+  for (const value of globalThis.Object["values"]({ "b": 1, "a": 2 })) {
+    mixed.push(value);
+  }
+  const mixedBracketed = [];
+  for (const value of globalThis["Object"].values({ "b": 1, "a": 2 })) {
+    mixedBracketed.push(value);
+  }
+  const singleQuotedProperty = [];
+  for (const value of globalThis['Object'].values({ "b": 1, "a": 2 })) {
+    singleQuotedProperty.push(value);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const value of globalThis["Object"]['values']({ "b": 1, "a": 2 })) {
+    doubleQuotedSingleQuoted.push(value);
+  }
+  const mixedSingleQuotedBracketed = [];
+  for (const value of globalThis['Object']["values"]({ "b": 1, "a": 2 })) {
+    mixedSingleQuotedBracketed.push(value);
+  }
+  const mixedSingleQuoted = [];
+  for (const value of globalThis['Object']['values']({ "b": 1, "a": 2 })) {
+    mixedSingleQuoted.push(value);
+  }
+  const bracketed = [];
+  for (const value of globalThis["Object"]["values"]({ "b": 1, "a": 2 })) {
+    bracketed.push(value);
+  }
+  const frozenBracketRootValues = Object.freeze((globalThis["Object"]))["values"]({ "b": 1, "a": 2 });
+  const frozenSingleQuotedReceiverBracketedValues = Object.freeze((globalThis['Object'])["values"])({ "b": 1, "a": 2 });
+  const frozenSingleQuotedReceiverPropertyValues = Object.freeze((globalThis['Object']).values)({ "b": 1, "a": 2 });
+  assertObjectValuesIteration(seen);
+  assertObjectValuesIteration(frozenBracketRootValues);
+  assertObjectValuesIteration(frozenSingleQuotedReceiverBracketedValues);
+  assertObjectValuesIteration(frozenSingleQuotedReceiverPropertyValues);
+  assertObjectValuesIteration(singleQuotedProperty);
+  assertObjectValuesIteration(mixed);
+  assertObjectValuesIteration(mixedBracketed);
+  assertObjectValuesIteration(doubleQuotedSingleQuoted);
+  assertObjectValuesIteration(mixedSingleQuotedBracketed);
+  assertObjectValuesIteration(mixedSingleQuoted);
+  assertObjectValuesIteration(bracketed);
+}
+"""
+
+[[case]]
+name = "build_emits_global_object_values_iteration"
+rationale = """Migrated from browser_object_values_iteration.rs, the two fns `build_emits_global_object_values_iteration_semantics_in_js_input` and `build_emits_global_object_values_iteration_semantics_in_ts_jsx_tsx_input` (a js one and a ts/jsx/tsx loop, which between them cover this matrix's four cells). `assert_browser_bundle_global_object_values_iteration` writes the fixture and runs `kali build --bundle --api browser`. The program iterates Object.values through ten `globalThis`-rooted spellings -- dotted, mixed, bracketed, single-quoted and frozen parenthesized-receiver -- and checks every collected array. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:185) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:189). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_values_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_global_object_values_iteration"
+rationale = """Migrated from browser_object_values_iteration.rs, the two fns `json_build_emits_global_object_values_iteration_semantics_in_js_input` and `json_build_emits_global_object_values_iteration_semantics_in_ts_jsx_tsx_input` (a js one and a ts/jsx/tsx loop, which between them cover this matrix's four cells). `assert_browser_bundle_global_object_values_iteration` writes the fixture and runs `kali build --bundle --api browser` with `--output json`. The program iterates Object.values through ten `globalThis`-rooted spellings -- dotted, mixed, bracketed, single-quoted and frozen parenthesized-receiver -- and checks every collected array. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:185) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:189). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_values_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "failure"
+stdout_contains = ["E5506"]
+
+[[case]]
+name = "build_emits_direct_object_values_iteration"
+rationale = """Migrated from browser_object_values_iteration.rs, the fn `build_emits_direct_object_values_iteration_semantics_in_js_ts_jsx_tsx_input`, which loops all four extensions. `assert_browser_bundle_direct_object_values_iteration` writes the fixture and runs `kali build --bundle --api browser`. The program iterates Object.values over object literals passed directly, through eleven root spellings including three frozen parenthesized-receiver forms. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:153) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:157). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_values_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "app_direct.${ext}"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_direct_object_values_iteration"
+rationale = """Migrated from browser_object_values_iteration.rs, the fn `json_build_emits_direct_object_values_iteration_semantics_in_js_ts_jsx_tsx_input`, which loops all four extensions. `assert_browser_bundle_direct_object_values_iteration` writes the fixture and runs `kali build --bundle --api browser` with `--output json`. The program iterates Object.values over object literals passed directly, through eleven root spellings including three frozen parenthesized-receiver forms. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:153) and that the diagnostic code E5506 appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("E5506") || stdout.contains("E5506"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("E5506") || stdout.contains("E5506")` (:157). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. RULE 12 -- the Rust comment prose of browser_object_values_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_direct.${ext}"]
+exit = "failure"
+stdout_contains = ["E5506"]

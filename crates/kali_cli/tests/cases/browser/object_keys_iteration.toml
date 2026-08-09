@@ -1,0 +1,564 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'object_keys_iteration.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_keys_iteration.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_keys_iteration.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_keys_iteration.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'direct_object_keys_iteration.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'direct_object_keys_iteration.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'direct_object_keys_iteration.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'direct_object_keys_iteration.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'global_object_keys_iteration.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'global_object_keys_iteration.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'global_object_keys_iteration.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'global_object_keys_iteration.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'await_wrapped_static_object_helpers.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'await_wrapped_static_object_helpers.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'await_wrapped_static_object_helpers.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'await_wrapped_static_object_helpers.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'const_bound_object_keys_iteration.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'const_bound_object_keys_iteration.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'const_bound_object_keys_iteration.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'const_bound_object_keys_iteration.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_values_iteration.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_values_iteration.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_values_iteration.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_values_iteration.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_keys_break_continue_iteration.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_keys_break_continue_iteration.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_keys_break_continue_iteration.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'object_keys_break_continue_iteration.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: '' -- the EXACT-EMPTINESS claim mirrored from the source's own `(&output.stdout).is_empty()` on the break/continue harness. `check_extra_claims.py` accepts an extra claim that appears verbatim in the `.rs`, but guards that arm with `e and ...`, so the empty string can never take it and must be declared instead. Its sibling object_keys_integer_like_iteration.toml needs no such declaration only because THAT source also spells `assert_eq!(json["stderr"], "")`, which puts the empty string among the audit's extracted claims; this source makes no stderr claim at all
+# Migrated from tests/browser_object_keys_iteration.rs.
+#
+# U10 -- THIS SOURCE IS A `#[path]` SUBMODULE CARRIER, AND ITS INVENTORY IS THE WHOLE
+# POINT OF THE RULE. The carrier declares two submodules
+# (`#[path = "browser_object_keys_iteration/build.rs"]` (:322) and its `build_json.rs` sibling) and has ZERO top-level `#[test]` fns, so
+# `grep -c '#[test]'` on the carrier returns 0 and silently drops every test in the
+# target. Inventory, re-derived by this generator on every run from
+# `audit-case-migration.py`'s own `resolve_path_mods` rather than by a second
+# implementation of the same predicate:
+#   * browser_object_keys_iteration.rs             0 `#[test]` fns
+#   * browser_object_keys_iteration/build.rs       15 `#[test]` fns
+#   * browser_object_keys_iteration/build_json.rs  10 `#[test]` fns
+# The generator RAISES if any of those three counts moves, and the invocation arithmetic
+# below closes against their total. Carrier and directory are deleted
+# together, by the family-wide deletion after batch 8 -- not by this batch.
+#
+# WHY ONE CASE FILE AND NOT TWO, ONE PER SUBMODULE. Batch 6B split its carrier into two
+# case files, so the question was derived here rather than inherited. U2 forces a split
+# when two groups of tests need DIFFERENT file-wide `[source]` tables -- specifically
+# when a fixture is written conditionally, or when a case's whole point is the PRESENCE
+# or ABSENCE of a file (6B's `kali.json` manifest: merging would have made it
+# unconditionally present and silently stopped 78 cases from discriminating). Neither
+# condition holds here, and all three were checked rather than assumed:
+#   * NO CONDITIONAL WRITE. Every fixture write in the carrier and in both submodules is
+#     unconditional within its test; the generator finds no `if` guarding one.
+#   * NO PRESENCE/ABSENCE CASE. Every `[source]` entry is a PROGRAM, named explicitly on
+#     argv by the case that uses it. There is no manifest, config, lockfile or sibling
+#     module anywhere in this target -- nothing whose mere presence changes another
+#     case's behaviour.
+#   * MEASURED, not argued: every one of the 7 programs was built by the real `kali` in
+#     both output modes and all four extensions, alone in a directory and again with all
+#     28 renamed fixtures co-resident, comparing exit code, stdout, stderr AND the
+#     emitted bundle directory listing. 56 cells, 0 differences. The comparison was
+#     proved able to report one by a negative control (the same diff with a different
+#     entry filename), which does report a difference.
+# So the two submodules can share one `[source]` table, and splitting would buy nothing
+# while costing the joint audit its single-file left-hand side. One `.toml` is not a
+# goal in itself; here it is simply the correct split.
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale` that its producing helper reaches, not
+# just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_keys_iteration.rs and its `#[path]` submodules returns 20 Rust comment line(s)
+# in 10 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Every block is the same fail-closed re-pin note, and it sits in the three carrier
+# assert helpers and in every `#[test]` fn that inlines its own `Command` and expects
+# failure. It does NOT reach the break/continue tests, which carry no comment at all, so
+# it is carried into the fail-closed rationales only -- see the U6 paragraph below,
+# whose reach figures are counted from the emitted rationales.
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+# The 10 blocks are 1 distinct text(s) repeated; the
+# rationale below carries each distinct text once. `comment_coverage.py` checks each
+# comment LINE's text for membership in each rationale, so one copy discharges every
+# repetition, and N identical copies would be noise rather than coverage.
+#
+# U6 -- PROSE ATTRIBUTION IS PARTIAL HERE, AND `comment_coverage.py` GOES RED FOR IT.
+# This source's comment blocks do NOT all sit in one universal helper, so each block is
+# carried only into the rationales of the cases its producing helper actually reaches.
+# The figure below is COUNTED from the emitted rationales rather than asserted about
+# them, and it is deliberately the count `comment_coverage.py` itself would take --
+# "rationales whose text CONTAINS this block", not "cases this helper produced". Where
+# one block's text is a prefix of another's (which is the case here -- the shorter note
+# opens the longer one), a rationale carrying the longer block also contains the shorter,
+# so the two counts legitimately differ and the measured one is the one that predicts the
+# gate:
+#   * the three carrier assert helpers and the fail-closed `#[test]` fns that inline
+# their own `Command` -> present in 11 of the 13 rationales: "Honest re-pin (PR #16
+# rev2): kali fails closed/loud here; see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# `comment_coverage.py` requires every comment LINE to appear in EVERY case's rationale,
+# so it reports a non-empty MISSING set here and exits 1. (It reports it per LINE, and
+# these blocks share lines, so the count it prints per line is not the complement of any
+# one block's reach.) That red is expected and is NOT suppressed: U6 forbids copying a
+# block into cases its producing helper does not reach even though doing so would turn
+# the checker green, and requires the checker's false `missing` to be documented in the
+# header instead. This is that documentation.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 25 `#[test]` fns, 52 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_object_keys_iteration` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), eight unlooped `#[test]` fns split four-and-four across the two submodules
+#   * `assert_browser_bundle_direct_object_keys_iteration` -- 8 invocation(s) = the same eight-fn shape for the direct-literal program
+#   * `assert_browser_bundle_await_wrapped_static_object_helpers` -- 8 invocation(s) = one `#[test]` fn looping ext(4) x json_output(2)
+#   * `browser_bundle_const_bound_object_keys_iteration_source` -- 8 invocation(s) = one `#[test]` fn, inlining its own `Command`, looping ext(4) x json_output(2)
+#   * `browser_bundle_global_object_keys_iteration_source` -- 8 invocation(s) = four `#[test]` fns inlining their own `Command` -- a js one and a ts/jsx/tsx loop, in each submodule
+#   * `browser_bundle_object_values_iteration_source` -- 4 invocation(s) = two `#[test]` fns in build.rs inlining their own `Command` -- a js one and a ts/jsx/tsx loop -- and NO json counterpart, which is the one program this source never builds with `--output json`
+#   * `browser_bundle_object_keys_break_continue_iteration_source` -- 8 invocation(s) = one `#[test]` fn, inlining its own `Command`, looping ext(4) x json_output(2) -- the only one whose build SUCCEEDS
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 13 `[[case]]` entries x ext(4) = 52 trials = 52 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+# What makes the file-wide axis safe is that every one of the seven programs covers all
+# four extensions uniformly, in each output mode it is exercised in at all -- so no case
+# is fanned into a combination the source never ran (rule 2).
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to between one and four source `#[test]` fns -- four unlooped ones for the two eight-fn programs, two (a js fn plus a ts/jsx/tsx loop) for the global-root and object-values programs, and one looping fn for the rest; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`await_wrapped_static_object_helpers.${ext}`, `const_bound_object_keys_iteration.${ext}`, `direct_object_keys_iteration.${ext}`, `global_object_keys_iteration.${ext}`, `object_keys_break_continue_iteration.${ext}`, `object_keys_iteration.${ext}`, `object_values_iteration.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes seven different program texts to the one filename `app.<ext>` in different tests, so
+# the keys are variant-suffixed:
+#   * `app.<ext>` -> `object_keys_iteration.${ext}` -- the object keys iteration program
+#   * `app.<ext>` -> `direct_object_keys_iteration.${ext}` -- the direct object keys iteration program
+#   * `app.<ext>` -> `global_object_keys_iteration.${ext}` -- the global object keys iteration program
+#   * `app.<ext>` -> `await_wrapped_static_object_helpers.${ext}` -- the await wrapped static object helpers program
+#   * `app.<ext>` -> `const_bound_object_keys_iteration.${ext}` -- the const bound object keys iteration program
+#   * `app.<ext>` -> `object_values_iteration.${ext}` -- the object values iteration program
+#   * `app.<ext>` -> `object_keys_break_continue_iteration.${ext}` -- the object keys break continue iteration program
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+# The rename reaches further than argv for the break/continue case: `kali build --bundle`
+# names its output directory after the input STEM, so that case's `file_json` path and
+# its `browser_bundle_harness` entry are object_keys_break_continue_iteration rather than the source's `app`, as
+# U5 requires. That was verified against the real binary, not assumed.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_object_keys_iteration_source`,
+#   `browser_bundle_direct_object_keys_iteration_source`,
+#   `browser_bundle_global_object_keys_iteration_source`,
+#   `browser_bundle_await_wrapped_static_object_helpers_source`,
+#   `browser_bundle_const_bound_object_keys_iteration_source`,
+#   `browser_bundle_object_values_iteration_source`,
+#   `browser_bundle_object_keys_break_continue_iteration_source`,
+#   `assert_browser_bundle_object_keys_iteration`,
+#   `assert_browser_bundle_direct_object_keys_iteration`,
+#   `assert_browser_bundle_await_wrapped_static_object_helpers` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * build: `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#            pair is appended AFTER the subcommand and its flags.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# THE `browser_bundle_harness` STEP is the migrated form of the source's own harness run.
+# The source writes `kali_runtime_contract::browser_bundle_harness_script("app", false,
+# <body>)` next to the emitted bundle directory and executes it under
+# `browser_harness_command_parts_for`; the case runner does exactly that from the step's
+# `entry` and `body` (crates/kali_case_runner/src/steps.rs). The prelude resolves the
+# bundle relative to the harness script's own URL rather than to the process working
+# directory, so the runner's cwd (the trial root) and the source's cwd (the bundle dir)
+# produce the same resolution -- which is why every previously shipped `browser/` bundle
+# case file spells it this way.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# 11 of the 13 cases assert nothing but process failure (e.g. `assert!(!output.status.success()` (:244), and each rationale below cites the helper or `#[test]` fn that makes ITS own assert): no stdout,
+# stderr, exit-code or JSON claim is made anywhere in the carrier's three assert helpers
+# or in the fail-closed `#[test]` fns that inline their own `Command`, in either output
+# mode. The
+# `--output json` siblings therefore assert nothing their text siblings do not; they are
+# still their own `[[case]]` entries because the source has its own `#[test]` fns for
+# them (rule 6) and because their argv genuinely differs.
+#
+# THE BREAK/CONTINUE PAIR IS THE EXCEPTION, and it is the only case in this file that
+# asserts anything positive:
+#   * the build SUCCEEDS `output.status.success(),` (build.rs:212), and in json mode pins the envelope's
+#     schemaVersion/command/success/exitCode `assert_eq!(envelope["exitCode"], 0)` (build.rs:224) plus an empty `errors` array
+#     `assert!(envelope["errors"]` (build.rs:225);
+#   * the emitted metadata's apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (build.rs:236), asserted in BOTH modes
+#     because the source reads that file outside the `if json_output` block;
+#   * the browser-bundle harness succeeds `output.status.success(),` (build.rs:266) and prints nothing at all
+#     `(&output.stdout).is_empty()` (build.rs:272) -- an EXACT emptiness claim, carried as the exact `stdout = ""` key
+#     per ruling 3's mirror-the-source direction for an already-exact assertion.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"object_keys_iteration.${ext}" = """// kali-tree-shake: browserObjectKeysIteration
+function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserObjectKeysIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of Object.keys(alias)) {
+    keys.push(key);
+  }
+  const mixedBracketed = [];
+  for (const key of globalThis["Object"].keys(alias)) {
+    mixedBracketed.push(key);
+  }
+  const singleQuotedProperty = [];
+  for (const key of globalThis['Object'].keys(alias)) {
+    singleQuotedProperty.push(key);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const key of globalThis["Object"]['keys'](alias)) {
+    doubleQuotedSingleQuoted.push(key);
+  }
+  const mixedSingleQuoted = [];
+  for (const key of globalThis['Object']["keys"](alias)) {
+    mixedSingleQuoted.push(key);
+  }
+  const parenthesizedReceiverBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"])["keys"])(alias)) {
+    parenthesizedReceiverBracketed.push(key);
+  }
+  const frozenSingleQuotedReceiverBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(alias);
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const key of Object.freeze((globalThis['Object'])["keys"])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(key);
+  }
+  const parenthesizedBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
+    parenthesizedBracketed.push(key);
+  }
+  assertObjectKeysIteration(mixedBracketed);
+  assertObjectKeysIteration(singleQuotedProperty);
+  assertObjectKeysIteration(doubleQuotedSingleQuoted);
+  assertObjectKeysIteration(mixedSingleQuoted);
+  assertObjectKeysIteration(parenthesizedReceiverBracketed);
+  assertObjectKeysIteration(frozenSingleQuotedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
+  assertObjectKeysIteration(parenthesizedBracketed);
+  assertObjectKeysIteration(keys);
+}
+"""
+"direct_object_keys_iteration.${ext}" = """// kali-tree-shake: browserDirectObjectKeysIteration
+function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserDirectObjectKeysIteration() {
+  const keys = [];
+  for (const key of Object.keys({ "b": 1, "a": 2 })) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+}
+"""
+"global_object_keys_iteration.${ext}" = """// kali-tree-shake: browserGlobalObjectKeysIteration
+function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserGlobalObjectKeysIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of globalThis.Object.keys(alias)) {
+    keys.push(key);
+  }
+  const mixed = [];
+  for (const key of globalThis.Object["keys"](alias)) {
+    mixed.push(key);
+  }
+  const mixedBracketed = [];
+  for (const key of globalThis["Object"].keys(alias)) {
+    mixedBracketed.push(key);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const key of globalThis["Object"]['keys'](alias)) {
+    doubleQuotedSingleQuoted.push(key);
+  }
+  const bracketed = [];
+  for (const key of globalThis["Object"]["keys"](alias)) {
+    bracketed.push(key);
+  }
+  const mixedSingleQuoted = [];
+  for (const key of globalThis['Object']["keys"](alias)) {
+    mixedSingleQuoted.push(key);
+  }
+  const mixedSingleQuotedBracketed = [];
+  for (const key of globalThis['Object']['keys'](alias)) {
+    mixedSingleQuotedBracketed.push(key);
+  }
+  const parenthesizedReceiverBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"])["keys"])(alias)) {
+    parenthesizedReceiverBracketed.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const key of Object.freeze((globalThis['Object'])["keys"])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(key);
+  }
+  const parenthesizedBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
+    parenthesizedBracketed.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(mixed);
+  assertObjectKeysIteration(mixedBracketed);
+  assertObjectKeysIteration(doubleQuotedSingleQuoted);
+  assertObjectKeysIteration(bracketed);
+  assertObjectKeysIteration(mixedSingleQuoted);
+  assertObjectKeysIteration(mixedSingleQuotedBracketed);
+  assertObjectKeysIteration(parenthesizedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
+  assertObjectKeysIteration(parenthesizedBracketed);
+}
+"""
+"await_wrapped_static_object_helpers.${ext}" = """// kali-tree-shake: browserAwaitWrappedStaticObjectHelpers
+async function browserAwaitWrappedStaticObjectHelpers() {
+  if (!Object.hasOwn((0, { "a": 1 }), 'a')) {
+    throw new Error('unexpected sequence-wrapped Object.hasOwn semantics');
+  }
+  const keys = Object.keys(await { "b": 1, "a": 2 });
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected await-wrapped Object.keys iteration semantics');
+  }
+  const sequencedKeys = Object.keys((0, { "b": 1, "a": 2 }));
+  if (sequencedKeys.length !== 2 || sequencedKeys[0] !== 'b' || sequencedKeys[1] !== 'a') {
+    throw new Error('unexpected sequence-wrapped Object.keys iteration semantics');
+  }
+  const ownKeys = Reflect.ownKeys(await Object.freeze({ "b": 1, "a": 2 }));
+  if (ownKeys.length !== 2 || ownKeys[0] !== 'b' || ownKeys[1] !== 'a') {
+    throw new Error('unexpected await-wrapped Reflect.ownKeys iteration semantics');
+  }
+  const sequencedOwnKeys = Reflect.ownKeys((0, Object.freeze({ "b": 1, "a": 2 })));
+  if (sequencedOwnKeys.length !== 2 || sequencedOwnKeys[0] !== 'b' || sequencedOwnKeys[1] !== 'a') {
+    throw new Error('unexpected sequence-wrapped Reflect.ownKeys iteration semantics');
+  }
+  console.log('browser await-wrapped static object helpers ok');
+}
+"""
+"const_bound_object_keys_iteration.${ext}" = """// kali-tree-shake: browserConstBoundObjectKeysIteration
+function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserConstBoundObjectKeysIteration() {
+  const values = { "b": 1, "a": 2 };
+  const keys = [];
+  for (const key of Object.keys(values)) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+}
+"""
+"object_values_iteration.${ext}" = """// kali-tree-shake: browserObjectValuesIteration
+function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+    throw new Error('unexpected Object.values iteration semantics');
+  }
+}
+
+function browserObjectValuesIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const seen = [];
+  for (const value of Object.values(alias)) {
+    seen.push(value);
+  }
+  assertObjectValuesIteration(seen);
+}
+"""
+"object_keys_break_continue_iteration.${ext}" = """// kali-tree-shake: browserObjectKeysBreakContinueIteration
+function browserObjectKeysBreakContinueIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of Object.keys(alias)) {
+    if (key === 'b') {
+      continue;
+    }
+    keys.push(key);
+    break;
+  }
+  if (keys.length !== 1 || keys[0] !== 'a') {
+    throw new Error('unexpected Object.keys break/continue iteration semantics');
+  }
+}
+"""
+
+[[case]]
+name = "build_emits_object_keys_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `build_emits_object_keys_iteration_semantics_in_js_input`, `build_emits_object_keys_iteration_semantics_in_ts_input`, `build_emits_object_keys_iteration_semantics_in_jsx_input`, `build_emits_object_keys_iteration_semantics_in_tsx_input` fn(s). The case writes the object keys iteration program to object_keys_iteration.<ext> and runs `kali build --bundle --api browser`. The program iterates Object.keys over a two-key object through nine bracketed, single-quoted, mixed and frozen parenthesized-receiver root spellings and checks every collected array against the insertion order. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:244), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "object_keys_iteration.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_object_keys_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `json_build_emits_object_keys_iteration_semantics_in_js_input`, `json_build_emits_object_keys_iteration_semantics_in_ts_input`, `json_build_emits_object_keys_iteration_semantics_in_jsx_input`, `json_build_emits_object_keys_iteration_semantics_in_tsx_input` fn(s). The case writes the object keys iteration program to object_keys_iteration.<ext> and runs `kali build --bundle --api browser` with `--output json`. The program iterates Object.keys over a two-key object through nine bracketed, single-quoted, mixed and frozen parenthesized-receiver root spellings and checks every collected array against the insertion order. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:244), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. This sibling issues the `--output json` argv; the source asserts nothing at all about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "object_keys_iteration.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "build_emits_direct_object_keys_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `build_emits_direct_object_keys_iteration_semantics_in_js_input`, `build_emits_direct_object_keys_iteration_semantics_in_ts_input`, `build_emits_direct_object_keys_iteration_semantics_in_jsx_input`, `build_emits_direct_object_keys_iteration_semantics_in_tsx_input` fn(s). The case writes the direct object keys iteration program to direct_object_keys_iteration.<ext> and runs `kali build --bundle --api browser`. The program iterates Object.keys over an object literal passed directly, with no intervening binding. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:270), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "direct_object_keys_iteration.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_direct_object_keys_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `json_build_emits_direct_object_keys_iteration_semantics_in_js_input`, `json_build_emits_direct_object_keys_iteration_semantics_in_ts_input`, `json_build_emits_direct_object_keys_iteration_semantics_in_jsx_input`, `json_build_emits_direct_object_keys_iteration_semantics_in_tsx_input` fn(s). The case writes the direct object keys iteration program to direct_object_keys_iteration.<ext> and runs `kali build --bundle --api browser` with `--output json`. The program iterates Object.keys over an object literal passed directly, with no intervening binding. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:270), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. This sibling issues the `--output json` argv; the source asserts nothing at all about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "direct_object_keys_iteration.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "build_emits_global_object_keys_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `build_emits_global_object_keys_iteration_semantics_in_js_input`, `build_emits_global_object_keys_iteration_semantics_in_ts_jsx_tsx_input` fn(s). The case writes the global object keys iteration program to global_object_keys_iteration.<ext> and runs `kali build --bundle --api browser`. The program iterates Object.keys through eleven `globalThis`-rooted spellings -- dotted, mixed, fully bracketed, single-quoted and frozen parenthesized-receiver. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (build.rs:105) and `assert!(!output.status.success()` (build.rs:131), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "global_object_keys_iteration.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_global_object_keys_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `json_build_emits_global_object_keys_iteration_semantics_in_js_input`, `json_build_emits_global_object_keys_iteration_semantics_in_ts_jsx_tsx_input` fn(s). The case writes the global object keys iteration program to global_object_keys_iteration.<ext> and runs `kali build --bundle --api browser` with `--output json`. The program iterates Object.keys through eleven `globalThis`-rooted spellings -- dotted, mixed, fully bracketed, single-quoted and frozen parenthesized-receiver. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (build_json.rs:67) and `assert!(!output.status.success()` (build_json.rs:95), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. This sibling issues the `--output json` argv; the source asserts nothing at all about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "global_object_keys_iteration.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "build_emits_const_bound_object_keys_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `build_emits_const_bound_object_keys_iteration_semantics_in_js_ts_jsx_tsx_input` fn(s). The case writes the const bound object keys iteration program to const_bound_object_keys_iteration.<ext> and runs `kali build --bundle --api browser`. The program iterates Object.keys over a const-bound object literal. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (build.rs:49), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "const_bound_object_keys_iteration.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_const_bound_object_keys_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `--output json` half of the `build_emits_const_bound_object_keys_iteration_semantics_in_js_ts_jsx_tsx_input` loop (rule 5: its `for json_output in [false, true]` loop makes two independent invocations per extension, so it becomes two named siblings). The case writes the const bound object keys iteration program to const_bound_object_keys_iteration.<ext> and runs `kali build --bundle --api browser` with `--output json`. The program iterates Object.keys over a const-bound object literal. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (build.rs:49), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. This sibling issues the `--output json` argv; the source asserts nothing at all about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "const_bound_object_keys_iteration.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "build_emits_await_wrapped_static_object_helpers"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `build_emits_await_wrapped_static_object_helpers_in_js_ts_jsx_tsx_input` fn(s). The case writes the await wrapped static object helpers program to await_wrapped_static_object_helpers.<ext> and runs `kali build --bundle --api browser`. The program wraps the operands of Object.hasOwn, Object.keys and Reflect.ownKeys in await expressions and in comma-sequence expressions, and checks each result. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:296), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "await_wrapped_static_object_helpers.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_await_wrapped_static_object_helpers"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `--output json` half of the `build_emits_await_wrapped_static_object_helpers_in_js_ts_jsx_tsx_input` loop (rule 5: its `for json_output in [false, true]` loop makes two independent invocations per extension, so it becomes two named siblings). The case writes the await wrapped static object helpers program to await_wrapped_static_object_helpers.<ext> and runs `kali build --bundle --api browser` with `--output json`. The program wraps the operands of Object.hasOwn, Object.keys and Reflect.ownKeys in await expressions and in comma-sequence expressions, and checks each result. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:296), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. This sibling issues the `--output json` argv; the source asserts nothing at all about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "await_wrapped_static_object_helpers.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "build_emits_object_values_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodules, the `build_emits_object_values_iteration_semantics_in_js_input`, `build_emits_object_values_iteration_semantics_in_ts_jsx_tsx_input` fn(s). The case writes the object values iteration program to object_values_iteration.<ext> and runs `kali build --bundle --api browser`. The program iterates Object.values over a two-key object reached through an alias binding. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (build.rs:157) and `assert!(!output.status.success()` (build.rs:183), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_keys_iteration.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "object_values_iteration.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "build_emits_object_keys_break_continue_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodule build.rs, the text half of `build_emits_object_keys_break_continue_iteration_semantics_in_js_ts_jsx_tsx_input` -- rule 5: that fn's `for json_output in [false, true]` loop makes two independent invocations per extension, so it becomes two named siblings. The case writes the break/continue program to object_keys_break_continue_iteration.<ext>, builds it with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program iterates Object.keys over a two-key object, continues past the first key and breaks after pushing the second, and throws unless exactly the second key was collected. This is the one program in this target kali DOES support: the build succeeds `output.status.success(),` (build.rs:212), the metadata pins apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (build.rs:236), the harness succeeds `output.status.success(),` (build.rs:266), and the harness prints nothing at all `(&output.stdout).is_empty()` (build.rs:272) -- an exact emptiness claim, so it is carried as the exact `stdout = ""` key rather than as an absence needle. The `[source]` key and therefore the bundle directory are object_keys_break_continue_iteration rather than the source's `app` (U5): `kali build --bundle` names its output directory after the input stem, so the `file_json` path and the harness `entry` track the rename."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "object_keys_break_continue_iteration.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "object_keys_break_continue_iteration/object_keys_break_continue_iteration.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "object_keys_break_continue_iteration"
+body = """const mod = await import(bundleJs.href);
+await mod.browserObjectKeysBreakContinueIteration();
+"""
+exit = "success"
+stdout = ""
+
+[[case]]
+name = "json_build_emits_object_keys_break_continue_iteration"
+rationale = """Migrated from browser_object_keys_iteration.rs's `#[path]` submodule build.rs, the `--output json` half of `build_emits_object_keys_break_continue_iteration_semantics_in_js_ts_jsx_tsx_input` -- rule 5: that fn's `for json_output in [false, true]` loop makes two independent invocations per extension, so it becomes two named siblings. The case writes the break/continue program to object_keys_break_continue_iteration.<ext>, builds it with `kali build --bundle --api browser` with `--output json`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program iterates Object.keys over a two-key object, continues past the first key and breaks after pushing the second, and throws unless exactly the second key was collected. This is the one program in this target kali DOES support: the build succeeds `output.status.success(),` (build.rs:212), the metadata pins apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (build.rs:236), the harness succeeds `output.status.success(),` (build.rs:266), and the harness prints nothing at all `(&output.stdout).is_empty()` (build.rs:272) -- an exact emptiness claim, so it is carried as the exact `stdout = ""` key rather than as an absence needle. The `[source]` key and therefore the bundle directory are object_keys_break_continue_iteration rather than the source's `app` (U5): `kali build --bundle` names its output directory after the input stem, so the `file_json` path and the harness `entry` track the rename. This sibling additionally asserts the build JSON envelope -- schemaVersion/command/success/exitCode `assert_eq!(envelope["exitCode"], 0)` (build.rs:224) and an empty `errors` array `assert!(envelope["errors"]` (build.rs:225) -- rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "object_keys_break_continue_iteration.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "object_keys_break_continue_iteration/object_keys_break_continue_iteration.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "object_keys_break_continue_iteration"
+body = """const mod = await import(bundleJs.href);
+await mod.browserObjectKeysBreakContinueIteration();
+"""
+exit = "success"
+stdout = ""

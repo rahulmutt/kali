@@ -1,0 +1,612 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'main_global.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_global.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_global.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_global.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_spread.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_spread.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_spread.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_spread.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen_spread.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen_spread.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen_spread.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen_spread.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_global.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_global.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_global.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_global.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_spread.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_spread.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_spread.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_spread.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen_spread.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen_spread.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen_spread.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen_spread.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# Migrated from tests/browser_object_values_harness.rs.
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale` that its producing helper reaches, not
+# just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_values_harness.rs returns 17 Rust comment line(s)
+# in 4 contiguous block(s), of 3 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+#   * "Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (Uncaught Error / RuntimeError: unreachable), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (both the run and test variants of `*_object_values_spread_iteration_when_browser_harness_is_configured`) is red — no green out-of-batch caller exists in this test binary, so the helper itself is re-pinned rather than inlining each wrapper."
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Inlined (not routed through assert_browser_harness_object_values_spread): that helper also serves out-of-batch callers that are still green, so it is left untouched."
+# The blocks do NOT all sit in one universal helper: two live in the file's two assert
+# helpers and two more are inlined in the two frozen-spread `#[test]` fns that build
+# their own `Command`. Each is therefore carried only into the cases its producer
+# reaches -- see the U6 paragraph below.
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+# The 4 blocks are 3 distinct text(s) repeated; the
+# rationale below carries each distinct text once. `comment_coverage.py` checks each
+# comment LINE's text for membership in each rationale, so one copy discharges every
+# repetition, and N identical copies would be noise rather than coverage.
+#
+# U6 -- PROSE ATTRIBUTION IS PARTIAL HERE, AND `comment_coverage.py` GOES RED FOR IT.
+# This source's comment blocks do NOT all sit in one universal helper, so each block is
+# carried only into the rationales of the cases its producing helper actually reaches.
+# The figure below is COUNTED from the emitted rationales rather than asserted about
+# them, and it is deliberately the count `comment_coverage.py` itself would take --
+# "rationales whose text CONTAINS this block", not "cases this helper produced". Where
+# one block's text is a prefix of another's (which is the case here -- the shorter note
+# opens the longer one), a rationale carrying the longer block also contains the shorter,
+# so the two counts legitimately differ and the measured one is the one that predicts the
+# gate:
+#   * `assert_browser_harness_object_values` -> present in 12 of the 16 rationales:
+# "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md."
+#   * `assert_browser_harness_object_values_spread` -> present in 4 of the 16
+# rationales: "Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud
+# here (Uncaught Error / RuntimeError: unreachable), never a silent wrong value; see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller
+# of this helper in this file (both the run and test variants of
+# `*_object_values_spread_iteration_when_browser_harness_is_configured`) is red — no
+# green out-of-batch caller exists in this test binary, so the helper itself is
+# re-pinned rather than inlining each wrapper."
+#   * the two inlined frozen-spread `#[test]` fns -> present in 4 of the 16 rationales:
+# "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md. Inlined (not routed through
+# assert_browser_harness_object_values_spread): that helper also serves out-of-batch
+# callers that are still green, so it is left untouched."
+# `comment_coverage.py` requires every comment LINE to appear in EVERY case's rationale,
+# so it reports a non-empty MISSING set here and exits 1. (It reports it per LINE, and
+# these blocks share lines, so the count it prints per line is not the complement of any
+# one block's reach.) That red is expected and is NOT suppressed: U6 forbids copying a
+# block into cases its producing helper does not reach even though doing so would turn
+# the checker green, and requires the checker's false `missing` to be documented in the
+# header instead. This is that documentation.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 36 `#[test]` fns, 64 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_harness_object_values` -- 32 invocation(s) = program(object-values/global-object-values) x command(run/test) x ext(js/ts/jsx/tsx) x json_output(false/true) -- thirty-two unlooped `#[test]` fns, one per cell
+#   * `assert_browser_harness_object_values_spread` -- 16 invocation(s) = two `#[test]` fns, each looping ext(4) and calling the helper twice per extension (json_output false then true)
+#   * `the two inlined frozen-spread `#[test]` fns` -- 16 invocation(s) = each looping ext(4) x json_output(2) around its own `Command` builder rather than routing through the helper
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 16 `[[case]]` entries x ext(4) = 64 trials = 64 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own
+# note, and the reason here is not the usual one: this target asserts nothing but process
+# failure, so neither dimension changes what is asserted -- they change the argv and, for
+# `command`, the entry filename.
+# `command` selects a different `[source]` entry (`main.<ext>` for run, `smoke.test.<ext>`
+# for test), and a `[matrix]` axis substitutes ONE string uniformly across every case.
+# `json_output` appends an argv PAIR rather than substituting a value.
+# Each is written as sibling `[[case]]` entries instead, which is also what rule 6
+# requires: the source has its own `#[test]` fns for every combination.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to either 4 source `#[test]` fns (one per `ext` cell) for the thirty-two unlooped fns, or one quarter of a single looping fn's invocations for the four looped ones; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main.${ext}`, `main_frozen_spread.${ext}`, `main_global.${ext}`, `main_spread.${ext}`, `smoke.test.${ext}`, `smoke_frozen_spread.test.${ext}`, `smoke_global.test.${ext}`, `smoke_spread.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes eight different program texts to just two filenames in different tests, so
+# the keys are variant-suffixed:
+#   * `main.<ext>` -> `main_global.${ext}` -- the globalThis-rooted run program
+#   * `main.<ext>` -> `main_spread.${ext}` -- the spread-iteration run program
+#   * `main.<ext>` -> `main_frozen_spread.${ext}` -- the frozen spread-iteration run program
+#   * `smoke.test.<ext>` -> `smoke_global.test.${ext}` -- the globalThis-rooted test program
+#   * `smoke.test.<ext>` -> `smoke_spread.test.${ext}` -- the spread-iteration test program
+#   * `smoke.test.<ext>` -> `smoke_frozen_spread.test.${ext}` -- the frozen spread-iteration test program
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+# The `.test.` infix is preserved in every renamed test entry, because `kali test` selects
+# its entry by that name shape.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 8 / RULE 9 -- TWO OF THESE EIGHT PROGRAMS ARE NOT STRING LITERALS.
+# `    browser_harness_object_values_spread_source(test_mode).replace(` (:675) builds the frozen spread variants by a str::replace off the plain ones, and
+# the needle carries TWO LEADING SPACES. Hand-applying that substitution is exactly the
+# trap rule 8 exists to prevent, so both frozen texts are the BYTE-EXACT OUTPUT of
+# executing the real code (see `batch7b_captures.py` for the capture procedure). The
+# generator re-proves each capture against this source before emitting it: the plain
+# capture must be byte-identical to the literal the lexer extracts from the `.rs`, the
+# needle and replacement are read out of the `.rs` rather than restated, and applying
+# them to the plain capture must reproduce the frozen capture exactly.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_harness_object_values_run_source`,
+#   `browser_harness_object_values_test_source`,
+#   `browser_harness_global_object_values_run_source`,
+#   `browser_harness_global_object_values_test_source`,
+#   `browser_harness_object_values_spread_source`,
+#   `browser_harness_object_values_frozen_spread_source`,
+#   `assert_browser_harness_object_values`,
+#   `assert_browser_harness_object_values_spread` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step, so its call chain never reaches
+# `kali_runtime_contract`'s two harness helpers and ruling 6's exemption has nothing
+# to exempt here; it is not stated.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * run/test: `[--output json] <run|test> --api browser --max-threads 0
+#              --max-spawned-processes 0 <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand, and both thread flags are always passed.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+# The env value is `KALI_BROWSER_BUNDLE_HARNESS_COMMAND`, read from the
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` constant the source passes by
+# name `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:215) rather than assumed. The two inlined frozen-spread fns build the same
+# argv by hand, in the same order.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# Every one of the 16 cases asserts nothing but process failure, and the four
+# sites that spell it are cited from the cases they actually produce rather than pooled:
+#   * `assert!(!output.status.success()` (:234) -- the two unlooped programs;
+#   * `assert!(!output.status.success()` (:273) -- the spread programs;
+#   * `assert!(!output.status.success()` (:733) and `assert!(!output.status.success()` (:800) -- the two frozen-spread
+#     fns, which inline their own `Command`.
+# There is no stdout, stderr, exit-code or JSON claim anywhere in the file, in either
+# output mode, so the `--output json` siblings assert nothing the text siblings do not.
+#
+# MIGRATION NOTE (controller ruling 8): the source fn `run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_js_input` has a name that misdescribes its own body -- its name says "direct", but the fixture it passes is `browser_harness_global_object_values_run_source` -- the globalThis-ROOTED program, which reaches Object.values through `globalThis.Object` in ten spellings and is the opposite of a direct call. All sixteen `*_direct_object_values_iteration_*` fns in this source share the mistake. The source is NOT corrected: a fn name is not a comment so U7 does not literally apply, the `.rs` files are deleted wholesale after batch 8, and editing a source invalidates every audit run against its pre-trim blob. The discrepancy is recorded here so the case file preserves what the source actually did.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+    throw new Error('unexpected Object.values iteration semantics');
+  }
+}
+
+function browserObjectValuesIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const collected = [];
+  for (const value of Object.values(alias)) {
+    collected.push(value);
+  }
+  assertObjectValuesIteration(collected);
+  console.log('browser object values iteration ok');
+}
+
+browserObjectValuesIteration();
+"""
+"main_global.${ext}" = """function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+    throw new Error('unexpected Object.values iteration semantics');
+  }
+}
+
+function browserGlobalObjectValuesIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const collected = [];
+  for (const value of globalThis.Object.values(alias)) {
+    collected.push(value);
+  }
+  const mixed = [];
+  for (const value of globalThis.Object["values"](alias)) {
+    mixed.push(value);
+  }
+  const mixedBracketed = [];
+  for (const value of globalThis["Object"].values(alias)) {
+    mixedBracketed.push(value);
+  }
+  const singleQuotedProperty = [];
+  for (const value of globalThis['Object'].values(alias)) {
+    singleQuotedProperty.push(value);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const value of globalThis["Object"]['values'](alias)) {
+    doubleQuotedSingleQuoted.push(value);
+  }
+  const mixedSingleQuotedBracketed = [];
+  for (const value of globalThis['Object']["values"](alias)) {
+    mixedSingleQuotedBracketed.push(value);
+  }
+  const mixedSingleQuoted = [];
+  for (const value of globalThis['Object']['values'](alias)) {
+    mixedSingleQuoted.push(value);
+  }
+  const bracketed = [];
+  for (const value of globalThis["Object"]["values"](alias)) {
+    bracketed.push(value);
+  }
+  const parenthesizedReceiverBracketed = [];
+  for (const value of Object.freeze((globalThis["Object"])["values"])(alias)) {
+    parenthesizedReceiverBracketed.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const value of Object.freeze((globalThis['Object'])['values'])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const value of Object.freeze((globalThis['Object']).values)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(value);
+  }
+  const parenthesizedBracketed = [];
+  for (const value of Object.freeze((globalThis["Object"]).values)(alias)) {
+    parenthesizedBracketed.push(value);
+  }
+  assertObjectValuesIteration(collected);
+  assertObjectValuesIteration(mixed);
+  assertObjectValuesIteration(mixedBracketed);
+  assertObjectValuesIteration(singleQuotedProperty);
+  assertObjectValuesIteration(doubleQuotedSingleQuoted);
+  assertObjectValuesIteration(mixedSingleQuotedBracketed);
+  assertObjectValuesIteration(mixedSingleQuoted);
+  assertObjectValuesIteration(bracketed);
+  assertObjectValuesIteration(parenthesizedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
+  assertObjectValuesIteration(parenthesizedBracketed);
+  console.log('browser object values iteration ok');
+}
+
+browserGlobalObjectValuesIteration();
+"""
+"main_spread.${ext}" = """function browserObjectValuesSpreadIteration() {
+  function assertObjectValuesSpreadIteration(values) {
+    if (values.length !== 2 || values[0] !== 3 || values[1] !== 2) {
+      throw new Error('unexpected Object.values spread iteration semantics');
+    }
+  }
+
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
+  const collected = [...Object.values(fromEntries)];
+  const globalCollected = [...globalThis.Object.values(fromEntries)];
+  const bracketedCollected = [...Object.values(bracketedFromEntries)];
+  const mixedCollected = [...globalThis.Object["values"](fromEntries)];
+  const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
+  const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
+  const singleBracketedPropertyCollected = [...globalThis['Object'].values(fromEntries)];
+  const bracketedAliasCollected = [...globalThis["Object"]["values"](fromEntries)];
+  const bracketedAliasFromEntriesCollected = [...globalThis["Object"]["values"](bracketedFromEntries)];
+  assertObjectValuesSpreadIteration(collected);
+  assertObjectValuesSpreadIteration(globalCollected);
+  assertObjectValuesSpreadIteration(bracketedCollected);
+  assertObjectValuesSpreadIteration(mixedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedPropertyCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasFromEntriesCollected);
+  console.log('browser object values spread iteration ok');
+}
+
+browserObjectValuesSpreadIteration();
+"""
+"main_frozen_spread.${ext}" = """function browserObjectValuesSpreadIteration() {
+  function assertObjectValuesSpreadIteration(values) {
+    if (values.length !== 2 || values[0] !== 3 || values[1] !== 2) {
+      throw new Error('unexpected Object.values spread iteration semantics');
+    }
+  }
+
+  const fromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+  const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
+  const collected = [...Object.values(fromEntries)];
+  const globalCollected = [...globalThis.Object.values(fromEntries)];
+  const bracketedCollected = [...Object.values(bracketedFromEntries)];
+  const mixedCollected = [...globalThis.Object["values"](fromEntries)];
+  const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
+  const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
+  const singleBracketedPropertyCollected = [...globalThis['Object'].values(fromEntries)];
+  const bracketedAliasCollected = [...globalThis["Object"]["values"](fromEntries)];
+  const bracketedAliasFromEntriesCollected = [...globalThis["Object"]["values"](bracketedFromEntries)];
+  assertObjectValuesSpreadIteration(collected);
+  assertObjectValuesSpreadIteration(globalCollected);
+  assertObjectValuesSpreadIteration(bracketedCollected);
+  assertObjectValuesSpreadIteration(mixedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedPropertyCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasFromEntriesCollected);
+  console.log('browser object values spread iteration ok');
+}
+
+browserObjectValuesSpreadIteration();
+"""
+"smoke.test.${ext}" = """Kali.test('object values iteration', () => {
+  function assertObjectValuesIteration(values) {
+    if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+      throw new Error('unexpected Object.values iteration semantics');
+    }
+  }
+
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const collected = [];
+  for (const value of Object.values(alias)) {
+    collected.push(value);
+  }
+  assertObjectValuesIteration(collected);
+  console.log('browser object values iteration ok');
+});
+"""
+"smoke_global.test.${ext}" = """Kali.test('global object values iteration', () => {
+  function assertObjectValuesIteration(values) {
+    if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+      throw new Error('unexpected Object.values iteration semantics');
+    }
+  }
+
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const collected = [];
+  for (const value of globalThis.Object.values(alias)) {
+    collected.push(value);
+  }
+  const mixed = [];
+  for (const value of globalThis.Object["values"](alias)) {
+    mixed.push(value);
+  }
+  const mixedBracketed = [];
+  for (const value of globalThis["Object"].values(alias)) {
+    mixedBracketed.push(value);
+  }
+  const singleQuotedProperty = [];
+  for (const value of globalThis['Object'].values(alias)) {
+    singleQuotedProperty.push(value);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const value of globalThis["Object"]['values'](alias)) {
+    doubleQuotedSingleQuoted.push(value);
+  }
+  const mixedSingleQuotedBracketed = [];
+  for (const value of globalThis['Object']["values"](alias)) {
+    mixedSingleQuotedBracketed.push(value);
+  }
+  const mixedSingleQuoted = [];
+  for (const value of globalThis['Object']['values'](alias)) {
+    mixedSingleQuoted.push(value);
+  }
+  const bracketed = [];
+  for (const value of globalThis["Object"]["values"](alias)) {
+    bracketed.push(value);
+  }
+  const parenthesizedReceiverBracketed = [];
+  for (const value of Object.freeze((globalThis["Object"])["values"])(alias)) {
+    parenthesizedReceiverBracketed.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const value of Object.freeze((globalThis['Object'])['values'])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const value of Object.freeze((globalThis['Object']).values)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(value);
+  }
+  const parenthesizedBracketed = [];
+  for (const value of Object.freeze((globalThis["Object"]).values)(alias)) {
+    parenthesizedBracketed.push(value);
+  }
+  assertObjectValuesIteration(collected);
+  assertObjectValuesIteration(mixed);
+  assertObjectValuesIteration(mixedBracketed);
+  assertObjectValuesIteration(singleQuotedProperty);
+  assertObjectValuesIteration(doubleQuotedSingleQuoted);
+  assertObjectValuesIteration(mixedSingleQuotedBracketed);
+  assertObjectValuesIteration(mixedSingleQuoted);
+  assertObjectValuesIteration(bracketed);
+  assertObjectValuesIteration(parenthesizedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
+  assertObjectValuesIteration(parenthesizedBracketed);
+  console.log('browser object values iteration ok');
+});
+"""
+"smoke_spread.test.${ext}" = """Kali.test('object values spread iteration', () => {
+  function assertObjectValuesSpreadIteration(values) {
+    if (values.length !== 2 || values[0] !== 3 || values[1] !== 2) {
+      throw new Error('unexpected Object.values spread iteration semantics');
+    }
+  }
+
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
+  const collected = [...Object.values(fromEntries)];
+  const globalCollected = [...globalThis.Object.values(fromEntries)];
+  const bracketedCollected = [...Object.values(bracketedFromEntries)];
+  const mixedCollected = [...globalThis.Object["values"](fromEntries)];
+  const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
+  const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
+  const singleBracketedPropertyCollected = [...globalThis['Object'].values(fromEntries)];
+  const bracketedAliasCollected = [...globalThis["Object"]["values"](fromEntries)];
+  const bracketedAliasFromEntriesCollected = [...globalThis["Object"]["values"](bracketedFromEntries)];
+  assertObjectValuesSpreadIteration(collected);
+  assertObjectValuesSpreadIteration(globalCollected);
+  assertObjectValuesSpreadIteration(bracketedCollected);
+  assertObjectValuesSpreadIteration(mixedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedPropertyCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasFromEntriesCollected);
+  console.log('browser object values spread iteration ok');
+});
+"""
+"smoke_frozen_spread.test.${ext}" = """Kali.test('object values spread iteration', () => {
+  function assertObjectValuesSpreadIteration(values) {
+    if (values.length !== 2 || values[0] !== 3 || values[1] !== 2) {
+      throw new Error('unexpected Object.values spread iteration semantics');
+    }
+  }
+
+  const fromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+  const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
+  const collected = [...Object.values(fromEntries)];
+  const globalCollected = [...globalThis.Object.values(fromEntries)];
+  const bracketedCollected = [...Object.values(bracketedFromEntries)];
+  const mixedCollected = [...globalThis.Object["values"](fromEntries)];
+  const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
+  const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
+  const singleBracketedPropertyCollected = [...globalThis['Object'].values(fromEntries)];
+  const bracketedAliasCollected = [...globalThis["Object"]["values"](fromEntries)];
+  const bracketedAliasFromEntriesCollected = [...globalThis["Object"]["values"](bracketedFromEntries)];
+  assertObjectValuesSpreadIteration(collected);
+  assertObjectValuesSpreadIteration(globalCollected);
+  assertObjectValuesSpreadIteration(bracketedCollected);
+  assertObjectValuesSpreadIteration(mixedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedPropertyCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasFromEntriesCollected);
+  console.log('browser object values spread iteration ok');
+});
+"""
+
+[[case]]
+name = "run_supports_object_values_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_values_harness.rs, the four `run_supports_object_values_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_values` writes the fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program iterates Object.values over a two-key object reached through an alias binding and prints one line. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:234), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_object_values_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_values_harness.rs, the four `json_run_supports_object_values_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_values` writes the fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node with `--output json`. The program iterates Object.values over a two-key object reached through an alias binding and prints one line. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:234), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_values_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_values_harness.rs, the four `test_supports_object_values_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_values` writes the fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program iterates Object.values over a two-key object reached through an alias binding and prints one line. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:234), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_object_values_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_values_harness.rs, the four `json_test_supports_object_values_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_values` writes the fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node with `--output json`. The program iterates Object.values over a two-key object reached through an alias binding and prints one line. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:234), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_direct_object_values_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_values_harness.rs, the four `run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_values` writes the fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program iterates Object.values through ten `globalThis`-rooted spellings -- dotted, mixed, bracketed, single-quoted and frozen parenthesized-receiver -- and checks every collected array. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:234), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. MIGRATION NOTE (controller ruling 8): the fn name says "direct", but the fixture it passes is the globalThis-ROOTED program; the source is not corrected, and the discrepancy is recorded here so the case file preserves what the source actually did. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_global.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_direct_object_values_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_values_harness.rs, the four `json_run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_values` writes the fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node with `--output json`. The program iterates Object.values through ten `globalThis`-rooted spellings -- dotted, mixed, bracketed, single-quoted and frozen parenthesized-receiver -- and checks every collected array. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:234), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. MIGRATION NOTE (controller ruling 8): the fn name says "direct", but the fixture it passes is the globalThis-ROOTED program; the source is not corrected, and the discrepancy is recorded here so the case file preserves what the source actually did. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_global.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_direct_object_values_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_values_harness.rs, the four `test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_values` writes the fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program iterates Object.values through ten `globalThis`-rooted spellings -- dotted, mixed, bracketed, single-quoted and frozen parenthesized-receiver -- and checks every collected array. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:234), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. MIGRATION NOTE (controller ruling 8): the fn name says "direct", but the fixture it passes is the globalThis-ROOTED program; the source is not corrected, and the discrepancy is recorded here so the case file preserves what the source actually did. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_global.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_direct_object_values_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_values_harness.rs, the four `json_test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_values` writes the fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node with `--output json`. The program iterates Object.values through ten `globalThis`-rooted spellings -- dotted, mixed, bracketed, single-quoted and frozen parenthesized-receiver -- and checks every collected array. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:234), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention, and `exit = "failure"` is exactly as strong as the assertion it replaces. MIGRATION NOTE (controller ruling 8): the fn name says "direct", but the fixture it passes is the globalThis-ROOTED program; the source is not corrected, and the discrepancy is recorded here so the case file preserves what the source actually did. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_global.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_object_values_spread_iteration_when_browser_harness_is_configured_text"
+rationale = """Migrated from browser_object_values_harness.rs, the source fn `run_supports_object_values_spread_iteration_when_browser_harness_is_configured`, its text half (rule 5: that fn loops all four extensions and makes two independent invocations per extension, so it becomes two named siblings carrying the loop coordinate rather than one folded case). `assert_browser_harness_object_values_spread` writes the spread fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program spreads Object.values over an Object.fromEntries result through nine bracketed, single-quoted and mixed root spellings and checks every collected array. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:273), so this step carries `exit = "failure"` and nothing else. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (Uncaught Error / RuntimeError: unreachable), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (both the run and test variants of `*_object_values_spread_iteration_when_browser_harness_is_configured`) is red — no green out-of-batch caller exists in this test binary, so the helper itself is re-pinned rather than inlining each wrapper.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_spread.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_object_values_spread_iteration_when_browser_harness_is_configured_json"
+rationale = """Migrated from browser_object_values_harness.rs, the source fn `run_supports_object_values_spread_iteration_when_browser_harness_is_configured`, its `--output json` half (rule 5: that fn loops all four extensions and makes two independent invocations per extension, so it becomes two named siblings carrying the loop coordinate rather than one folded case). `assert_browser_harness_object_values_spread` writes the spread fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program spreads Object.values over an Object.fromEntries result through nine bracketed, single-quoted and mixed root spellings and checks every collected array. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:273), so this step carries `exit = "failure"` and nothing else. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (Uncaught Error / RuntimeError: unreachable), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (both the run and test variants of `*_object_values_spread_iteration_when_browser_harness_is_configured`) is red — no green out-of-batch caller exists in this test binary, so the helper itself is re-pinned rather than inlining each wrapper.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_spread.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_values_spread_iteration_when_browser_harness_is_configured_text"
+rationale = """Migrated from browser_object_values_harness.rs, the source fn `test_supports_object_values_spread_iteration_when_browser_harness_is_configured`, its text half (rule 5: that fn loops all four extensions and makes two independent invocations per extension, so it becomes two named siblings carrying the loop coordinate rather than one folded case). `assert_browser_harness_object_values_spread` writes the spread fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program spreads Object.values over an Object.fromEntries result through nine bracketed, single-quoted and mixed root spellings and checks every collected array. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:273), so this step carries `exit = "failure"` and nothing else. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (Uncaught Error / RuntimeError: unreachable), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (both the run and test variants of `*_object_values_spread_iteration_when_browser_harness_is_configured`) is red — no green out-of-batch caller exists in this test binary, so the helper itself is re-pinned rather than inlining each wrapper.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_spread.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_values_spread_iteration_when_browser_harness_is_configured_json"
+rationale = """Migrated from browser_object_values_harness.rs, the source fn `test_supports_object_values_spread_iteration_when_browser_harness_is_configured`, its `--output json` half (rule 5: that fn loops all four extensions and makes two independent invocations per extension, so it becomes two named siblings carrying the loop coordinate rather than one folded case). `assert_browser_harness_object_values_spread` writes the spread fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program spreads Object.values over an Object.fromEntries result through nine bracketed, single-quoted and mixed root spellings and checks every collected array. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:273), so this step carries `exit = "failure"` and nothing else. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (Uncaught Error / RuntimeError: unreachable), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (both the run and test variants of `*_object_values_spread_iteration_when_browser_harness_is_configured`) is red — no green out-of-batch caller exists in this test binary, so the helper itself is re-pinned rather than inlining each wrapper.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_spread.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured_text"
+rationale = """Migrated from browser_object_values_harness.rs, the source fn `run_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured`, its text half (rule 5: that fn loops all four extensions and makes two independent invocations per extension, so it becomes two named siblings carrying the loop coordinate rather than one folded case). The fn builds its own `Command` rather than routing through `assert_browser_harness_object_values_spread`, and writes the frozen spread fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program spreads Object.values over an Object.fromEntries result through nine bracketed, single-quoted and mixed root spellings and checks every collected array, with the fromEntries result itself wrapped in `Object.freeze(...)`. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:733), so this step carries `exit = "failure"` and nothing else. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Inlined (not routed through assert_browser_harness_object_values_spread): that helper also serves out-of-batch callers that are still green, so it is left untouched.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen_spread.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured_json"
+rationale = """Migrated from browser_object_values_harness.rs, the source fn `run_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured`, its `--output json` half (rule 5: that fn loops all four extensions and makes two independent invocations per extension, so it becomes two named siblings carrying the loop coordinate rather than one folded case). The fn builds its own `Command` rather than routing through `assert_browser_harness_object_values_spread`, and writes the frozen spread fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program spreads Object.values over an Object.fromEntries result through nine bracketed, single-quoted and mixed root spellings and checks every collected array, with the fromEntries result itself wrapped in `Object.freeze(...)`. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:733), so this step carries `exit = "failure"` and nothing else. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Inlined (not routed through assert_browser_harness_object_values_spread): that helper also serves out-of-batch callers that are still green, so it is left untouched.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen_spread.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured_text"
+rationale = """Migrated from browser_object_values_harness.rs, the source fn `test_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured`, its text half (rule 5: that fn loops all four extensions and makes two independent invocations per extension, so it becomes two named siblings carrying the loop coordinate rather than one folded case). The fn builds its own `Command` rather than routing through `assert_browser_harness_object_values_spread`, and writes the frozen spread fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program spreads Object.values over an Object.fromEntries result through nine bracketed, single-quoted and mixed root spellings and checks every collected array, with the fromEntries result itself wrapped in `Object.freeze(...)`. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:800), so this step carries `exit = "failure"` and nothing else. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Inlined (not routed through assert_browser_harness_object_values_spread): that helper also serves out-of-batch callers that are still green, so it is left untouched.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen_spread.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured_json"
+rationale = """Migrated from browser_object_values_harness.rs, the source fn `test_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured`, its `--output json` half (rule 5: that fn loops all four extensions and makes two independent invocations per extension, so it becomes two named siblings carrying the loop coordinate rather than one folded case). The fn builds its own `Command` rather than routing through `assert_browser_harness_object_values_spread`, and writes the frozen spread fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program spreads Object.values over an Object.fromEntries result through nine bracketed, single-quoted and mixed root spellings and checks every collected array, with the fromEntries result itself wrapped in `Object.freeze(...)`. kali does not support that: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:800), so this step carries `exit = "failure"` and nothing else. RULE 12 -- the Rust comment prose of browser_object_values_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Inlined (not routed through assert_browser_harness_object_values_spread): that helper also serves out-of-batch callers that are still green, so it is left untouched.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen_spread.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
