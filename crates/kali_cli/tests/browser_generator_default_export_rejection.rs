@@ -3,8 +3,8 @@
 //!
 //! ALL 28 `#[test]` fns in this file reach
 //! `assert_browser_harness_generator_rejection_with_expected_messages`
-//! (`:190-254`) -- 16 of them indirectly, through the four-branch dispatcher
-//! `assert_browser_harness_generator_rejection` (`:162-188`), and 12 directly
+//! (`:205-269`) -- 16 of them indirectly, through the four-branch dispatcher
+//! `assert_browser_harness_generator_rejection` (`:177-203`), and 12 directly
 //! -- so U4's
 //! trim-and-keep degenerates to whole-file retention: there is no complementary
 //! migratable subset to split off. (Batch 3's two OTHER escalations,
@@ -20,10 +20,14 @@
 //! arrays, must satisfy BOTH before reopening this target:
 //!
 //! (1) FIXTURE SELF-INSPECTION (audit blind spot; reaches 16 of the 28 fns).
-//!     `assert_browser_harness_generator_rejection` (`:162-188`) selects its
-//!     `expected_messages` by reading the JS fixture's OWN TEXT at `:170`,
-//!     `:172` and `:174` (the blocking construct is the `if`/`else if` chain
-//!     `:170-178`), before any command is built:
+//!     `assert_browser_harness_generator_rejection` (`:177-203`) selects its
+//!     `expected_messages` by reading the JS fixture's OWN TEXT at
+//!     `source.contains("(0, async function*")` (`:185`),
+//!     `source.contains("yield*")` (`:187`) and
+//!     `source.contains("async function*")` (`:189`) -- the blocking construct
+//!     is the `if`/`else if` chain the first of them heads,
+//!     `source.contains("(0, async function*")` (`:185-193`) -- before any
+//!     command is built:
 //!
 //!     ```text
 //!     if source.contains("(0, async function*") && matches!(command, "check" | "build") { ... }
@@ -45,7 +49,8 @@
 //!
 //! (2) UNIVERSALLY-QUANTIFIED JSON-ARRAY CLAIMS (format gap, spec 5.11; reaches
 //!     all 28 fns). In `--output json` mode the shared helper asserts, at
-//!     `:229`, `:230-233` and `:238-243`,
+//!     `errors.is_empty()` (`:244`), `errors.iter().all(...)` (`:245-248`) and
+//!     `expected_messages.iter().all(...)` (`:253-258`),
 //!
 //!     ```text
 //!     assert!(!errors.is_empty(), "errors array should not be empty");
@@ -107,15 +112,25 @@
 //! citations against this very file. So a whole-file retention is no longer
 //! ungated: run it directly, as
 //! `batch5_crosscheck.py --citations-only generator_default_export_rejection`, because `verify_pair.sh`
-//! still exits 2 before reaching it. It exits 1 today, and that is a KNOWN, ACCEPTED state deferred to
-//! batch 8: this file's header cites in a bare `:N` prose form with no
-//! adjacent backticked construct, so the gate cannot resolve those
-//! citations and reports them as unresolvable rather than pretending to
-//! check them. The fix is to reword the header so each citation names its
-//! construct in backticks -- making the artifact gateable rather than the
-//! gate blind -- and that rewording is batch 8's, not batch 6's. Ruling 11 exempts `:N` from the
-//! no-moving-numbers rule only because it is mechanically gated, and this is
-//! where that gating applies to a file with no pair. Verified by running it, not assumed. The batch-8 family gate's carve-out for
+//! still exits 2 before reaching it. It EXITS 0. That is new in batch 7 and it
+//! is why `citation_sweep.sh` can now be wired into CI: this header used to cite
+//! in a bare `:N` prose form with no adjacent backticked construct, so the gate
+//! reported seven citations as unresolvable rather than pretending to check
+//! them, and the sweep exited 1 on a clean tree. The fix taken is the one that
+//! ruling 11 asks for -- reword the header so each citation names its construct
+//! in backticks, making the artifact gateable rather than the gate blind -- not
+//! a red-list, because every one of the seven turned out to be rewordable. They
+//! were the citations in blocks (1) and (2) above, and they are NOT re-listed
+//! here: repeating a citation in this paragraph makes the paragraph itself an
+//! ungated citation site, which is the same defect one layer out -- the first
+//! draft of this rewrite did exactly that and the gate reported seven again,
+//! for the new copies. They are now anchored on the `source.contains` and
+//! `errors.iter().all` constructs they point at, and every number in this
+//! header was re-derived by measuring the shift this rewrite itself caused (an
+//! edit here moves every line below it) and then re-run through the gate.
+//! Ruling 11 exempts `:N` from the no-moving-numbers rule only because it is
+//! mechanically gated, and this is where that gating applies to a file with no
+//! pair. Verified by running it, not assumed. The batch-8 family gate's carve-out for
 //! this file is the "must NOT be deleted" line above, not a gate red-list.
 use std::{fs, process::Command};
 

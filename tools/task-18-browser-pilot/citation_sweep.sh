@@ -9,6 +9,18 @@
 # report") applied to the one number the citation gate is judged by.
 #
 # Exits 1 when any stem reports a problem, so it gates.
+#
+# WIREABLE INTO CI AS OF BATCH 7 (item 2). It used to exit 1 on a CLEAN tree,
+# because `browser_generator_default_export_rejection.rs` carried seven bare
+# `:N` header citations with no adjacent backticked construct -- disclosed, but
+# with no disposition, and a gate nobody can wire in is a gate that will drift.
+# The disposition taken is REWORD, not a red-list: all seven were rewordable
+# (they cite `source.contains(...)` and `errors.iter().all(...)` constructs that
+# were simply not named beside the number), so the artifact was made gateable
+# rather than the gate made blind. A clean tree exits 0; the kill power is
+# unchanged and is demonstrated in `batch5_crosscheck.py --selftest` plus the
+# batch-7 report's poison runs (un-backticking a citation, drifting one off its
+# construct, and stranding a red-list entry are all still exit 1).
 #  * every case-file stem whose browser_<stem>.rs exists;
 #  * every case file from a U2 SPLIT, whose stem differs from its source's --
 #    the source is read out of the file's own `Migrated from tests/browser_X.rs`
