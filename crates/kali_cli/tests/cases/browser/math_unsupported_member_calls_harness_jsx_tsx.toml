@@ -1,0 +1,382 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'main.js' -- the entry filename, which this source builds with `format!("main.{extension}")` inside a loop rather than spelling as a literal, so the expanded name appears nowhere in the .rs even though the source really does pass exactly this argv token
+# EXTRA-OK: 'main.ts' -- the entry filename, which this source builds with `format!("main.{extension}")` inside a loop rather than spelling as a literal, so the expanded name appears nowhere in the .rs even though the source really does pass exactly this argv token
+# EXTRA-OK: 'main.jsx' -- the entry filename, which this source builds with `format!("main.{extension}")` inside a loop rather than spelling as a literal, so the expanded name appears nowhere in the .rs even though the source really does pass exactly this argv token
+# EXTRA-OK: 'main.tsx' -- the entry filename, which this source builds with `format!("main.{extension}")` inside a loop rather than spelling as a literal, so the expanded name appears nowhere in the .rs even though the source really does pass exactly this argv token
+# EXTRA-OK: 'smoke.test.js' -- the entry filename, which this source builds with `format!("main.{extension}")` inside a loop rather than spelling as a literal, so the expanded name appears nowhere in the .rs even though the source really does pass exactly this argv token
+# EXTRA-OK: 'smoke.test.ts' -- the entry filename, which this source builds with `format!("main.{extension}")` inside a loop rather than spelling as a literal, so the expanded name appears nowhere in the .rs even though the source really does pass exactly this argv token
+# EXTRA-OK: 'smoke.test.jsx' -- the entry filename, which this source builds with `format!("main.{extension}")` inside a loop rather than spelling as a literal, so the expanded name appears nowhere in the .rs even though the source really does pass exactly this argv token
+# EXTRA-OK: 'smoke.test.tsx' -- the entry filename, which this source builds with `format!("main.{extension}")` inside a loop rather than spelling as a literal, so the expanded name appears nowhere in the .rs even though the source really does pass exactly this argv token
+# Migrated from tests/browser_math_unsupported_member_calls_harness_jsx_tsx.rs.
+#
+# PARTIAL MIGRATION (U4 trim-and-keep) -- 3 of the source's 6 `#[test]` fns are
+# migrated here. The other three, every `*_rejects_broader_math_atan2_*` fn, route
+# through `assert_browser_harness_unsupported_math_rejection` (:10),
+# which asserts a QUANTIFIER over the JSON `errors` array,
+# `errors.iter().all(...)` (:50). Design spec 5.4 offers only closed
+# dotted-path indexing into JSON -- "no slices, no wildcards, no negative-from-end
+# indexing, no filters" -- so a dotted path can pin the FIRST array element and
+# nothing more; narrowing "every error has this code" to "error 0 has this code" is
+# a weakening, and rule 1 forbids weakening. The human partner has ruled this shape a
+# design spec 5.11 outlier: NO ASSERTION KEY IS BEING ADDED FOR IT.
+# Each of those three fns calls the rejecting helper TWICE per extension, once with
+# the JSON-output flag false and once true, and the true call is unconditional, so
+# all three reach the quantifier and none can be split. The three migrated fns reach
+# `assert_browser_harness_math_sqrt_success` (:69) instead, which is the count
+# shape and is fully expressible.
+#
+# THE `.rs` HAS SINCE BEEN TRIMMED to exactly those three retained tests plus the two
+# fixture builders they read, carrying a `//!` retention header. TWO CONSEQUENCES A
+# LATER READER MUST NOT MISREAD:
+#   * EVERY `:N` LINE CITATION IN THIS FILE IS A PRE-TRIM LINE NUMBER. Audit and diff
+#     this pair against the pre-trim source from git history, not against the working
+#     tree.
+#   * THE POST-TRIM PAIR IS THE WRONG COMPARISON FOR EVERY GATE, not just the audit.
+#     The retained `.rs` carries the COMPLETE measured red-list (ruling 9) -- which
+#     gates go red post-trim and which are green. Read it there, so there is one
+#     source of truth.
+#
+# RULE 12 (carry every source comment verbatim): the source's one comment block
+# (:65) is the `///` doc on `assert_browser_harness_math_sqrt_success`, the
+# helper every case below is produced by, so it is carried into every rationale.
+# It is also this file's rule-13 material -- same text, one obligation discharged
+# twice over -- and it is COPIED out of the `.rs` by this file's generator, never
+# retyped.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 6 `#[test]` fns, 20 real helper invocations with every loop
+# expanded.
+# THE THREE MIGRATED `#[test]` FNS COVER DIFFERENT EXTENSION SETS. The `run` and
+# `test` fns each loop over js/ts/jsx/tsx; the `build` fn loops over jsx/tsx ONLY.
+# A four-value file-wide `ext` axis would fan the build cases over js and ts and
+# invent four runs the source never made (rule 2); a two-value axis would drop half
+# of the run and test invocations (rule 1).
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 20 invocations -> 20 named `[[case]]` entries, no `[matrix]`.
+# 20 invocations, not 40: the other 20 belong to the three retained fns and are not
+# this file's to carry.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+# Each source `#[test]` fn here is a `for extension in [...]` loop making two
+# invocations per extension, so one fn maps to 8 cases (or 4, for the jsx/tsx-only
+# build fn); the mapping is still 1:1 from invocation to case.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main.js`, `main.ts`, `main.jsx`, `main.tsx`, `smoke.test.js`, `smoke.test.ts`, `smoke.test.jsx`, `smoke.test.tsx`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULING 7 -- DUPLICATE `[source]` BODIES ARE NOT HOISTED. Several entries below hold
+# byte-identical program text. U13 would hoist them into `[constants]`; controller ruling 7
+# declines that for `browser/` (a hoisted body makes `check_fixtures.py` go red on a correct
+# file, and hoisting moves program text onto the surface `assertion_strings()` searches).
+# The mandatory half of that ruling is honoured instead: the duplication is asserted
+# MECHANICALLY in this file's generator, not eyeballed -- the generator compares the
+# extracted fixture strings and raises if they are not byte-identical.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_harness_run_source`, `browser_harness_test_source` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+# `assert_browser_harness_math_sqrt_success` DOES carry a `///` doc comment, and it is
+# carried verbatim into the rationale of every case below -- every one of them
+# is produced by that helper. Its text states what a PASS means for these
+# cases (which value node prints for Math.sqrt(1.6), and why it appears exactly
+# six times), so it is claim prose in ruling 6's sense and not runner
+# infrastructure.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+# The `build` cases additionally pass `--bundle`, which the source appends after the
+# subcommand and before `--api browser`.
+#
+# THE COUNT KEYS. The source makes exactly one occurrence-count claim per branch, and
+# it is spelled with `==`, not `>=`:
+#   * `assert_eq!(stdout.matches("1.2649110640673518").count(), 6)` against the JSON stdout
+#     leaf (:109) -> `json_count` with `path = "stdout"` and `exact = 6`.
+#   * the same claim against raw stdout (:117) -> `stdout_count` with
+#     `exact = 6`.
+# `exact`, never `at_least`: ruling 3's mirror-the-source direction makes an exact
+# source assertion an exact pin, and `at_least = 6` would be a weakening the source
+# never wrote. Counting is non-overlapping and left-to-right, as Rust's `str::matches`
+# is.
+# BOTH COUNT CLAIMS ARE SKIPPED FOR `build` (:106): the source guards them
+# with `if command != "build"`, because a build emits no program output. The four
+# build cases below therefore carry no count key at all, and adding one would be a
+# rule-2 invention.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# `exit = "success"` on the one `kali` process (:94).
+# json mode carries schemaVersion/command/success (:102-104)
+# and the empty `errors` array (:105), plus the `json_count` claim above
+# for run and test. It reads NO payload field and NO stderr leaf, so neither is
+# written.
+# Text mode carries the `stdout_count` claim and, for `test` only,
+# `.contains("ok 1")` (:122).
+# `build` additionally passes `--bundle` (:88), and the environment
+# carries the variable named by
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:82), set to node.
+# The source passes no --max-threads / --max-spawned-processes arguments, so neither
+# appears on argv.
+
+[source]
+"main.js" = """console.log(Math.sqrt(1.6));
+console.log(Math["sqrt"](1.6));
+console.log(globalThis.Math["sqrt"](1.6));
+console.log(globalThis["Math"].sqrt(1.6));
+console.log(globalThis["Math"]["sqrt"](1.6));
+console.log(globalThis['Math']['sqrt'](1.6));
+"""
+"main.ts" = """console.log(Math.sqrt(1.6));
+console.log(Math["sqrt"](1.6));
+console.log(globalThis.Math["sqrt"](1.6));
+console.log(globalThis["Math"].sqrt(1.6));
+console.log(globalThis["Math"]["sqrt"](1.6));
+console.log(globalThis['Math']['sqrt'](1.6));
+"""
+"main.jsx" = """console.log(Math.sqrt(1.6));
+console.log(Math["sqrt"](1.6));
+console.log(globalThis.Math["sqrt"](1.6));
+console.log(globalThis["Math"].sqrt(1.6));
+console.log(globalThis["Math"]["sqrt"](1.6));
+console.log(globalThis['Math']['sqrt'](1.6));
+"""
+"main.tsx" = """console.log(Math.sqrt(1.6));
+console.log(Math["sqrt"](1.6));
+console.log(globalThis.Math["sqrt"](1.6));
+console.log(globalThis["Math"].sqrt(1.6));
+console.log(globalThis["Math"]["sqrt"](1.6));
+console.log(globalThis['Math']['sqrt'](1.6));
+"""
+"smoke.test.js" = """Kali.test('unsupported math member', () => {
+  console.log(Math.sqrt(1.6));
+  console.log(Math["sqrt"](1.6));
+  console.log(globalThis.Math["sqrt"](1.6));
+  console.log(globalThis["Math"].sqrt(1.6));
+  console.log(globalThis["Math"]["sqrt"](1.6));
+  console.log(globalThis['Math']['sqrt'](1.6));
+});
+"""
+"smoke.test.ts" = """Kali.test('unsupported math member', () => {
+  console.log(Math.sqrt(1.6));
+  console.log(Math["sqrt"](1.6));
+  console.log(globalThis.Math["sqrt"](1.6));
+  console.log(globalThis["Math"].sqrt(1.6));
+  console.log(globalThis["Math"]["sqrt"](1.6));
+  console.log(globalThis['Math']['sqrt'](1.6));
+});
+"""
+"smoke.test.jsx" = """Kali.test('unsupported math member', () => {
+  console.log(Math.sqrt(1.6));
+  console.log(Math["sqrt"](1.6));
+  console.log(globalThis.Math["sqrt"](1.6));
+  console.log(globalThis["Math"].sqrt(1.6));
+  console.log(globalThis["Math"]["sqrt"](1.6));
+  console.log(globalThis['Math']['sqrt'](1.6));
+});
+"""
+"smoke.test.tsx" = """Kali.test('unsupported math member', () => {
+  console.log(Math.sqrt(1.6));
+  console.log(Math["sqrt"](1.6));
+  console.log(globalThis.Math["sqrt"](1.6));
+  console.log(globalThis["Math"].sqrt(1.6));
+  console.log(globalThis["Math"]["sqrt"](1.6));
+  console.log(globalThis['Math']['sqrt'](1.6));
+});
+"""
+
+[[case]]
+name = "run_supports_math_sqrt_member_calls_in_js_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali run --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `stdout_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["run", "--api", "browser", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "json_run_supports_math_sqrt_member_calls_in_js_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali run --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `json_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["--output", "json", "run", "--api", "browser", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, errors = [] }
+json_count = [{ path = "stdout", needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "run_supports_math_sqrt_member_calls_in_ts_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali run --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `stdout_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["run", "--api", "browser", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "json_run_supports_math_sqrt_member_calls_in_ts_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali run --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `json_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["--output", "json", "run", "--api", "browser", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, errors = [] }
+json_count = [{ path = "stdout", needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "run_supports_math_sqrt_member_calls_in_jsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali run --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `stdout_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["run", "--api", "browser", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "json_run_supports_math_sqrt_member_calls_in_jsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali run --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `json_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["--output", "json", "run", "--api", "browser", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, errors = [] }
+json_count = [{ path = "stdout", needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "run_supports_math_sqrt_member_calls_in_tsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali run --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `stdout_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["run", "--api", "browser", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "json_run_supports_math_sqrt_member_calls_in_tsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali run --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `json_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["--output", "json", "run", "--api", "browser", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, errors = [] }
+json_count = [{ path = "stdout", needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "test_supports_math_sqrt_member_calls_in_js_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali test --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `stdout_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is. For `test` the source also asserts `.contains("ok 1")` (:122), which the json branch does not make."""
+args = ["test", "--api", "browser", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["ok 1"]
+stdout_count = [{ needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "json_test_supports_math_sqrt_member_calls_in_js_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali test --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `json_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, errors = [] }
+json_count = [{ path = "stdout", needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "test_supports_math_sqrt_member_calls_in_ts_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali test --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `stdout_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is. For `test` the source also asserts `.contains("ok 1")` (:122), which the json branch does not make."""
+args = ["test", "--api", "browser", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["ok 1"]
+stdout_count = [{ needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "json_test_supports_math_sqrt_member_calls_in_ts_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali test --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `json_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, errors = [] }
+json_count = [{ path = "stdout", needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "test_supports_math_sqrt_member_calls_in_jsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali test --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `stdout_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is. For `test` the source also asserts `.contains("ok 1")` (:122), which the json branch does not make."""
+args = ["test", "--api", "browser", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["ok 1"]
+stdout_count = [{ needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "json_test_supports_math_sqrt_member_calls_in_jsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali test --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `json_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, errors = [] }
+json_count = [{ path = "stdout", needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "test_supports_math_sqrt_member_calls_in_tsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali test --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `stdout_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is. For `test` the source also asserts `.contains("ok 1")` (:122), which the json branch does not make."""
+args = ["test", "--api", "browser", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["ok 1"]
+stdout_count = [{ needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "json_test_supports_math_sqrt_member_calls_in_tsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali test --api browser` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. The source spells this as `.matches("1.2649110640673518").count() == 6`, carried verbatim as `json_count` with `exact = 6` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, errors = [] }
+json_count = [{ path = "stdout", needle = "1.2649110640673518", exact = 6 }]
+
+[[case]]
+name = "build_supports_math_sqrt_member_calls_in_jsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `build_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali build --api browser` with `--bundle` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. This case makes no count claim: the source guards both count assertions with `if command != "build"` (:106), because a build emits no program output."""
+args = ["build", "--bundle", "--api", "browser", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+
+[[case]]
+name = "json_build_supports_math_sqrt_member_calls_in_jsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `build_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali build --api browser` with `--bundle` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. This case makes no count claim: the source guards both count assertions with `if command != "build"` (:106), because a build emits no program output."""
+args = ["--output", "json", "build", "--bundle", "--api", "browser", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, errors = [] }
+
+[[case]]
+name = "build_supports_math_sqrt_member_calls_in_tsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `build_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its text-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali build --api browser` with `--bundle` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. This case makes no count claim: the source guards both count assertions with `if command != "build"` (:106), because a build emits no program output."""
+args = ["build", "--bundle", "--api", "browser", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+
+[[case]]
+name = "json_build_supports_math_sqrt_member_calls_in_tsx_input"
+rationale = """Migrated from browser_math_unsupported_member_calls_harness_jsx_tsx.rs, `build_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input` -- one of that fn's `for extension in [...]` loop iterations, in its json-output invocation. `assert_browser_harness_math_sqrt_success` runs `kali build --api browser` with `--bundle` with the browser harness backed by node, against a program that calls Math.sqrt(1.6) through six access forms. Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93 (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`: Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six access forms, so run/test stdout carries the value exactly six times. This case makes no count claim: the source guards both count assertions with `if command != "build"` (:106), because a build emits no program output."""
+args = ["--output", "json", "build", "--bundle", "--api", "browser", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, errors = [] }

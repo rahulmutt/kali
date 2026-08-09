@@ -1,0 +1,396 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'main_plain.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_plain.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_plain.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_plain.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_plain.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_plain.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_plain.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_plain.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# Migrated from tests/browser_object_entries_harness.rs.
+#
+# RULE 12 (carry every source comment verbatim): this source carries exactly ONE
+# Rust comment block (:160), attached to the single assert helper. Every
+# case below is produced by that helper, so the block is carried into every
+# rationale -- which is per-helper attribution (U6), not pooling: there is one
+# helper and one block. The text is COPIED out of the `.rs` by this file's
+# generator, never retyped.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 32 `#[test]` fns, 32 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_harness_object_entries` -- 32 invocation(s) = program(unfrozen/frozen receiver) x command(run/test) x
+#     ext(js/ts/jsx/tsx) x json_output(false/true), a
+#     complete cross product. Every `#[test]` fn is one
+#     unlooped call and the file contains no loop at all
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 8 `[[case]]` entries x ext(4) = 32 trials = 32 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+# THE PROGRAM DIMENSION IS NOT AN AXIS EITHER: the two programs are different FILES,
+# not one file's text under substitution, and an axis substitutes into a `[source]`
+# KEY, which holds one body.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main_plain.${ext}`, `main_frozen.${ext}`, `smoke_plain.test.${ext}`, `smoke_frozen.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `main.${ext} (unfrozen receiver)` -> `main_plain.${ext}` -- the source writes two different run programs to the same `main.<ext>` filename
+#   * `main.${ext} (Object.freeze'd receiver)` -> `main_frozen.${ext}` -- same filename, second program
+#   * `smoke.test.${ext} (unfrozen receiver)` -> `smoke_plain.test.${ext}` -- the source writes two different Kali.test programs to the same `smoke.test.<ext>` filename; the `.test.` infix is preserved so the file is still a test file to `kali test`
+#   * `smoke.test.${ext} (Object.freeze'd receiver)` -> `smoke_frozen.test.${ext}` -- same filename, second program
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+#
+# RULE 9 -- the two frozen fixtures are built by a Rust str::replace call over the
+# unfrozen ones (:120), so their resolved text appears in no
+# string literal in the `.rs`. Both are the byte-exact OUTPUT of executing the
+# real builders,
+# captured by a temporary test target that `include!`d this `.rs`; the procedure
+# is recorded in `tools/task-18-browser-pilot/batch6a_captures.py`. The generator
+# additionally asserts each frozen body actually DIFFERS from its unfrozen
+# counterpart, so a capture that silently missed the replacement fails here.
+#
+# MIGRATION NOTE (controller ruling 8) -- THE SOURCE FN NAMES ARE STALE.
+# Every `#[test]` fn in this source is named for what it was once thought to prove, but the body asserts the command FAILS -- the source's only
+# process assertion is `assert!(!output.status.success(), ...)`. The names date from
+# before the honest re-pin recorded in the comment block this file carries.
+# The names are carried into the case names below unchanged and are NOT corrected:
+# a fn name is not a comment so U7 does not literally apply, the `.rs` files are
+# deleted wholesale after batch 8, and editing a source invalidates every audit run
+# against its pre-trim blob. The discrepancy is recorded here so the case file
+# preserves what the source actually did.
+# Affected: all 32 `#[test]` fns.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_harness_object_entries_run_source`,
+#   `browser_harness_object_entries_test_source`,
+#   `browser_harness_object_entries_frozen_run_source`,
+#   `browser_harness_object_entries_frozen_test_source`,
+#   `assert_browser_harness_object_entries` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# The `!success` assertion is at :162. The argv carries `--max-threads 0`
+# (:152) and `--max-spawned-processes 0` (:154), and the environment
+# carries the variable named by
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:143), set to node.
+# There is no json claim on either branch: the source parses no envelope at all, in
+# either mode -- `--output json` changes only the argv here.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main_plain.${ext}" = """function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2
+  ) {
+    throw new Error('unexpected Object.entries iteration semantics');
+  }
+}
+
+function browserObjectEntriesIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const entries = Object.entries(alias);
+  const globalEntries = globalThis.Object.entries(alias);
+  const mixedEntries = globalThis.Object["entries"](alias);
+  const mixedBracketedEntries = globalThis["Object"].entries(alias);
+  const bracketedEntries = globalThis["Object"]["entries"](alias);
+  const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
+  const parenthesizedSingleQuotedReceiverBracketedEntries = (globalThis['Object'])["entries"](alias);
+  const frozenEntries = Object.freeze(Object.entries)(alias);
+  const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
+  const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
+  const frozenParenthesizedDotRootEntries = Object.freeze((globalThis.Object).entries)(alias);
+  const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
+  const frozenSingleQuotedBracketedEntries = Object.freeze((globalThis['Object']['entries']))(alias);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenEntries);
+  assertObjectEntriesIteration(frozenGlobalEntries);
+  assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedDotRootEntries);
+  assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);
+  assertObjectEntriesIteration(frozenSingleQuotedBracketedEntries);
+  console.log('browser object entries iteration ok');
+}
+
+browserObjectEntriesIteration();
+"""
+"main_frozen.${ext}" = """function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2
+  ) {
+    throw new Error('unexpected Object.entries iteration semantics');
+  }
+}
+
+function browserObjectEntriesIteration() {
+  const values = Object.freeze({ "b": 1, "a": 2 });
+  const alias = values;
+  const entries = Object.entries(alias);
+  const globalEntries = globalThis.Object.entries(alias);
+  const mixedEntries = globalThis.Object["entries"](alias);
+  const mixedBracketedEntries = globalThis["Object"].entries(alias);
+  const bracketedEntries = globalThis["Object"]["entries"](alias);
+  const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
+  const parenthesizedSingleQuotedReceiverBracketedEntries = (globalThis['Object'])["entries"](alias);
+  const frozenEntries = Object.freeze(Object.entries)(alias);
+  const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
+  const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
+  const frozenParenthesizedDotRootEntries = Object.freeze((globalThis.Object).entries)(alias);
+  const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
+  const frozenSingleQuotedBracketedEntries = Object.freeze((globalThis['Object']['entries']))(alias);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenEntries);
+  assertObjectEntriesIteration(frozenGlobalEntries);
+  assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedDotRootEntries);
+  assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);
+  assertObjectEntriesIteration(frozenSingleQuotedBracketedEntries);
+  console.log('browser object entries iteration ok');
+}
+
+browserObjectEntriesIteration();
+"""
+"smoke_plain.test.${ext}" = """Kali.test('object entries iteration', () => {
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 1 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2
+    ) {
+      throw new Error('unexpected Object.entries iteration semantics');
+    }
+  }
+
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const entries = Object.entries(alias);
+  const globalEntries = globalThis.Object.entries(alias);
+  const mixedEntries = globalThis.Object["entries"](alias);
+  const mixedBracketedEntries = globalThis["Object"].entries(alias);
+  const bracketedEntries = globalThis["Object"]["entries"](alias);
+  const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
+  const parenthesizedSingleQuotedReceiverBracketedEntries = (globalThis['Object'])["entries"](alias);
+  const frozenEntries = Object.freeze(Object.entries)(alias);
+  const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
+  const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
+  const frozenParenthesizedDotRootEntries = Object.freeze((globalThis.Object).entries)(alias);
+  const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
+  const frozenSingleQuotedBracketedEntries = Object.freeze((globalThis['Object']['entries']))(alias);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenEntries);
+  assertObjectEntriesIteration(frozenGlobalEntries);
+  assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedDotRootEntries);
+  assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);
+  assertObjectEntriesIteration(frozenSingleQuotedBracketedEntries);
+  console.log('browser object entries iteration ok');
+});
+"""
+"smoke_frozen.test.${ext}" = """Kali.test('object entries iteration', () => {
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 1 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2
+    ) {
+      throw new Error('unexpected Object.entries iteration semantics');
+    }
+  }
+
+  const values = Object.freeze({ "b": 1, "a": 2 });
+  const alias = values;
+  const entries = Object.entries(alias);
+  const globalEntries = globalThis.Object.entries(alias);
+  const mixedEntries = globalThis.Object["entries"](alias);
+  const mixedBracketedEntries = globalThis["Object"].entries(alias);
+  const bracketedEntries = globalThis["Object"]["entries"](alias);
+  const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
+  const parenthesizedSingleQuotedReceiverBracketedEntries = (globalThis['Object'])["entries"](alias);
+  const frozenEntries = Object.freeze(Object.entries)(alias);
+  const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
+  const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
+  const frozenParenthesizedDotRootEntries = Object.freeze((globalThis.Object).entries)(alias);
+  const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
+  const frozenSingleQuotedBracketedEntries = Object.freeze((globalThis['Object']['entries']))(alias);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenEntries);
+  assertObjectEntriesIteration(frozenGlobalEntries);
+  assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedDotRootEntries);
+  assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);
+  assertObjectEntriesIteration(frozenSingleQuotedBracketedEntries);
+  console.log('browser object entries iteration ok');
+});
+"""
+
+[[case]]
+name = "run_supports_object_entries_iteration_when_browser_harness_is_configured_plain_receiver"
+rationale = """Migrated from browser_object_entries_harness.rs, the four `run_supports_object_entries_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension), in their plain-receiver form. `assert_browser_harness_object_entries` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program that reads Object.entries through sixteen direct, global, bracketed, parenthesized and frozen access forms over a plain receiver object. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "supports", but the body asserts the command FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the process fails, so the migrated step carries `exit = "failure"` and nothing else."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_plain.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_object_entries_iteration_when_browser_harness_is_configured_plain_receiver"
+rationale = """Migrated from browser_object_entries_harness.rs, the four `json_run_supports_object_entries_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension), in their plain-receiver form. `assert_browser_harness_object_entries` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program that reads Object.entries through sixteen direct, global, bracketed, parenthesized and frozen access forms over a plain receiver object. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "supports", but the body asserts the command FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the process fails, so the migrated step carries `exit = "failure"` and nothing else."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_plain.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_entries_iteration_when_browser_harness_is_configured_plain_receiver"
+rationale = """Migrated from browser_object_entries_harness.rs, the four `test_supports_object_entries_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension), in their plain-receiver form. `assert_browser_harness_object_entries` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program that reads Object.entries through sixteen direct, global, bracketed, parenthesized and frozen access forms over a plain receiver object. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "supports", but the body asserts the command FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the process fails, so the migrated step carries `exit = "failure"` and nothing else."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_plain.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_object_entries_iteration_when_browser_harness_is_configured_plain_receiver"
+rationale = """Migrated from browser_object_entries_harness.rs, the four `json_test_supports_object_entries_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension), in their plain-receiver form. `assert_browser_harness_object_entries` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program that reads Object.entries through sixteen direct, global, bracketed, parenthesized and frozen access forms over a plain receiver object. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "supports", but the body asserts the command FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the process fails, so the migrated step carries `exit = "failure"` and nothing else."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_plain.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_object_entries_iteration_when_browser_harness_is_configured_frozen_receiver"
+rationale = """Migrated from browser_object_entries_harness.rs, the four `run_supports_object_entries_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension), in their Object.freeze'd-receiver form. `assert_browser_harness_object_entries` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program that reads Object.entries through sixteen direct, global, bracketed, parenthesized and frozen access forms over an Object.freeze'd receiver object. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "supports", but the body asserts the command FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the process fails, so the migrated step carries `exit = "failure"` and nothing else."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_object_entries_iteration_when_browser_harness_is_configured_frozen_receiver"
+rationale = """Migrated from browser_object_entries_harness.rs, the four `json_run_supports_object_entries_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension), in their Object.freeze'd-receiver form. `assert_browser_harness_object_entries` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program that reads Object.entries through sixteen direct, global, bracketed, parenthesized and frozen access forms over an Object.freeze'd receiver object. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "supports", but the body asserts the command FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the process fails, so the migrated step carries `exit = "failure"` and nothing else."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_entries_iteration_when_browser_harness_is_configured_frozen_receiver"
+rationale = """Migrated from browser_object_entries_harness.rs, the four `test_supports_object_entries_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension), in their Object.freeze'd-receiver form. `assert_browser_harness_object_entries` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program that reads Object.entries through sixteen direct, global, bracketed, parenthesized and frozen access forms over an Object.freeze'd receiver object. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "supports", but the body asserts the command FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the process fails, so the migrated step carries `exit = "failure"` and nothing else."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_object_entries_iteration_when_browser_harness_is_configured_frozen_receiver"
+rationale = """Migrated from browser_object_entries_harness.rs, the four `json_test_supports_object_entries_iteration_when_browser_harness_is_configured_in_*_input` fns (one per extension), in their Object.freeze'd-receiver form. `assert_browser_harness_object_entries` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program that reads Object.entries through sixteen direct, global, bracketed, parenthesized and frozen access forms over an Object.freeze'd receiver object. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "supports", but the body asserts the command FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the process fails, so the migrated step carries `exit = "failure"` and nothing else."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"

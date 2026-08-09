@@ -1,0 +1,387 @@
+# Migrated from tests/browser_object_enumeration_finalization_bundle.rs.
+#
+# RULE 12 (carry every source comment verbatim): this source carries exactly ONE
+# Rust comment block (:319), attached to its single assert helper, which
+# every case below is produced by. It is carried into every rationale, and the
+# text is COPIED out of the `.rs` by this file's generator, never retyped.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 8 `#[test]` fns, 8 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_object_enumeration_finalization` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), a complete
+#     cross product. Every `#[test]` fn is one unlooped call
+#     and the file contains no loop at all
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 2 `[[case]]` entries x ext(4) = 8 trials = 8 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# MIGRATION NOTE (controller ruling 8) -- THE SOURCE FN NAMES ARE STALE.
+# Every `#[test]` fn in this source is named for what it was once thought to prove, but the body asserts the build FAILS closed, with an E5506
+# diagnostic. No bundle is emitted at all, so the `build_emits_*` naming
+# describes an outcome this test specifically pins as not happening.
+# The names are carried into the case names below unchanged and are NOT corrected:
+# a fn name is not a comment so U7 does not literally apply, the `.rs` files are
+# deleted wholesale after batch 8, and editing a source invalidates every audit run
+# against its pre-trim blob. The discrepancy is recorded here so the case file
+# preserves what the source actually did.
+# Affected: all 8 `#[test]` fns.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_object_enumeration_finalization_source`,
+#   `assert_browser_object_enumeration_finalization` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# `exit = "failure"` on the `kali build` process (:321), plus the E5506
+# diagnostic (:325).
+# RULE 11 -- THE DIAGNOSTIC CLAIM IS AN OR ACROSS TWO STREAMS, AND IT IS RESOLVED
+# AGAINST THE REAL BINARY RATHER THAN REPRODUCED. The source accepts E5506 on
+# EITHER stderr or stdout; the case format has no disjunction. Running the real
+# `kali` over this fixture, for all four extensions and both output modes, shows
+# the two modes differ and each is deterministic: in TEXT mode the code lands on
+# stderr and never on stdout; in JSON mode it lands on stdout, inside the error
+# envelope, and never on stderr. So the text case pins `stderr_contains` and the
+# json case pins `stdout_contains`. This is a PRESENCE claim, so narrowing it is
+# a verified strengthening -- every run satisfying the narrowed claim satisfies
+# the original. (An ABSENCE OR may not be narrowed; rule 2. This is not one.)
+# The source makes no other claim: no exit code, no envelope field, no metadata
+# read, and no harness run -- the build never emits a bundle.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserObjectEnumerationFinalizationWrapper
+async function browserObjectEnumerationFinalizationWrapper() {
+  const values = { "b": 1, "a": 2 };
+  let returnFinally = false;
+  function returnProbe() {
+    try {
+      for (const key of Object.keys(values)) {
+        return key;
+      }
+      throw new Error('unexpected empty Object.keys iteration');
+    } finally {
+      returnFinally = true;
+    }
+  }
+  const returnValue = returnProbe();
+  if (returnValue !== 'b' || !returnFinally) {
+    throw new Error('unexpected Object.keys return/finally semantics');
+  }
+
+  let valuesReturnFinally = false;
+  function valuesReturnProbe() {
+    try {
+      for (const value of Object.values(values)) {
+        return value;
+      }
+      throw new Error('unexpected empty Object.values iteration');
+    } finally {
+      valuesReturnFinally = true;
+    }
+  }
+  const valuesReturnValue = valuesReturnProbe();
+  if (valuesReturnValue !== 1 || !valuesReturnFinally) {
+    throw new Error('unexpected Object.values return/finally semantics');
+  }
+
+  let throwFinally = false;
+  function throwProbe() {
+    try {
+      for (const entry of Object.entries(values)) {
+        if (entry[0] === 'b') {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Object.entries iteration');
+    } finally {
+      throwFinally = true;
+    }
+  }
+  let threw = false;
+  try {
+    throwProbe();
+  } catch {
+    threw = true;
+  }
+  if (!threw || !throwFinally) {
+    throw new Error('unexpected Object.entries throw/finally semantics');
+  }
+
+  let valuesThrowFinally = false;
+  function valuesThrowProbe() {
+    try {
+      for (const value of Object.values(values)) {
+        if (value === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Object.values iteration');
+    } finally {
+      valuesThrowFinally = true;
+    }
+  }
+  let valuesThrew = false;
+  try {
+    valuesThrowProbe();
+  } catch {
+    valuesThrew = true;
+  }
+  if (!valuesThrew || !valuesThrowFinally) {
+    throw new Error('unexpected Object.values throw/finally semantics');
+  }
+
+  let valuesBreakFinally = false;
+  let valuesBreakSeen = false;
+  function valuesBreakProbe() {
+    try {
+      for (const value of Object.values(values)) {
+        if (value === 1) {
+          continue;
+        }
+        valuesBreakSeen = true;
+        break;
+      }
+    } finally {
+      valuesBreakFinally = true;
+    }
+  }
+  valuesBreakProbe();
+  if (!valuesBreakSeen || !valuesBreakFinally) {
+    throw new Error('unexpected Object.values break/continue semantics');
+  }
+
+  let entriesBreakFinally = false;
+  let entriesBreakSeen = false;
+  function entriesBreakProbe() {
+    try {
+      for (const entry of Object.entries(values)) {
+        if (entry[0] === 'b') {
+          continue;
+        }
+        entriesBreakSeen = true;
+        break;
+      }
+    } finally {
+      entriesBreakFinally = true;
+    }
+  }
+  entriesBreakProbe();
+  if (!entriesBreakSeen || !entriesBreakFinally) {
+    throw new Error('unexpected Object.entries break/continue semantics');
+  }
+
+  let reflectReturnFinally = false;
+  function reflectReturnProbe() {
+    try {
+      for (const key of Reflect.ownKeys(values)) {
+        return key;
+      }
+      throw new Error('unexpected empty Reflect.ownKeys iteration');
+    } finally {
+      reflectReturnFinally = true;
+    }
+  }
+  const reflectReturnValue = reflectReturnProbe();
+  if (reflectReturnValue !== 'b' || !reflectReturnFinally) {
+    throw new Error('unexpected Reflect.ownKeys return/finally semantics');
+  }
+
+  let reflectThrowFinally = false;
+  function reflectThrowProbe() {
+    try {
+      for (const key of Reflect.ownKeys(values)) {
+        if (key === 'b') {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Reflect.ownKeys iteration');
+    } finally {
+      reflectThrowFinally = true;
+    }
+  }
+  let reflectThrew = false;
+  try {
+    reflectThrowProbe();
+  } catch {
+    reflectThrew = true;
+  }
+  if (!reflectThrew || !reflectThrowFinally) {
+    throw new Error('unexpected Reflect.ownKeys throw/finally semantics');
+  }
+
+  const asyncValues = { "b": 1, "a": 2 };
+  let asyncFinallySeen = false;
+  let asyncThrew = false;
+  try {
+    for await (const key of Object.keys(asyncValues)) {
+      if (key === 'b') {
+        throw new Error('boom');
+      }
+    }
+    throw new Error('unexpected empty async Object.keys iteration');
+  } catch {
+    asyncThrew = true;
+  } finally {
+    asyncFinallySeen = true;
+  }
+  if (!asyncThrew || !asyncFinallySeen) {
+    throw new Error('unexpected async Object.keys throw/finally semantics');
+  }
+
+  let asyncValuesFinallySeen = false;
+  let asyncValuesThrew = false;
+  try {
+    for await (const value of Object.values(asyncValues)) {
+      if (value === 1) {
+        throw new Error('boom');
+      }
+    }
+    throw new Error('unexpected empty async Object.values iteration');
+  } catch {
+    asyncValuesThrew = true;
+  } finally {
+    asyncValuesFinallySeen = true;
+  }
+  if (!asyncValuesThrew || !asyncValuesFinallySeen) {
+    throw new Error('unexpected async Object.values throw/finally semantics');
+  }
+
+  let asyncValuesBreakFinally = false;
+  let asyncValuesBreakSeen = false;
+  try {
+    for await (const value of Object.values(asyncValues)) {
+      if (value === 1) {
+        continue;
+      }
+      asyncValuesBreakSeen = true;
+      break;
+    }
+  } finally {
+    asyncValuesBreakFinally = true;
+  }
+  if (!asyncValuesBreakSeen || !asyncValuesBreakFinally) {
+    throw new Error('unexpected async Object.values break/continue semantics');
+  }
+
+  let asyncEntriesBreakFinally = false;
+  let asyncEntriesBreakSeen = false;
+  try {
+    for await (const entry of Object.entries(asyncValues)) {
+      if (entry[0] === 'b') {
+        continue;
+      }
+      asyncEntriesBreakSeen = true;
+      break;
+    }
+  } finally {
+    asyncEntriesBreakFinally = true;
+  }
+  if (!asyncEntriesBreakSeen || !asyncEntriesBreakFinally) {
+    throw new Error('unexpected async Object.entries break/continue semantics');
+  }
+
+  let asyncEntriesFinallySeen = false;
+  let asyncEntriesThrew = false;
+  try {
+    for await (const entry of Object.entries(asyncValues)) {
+      if (entry[0] === 'b') {
+        throw new Error('boom');
+      }
+    }
+    throw new Error('unexpected empty async Object.entries iteration');
+  } catch {
+    asyncEntriesThrew = true;
+  } finally {
+    asyncEntriesFinallySeen = true;
+  }
+  if (!asyncEntriesThrew || !asyncEntriesFinallySeen) {
+    throw new Error('unexpected async Object.entries throw/finally semantics');
+  }
+
+  let asyncReflectReturnFinallySeen = false;
+  function asyncReflectReturnProbe() {
+    try {
+      for await (const key of Reflect.ownKeys(asyncValues)) {
+        return key;
+      }
+      throw new Error('unexpected empty async Reflect.ownKeys iteration');
+    } finally {
+      asyncReflectReturnFinallySeen = true;
+    }
+  }
+  const asyncReflectReturnValue = asyncReflectReturnProbe();
+  if (asyncReflectReturnValue !== 'b' || !asyncReflectReturnFinallySeen) {
+    throw new Error('unexpected async Reflect.ownKeys return/finally semantics');
+  }
+
+  let asyncReflectThrowFinallySeen = false;
+  let asyncReflectThrew = false;
+  try {
+    for await (const key of Reflect.ownKeys(asyncValues)) {
+      if (key === 'b') {
+        throw new Error('boom');
+      }
+    }
+    throw new Error('unexpected empty async Reflect.ownKeys iteration');
+  } catch {
+    asyncReflectThrew = true;
+  } finally {
+    asyncReflectThrowFinallySeen = true;
+  }
+  if (!asyncReflectThrew || !asyncReflectThrowFinallySeen) {
+    throw new Error('unexpected async Reflect.ownKeys throw/finally semantics');
+  }
+
+  console.log('browser object enumeration finalization ok');
+}
+"""
+
+[[case]]
+name = "build_emits_object_enumeration_finalization"
+rationale = """Migrated from browser_object_enumeration_finalization_bundle.rs, the four `build_emits_object_enumeration_finalization_in_*_input` fns (one per extension). `assert_browser_object_enumeration_finalization` runs `kali build --bundle --api browser` on a program that probes return/throw/break/continue finalization through Object.keys, Object.values, Object.entries and Reflect.ownKeys, synchronously and under `for await`, and asserts the build fails closed with E5506. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "emits", but the body asserts the build FAILS. The name is carried unchanged; see this file's header for why. The source's own disjunction, carried verbatim per rule 11: `stderr.contains("E5506") || stdout.contains("E5506")`. Resolved against the real binary per rule 11: in text mode the code is carried on stderr, so this case pins `stderr_contains`. Narrowing a presence OR to the stream that actually carries it is a verified strengthening, not a weakening."""
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_object_enumeration_finalization"
+rationale = """Migrated from browser_object_enumeration_finalization_bundle.rs, the four `json_build_emits_object_enumeration_finalization_in_*_input` fns (one per extension). `assert_browser_object_enumeration_finalization` runs `kali build --bundle --api browser` on a program that probes return/throw/break/continue finalization through Object.keys, Object.values, Object.entries and Reflect.ownKeys, synchronously and under `for await`, and asserts the build fails closed with E5506. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "emits", but the body asserts the build FAILS. The name is carried unchanged; see this file's header for why. The source's own disjunction, carried verbatim per rule 11: `stderr.contains("E5506") || stdout.contains("E5506")`. Resolved against the real binary per rule 11: in json mode the code is carried on stdout, inside the error envelope, so this case pins `stdout_contains`. Narrowing a presence OR to the stream that actually carries it is a verified strengthening, not a weakening."""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "failure"
+stdout_contains = ["E5506"]

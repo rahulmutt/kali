@@ -1,0 +1,237 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'app_plain.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_plain.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_plain.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_plain.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_await.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_await.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_await.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_await.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# Migrated from tests/browser_object_computed_numeric_keys_bundle.rs.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_object_computed_numeric_keys_bundle.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 2 other `//` occurrence(s) in the file (:11, :22) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 4 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_computed_numeric_keys` -- 16 invocation(s) = program(plain/await-wrapped) x ext(js/ts/jsx/tsx) x
+#     json_output(false/true). Each of the 4 `#[test]` fns
+#     is a `for filename in [...]` loop over four
+#     filenames, so 4 fns make 16 invocations
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+# THE PROGRAM DIMENSION IS NOT AN AXIS EITHER, and for a different reason from
+# `json_output`: the two programs are two different FILES, not one file's text under
+# substitution. `[source]` is file-wide (U2), so both are written into every trial
+# dir and each case names its own entry on argv; an axis cannot express that, because
+# an axis substitutes into a `[source]` KEY and one key holds one body.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one source `#[test]` fn, whose own `for filename in [...]` loop
+# over four filenames is what the four `ext` cells reproduce; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app_plain.${ext}`, `app_await.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `app.${ext} (the plain-computed-key program)` -> `app_plain.${ext}` -- the source writes TWO different programs to the same `app.<ext>` filename in different tests
+#   * `app.${ext} (the await-wrapped program)` -> `app_await.${ext}` -- same filename, second program
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+# `kali build --bundle` names its output directory after the input STEM, so each
+# case's `file_json` path and browser-bundle-harness `entry` track the rename rather
+# than staying hardcoded to `app` -- `app_plain/app_plain.meta.json` and
+# `entry = "app_plain"`, and likewise for the await-wrapped pair.
+#
+# RULE 8 / RULE 9 -- the two browser-bundle harness BODIES are `format!`-built,
+# inline inside the assert helper (:95) with a placeholder for the
+# exported function name, so neither exists as a string literal anywhere. Both are
+# the byte-exact OUTPUT of executing the real code, captured by running this
+# target's own tests with KALI_BROWSER_BUNDLE_HARNESS_COMMAND pointed at a wrapper that copies the
+# harness script it is handed and then execs node, and subtracting
+# kali_runtime_contract::browser_bundle_harness_prelude("app", false) from each
+# captured script -- `browser_bundle_harness_script` is defined as prelude + body,
+# so the remainder IS the resolved body. The procedure is recorded in
+# `tools/task-18-browser-pilot/batch6a_captures.py`.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_computed_numeric_keys_source`,
+#   `browser_bundle_computed_numeric_keys_with_await_wrappers_source`,
+#   `assert_browser_bundle_computed_numeric_keys` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# `exit = "success"` on the `kali build` process (:59) and on the
+# browser-bundle harness process (:117).
+# In json mode, the build envelope's schemaVersion/command/success/exitCode and the
+# payload's artifactKind/bundleFormat (:67-73), plus
+# the empty `errors` array (:74).
+# The emitted <entry>/<entry>.meta.json apiSurface/artifactKind
+# (:85-86) is asserted in BOTH modes, because the source reads
+# that file outside the `if json_output` block.
+# The harness step carries the file's three stdout claims, `.contains("neg")`
+# (:123), `.contains("pos")` on the next line and `.contains("zero")`
+# (:125), all of which stay `stdout_contains`.
+# There is no count claim, no stderr claim on either process, and the build
+# envelope's stdout leaf is never read, so no `json.stdout` pin.
+# The source passes no --max-threads / --max-spawned-processes arguments, so neither
+# appears on argv.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app_plain.${ext}" = """// kali-tree-shake: computedNumericObjectKeys
+export async function computedNumericObjectKeys() {
+  const obj = { [-1]: 'neg', [+2]: 'pos', [(-0)]: 'zero' };
+  console.log(obj[-1]);
+  console.log(obj[2]);
+  console.log(obj[0]);
+}
+"""
+"app_await.${ext}" = """// kali-tree-shake: computedNumericObjectKeysWithAwaitWrappers
+export async function computedNumericObjectKeysWithAwaitWrappers() {
+  const obj = {
+    [await 1]: 'neg',
+    [+(await 2)]: 'pos',
+    [(0, await 0)]: 'zero',
+  };
+  console.log(obj[1]);
+  console.log(obj[2]);
+  console.log(obj[0]);
+}
+"""
+
+[[case]]
+name = "build_emits_computed_numeric_object_keys"
+rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `build_emits_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys with unary signs and a negative zero (`[-1]`, `[+2]`, `[(-0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:123 and the two after it, ending at :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_plain.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_plain/app_plain.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_plain"
+body = """const mod = await import(bundleJs.href);
+await mod.computedNumericObjectKeys();
+"""
+exit = "success"
+stdout_contains = ["neg", "pos", "zero"]
+
+[[case]]
+name = "json_build_emits_computed_numeric_object_keys"
+rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `json_build_emits_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys with unary signs and a negative zero (`[-1]`, `[+2]`, `[(-0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:123 and the two after it, ending at :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_plain.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_plain/app_plain.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_plain"
+body = """const mod = await import(bundleJs.href);
+await mod.computedNumericObjectKeys();
+"""
+exit = "success"
+stdout_contains = ["neg", "pos", "zero"]
+
+[[case]]
+name = "build_emits_await_wrapped_computed_numeric_object_keys"
+rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `build_emits_await_wrapped_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys wrapped in await expressions (`[await 1]`, `[+(await 2)]`, `[(0, await 0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:123 and the two after it, ending at :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_await.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_await/app_await.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await"
+body = """const mod = await import(bundleJs.href);
+await mod.computedNumericObjectKeysWithAwaitWrappers();
+"""
+exit = "success"
+stdout_contains = ["neg", "pos", "zero"]
+
+[[case]]
+name = "json_build_emits_await_wrapped_computed_numeric_object_keys"
+rationale = """Migrated from browser_object_computed_numeric_keys_bundle.rs, `json_build_emits_await_wrapped_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_bundle_computed_numeric_keys` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose object literal uses computed numeric keys wrapped in await expressions (`[await 1]`, `[+(await 2)]`, `[(0, await 0)]`), then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:123 and the two after it, ending at :125). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_await.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_await/app_await.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_await"
+body = """const mod = await import(bundleJs.href);
+await mod.computedNumericObjectKeysWithAwaitWrappers();
+"""
+exit = "success"
+stdout_contains = ["neg", "pos", "zero"]

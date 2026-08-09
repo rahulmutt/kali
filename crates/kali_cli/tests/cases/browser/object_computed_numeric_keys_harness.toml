@@ -1,0 +1,242 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'main_plain.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_plain.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_plain.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_plain.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_await.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_await.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_await.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_await.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_plain.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_plain.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_plain.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_plain.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_await.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_await.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_await.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_await.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'neg\npos\nzero\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# EXTRA-OK: 'neg\npos\nzero\nneg\npos\nzero\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# Migrated from tests/browser_object_computed_numeric_keys_harness.rs.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_object_computed_numeric_keys_harness.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The file contains no `//` of any kind -- it declares no bundle fixture,
+# so there is not even a `// kali-tree-shake:` marker in it.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 8 `#[test]` fns, 32 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_harness_computed_numeric_keys` -- 32 invocation(s) = program(plain/await-wrapped) x command(run/test) x
+#     ext(js/ts/jsx/tsx) x json_output(false/true). Each of
+#     the 8 `#[test]` fns is a `for filename in [...]` loop
+#     over four filenames, so 8 fns make 32 invocations
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 8 `[[case]]` entries x ext(4) = 32 trials = 32 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+# THE PROGRAM DIMENSION IS NOT AN AXIS EITHER, and for a different reason from
+# `command`/`json_output`: the two programs are different FILES, not one file's text
+# under substitution, and an axis substitutes into a `[source]` KEY, which holds one
+# body.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one source `#[test]` fn, whose own `for filename in [...]` loop
+# over four filenames is what the four `ext` cells reproduce; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main_plain.${ext}`, `main_await.${ext}`, `smoke_plain.test.${ext}`, `smoke_await.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `main.${ext} (plain computed keys)` -> `main_plain.${ext}` -- the source writes two different run programs to the same `main.<ext>` filename
+#   * `main.${ext} (await wrappers)` -> `main_await.${ext}` -- same filename, second program
+#   * `smoke.test.${ext} (plain computed keys)` -> `smoke_plain.test.${ext}` -- the source writes two different Kali.test programs to the same `smoke.test.<ext>` filename; the `.test.` infix is preserved so the file is still a test file to `kali test`
+#   * `smoke.test.${ext} (await wrappers)` -> `smoke_await.test.${ext}` -- same filename, second program
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+#
+# RULE 8 / RULE 9 -- the two `test` fixtures are `format!`-built
+# (:18 is the first), so their resolved text appears in no string literal
+# in the `.rs`: the `.rs` holds the template and the shared `body` separately. All
+# four bodies below are the byte-exact OUTPUT of executing the real builders,
+# captured by a temporary test target that `include!`d this `.rs` and dumped the
+# two builders' return values for both command arms; the procedure is recorded in
+# `tools/task-18-browser-pilot/batch6a_captures.py`.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `computed_numeric_keys_source`,
+#   `computed_numeric_keys_with_await_wrappers_source`,
+#   `assert_browser_harness_computed_numeric_keys` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# `exit = "success"` on the one `kali` process (:75); the argv carries
+# `--max-threads 0` (:66) and `--max-spawned-processes 0` (:68), and
+# the environment carries the variable named by
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:56), set to node.
+# json mode carries schemaVersion/command/success/payload(hostContract,
+# runtimeBackend) (:83-87), then for `run` the payload's
+# `exitCode` ONLY (:89) -- this source does NOT assert the envelope-level
+# `exitCode` that most of the family does, and that absence is preserved -- or for
+# `test` the payload total/passed/failed (:93 is the last of the three),
+# with no `skipped` claim.
+# The three `.contains` claims on the json stdout leaf (:96 and the two
+# after it) become one exact `json.stdout` pin, because a JSON leaf has no substring
+# form; then `stderr = ""` (:99) and the empty `errors` array
+# (:100).
+# Text mode carries the same three claims against raw stdout (:103 to
+# :105) and nothing else -- there is no `ok 1` claim anywhere in this file.
+# THE FOUR PINS ARE NOT ALL THE SAME STRING. Three of the four (run/plain, run/await,
+# test/plain) print neg, pos, zero once; test/await prints them TWICE, because that
+# fixture both calls the async function at top level and returns it from the
+# `Kali.test` body. Each pin is captured for its own case, per cell, and the four are
+# not collapsed.
+# This file uses no count key: the source makes no `.matches(...).count()` claim.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main_plain.${ext}" = """const obj = { [-1]: 'neg', [+2]: 'pos', [(-0)]: 'zero' };
+console.log(obj[-1]);
+console.log(obj[2]);
+console.log(obj[0]);
+"""
+"main_await.${ext}" = """async function computedNumericObjectKeysWithAwaitWrappers() {
+  const obj = {
+    [await 1]: 'neg',
+    [+(await 2)]: 'pos',
+    [(0, await 0)]: 'zero',
+  };
+  console.log(obj[1]);
+  console.log(obj[2]);
+  console.log(obj[0]);
+}
+computedNumericObjectKeysWithAwaitWrappers();
+"""
+"smoke_plain.test.${ext}" = """Kali.test('computed numeric object keys', () => {
+const obj = { [-1]: 'neg', [+2]: 'pos', [(-0)]: 'zero' };
+console.log(obj[-1]);
+console.log(obj[2]);
+console.log(obj[0]);
+});
+"""
+"smoke_await.test.${ext}" = """Kali.test('computed numeric object keys with await wrappers', () => {
+async function computedNumericObjectKeysWithAwaitWrappers() {
+  const obj = {
+    [await 1]: 'neg',
+    [+(await 2)]: 'pos',
+    [(0, await 0)]: 'zero',
+  };
+  console.log(obj[1]);
+  console.log(obj[2]);
+  console.log(obj[0]);
+}
+computedNumericObjectKeysWithAwaitWrappers();
+  return computedNumericObjectKeysWithAwaitWrappers();
+});
+"""
+
+[[case]]
+name = "run_supports_computed_numeric_object_keys_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `run_supports_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys with unary signs and a negative zero, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:103 to :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_plain.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["neg", "pos", "zero"]
+
+[[case]]
+name = "json_run_supports_computed_numeric_object_keys_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `json_run_supports_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys with unary signs and a negative zero, then reads them back and prints neg, pos and zero. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_plain.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "neg\npos\nzero\n", stderr = "", errors = [] }
+
+[[case]]
+name = "test_supports_computed_numeric_object_keys_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `test_supports_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys with unary signs and a negative zero, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:103 to :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_plain.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["neg", "pos", "zero"]
+
+[[case]]
+name = "json_test_supports_computed_numeric_object_keys_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `json_test_supports_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys with unary signs and a negative zero, then reads them back and prints neg, pos and zero. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_plain.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "neg\npos\nzero\n", stderr = "", errors = [] }
+
+[[case]]
+name = "run_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `run_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys wrapped in await expressions, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:103 to :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["neg", "pos", "zero"]
+
+[[case]]
+name = "json_run_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `json_run_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali run --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys wrapped in await expressions, then reads them back and prints neg, pos and zero. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "neg\npos\nzero\n", stderr = "", errors = [] }
+
+[[case]]
+name = "test_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `test_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys wrapped in await expressions, then reads them back and prints neg, pos and zero. Its three stdout claims are separate source lines (:103 to :105). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["neg", "pos", "zero"]
+
+[[case]]
+name = "json_test_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_computed_numeric_keys_harness.rs, `json_test_supports_await_wrapped_computed_numeric_object_keys_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- one source `#[test]` fn, whose `for filename in [...]` loop is reproduced by this file's four `ext` cells. `assert_browser_harness_computed_numeric_keys` runs `kali test --api browser` with the browser harness backed by node and both concurrency limits pinned to 0, against a program whose object literal uses computed numeric keys wrapped in await expressions, then reads them back and prints neg, pos and zero. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. This fixture prints the three values TWICE -- it calls the async function at top level and also returns it from the `Kali.test` body -- so its pin is the doubled string, not the same one the other three cases carry."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "neg\npos\nzero\nneg\npos\nzero\n", stderr = "", errors = [] }

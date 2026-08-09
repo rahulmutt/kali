@@ -1,0 +1,383 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'app_alias.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_alias.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_alias.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_alias.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_direct.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_direct.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_direct.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_direct.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_global.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_global.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_global.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_global.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# Migrated from tests/browser_object_entries_iteration.rs.
+#
+# RULE 12 (carry every source comment verbatim): this source carries THREE Rust
+# comment blocks (:175, :258,
+# :340), one attached to each of its three assert helpers.
+# Each is carried into the rationale of exactly the two cases its own helper
+# produces -- bottom-up, per helper (U6) -- and the text is COPIED out of the
+# `.rs` by this file's generator, never retyped: two of the three contain em
+# dashes that a retyped version would render as `--`.
+#
+# U6 / comment_coverage.py -- A KNOWN FALSE `missing`, DOCUMENTED RATHER THAN PAPERED OVER.
+# This source carries several DISTINCT comment blocks, one per assert helper, each
+# reaching a disjoint subset of the cases below. U6 is explicit that a comment belongs
+# in the rationale of exactly the cases its producing helper reaches, and that copying
+# every block into every case to make the checker green is over-attribution and is
+# FORBIDDEN even though it turns the checker green. `comment_coverage.py` has no
+# per-helper attribution (its own module docstring records the limit), so it reports
+# each block as missing from the cases it correctly does not appear in. That report is
+# the checker's gap, not this file's: the attribution below is per helper, bottom-up.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 18 `#[test]` fns, 24 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_object_entries_iteration` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), from 8
+#     unlooped `#[test]` fns
+#   * `assert_browser_bundle_direct_object_entries_iteration` -- 8 invocation(s) = ext(4) x json_output(false/true), from just 2 `#[test]`
+#     fns, each a `for filename in [...]` loop over four
+#     filenames
+#   * `assert_browser_bundle_global_object_entries_iteration` -- 8 invocation(s) = ext(4) x json_output(false/true), from 8 unlooped
+#     `#[test]` fns
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 6 `[[case]]` entries x ext(4) = 24 trials = 24 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+# 18 fns but 24 invocations: the two `*_direct_*` fns loop and the other 16 do not.
+# THE HELPER DIMENSION IS NOT AN AXIS: the three helpers write three different
+# programs to three different files AND assert different things (the first asserts
+# the BUILD fails; the other two assert the build succeeds and the browser-bundle
+# harness fails), so each is sibling cases, not an axis.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell -- except the two
+# `*_direct_*` cases, where the 4 cells reproduce one fn's own
+# `for filename in [...]` loop over four filenames; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app_alias.${ext}`, `app_direct.${ext}`, `app_global.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `app.${ext} (aliased receiver, build fails)` -> `app_alias.${ext}` -- the source writes THREE different programs to the same `app.<ext>` filename in different tests
+#   * `app.${ext} (direct object literals)` -> `app_direct.${ext}` -- same filename, second program
+#   * `app.${ext} (globalThis-rooted receiver)` -> `app_global.${ext}` -- same filename, third program
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+# `kali build --bundle` names its output directory after the input STEM, so each
+# case's `file_json` path and browser-bundle-harness `entry` track the rename rather
+# than staying hardcoded to `app`.
+#
+# MIGRATION NOTE (controller ruling 8) -- THE SOURCE FN NAMES ARE STALE.
+# Every `#[test]` fn in this source is named for what it was once thought to prove, but no fn in this file asserts a successful end-to-end run:
+# every one of the three helpers ends in `assert!(!output.status.success(), ...)`,
+# at the build step or at the browser-bundle harness step.
+# The names are carried into the case names below unchanged and are NOT corrected:
+# a fn name is not a comment so U7 does not literally apply, the `.rs` files are
+# deleted wholesale after batch 8, and editing a source invalidates every audit run
+# against its pre-trim blob. The discrepancy is recorded here so the case file
+# preserves what the source actually did.
+# Affected: all 18 `#[test]` fns.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_object_entries_iteration_source`,
+#   `browser_bundle_direct_object_entries_iteration_source`,
+#   `browser_bundle_global_object_entries_iteration_source`,
+#   `assert_browser_bundle_object_entries_iteration`,
+#   `assert_browser_bundle_direct_object_entries_iteration`,
+#   `assert_browser_bundle_global_object_entries_iteration` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more, and the three
+# helpers differ:
+#   * `assert_browser_bundle_object_entries_iteration` asserts ONLY that the
+#     `kali build` process FAILS (:181). It reads no envelope even in json
+#     mode, no metadata file and runs no harness -- the build never emits one. So
+#     its two cases are a single `cli` step with `exit = "failure"`, and the json
+#     sibling differs from the text one on argv alone.
+#   * `assert_browser_bundle_direct_object_entries_iteration` asserts the build SUCCEEDS
+#     (:206); in json mode the envelope's
+#     schemaVersion/command/success/exitCode (:214-217) and the
+#     empty `errors` array (:218) -- and NO payload claim, unlike every
+#     other bundle helper in this batch, which is preserved rather than
+#     normalised; the emitted metadata's apiSurface/artifactKind
+#     (:229-230) in BOTH modes; and then that the
+#     browser-bundle HARNESS process fails (:263).
+#   * `assert_browser_bundle_global_object_entries_iteration` is the same shape as the
+#     direct one, on its own fixture, ending in the same harness-level failure
+#     (:345); its build-success assert is at :288.
+# No helper makes any stdout, stderr or count claim, so none is written.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app_alias.${ext}" = """// kali-tree-shake: browserObjectEntriesIteration
+function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2
+  ) {
+    throw new Error('unexpected Object.entries iteration semantics');
+  }
+}
+
+function browserObjectEntriesIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const entries = Object.entries(alias);
+  const frozenEntries = Object.freeze(Object.entries)(alias);
+  const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
+  const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenBracketRootEntries = Object.freeze((globalThis["Object"]))["entries"](alias);
+  const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
+  const frozenParenthesizedDotRootEntries = Object.freeze((globalThis.Object).entries)(alias);
+  const mixedEntries = globalThis.Object["entries"](alias);
+  const mixedBracketedEntries = globalThis["Object"].entries(alias);
+  const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
+  const parenthesizedSingleQuotedReceiverBracketedEntries = (globalThis['Object'])["entries"](alias);
+  const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
+  const singleQuotedProperty = [];
+  for (const entry of globalThis['Object'].entries(alias)) {
+    singleQuotedProperty.push(entry);
+  }
+  const doubleQuotedSingleQuotedEntries = globalThis["Object"]['entries'](alias);
+  const mixedSingleQuotedBracketedEntries = globalThis['Object']["entries"](alias);
+  const mixedSingleQuotedEntries = globalThis['Object']['entries'](alias);
+  const bracketedEntries = globalThis["Object"]["entries"](alias);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(frozenEntries);
+  assertObjectEntriesIteration(frozenGlobalEntries);
+  assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenBracketRootEntries);
+  assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedDotRootEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);
+  assertObjectEntriesIteration(singleQuotedProperty);
+  assertObjectEntriesIteration(doubleQuotedSingleQuotedEntries);
+  assertObjectEntriesIteration(mixedSingleQuotedBracketedEntries);
+  assertObjectEntriesIteration(mixedSingleQuotedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+}
+"""
+"app_direct.${ext}" = """// kali-tree-shake: browserDirectObjectEntriesIteration
+function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2
+  ) {
+    throw new Error('unexpected Object.entries iteration semantics');
+  }
+}
+
+function browserDirectObjectEntriesIteration() {
+  const entries = Object.entries({ "b": 1, "a": 2 });
+  const frozenEntries = Object.freeze(Object.entries)({ "b": 1, "a": 2 });
+  const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)({ "b": 1, "a": 2 });
+  const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])({ "b": 1, "a": 2 });
+  const frozenBracketRootEntries = Object.freeze((globalThis["Object"]))["entries"]({ "b": 1, "a": 2 });
+  const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)({ "b": 1, "a": 2 });
+  const mixedEntries = globalThis.Object["entries"]({ "b": 1, "a": 2 });
+  const mixedBracketedEntries = globalThis["Object"].entries({ "b": 1, "a": 2 });
+  const doubleQuotedSingleQuotedEntries = globalThis["Object"]['entries']({ "b": 1, "a": 2 });
+  const mixedSingleQuotedBracketedEntries = globalThis['Object']["entries"]({ "b": 1, "a": 2 });
+  const mixedSingleQuotedEntries = globalThis['Object']['entries']({ "b": 1, "a": 2 });
+  const bracketedEntries = globalThis["Object"]["entries"]({ "b": 1, "a": 2 });
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(frozenEntries);
+  assertObjectEntriesIteration(frozenGlobalEntries);
+  assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenBracketRootEntries);
+  assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(doubleQuotedSingleQuotedEntries);
+  assertObjectEntriesIteration(mixedSingleQuotedBracketedEntries);
+  assertObjectEntriesIteration(mixedSingleQuotedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+}
+"""
+"app_global.${ext}" = """// kali-tree-shake: browserGlobalObjectEntriesIteration
+function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2
+  ) {
+    throw new Error('unexpected Object.entries iteration semantics');
+  }
+}
+
+function browserGlobalObjectEntriesIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const entries = globalThis.Object.entries(alias);
+  const frozenEntries = Object.freeze(globalThis.Object.entries)(alias);
+  const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenBracketRootEntries = Object.freeze((globalThis["Object"]))["entries"](alias);
+  const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
+  const mixedEntries = globalThis.Object["entries"](alias);
+  const mixedBracketedEntries = globalThis["Object"].entries(alias);
+  const parenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
+  const bracketed = globalThis["Object"]["entries"](alias);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(frozenEntries);
+  assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenBracketRootEntries);
+  assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketed);
+}
+"""
+
+[[case]]
+name = "build_emits_object_entries_iteration_semantics"
+rationale = """Migrated from browser_object_entries_iteration.rs, the four `build_emits_object_entries_iteration_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_object_entries_iteration` runs `kali build --bundle --api browser` on a program that reads Object.entries through eighteen access forms over an aliased receiver, and asserts the build fails closed. Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (4 of this helper's 8 worklist callers were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506 build-time rejection, not a silent wrong value; re-pinned as class A for all 8 callers — see docs/superpowers/followups/pr16-honest-repin-inventory.md). MIGRATION NOTE (controller ruling 8): the source fn name says "emits", but the body asserts the build FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the build fails, so this case is one `cli` step with `exit = "failure"` and nothing else -- the source reads no envelope, no metadata and runs no harness on this path."""
+args = ["build", "--bundle", "--api", "browser", "app_alias.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_object_entries_iteration_semantics"
+rationale = """Migrated from browser_object_entries_iteration.rs, the four `json_build_emits_object_entries_iteration_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_object_entries_iteration` runs `kali build --bundle --api browser` on a program that reads Object.entries through eighteen access forms over an aliased receiver, and asserts the build fails closed. Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (4 of this helper's 8 worklist callers were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506 build-time rejection, not a silent wrong value; re-pinned as class A for all 8 callers — see docs/superpowers/followups/pr16-honest-repin-inventory.md). MIGRATION NOTE (controller ruling 8): the source fn name says "emits", but the body asserts the build FAILS. The name is carried unchanged; see this file's header for why. The whole claim is that the build fails, so this case is one `cli` step with `exit = "failure"` and nothing else -- the source reads no envelope, no metadata and runs no harness on this path."""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_alias.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "build_emits_direct_object_entries_iteration_semantics"
+rationale = """Migrated from browser_object_entries_iteration.rs, the one fn `build_emits_direct_object_entries_iteration_semantics_in_js_ts_jsx_tsx_input`, whose `for filename in [...]` loop over four filenames is what this file's four `ext` cells reproduce. `assert_browser_bundle_direct_object_entries_iteration` runs `kali build --bundle --api browser` on a program that reads Object.entries through twelve direct-object-literal access forms, asserts the build SUCCEEDS and that the emitted metadata names the browser bundle, then runs the emitted bundle under the browser-bundle-harness contract and asserts THAT process fails closed. Honest re-pin (PR #16 rev2, family `object-enum`): the build step succeeds (its own success assert above holds honestly); kali fails closed/loud only at browser-bundle execution here (a runtime trap surfacing the fixture's own assertion throw) — this helper's 2 worklist callers are both class A — see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "emits", which is true of the build step, but the test's terminal claim is that the harness run fails. The name is carried unchanged; see this file's header for why."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_direct.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_direct/app_direct.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_direct"
+body = """const mod = await import(bundleJs.href);
+await mod.browserDirectObjectEntriesIteration();
+"""
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_direct_object_entries_iteration_semantics"
+rationale = """Migrated from browser_object_entries_iteration.rs, the one fn `json_build_emits_direct_object_entries_iteration_semantics_in_js_ts_jsx_tsx_input`, whose `for filename in [...]` loop over four filenames is what this file's four `ext` cells reproduce. `assert_browser_bundle_direct_object_entries_iteration` runs `kali build --bundle --api browser` on a program that reads Object.entries through twelve direct-object-literal access forms, asserts the build SUCCEEDS and that the emitted metadata names the browser bundle, then runs the emitted bundle under the browser-bundle-harness contract and asserts THAT process fails closed. Honest re-pin (PR #16 rev2, family `object-enum`): the build step succeeds (its own success assert above holds honestly); kali fails closed/loud only at browser-bundle execution here (a runtime trap surfacing the fixture's own assertion throw) — this helper's 2 worklist callers are both class A — see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "emits", which is true of the build step, but the test's terminal claim is that the harness run fails. The name is carried unchanged; see this file's header for why. On the json branch the source additionally reads the build envelope's schemaVersion/command/success/exitCode and asserts the `errors` array is empty -- and asserts NO payload field, which is preserved rather than normalised against the other bundle helpers in this batch."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_direct.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_direct/app_direct.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_direct"
+body = """const mod = await import(bundleJs.href);
+await mod.browserDirectObjectEntriesIteration();
+"""
+exit = "failure"
+
+[[case]]
+name = "build_emits_global_object_entries_iteration_semantics"
+rationale = """Migrated from browser_object_entries_iteration.rs, the four `build_emits_global_object_entries_iteration_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_global_object_entries_iteration` runs `kali build --bundle --api browser` on a program that reads Object.entries through nine globalThis-rooted access forms, asserts the build SUCCEEDS and that the emitted metadata names the browser bundle, then runs the emitted bundle under the browser-bundle-harness contract and asserts THAT process fails closed. Honest re-pin (PR #16 rev2, family `object-enum`): the build step succeeds (its own success assert above holds honestly); kali fails closed/loud only at browser-bundle execution here (a runtime trap surfacing the fixture's own assertion throw) — this helper's 8 worklist callers are all class A — see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "emits", which is true of the build step, but the test's terminal claim is that the harness run fails. The name is carried unchanged; see this file's header for why."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_global.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_global/app_global.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_global"
+body = """const mod = await import(bundleJs.href);
+await mod.browserGlobalObjectEntriesIteration();
+"""
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_global_object_entries_iteration_semantics"
+rationale = """Migrated from browser_object_entries_iteration.rs, the four `json_build_emits_global_object_entries_iteration_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_global_object_entries_iteration` runs `kali build --bundle --api browser` on a program that reads Object.entries through nine globalThis-rooted access forms, asserts the build SUCCEEDS and that the emitted metadata names the browser bundle, then runs the emitted bundle under the browser-bundle-harness contract and asserts THAT process fails closed. Honest re-pin (PR #16 rev2, family `object-enum`): the build step succeeds (its own success assert above holds honestly); kali fails closed/loud only at browser-bundle execution here (a runtime trap surfacing the fixture's own assertion throw) — this helper's 8 worklist callers are all class A — see docs/superpowers/followups/pr16-honest-repin-inventory.md. MIGRATION NOTE (controller ruling 8): the source fn name says "emits", which is true of the build step, but the test's terminal claim is that the harness run fails. The name is carried unchanged; see this file's header for why. On the json branch the source additionally reads the build envelope's schemaVersion/command/success/exitCode and asserts the `errors` array is empty -- and asserts NO payload field, which is preserved rather than normalised against the other bundle helpers in this batch."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_global.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_global/app_global.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_global"
+body = """const mod = await import(bundleJs.href);
+await mod.browserGlobalObjectEntriesIteration();
+"""
+exit = "failure"
