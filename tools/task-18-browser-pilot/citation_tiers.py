@@ -45,6 +45,20 @@ import batch5_crosscheck as X  # noqa: E402
 
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
+# Pre-trim blobs written by `sweep_specs`, removed on exit. The shell driver
+# `rm -rf`s its scratch dir; this used to leak one temp file per U4 trim per
+# invocation (minor 6, fix round 3).
+_BLOBS = []
+
+
+def _cleanup_blobs():
+    for path in _BLOBS:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    _BLOBS.clear()
+
 
 def sweep_specs():
     """The spec list `citation_sweep.sh` builds, in the same order."""
@@ -61,12 +75,27 @@ def sweep_specs():
         if not ref:
             specs.append(stem)
             continue
-        blob = tempfile.NamedTemporaryFile("w", suffix=".rs", delete=False)
-        blob.write(subprocess.run(
+        # HARD-FAIL ON AN UNREADABLE REF (N5, fix round 3). This used to write
+        # `subprocess.run(...).stdout` into the blob without checking the return
+        # code, so a `PRE-TRIM REF:` naming a SHA that is not in the repository
+        # produced an EMPTY pre-trim source and the instrument carried on. The
+        # shell driver hard-stops with `cannot read <ref>` and exit 2; this
+        # printed `population: 111 spec(s)` and a table reading `resolved 3015 ->
+        # 2970`, `bad-range 0 -> 45`, `silent 412 -> 457`. The one instrument
+        # whose whole purpose is that figures cannot be wrong was the one that
+        # would print silently wrong figures.
+        shown = subprocess.run(
             ["git", "-C", X.REPO, "show",
              f"{ref.group(1)}:crates/kali_cli/tests/browser_{stem}.rs"],
-            capture_output=True, text=True).stdout)
+            capture_output=True, text=True)
+        if shown.returncode:
+            sys.exit(f"cannot read {ref.group(1)}:browser_{stem}.rs -- "
+                     f"{shown.stderr.strip()}\nEvery figure this instrument prints "
+                     "depends on that blob; refusing to print any.")
+        blob = tempfile.NamedTemporaryFile("w", suffix=".rs", delete=False)
+        blob.write(shown.stdout)
         blob.close()
+        _BLOBS.append(blob.name)
         specs.append(f"{stem}={blob.name}")
     for rs in sorted(glob.glob(os.path.join(X.TESTS, "browser_*.rs"))):
         stem = os.path.basename(rs)[len("browser_"):-3]
@@ -177,7 +206,7 @@ def fallback_dependence(specs):
             return []
         return [tok] + sorted({m for m in X._METHOD.findall(s) if m != tok})
 
-    total = with_needles = dependent = 0
+    total = with_needles = dependent = no_distinctive = 0
     for spec in specs:
         _stem, text, lines = _sides(spec)
         if text is None or lines is None:
@@ -189,7 +218,154 @@ def fallback_dependence(specs):
                 with_needles += 1
                 if not pre_batch7(m.group(1)):
                     dependent += 1
-    return total, with_needles, dependent
+                # THE SECOND PREDICATE, printed so the two can never be
+                # conflated again. "`_distinctive` is None and `_needles` is
+                # non-empty" is a DIFFERENT question from "pre-batch-7 `_needles`
+                # was empty", and the gap between them is one snippet:
+                # `exit = "success"`, 48 citations, which `_distinctive` declines
+                # (no `(`, `.` or `[`) but `_needles` never asks it about,
+                # because the `CASE_KEYS` branch returns `['success']` two lines
+                # earlier. That branch is BATCH 6, so those 48 do not depend on a
+                # batch-7 fallback -- which is why the two numbers differ and
+                # neither is wrong.
+                if not X._distinctive(m.group(1).strip()):
+                    no_distinctive += 1
+    return total, with_needles, dependent, no_distinctive
+
+
+def describe_tier(specs):
+    """What the DECLARED tier actually contains -- the figures every round so far
+    has described in prose and none has regenerated.
+
+    Three rounds in a row the *description* of a correct mechanism was the
+    defect: "prose that names no code position at all" (false -- most of it
+    occurs verbatim in its own source), then "none is a construct a search can
+    pin to one statement" (false -- most of them are). So the composition is
+    computed rather than characterised.
+    """
+    composition = collections.Counter()
+    verbatim = resolves = pinned = total = 0
+    for spec in specs:
+        _stem, text, lines = _sides(spec)
+        if text is None or lines is None:
+            continue
+        items = X._source_items("\n".join(lines))
+        code = "\n".join(l for l in lines if not l.lstrip().startswith("//"))
+        for m in _matches(text).values():
+            if X._needles(m.group(1), items):
+                continue
+            snippet = m.group(1).strip()
+            total += 1
+            composition[snippet] += 1
+            if snippet in code:
+                verbatim += 1
+            first, end, qualified = _range_of(m)
+            if qualified or first > len(lines) or end > len(lines) or end < first:
+                continue
+            if snippet in "\n".join(X._statement(lines, first, end)):
+                resolves += 1
+                # "pins one statement" in the sense the gate uses: both +-1
+                # shifts lose it.
+                shifts = []
+                for delta in (1, -1):
+                    a, b = first + delta, end + delta
+                    shifts.append(a < 1 or b > len(lines) or snippet not in
+                                  "\n".join(X._statement(lines, a, b)))
+                if all(shifts):
+                    pinned += 1
+    return total, verbatim, resolves, pinned, composition
+
+
+def mutation_comparison(specs):
+    """The +-1 kill comparison, and the cost of word-bounding the needles.
+
+    Both were typed into the round-2 report with no command. The first is the
+    regression check for N2; the second is the claim that N2's fix was free.
+    """
+    substring = (lambda tok, stmt: tok in stmt)
+    killed = {"substring": 0, "word-bounded": 0}
+    mutants = 0
+    loosened = 0
+    for spec in specs:
+        _stem, text, lines = _sides(spec)
+        if text is None or lines is None:
+            continue
+        items = X._source_items("\n".join(lines))
+        for m in _matches(text).values():
+            needles = X._needles(m.group(1), items)
+            if not needles:
+                continue
+            first, end, qualified = _range_of(m)
+            if qualified or end > len(lines) or end < first:
+                continue
+            stmt = "\n".join(X._statement(lines, first, end))
+            # "0 pass by substring and fail word-bounded" -- N2's freeness.
+            for tok in needles:
+                if substring(tok, stmt) and not X._needle_found(tok, stmt):
+                    loosened += 1
+            for label, found in (("substring", substring),
+                                 ("word-bounded", X._needle_found)):
+                if not all(found(tok, stmt) for tok in needles):
+                    continue
+                for delta in (1, -1):
+                    a, b = first + delta, end + delta
+                    if label == "substring":
+                        mutants += 1
+                    if a < 1 or b > len(lines):
+                        killed[label] += 1
+                        continue
+                    shifted = "\n".join(X._statement(lines, a, b))
+                    if not all(found(tok, shifted) for tok in needles):
+                        killed[label] += 1
+    return mutants, killed, loosened
+
+
+def admissible(specs):
+    """Which still-declared snippets could be admitted as their own needle, and
+    at what cost -- measured one snippet at a time across the whole sweep.
+
+    This is the measurement behind `BARE_NEEDLE_ADMITTED`, and it is the reason
+    that constant is a declaration rather than a rule: it separates the bare
+    backticks this corpus uses as CONSTRUCTS from the ones it uses as LABELS,
+    and nothing lexical does.
+    """
+    import contextlib
+    import io
+    original = X._needles
+
+    def run(fn):
+        X._needles = fn
+        X._NO_NEEDLE.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            problems = [p for spec in specs
+                        for p in X.check(spec, citations_only=True)]
+        total = sum(X._NO_NEEDLE.values())
+        X._needles = original
+        return problems, total
+
+    def admit(name):
+        def needles(snippet, source_items=None):
+            base = original(snippet, source_items)
+            return base if base else ([snippet.strip()]
+                                      if snippet.strip() == name else [])
+        return needles
+
+    shipped, declared_total = run(original)
+    counts = collections.Counter()
+    for spec in specs:
+        _stem, text, lines = _sides(spec)
+        if text is None or lines is None:
+            continue
+        items = X._source_items("\n".join(lines))
+        for m in _matches(text).values():
+            if not X._needles(m.group(1), items):
+                counts[m.group(1).strip()] += 1
+    rows = []
+    for snippet, n in counts.most_common():
+        problems, _ = run(admit(snippet))
+        new = [p for p in problems if p not in shipped]
+        rows.append((snippet, n, len(new)))
+    return declared_total, rows
 
 
 def tier_gains(specs):
@@ -295,11 +471,15 @@ def main(argv):
         print(f"  {'silent (never re-resolved)':<38} {silent:>5}\n")
 
     if want & {"--all", "--fallbacks"}:
-        total, with_needles, dependent = fallback_dependence(specs)
+        total, with_needles, dependent, no_distinctive = fallback_dependence(specs)
         print("--- NEEDLE FALLBACK DEPENDENCE (resolving specs only) ---")
-        print(f"  citation matches                       {total:>5}")
-        print(f"  carrying needles                       {with_needles:>5}")
-        print(f"  depending on a batch-7 fallback        {dependent:>5}\n")
+        print(f"  citation matches                             {total:>5}")
+        print(f"  carrying needles                             {with_needles:>5}")
+        print(f"  pre-batch-7 `_needles` was empty             {dependent:>5}"
+              f"   <- 'depends on a batch-7 fallback'")
+        print(f"  no distinctive leading identifier            {no_distinctive:>5}"
+              f"   <- a DIFFERENT predicate; the gap is `exit = \"success\"`,")
+        print(f"  {'':>45}      which batch 6's CASE_KEYS branch already read\n")
 
     if want & {"--all", "--gains"}:
         shipped, no_items = tier_gains(specs)
@@ -307,6 +487,46 @@ def main(argv):
         print(f"  shipped                                {shipped:>5}")
         print(f"  without the source-defined-item tier   {no_items:>5}"
               f"   (that tier gives needles to {no_items - shipped})")
+        print()
+
+    if want & {"--all", "--describe"}:
+        total, verbatim, resolves, pinned, composition = describe_tier(specs)
+        print("--- WHAT THE DECLARED TIER CONTAINS ---")
+        print(f"  citations in the tier                  {total:>5}")
+        print(f"  occurring verbatim in their own source {verbatim:>5}")
+        print(f"  resolving at their own cited line      {resolves:>5}")
+        print(f"  pinned (both +-1 shifts lose them)     {pinned:>5}")
+        print(f"  distinct snippets                      {len(composition):>5}")
+        keys = sum(n for s, n in composition.items() if s in X.CASE_KEYS)
+        print(f"  of which case-format keys (CASE_KEYS)  {keys:>5}")
+        for s, n in composition.most_common(8):
+            print(f"      {n:4d}  `{s[:58]}`")
+        print()
+
+    if want & {"--all", "--mutation"}:
+        mutants, killed, loosened = mutation_comparison(specs)
+        print("--- +-1 MUTATION COMPARISON (N2 regression check) ---")
+        print(f"  shifted citations                      {mutants:>5}")
+        print(f"  killed, substring comparison           {killed['substring']:>5}")
+        print(f"  killed, word-bounded (shipped)         {killed['word-bounded']:>5}")
+        print(f"  needles passing substring but failing word-bounded "
+              f"{loosened:>5}   <- N2's cost")
+        print()
+
+    if want & {"--all", "--admissible"}:
+        declared_total, rows = admissible(specs)
+        free = [r for r in rows if r[2] == 0]
+        cost = [r for r in rows if r[2]]
+        print("--- STILL-DECLARED SNIPPETS: admissible at zero cost? ---")
+        print(f"  declared tier total {declared_total}")
+        print(f"  ZERO COST : {len(free):>3} snippet(s), "
+              f"{sum(n for _, n, _ in free):>4} citation(s)")
+        for s, n, _ in free[:10]:
+            print(f"      {n:4d}  `{s[:58]}`")
+        print(f"  FALSE RED : {len(cost):>3} snippet(s), "
+              f"{sum(n for _, n, _ in cost):>4} citation(s)")
+        for s, n, f in cost[:10]:
+            print(f"      {n:4d} (+{f} new failures)  `{s[:48]}`")
         print()
 
     if want & {"--all", "--declare"}:
@@ -321,4 +541,7 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    try:
+        sys.exit(main(sys.argv))
+    finally:
+        _cleanup_blobs()

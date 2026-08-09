@@ -283,7 +283,7 @@ def _needle_found(tok, stmt):
     needle like `--max-threads` or `0\n` is a fragment of program text, and word
     boundaries are meaningless around it.
     """
-    if _IDENT_ONLY.fullmatch(tok):
+    if BARE_IDENT.fullmatch(tok):
         return re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % re.escape(tok),
                          stmt) is not None
     return tok in stmt
@@ -348,8 +348,11 @@ _METHOD = re.compile(r"\.\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 # A snippet that is one bare identifier and nothing else, and the source items a
 # citation may point at. See `_needles`' last tier: a bare identifier is a needle
 # only when the source DEFINES a name of its own by that spelling.
+# One identifier, whole. Used both to decide whether a snippet IS a bare
+# identifier and to decide whether a needle must be matched at token boundaries;
+# fix round 2 introduced a byte-identical second copy of it for the latter, which
+# is one edit away from the two drifting apart (minor 5, fix round 3).
 BARE_IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-_IDENT_ONLY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _PATH_EXPR = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+")
 _ITEM_DECL = re.compile(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)")
 
@@ -524,6 +527,9 @@ def _needles(snippet, source_items=None):
         if source_items and BARE_IDENT.fullmatch(s) and len(s) >= 4:
             if s not in CASE_KEYS and s in source_items:
                 return [s]
+        # DECLARED BARE NEEDLES (fix round 3). See `BARE_NEEDLE_ADMITTED`.
+        if s in BARE_NEEDLE_ADMITTED:
+            return [s]
         # TWO MORE SHAPES THAT ARE UNAMBIGUOUSLY CODE (fix round 2). The review
         # measured the declared NO-NEEDLE tier and found the sentence describing
         # it was false: it is not all "prose that names no code position". Of the
@@ -645,6 +651,7 @@ def check(spec, citations_only=False):
         if not rs_header:
             return [f"{stem}: no case file at {toml_path} and no retention header"]
         problems += _header_cite_arm(stem, "\n".join(rs_header), live_lines)
+        problems += _gated_arm(stem, "retention header", "\n".join(rs_header))
         print(f"{stem}: no case file (whole-file retention); "
               f"{len(rs_header)} retention-header line(s) checked, "
               f"{len(problems)} problem(s)")
@@ -740,6 +747,7 @@ def check(spec, citations_only=False):
     problems += _gated_arm(stem, "case file", text)
     if rs_header:
         problems += _header_cite_arm(stem, "\n".join(rs_header), live_lines)
+        problems += _gated_arm(stem, "retention header", "\n".join(rs_header))
     print(f"{stem}: {len(header)} header line(s) "
           f"({'+ retention header' if rs_header else 'no retention header'}), "
           f"{len(problems)} problem(s)")
@@ -852,6 +860,55 @@ UNGATED_REDLIST = {
 
 _REDLIST_HIT = set()
 
+# BARE BACKTICKED SNIPPETS THIS CORPUS USES AS CONSTRUCTS, declared (fix round 3).
+#
+# The source-defined-item test above covers a bare identifier the source declares
+# as an item. It does not cover an identifier the source only BINDS or INDEXES --
+# `stderr`, `errors`, `exitCode` -- and those are the declared tier's two largest
+# classes plus its fifth.
+#
+# WHY THIS IS A DECLARATION AND NOT A RULE, which matters because the obvious
+# rule is wrong by a factor of two. Admitting every bare identifier that occurs
+# in the source admits `expected_stdout`, `run`, `test` and `app/app.meta.json`
+# too, and those produce 211 FALSE reds -- because in this corpus a bare backtick
+# is used in two different ways and only one of them is a construct:
+#
+#   CONSTRUCT   ``errors` (:228)`  -> `:228` is `let errors = json["errors"]...`
+#   LABEL       ``expected_stdout` = "1\n1" (:204)` -> `:204` is `"1\n1",`; the
+#               citation points at the VALUE the label describes, not at the
+#               identifier. Same shape: ``for `run` (:228-229)` pointing at
+#               `assert_eq!(json["exitCode"], 0)`, and ``app/app.meta.json`
+#               metadata (:99-100)` pointing at the metadata assertions.
+#
+# No lexical predicate separates a label from a construct -- the difference is
+# what the author meant the backtick to do. So this is an adjudicated list, the
+# same instrument as `UNGATED_REDLIST`, and each entry's cost was measured by
+# admitting it alone across the whole sweep:
+#
+#     stderr    86 citations   0 new failures
+#     errors    74 citations   0 new failures
+#     exitCode  14 citations   0 new failures
+#     ---- rejected, measured the same way ----
+#     app/app.meta.json  31    31 new failures (a path, always a label)
+#     run       22            17 new failures
+#     test      19            14 new failures
+#     expected_stdout 16      16 new failures
+#
+# Regenerate the whole partition, including which snippets are admissible at zero
+# cost and which are not:
+#     $ python3 tools/task-18-browser-pilot/citation_tiers.py --admissible
+#
+# Two further snippets measure at zero cost and are deliberately NOT here: a
+# bare `"8"` (2 citations, not an identifier) and `build` (1 citation). `build`
+# is the same subcommand-label shape as `run` and `test`, which fail on 31 of
+# their 41 citations between them; its single instance passing is luck, not a
+# property, and admitting it would encode the luck.
+#
+# Admitting these is a STRENGTHENING: 174 citations move from "nothing searches
+# for them" to "the identifier must be at the cited line", and all 174 pass
+# today, so a future drift in any of them is now caught.
+BARE_NEEDLE_ADMITTED = frozenset({"stderr", "errors", "exitCode"})
+
 # THE THIRD TIER, DECLARED (batch 7 fix round 1, I1).
 #
 # A citation can fail to be re-resolved in three ways, and until this round only
@@ -872,77 +929,87 @@ _REDLIST_HIT = set()
 # the number the corpus produces have to agree, which is what stops the tier
 # drifting back into silence.
 #
-# WHAT IS ACTUALLY IN IT, measured -- the previous description of this tier was
-# a false quantifier of exactly ruling 13's shape and is corrected here. It said
-# the tier is "prose that names no code position at all". It is not: of the 417
-# it held before this round, 276 occurred VERBATIM in their own non-comment
-# source and 217 would resolve against their own cited line under the simplest
-# possible needle. Two classes inside it were unambiguously code and have been
-# moved OUT (see `_needles`' last tier): `::` path expressions and snippets
-# carrying a quoted literal, 29 citations, at 0 new failures.
+# WHAT IS ACTUALLY IN IT, measured -- and this description has now been wrong
+# TWICE, both times as a false quantifier of ruling 13's own shape, so it is
+# regenerated rather than characterised:
 #
-# What is left -- 388 across 51 stems -- is, by descending count: bare `stderr`
-# and `errors` locals (the two largest classes, and locals are not items, so the
-# source-defined test declines them); argv strings (`kali build --bundle --api
-# browser`, `--max-threads 0`); a file path (`app/app.meta.json`); the CLI's own
-# subcommands (`run`, `test`); case-format keys describing the MIGRATED form;
-# and `exitCode`, a JSON key the source only ever indexes. Some of those ARE
-# positions in a loose sense; none is a construct a search can pin to one
-# statement, which is the property the gate needs. Requiring a needle from them
-# would be a false red, and inventing one would be worse.
+#     $ python3 tools/task-18-browser-pilot/citation_tiers.py --describe
+#     citations in the tier                    214
+#     occurring verbatim in their own source    73
+#     resolving at their own cited line         14
+#     pinned (both +-1 shifts lose them)         2
+#     distinct snippets                         39
+#     of which case-format keys (CASE_KEYS)     14
 #
-# Regenerate, from the tree:
+# Round 1 said the tier was "prose that names no code position at all". FALSE:
+# 276 of the 417 then in it occurred verbatim in their own non-comment source.
+# Round 2 replaced that with "none is a construct a search can pin to one
+# statement". Also FALSE: 188 of the 388 resolved at their cited line and 145
+# were killed by both +-1 shifts, including all 86 `stderr` and 56 of 74
+# `errors`. `none` is one of ruling 13's trigger words and it was wrong.
+#
+# Round 3 stopped redescribing and MOVED them: `stderr`, `errors` and `exitCode`
+# are declared needles now (see `BARE_NEEDLE_ADMITTED`), 174 citations at 0
+# measured cost. That is why the figures above are so much smaller than the ones
+# they replace -- the resolvable part of the tier left it.
+#
+# What is left is 214 citations across 39 snippets, and the honest statement is
+# the measurement, not an adjective: 73 of them appear verbatim somewhere in
+# their own source, 14 appear at their own cited line, and 2 are pinned there.
+# Admitting any of them as its own needle was measured one snippet at a time and
+# 37 of the 39 produce new failures -- `app/app.meta.json` 31, `run` 17, `test`
+# 14, `expected_stdout` 16 -- because in every one of those the backtick is a
+# LABEL and the citation points at what the label describes, not at the label.
+# The two that would cost nothing (`"8"`, `build`, 3 citations between them) are
+# left out for the reason `BARE_NEEDLE_ADMITTED` gives.
+#
+# Regenerate this dict, from the tree:
 #     $ python3 tools/task-18-browser-pilot/citation_tiers.py --declare
 NO_NEEDLE_DECLARED = {
-    "math_asinh_acosh_atanh_identities": 3,
+    "math_asinh_acosh_atanh_identities": 1,
     "math_exp_log_mixed_root": 1,
-    "math_expm1_log1p_frozen_aliases": 16,
+    "math_expm1_log1p_frozen_aliases": 8,
     "math_expm1_log1p_fully_bracketed_root": 1,
-    "math_expm1_log1p_global_this_root": 13,
-    "math_floor_trunc_ceil_bracketed_root": 12,
+    "math_expm1_log1p_global_this_root": 7,
+    "math_floor_trunc_ceil_bracketed_root": 4,
     "math_fully_bracketed_root_core_suite": 1,
     "math_global_this_root_core_suite": 1,
-    "math_hypot_empty_identity": 9,
-    "math_hypot_frozen_aliases": 31,
-    "math_hypot_global_this_root": 17,
+    "math_hypot_empty_identity": 4,
+    "math_hypot_frozen_aliases": 3,
     "math_imul_clz32_aliases": 2,
     "math_imul_omitted_operands": 3,
     "math_log2_log10": 4,
-    "math_log2_log10_bracketed_root": 12,
+    "math_log2_log10_bracketed_root": 4,
     "math_log2_log10_fully_bracketed_root": 1,
-    "math_log2_log10_mixed_root": 11,
-    "math_max_min_frozen_aliases": 10,
+    "math_log2_log10_mixed_root": 8,
+    "math_max_min_frozen_aliases": 6,
     "math_pow_alias_bundle": 1,
     "math_pow_bracketed_frozen_wrapper": 1,
     "math_pow_bracketed_frozen_wrapper_bundle": 1,
-    "math_pow_bracketed_frozen_wrapper_harness": 4,
     "math_pow_bracketed_root": 10,
-    "math_pow_harness": 7,
+    "math_pow_harness": 1,
     "math_pow_zero_exponent_non_integer_base": 31,
-    "math_round": 42,
-    "math_round_bracketed_root": 29,
+    "math_round_bracketed_root": 25,
     "math_sin_cos_tan_bracketed_root": 6,
-    "math_sin_cos_tan_frozen_root": 18,
+    "math_sin_cos_tan_frozen_root": 13,
     "math_sin_cos_tan_fully_bracketed_root": 6,
-    "math_sin_cos_tan_zero_identities": 3,
-    "math_sin_cos_zero_identities": 4,
+    "math_sin_cos_tan_zero_identities": 2,
     "math_sinh_cosh_tanh_bracketed_root": 6,
-    "math_sinh_cosh_tanh_global_this_root": 12,
-    "math_sinh_cosh_tanh_zero_identities": 4,
-    "math_sqrt_cbrt_bracketed_root": 13,
-    "math_sqrt_cbrt_bundle": 3,
-    "math_sqrt_cbrt_frozen_aliases": 2,
+    "math_sinh_cosh_tanh_global_this_root": 10,
+    "math_sqrt_cbrt_bracketed_root": 11,
+    "math_sqrt_cbrt_bundle": 1,
+    "math_sqrt_cbrt_frozen_aliases": 1,
     "math_sqrt_cbrt_global_this_root": 4,
-    "math_sqrt_cbrt_harness": 3,
+    "math_sqrt_cbrt_harness": 2,
     "math_tan_zero_identities": 3,
-    "math_unsupported_member_calls_harness_jsx_tsx": 5,
-    "nullish_coalescing_harness": 2,
-    "number_predicates_bundle": 2,
-    "number_predicates_harness": 3,
-    "object_computed_numeric_keys_bundle": 2,
-    "object_computed_numeric_keys_harness": 6,
+    "math_unsupported_member_calls_harness_jsx_tsx": 4,
+    "nullish_coalescing_harness": 1,
+    "number_predicates_bundle": 1,
+    "number_predicates_harness": 2,
+    "object_computed_numeric_keys_bundle": 1,
+    "object_computed_numeric_keys_harness": 5,
     "object_entries_harness": 2,
-    "object_entries_iteration": 2,
+    "object_entries_iteration": 1,
     "object_enumeration_finalization_bundle": 1,
     "object_enumeration_finalization_harness": 2,
 }
@@ -978,13 +1045,25 @@ def _gated_arm(stem, origin, body):
     by construction. Measured: `WRITTEN_CITE` finds 0 hits across all 17
     retention headers, which carry 61 `BARE_CITE` citations between them.
 
-    The real division of labour is that HEADER gatedness is enforced by
-    `_header_cite_arm`, which reports any `:N` with no adjacent backticked
-    construct -- and it is what caught the seven in
-    `browser_generator_default_export_rejection.rs`. This arm guards the CASE
-    FILE surface, where no reader requires backticks and a bare-prose citation
-    can therefore go unread. The parameter is gone rather than left as a
-    comforting no-op.
+    ONLY THE ARGUMENT WAS WRONG, NOT THE CALL (N4, fix round 3). Round 2 deleted
+    the whole retention-header invocation along with the dead parameter, and that
+    lost real coverage: `_header_cite_arm` iterates `BARE_CITE` only, so it sees
+    a `` `:N` `` and CANNOT see an un-backticked one. Measured on
+    `browser_cdp_smoke.rs` -- inserting `//! JSON envelope: schemaVersion (:8),
+    command (:9)` into its header reported 2 problems before round 2 and 0 after,
+    and `//! the blocking helper at (:8) is unreadable` went 1 -> 0, while the
+    backticked control stayed reported both times. Those citations were then
+    neither resolved, nor declared, nor reported -- and the success banner
+    claiming "every one it cannot [resolve] is declared" was untrue for them.
+
+    So the call is back at both sites, without the parameter, and it costs
+    nothing: the sweep still exits 0.
+
+    The division of labour, stated properly: on a retention header
+    `_header_cite_arm` resolves the BACKTICKED citations and reports any whose
+    construct is missing or absent; this arm catches the ones it cannot see at
+    all, which on that surface means every un-backticked `:N`. On a case file
+    there is no `BARE_CITE` reader, so this arm is the only gatedness check.
 
     The fix for a report here is to REWORD -- put the construct in backticks
     beside the number -- so the citation becomes resolvable. It is never to
@@ -1564,10 +1643,14 @@ def _gated_selftest():
     the control probes assert a CLEAN result on text that differs from a poisoned
     probe only in the poison.
 
-    Probe 5 is the one that would have caught the family-wide gap: it is the
-    exact prose shape (`schemaVersion (:68)`) that 55 shipped case files carried,
-    and the count comparison passes on it whenever some other backtick in the
-    same file accidentally supplies a match.
+    THE BLIND-SPOT PROBE is the one labelled "the family-wide shape the count
+    comparison misses": it is the exact prose shape (`schemaVersion (:68)`) that
+    55 shipped case files carried, and the count comparison passes on it whenever
+    some other backtick in the same file accidentally supplies a match. It is
+    identified by LABEL below rather than by ordinal -- fix round 2 shrank this
+    list from seven probes to six and the prose kept saying "probe 5" for what
+    had become probe 4, which is a citation into a list, drifting, in the file
+    whose subject is citations drifting (minor 3, fix round 3).
     """
     probes = [
         # (label, body, expect_problem). CASE-FILE SURFACE ONLY -- fix round 2,
@@ -1589,6 +1672,18 @@ def _gated_selftest():
          "# the assertion mapping stays 1:1 per trial", False),
         ("a JSON literal in a fixture body is not a citation",
          '"app.js" = """const o = {"schemaVersion":1};"""', False),
+        # THE RETENTION-HEADER SURFACE (restored in fix round 3, N4). These two
+        # probes were deleted with the dead `extra_readers` argument, and the
+        # coverage went with them: `_header_cite_arm` iterates `BARE_CITE` only,
+        # so an UN-BACKTICKED `:N` in a `//!` header is invisible to it and this
+        # arm is the only thing that sees it. Both were silent at HEAD until the
+        # call was put back.
+        ("bare prose in a `//!` retention header",
+         "//! JSON envelope: schemaVersion (:8), command (:9)", True),
+        ("an un-backticked citation in a `//!` retention header",
+         "//! the blocking helper at (:8) is unreadable", True),
+        ("a BACKTICKED header citation is `_header_cite_arm`'s, not this arm's",
+         "//! `kali_bin` (`:8`) is the blocking helper", False),
     ]
     out = []
     for label, body, want in probes:
@@ -1597,15 +1692,19 @@ def _gated_selftest():
         if got != want:
             out.append(f"gated arm: {label} was {'reported' if got else 'NOT reported'}, "
                        f"expected {'a report' if want else 'clean'}")
-    # Probe 5 is only meaningful if the count comparison really is blind to it;
-    # assert that, rather than asserting it in prose. `written` here is 3 and the
-    # readers match 3 (`json["command"]` supplies one; the other two are the
-    # spurious kind), so the counts agree while two citations go unread.
-    blind = probes[3][1]
+    # The blind-spot probe is only meaningful if the count comparison really is
+    # blind to it; assert that, rather than asserting it in prose. The probe is
+    # found BY LABEL, so re-ordering or adding probes cannot silently point this
+    # at a different one. The harness prints the two counts it compares, and they
+    # are 1 and 1: the sole `CITE` match is the spurious ``ext` ... 1:1` one,
+    # while the real `(:68)` citation goes unread. (The comment here used to
+    # claim 3 and 3, contradicting the harness's own printed output.)
+    blind = next(body for label, body, _ in probes
+                 if label == "the family-wide shape the count comparison misses")
     written = len(re.findall(r"\((?:[A-Za-z0-9_]+\.rs)?:\d+", blind))
     matched = len({m.start() for m in CITE.finditer(blind)}
                   | {m.start() for m in SUBMOD_CITE.finditer(blind)})
-    print(f"  gated arm -- count comparison on probe 5: written={written} "
+    print(f"  gated arm -- count comparison on the blind-spot probe: written={written} "
           f"matched={matched} ({'BLIND' if written == matched else 'would catch'})")
     if written != matched:
         out.append("gated arm: probe 5 no longer demonstrates the count "
