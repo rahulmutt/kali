@@ -333,7 +333,33 @@ def _needles(snippet):
         return lits
     tok = _distinctive(s)
     if not tok:
-        return []
+        # NO LEADING IDENTIFIER (batch 7). `_distinctive` requires one of at
+        # least four characters, so a snippet that is a bare method call on an
+        # elided receiver -- `.arg("--max-threads")`, `.env(...)`, `.contains`
+        # -- yielded NO needles at all and the citation beside it was matched
+        # but never resolved. That is the same "0 problem(s) whether it is right
+        # or wrong" defect `_gated_arm` measures, one layer down: the citation
+        # is visible to the reader and still nothing re-resolves it.
+        #
+        # Such a snippet does name a position, and it names it with two things:
+        # the method name and its literal argument. Neither alone discriminates
+        # (`arg` occurs on every argv line in the corpus), and `_distinctive`'s
+        # own >= 4 floor exists for exactly that reason -- but the CONJUNCTION
+        # does, which is the same reasoning the M4 method-needle change already
+        # rests on. Literals carrying a backslash are dropped: `"0\n"` is spelled
+        # `0\n` in a `#` comment and `0\\n` in a `"""` rationale, so requiring it
+        # would report a correct citation as broken on one surface of two.
+        #
+        # Measured over the 104 shipped case files plus every retention header
+        # before and after: 0 change in reported problems, so nothing correct is
+        # lost. What it buys is that ~90 citations the batch-7 reword produces
+        # are resolved rather than merely seen.
+        methods = sorted(set(_METHOD.findall(s)))
+        if not methods:
+            return []
+        lits = sorted({l for l in _SNIPPET_LITERAL.findall(s)
+                       if l and "\\" not in l})
+        return methods + lits
     # M4: every `.method(` in the snippet joins the leading identifier as a
     # needle.
     #
@@ -387,6 +413,8 @@ def check(spec, citations_only=False):
         if not rs_header:
             return [f"{stem}: no case file at {toml_path} and no retention header"]
         problems += _header_cite_arm(stem, "\n".join(rs_header), live_lines)
+        problems += _gated_arm(stem, "retention header", "\n".join(rs_header),
+                               (BARE_CITE,))
         print(f"{stem}: no case file (whole-file retention); "
               f"{len(rs_header)} retention-header line(s) checked, "
               f"{len(problems)} problem(s)")
@@ -467,8 +495,11 @@ def check(spec, citations_only=False):
             f"resolved from {rs_path} -- qualified `<file>.rs:N` citations cannot "
             "be checked, so they must not be reported as unresolvable names")
     problems += _cite_arm(stem, "case file", text, rs_lines, submodules)
+    problems += _gated_arm(stem, "case file", text)
     if rs_header:
         problems += _header_cite_arm(stem, "\n".join(rs_header), live_lines)
+        problems += _gated_arm(stem, "retention header", "\n".join(rs_header),
+                               (BARE_CITE,))
     print(f"{stem}: {len(header)} header line(s) "
           f"({'+ retention header' if rs_header else 'no retention header'}), "
           f"{len(problems)} problem(s)")
@@ -476,6 +507,151 @@ def check(spec, citations_only=False):
 
 
 BARE_CITE = re.compile(r"`:(\d+)(?:-(\d+))?`")
+
+# THE "WRITTEN" SIDE OF RULING 11'S WRITTEN-VS-MATCHED TEST.
+#
+# Hoisted out of `gen_batch6b.py`'s `assert_every_citation_is_gated` in batch 7.
+# There it guarded one generator's two files; ruling 11 exempts `:N` from the
+# no-moving-figures rule *family-wide*, and the exemption is conditional on the
+# citation being mechanically gated -- "a pointer nothing re-resolves is a
+# figure in disguise". A check that runs on two of 104 files does not earn that.
+#
+# This pattern is DELIBERATELY WIDER than `CITE`/`SUBMOD_CITE`/`BARE_CITE`. Its
+# job is to see citations those cannot, because that is the whole defect: `CITE`
+# requires a backticked construct within 40 chars on the SAME line, so a citation
+# written as bare prose -- `schemaVersion (:68)`, `command (:69)` -- matches
+# nothing and is never read. It does not fail; it is INVISIBLE, and reports
+# `0 problem(s)` whether it is right or wrong.
+#
+# Shape, and why each guard is there (each one was measured over the 104 shipped
+# case files plus every retention header; see the batch-7 report's derivation):
+#   * the `:N` must follow whitespace, `(`, `,` or `[` -- a citation is always
+#     introduced, never glued to an identifier. Without this, `1:1` in "the
+#     assertion mapping stays 1:1 per trial" reads as a citation to line 1, and
+#     `{"schemaVersion":1}` in a `[source]` JS fixture reads as one too.
+#   * `(?![\d:])` after the number, so a version or a ratio is not truncated
+#     into a citation.
+#   * a leading `<file>.rs` is allowed, for the qualified `SUBMOD_CITE` form.
+# Measured today: every hit of this pattern that `CITE`/`SUBMOD_CITE` does not
+# cover lies inside a `#` header line or a `rationale` -- 0 in `[source]` bodies
+# or anywhere else. Derivation command in the batch-7 report; re-run it before
+# widening this pattern.
+WRITTEN_CITE = re.compile(
+    r"(?:(?<=\s)|(?<=\()|(?<=,)|(?<=\[))(?:[A-Za-z0-9_]+\.rs)?:\d+(?:-\d+)?(?![\d:])")
+
+
+# RULING-9-STYLE RED-LIST for `_gated_arm`, and nothing else.
+#
+# Ruling 9 red-lists a gate that is EXPECTED red for a structural reason, names
+# every entry, and states the reason -- rather than weakening the gate until the
+# red goes away. This is the same instrument for the same shape of problem, and
+# the alternative was explicitly forbidden: widening a reader pattern until
+# these citations are swallowed would convert a measured gap into an invisible
+# one, which is what `_gated_arm` exists to end.
+#
+# WHAT IS ON IT, and why each entry cannot be reworded. The gate resolves a
+# citation by finding a backticked RUST CONSTRUCT in the cited statement. Every
+# entry below cites a line that contains no Rust construct at all, so there is
+# nothing to put in the backticks:
+#
+#   FIXTURE-TEXT -- the rule-12 comment inventory ("The N other `//`
+#     occurrence(s) in the file") cites a `//` sitting inside a `r##"..."##` JS
+#     fixture body. It is JavaScript, not Rust; `enumerate_invocations`'s masker
+#     blanks it, and the statement window is the one fixture line.
+#   RUST-COMMENT -- a "Rust comment block (:N)" citation, which by construction
+#     points at a `//` line. `_statement` deliberately cannot resolve against
+#     comment text (that is finding I3's header-self-satisfaction fix), so a
+#     citation onto a comment is unresolvable by design, not by accident.
+#   CONTROL-FLOW -- a citation onto a bare `if json_output {` / `for ... {`
+#     line, cited precisely because of where it sits in the control flow.
+#
+# These 26 are what remained after 845 of the family's 871 ungated citations
+# were reworded mechanically by `reword_ungated_citations.py`. An entry that
+# stops firing is reported as STALE by `main()` -- a red-list nobody re-checks
+# is the same figure-in-disguise one level up.
+UNGATED_REDLIST = {
+    ("math_hypot_global_this_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_log2_log10_mixed_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_log2_log10_mixed_root", "case file", ":225"): "CONTROL-FLOW",
+    ("math_pow_bracketed_root", "case file", ":245"): "FIXTURE-TEXT",
+    ("math_pow_zero_exponent_non_integer_base", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_pow_zero_exponent_non_integer_base", "case file", ":331"): "FIXTURE-TEXT",
+    ("math_round_bracketed_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sin_cos_tan_bracketed_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sin_cos_tan_frozen_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sin_cos_tan_fully_bracketed_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sin_cos_tan_zero_identities", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sinh_cosh_tanh_bracketed_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sinh_cosh_tanh_global_this_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sqrt_cbrt_bracketed_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sqrt_cbrt_bundle", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sqrt_cbrt_frozen_aliases", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_sqrt_cbrt_global_this_root", "case file", ":11"): "FIXTURE-TEXT",
+    ("math_unsupported_member_calls_harness_jsx_tsx", "case file", ":83"): "CONTROL-FLOW",
+    ("object_computed_numeric_keys_bundle", "case file", ":11"): "FIXTURE-TEXT",
+    ("object_computed_numeric_keys_bundle", "case file", ":22"): "FIXTURE-TEXT",
+    ("object_entries_harness", "case file", ":160"): "RUST-COMMENT",
+    ("object_entries_iteration", "case file", ":175"): "RUST-COMMENT",
+    ("object_entries_iteration", "case file", ":258"): "RUST-COMMENT",
+    ("object_entries_iteration", "case file", ":340"): "RUST-COMMENT",
+    ("object_enumeration_finalization_bundle", "case file", ":319"): "RUST-COMMENT",
+    ("object_enumeration_finalization_harness", "case file", ":414"): "RUST-COMMENT",
+}
+
+_REDLIST_HIT = set()
+
+
+def _gated_arm(stem, origin, body, extra_readers=()):
+    """Every citation WRITTEN must be one a citation arm actually READS.
+
+    This is the count-vs-resolve distinction ruling 11 turns on. `_cite_arm` and
+    `_header_cite_arm` answer "does this citation point at its construct?" -- but
+    only for citations they can see. This arm answers the prior question: is the
+    citation visible to them at all? A `:N` no reader matches is not a passing
+    citation; it is an unread one, and reporting it as `0 problem(s)` is the
+    false green ledger `progress.md:2455-2461` names as the dangerous direction.
+
+    POSITIONAL, NOT A COUNT. `gen_batch6b.py` compared `len(written)` against
+    `len(matched)`, which is sound on a file whose prose the generator controls
+    and unsound family-wide in BOTH directions: `CITE` matches things nobody
+    wrote as a citation (`ext` + `stays 1:1` reads as ``ext` ... :1`), so the two
+    counts can agree while a real citation is unread. Requiring each written
+    citation to be COVERED BY a match names the offending site instead, and
+    cannot be satisfied by an unrelated spurious match elsewhere in the file.
+
+    `extra_readers`: additional patterns that count as reading a citation on this
+    surface. The retention-header surface is read by `BARE_CITE`, which the
+    case-file surface does not use.
+
+    The fix for a report here is to REWORD -- put the construct in backticks
+    beside the number -- so the citation becomes resolvable. It is never to
+    widen a reader pattern until the citation is swallowed: that converts a
+    measured gap into an invisible one, which is the state this arm exists to
+    end.
+    """
+    covered = [(m.start(), m.end())
+               for m in list(SUBMOD_CITE.finditer(body)) + list(CITE.finditer(body))]
+    for reader in extra_readers:
+        covered += [(m.start(), m.end()) for m in reader.finditer(body)]
+    out = []
+    for m in WRITTEN_CITE.finditer(body):
+        if any(a <= m.start() < b for a, b in covered):
+            continue
+        key = (stem, origin, m.group(0))
+        if key in UNGATED_REDLIST:
+            _REDLIST_HIT.add(key)
+            continue
+        line_no = body.count("\n", 0, m.start()) + 1
+        start = body.rfind("\n", 0, m.start()) + 1
+        end = body.find("\n", m.start())
+        context = body[start:end if end != -1 else len(body)].strip()
+        out.append(
+            f"{stem}: {origin} citation `{m.group(0)}` is UNGATED -- no citation "
+            f"reader matches it, so nothing re-resolves it and it reports clean "
+            f"whether it is right or wrong (ruling 11). At {origin} line "
+            f"{line_no}: {context[:110]!r}. Reword so a backticked construct sits "
+            f"beside the number.")
+    return out
 
 # The `Migrated from tests/browser_X.rs` line every case file's header opens
 # with. It is the only in-tree statement of which source a case file came from,
@@ -674,6 +850,7 @@ def selftest():
             failures.append(f"drift onto the {label} (:{n}) was NOT caught")
 
     failures += _submodule_selftest()
+    failures += _gated_selftest()
 
     if failures:
         print("\nSELFTEST FAILED")
@@ -816,6 +993,63 @@ def _submodule_selftest():
     return out
 
 
+def _gated_selftest():
+    """Kill power for `_gated_arm`, in both directions and on both surfaces.
+
+    The property that matters is the one `gen_batch6b.py`'s count comparison
+    could not state: a citation the readers do not match must be REPORTED, and a
+    citation they do match must not be. Each probe below is a string this arm is
+    run over directly, so the harness cannot be green because it failed to run --
+    the control probes assert a CLEAN result on text that differs from a poisoned
+    probe only in the poison.
+
+    Probe 5 is the one that would have caught the family-wide gap: it is the
+    exact prose shape (`schemaVersion (:68)`) that 55 shipped case files carried,
+    and the count comparison passes on it whenever some other backtick in the
+    same file accidentally supplies a match.
+    """
+    probes = [
+        # (label, surface, body, extra_readers, expect_problem)
+        ("a gated case-file citation",
+         "case file", '# the `json["schemaVersion"]` pin (:68) is exact', (), False),
+        ("a BARE-PROSE case-file citation",
+         "case file", "# JSON envelope: schemaVersion (:68), command (:69)", (), True),
+        ("a gated retention-header citation",
+         "retention header", "//! `fn_name` (`:171`) is the blocking helper", (BARE_CITE,), False),
+        ("an unbackticked retention-header citation",
+         "retention header", "//! the blocking helper at (:171) is unreadable", (BARE_CITE,), True),
+        ("the family-wide shape the count comparison misses",
+         "case file",
+         "# `ext` cell, the mapping stays 1:1 per trial; envelope: schemaVersion (:68)",
+         (), True),
+        ("a ratio that is not a citation (`1:1`)",
+         "case file", "# the assertion mapping stays 1:1 per trial", (), False),
+        ("a JSON literal in a fixture body is not a citation",
+         "case file", '"app.js" = """const o = {"schemaVersion":1};"""', (), False),
+    ]
+    out = []
+    for label, surface, body, readers, want in probes:
+        got = bool(_gated_arm("selftest", surface, body, readers))
+        print(f"  gated arm -- {label}: {'reported' if got else 'clean'}")
+        if got != want:
+            out.append(f"gated arm: {label} was {'reported' if got else 'NOT reported'}, "
+                       f"expected {'a report' if want else 'clean'}")
+    # Probe 5 is only meaningful if the count comparison really is blind to it;
+    # assert that, rather than asserting it in prose. `written` here is 3 and the
+    # readers match 3 (`json["command"]` supplies one; the other two are the
+    # spurious kind), so the counts agree while two citations go unread.
+    blind = probes[4][2]
+    written = len(re.findall(r"\((?:[A-Za-z0-9_]+\.rs)?:\d+", blind))
+    matched = len({m.start() for m in CITE.finditer(blind)}
+                  | {m.start() for m in SUBMOD_CITE.finditer(blind)})
+    print(f"  gated arm -- count comparison on probe 5: written={written} "
+          f"matched={matched} ({'BLIND' if written == matched else 'would catch'})")
+    if written != matched:
+        out.append("gated arm: probe 5 no longer demonstrates the count "
+                   "comparison's blind spot -- re-pick the probe or drop the claim")
+    return out
+
+
 def main(argv):
     if "--selftest" in argv:
         return selftest()
@@ -824,8 +1058,21 @@ def main(argv):
         return 2
     citations_only = "--citations-only" in argv
     all_problems = []
-    for stem in [a for a in argv[1:] if not a.startswith("--")]:
+    stems = [a for a in argv[1:] if not a.startswith("--")]
+    for stem in stems:
         all_problems += check(stem, citations_only)
+    # STALE RED-LIST ENTRIES ARE A PROBLEM, not a convenience. A red-list that
+    # keeps entries nothing fires is exactly the unread pointer this arm exists
+    # to catch, one level up -- and it is how a carve-out written for one file
+    # silently starts covering a different one. Only checked for stems this run
+    # actually visited, so a single-stem invocation does not report the rest.
+    visited = {s.partition("=")[0] for s in stems}
+    for key in sorted(UNGATED_REDLIST):
+        if key[0] in visited and key not in _REDLIST_HIT:
+            all_problems.append(
+                f"{key[0]}: UNGATED_REDLIST entry {key[1]} {key[2]} is STALE -- "
+                "nothing fired it. Delete the entry (the citation was reworded or "
+                "removed) rather than leaving a carve-out nobody re-checks.")
     if all_problems:
         print("\nCROSSCHECK FAILED")
         for p in all_problems:
