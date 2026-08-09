@@ -14,9 +14,21 @@ round because nothing re-ran them.
 So: one committed instrument, one population, and each section prints the
 command-line that produces it.
 
-    python3 tools/task-18-browser-pilot/citation_tiers.py            # all of it
-    python3 tools/task-18-browser-pilot/citation_tiers.py --declare  # the dict
-    python3 tools/task-18-browser-pilot/citation_tiers.py --variants # the triage
+    python3 tools/task-18-browser-pilot/citation_tiers.py             # all of it
+    python3 tools/task-18-browser-pilot/citation_tiers.py --declare   # the dict
+    python3 tools/task-18-browser-pilot/citation_tiers.py --variants  # the triage
+    python3 tools/task-18-browser-pilot/citation_tiers.py --bare-rule # I-1 / I-2
+    python3 tools/task-18-browser-pilot/citation_tiers.py --base=REF  # a git ref
+
+AND THE FIGURES IT PRINTS MUST NOT BE COPIED ANYWHERE (fix round 4). Round 3
+built the `--tiers`/`--fallbacks`/`--gains` sections precisely so figures would
+be regenerated, and then pasted their output into `batch5_crosscheck.py`'s
+comments -- where round 3's own tier move made two of the blocks stale by
+exactly +-174 within the same commit. A comment saying "run
+`citation_tiers.py --fallbacks`" cannot go stale; a comment saying
+"3551 / 3163 / 448" goes stale the next time anyone moves a citation. The only
+figures that may sit inline are the ones an equality check corrects on the next
+run -- `NO_NEEDLE_DECLARED`, and `BARE_NEEDLE_ADMITTED` through it.
 
 THE POPULATION, stated once because getting it wrong is what hid two defects.
 `sweep_specs()` builds exactly the spec list `citation_sweep.sh` passes to
@@ -61,7 +73,26 @@ def _cleanup_blobs():
 
 
 def sweep_specs():
-    """The spec list `citation_sweep.sh` builds, in the same order."""
+    """The spec SET `citation_sweep.sh` builds.
+
+    ORDER IS NOT THE SAME AND THE DOCSTRING USED TO SAY IT WAS (fix round 4
+    minor). Bash's `cases/browser/*.toml` glob collates under the locale, which
+    ignores `_`, while `sorted(glob.glob(...))` is bytewise: the two agree on
+    every element and disagree on the position of 16 of them, across six stem
+    families (`math_round` before vs after `math_round_bracketed_root`, and so
+    on). Diff them yourself:
+
+        diff <(cd crates/kali_cli/tests && for t in cases/browser/*.toml; \\
+                 do basename "$t" .toml; done) \\
+             <(python3 -c 'import glob,os
+        for t in sorted(glob.glob("crates/kali_cli/tests/cases/browser/*.toml")):
+            print(os.path.basename(t)[:-5])')
+
+    Every figure this instrument prints is an aggregate over the whole list, so
+    order is immaterial to all of them; the printed population count is the
+    cross-check that the SETS agree. Collapsing the two implementations into one
+    is batch 8's (see the report's FR3.7).
+    """
     specs = []
     for toml in sorted(glob.glob(os.path.join(X.CASES, "*.toml"))):
         stem = os.path.basename(toml)[:-5]
@@ -104,6 +135,145 @@ def sweep_specs():
         if any(l.startswith("//!") for l in open(rs)):
             specs.append(stem)
     return specs
+
+
+def base_tiers(ref):
+    """The BASE column of the report's 1.1 table, regenerated from a git archive.
+
+    WHAT THIS IS NOT (fix round 4, I-5). Report 1.1 said the BASE column was
+    "the same instrument run against a `git archive` of `8a5c355e1d`". That
+    cannot be true and never was: this file did not exist at BASE, and neither
+    did the machinery it reads -- BASE's `_needles` takes one argument, and BASE
+    has no `_source_items`, no `_needle_found`, no `_NO_NEEDLE` and no
+    `WRITTEN_CITE`. Three plausible readings of the sentence gave silent = 1085,
+    1259 and 1310 against a table saying 1596, so the sentence was unfalsifiable
+    in the worst way: every attempt to check it produced a different number and
+    none of them was the one printed.
+
+    WHAT IT IS. The four buckets are HEAD's definitions -- they are the unit of
+    the table, and the WRITTEN side has to be one pattern on both columns or the
+    columns are not comparable. Everything a bucket is decided BY is BASE's:
+    BASE's `CITE`/`SUBMOD_CITE` decide what is matched, BASE's `_needles`
+    decides what is searched for, BASE's `_statement` decides the window, and
+    BASE compared needles by SUBSTRING (`tok not in stmt`), so this does too.
+    The corpus is BASE's as well -- the case files before the reword.
+
+    So the honest claim, and the one the report now makes, is "the gate as it
+    existed at BASE, over the corpus as it existed at BASE, partitioned into
+    HEAD's four buckets" -- and it is a command, so the next person to doubt it
+    runs it instead of picking a reading.
+    """
+    import importlib.util
+    import shutil
+
+    work = tempfile.mkdtemp(prefix="citation_tiers_base_")
+    try:
+        archive = subprocess.run(
+            ["git", "-C", X.REPO, "archive", ref, "--",
+             "crates/kali_cli/tests", "tools/task-18-browser-pilot"],
+            capture_output=True)
+        if archive.returncode:
+            sys.exit(f"cannot archive {ref} -- {archive.stderr.decode().strip()}")
+        subprocess.run(["tar", "-x", "-C", work], input=archive.stdout, check=True)
+        mod = os.path.join(work, "tools/task-18-browser-pilot/batch5_crosscheck.py")
+        if not os.path.exists(mod):
+            sys.exit(f"{ref} has no tools/task-18-browser-pilot/batch5_crosscheck.py")
+        spec = importlib.util.spec_from_file_location("base_crosscheck", mod)
+        B = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(B)
+        B.REPO = work
+        B.TESTS = os.path.join(work, "crates/kali_cli/tests")
+        B.CASES = os.path.join(B.TESTS, "cases/browser")
+        # BASE's `_needles` is single-argument; BASE has no `_needle_found`.
+        # Both adaptations are named here rather than assumed, because getting
+        # either wrong silently moves the headline figure.
+        try:
+            B._needles("probe", None)
+            needles = B._needles
+        except TypeError:
+            needles = lambda s, _items=None: B._needles(s)          # noqa: E731
+        found = getattr(B, "_needle_found", lambda tok, stmt: tok in stmt)
+        items_of = getattr(B, "_source_items", lambda _text: None)
+
+        specs, blobs = [], []
+        for toml in sorted(glob.glob(os.path.join(B.CASES, "*.toml"))):
+            stem = os.path.basename(toml)[:-5]
+            rs = os.path.join(B.TESTS, f"browser_{stem}.rs")
+            if not os.path.exists(rs):
+                named = X.MIGRATED_FROM.search(open(toml).read())
+                src = os.path.join(B.TESTS, named.group(1)) if named else None
+                specs.append((stem, src if src and os.path.exists(src) else None))
+                continue
+            m = re.search(r"PRE-TRIM REF:\s*(\S+)", open(rs).read())
+            if not m:
+                specs.append((stem, rs))
+                continue
+            # Resolved against the REAL repository: the archive is a working
+            # tree, not a git dir, and the pre-trim ref is a history pointer.
+            shown = subprocess.run(
+                ["git", "-C", X.REPO, "show",
+                 f"{m.group(1)}:crates/kali_cli/tests/browser_{stem}.rs"],
+                capture_output=True, text=True)
+            if shown.returncode:
+                sys.exit(f"cannot read {m.group(1)}:browser_{stem}.rs at {ref}")
+            blob = tempfile.NamedTemporaryFile("w", suffix=".rs", delete=False,
+                                               dir=work)
+            blob.write(shown.stdout)
+            blob.close()
+            blobs.append(blob.name)
+            specs.append((stem, blob.name))
+        for rs in sorted(glob.glob(os.path.join(B.TESTS, "browser_*.rs"))):
+            stem = os.path.basename(rs)[len("browser_"):-3]
+            if os.path.exists(os.path.join(B.CASES, f"{stem}.toml")):
+                continue
+            if any(l.startswith("//!") for l in open(rs)):
+                specs.append((stem, rs))
+
+        b = collections.Counter()
+        for stem, source in specs:
+            toml = os.path.join(B.CASES, f"{stem}.toml")
+            if not os.path.exists(toml):
+                continue
+            text = open(toml).read()
+            lines = (open(source).read().split("\n")
+                     if source and os.path.exists(source) else None)
+            seen = {}
+            for m in list(B.SUBMOD_CITE.finditer(text)) + list(B.CITE.finditer(text)):
+                seen.setdefault(m.start(), m)
+            kind = {}
+            for m in seen.values():
+                if lines is None:
+                    kind[(m.start(), m.end())] = "no-source"
+                    continue
+                qualified = m.re is B.SUBMOD_CITE
+                first = int(m.group(3) if qualified else m.group(2))
+                last = m.group(4) if qualified else m.group(3)
+                end = int(last) if last else first
+                if qualified:
+                    kind[(m.start(), m.end())] = "qualified"
+                    continue
+                got = needles(m.group(1), items_of("\n".join(lines)))
+                if not got:
+                    kind[(m.start(), m.end())] = "no-needle"
+                elif end > len(lines) or end < first:
+                    kind[(m.start(), m.end())] = "bad-range"
+                else:
+                    stmt = "\n".join(B._statement(lines, first, end))
+                    kind[(m.start(), m.end())] = (
+                        "RESOLVED" if all(found(t, stmt) for t in got) else "FAILS")
+            for w in X.WRITTEN_CITE.finditer(text):
+                hits = [k for (a, e), k in kind.items() if a <= w.start() < e]
+                if "RESOLVED" in hits:
+                    b["resolved against its own source"] += 1
+                elif "qualified" in hits:
+                    b["resolved against a #[path] submodule"] += 1
+                elif hits:
+                    b[hits[0]] += 1
+                else:
+                    b["ungated"] += 1
+        return len(specs), b
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def _sides(spec):
@@ -368,6 +538,150 @@ def admissible(specs):
     return declared_total, rows
 
 
+class _ItemsWithSource(frozenset):
+    """`_source_items`'s return value, carrying the source text it came from.
+
+    Instrument-local. `_needles` receives the item set but never the source, so a
+    rule phrased over the SOURCE TEXT -- the one below -- cannot be evaluated
+    inside the gate as it stands. Rather than change `_needles`'s signature to
+    measure a rule that is not shipped, the instrument hands the text down on the
+    object the gate already passes. A frozenset subclass is exactly as good a
+    frozenset, so nothing in the gate behaves differently under this patch.
+    """
+    text = ""
+
+
+def bare_rule(specs):
+    """Every claim `BARE_NEEDLE_ADMITTED`'s justification makes, measured.
+
+    THE POPULATION IS THE TIER AS IT WOULD BE WITHOUT THE DECLARATION, because
+    that is the corpus the rejected rule would have been applied to. Measuring
+    "admitting every bare identifier" against the SHIPPED gate answers a
+    different question: the three snippets the declaration already admits have
+    needles there, so the rule's cost on them cannot show up.
+
+    Four rows, and the reason there are four is that fix round 3's own sentence
+    ("those produce 211 FALSE reds") averaged across them: 211 is a CITATION
+    count taken from `--admissible`'s FALSE RED row and reported as a FAILURE
+    count, over a population the sentence did not name. The failure counts are
+    70, 50 and 200 depending on which population is meant, and none of them is
+    211.
+    """
+    original = X._needles
+    orig_items = X._source_items
+    saved_declared = X.BARE_NEEDLE_ADMITTED
+
+    def undeclared(snippet, source_items=None):
+        X.BARE_NEEDLE_ADMITTED = frozenset()
+        try:
+            return original(snippet, source_items)
+        finally:
+            X.BARE_NEEDLE_ADMITTED = saved_declared
+
+    def items_with_source(text):
+        out = _ItemsWithSource(orig_items(text))
+        out.text = text
+        return out
+
+    import contextlib
+    import io
+
+    def run(fn):
+        X._needles = fn
+        X._NO_NEEDLE.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            problems = [p for spec in specs
+                        for p in X.check(spec, citations_only=True)]
+        X._needles = original
+        return problems
+
+    X._source_items = items_with_source
+    try:
+        baseline = run(undeclared)
+
+        # The tier's composition, with the declaration off.
+        counts = collections.Counter()
+        for spec in specs:
+            _stem, text, lines = _sides(spec)
+            if text is None or lines is None:
+                continue
+            items = X._source_items("\n".join(lines))
+            for m in _matches(text).values():
+                if not undeclared(m.group(1), items):
+                    counts[m.group(1).strip()] += 1
+        bare = {s: n for s, n in counts.items() if X.BARE_IDENT.fullmatch(s)}
+        bare4 = {s: n for s, n in bare.items() if len(s) >= 4}
+
+        def admit(names, floor=0):
+            def needles(snippet, source_items=None):
+                b = undeclared(snippet, source_items)
+                if b:
+                    return b
+                s = snippet.strip()
+                return [s] if s in names and len(s) >= floor else []
+            return needles
+
+        # THE DERIVABLE RULE (fix round 4, I-2). Fix round 3 wrote "no lexical
+        # predicate separates a label from a construct -- the difference is what
+        # the author meant the backtick to do". That is false, and the
+        # counter-example is the direct analogue of the tier one line above it in
+        # `_needles` ("the source defines an item of that name"): the source
+        # INDEXES a name of its own by that spelling, `json["<name>"]`. Whether
+        # it separates them on this corpus is a measurement, printed below, not
+        # a sentence.
+        admitted = collections.Counter()
+
+        def json_indexed(snippet, source_items=None):
+            b = undeclared(snippet, source_items)
+            if b:
+                return b
+            s = snippet.strip()
+            if not X.BARE_IDENT.fullmatch(s) or len(s) < 4:
+                return []
+            if f'["{s}"]' in getattr(source_items, "text", ""):
+                admitted[s] += 1
+                return [s]
+            return []
+
+        rows = []
+        for label, fn in (
+                ("admit every bare identifier in the tier", admit(set(bare))),
+                ("  the same at the file's own >=4-char floor",
+                 admit(set(bare4), 4)),
+                ("admit every declared snippet, bare or not", admit(set(counts))),
+                ("RULE: the source json-indexes this name", json_indexed)):
+            problems = run(fn)
+            rows.append((label, len([p for p in problems if p not in baseline])))
+    finally:
+        X._needles = original
+        X._source_items = orig_items
+        X.BARE_NEEDLE_ADMITTED = saved_declared
+
+    # Of the citations the declaration admits, how many would a +-1 drift
+    # actually be CAUGHT on. "All 174 pass today, so a future drift in ANY of
+    # them is now caught" was the round-3 claim; passing is not pinning, and the
+    # gate's own standard for pinned is the +-1 shift.
+    per, pinned = collections.Counter(), collections.Counter()
+    for spec in specs:
+        _stem, text, lines = _sides(spec)
+        if text is None or lines is None:
+            continue
+        items = X._source_items("\n".join(lines))
+        for m in _matches(text).values():
+            s = m.group(1).strip()
+            if s not in X.BARE_NEEDLE_ADMITTED or X._needles(m.group(1), items) != [s]:
+                continue
+            first, end, qualified = _range_of(m)
+            if qualified or end > len(lines) or end < first:
+                continue
+            per[s] += 1
+            if all(first + d < 1 or end + d > len(lines) or not X._needle_found(
+                    s, "\n".join(X._statement(lines, first + d, end + d)))
+                    for d in (1, -1)):
+                pinned[s] += 1
+    return counts, bare, bare4, rows, dict(admitted), per, pinned
+
+
 def tier_gains(specs):
     """How many citations each batch-7 `_needles` tier gives a needle to.
 
@@ -441,6 +755,26 @@ def variants(specs):
 
 
 def main(argv):
+    base_ref = next((a.split("=", 1)[1] for a in argv[1:]
+                     if a.startswith("--base=")), None)
+    if base_ref:
+        n, b = base_tiers(base_ref)
+        print(f"$ python3 tools/task-18-browser-pilot/citation_tiers.py "
+              f"--base={base_ref}")
+        print(f"--- WRITTEN-CITATION PARTITION at {base_ref} ---")
+        print("  the gate AS IT EXISTED AT THAT REF, over the corpus as it existed")
+        print("  there, in HEAD's four buckets. NOT 'the same instrument': this "
+              "file\n  did not exist at BASE. See `base_tiers`.")
+        print("  CALIBRATION: `--base=HEAD` must reproduce `--tiers` exactly. If "
+              "it does\n  not, the adapter is the defect and no other reading of "
+              "this mode is worth\n  arguing about.")
+        print(f"  population: {n} spec(s)")
+        for k, v in b.most_common():
+            print(f"  {k:<38} {v:>5}")
+        print(f"  {'TOTAL written':<38} {sum(b.values()):>5}")
+        print(f"  {'silent (never re-resolved)':<38} "
+              f"{sum(v for k, v in b.items() if not k.startswith('resolved')):>5}")
+        return 0
     specs = sweep_specs()
     kinds = collections.Counter()
     for spec in specs:
@@ -527,6 +861,38 @@ def main(argv):
               f"{sum(n for _, n, _ in cost):>4} citation(s)")
         for s, n, f in cost[:10]:
             print(f"      {n:4d} (+{f} new failures)  `{s[:48]}`")
+        print()
+
+    if want & {"--all", "--bare-rule"}:
+        counts, bare, bare4, rows, admitted, per, pinned = bare_rule(specs)
+        print("--- BARE IDENTIFIERS: what admitting them costs, by population ---")
+        print("  population: the declared tier with BARE_NEEDLE_ADMITTED OFF")
+        print(f"    every declared snippet            {len(counts):>4} snippet(s), "
+              f"{sum(counts.values()):>4} citation(s)")
+        print(f"    of which bare identifiers         {len(bare):>4} snippet(s), "
+              f"{sum(bare.values()):>4} citation(s)")
+        print(f"    of those, >= 4 chars              {len(bare4):>4} snippet(s), "
+              f"{sum(bare4.values()):>4} citation(s)")
+        print("  cost, measured against that baseline -- these are FAILURE counts,")
+        print("  and none of them is `--admissible`'s FALSE RED row, which counts")
+        print("  CITATIONS:")
+        for label, n in rows:
+            print(f"    {label:<44} {n:>4} new failure(s)")
+        print(f"  the rule admits {dict(sorted(admitted.items(), key=lambda kv: -kv[1]))}"
+              f" = {sum(admitted.values())} citation(s)")
+        print(f"  BARE_NEEDLE_ADMITTED is {sorted(X.BARE_NEEDLE_ADMITTED)}; the rule "
+              f"admits exactly it: {set(admitted) == set(X.BARE_NEEDLE_ADMITTED)}")
+        print(f"  it rejects "
+              f"{sorted(s for s in bare if s not in admitted)}")
+        print("  of the admitted citations, how many a +-1 drift is CAUGHT on:")
+        for s in sorted(per, key=lambda k: -per[k]):
+            print(f"    {s:<12} {pinned[s]:>4} of {per[s]:>4}")
+        print(f"    {'TOTAL':<12} {sum(pinned.values()):>4} of {sum(per.values()):>4}")
+        print("  rank of each admitted snippet in the undeclared tier, by size:")
+        order = [s for s, _ in counts.most_common()]
+        for s in sorted(X.BARE_NEEDLE_ADMITTED, key=lambda k: order.index(k)):
+            print(f"    {s:<12} #{order.index(s) + 1} of {len(order)}  "
+                  f"({counts[s]} citation(s))")
         print()
 
     if want & {"--all", "--declare"}:
