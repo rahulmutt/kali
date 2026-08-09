@@ -344,11 +344,12 @@ def u6_partial_note(pairs, cases):
     lines.append(
         "`comment_coverage.py` requires every comment LINE to appear in EVERY case's rationale,")
     if overlapping:
-        lines += [
-            "so it reports a non-empty MISSING set here and exits 1. It reports it per LINE, and",
-            "these blocks share lines, so the count it prints against any one line is not the",
-            "complement of any one block's reach.",
-        ]
+        # N2: this used to add "the count it prints is not the complement of any one block's
+        # reach". FALSE -- `comment_coverage.py` prints `from 4/16` and `from 12/16` on this
+        # pair, and 4 and 12 are exactly the complements of the stated reaches 12 and 4. It also
+        # contradicted the sentence six lines above saying the measured count predicts the gate.
+        # False in both branches, load-bearing in neither, so it is DELETED rather than gated.
+        lines.append("so it reports a non-empty MISSING set here and exits 1.")
     else:
         reach = sum(1 for c in cases if texts[0] in c["rationale"])
         lines += [
@@ -368,6 +369,12 @@ def u6_partial_note(pairs, cases):
 # --------------------------------------------------------------------------
 # Rule 8 / rule 9 -- captured `str::replace` fixtures.
 # --------------------------------------------------------------------------
+
+# The leading-space width the shipped captures were taken at. DECLARED so `assert_frozen_pair`
+# can compare it against its own measurement on every run, and so every header that states the
+# width interpolates the measurement rather than a typed word.
+CAPTURED_NEEDLE_INDENT = 2
+
 
 def assert_frozen_pair(label, rs_text, plain_cap, frozen_cap, *, plain_literal, replace_fn):
     """Prove a captured frozen/plain pair against the source that produced it.
@@ -404,20 +411,31 @@ def assert_frozen_pair(label, rs_text, plain_cap, frozen_cap, *, plain_literal, 
         raise AssertionError(
             f"{label}: applying the source's own replace to the plain capture does not "
             "reproduce the frozen capture -- one of the two captures is stale")
-    # IS THE LEADING WHITESPACE LOAD-BEARING? Measured rather than asserted (fix round 1). The
-    # needle does carry two leading spaces, but for all four pairs in this batch it occurs
-    # exactly once and the stripped needle selects the same span, so the whitespace does not
-    # currently discriminate -- the hazard is LATENT. What actually forces the capture is that
-    # the fixture is not a string literal at all: it is produced by `str::replace` at run time,
-    # so there is nothing for the lexer to extract and any other route is hand-derivation
-    # (rule 8). The whitespace check stays as a staleness tripwire, and the measured answer is
-    # returned so the header can state which it is instead of overstating the hazard.
-    if not needle.startswith(" "):
+    # IS THE LEADING WHITESPACE LOAD-BEARING? Measured rather than asserted (fix round 1). What
+    # actually forces the capture is that the fixture is not a string literal at all: it is
+    # produced by `str::replace` at run time, so there is nothing for the lexer to extract and
+    # any other route is hand-derivation (rule 8). The indentation is a secondary hazard, and
+    # the answer is RETURNED so the header can state which it is rather than overstating it.
+    #
+    # FIX ROUND 2 (N4). Fix round 1 relaxed this tripwire from `startswith("  ")` to
+    # `startswith(" ")` while both headers went on saying "TWO LEADING SPACES" -- so a 1-space
+    # reindent, which used to fire, now passed, and the header kept asserting a width nothing
+    # checked. And the header's "occurs exactly once" was emitted unconditionally and never
+    # computed: a needle occurring twice passed unchanged. Both are now MEASURED and returned,
+    # and the width is compared against the value the captures were taken at (ruling 15's first
+    # answer: a declared figure the gate compares against its own output every run).
+    lead = len(needle) - len(needle.lstrip(" "))
+    if lead != CAPTURED_NEEDLE_INDENT:
         raise AssertionError(
-            f"{label}: the replace needle no longer carries leading whitespace -- the captures "
-            "were taken against a differently-indented source, so at least one is stale")
+            f"{label}: the replace needle carries {lead} leading space(s), not "
+            f"{CAPTURED_NEEDLE_INDENT} -- the source was reindented after the captures were "
+            "taken, so at least one capture is stale (and every header stating the width is now "
+            "wrong)")
+    occurrences = plain_cap.count(needle)
+    if occurrences < 1:
+        raise AssertionError(f"{label}: the needle does not occur in the plain capture")
     latent = plain_cap.replace(needle.lstrip(), repl.lstrip()) == frozen_cap
-    return frozen_cap, (not latent)
+    return frozen_cap, (not latent), lead, occurrences
 
 
 # --------------------------------------------------------------------------
@@ -654,27 +672,69 @@ def expanded(keys):
 # contradicted the file. Design spec §5.6 gives the correct one, so it is used, and
 # `assert_non_axis_reason_matches` below makes applying the wrong one a generator error rather
 # than a prose defect nothing reads.
-FAIL_CLOSED_NON_AXES_WITH_CLAIM = [
-    "`command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:",
-    "\"Varying output shape changes both the argv and the assertions\", and both dimensions do",
-    "exactly that here.",
-    "`json_output` changes WHAT IS ASSERTED, not merely the argv: this target's only content",
-    "claim is a single diagnostic needle, and the output mode moves the stream that carries it",
-    "(see the RULE 11 block below), so the text and json siblings pin DIFFERENT keys.",
-    "`command` selects a different `[source]` entry (`main*.<ext>` for run, `smoke*.test.<ext>`",
-    "for test), and a `[matrix]` axis substitutes ONE string uniformly across every case rather",
-    "than selecting among entries.",
-    "Each is written as sibling `[[case]]` entries instead. Note that BOTH files carrying this",
-    "block reach those siblings by rule 5 rather than rule 6 -- their `json_output` variation is",
-    "a loop INSIDE a `#[test]` fn, not a separate fn -- so the RULE 6 paragraph below states the",
-    "split, and no claim is made here that the source has a fn per combination.",
-]
+def fail_closed_non_axes_with_claim(rs_text):
+    """The §5.6 non-axis paragraph, DERIVED per file rather than imported as a constant.
+
+    FIX ROUND 2 (N1, N3). This was a module constant, and a constant is exactly
+    how I-1 arose one round earlier: `gen_batch7a.FAIL_CLOSED_NON_AXES` was
+    imported unconditionally into two files it was false for. A shared block that
+    asserts anything about its caller's source must therefore DERIVE that
+    assertion from the caller's source, so the next batch to import it cannot
+    inherit a false clause. Two things were wrong when this was a constant:
+
+      * N1 -- it quoted design spec §5.6's text-vs-JSON sentence and then said
+        "both dimensions do exactly that here". Measured from the emitted steps,
+        `command` asserts the IDENTICAL key signature in both files: it changes
+        argv and the `[source]` entry and nothing else. The quote now attaches
+        to `json_output` only, which is what §5.6:469 is about, and
+        `assert_non_axis_reason_matches` gates BOTH clauses against the steps.
+      * N3 -- it said the `json_output` variation is "a loop INSIDE a `#[test]`
+        fn". True of `browser_object_values_spread_harness.rs`, FALSE of
+        `browser_object_keys_entries_spread_harness.rs`, which unrolls four
+        helper calls per extension with the argument alternating literally. The
+        load-bearing conclusion (rule 5, no fn per combination) held for both;
+        the mechanism word did not, and nothing derived it. The mechanism is no
+        longer named. What IS stated is the property this function actually
+        measures -- that no `#[test]` fn is dedicated to an output mode -- and it
+        raises if that stops being true, in which case the caller needs a
+        different block.
+    """
+    fns = test_fns(rs_text)
+    json_prefixed = [f for f in fns if f.startswith("json_")]
+    if json_prefixed:
+        raise AssertionError(
+            f"{len(json_prefixed)} `#[test]` fn(s) carry a `json_` prefix, so this source DOES "
+            "have a fn per output mode and the closing sentence of this block would be false: "
+            f"{json_prefixed[:3]}")
+    return [
+        "`command` and `json_output` are NOT matrix axes, per rule 7, and their reasons DIFFER --",
+        "they are stated separately because measuring them separately is what fix round 2 found",
+        "the shared block had got wrong.",
+        "`json_output` changes WHAT IS ASSERTED, which is design spec 5.6's own note about",
+        "output shape: \"Varying output shape changes both the argv and the assertions\". This",
+        "target's only content claim is a single diagnostic needle, and the output mode moves the",
+        "stream that carries it (see the RULE 11 block below), so the text and json siblings pin",
+        "DIFFERENT keys.",
+        "`command` does NOT change what is asserted -- run and test carry the identical assertion",
+        "keys here, which the generator checks against the emitted steps. It is not an axis for",
+        "the other reason in rule 7: it selects a different `[source]` entry (`main*.<ext>` for",
+        "run, `smoke*.test.<ext>` for test), and a `[matrix]` axis substitutes ONE string",
+        "uniformly across every case rather than selecting among entries.",
+        "Each is written as sibling `[[case]]` entries instead, reached by rule 5 rather than",
+        f"rule 6: this source has {len(fns)} `#[test]` fn(s) and NONE of them is dedicated to an",
+        "output mode (derived here, and this block refuses to render if one ever is), so the fns",
+        "cannot map one-to-one onto the cases. The RULE 6 paragraph below states the split.",
+    ]
 
 # The sentence each block hangs its reason on, used to check the reason against the emitted
 # steps. Matching on the CLAIM rather than on object identity is deliberate: a header assembled
 # from a copy of the list, or reworded downstream, is still checked.
 _CLAIM_FREE_MARKER = "this target asserts nothing but process"
 _HAS_CLAIM_MARKER = "this target's only content claim is a single diagnostic needle"
+# N1: the `command` clause needs its own marker, because the gate that checked only the
+# `json_output` one let a false `command` claim through for a whole round.
+_COMMAND_ARGV_ONLY_MARKER = ("`command` does not change what is asserted -- run and test carry "
+                             "the identical assertion keys here")
 
 # Every §5.4 assertion key except `exit`, plus `file_json`'s `fields`. A step carrying any of
 # these makes a CONTENT claim; a step carrying only `exit` does not.
@@ -685,31 +745,92 @@ _CONTENT_KEYS = frozenset({
 })
 
 
+def _step_command(step):
+    """The subcommand a cli step invokes (`build` / `run` / `test`), from argv."""
+    args = step.get("args") or []
+    skip = False
+    for a in args:
+        if skip:
+            skip = False
+            continue
+        if a == "--output":
+            skip = True
+            continue
+        if a.startswith("-"):
+            continue
+        return a
+    return None
+
+
+def _signature(case):
+    """The set of §5.4 CONTENT keys a case asserts, ignoring their values.
+
+    Key-level, deliberately: the question these gates ask is "does this
+    dimension change WHAT IS ASSERTED", and that is a question about which keys
+    appear, not about their contents. It is also the granularity the review
+    measured `command` at.
+    """
+    return frozenset(k for step in case["steps"] for k in step if k in _CONTENT_KEYS)
+
+
+def _sigs_by(cases, key):
+    out = {}
+    for case in cases:
+        out.setdefault(key(case), set()).add(_signature(case))
+    return out
+
+
 def assert_non_axis_reason_matches(header, cases):
     """A fail-closed non-axis paragraph must match what the file actually asserts.
 
-    Both directions, because both are silent failures: claiming "nothing but
-    process failure" on a file that pins a needle is the defect fix round 1
-    found, and claiming a content claim on a file that has none would be the
-    same defect mirrored. Nothing else reads `#` header prose (U8), so this is
-    the only thing that can catch either.
+    FOUR arms, and the count is the point rather than the tidiness: fix round 1
+    added two (the claim-free/with-claim pair) and fix round 2 found that a
+    THIRD clause in the same paragraph -- the one about `command` -- had been
+    false the whole time, because nothing checked it. Every clause in a shared
+    block that asserts something about the caller's file now has a gate, in both
+    directions where both directions are meaningful. Nothing else reads `#`
+    header prose (U8), so this is the only thing that can catch any of them.
     """
     # Joined with a SPACE and whitespace-collapsed, not with a newline: these blocks are
     # hand-wrapped at 86 columns, so a marker sentence spans two list entries and a
     # newline-joined haystack would never contain it. The first version of this gate matched on
     # `\n` and silently failed to fire in one of its two directions -- caught by the injection
     # probe, which is the only reason this comment exists rather than a second silent gate.
-    text = re.sub(r"\s+", " ", " ".join(str(line) for line in header))
+    # LOWERCASED as well as space-joined and collapsed. Fix round 2's own probe caught why: the
+    # reworded block starts the claim sentence at a line break, so it renders "This target's
+    # only content claim ...", and a case-sensitive marker silently stopped matching -- the same
+    # arm going quiet for the second round running, for a second cosmetic reason. A marker that
+    # only survives one particular wrapping is not a gate.
+    text = re.sub(r"\s+", " ", " ".join(str(line) for line in header)).lower()
     claims = sorted({k for case in cases for step in case["steps"]
                      for k in step if k in _CONTENT_KEYS})
     if _CLAIM_FREE_MARKER in text and claims:
         raise AssertionError(
             "the header says this target asserts nothing but process failure, but its steps "
-            f"carry content claim key(s) {claims} -- use FAIL_CLOSED_NON_AXES_WITH_CLAIM")
+            f"carry content claim key(s) {claims} -- use fail_closed_non_axes_with_claim()")
     if _HAS_CLAIM_MARKER in text and not claims:
         raise AssertionError(
             "the header says this target carries a content claim, but no step carries one -- "
             "use FAIL_CLOSED_NON_AXES")
+    if _HAS_CLAIM_MARKER in text:
+        # The clause does not merely say a claim EXISTS; it says the OUTPUT MODE MOVES it. So
+        # check that too: grouping by output mode must yield different key signatures, or the
+        # sentence is describing a distinction this file does not make.
+        by_mode = _sigs_by(cases, lambda c: any("--output" in (s.get("args") or [])
+                                                for s in c["steps"]))
+        if len(by_mode) > 1 and len(set(map(frozenset, by_mode.values()))) == 1:
+            raise AssertionError(
+                "the header says the output mode moves what is asserted, but the text and json "
+                f"cases carry the same assertion keys ({sorted(claims)})")
+    if _COMMAND_ARGV_ONLY_MARKER in text:
+        by_cmd = _sigs_by(cases, lambda c: next(
+            (_step_command(s) for s in c["steps"] if s.get("args")), None))
+        distinct = {frozenset(v) for v in by_cmd.values()}
+        if len(distinct) > 1:
+            raise AssertionError(
+                "the header says `command` does not change what is asserted, but the commands "
+                f"carry different assertion-key signatures: "
+                f"{ {k: sorted(sorted(x) for x in v) for k, v in by_cmd.items()} }")
     return True
 
 
@@ -1141,13 +1262,14 @@ def gen_object_keys_entries_spread_harness():
 
     run_plain = check_program("entries spread run", fixture_in_fn(text, builder, index=1))
     test_plain = check_program("entries spread test", fixture_in_fn(text, builder, index=0))
-    _run, ws_run = assert_frozen_pair(
+    _run, ws_run, lead_run, occ_run = assert_frozen_pair(
         "entries spread run", text, C.CAP_ENTRIES_SPREAD_RUN_PLAIN,
         C.CAP_ENTRIES_SPREAD_RUN_FROZEN, plain_literal=run_plain, replace_fn=frozen_builder)
-    _test, ws_test = assert_frozen_pair(
+    _test, ws_test, lead_test, occ_test = assert_frozen_pair(
         "entries spread test", text, C.CAP_ENTRIES_SPREAD_TEST_PLAIN,
         C.CAP_ENTRIES_SPREAD_TEST_FROZEN, plain_literal=test_plain, replace_fn=frozen_builder)
     ws_active = ws_run or ws_test
+    lead, occ = P.assert_identical("needle indent", lead_run, lead_test), max(occ_run, occ_test)
 
     source = {
         "main.${ext}": C.CAP_ENTRIES_SPREAD_RUN_PLAIN,
@@ -1185,7 +1307,7 @@ def gen_object_keys_entries_spread_harness():
                       "json_output(false/true), a complete cross product. Both `#[test]` fns "
                       "loop all four extensions and make four calls per extension, so `ext` is "
                       "uniform.")],
-            non_axis_lines=FAIL_CLOSED_NON_AXES_WITH_CLAIM),
+            non_axis_lines=fail_closed_non_axes_with_claim(text)),
         "",
         P.RULE6_ONE_TO_ONE,
         "That is the shape rule 5 governs rather than rule 6: this source has only TWO `#[test]`",
@@ -1212,13 +1334,15 @@ def gen_object_keys_entries_spread_harness():
         "exactly the trap rule 8 exists to prevent. Both frozen texts are therefore the",
         "BYTE-EXACT OUTPUT of executing the real code (see `batch7b_captures.py` for the capture",
         "procedure).",
-        "The replace needle also carries TWO LEADING SPACES, and the generator MEASURES whether",
-        "that is load-bearing rather than asserting it: "
-        + ("it is -- the stripped needle selects a different span."
-           if ws_active else
-           "it is not. The needle occurs exactly once and the stripped form selects the same "
-           "span, so the indentation hazard is LATENT here, not the operative reason. The check "
-           "stays as a staleness tripwire."),
+        wrap(f"The replace needle also carries {lead} LEADING SPACE(S) -- measured, and "
+             "compared against the width the shipped captures were taken at, so a reindented "
+             "source fails the generator rather than leaving this sentence wrong. Whether that "
+             "indentation is load-bearing is MEASURED too, not asserted: "
+             + ("it is -- the stripped needle selects a different span."
+                if ws_active else
+                f"it is not. The needle occurs {occ} time(s) in the plain text and the stripped "
+                "form selects the same span, so the indentation hazard is LATENT here, not the "
+                "operative reason. The check stays as a staleness tripwire."), 86),
         "The generator",
         "re-proves each capture against this source before emitting it: the plain capture must",
         "be byte-identical to the literal the lexer extracts from the `.rs`, the needle and",
@@ -1893,8 +2017,8 @@ def gen_object_keys_iteration():
         "when two groups of tests need DIFFERENT file-wide `[source]` tables -- specifically",
         "when a fixture is written conditionally, or when a case's whole point is the PRESENCE",
         "or ABSENCE of a file (6B's `kali.json` manifest: merging would have made it",
-        "unconditionally present and silently stopped its explicit half -- 78 `#[test]` fns, 124",
-        "cases -- from discriminating). Neither",
+        "unconditionally present and silently stopped its explicit half from discriminating).",
+        "Neither",
         "condition holds here, and all three were checked rather than assumed:",
         "  * NO CONDITIONAL WRITE. Every fixture write in the carrier and in both submodules is",
         "    unconditional within its test; the generator finds no `if` guarding one.",
@@ -2254,13 +2378,14 @@ def gen_object_values_harness():
         text, "browser_harness_global_object_values_test_source"))
     spread_run = check_program("values spread run", fixture_in_fn(text, spread_builder, index=1))
     spread_test = check_program("values spread test", fixture_in_fn(text, spread_builder, index=0))
-    _run, ws_run = assert_frozen_pair(
+    _run, ws_run, lead_run, occ_run = assert_frozen_pair(
         "values spread run", text, C.CAP_VALUES_SPREAD_RUN_PLAIN,
         C.CAP_VALUES_SPREAD_RUN_FROZEN, plain_literal=spread_run, replace_fn=frozen_builder)
-    _test, ws_test = assert_frozen_pair(
+    _test, ws_test, lead_test, occ_test = assert_frozen_pair(
         "values spread test", text, C.CAP_VALUES_SPREAD_TEST_PLAIN,
         C.CAP_VALUES_SPREAD_TEST_FROZEN, plain_literal=spread_test, replace_fn=frozen_builder)
     ws_active = ws_run or ws_test
+    lead, occ = P.assert_identical("needle indent", lead_run, lead_test), max(occ_run, occ_test)
 
     source = {
         "main.${ext}": plain_run,
@@ -2443,13 +2568,15 @@ def gen_object_values_harness():
         "exactly the trap rule 8 exists to prevent. Both frozen texts are therefore the",
         "BYTE-EXACT OUTPUT of executing the real code (see `batch7b_captures.py` for the capture",
         "procedure).",
-        "The replace needle also carries TWO LEADING SPACES, and the generator MEASURES whether",
-        "that is load-bearing rather than asserting it: "
-        + ("it is -- the stripped needle selects a different span."
-           if ws_active else
-           "it is not. The needle occurs exactly once and the stripped form selects the same "
-           "span, so the indentation hazard is LATENT here, not the operative reason. The check "
-           "stays as a staleness tripwire."),
+        wrap(f"The replace needle also carries {lead} LEADING SPACE(S) -- measured, and "
+             "compared against the width the shipped captures were taken at, so a reindented "
+             "source fails the generator rather than leaving this sentence wrong. Whether that "
+             "indentation is load-bearing is MEASURED too, not asserted: "
+             + ("it is -- the stripped needle selects a different span."
+                if ws_active else
+                f"it is not. The needle occurs {occ} time(s) in the plain text and the stripped "
+                "form selects the same span, so the indentation hazard is LATENT here, not the "
+                "operative reason. The check stays as a staleness tripwire."), 86),
         "The generator re-proves each capture against this source before emitting it: the plain",
         "capture must be byte-identical to the literal the lexer extracts from the `.rs`, the",
         "needle and replacement are read out of the `.rs` rather than restated, and applying",
@@ -2800,7 +2927,7 @@ def gen_object_values_spread_harness():
                       "command(run/test) x ext(js/ts/jsx/tsx) x json_output(false/true). Both "
                       "`#[test]` fns loop all four extensions and both output modes, so `ext` "
                       "is uniform.")],
-            non_axis_lines=FAIL_CLOSED_NON_AXES_WITH_CLAIM),
+            non_axis_lines=fail_closed_non_axes_with_claim(text)),
         "",
         P.RULE6_ONE_TO_ONE,
         "That is rule 5's territory rather than rule 6's here: this source has only TWO `#[test]`",

@@ -74,9 +74,7 @@
 # assert_browser_harness_object_values_spread): that helper also serves out-of-batch
 # callers that are still green, so it is left untouched."
 # `comment_coverage.py` requires every comment LINE to appear in EVERY case's rationale,
-# so it reports a non-empty MISSING set here and exits 1. It reports it per LINE, and
-# these blocks share lines, so the count it prints against any one line is not the
-# complement of any one block's reach.
+# so it reports a non-empty MISSING set here and exits 1.
 # That red is expected and is NOT suppressed: U6 forbids copying a block into cases its
 # producing helper does not reach even though doing so would turn the checker green, and
 # requires the checker's false `missing` to be documented in the header instead. This is
@@ -143,8 +141,12 @@
 # exactly the trap rule 8 exists to prevent. Both frozen texts are therefore the
 # BYTE-EXACT OUTPUT of executing the real code (see `batch7b_captures.py` for the capture
 # procedure).
-# The replace needle also carries TWO LEADING SPACES, and the generator MEASURES whether
-# that is load-bearing rather than asserting it: it is not. The needle occurs exactly once and the stripped form selects the same span, so the indentation hazard is LATENT here, not the operative reason. The check stays as a staleness tripwire.
+# The replace needle also carries 2 LEADING SPACE(S) -- measured, and compared against
+# the width the shipped captures were taken at, so a reindented source fails the
+# generator rather than leaving this sentence wrong. Whether that indentation is
+# load-bearing is MEASURED too, not asserted: it is not. The needle occurs 1 time(s) in
+# the plain text and the stripped form selects the same span, so the indentation hazard
+# is LATENT here, not the operative reason. The check stays as a staleness tripwire.
 # The generator re-proves each capture against this source before emitting it: the plain
 # capture must be byte-identical to the literal the lexer extracts from the `.rs`, the
 # needle and replacement are read out of the `.rs` rather than restated, and applying
