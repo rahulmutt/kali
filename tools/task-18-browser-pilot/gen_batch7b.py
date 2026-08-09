@@ -699,14 +699,14 @@ def fail_closed_non_axes_with_claim(rs_text):
         raises if that stops being true, in which case the caller needs a
         different block.
     """
-    fns = test_fns(rs_text)
+    fns = _local_test_fn_names(rs_text)
     json_prefixed = [f for f in fns if f.startswith("json_")]
     if json_prefixed:
         raise AssertionError(
             f"{len(json_prefixed)} `#[test]` fn(s) carry a `json_` prefix, so this source DOES "
             "have a fn per output mode and the closing sentence of this block would be false: "
             f"{json_prefixed[:3]}")
-    return [
+    return NonAxisBlock([
         "`command` and `json_output` are NOT matrix axes, per rule 7, and their reasons DIFFER --",
         "they are stated separately because measuring them separately is what fix round 2 found",
         "the shared block had got wrong.",
@@ -724,17 +724,123 @@ def fail_closed_non_axes_with_claim(rs_text):
         f"rule 6: this source has {len(fns)} `#[test]` fn(s) and NONE of them is dedicated to an",
         "output mode (derived here, and this block refuses to render if one ever is), so the fns",
         "cannot map one-to-one onto the cases. The RULE 6 paragraph below states the split.",
-    ]
+    ], kind=HAS_CLAIM, dims=("command", "json_output"))
 
-# The sentence each block hangs its reason on, used to check the reason against the emitted
-# steps. Matching on the CLAIM rather than on object identity is deliberate: a header assembled
-# from a copy of the list, or reworded downstream, is still checked.
-_CLAIM_FREE_MARKER = "this target asserts nothing but process"
-_HAS_CLAIM_MARKER = "this target's only content claim is a single diagnostic needle"
-# N1: the `command` clause needs its own marker, because the gate that checked only the
-# `json_output` one let a false `command` claim through for a whole round.
-_COMMAND_ARGV_ONLY_MARKER = ("`command` does not change what is asserted -- run and test carry "
-                             "the identical assertion keys here")
+# --------------------------------------------------------------------------
+# The non-axis paragraph gate (ruling 18).
+#
+# THREE ROUNDS OF HISTORY, because the ordering below is the conclusion of it and not a
+# preference. Round 1 found a shared constant applied to two files it was false for. Round 2
+# found that the REPLACEMENT block's third clause was false and ungated, and that rewording it
+# had silently disabled an arm through capitalisation. Round 3's adversarial sweep then broke the
+# marker matching a third way -- one curly apostrophe silences two arms, an en-dash silences a
+# third, a hyphenated reflow silences all of them -- and showed the root cause is structural:
+# `if MARKER in text:` cannot distinguish "nothing to check" from "failed to match".
+#
+# So the gate now runs ruling 18's ordering:
+#   1. DERIVE over mark -- `fail_closed_non_axes_with_claim()` derives its claims from the
+#      caller's source and refuses to render when they are false. Nothing about that survives a
+#      reflow, because it never reads prose.
+#   2. DISPATCH ON PROVENANCE -- the arm is selected by WHICH BLOCK WAS CALLED, threaded through
+#      `out(non_axis=...)` as a tagged value, not by matching its text.
+#   3. NON-MATCH IS AN ERROR -- marker matching is retained only as a secondary consistency
+#      check, and it now requires EXACTLY ONE marker to match and to agree with the provenance
+#      tag. Every silencing mutation in round 3's sweep becomes a loud generator failure.
+#   4. NORMALISE last, and never trust it: a normaliser is only ever a whitelist of the failures
+#      already seen. Two rounds of this project's history are two entries on that whitelist.
+#
+# The comment this replaces defended matching on the claim rather than on identity, "so a header
+# assembled from a copy, or reworded downstream, is still checked". That rationale is
+# empirically inverted: reworded downstream is exactly what silenced it, twice.
+# --------------------------------------------------------------------------
+
+CLAIM_FREE = "claim_free"
+HAS_CLAIM = "has_claim"
+
+
+def _local_test_fn_names(text):
+    """`#[test]` fn names, tolerating shapes `gen_batch7a.test_fns` misses.
+
+    Round 3 fold: that regex requires a newline between `#[test]` and `fn`, so
+    `#[test] fn x()` on one line and an intervening `#[ignore]` both slip past
+    it. No such shape exists in this corpus today, but two things here CONSUME
+    the answer -- N3's refusal to render, and the fn count interpolated into the
+    block -- and a miss would silently weaken the first and misstate the second.
+    """
+    return re.findall(r"#\[test\]\s*(?:#\[[^\]]*\]\s*)*fn\s+([a-z0-9_]+)", text)
+
+
+class NonAxisBlock(list):
+    """A non-axis paragraph that knows what it is and which dimensions it names.
+
+    Subclasses `list` so every existing caller -- `matrix_block`, `hdr`,
+    `case_emit` -- keeps treating it as the list of header lines it always was,
+    while `out()` can read `.kind` and `.dims` off it. That is the provenance
+    channel: it travels with the block rather than being re-derived from the
+    rendered text.
+    """
+
+    def __new__(cls, lines, *, kind, dims):
+        self = super().__new__(cls, lines)
+        return self
+
+    def __init__(self, lines, *, kind, dims):
+        super().__init__(lines)
+        if kind not in (CLAIM_FREE, HAS_CLAIM):
+            raise AssertionError(f"unknown non-axis block kind {kind!r}")
+        for d in dims:
+            if d not in ("command", "json_output"):
+                raise AssertionError(f"unknown non-axis dimension {d!r}")
+        self.kind = kind
+        self.dims = tuple(dims)
+
+
+# The two imported claim-free constants, TAGGED. `gen_batch7a` is not modified (this batch may
+# not touch existing tools), so the provenance channel is attached here, at the one place this
+# generator uses them. `dims` records which dimensions each block's prose actually contrasts:
+# the `_BUILD` variant discusses `json_output` only, because its callers issue `build` alone.
+def _norm(text):
+    """The one normal form both markers and haystack are held in.
+
+    Space-joined, whitespace-collapsed, lower-cased. Rounds 1 and 2 each shipped
+    a gate that matched in only one of these forms and went silent in the other;
+    `assert_markers_normalised()` below now makes "the markers are already in
+    this form" a checked property rather than, as fix round 2's report claimed it
+    was, an unimplemented one (M2).
+    """
+    return re.sub(r"\s+", " ", str(text)).lower()
+
+
+_CLAIM_FREE_MARKER = _norm("this target asserts nothing but process")
+_HAS_CLAIM_MARKER = _norm("this target's only content claim is a single diagnostic needle")
+_COMMAND_ARGV_ONLY_MARKER = _norm(
+    "`command` does not change what is asserted -- run and test carry the identical assertion "
+    "keys here")
+
+
+def assert_markers_normalised():
+    """M2: the guarantee fix round 2's report CLAIMED and did not implement.
+
+    Its §10.6 said "all three markers are asserted lowercase". No such assertion
+    existed -- the markers merely happened to be lowercase. Third consecutive
+    round in which the sentence describing the fix was itself the defect, so the
+    sentence now has code under it. Cheap, and it runs at import.
+    """
+    for name, marker in (("_CLAIM_FREE_MARKER", _CLAIM_FREE_MARKER),
+                         ("_HAS_CLAIM_MARKER", _HAS_CLAIM_MARKER),
+                         ("_COMMAND_ARGV_ONLY_MARKER", _COMMAND_ARGV_ONLY_MARKER)):
+        if marker != _norm(marker):
+            raise AssertionError(f"{name} is not in the normal form the haystack is held in")
+    return True
+
+
+assert_markers_normalised()
+
+CLAIM_FREE_BLOCK = NonAxisBlock(FAIL_CLOSED_NON_AXES, kind=CLAIM_FREE,
+                                dims=("command", "json_output"))
+CLAIM_FREE_BUILD_BLOCK = NonAxisBlock(FAIL_CLOSED_NON_AXES_BUILD, kind=CLAIM_FREE,
+                                      dims=("json_output",))
+
 
 # Every §5.4 assertion key except `exit`, plus `file_json`'s `fields`. A step carrying any of
 # these makes a CONTENT claim; a step carrying only `exit` does not.
@@ -744,22 +850,21 @@ _CONTENT_KEYS = frozenset({
     "json", "json_paths", "json_null", "json_count", "fields",
 })
 
+# Every subcommand `kali` takes that this family's case files invoke. `_step_command` matches
+# against this set rather than taking the first non-flag argv element: the positional heuristic
+# it replaces returned "browser" for `["--api", "browser", "run", "main.js"]`, which is correct
+# for every argv THIS batch emits and wrong for the first importer that orders its flags
+# differently (round 3 fold).
+_SUBCOMMANDS = ("build", "run", "test", "check")
+
 
 def _step_command(step):
-    """The subcommand a cli step invokes (`build` / `run` / `test`), from argv."""
+    """The subcommand a cli step invokes, matched against the known set."""
     args = step.get("args") or []
-    skip = False
-    for a in args:
-        if skip:
-            skip = False
-            continue
-        if a == "--output":
-            skip = True
-            continue
-        if a.startswith("-"):
-            continue
-        return a
-    return None
+    found = [a for a in args if a in _SUBCOMMANDS]
+    if not found:
+        return None
+    return found[0]
 
 
 def _signature(case):
@@ -780,57 +885,94 @@ def _sigs_by(cases, key):
     return out
 
 
-def assert_non_axis_reason_matches(header, cases):
-    """A fail-closed non-axis paragraph must match what the file actually asserts.
+def _is_json_case(case):
+    return any("--output" in (s.get("args") or []) for s in case["steps"])
 
-    FOUR arms, and the count is the point rather than the tidiness: fix round 1
-    added two (the claim-free/with-claim pair) and fix round 2 found that a
-    THIRD clause in the same paragraph -- the one about `command` -- had been
-    false the whole time, because nothing checked it. Every clause in a shared
-    block that asserts something about the caller's file now has a gate, in both
-    directions where both directions are meaningful. Nothing else reads `#`
-    header prose (U8), so this is the only thing that can catch any of them.
+
+def assert_non_axis_reason_matches(header, cases, non_axis=None):
+    """Check a fail-closed non-axis paragraph against what the file asserts.
+
+    `non_axis` is the block object the caller actually used, or None when the
+    file uses the stock §5.6 wording. Arms are selected from IT, not from the
+    rendered prose; prose matching survives only as a consistency check that
+    raises on disagreement or on a non-match.
     """
-    # Joined with a SPACE and whitespace-collapsed, not with a newline: these blocks are
-    # hand-wrapped at 86 columns, so a marker sentence spans two list entries and a
-    # newline-joined haystack would never contain it. The first version of this gate matched on
-    # `\n` and silently failed to fire in one of its two directions -- caught by the injection
-    # probe, which is the only reason this comment exists rather than a second silent gate.
-    # LOWERCASED as well as space-joined and collapsed. Fix round 2's own probe caught why: the
-    # reworded block starts the claim sentence at a line break, so it renders "This target's
-    # only content claim ...", and a case-sensitive marker silently stopped matching -- the same
-    # arm going quiet for the second round running, for a second cosmetic reason. A marker that
-    # only survives one particular wrapping is not a gate.
-    text = re.sub(r"\s+", " ", " ".join(str(line) for line in header)).lower()
+    text = _norm(" ".join(str(line) for line in header))
     claims = sorted({k for case in cases for step in case["steps"]
                      for k in step if k in _CONTENT_KEYS})
-    if _CLAIM_FREE_MARKER in text and claims:
+    hits = [name for name, marker in (("claim_free", _CLAIM_FREE_MARKER),
+                                      ("has_claim", _HAS_CLAIM_MARKER))
+            if marker in text]
+
+    # --- (3) NON-MATCH IS AN ERROR ------------------------------------------------------
+    if non_axis is None:
+        if hits:
+            raise AssertionError(
+                f"the header carries the {hits} marker(s) but no fail-closed non-axis block was "
+                "declared to `out(non_axis=...)` -- either it was assembled by hand, or a "
+                "sentence elsewhere collides with a marker; both need resolving, because the "
+                "gate can no longer tell which arm applies")
+        return True
+    if len(hits) != 1:
         raise AssertionError(
-            "the header says this target asserts nothing but process failure, but its steps "
-            f"carry content claim key(s) {claims} -- use fail_closed_non_axes_with_claim()")
-    if _HAS_CLAIM_MARKER in text and not claims:
+            f"exactly one of the two non-axis markers must match this header; {len(hits)} did "
+            f"({hits}). A zero-match is the failure mode that silenced this gate twice: a curly "
+            "apostrophe, an en-dash or a hyphenated reflow inside the marker sentence is enough. "
+            "Fix the prose or the marker -- do NOT let a non-match read as nothing to check")
+    if hits[0] != non_axis.kind:
+        raise AssertionError(
+            f"provenance says this header uses the {non_axis.kind!r} block but its prose matches "
+            f"the {hits[0]!r} marker -- the two disagree, so one of them is wrong")
+    if non_axis.kind == HAS_CLAIM and _COMMAND_ARGV_ONLY_MARKER not in text:
+        raise AssertionError(
+            "a with-claim block must also carry its `command` clause, and the marker for it did "
+            "not match -- the clause was reworded, dropped, or reflowed through its own text")
+
+    # --- (M3) A GATED CLAUSE MAY NOT RENDER OVER A DIMENSION THE FILE DOES NOT HAVE -----
+    # Both arms below compare GROUPS, so on a one-sided file they compare nothing and pass
+    # vacuously while the prose asserts a contrast. Latent in this batch (every file carrying a
+    # block has both sides of both dimensions) and live for the first importer that does not.
+    if "command" in non_axis.dims:
+        commands = {c for c in (next((_step_command(s) for s in case["steps"] if s.get("args")),
+                                     None) for case in cases) if c}
+        if len(commands) < 2:
+            raise AssertionError(
+                f"this block's prose contrasts run and test, but the file issues {sorted(commands)}"
+                " -- the clause would be describing a dimension the file does not have")
+    if "json_output" in non_axis.dims:
+        modes = {_is_json_case(case) for case in cases}
+        if len(modes) < 2:
+            raise AssertionError(
+                "this block's prose contrasts text and `--output json`, but every case is in one "
+                "mode -- the clause would be describing a dimension the file does not have")
+
+    # --- (2) THE SUBSTANTIVE ARMS, dispatched on provenance -----------------------------
+    if non_axis.kind == CLAIM_FREE:
+        if claims:
+            raise AssertionError(
+                "the header says this target asserts nothing but process failure, but its steps "
+                f"carry content claim key(s) {claims} -- use fail_closed_non_axes_with_claim()")
+        return True
+
+    if not claims:
         raise AssertionError(
             "the header says this target carries a content claim, but no step carries one -- "
             "use FAIL_CLOSED_NON_AXES")
-    if _HAS_CLAIM_MARKER in text:
-        # The clause does not merely say a claim EXISTS; it says the OUTPUT MODE MOVES it. So
-        # check that too: grouping by output mode must yield different key signatures, or the
-        # sentence is describing a distinction this file does not make.
-        by_mode = _sigs_by(cases, lambda c: any("--output" in (s.get("args") or [])
-                                                for s in c["steps"]))
-        if len(by_mode) > 1 and len(set(map(frozenset, by_mode.values()))) == 1:
-            raise AssertionError(
-                "the header says the output mode moves what is asserted, but the text and json "
-                f"cases carry the same assertion keys ({sorted(claims)})")
-    if _COMMAND_ARGV_ONLY_MARKER in text:
-        by_cmd = _sigs_by(cases, lambda c: next(
-            (_step_command(s) for s in c["steps"] if s.get("args")), None))
-        distinct = {frozenset(v) for v in by_cmd.values()}
-        if len(distinct) > 1:
-            raise AssertionError(
-                "the header says `command` does not change what is asserted, but the commands "
-                f"carry different assertion-key signatures: "
-                f"{ {k: sorted(sorted(x) for x in v) for k, v in by_cmd.items()} }")
+    # The clause does not merely say a claim EXISTS; it says the OUTPUT MODE MOVES it.
+    by_mode = _sigs_by(cases, _is_json_case)
+    if len({frozenset(v) for v in by_mode.values()}) == 1:
+        raise AssertionError(
+            "the header says the output mode moves what is asserted, but the text and json cases "
+            f"carry the same assertion keys ({claims})")
+    # ... and that `command` does NOT move it.
+    by_cmd = _sigs_by(cases, lambda c: next(
+        (_step_command(s) for s in c["steps"] if s.get("args")), None))
+    distinct = {frozenset(v) for v in by_cmd.values()}
+    if len(distinct) > 1:
+        raise AssertionError(
+            "the header says `command` does not change what is asserted, but the commands carry "
+            f"different assertion-key signatures: "
+            f"{ {k: sorted(sorted(x) for x in v) for k, v in by_cmd.items()} }")
     return True
 
 
@@ -882,10 +1024,18 @@ def assert_entries_declared(source, cases):
     return True
 
 
-def out(header, matrix, source, cases):
+def out(header, matrix, source, cases, *, non_axis=None):
+    """Emit a case file, after every whole-file gate.
+
+    `non_axis` is the PROVENANCE channel (ruling 18, step 2): the fail-closed
+    non-axis block this file actually used, or None when it uses the stock §5.6
+    wording. Threading it explicitly rather than recovering it from the rendered
+    header is the whole point -- two rounds were lost to arms selected by
+    matching prose that a reflow could silence.
+    """
     assert_no_template_literals(source, cases)
     assert_entries_declared(source, cases)
-    assert_non_axis_reason_matches(header, cases)
+    assert_non_axis_reason_matches(header, cases, non_axis)
     names = [c["name"] for c in cases]
     if len(set(names)) != len(names):
         dup = sorted({n for n in names if names.count(n) > 1})
@@ -961,6 +1111,7 @@ def gen_object_keys_break_continue_harness():
     c_fail = cite(text, "assert!(!output.status.success()")
 
     blocks = blocks_in_fn(text, helper)
+    non_axis = CLAIM_FREE_BLOCK
     header = hdr(
         f"Migrated from tests/browser_{stem}.rs.",
         "",
@@ -973,7 +1124,7 @@ def gen_object_keys_break_continue_harness():
                       "complete cross product. Every `#[test]` fn is one unlooped call and "
                       "the file contains no loop at all; both fixture builders are "
                       "parameterless, so `ext` really is uniform.")],
-            non_axis_lines=FAIL_CLOSED_NON_AXES),
+            non_axis_lines=non_axis),
         "",
         P.rule6_matrix_fold("4 source `#[test]` fns, one per `ext` cell"),
         "",
@@ -1034,7 +1185,7 @@ def gen_object_keys_break_continue_harness():
                                            json_claims=None)],
             })
     arithmetic(stem, fns=16, invocations=16, cases=len(cases), axis_len=4)
-    return out(header, {"ext": EXTS4}, source, cases)
+    return out(header, {"ext": EXTS4}, source, cases, non_axis=non_axis)
 
 
 # ==========================================================================
@@ -1293,6 +1444,7 @@ def gen_object_keys_entries_spread_harness():
                            [("run", "main.${ext}"), ("test", "smoke.test.${ext}")])
 
     blocks = blocks_in_fn(text, helper)
+    non_axis = fail_closed_non_axes_with_claim(text)
     header = hdr(
         extra_ok_block([(v, P.EXTRA_OK_U5_RENAME)
                         for v in expanded(["main_frozen.${ext}", "smoke_frozen.test.${ext}"])]),
@@ -1307,7 +1459,7 @@ def gen_object_keys_entries_spread_harness():
                       "json_output(false/true), a complete cross product. Both `#[test]` fns "
                       "loop all four extensions and make four calls per extension, so `ext` is "
                       "uniform.")],
-            non_axis_lines=fail_closed_non_axes_with_claim(text)),
+            non_axis_lines=non_axis),
         "",
         P.RULE6_ONE_TO_ONE,
         "That is the shape rule 5 governs rather than rule 6: this source has only TWO `#[test]`",
@@ -1410,7 +1562,7 @@ def gen_object_keys_entries_spread_harness():
                     asserts={"exit": "failure", f"{stream}_contains": [needles[0]]})],
             })
     arithmetic(stem, fns=2, invocations=32, cases=len(cases), axis_len=4)
-    return out(header, {"ext": EXTS4}, source, cases)
+    return out(header, {"ext": EXTS4}, source, cases, non_axis=non_axis)
 
 
 def cli_or(label, source, needles, cells):
@@ -1752,12 +1904,12 @@ def gen_object_keys_iteration():
     if sorted(subs) != ["build.rs", "build_json.rs"]:
         raise AssertionError(f"unexpected submodule set: {sorted(subs)}")
 
-    top_level = len(test_fns(text))
+    top_level = len(_local_test_fn_names(text))
     if top_level != 0:
         raise AssertionError(
             f"the carrier now has {top_level} top-level `#[test]` fns; U10's inventory and this "
             "generator's arithmetic both assume 0")
-    counts = {name: len(test_fns(t)) for name, t in subs.items()}
+    counts = {name: len(_local_test_fn_names(t)) for name, t in subs.items()}
     if counts != {"build.rs": 15, "build_json.rs": 10}:
         raise AssertionError(f"submodule `#[test]` inventory moved: {counts}")
 
@@ -2018,8 +2170,7 @@ def gen_object_keys_iteration():
         "when a fixture is written conditionally, or when a case's whole point is the PRESENCE",
         "or ABSENCE of a file (6B's `kali.json` manifest: merging would have made it",
         "unconditionally present and silently stopped its explicit half from discriminating).",
-        "Neither",
-        "condition holds here, and all three were checked rather than assumed:",
+        "Neither condition holds here, and all three were checked rather than assumed:",
         "  * NO CONDITIONAL WRITE. Every fixture write in the carrier and in both submodules is",
         "    unconditional within its test; the generator finds no `if` guarding one.",
         "  * NO PRESENCE/ABSENCE CASE. Every `[source]` entry is a PROGRAM, named explicitly on",
@@ -2166,6 +2317,7 @@ def gen_object_string_enumeration_bundle():
     c_fail_by_helper = {h: cite_in(text, h, "assert!(!output.status.success()")
                         for h in (helper, await_helper)}
 
+    non_axis = CLAIM_FREE_BUILD_BLOCK
     header = hdr(
         extra_ok_block([(v, P.EXTRA_OK_U5_RENAME) for v in expanded(["app_await.${ext}"])]),
         f"Migrated from tests/browser_{stem}.rs.",
@@ -2183,7 +2335,7 @@ def gen_object_string_enumeration_bundle():
             helpers=[(helper, 8, "ext(js/ts/jsx/tsx) x json_output(false/true), eight unlooped "
                                  "`#[test]` fns"),
                      (await_helper, 8, "the same eight-fn shape for the `for await` variant")],
-            non_axes=("json_output",), non_axis_lines=FAIL_CLOSED_NON_AXES_BUILD),
+            non_axes=("json_output",), non_axis_lines=non_axis),
         "",
         P.rule6_matrix_fold("4 source `#[test]` fns, one per `ext` cell"),
         "",
@@ -2250,7 +2402,7 @@ def gen_object_string_enumeration_bundle():
                                      json_claims=None)],
             })
     arithmetic(stem, fns=16, invocations=16, cases=len(cases), axis_len=4)
-    return out(header, {"ext": EXTS4}, source, cases)
+    return out(header, {"ext": EXTS4}, source, cases, non_axis=non_axis)
 
 
 # ==========================================================================
@@ -2282,6 +2434,7 @@ def gen_object_string_enumeration_harness():
     c_fail = cite(text, "assert!(!output.status.success()")
 
     blocks = blocks_in_fn(text, helper)
+    non_axis = CLAIM_FREE_BLOCK
     header = hdr(
         f"Migrated from tests/browser_{stem}.rs.",
         "",
@@ -2294,7 +2447,7 @@ def gen_object_string_enumeration_harness():
                       "complete cross product. Every `#[test]` fn is one unlooped call and the "
                       "file contains no loop at all; both fixture builders are parameterless, "
                       "so `ext` really is uniform.")],
-            non_axis_lines=FAIL_CLOSED_NON_AXES),
+            non_axis_lines=non_axis),
         "",
         P.rule6_matrix_fold("4 source `#[test]` fns, one per `ext` cell"),
         "",
@@ -2350,7 +2503,7 @@ def gen_object_string_enumeration_harness():
                                            asserts={"exit": "failure"}, json_claims=None)],
             })
     arithmetic(stem, fns=16, invocations=16, cases=len(cases), axis_len=4)
-    return out(header, {"ext": EXTS4}, source, cases)
+    return out(header, {"ext": EXTS4}, source, cases, non_axis=non_axis)
 
 
 # ==========================================================================
@@ -2507,6 +2660,7 @@ def gen_object_values_harness():
                                            asserts={"exit": "failure"}, json_claims=None)],
             })
 
+    non_axis = CLAIM_FREE_BLOCK
     header = hdr(
         extra_ok_block([(v, P.EXTRA_OK_U5_RENAME) for v in expanded(renamed)]),
         f"Migrated from tests/browser_{stem}.rs.",
@@ -2537,7 +2691,7 @@ def gen_object_values_harness():
                  "each looping ext(4) x json_output(2) around its own `Command` builder rather "
                  "than routing through the helper"),
             ],
-            non_axis_lines=FAIL_CLOSED_NON_AXES),
+            non_axis_lines=non_axis),
         "",
         P.rule6_matrix_fold(
             "either 4 source `#[test]` fns (one per `ext` cell) for the thirty-two unlooped fns, "
@@ -2621,7 +2775,7 @@ def gen_object_values_harness():
     if len(cases) != 16:
         raise AssertionError(f"expected 16 cases, built {len(cases)}")
     arithmetic(stem, fns=36, invocations=64, cases=len(cases), axis_len=4)
-    return out(header, {"ext": EXTS4}, source, cases)
+    return out(header, {"ext": EXTS4}, source, cases, non_axis=non_axis)
 
 
 # ==========================================================================
@@ -2916,6 +3070,7 @@ def gen_object_values_spread_harness():
                            [("run", "main.${ext}"), ("test", "smoke.test.${ext}")])
 
     blocks = blocks_in_fn(text, helper)
+    non_axis = fail_closed_non_axes_with_claim(text)
     header = hdr(
         f"Migrated from tests/browser_{stem}.rs.",
         "",
@@ -2927,7 +3082,7 @@ def gen_object_values_spread_harness():
                       "command(run/test) x ext(js/ts/jsx/tsx) x json_output(false/true). Both "
                       "`#[test]` fns loop all four extensions and both output modes, so `ext` "
                       "is uniform.")],
-            non_axis_lines=fail_closed_non_axes_with_claim(text)),
+            non_axis_lines=non_axis),
         "",
         P.RULE6_ONE_TO_ONE,
         "That is rule 5's territory rather than rule 6's here: this source has only TWO `#[test]`",
@@ -2992,7 +3147,7 @@ def gen_object_values_spread_harness():
                     asserts={"exit": "failure", f"{stream}_contains": [needles[0]]})],
             })
     arithmetic(stem, fns=2, invocations=16, cases=len(cases), axis_len=4)
-    return out(header, {"ext": EXTS4}, source, cases)
+    return out(header, {"ext": EXTS4}, source, cases, non_axis=non_axis)
 
 
 def main(argv):

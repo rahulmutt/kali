@@ -53,8 +53,7 @@
 # when a fixture is written conditionally, or when a case's whole point is the PRESENCE
 # or ABSENCE of a file (6B's `kali.json` manifest: merging would have made it
 # unconditionally present and silently stopped its explicit half from discriminating).
-# Neither
-# condition holds here, and all three were checked rather than assumed:
+# Neither condition holds here, and all three were checked rather than assumed:
 #   * NO CONDITIONAL WRITE. Every fixture write in the carrier and in both submodules is
 #     unconditional within its test; the generator finds no `if` guarding one.
 #   * NO PRESENCE/ABSENCE CASE. Every `[source]` entry is a PROGRAM, named explicitly on
