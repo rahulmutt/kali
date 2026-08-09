@@ -37,8 +37,15 @@ for t in cases/browser/*.toml; do
   rs="browser_$s.rs"
   if [[ ! -f "$rs" ]]; then
     src=$(grep -m1 -oP '(?<=Migrated from tests/)browser_\S+\.rs' "$t" || true)
-    [[ -n "$src" && -f "$src" ]] || { echo "skip $s (no source)"; continue; }
-    SPECS+=("$s=$REPO/crates/kali_cli/tests/$src")
+    # NO SOURCE IN THE TREE (deleted after its migration shipped): pass the stem
+    # anyway. `batch5_crosscheck.py` runs the GATEDNESS arm on it, which needs no
+    # source. This used to `continue` -- 23 of 104 case files skipped outright,
+    # with two ungated citations hiding in them (batch 7 fix round 1, I2).
+    if [[ -n "$src" && -f "$src" ]]; then
+      SPECS+=("$s=$REPO/crates/kali_cli/tests/$src")
+    else
+      SPECS+=("$s")
+    fi
     continue
   fi
   ref=$(grep -oP '(?<=PRE-TRIM REF:)\s*\S+' "$rs" | head -1 | tr -d ' ')

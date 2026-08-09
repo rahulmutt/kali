@@ -61,7 +61,7 @@
 # Bundle helper: `exit = "success"` on the build (:71) and on the harness process
 # (`output.status.success()` :123); in json mode schemaVersion/command/success/exitCode and payload
 # artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :80-86) and NOTHING ELSE -- this file makes NO
-# `errors` claim on the build envelope (contrast :81-84 of
+# `errors` claim on the build envelope (contrast the same envelope in
 # `browser_math_hypot_empty_identity.rs`, which does), so `errors = []` is
 # deliberately absent here; the emitted `app/app.meta.json` metadata (:94-95),
 # read outside the `if json_output`; then the bundle-harness `stdout_contains`

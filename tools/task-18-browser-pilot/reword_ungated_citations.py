@@ -131,6 +131,8 @@ def _candidates(lines, first, last):
     Ordered by how much they discriminate: a `receiver.method(` yields two
     needles and is preferred over a bare index, which yields one.
     """
+    _items = X._source_items("\n".join(lines))
+
     def harvest(source_lines):
         got = []
         for line in source_lines:
@@ -140,7 +142,7 @@ def _candidates(lines, first, last):
                     continue
                 if e not in got:
                     got.append(e)
-        return sorted(got, key=lambda e: (-len(X._needles(e)), len(e)))
+        return sorted(got, key=lambda e: (-len(X._needles(e, _items)), len(e)))
 
     cited = harvest(lines[first - 1:min(last, len(lines))])
     # FALLBACK: the enclosing statement. The gate resolves at enclosing-statement
@@ -154,7 +156,7 @@ def _candidates(lines, first, last):
 
 
 def _resolves(snippet, lines, first, last):
-    needles = X._needles(snippet)
+    needles = X._needles(snippet, X._source_items("\n".join(lines)))
     if not needles:
         return False
     stmt = "\n".join(X._statement(lines, first, min(last, len(lines))))

@@ -62,6 +62,7 @@ artefacts of the trim rather than stale citations -- the exact confusion ruling
 9 exists to prevent.
 """
 
+import collections
 import functools
 import os
 import re
@@ -313,8 +314,21 @@ _NAME_ELISION = re.compile(r"\w\.\.\.|\.\.\.\w")
 # right; see M4 in `_needles`.
 _METHOD = re.compile(r"\.\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 
+# A snippet that is one bare identifier and nothing else, and the source items a
+# citation may point at. See `_needles`' last tier: a bare identifier is a needle
+# only when the source DEFINES a name of its own by that spelling.
+BARE_IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_ITEM_DECL = re.compile(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)")
 
-def _needles(snippet):
+
+@functools.lru_cache(maxsize=64)
+def _source_items(text):
+    """Every item name the source declares. Cached on the source text, so the
+    per-citation lookup is a set membership rather than a rescan."""
+    return frozenset(_ITEM_DECL.findall(text))
+
+
+def _needles(snippet, source_items=None):
     """Every token that must appear inside the cited statement. May be empty.
 
     Added in batch 6, when wiring this gate into `verify_pair.sh` turned its
@@ -400,14 +414,74 @@ def _needles(snippet):
         #
         # Measured over the 104 shipped case files plus every retention header
         # before and after: 0 change in reported problems, so nothing correct is
-        # lost. What it buys is that ~90 citations the batch-7 reword produces
-        # are resolved rather than merely seen.
+        # lost.
+        #
+        # WHAT IT BUYS, derived rather than asserted (batch 7 fix round 1, M4 --
+        # the previous sentence here said "~90 citations" with no command beside
+        # it, which is item 3.1's own defect in the file that fixed item 3.1).
+        # Of the 3134 citations that carry needles today, 419 depend on one of
+        # the two batch-7 fallbacks (this one and the bare-source-item tier
+        # below); without them those 419 would be matched and never resolved.
+        # Run from the repo root:
+        #     python3 -c '
+        #     import sys, os, glob, re
+        #     sys.path.insert(0, "tools/task-18-browser-pilot")
+        #     import batch5_crosscheck as X
+        #     def old(s):                       # `_needles` before batch 7
+        #         t = X._distinctive(s.strip())
+        #         return [t] if t else []
+        #     tot = dep = 0
+        #     for p in glob.glob(X.CASES + "/*.toml"):
+        #         rs = os.path.join(X.TESTS, "browser_%s.rs" % os.path.basename(p)[:-5])
+        #         if not os.path.exists(rs): continue
+        #         items = X._source_items(open(rs).read()); t = open(p).read()
+        #         seen = {}
+        #         for m in list(X.SUBMOD_CITE.finditer(t)) + list(X.CITE.finditer(t)):
+        #             seen.setdefault(m.start(), m)
+        #         for m in seen.values():
+        #             n = X._needles(m.group(1), items)
+        #             tot += bool(n); dep += bool(n) and not old(m.group(1))
+        #     print(tot, dep)'
         methods = sorted(set(_METHOD.findall(s)))
-        if not methods:
-            return []
-        lits = sorted({l for l in _SNIPPET_LITERAL.findall(s)
-                       if l and "\\" not in l})
-        return methods + lits
+        if methods:
+            lits = sorted({l for l in _SNIPPET_LITERAL.findall(s)
+                           if l and "\\" not in l})
+            return methods + lits
+        # A BARE BACKTICKED IDENTIFIER, resolved ONLY when the source DEFINES AN
+        # ITEM OF THAT NAME (batch 7 fix round 1, I1).
+        #
+        # This is the last tier of the residual, and it needed a triage rather
+        # than a rule, because the obvious version of it is overwhelmingly
+        # WRONG. `_distinctive` declines a snippet with no `(`, `.` or `[` on the
+        # grounds that it is prose rather than a code position, and the corpus
+        # bears that out: admitting every bare identifier of four or more
+        # characters produces 52 failures across 24 files, and 51 of the 52 are
+        # FALSE -- `expected_stdout` x16, `test` x14, `stdout_contains` x7,
+        # `stdout_count` x5, `kali` x5, `json_count` x2, `json_output` x1. Every
+        # one is prose naming the MIGRATED form (a case-format key), the CLI
+        # (`kali`, the `test` subcommand), or a source local/parameter used as a
+        # label -- none of them a construct at the cited line.
+        #
+        # The discriminator is not a word list. It is whether the source DEFINES
+        # the name: a citation is a pointer at code, so a bare identifier names a
+        # position exactly when the source has an item by that name. `fn
+        # assert_browser_harness_frozen_math_sin_cos_tan` is such a name;
+        # `expected_stdout`, `test`, `kali` and `stdout_contains` are not items in
+        # any source in this family. That single condition removes 51 of the 52
+        # and keeps the one true positive, which is a real `CITE` mis-binding
+        # (M8) fixed in this same round.
+        #
+        # Measured family-wide through the real sweep, both figures with the
+        # command recorded in the batch-7 report (ruling 13):
+        #     bare id >= 4, unfiltered           -> 52 new failures / 24 files
+        #     bare id >= 4, source-defined only  ->  1 new failure  /  1 file
+        # and 24 citations that previously yielded NO needles at all now resolve.
+        # `source_items` is None only for a caller with no source in hand (the
+        # gatedness-only path), where this tier is skipped rather than guessed.
+        if source_items and BARE_IDENT.fullmatch(s) and len(s) >= 4:
+            if s not in CASE_KEYS and s in source_items:
+                return [s]
+        return []
     # M4: every `.method(` in the snippet joins the leading identifier as a
     # needle.
     #
@@ -451,7 +525,25 @@ def check(spec, citations_only=False):
     # i.e. skip exactly the place the one real drift defect occurred.
     live_path = os.path.join(TESTS, f"browser_{stem}.rs")
     if not os.path.exists(rs_path):
-        return [f"{stem}: no source at {rs_path}"]
+        # NO SOURCE: the `.rs` was deleted after its migration shipped. The two
+        # RESOLVING arms genuinely cannot run -- there is nothing to resolve
+        # against -- but the GATEDNESS arm can, because whether a citation is one
+        # any reader matches is a property of the case file's own text.
+        #
+        # BATCH 7 FIX ROUND 1, I2. This used to return one problem and stop, and
+        # `citation_sweep.sh` avoided that by SKIPPING such a stem entirely --
+        # 23 of the 104 case files, `_gated_arm` never run on any of them. Two
+        # ungated citations were hiding there (`bundle_cjs_source_classes.toml`
+        # and `..._inherited.toml`, both `classes.rs:23-33`): unearned AND
+        # undisclosed, which is the exact state item 1 exists to end. Running the
+        # arm that CAN run is strictly better than skipping the file.
+        if not os.path.exists(toml_path):
+            return [f"{stem}: no source at {rs_path} and no case file at {toml_path}"]
+        text = open(toml_path).read()
+        problems = _gated_arm(stem, "case file", text)
+        print(f"{stem}: source deleted post-migration; gatedness arm only, "
+              f"{len(problems)} problem(s)")
+        return problems
     live_lines = open(live_path).read().split("\n") if os.path.exists(live_path) else []
     rs_header = [l for l in live_lines if l.startswith("//!")]
 
@@ -624,9 +716,19 @@ WRITTEN_CITE = re.compile(
 #     citation onto a comment is unresolvable by design, not by accident.
 #   CONTROL-FLOW -- a citation onto a bare `if json_output {` / `for ... {`
 #     line, cited precisely because of where it sits in the control flow.
+#   SOURCE-DELETED -- added in batch 7's fix round 1 (I2). The cited `.rs` was
+#     deleted once its migration shipped, so NO reader in the tree can resolve
+#     the line number: it is recoverable only from git history. Rewording cannot
+#     help -- there is nothing to point at -- and the honest disposition is to
+#     declare it rather than to leave it invisible. These two were invisible for
+#     a second reason as well: `citation_sweep.sh` skipped every sourceless stem
+#     outright, so `_gated_arm` never ran on 23 of the 104 case files. It runs on
+#     them now, and these are the only two ungated citations it found there.
 #
-# These 26 are what remained after 845 of the family's 871 ungated citations
-# were reworded mechanically by `reword_ungated_citations.py`. An entry that
+# These 28 are what remained after 845 of the family's 873 ungated citations
+# were reworded mechanically by `reword_ungated_citations.py` (873 is the
+# family-wide figure over all 104 case files; the sweep's own run reported 871
+# because it was skipping the two SOURCE-DELETED sites below). An entry that
 # stops firing is reported as STALE by `main()` -- a red-list nobody re-checks
 # is the same figure-in-disguise one level up.
 UNGATED_REDLIST = {
@@ -656,9 +758,97 @@ UNGATED_REDLIST = {
     ("object_entries_iteration", "case file", ":340"): "RUST-COMMENT",
     ("object_enumeration_finalization_bundle", "case file", ":319"): "RUST-COMMENT",
     ("object_enumeration_finalization_harness", "case file", ":414"): "RUST-COMMENT",
+    ("bundle_cjs_source_classes", "case file", "classes.rs:23-33"): "SOURCE-DELETED",
+    ("bundle_cjs_source_classes_inherited", "case file", "classes.rs:23-33"): "SOURCE-DELETED",
 }
 
 _REDLIST_HIT = set()
+
+# THE THIRD TIER, DECLARED (batch 7 fix round 1, I1).
+#
+# A citation can fail to be re-resolved in three ways, and until this round only
+# two of them were governed:
+#
+#   1. UNGATED   -- no reader matches it at all. `_gated_arm`; red-listed above.
+#   2. UNRESOLVED-- a reader matches it and the needle is absent. A hard failure.
+#   3. NO-NEEDLE -- a reader matches it and `_needles` declines to derive one,
+#                   so nothing is searched for. It reports clean whether it is
+#                   right or wrong -- exactly the defect `_gated_arm` exists to
+#                   end, reached through a different door.
+#
+# Tier 3 was SILENT. It is now counted per stem and declared here, because a gap
+# that is named is governed and a gap that is silent is not. The declaration is
+# checked for EQUALITY, not as a ceiling: a stem whose count rises has added an
+# unreadable citation, and a stem whose count falls has had one become
+# resolvable and must shrink its entry. Either way the number in this file and
+# the number the corpus produces have to agree, which is what stops the tier
+# drifting back into silence.
+#
+# WHY IT IS NOT SIMPLY CLOSED. The last tier of `_needles` closes the part that
+# can be closed (see its comment: 24 citations gained a needle, and admitting
+# bare identifiers unconditionally would have produced 52 failures of which 51
+# are false). What remains is prose that names no code position at all --
+# case-format keys describing the MIGRATED form, the CLI's own vocabulary
+# (`kali`, the `test` subcommand), and source locals used as labels. Requiring a
+# needle from those would be a false red, and inventing one would be worse.
+#
+# Regenerate with the command recorded beside the figures in the batch-7 report.
+NO_NEEDLE_DECLARED = {
+    "math_asinh_acosh_atanh_identities": 3,
+    "math_exp_log_mixed_root": 1,
+    "math_expm1_log1p_frozen_aliases": 16,
+    "math_expm1_log1p_fully_bracketed_root": 1,
+    "math_expm1_log1p_global_this_root": 13,
+    "math_floor_trunc_ceil_bracketed_root": 12,
+    "math_fully_bracketed_root_core_suite": 1,
+    "math_global_this_root_core_suite": 1,
+    "math_hypot_empty_identity": 9,
+    "math_hypot_frozen_aliases": 31,
+    "math_hypot_global_this_root": 17,
+    "math_imul_clz32_aliases": 2,
+    "math_imul_omitted_operands": 3,
+    "math_inverse_trig_identities": 1,
+    "math_log2_log10": 4,
+    "math_log2_log10_bracketed_root": 12,
+    "math_log2_log10_fully_bracketed_root": 1,
+    "math_log2_log10_mixed_root": 11,
+    "math_max_min_frozen_aliases": 10,
+    "math_pow_alias_bundle": 1,
+    "math_pow_bracketed_frozen_wrapper": 1,
+    "math_pow_bracketed_frozen_wrapper_bundle": 1,
+    "math_pow_bracketed_frozen_wrapper_harness": 6,
+    "math_pow_bracketed_root": 10,
+    "math_pow_harness": 9,
+    "math_pow_zero_exponent_non_integer_base": 31,
+    "math_round": 42,
+    "math_round_bracketed_root": 38,
+    "math_sin_cos_tan_bracketed_root": 6,
+    "math_sin_cos_tan_frozen_root": 18,
+    "math_sin_cos_tan_fully_bracketed_root": 6,
+    "math_sin_cos_tan_zero_identities": 3,
+    "math_sin_cos_zero_identities": 4,
+    "math_sinh_cosh_tanh_bracketed_root": 6,
+    "math_sinh_cosh_tanh_global_this_root": 17,
+    "math_sinh_cosh_tanh_zero_identities": 4,
+    "math_sqrt_cbrt_bracketed_root": 13,
+    "math_sqrt_cbrt_bundle": 3,
+    "math_sqrt_cbrt_frozen_aliases": 2,
+    "math_sqrt_cbrt_global_this_root": 5,
+    "math_sqrt_cbrt_harness": 3,
+    "math_tan_zero_identities": 3,
+    "math_unsupported_member_calls_harness_jsx_tsx": 10,
+    "nullish_coalescing_harness": 3,
+    "number_predicates_bundle": 2,
+    "number_predicates_harness": 3,
+    "object_computed_numeric_keys_bundle": 2,
+    "object_computed_numeric_keys_harness": 7,
+    "object_entries_harness": 3,
+    "object_entries_iteration": 2,
+    "object_enumeration_finalization_bundle": 1,
+    "object_enumeration_finalization_harness": 3,
+}
+
+_NO_NEEDLE = collections.Counter()
 
 
 def _gated_arm(stem, origin, body, extra_readers=()):
@@ -744,9 +934,10 @@ def _header_cite_arm(stem, body, lines):
     for m in BARE_CITE.finditer(body):
         first = int(m.group(1))
         end = int(m.group(2)) if m.group(2) else first
-        if end > len(lines):
-            out.append(f"{stem}: retention-header citation :{first} is past end of "
-                       f"the source ({len(lines)} lines)")
+        if end > len(lines) or end < first:
+            out.append(f"{stem}: retention-header citation :{first}"
+                       f"{'-' + str(end) if end != first else ''} is not a resolvable "
+                       f"range ({'inverted' if end < first else f'past end of the source, {len(lines)} lines'})")
             continue
         # The nearest backticked, non-citation token, which must be ADJACENT.
         # The window is generous (the family's longest CITED snippet is 137
@@ -780,7 +971,7 @@ def _header_cite_arm(stem, body, lines):
             # `stdout` -- satisfied by any `stdout.contains(...)` line in the
             # file. That is exactly how C1's three stale citations, all of them
             # in a `//!` header, survived this gate.
-            needles = _needles(raw_tok)
+            needles = _needles(raw_tok, _source_items("\n".join(lines)))
             if not needles and re.fullmatch(r"[A-Za-z_][\w]{3,}", raw_tok):
                 needles = [raw_tok]
         if not needles:
@@ -817,12 +1008,15 @@ def _cite_arm(stem, origin, body, lines, submodules=None):
                        f"this target (known: {sorted(submodules) or 'none'})")
             continue
         sub_lines = submodules[name]
-        if end > len(sub_lines):
-            out.append(f"{stem}: {origin} citation {name}:{first} for `{snippet[:40]}` "
-                       f"is past end of {name} ({len(sub_lines)} lines)")
+        if end > len(sub_lines) or end < first:
+            out.append(f"{stem}: {origin} citation {name}:{first}"
+                       f"{'-' + str(end) if end != first else ''} for `{snippet[:40]}` "
+                       f"is not a resolvable range in {name} "
+                       f"({'inverted' if end < first else f'past end, {len(sub_lines)} lines'})")
             continue
-        needles = _needles(snippet)
+        needles = _needles(snippet, _source_items("\n".join(sub_lines)))
         if not needles:
+            _NO_NEEDLE[stem] += 1
             continue
         window = "\n".join(_statement(sub_lines, first, end))
         for tok in needles:
@@ -840,12 +1034,23 @@ def _cite_arm(stem, origin, body, lines, submodules=None):
         # past-end-of-file check -- a citation could point at `:9999` in a
         # 300-line file and be reported as nothing at all. Whether a citation is
         # in range is knowable without any needle, so it is checked unconditionally.
-        if end > len(lines):
-            out.append(f"{stem}: {origin} citation :{first} for `{snippet[:40]}` is "
-                       f"past end of the source ({len(lines)} lines)")
+        if end > len(lines) or end < first:
+            # `end < first` is M1 (batch 7 fix round 1). The guard used to test
+            # only `end > len(lines)`, so an INVERTED range -- `:99212-215`, the
+            # shape a mis-typed `:99` next to `212-215` produces -- passed it and
+            # then indexed `depth_before[first - 1]` far past the end of the
+            # list. That raised `IndexError` out of `_statement`, which is loud
+            # but ABORTS THE SWEEP PROCESS, leaving every later stem unchecked --
+            # a crash is not a gate result. It is reported as a citation problem
+            # instead, which is what it is.
+            out.append(f"{stem}: {origin} citation :{first}"
+                       f"{'-' + str(end) if end != first else ''} for "
+                       f"`{snippet[:40]}` is not a resolvable range "
+                       f"({'inverted' if end < first else f'past end of the source, {len(lines)} lines'})")
             continue
-        needles = _needles(snippet)
+        needles = _needles(snippet, _source_items("\n".join(lines)))
         if not needles:
+            _NO_NEEDLE[stem] += 1
             continue
         window = "\n".join(_statement(lines, first, end))
         for tok in needles:
@@ -926,6 +1131,7 @@ def selftest():
     failures += _submodule_selftest()
     failures += _gated_selftest()
     failures += _declares_mods_selftest()
+    failures += _residual_tier_selftest()
 
     if failures:
         print("\nSELFTEST FAILED")
@@ -1068,6 +1274,91 @@ def _submodule_selftest():
     return out
 
 
+def _residual_tier_selftest():
+    """Batch 7 fix round 1: the bare-identifier tier, the NO-NEEDLE counter, and
+    the inverted-range guard (M1).
+
+    Each property is probed against a synthetic source held here, so the probes
+    keep their kill power after the corpus changes -- and each poisoned probe has
+    a CONTROL that differs from it only in the poison, so a probe cannot be green
+    because it failed to run.
+    """
+    src = "\n".join([
+        "fn assert_browser_thing(source: &str) {",              # 1
+        '    assert!(source.contains("needle"), "x");',          # 2
+        "}",                                                     # 3
+        "",                                                      # 4
+        "fn other_helper() {",                                   # 5
+        "    let expected_stdout = 1;",                          # 6
+        "}",                                                     # 7
+    ])
+    lines = src.split("\n")
+    items = _source_items(src)
+    out = []
+
+    # 1. The bare-identifier tier: a source ITEM is a needle; a source LOCAL, a
+    #    case-format key, and a word absent from the source are not.
+    cases = [
+        ("a source item name", "assert_browser_thing", ["assert_browser_thing"]),
+        ("a source LOCAL, not an item", "expected_stdout", []),
+        ("a case-format key", "stdout_contains", []),
+        ("a word absent from the source", "kali", []),
+        ("shorter than the four-char floor", "fnx", []),
+    ]
+    for label, snippet, want in cases:
+        got = _needles(snippet, items)
+        print(f"  residual tier -- bare `{snippet}` ({label}): {got}")
+        if got != want:
+            out.append(f"residual tier: `{snippet}` gave {got}, expected {want}")
+    # The tier must be OFF when no source is in hand, rather than guessing.
+    if _needles("assert_browser_thing", None):
+        out.append("residual tier: a bare identifier resolved with no source in "
+                   "hand -- the tier must be skipped, not guessed")
+
+    # 2. Kill power: the tier reports a citation that names an item NOT at the
+    #    cited line, and does not report the one that is. This is the M8 shape.
+    good = _cite_arm("selftest", "case file",
+                     "`assert_browser_thing` (:1)", lines)
+    bad = _cite_arm("selftest", "case file",
+                    "`assert_browser_thing` (:5)", lines)
+    print(f"  residual tier -- correct item citation: "
+          f"{'reported' if good else 'clean'}; drifted onto another fn: "
+          f"{'CAUGHT' if bad else 'SILENT'}")
+    if good:
+        out.append("residual tier: the correct item citation was reported (false red)")
+    if not bad:
+        out.append("residual tier: a bare-item citation drifted onto another fn "
+                   "was NOT caught -- the tier has no kill power")
+
+    # 3. The NO-NEEDLE counter actually counts. A prose snippet is matched by
+    #    `CITE` and yields nothing; the tier must register that rather than
+    #    letting it pass unremarked.
+    before = _NO_NEEDLE["selftest_nn"]
+    _cite_arm("selftest_nn", "case file", "`stdout_contains` (:1)", lines)
+    after = _NO_NEEDLE["selftest_nn"]
+    print(f"  residual tier -- NO-NEEDLE counter: {before} -> {after}")
+    if after != before + 1:
+        out.append("residual tier: a needle-less citation did not increment the "
+                   "NO-NEEDLE counter, so the declared tier cannot track it")
+    _NO_NEEDLE.pop("selftest_nn", None)
+
+    # 4. M1: an INVERTED range is a reported problem, not an `IndexError` that
+    #    aborts the sweep and leaves every later stem unchecked.
+    try:
+        inverted = _cite_arm("selftest", "case file",
+                             "`assert_browser_thing` (:99212-215)", lines)
+        crashed = False
+    except Exception as exc:                                  # noqa: BLE001
+        inverted, crashed = [], True
+        print(f"  residual tier -- inverted range raised {type(exc).__name__}")
+    print(f"  residual tier -- inverted range `:99212-215`: "
+          f"{'reported' if inverted else 'SILENT'}")
+    if crashed or not inverted:
+        out.append("residual tier: an inverted range was not reported as a "
+                   "citation problem (M1)")
+    return out
+
+
 def _declares_mods_selftest():
     """Item 3.3: a PLAIN-`mod` carrier is recognised as declaring submodules.
 
@@ -1184,6 +1475,21 @@ def main(argv):
     # silently starts covering a different one. Only checked for stems this run
     # actually visited, so a single-stem invocation does not report the rest.
     visited = {s.partition("=")[0] for s in stems}
+    # THE NO-NEEDLE TIER, CHECKED AGAINST ITS DECLARATION (I1). Equality, not a
+    # ceiling -- see `NO_NEEDLE_DECLARED`.
+    for stem in sorted(visited):
+        got, want = _NO_NEEDLE.get(stem, 0), NO_NEEDLE_DECLARED.get(stem, 0)
+        if got == want:
+            continue
+        all_problems.append(
+            f"{stem}: {got} citation(s) matched but yielding NO NEEDLE, "
+            f"NO_NEEDLE_DECLARED says {want}. "
+            + ("A citation that nothing searches for reports clean whether it is "
+               "right or wrong; reword it so it names a construct, or raise the "
+               "declaration and say why in the report."
+               if got > want else
+               "The tier shrank -- lower the declaration so it keeps tracking the "
+               "corpus rather than sitting above it."))
     for key in sorted(UNGATED_REDLIST):
         if key[0] in visited and key not in _REDLIST_HIT:
             all_problems.append(

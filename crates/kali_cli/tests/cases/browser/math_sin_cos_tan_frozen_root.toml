@@ -18,7 +18,8 @@
 # 9 `#[test]` fns, 24 real helper invocations with every loop
 # expanded:
 #   * `assert_browser_bundle_frozen_math_sin_cos_tan` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), 8 unlooped fns
-#   * `assert_browser_harness_frozen_math_sin_cos_tan` -- 16 invocation(s) = ONE looping fn (:239): its 8 entries x output_json(false/true)
+#   * `assert_browser_harness_frozen_math_sin_cos_tan` -- 16 invocation(s) = ONE looping fn,
+#     `run_and_test_supports_frozen_math_sin_cos_tan_zero_identities_when_browser_harness_is_configured_in_js_and_ts_input(` (:239): its 8 entries x output_json(false/true)
 # `ext` is the ONE axis every case varies over uniformly, and every helper covers
 # all 4 of its values, so a file-wide axis fans nothing the source never ran:
 # 6 `[[case]]` entries x ext(4) = 24 trials = 24 invocations. Exact.
