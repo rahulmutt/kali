@@ -52,6 +52,12 @@ ALLOW = {
     # the gate, never in the source under migration, so the prefix rule below
     # can never explain them.
     "disjunctive_contains_groups", "resolve_path_mods", "assertion_diff",
+    # PR #16 rev2's honest-re-pin FAMILY NAMES, which appear backticked inside
+    # source comments that rule 12 requires carried into a rationale VERBATIM --
+    # `browser_set_iteration_harness.rs:348` opens "Honest re-pin (PR #16 rev2,
+    # family `mapset`)". The prose cannot be reworded to satisfy this gate
+    # without violating rule 12, so the vocabulary is what has to grow.
+    "mapset",
 }
 
 

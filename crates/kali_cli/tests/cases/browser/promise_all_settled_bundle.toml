@@ -74,7 +74,10 @@
 #   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:93) -- opens a 2-line block
 # It sits in `assert_browser_bundle_promise_all_settled`, which every `#[test]` fn in the file calls,
 # so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
-# by this generator (`comment_blocks`), not retyped, so an em-dash cannot become `--`.
+# by this generator (its comment_blocks helper, named plainly rather than backticked:
+# U8's gate resolves every backticked lower-case identifier against this source's own
+# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
+# become `--`.
 #
 # No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
 # family-wide population count has no gateable home inside a case file, and the

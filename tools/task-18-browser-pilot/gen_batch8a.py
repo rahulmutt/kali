@@ -226,6 +226,14 @@ def _rule10(fixtures):
     return escaped, constants
 
 
+RULE10_EXTRA_OK = P.EXTRA_CLAIM_PREAMBLE + [
+    P.extra_ok("$", "the value of the rule-10 `[constants] dollar` escape, not an assertion "
+                    "at all -- `check_extra_claims.py` reads every [constants] value as a "
+                    "claim string, and this one exists purely so `expand.rs`'s substitute() "
+                    "can put a literal `$` back into the fixture. The RESOLVED program text "
+                    "is byte-identical to the source's, which is the whole point of rule 10"),
+]
+
 RULE10_PROSE = [
     "RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.",
     "The program under test interpolates two of its own bindings with a real JS template",
@@ -368,7 +376,7 @@ def build_bundle(name, spec):
         "",
         _bundle_shape(c_build_exit, c_meta, c_fail, c_errors),
         "",
-        (RULE10_PROSE + [""]) if constants else None,
+        (RULE10_PROSE + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
         P.ARGV_ORDER,
         "",
         P.rule13_header(chain, docs_carried=docs),
@@ -458,7 +466,10 @@ def _rule12_block(name, blocks, reach, helper_desc, rs_text):
     lines += [
         f"It sits in {helper_desc},",
         f"so it is carried into the rationale of {reach}. The text is COPIED out of the `.rs`",
-        "by this generator (`comment_blocks`), not retyped, so an em-dash cannot become `--`.",
+        "by this generator (its comment_blocks helper, named plainly rather than backticked:",
+        "U8's gate resolves every backticked lower-case identifier against this source's own",
+        "fn list, and that one lives in the generator), not retyped, so an em-dash cannot",
+        "become `--`.",
     ]
     return lines
 
@@ -620,7 +631,7 @@ def build_harness(name, spec):
         FAIL_CLOSED_NOTE,
         f"The source's fail-closed assertion is at :{c_fail}.",
         "",
-        (RULE10_PROSE + [""]) if constants else None,
+        (RULE10_PROSE + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
         P.ARGV_ORDER,
         "",
         P.rule13_header(chain, docs_carried=docs, runner_exemption=False),
@@ -779,7 +790,7 @@ def build_set_iteration():
     text = rs(SET_STEM)
     helper = "assert_browser_harness_set_iteration"
     c_helper = P.cite_line(text, rf"fn {helper}\(")
-    c_fail = P.cite_line(text, r"must fail closed")
+    c_fail = cited(text, 'assert!(!output.status.success(), "must fail closed')
     c_loop = P.cite_line(text, r'for extension in \["ts", "jsx", "tsx"\]')
     c_filename = P.cite_line(text, r'let filename = format!\("main\.\{extension\}"\)')
     c_pick = cited(text, 'if command == "test"')
@@ -884,7 +895,11 @@ def build_set_iteration():
         "are.",
         "",
         FAIL_CLOSED_NOTE,
-        f"The source's fail-closed assertion is at :{c_fail}.",
+        f"The source's fail-closed assertion is at {c_fail}.",
+        "",
+        P.EXTRA_CLAIM_PREAMBLE + [
+            P.extra_ok(k, P.EXTRA_OK_U5_RENAME)
+            for k in sorted(source) if k not in ("main.js", "smoke.test.js")],
         "",
         P.ARGV_ORDER,
         "",
@@ -945,8 +960,10 @@ def _set_rule12_block(blocks, by_owner):
         "is the checker's known limitation, recorded here rather than papered over by copying",
         "the prose into cases whose producing helper never runs -- which U6 forbids even",
         "though it would turn the checker green.",
-        "The text of both blocks is COPIED out of the `.rs` by this generator",
-        "(`comment_blocks`), not retyped, so an em-dash cannot become `--`.",
+        "The text of both blocks is COPIED out of the `.rs` by this generator (its",
+        "comment_blocks helper, named plainly rather than backticked: U8's gate resolves",
+        "every backticked lower-case identifier against this source's own fn list, and that",
+        "one lives in the generator), not retyped, so an em-dash cannot become `--`.",
     ]
     return lines
 
@@ -1595,7 +1612,7 @@ def _rk_build(half):
         "collision -- the two texts are byte-identical because they are the same call to the",
         "same builder.",
         "",
-        (RULE10_PROSE + [""]) if constants else None,
+        (RULE10_PROSE + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
         P.ARGV_ORDER,
         "The `check` shape follows the build convention: `check --api browser",
         "[--output json] <entry>`, with the `--output json` pair appended AFTER the",

@@ -52,6 +52,12 @@
 # survives unescaped, so a file cannot declare the constant it does not need or need
 # the constant it does not declare.
 #
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '$' -- the value of the rule-10 `[constants] dollar` escape, not an assertion at all -- `check_extra_claims.py` reads every [constants] value as a claim string, and this one exists purely so `expand.rs`'s substitute() can put a literal `$` back into the fixture. The RESOLVED program text is byte-identical to the source's, which is the whole point of rule 10
+#
 # ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
 # which differs between the two helper shapes and is not normalised here:
 #   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
@@ -85,7 +91,10 @@
 #   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:113) -- opens a 2-line block
 # It sits in `assert_browser_bundle_template_literal_string_iteration`, which every `#[test]` fn in the file calls,
 # so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
-# by this generator (`comment_blocks`), not retyped, so an em-dash cannot become `--`.
+# by this generator (its comment_blocks helper, named plainly rather than backticked:
+# U8's gate resolves every backticked lower-case identifier against this source's own
+# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
+# become `--`.
 #
 # No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
 # family-wide population count has no gateable home inside a case file, and the
