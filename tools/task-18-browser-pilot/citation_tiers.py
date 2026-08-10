@@ -36,20 +36,28 @@ THE POPULATION, stated once because getting it wrong is what hid two defects.
 `sweep over N stems` banner. Specs come in three shapes and the figures below
 NEVER average across them:
 
-  * RESOLVING  -- a case file plus a source the gate resolves against (its own
-    `browser_<stem>.rs`, a `PRE-TRIM REF:` blob for a U4 trim, or the source a
-    U2 split names in its own `Migrated from` line);
-  * SOURCELESS -- a case file whose `.rs` was deleted post-migration. Only the
-    gatedness arm can run; nothing is resolvable;
+  * RESOLVING  -- a case file plus a source the gate resolves against: its own
+    `browser_<stem>.rs` (TREE), a `PRE-TRIM REF:` blob for a U4 trim (PRETRIM),
+    the source a U2 split names in its own `Migrated from` line (SPLIT), or --
+    since batch 8 -- the `SOURCE REF:` reproduction of a source the tree no
+    longer has (SOURCEREF);
   * RETENTION  -- a `//!` header with no case file.
+
+There is no SOURCELESS shape any more. A case file whose `.rs` is gone and which
+declares no resolvable `SOURCE REF:` is an ERROR, not a third population: see
+`citation_sweep.sh`'s SOURCE-DELETED arm, and `source_ref_rehearsal.py` for the
+rehearsal that gates it.
 """
 
 import collections
 import glob
+import io
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -61,6 +69,15 @@ _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 # `rm -rf`s its scratch dir; this used to leak one temp file per U4 trim per
 # invocation (minor 6, fix round 3).
 _BLOBS = []
+# `SOURCE REF:` reproductions, one temp dir per distinct ref, same lifetime.
+_REF_TREES = {}
+# Per-stem provenance, filled by `sweep_specs`. `--specs` prints it and
+# `source_ref_rehearsal.py` diffs it against `citation_sweep.sh --print-specs`:
+# this file carries a SECOND copy of the shell driver's population loop, and the
+# batch-8 `SOURCE REF:` arm made the two able to disagree about which stems
+# resolve at all. A disagreement now fails a committed check instead of being
+# noticed when `--declare` prints a dict that makes the sweep exit 1.
+SPEC_KIND = {}
 
 
 def _cleanup_blobs():
@@ -70,6 +87,33 @@ def _cleanup_blobs():
         except OSError:
             pass
     _BLOBS.clear()
+    for d in _REF_TREES.values():
+        shutil.rmtree(d, ignore_errors=True)
+    _REF_TREES.clear()
+
+
+def _ref_tree(ref, why):
+    """`crates/kali_cli/tests` as of `ref`, extracted once per ref, cached.
+
+    The WHOLE directory, for the reason `citation_sweep.sh`'s SOURCE-DELETED arm
+    gives: a `#[path]` carrier's submodules have to be resolvable relative to
+    the file, and after the family deletion the tree base they used to resolve
+    against is gone too.
+    """
+    if ref not in _REF_TREES:
+        shown = subprocess.run(
+            ["git", "-C", X.REPO, "archive", ref, "crates/kali_cli/tests"],
+            capture_output=True)
+        if shown.returncode:
+            sys.exit(f"cannot materialise crates/kali_cli/tests at {ref} ({why}) -- "
+                     f"{shown.stderr.decode(errors='replace').strip()}\nEvery figure "
+                     "this instrument prints depends on that tree; refusing to "
+                     "print any.")
+        d = tempfile.mkdtemp(prefix="citation-tiers-ref-")
+        with tarfile.open(fileobj=io.BytesIO(shown.stdout)) as tf:
+            tf.extractall(d, filter="data")
+        _REF_TREES[ref] = d
+    return os.path.join(_REF_TREES[ref], "crates/kali_cli/tests")
 
 
 def sweep_specs():
@@ -94,17 +138,57 @@ def sweep_specs():
     is batch 8's (see the report's FR3.7).
     """
     specs = []
+    SPEC_KIND.clear()
     for toml in sorted(glob.glob(os.path.join(X.CASES, "*.toml"))):
         stem = os.path.basename(toml)[:-5]
         rs = os.path.join(X.TESTS, f"browser_{stem}.rs")
         if not os.path.exists(rs):
-            named = X.MIGRATED_FROM.search(open(toml).read())
+            text = open(toml).read()
+            named = X.MIGRATED_FROM.search(text)
             src = os.path.join(X.TESTS, named.group(1)) if named else None
-            specs.append(f"{stem}={src}" if src and os.path.exists(src) else stem)
+            if src and os.path.exists(src):
+                specs.append(f"{stem}={src}")
+                SPEC_KIND[stem] = "SPLIT"
+                continue
+            # SOURCE DELETED FROM THE TREE (batch 8) -- resolve against the
+            # `SOURCE REF:` reproduction, the same way the shell driver does.
+            # This used to append the bare stem, which reaches
+            # `batch5_crosscheck.py`'s gatedness-only branch; after task 18's
+            # family deletion that would have made every figure this instrument
+            # prints an aggregate over a corpus it had stopped reading. The
+            # error paths are `sys.exit` for the same reason the `PRE-TRIM REF:`
+            # arm below uses one: an instrument whose whole purpose is that
+            # figures cannot be wrong must not print figures over a population
+            # it failed to build.
+            if not named:
+                sys.exit(f"{stem}: no browser_{stem}.rs and no `Migrated from "
+                         f"tests/<file>.rs` line in {toml}.")
+            # `X._header` is the gate's own header parser -- the shell driver
+            # reimplements it in awk and `source_ref_rehearsal.py` diffs the two
+            # populations, which is what keeps the reimplementation honest.
+            refs = re.findall(r"SOURCE REF:\s*(\S+)", "\n".join(X._header(text)))
+            if len(refs) > 1:
+                sys.exit(f"{stem}: {toml} declares {len(refs)} `SOURCE REF:` "
+                         f"lines ({', '.join(refs)}); keep one.")
+            if not refs:
+                sys.exit(f"{stem}: {named.group(1)} is absent from the tree and "
+                         f"{toml} declares no `SOURCE REF:`. See "
+                         "citation_sweep.sh's SOURCE-DELETED arm.")
+            ref = refs[0]
+            if not re.fullmatch(r"[0-9a-f]{40}", ref):
+                sys.exit(f"{stem}: `SOURCE REF: {ref}` is not a full 40-char sha.")
+            blob = os.path.join(_ref_tree(ref, stem), named.group(1))
+            if not os.path.isfile(blob):
+                sys.exit(f"{stem}: `SOURCE REF: {ref}` resolves but does not "
+                         f"contain crates/kali_cli/tests/{named.group(1)} -- the "
+                         "ref must name the deletion commit's PARENT.")
+            specs.append(f"{stem}={blob}")
+            SPEC_KIND[stem] = "SOURCEREF"
             continue
         ref = re.search(r"PRE-TRIM REF:\s*(\S+)", open(rs).read())
         if not ref:
             specs.append(stem)
+            SPEC_KIND[stem] = "TREE"
             continue
         # HARD-FAIL ON AN UNREADABLE REF (N5, fix round 3). This used to write
         # `subprocess.run(...).stdout` into the blob without checking the return
@@ -128,12 +212,14 @@ def sweep_specs():
         blob.close()
         _BLOBS.append(blob.name)
         specs.append(f"{stem}={blob.name}")
+        SPEC_KIND[stem] = "PRETRIM"
     for rs in sorted(glob.glob(os.path.join(X.TESTS, "browser_*.rs"))):
         stem = os.path.basename(rs)[len("browser_"):-3]
         if os.path.exists(os.path.join(X.CASES, f"{stem}.toml")):
             continue
         if any(l.startswith("//!") for l in open(rs)):
             specs.append(stem)
+            SPEC_KIND[stem] = "RETENTION"
     return specs
 
 
@@ -825,18 +911,20 @@ def main(argv):
               f"{sum(v for k, v in b.items() if not k.startswith('resolved')):>5}")
         return 0
     specs = sweep_specs()
-    kinds = collections.Counter()
-    for spec in specs:
-        _stem, text, lines = _sides(spec)
-        kinds["retention" if text is None else
-              ("resolving" if lines is not None else "sourceless")] += 1
+    if "--specs" in argv[1:]:
+        # The POPULATION ONLY, in `citation_sweep.sh --print-specs`'s format, so
+        # the two loops that build it can be diffed against each other.
+        for stem in sorted(SPEC_KIND):
+            print(f"{stem} {SPEC_KIND[stem]}")
+        return 0
+    kinds = collections.Counter(SPEC_KIND.values())
     want = set(a for a in argv[1:] if a.startswith("--")) or {"--all"}
 
     print(f"$ python3 tools/task-18-browser-pilot/citation_tiers.py")
-    print(f"population: {len(specs)} spec(s) -- this must equal citation_sweep.sh's "
-          f"`sweep over N stems`")
-    print(f"  resolving={kinds['resolving']} sourceless={kinds['sourceless']} "
-          f"retention={kinds['retention']}\n")
+    print(f"population: {len(specs)} spec(s) -- equality with citation_sweep.sh's "
+          f"is gated, per spec and per provenance, by source_ref_rehearsal.py")
+    print("  " + "  ".join(f"{k.lower()}={v}" for k, v in sorted(kinds.items()))
+          + "\n")
 
     if want & {"--all", "--variants"}:
         print("--- I1 TRIAGE: cost of each 'bare identifier is a needle' variant ---")

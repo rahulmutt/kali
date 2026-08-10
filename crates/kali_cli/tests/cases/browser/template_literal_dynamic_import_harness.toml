@@ -1,4 +1,6 @@
 # Migrated from tests/browser_template_literal_dynamic_import_harness.rs.
+#   SOURCE REF: fd75de19cad9c174165048a565468ce99064c87f
+#   git show fd75de19cad9c174165048a565468ce99064c87f:crates/kali_cli/tests/browser_template_literal_dynamic_import_harness.rs
 #
 # Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()`
 # is now a real runtime coercion (String de-denylisted + routed through the

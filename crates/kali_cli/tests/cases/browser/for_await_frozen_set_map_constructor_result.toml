@@ -1,4 +1,7 @@
 # Migrated from tests/browser_for_await_frozen_set_map_constructor_result.rs
+#
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_for_await_frozen_set_map_constructor_result.rs
 # and its sibling submodule directory tests/browser_for_await_frozen_set_map_
 # constructor_result/{run,build,test}.rs (the `#[path]` submodule shape: the
 # top-level file declares zero top-level #[test] fns and pulls its 40 tests

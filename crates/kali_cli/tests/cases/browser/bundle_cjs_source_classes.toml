@@ -1,4 +1,6 @@
 # Migrated from tests/browser_bundle_cjs_source_classes.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_bundle_cjs_source_classes.rs
 #
 # Matrix arithmetic: all 8 #[test] fns are individual, unlooped calls to
 # `assert_browser_bundle_cjs_source_class(filename, inherited)` -- grouped by
@@ -8,8 +10,8 @@
 # invocations exactly.
 #
 # SPLIT INTO TWO FILES (review round 1, Important fix 1): source writes
-# `kali.json` ONLY when `inherited == true` (browser_bundle_cjs_source_
-# classes.rs:23-33) -- that `if` is this file's entire point: one test
+# the manifest with `dir.path().join("kali.json")` (:23-33) only when
+# `inherited` is true -- that `if` is this file's entire point: one test
 # proves `--api browser` works WITHOUT a manifest, the other proves the
 # manifest works WITHOUT the flag. `crates/kali_case_runner/src/
 # expand.rs`'s `expand()` clones the whole file-level [source] map into

@@ -1,4 +1,6 @@
 # Migrated from tests/browser_bundle_toplevel_start.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_bundle_toplevel_start.rs
 #
 # A bare top-level program in a browser bundle runs via the glue's exported
 # `start()` helper, routing its console output through the `console_log`

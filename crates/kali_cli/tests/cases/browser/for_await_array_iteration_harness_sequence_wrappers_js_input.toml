@@ -1,4 +1,7 @@
 # Migrated from tests/browser_for_await_array_iteration_harness_sequence_wrappers_js_input.rs.
+#
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_for_await_array_iteration_harness_sequence_wrappers_js_input.rs
 # No Rust comments exist anywhere in the source file (checked: `grep -n
 # '^\s*//'` finds nothing outside the JS fixture body's own
 # `// kali-tree-shake:` marker, which is program text, not a Rust comment),

@@ -1,4 +1,6 @@
 # Migrated from tests/browser_frozen_set_map_constructor_result.rs.
+#   SOURCE REF: fd75de19cad9c174165048a565468ce99064c87f
+#   git show fd75de19cad9c174165048a565468ce99064c87f:crates/kali_cli/tests/browser_frozen_set_map_constructor_result.rs
 #
 # `ext` (js/ts/jsx/tsx) is a genuinely uniform file-level [matrix] axis:
 # every one of this file's 23 #[test] fns is, for a fixed (variant, mode,

@@ -732,6 +732,18 @@ def check(spec, citations_only=False):
         named = _migrated_from(text)       # the case file names its own source
         if named:
             bases.append(os.path.join(TESTS, named))
+        # A `SOURCE REF:` MATERIALISATION IS ITS OWN BASE (batch 8). When the
+        # source is gone from the tree, `citation_sweep.sh` reproduces the whole
+        # `crates/kali_cli/tests` directory as of the declared commit and hands
+        # this the blob's path INSIDE that reproduction -- so the blob's own
+        # directory holds the sibling files its `#[path]`/plain `mod`
+        # declarations name, and is a real base. None of the three bases above
+        # can be: the reproduction is not `TESTS`, `live_path` is exactly what
+        # the deletion removed, and `named` resolves back into `TESTS` where the
+        # source no longer is. Tried LAST, so it never displaces a tree base for
+        # the `--pretrim` case, where the temp dir holds a lone blob and nothing
+        # resolves out of it anyway.
+        bases.append(rs_path)
         for base in bases:
             if not os.path.exists(base):
                 continue
@@ -814,21 +826,20 @@ WRITTEN_CITE = re.compile(
 #     citation onto a comment is unresolvable by design, not by accident.
 #   CONTROL-FLOW -- a citation onto a bare `if json_output {` / `for ... {`
 #     line, cited precisely because of where it sits in the control flow.
-#   SOURCE-DELETED -- added in batch 7's fix round 1 (I2). The cited `.rs` was
-#     deleted once its migration shipped, so NO reader in the tree can resolve
-#     the line number: it is recoverable only from git history. Rewording cannot
-#     help -- there is nothing to point at -- and the honest disposition is to
-#     declare it rather than to leave it invisible. These two were invisible for
-#     a second reason as well: `citation_sweep.sh` skipped every sourceless stem
-#     outright, so `_gated_arm` never ran on 23 of the 104 case files. It runs on
-#     them now, and these are the only two ungated citations it found there.
+#   SOURCE-DELETED -- retired in batch 8, and the category deleted with its last
+#     entry. Its two sites (`bundle_cjs_source_classes{,_inherited}`,
+#     `classes.rs:23-33`) were declared unrewordable because the cited `.rs` was
+#     gone, "recoverable only from git history". Batch 8 recovers it from git
+#     history -- see `SOURCE REF:` in `citation_sweep.sh` -- and the reason was
+#     the wrong diagnosis anyway: what made them ungated was a LINE WRAP, which
+#     left the number on a line carrying no backticked construct. Both were
+#     reworded onto `dir.path().join("kali.json")` and both now RESOLVE, against
+#     a blob, in exactly the state the family deletion creates.
 #
-# These 28 are what remained after 845 of the family's 873 ungated citations
-# were reworded mechanically by `reword_ungated_citations.py` (873 is the
-# family-wide figure over all 104 case files; the sweep's own run reported 871
-# because it was skipping the two SOURCE-DELETED sites below). An entry that
-# stops firing is reported as STALE by `main()` -- a red-list nobody re-checks
-# is the same figure-in-disguise one level up.
+# What remained after `reword_ungated_citations.py` reworded the family's ungated
+# citations mechanically. An entry that stops firing is reported as STALE by
+# `main()` -- a red-list nobody re-checks is the same figure-in-disguise one
+# level up.
 UNGATED_REDLIST = {
     ("math_hypot_global_this_root", "case file", ":11"): "FIXTURE-TEXT",
     ("math_log2_log10_mixed_root", "case file", ":11"): "FIXTURE-TEXT",
@@ -856,8 +867,6 @@ UNGATED_REDLIST = {
     ("object_entries_iteration", "case file", ":340"): "RUST-COMMENT",
     ("object_enumeration_finalization_bundle", "case file", ":319"): "RUST-COMMENT",
     ("object_enumeration_finalization_harness", "case file", ":414"): "RUST-COMMENT",
-    ("bundle_cjs_source_classes", "case file", "classes.rs:23-33"): "SOURCE-DELETED",
-    ("bundle_cjs_source_classes_inherited", "case file", "classes.rs:23-33"): "SOURCE-DELETED",
 }
 
 _REDLIST_HIT = set()
@@ -1515,6 +1524,7 @@ def selftest():
     failures += _declared_needle_gate_selftest()
     failures += _declares_mods_selftest()
     failures += _residual_tier_selftest()
+    failures += _source_ref_base_selftest()
 
     if failures:
         print("\nSELFTEST FAILED")
@@ -2113,6 +2123,112 @@ def _check_surface_selftest():
             if os.path.exists(path):
                 os.unlink(path)
         _NO_NEEDLE.pop(_CHECK_SURFACE_STEM, None)
+    return out
+
+
+_SRCREF_STEM = "selftest_source_ref_probe"
+_SRCREF_TOML = """\
+# Selftest probe written and deleted by --selftest.
+# Migrated from tests/browser_{stem}.rs.
+#   SOURCE REF: {sha}
+# `stderr.contains("E5506")` (leaf.rs:{n})
+name = "{stem}"
+"""
+
+
+def _source_ref_base_selftest():
+    """Batch 8: does a `SOURCE REF:` reproduction resolve its own submodules?
+
+    The new path in `check()` is one line -- `bases.append(rs_path)`. It is
+    reachable only in the state task 18's family deletion creates: the case
+    file's source is not in the tree, so `citation_sweep.sh` reproduces
+    `crates/kali_cli/tests` as of the declared commit and hands `check()` a path
+    INSIDE that reproduction. The three older bases are all tree paths and all
+    miss.
+
+    Three properties, against a synthetic carrier + `#[path]` submodule written
+    into a temp dir (never a tree file -- every `#[path]` carrier in the tree is
+    itself a batch-8 deletion target):
+
+      1. REPRODUCED, correct citation -> clean. A mutation deleting the new base
+         turns this red with "declares `#[path]` submodule(s) but none could be
+         resolved".
+      2. REPRODUCED, the same citation drifted onto another `leaf.rs` statement
+         -> reported. Without this, property 1 is satisfied by an arm that
+         resolves nothing and reports nothing.
+      3. NOT REPRODUCED (the blob alone, its sibling directory missing) ->
+         exactly the one loud "none could be resolved" problem. This is the
+         control: it is the state the deletion produces WITHOUT §2.4's
+         reproduction, and it is what property 1 is being compared against.
+    """
+    import shutil
+    import tempfile
+
+    out = []
+    toml_path = os.path.join(CASES, f"{_SRCREF_STEM}.toml")
+    rs_path = os.path.join(TESTS, f"browser_{_SRCREF_STEM}.rs")
+    if os.path.exists(toml_path) or os.path.exists(rs_path):
+        return [f"source-ref selftest: {toml_path} or {rs_path} already exists -- "
+                "refusing to overwrite a tree file"]
+
+    leaf_lines = _SUBMOD_SELFTEST_LEAF.split("\n")
+    good = [n for n, l in enumerate(leaf_lines, 1)
+            if 'assert!(stderr.contains("E5506"), "leaf claim")' in l]
+    other = [n for n, l in enumerate(leaf_lines, 1)
+             if "helper_that_lives_in_the_carrier(" in l]
+    if len(good) != 1 or len(other) != 1:
+        return ["source-ref selftest: could not locate its own fixture lines"]
+
+    with tempfile.TemporaryDirectory() as d:
+        blob = os.path.join(d, f"browser_{_SRCREF_STEM}.rs")
+        subdir = os.path.join(d, "sub")
+        os.makedirs(subdir)
+        with open(blob, "w") as fh:
+            fh.write(_SUBMOD_SELFTEST_CARRIER)
+        with open(os.path.join(subdir, "leaf.rs"), "w") as fh:
+            fh.write(_SUBMOD_SELFTEST_LEAF)
+
+        def run(n):
+            with open(toml_path, "w") as fh:
+                fh.write(_SRCREF_TOML.format(stem=_SRCREF_STEM, sha="0" * 40, n=n))
+            with open(os.devnull, "w") as devnull:
+                saved, sys.stdout = sys.stdout, devnull
+                try:
+                    return check(f"{_SRCREF_STEM}={blob}", citations_only=True)
+                finally:
+                    sys.stdout = saved
+                    _NO_NEEDLE.pop(_SRCREF_STEM, None)
+                    _PINNED.pop(_SRCREF_STEM, None)
+
+        try:
+            reproduced_ok = run(good[0])
+            reproduced_drift = run(other[0])
+            shutil.rmtree(subdir)
+            unreproduced = run(good[0])
+        finally:
+            if os.path.exists(toml_path):
+                os.unlink(toml_path)
+
+    unresolved = [p for p in unreproduced if "none could be resolved" in p]
+    for label, problems, want in (
+            ("reproduced, correct leaf.rs citation", reproduced_ok, False),
+            ("reproduced, drift onto another leaf.rs statement",
+             reproduced_drift, True)):
+        print(f"  SOURCE REF base -- {label}: "
+              f"{'reported' if problems else 'clean'}")
+        if bool(problems) != want:
+            out.append(f"SOURCE REF base: {label} reported {problems!r}, expected "
+                       f"{'a problem' if want else 'none'}")
+    print(f"  SOURCE REF base -- sibling directory NOT reproduced: "
+          f"{len(unreproduced)} problem(s), {len(unresolved)} of them "
+          f"'none could be resolved'")
+    if len(unresolved) != 1:
+        out.append(
+            "SOURCE REF base: with the sibling directory absent the probe "
+            f"reported {unreproduced!r}, expected exactly one 'none could be "
+            "resolved' -- that is the control property 1 is measured against, "
+            "and without it property 1 cannot distinguish a working base from "
+            "an arm that checks nothing")
     return out
 
 

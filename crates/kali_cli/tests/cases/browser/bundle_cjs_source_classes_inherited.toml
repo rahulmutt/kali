@@ -1,4 +1,7 @@
 # Migrated from tests/browser_bundle_cjs_source_classes.rs (the `inherited
+#
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_bundle_cjs_source_classes.rs
 # == true` half; see `bundle_cjs_source_classes.toml`'s header for the full
 # explanation of why this is a separate FILE, not just a separate case in
 # that file).
@@ -12,8 +15,8 @@
 # `bundle_cjs_source_classes.toml`.)
 #
 # SPLIT INTO TWO FILES (review round 1, Important fix 1): source writes
-# `kali.json` ONLY when `inherited == true` (browser_bundle_cjs_source_
-# classes.rs:23-33) -- that `if` is this file's entire point: one test
+# the manifest with `dir.path().join("kali.json")` (:23-33) only when
+# `inherited` is true -- that `if` is this file's entire point: one test
 # proves `--api browser` works WITHOUT a manifest (the sibling file), the
 # other proves the manifest works WITHOUT the flag (this file). Because
 # `crates/kali_case_runner/src/expand.rs`'s `expand()` clones the whole

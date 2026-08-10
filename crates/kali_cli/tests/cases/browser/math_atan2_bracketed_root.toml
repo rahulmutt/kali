@@ -1,4 +1,7 @@
 # Migrated from tests/browser_math_atan2_bracketed_root.rs and its sibling
+#
+#   SOURCE REF: fd75de19cad9c174165048a565468ce99064c87f
+#   git show fd75de19cad9c174165048a565468ce99064c87f:crates/kali_cli/tests/browser_math_atan2_bracketed_root.rs
 # submodule directory tests/browser_math_atan2_bracketed_root/{run,build}.rs
 # (the `#[path]` submodule shape: the top-level file declares zero top-level
 # #[test] fns and pulls its 29 tests in via `#[path = "..."] mod run;` /
