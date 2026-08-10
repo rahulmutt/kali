@@ -1286,36 +1286,47 @@ RK_U10 = [
 
 def _rk_u2(half, other_stem, here_fns, here_invocations):
     common = [
-        "U2 -- `[source]` IS FILE-WIDE, WHICH IS WHY THIS TARGET IS TWO CASE FILES AND NOT",
-        "ONE.",
+        "U2 -- `[source]` IS FILE-WIDE, WHICH IS WHY THE MIGRATED HALF IS TWO CASE FILES",
+        "AND NOT ONE.",
         "U10 says migrate a submodule carrier and its sibling directory into ONE `.toml`.",
-        "That is wrong here and U2 takes precedence. Two of this target's helpers write a",
-        "`kali.json` manifest, and for the 16 `#[test]` fns that reach them the manifest's",
-        "PRESENCE is the whole case: those invocations pass no `--api` flag at all and the",
-        "browser API surface is resolved from the manifest instead. The other 28 pass",
-        "`--api browser` explicitly and run against a tree with NO manifest.",
+        "That is wrong here and U2 takes precedence. Of the 28 `#[test]` fns migrated from",
+        "this target, 8 -- all in `run.rs` -- go through a helper that writes a `kali.json`",
+        "manifest and pass NO `--api` flag: the browser API surface is resolved from the",
+        "manifest instead. The other 20 pass `--api browser` explicitly and run against a",
+        "tree with NO manifest.",
         "`crates/kali_case_runner/src/expand.rs`'s `expand()` substitutes and clones the",
         "whole file-level `[source]` map into EVERY trial regardless of which case",
         "references which key, so one shared table would make `kali.json` unconditionally",
-        "present. MEASURED, not argued -- same argv, same fixtures, the manifest's mere",
-        "presence moves the two envelope fields these cases actually assert:",
-        "    kali --output json test smoke.test.js   (no manifest, no --api)",
-        "      payload.hostContract = kali-hosted        runtimeBackend = wasmtime",
-        "    kali --output json test smoke.test.js   (kali.json present, no --api)",
-        "      payload.hostContract = browser-requested  runtimeBackend = browser-harness",
-        "So a shared `[source]` would let the explicit cases assert",
-        "`hostContract = \"browser-requested\"` and have it supplied by the leaked manifest",
-        "rather than by the flag under test. No literal is dropped by that leak, so",
+        "present.",
+        "",
+        "THE DISCRIMINATOR WAS RE-DERIVED AFTER THE U4 TRIM, AND IT MOVED. Before the trim",
+        "it was `payload.hostContract` / `payload.runtimeBackend`, which flip from",
+        "`kali-hosted`/`wasmtime` to `browser-requested`/`browser-harness` on manifest",
+        "presence alone -- but those fields are asserted only by `test.rs`, which is now",
+        "RETAINED, so that measurement no longer covers anything this file claims. Measured",
+        "again against the claims that ARE migrated, the `build` cases now carry the",
+        "discriminating power:",
+        "    kali build --bundle app.js        (no manifest, no --api)  -> exit 5, no meta",
+        "    kali build --bundle app.js        (kali.json present)      -> exit 0,",
+        "                                       app/app.meta.json apiSurface = browser",
+        "The 8 build cases assert `exit = \"success\"` and `apiSurface = \"browser\"` on that",
+        "very file, so a leaked manifest would supply both and they would pass whether or",
+        "not `--api browser` did anything. No literal is dropped by that leak, so",
         "audit-case-migration.py cannot see it; the trial still passes, so `cargo test`",
         "cannot either. That invisibility is exactly why U2 exists.",
-        "THE SPLIT IS ON MANIFEST PRESENCE, NOT ON THE SUBMODULE BOUNDARY, and the",
-        "difference is load-bearing: run.rs and test.rs EACH straddle it (8 explicit + 8",
-        "inherited apiece), so one case file per submodule would reproduce the disarmament",
-        "above, twice. The generator DERIVES which half a fn belongs to by asking whether",
-        "the helper it calls writes a `kali.json`, then cross-checks that against the fn's",
-        "own name and raises on disagreement (ruling 18: derive the property, make a",
-        "non-match an error) -- so a case cannot be filed into the wrong half silently.",
-        f"THIS FILE carries {here_fns} of the 44 `#[test]` fns ({here_invocations} trials).",
+        "For completeness, the same probe over the other two migrated commands shows NO",
+        "difference -- `check main.jsx` exits 0 with `filesChecked = 1` either way, and",
+        "`run main.js` exits 1 either way -- so the build cases are load-bearing on their",
+        "own. One measured disarmament is enough to require the split.",
+        "",
+        "THE SPLIT IS ON MANIFEST PRESENCE, NOT ON THE SUBMODULE BOUNDARY. `run.rs`",
+        "straddles it 8 explicit / 8 inherited, so one case file per submodule would put",
+        "both halves of run.rs in one file and reproduce the disarmament. The generator",
+        "DERIVES which half a fn belongs to by asking whether the helper it calls writes a",
+        "`kali.json`, then cross-checks that against the fn's own name and raises on",
+        "disagreement (ruling 18: derive the property, make a non-match an error) -- so a",
+        "case cannot be filed into the wrong half silently.",
+        f"THIS FILE carries {here_fns} of the 28 migrated `#[test]` fns ({here_invocations} trials).",
     ]
     if half == "explicit":
         return common + [
@@ -1324,11 +1335,10 @@ def _rk_u2(half, other_stem, here_fns, here_invocations):
             "Within this file `[source]` is safe in the ordinary way: every fixture is written",
             "unconditionally by the source into a fresh temp dir, none is written behind an",
             "`if`, and every command names its entry explicitly on argv -- verified against",
-            "the real binary rather than assumed, in a directory holding all 12 fixtures:",
+            "the real binary rather than assumed, in a directory holding all 8 fixtures:",
             "`kali --output json check --api browser main.jsx` still reports",
-            "`payload.filesChecked = 1`, and `kali --output json test --api browser",
-            "smoke.test.js` still reports `payload.total = 1`, so no sibling fixture is",
-            "picked up by discovery and the unused ones are inert.",
+            "`payload.filesChecked = 1`, so no sibling fixture is picked up by discovery and",
+            "the unused ones are inert.",
         ]
     return common + [
         "THIS FILE is the MANIFEST-INHERITED half: `kali.json` IS in its `[source]` table",
@@ -1337,10 +1347,11 @@ def _rk_u2(half, other_stem, here_fns, here_invocations):
         "holds no manifest at all -- see that file's header for why one shared table would",
         "silently disarm it.",
         "Within this file `[source]` is safe in the ordinary way: the manifest is written",
-        "unconditionally by both of this half's helpers, and the two texts they write are",
-        "asserted byte-identical by this file's generator (ruling 7's mandatory mechanical",
-        "duplicate-identity check) rather than eyeballed, so one `[source]` entry standing",
-        "for both is not an approximation.",
+        "unconditionally by this half's single helper. NOTE that the OTHER manifest-writing",
+        "helper in this target is reached only by the RETAINED `test.rs`, so ruling 7's",
+        "duplicate-identity assertion is still run by this file's generator across both --",
+        "the two texts are asserted byte-identical rather than eyeballed -- even though only",
+        "one of them now produces a `[source]` entry.",
     ]
 
 
@@ -1481,10 +1492,15 @@ def _rk_rationale(row, carrier, subs, half, other_stem, repin_prose):
 
 def _rk_rule12(subs, blocks):
     start, body = blocks[0]
+    # The citation carries the comment's own first line as its backticked
+    # construct, so the gate has something to re-resolve; a comment block has no
+    # CODE construct beside it (ruling 11).
+    first = subs["run.rs"].split("\n")[start - 1].strip()
     return [
         "RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.",
         "The carrier and three of its four submodules carry NO Rust comment at all; the",
-        f"whole target has exactly one block, run.rs:{start} ({len(body)} line(s)), and it",
+        f"whole target has exactly one block, `{first}`",
+        f"(run.rs:{start}), opening {len(body)} line(s), and it",
         "sits at module scope in `run.rs` above that file's three local `_fails_closed`",
         "helpers. It is therefore carried into the rationale of every case that came from",
         "run.rs and into no others -- which is per-helper attribution (U6), not pooling.",
@@ -1505,8 +1521,13 @@ def _rk_build(half):
     stem = RK_EXPLICIT if half == "explicit" else RK_INHERITED
     other = RK_INHERITED if half == "explicit" else RK_EXPLICIT
 
-    rows = [r for r in RK_ROWS if r["inherited"] == (half == "inherited")]
-    expected = 16 if half == "inherited" else 28
+    # U4 TRIM (controller ruling, batch 8A round 2): `test.rs` is RETAINED, so
+    # its 16 fns are NOT migrated. What is left is run.rs (16), build.rs (8)
+    # and check.rs (4) = 28, split by manifest presence into 8 inherited (all
+    # from run.rs) and 20 explicit (run.rs 8 + build.rs 8 + check.rs 4).
+    rows = [r for r in RK_ROWS
+            if r["sub"] != "test.rs" and r["inherited"] == (half == "inherited")]
+    expected = 8 if half == "inherited" else 20
     if len(rows) != expected:
         raise AssertionError(f"{half} half has {len(rows)} rows, expected {expected}")
 
@@ -1562,31 +1583,31 @@ def _rk_build(half):
     if half == "explicit":
         matrix = None
         matrix_block = P.matrix_declined(
-            test_fns=28, invocations=28, cases=28,
+            test_fns=20, invocations=20, cases=20,
             reason=[
-                "THE EXTENSION AXIS IS NOT UNIFORM ACROSS THIS FILE. The run, test and build",
+                "THE EXTENSION AXIS IS NOT UNIFORM ACROSS THIS FILE. The run and build",
                 "submodules each cover all four of js/ts/jsx/tsx, but `check.rs` covers `jsx`",
                 "and `tsx` ONLY -- there is no `check_accepts_reflect_own_keys_in_js_input` and",
                 "no `..._in_ts_input`. A file-wide `ext(4)` axis would fan the four check cases",
                 "to `js` and `ts` as well, manufacturing four `kali check --api browser main.js`",
                 "/ `main.ts` trials the source never ran (a rule-2 invention).",
-                "Nor can the axis be `ext(2)`: that would drop 3/4 of the run, test and build",
+                "Nor can the axis be `ext(2)`: that would drop half of the run and build",
                 "coverage, which is a rule-1 weakening.",
-                "28 `#[test]` fns, each one unlooped: run.rs contributes 8, test.rs 8,",
-                "build.rs 8 and check.rs 4, and none of the four submodules contains a loop, so",
-                "28 fns = 28 invocations.",
+                "20 `#[test]` fns, each one unlooped: run.rs contributes 8, build.rs 8 and",
+                "check.rs 4, and none of the three migrated submodules contains a loop, so",
+                "20 fns = 20 invocations.",
             ])
     else:
         matrix = {"ext": EXTS4}
         matrix_block = P.matrix_arithmetic(
-            test_fns=16, invocations=16,
+            test_fns=8, invocations=8,
             helpers=[
                 ("assert_inherited_browser_api_surface_reflect_own_keys_fails_closed", 8,
-                 "run.rs's 8 manifest-inheriting fns = json_output(2) x ext(4)"),
-                ("assert_inherited_browser_api_surface_reflect_own_keys", 8,
-                 "test.rs's 8 manifest-inheriting fns = json_output(2) x ext(4)"),
+                 "run.rs's 8 manifest-inheriting fns = json_output(2) x ext(4). It is the "
+                 "ONLY manifest-writing helper in the migrated half -- the other one is "
+                 "reached solely by the RETAINED test.rs"),
             ],
-            cases=4, axis="ext", values=EXTS4)
+            cases=2, axis="ext", values=EXTS4, non_axes=("json_output",))
 
     header = hdr(
         f"Migrated from tests/browser_{RK}.rs and its `#[path]` submodule directory",
@@ -1599,8 +1620,7 @@ def _rk_build(half):
         matrix_block,
         "",
         (P.rule6_matrix_fold(
-            "one `(command, json_output)` cell of this half's 16 fns, fanned to the 4 "
-            "extensions")
+            "one `json_output` half of this file's 8 fns, fanned to the 4 extensions")
          if matrix else P.RULE6_ONE_TO_ONE),
         "",
         "U5 -- NO `[source]` KEY RENAME IS NEEDED. Each of this target's three program",
@@ -1667,8 +1687,8 @@ def _rk_build(half):
             seen.add(key)
             deduped.append(c)
             dplans.append(p)
-        if len(deduped) != 4:
-            raise AssertionError(f"matrix fold produced {len(deduped)} cases, expected 4")
+        if len(deduped) != 2:
+            raise AssertionError(f"matrix fold produced {len(deduped)} cases, expected 2")
         cases, plans = deduped, dplans
 
     VERIFY[stem] = plans
@@ -1715,10 +1735,12 @@ RK_DOC = "Canonical source text for the supported `Reflect.ownKeys` frozen calla
 # would ship a red audit, which rule 3 forbids absolutely.
 #
 #     python3 gen_batch8a.py --reflect-preview     # renders both, writes nothing
+@target(RK_EXPLICIT)
 def build_rk_explicit():
     return _rk_build("explicit")
 
 
+@target(RK_INHERITED)
 def build_rk_inherited():
     return _rk_build("inherited")
 
