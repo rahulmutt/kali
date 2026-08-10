@@ -651,11 +651,37 @@ def check(spec, citations_only=False):
         # sibling case file -- the source is right there in the tree. Derived
         # from whether that named file exists, so the label cannot describe a
         # state the tree does not have.
+        # THE HINT IS DERIVED FROM WHETHER THE NAMED SOURCE IS ITSELF TRIMMED,
+        # because the right override differs and the wrong one FAILS WHEN
+        # OBEYED. Measured, both shapes:
+        #   * non-trimmed split (`non_literal_iterator_sources_explicit_api`)
+        #     -> `<stem>=crates/kali_cli/tests/<named>` resolves clean;
+        #   * trimmed carrier (`reflect_own_keys_explicit_api`) -> that same
+        #     form resolves against the TRIMMED file and reports
+        #     `:748 ... past end of the source, 681 lines` -- a spurious
+        #     failure, which is precisely what this branch's disclosure exists
+        #     to stop a reader from chasing. Its citations are pre-trim numbers
+        #     (ruling 9), so the override must be the PRE-TRIM BLOB, with the
+        #     carrier's submodules materialised beside it or its `#[path]`
+        #     declarations resolve to nothing.
+        # A hint that breaks when followed is worse than no hint, because the
+        # reader who follows it is the one about to delete the family.
         named = _migrated_from(text)
-        if named and os.path.exists(os.path.join(TESTS, named)):
-            why = (f"no same-stem source; migrated from {named}, which IS in the "
-                   "tree (U2 split or renamed target) -- pass "
-                   f"`{stem}={named}` to resolve against it")
+        named_path = os.path.join(TESTS, named) if named else None
+        if named_path and os.path.exists(named_path):
+            trimmed = re.search(r"PRE-TRIM REF:\s*([0-9a-f]{40})\b",
+                                open(named_path).read())
+            if trimmed:
+                why = (f"no same-stem source; migrated from {named}, which IS in the "
+                       f"tree but is a U4 TRIM (PRE-TRIM REF {trimmed.group(1)[:10]}). "
+                       f"`{stem}=crates/kali_cli/tests/{named}` would resolve against the "
+                       "TRIMMED file and report spurious past-end failures; the override "
+                       "must be that ref's blob WITH the carrier's submodules materialised "
+                       "beside it, which is what citation_sweep.sh does")
+            else:
+                why = (f"no same-stem source; migrated from {named}, which IS in the "
+                       "tree and is not trimmed (U2 split or renamed target) -- pass "
+                       f"`{stem}=crates/kali_cli/tests/{named}` to resolve against it")
         else:
             why = "source deleted post-migration"
         _STRUCTURE_SKIPPED[stem] = why

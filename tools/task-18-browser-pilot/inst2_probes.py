@@ -47,10 +47,20 @@ this script may not do; and `population_agreement`'s `len(declared) != 1` guard,
 which needs a doctored `--print-specs` shape rather than a doctored figure.
 
 Nothing here writes to the repository PERMANENTLY -- no object, no config, and
-no shipped case file at all. Probe 8 rewrites `batch5_crosscheck.py` in place
-for one subprocess call and restores it in a `finally`, which is the same
-mutate-and-restore `source_ref_rehearsal.selftest_kill_power` uses; a kill-power
-limb cannot be written any other way for a module the probe must re-import. Round 1
+no shipped case file at all. ONE EXCEPTION, stated exactly rather than by
+analogy: probe 8 rewrites the REAL `tools/task-18-browser-pilot/
+batch5_crosscheck.py` in place for one subprocess call and restores it in a
+`finally`. If the process is killed between the two, the working tree is left
+with a mutated gate.
+
+That is NOT what `source_ref_rehearsal.selftest_kill_power` does, and an earlier
+version of this paragraph claimed it was. That probe mutates its copy inside a
+throwaway `git clone --shared` under `mkdtemp` (:105-108) and so CANNOT dirty
+the real tree under any failure. The clone-based pattern is strictly safer than
+what probe 8 does; probe 8 is not an instance of it. Matching it here is
+feasible -- the gate resolves its own paths from `__file__`, so a checked-out
+clone would work -- at the cost of a full checkout per run. Deliberately left as
+a disclosed risk rather than restructured unasked. Round 1
 (C1) had this sentence while probe 4 used `git commit-tree`, which needs a
 committer identity CI does not have AND leaves a dangling object every run; it
 now derives a real ancestor commit instead. Poisoned copies live under
@@ -520,7 +530,8 @@ def probe_structure_arm_disclosure(tmp):
         return
 
     sourced = "promise_all_bundle"          # has browser_<stem>.rs
-    split = "reflect_own_keys_explicit_api"  # U2 split: no same-stem .rs
+    split = "reflect_own_keys_explicit_api"  # U2 split of a U4-TRIMMED carrier
+    no_trim_split = "non_literal_iterator_sources_explicit_api"   # U2 split, no trim
 
     def banner(stem):
         _rc, out = run(path, stem)
@@ -539,6 +550,36 @@ def probe_structure_arm_disclosure(tmp):
           poisoned[-300:])
     check("POISON: and it does not call a split stem's source deleted",
           "source deleted post-migration" not in poisoned, poisoned[-300:])
+
+    # THE HINTS ARE OBEYED, NOT READ. A hint that breaks when followed is worse
+    # than no hint, and this branch shipped one for exactly one round: for the
+    # TRIMMED carrier's split it recommended `<stem>=<tree path>`, which
+    # resolves against the trimmed file and reports spurious `past end of the
+    # source` failures. Checking the wording would not have caught that; running
+    # it does.
+    import re as _re
+    for stem, must_work in ((no_trim_split, True), (split, False)):
+        text = banner(stem)
+        m = _re.search(r"`([a-z0-9_]+=crates/kali_cli/tests/[^`]+)`", text)
+        if must_work:
+            check(f"HINT IS FOLLOWABLE: {stem} emits an override and it is offered",
+                  m is not None, text[:200])
+            if m:
+                _rc, out = run(path, m.group(1))
+                check(f"HINT IS FOLLOWABLE: obeying `{m.group(1)[:52]}...` "
+                      "produces no past-end failure",
+                      "past end of the source" not in out, out[-200:])
+        else:
+            # The trimmed carrier: the same form must be WARNED AGAINST, and the
+            # warning must be true -- so obey it anyway and require it to fail.
+            check(f"HINT WARNS: {stem} says that override would resolve against "
+                  "the TRIMMED file",
+                  "would resolve against the TRIMMED file" in text, text[:200])
+            if m:
+                _rc, out = run(path, m.group(1))
+                check("HINT WARNS: and the warning is true -- obeying it does "
+                      "produce a past-end failure",
+                      "past end of the source" in out, out[-200:])
 
     try:
         open(path, "w").write(pristine.replace(guarded, "        pass\n"))
