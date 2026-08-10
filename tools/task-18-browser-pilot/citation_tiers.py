@@ -283,6 +283,47 @@ def resolve_case_stem(stem, toml):
 
     if named and os.path.exists(os.path.join(X.TESTS, named.group(1))):
         src = os.path.join(X.TESTS, named.group(1))
+        # THE NAMED SOURCE MAY ITSELF BE A U4-TRIMMED CARRIER (batch 8A). A U2
+        # split names one source from two case files, so neither stem matches a
+        # `.rs` and both land here. If that source declares a `PRE-TRIM REF:`,
+        # every `:N` in these case files is a PRE-TRIM number (ruling 9) and the
+        # live file is the wrong side -- for a `#[path]` carrier it also holds
+        # only the RETAINED submodules, so citations into the migrated ones
+        # cannot resolve at all. `citation_sweep.sh` takes the pre-trim route
+        # here; this loop must too, or the two populations disagree and
+        # `source_ref_rehearsal.py` reports it (which is how this was found).
+        pretrim = re.search(r"PRE-TRIM REF:\s*(\S+)", open(src).read())
+        if pretrim:
+            ptref = pretrim.group(1)
+            d = tempfile.mkdtemp(dir=ARTIFACT_DIR[0])
+            blob_path = os.path.join(d, named.group(1))
+            shown = subprocess.run(
+                ["git", "-C", X.REPO, "show",
+                 f"{ptref}:crates/kali_cli/tests/{named.group(1)}"],
+                capture_output=True, text=True)
+            if shown.returncode:
+                sys.exit(f"cannot read {ptref}:{named.group(1)} -- "
+                         f"{shown.stderr.strip()}")
+            with open(blob_path, "w") as fh:
+                fh.write(shown.stdout)
+            _BLOBS.append(blob_path)
+            # A `#[path]` carrier's pre-trim submodules must come along, or the
+            # blob's own `#[path]` declarations resolve to nothing.
+            for sub in re.findall(r'#\[path = "([^"]+)"\]', shown.stdout):
+                subout = os.path.join(d, sub)
+                os.makedirs(os.path.dirname(subout), exist_ok=True)
+                got = subprocess.run(
+                    ["git", "-C", X.REPO, "show",
+                     f"{ptref}:crates/kali_cli/tests/{sub}"],
+                    capture_output=True, text=True)
+                if got.returncode:
+                    sys.exit(f"cannot read {ptref}:{sub} -- the pre-trim "
+                             "submodule a qualified citation needs")
+                with open(subout, "w") as fh:
+                    fh.write(got.stdout)
+                _BLOBS.append(subout)
+            _check_ref_content(stem, ref, named.group(1), blob_path)
+            return f"{stem}={blob_path}", ptref, named.group(1)
         _check_ref_content(stem, ref, named.group(1), src)
         return f"{stem}={src}", "-", named.group(1)
 

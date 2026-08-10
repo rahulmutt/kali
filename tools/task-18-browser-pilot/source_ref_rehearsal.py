@@ -533,10 +533,20 @@ def selftest_kill_power(scratch):
     guards and the selftest must go red."""
     path = os.path.join(scratch, "tools/task-18-browser-pilot/batch5_crosscheck.py")
     pristine = open(path).read()
-    guarded = "        bases.append(rs_path)\n"
+    # LOCATED BY ITS UNIQUE CONTEXT, NOT BY BEING THE ONLY LINE OF ITS SHAPE.
+    # This used to search for `"        bases.append(rs_path)\n"` and require
+    # exactly one hit -- which worked only because every OTHER `bases.append(
+    # rs_path)` in the file happened to carry a trailing comment. Batch 8A added
+    # one that does not (the pre-trim-submodule base for a trimmed `#[path]`
+    # carrier), the count went to 2, and this probe disarmed itself with a
+    # message about not finding the line. The SOURCE REF line is the one guarded
+    # by `if rs_path not in bases:`, so pin the PAIR: it is unique, and it stays
+    # unique however many other bases are appended.
+    guarded = ("        if rs_path not in bases:               # `--rs` split: already added\n"
+               "            bases.append(rs_path)\n")
     if pristine.count(guarded) != 1:
-        fail("cannot locate the single `bases.append(rs_path)` line the SOURCE "
-             "REF probe guards -- the mutation cannot be applied")
+        fail("cannot locate the SOURCE REF `bases.append(rs_path)` line by its "
+             "`if rs_path not in bases:` guard -- the mutation cannot be applied")
         return
     try:
         for label, text, want_rc in (

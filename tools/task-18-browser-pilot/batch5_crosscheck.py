@@ -747,8 +747,28 @@ def check(spec, citations_only=False):
         # `submodule_paths` whether anything actually resolves is immune to that,
         # and it is inert for a flat blob, which resolves nothing and falls
         # through to the bases below exactly as before.
+        # NARROWED TO THE TRIM CASE ON PURPOSE, and the narrowing is what keeps
+        # the SOURCE REF base below load-bearing. A first version fired whenever
+        # an override blob resolved any submodule at all -- which is also true
+        # of a `SOURCE REF:` reproduction, so it subsumed the last-resort append
+        # and `source_ref_rehearsal.py`'s kill-power probe went green with that
+        # line deleted. The probe was right: an arm nothing can disarm is an arm
+        # nothing tests. The distinguishing fact is that a TRIM leaves a live
+        # file behind and a DELETION does not, so require both, and require the
+        # blob to resolve strictly more than the live tree -- which is precisely
+        # "some submodules were migrated away".
+        # The tree file this blob is a copy of. For a same-stem `--pretrim` that
+        # is `live_path`; for a U2 TWO-FILE SPLIT the stem is the CASE FILE's
+        # (`reflect_own_keys_explicit_api`) and no `.rs` ever matches it, so the
+        # tree file is the one the case file NAMES. Using `live_path` alone left
+        # every split-stem citation unresolved while looking correct.
+        _named = _migrated_from(text)
+        tree_twin = (live_path if os.path.exists(live_path)
+                     else os.path.join(TESTS, _named) if _named else None)
         if (os.path.dirname(os.path.abspath(rs_path)) != os.path.abspath(TESTS)
-                and submodule_paths(rs_path, base=rs_path)):
+                and tree_twin and os.path.exists(tree_twin)
+                and len(submodule_paths(rs_path, base=rs_path))
+                    > len(submodule_paths(tree_twin, base=tree_twin))):
             bases.append(rs_path)
         if os.path.exists(live_path):
             bases.append(live_path)        # a --pretrim blob of a live stem
