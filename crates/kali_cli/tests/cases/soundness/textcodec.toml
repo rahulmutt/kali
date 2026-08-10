@@ -97,11 +97,28 @@
 # audit-case-migration.py for exactly this reason, explicitly lifting the
 # don't-touch-the-script rule for that one, narrow, verified-safe fix. Pilot
 # review's fix round 1 applied the same standard here: `unquote()` now decodes
-# `\u{XXXX}` too (see its doc comment in the script), verified additive by
-# re-running the audit against all 50 currently-migrated .rs/.toml pairs in
-# string/, array/, math/, object/, and soundness/ (restored read-only from git,
-# never into the working tree) -- all 50 pass, where 49 passed before. This file
-# now audits clean with zero change to its own assertions.
+# `\u{XXXX}` too (see its doc comment in the script), after re-running the audit
+# over the .rs/.toml pairs that were migrated at the time -- the case files at
+# this file's own base, in the five directories named below, plus this one
+# (restored read-only from git, never into the working tree):
+#
+#     git ls-tree -r --name-only ec895f8149 \
+#         -- crates/kali_cli/tests/cases/{string,array,math,object,soundness}
+#
+# THE TWO COUNTS THAT USED TO SIT IN THIS SENTENCE ARE DELETED, NOT CORRECTED.
+# It read "all 50 currently-migrated pairs ... all 50 pass, where 49 passed
+# before". Both were exact when written and both describe a population that has
+# grown in every batch since, because they count OTHER files: a count of the
+# live corpus, invalidated by edits to files this one does not contain. Ruling
+# 16 is directly on point -- a family-wide count has no gateable home inside a
+# case file, so state the class and keep the enumerating command; ruling 15's
+# third answer is why the integers go rather than get a fresh value, since the
+# next batch's migrations would falsify a fresh one by construction and nothing
+# here would fail when they did. The command above is pinned to an immutable ref
+# and its output cannot move. The AUDIT SCRIPT is the live side of that
+# measurement, so anyone re-deriving it must say which revision of
+# `audit-case-migration.py` they ran. This file now audits clean with zero change
+# to its own assertions.
 
 [constants]
 dollar = "$"
