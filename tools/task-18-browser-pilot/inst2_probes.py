@@ -12,14 +12,47 @@ red, and each is paired with the unpoisoned control that must stay green -- a
 probe that fails in both states measures nothing.
 
 ONE LAYER UP is what makes it a gate rather than a demo: this file is listed in
-`scripts/test-gate.sh`'s migration-gate set, so it runs wherever the gates run,
-and an arm that stops firing fails CI by name instead of quietly passing.
+`scripts/test-gate.sh --gates-only`'s migration-gate set, so it runs wherever
+the gates run, and an arm that stops firing fails CI by name instead of quietly
+passing.
 
-Nothing here writes to the repository. Poisoned copies live under `mktemp -d`;
-the two in-process monkeypatches (`batch5_crosscheck`'s declaration dicts,
-`source_ref_rehearsal.sweep`) restore in a `finally`.
+WHAT IS PROBED, ENUMERATED -- and this list is the claim, in place of the
+universal quantifier that used to close `main()` and was false (round 1, I1):
+
+  1. `check_fixtures.argv_source_correspondence` -- the arm, and its vacuity floor
+  2. `check_fixtures`'s `.replace`-template arm -- that it fires, that removing
+     the `.replace(` call unfires it, and that it is not a blanket excuse
+  3. `batch5_crosscheck.ghost_declarations` -- all three declaration tables,
+     through `main()` rather than through the helper
+  4. `citation_tiers._ref_carries` -- failure modes 2 and 3, and that they differ
+  5. `verify_pair.sh` -- that it holds no reader of either ref header, that what
+     it delegates to returns the real blob, and its `--rs` non-match arm
+  6. `source_ref_rehearsal.population_agreement` -- the banner limb and the
+     printed-line-count limb
+  7. `check_fixtures._kind_of` (the predicate that decides the whole population),
+     `check_fixtures.main`'s chained `return argv_main(...)`, both `${...}`
+     substitution failure paths, and `citation_tiers.resolve_source`'s
+     no-case-file exit
+
+WHAT IS NOT, named rather than left to be assumed: `verify_pair.sh`'s two
+resolver-failure branches (`cannot resolve a source`, `resolver returned a
+non-file`) -- neither is reachable without mutating a shipped case file, which
+this script may not do; and `population_agreement`'s `len(declared) != 1` guard,
+which needs a doctored `--print-specs` shape rather than a doctored figure.
+
+Nothing here writes to the repository -- no object, no file, no config. Round 1
+(C1) had this sentence while probe 4 used `git commit-tree`, which needs a
+committer identity CI does not have AND leaves a dangling object every run; it
+now derives a real ancestor commit instead. Poisoned copies live under
+`mktemp -d`; the in-process monkeypatches (`batch5_crosscheck`'s declaration
+dicts, `source_ref_rehearsal.sweep`, `check_fixtures._kind_of`) restore in a
+`finally`.
 
     python3 tools/task-18-browser-pilot/inst2_probes.py     # exit 0 / 1
+
+    # the CI-equivalent control -- no user identity, no global config:
+    GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+        python3 tools/task-18-browser-pilot/inst2_probes.py
 """
 
 import os
@@ -209,16 +242,37 @@ def probe_ref_carries():
     check("mode 2 does NOT send the reader to re-derive a correct ref",
           "PARENT" not in unreachable)
 
-    # Failure mode 3: reachable, but that commit has no such file. The empty
-    # tree object is reachable in every repository and contains nothing, so this
-    # needs no hand-picked sha.
-    empty_tree = subprocess.run(
-        ["git", "-C", REPO, "hash-object", "-t", "tree", "--stdin"],
-        input="", capture_output=True, text=True).stdout.strip()
-    commit = subprocess.run(
-        ["git", "-C", REPO, "commit-tree", empty_tree, "-m", "probe"],
-        capture_output=True, text=True).stdout.strip()
-    absent = message(commit, "browser_math_round.rs") if commit else ""
+    # Failure mode 3: reachable, but that commit has no such file. DERIVED FROM
+    # HISTORY, not synthesised: the parent of the commit that ADDED the source is
+    # a real ancestor that predates it, which is the same shape as naming the
+    # deletion commit instead of its parent.
+    #
+    # ROUND 1 (C1): this used `git commit-tree` over the empty tree. That needs a
+    # committer identity, which `actions/checkout` does not set and a GitHub
+    # runner's hostname cannot supply a fallback domain for, so `git` fatalled and
+    # BOTH mode-3 checks failed -- on the one machine this whole dispatch exists
+    # to wire the gates into. It was invisible locally because the PROCESS
+    # inherits ~/.gitconfig through $HOME while a fresh `git clone` inherits
+    # nothing, so a clean-checkout run could not catch it. Reproduce the fixed
+    # state under the same conditions CI has:
+    #
+    #     GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+    #         python3 tools/task-18-browser-pilot/inst2_probes.py
+    #
+    # It also left a dangling object in .git/objects on every run, which is why
+    # this file's "writes nothing" claim was false. Nothing is written now.
+    name = "browser_math_round.rs"
+    path = f"crates/kali_cli/tests/{name}"
+    added = subprocess.run(
+        ["git", "-C", REPO, "log", "--diff-filter=A", "-1", "--format=%H",
+         "--", path], capture_output=True, text=True).stdout.strip()
+    parent = subprocess.run(
+        ["git", "-C", REPO, "rev-parse", "-q", "--verify", f"{added}^"],
+        capture_output=True, text=True).stdout.strip() if added else ""
+    if not check(f"a real ancestor predating {name} could be derived",
+                 len(parent) == 40, f"added in {added[:10]}, parent {parent[:10]}"):
+        return
+    absent = message(parent, name)
     check("mode 3 (ref resolves, path absent) names the deletion commit's PARENT",
           "PARENT, not the deletion commit" in absent, absent[:120])
     check("the two modes are told apart at all", bool(absent) and bool(unreachable)
@@ -235,17 +289,32 @@ def probe_verify_pair_delegation(tmp):
     # (a) It holds no parser of its own. `8-inst-1` enumerated seven live
     #     readers of the pre-trim ref; this asserts that verify_pair.sh is not
     #     the eighth -- every mention of either header line is in a comment.
-    code = [l for l in open(os.path.join(HERE, "verify_pair.sh")).read().split("\n")
-            if not l.lstrip().startswith("#")]
-    offenders = [l for l in code
-                 if "SOURCE REF" in l or "PRE-TRIM REF" in l]
+    def header_readers(lines):
+        """Non-comment lines that read either ref header. TWO halves, and the
+        control below runs BOTH: the comment filter and the substring test."""
+        return [l for l in lines
+                if not l.lstrip().startswith("#")
+                and ("SOURCE REF" in l or "PRE-TRIM REF" in l)]
+
+    text = open(os.path.join(HERE, "verify_pair.sh")).read()
+    offenders = header_readers(text.split("\n"))
     check("verify_pair.sh parses neither header line itself", not offenders,
           "; ".join(offenders[:2]))
-    # The predicate itself, checked one layer up -- a grep that cannot fire is
-    # not evidence.
-    check("...and that check can fire",
-          bool([l for l in ['ref=$(grep "SOURCE REF:" "$t")']
-                if "SOURCE REF" in l]))
+    # ONE LAYER UP, THROUGH THE REAL PREDICATE (round 1, I2). The previous
+    # version re-tested the substring half against a synthetic literal with an
+    # inline comprehension, so inverting the comment filter -- the exact way this
+    # check silently stops working, since verify_pair.sh's own prose mentions
+    # both headers a dozen times -- emptied `offenders` while "can fire" stayed
+    # green. The synthetic file now goes through `header_readers` itself, and
+    # carries a commented mention that must NOT be returned alongside the real
+    # reader that must.
+    synthetic = ['#   a comment mentioning PRE-TRIM REF: and SOURCE REF: in prose',
+                 '  # an indented comment mentioning SOURCE REF: too',
+                 'ref=$(grep -oP "(?<=SOURCE REF:)\\s*\\S+" "$t")',
+                 'echo hello']
+    fired = header_readers(synthetic)
+    check("...and that predicate fires on a real reader",
+          fired == [synthetic[2]], f"returned {fired!r}")
 
     # (b) What it delegates TO returns the real historical blob, byte for byte.
     specs = subprocess.run(
@@ -295,8 +364,23 @@ def probe_population_banner():
                          lambda m: f"sweep over {int(m.group(1)) + 1} stems", out)
         return rc, out
 
+    def dropped_spec(_scratch, args=()):
+        """The OTHER limb (round 1, I1): the printed listing loses a stem while
+        `#population` and the banner still agree. That is a spec appended to one
+        of the sweep's two arrays and not the other -- the failure the
+        three-way comparison exists for, and the one the banner limb cannot see."""
+        rc, out = real_sweep(scratch, args)
+        if args:
+            lines = out.split("\n")
+            first = next(i for i, l in enumerate(lines)
+                         if l.strip() and not l.startswith("#"))
+            out = "\n".join(lines[:first] + lines[first + 1:])
+        return rc, out
+
     for label, patched, want in (("CONTROL: the real banner", real_sweep, 0),
-                                 ("POISON: banner off by one", doctored, 1)):
+                                 ("POISON: banner off by one", doctored, 1),
+                                 ("POISON: one spec line dropped from the "
+                                  "listing", dropped_spec, 2)):
         R.FAILURES.clear()
         try:
             R.sweep = patched
@@ -309,6 +393,75 @@ def probe_population_banner():
     R.FAILURES.clear()
 
 
+# ---------------------------------------------------------------------------
+# 7. The arms round 1 (I1) named as added-but-unprobed.
+# ---------------------------------------------------------------------------
+def probe_supporting_arms(tmp):
+    print("\n7. the supporting arms (round 1, I1)")
+    import check_fixtures as C
+    import citation_tiers as T
+
+    # `_kind_of` DECIDES THE WHOLE POPULATION. A wrong answer does not fail; it
+    # silently shrinks the 4403 steps the gate looks at, which is the direction
+    # nothing else notices.
+    check("_kind_of: a bare step is `cli` (model.rs's default)",
+          C._kind_of({"args": ["run", "x.js"]}) == "cli")
+    check("_kind_of: an explicit kind wins",
+          C._kind_of({"kind": "file_json", "path": "p"}) == "file_json")
+    check("_kind_of: a kind-specific field is NOT silently `cli`",
+          all(C._kind_of({f: "v"}) != "cli"
+              for f in ("path", "fields", "entry", "body")),
+          "path/fields/entry/body")
+    # One layer up: collapse the predicate and the floor must catch it, because
+    # a population that has quietly gone to zero is the failure mode.
+    real_kind_of = C._kind_of
+    try:
+        C._kind_of = lambda step: "file_json"
+        rc, out = None, None
+        rc = C.argv_main([os.path.join(TESTS, "cases/string/length_static.toml")])
+    finally:
+        C._kind_of = real_kind_of
+    check("_kind_of collapsed -> the vacuity floor fires (rc 2, not 0)", rc == 2,
+          f"rc={rc}")
+
+    # `check_fixtures.main`'s chained `return argv_main(...)` -- the whole reason
+    # it was chained. A pair that is GREEN on fixtures and RED on argv must exit
+    # non-zero; before the chain it returned 0 at the fixture arm.
+    rs = os.path.join(TESTS, "browser_object_from_entries_harness.rs")
+    src = os.path.join(TESTS, "cases/browser/object_from_entries_harness.toml")
+    chained = os.path.join(tmp, "chained.toml")
+    open(chained, "w").write(
+        open(src).read().replace('"main.js"]', '"main_typo.js"]', 1))
+    rc, out = run(os.path.join(HERE, "check_fixtures.py"), rs, chained)
+    check("chained return: fixtures green + argv red still exits non-zero",
+          rc == 1 and "FIXTURE CHECK OK" in out and "UNDECLARED ARGV" in out,
+          f"rc={rc}")
+
+    # The two `${...}` substitution failure paths, in argv and in a `[source]`
+    # key. Both are reported as problems rather than crashing, and -- since round
+    # 1 -- rank above the vacuity floor even though they yield no token.
+    for label, body in (
+            ("argv", '[[case]]\nname = "x"\nargs = ["run", "${nope}.js"]\n'),
+            ("[source] key", '[source]\n"${nope}.js" = "x"\n\n[[case]]\n'
+                             'name = "x"\nargs = ["run", "a.js"]\n')):
+        bad = os.path.join(tmp, f"unresolved_{label.split()[0].strip('[')}.toml")
+        open(bad, "w").write(body)
+        rc, out = run(os.path.join(HERE, "check_fixtures.py"),
+                      "--argv-correspondence", bad)
+        check(f"unresolved `${{...}}` in {label} is a reported problem, rc 1",
+              rc == 1 and "unresolved placeholder" in out, f"rc={rc}")
+
+    # `resolve_source`'s no-case-file exit: it answers for a MIGRATED pair and
+    # must say so rather than guessing.
+    try:
+        T.resolve_source("a_stem_with_no_case_file")
+        raised = ""
+    except SystemExit as exc:
+        raised = str(exc)
+    check("resolve_source refuses a stem with no case file",
+          "answers for a MIGRATED pair" in raised, raised[:110])
+
+
 def main():
     tmp = tempfile.mkdtemp(prefix="inst2-probes-")
     try:
@@ -318,6 +471,7 @@ def main():
         probe_ref_carries()
         probe_verify_pair_delegation(tmp)
         probe_population_banner()
+        probe_supporting_arms(tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     if FAILURES:
@@ -326,9 +480,13 @@ def main():
         for f in FAILURES:
             print(f"  {f}")
         return 1
-    print("\nPROBES OK -- every arm batch 8-inst-2 added fires on the defect it "
-          "exists to catch, stays silent on the control, and is reachable from "
-          "the gate that runs it")
+    # NO QUANTIFIER OVER "every arm this dispatch added" (round 1, I1). That
+    # sentence was a ruling-13 universal about this file's own completeness, and
+    # it was false: several arms in the same diff were not probed. What is probed
+    # is the list in the docstring, and what is not is named there too.
+    print("\nPROBES OK -- the seven sections above each fired on the defect they "
+          "exist to catch and stayed silent on their control; see this file's "
+          "docstring for what is probed and what is not")
     return 0
 
 

@@ -255,16 +255,22 @@ def argv_main(argv):
         print(f"  of those `cli` steps, {failclosed} assert `exit = \"failure\"` "
               f"and no output claim -- the population that cannot report its own "
               f"vacuity, which is what this arm exists for")
-    if not tokens:
-        print("VACUOUS: no argv filename token in any of those files, so this "
-              "arm checked nothing -- exit 2 rather than a green, same floor as "
-              "the fixture arm above")
-        return 2
+    # PROBLEMS ARE REPORTED BEFORE THE FLOOR, and the order is load-bearing
+    # (round 1, I1: found by writing the probe for the `${...}` paths). An
+    # unresolved placeholder is recorded as a problem and yields no token, so a
+    # file whose ONLY argv entry fails substitution used to reach `not tokens`
+    # first and exit 2 -- VACUOUS, with the problem never printed. A defect the
+    # arm found must outrank a report that the arm found nothing.
     for p in problems:
         print(f"  UNDECLARED ARGV: {p}")
     if problems:
         print(f"ARGV/[source] CHECK FAILED — {len(problems)} problem(s)")
         return 1
+    if not tokens:
+        print("VACUOUS: no argv filename token in any of those files, so this "
+              "arm checked nothing -- exit 2 rather than a green, same floor as "
+              "the fixture arm above")
+        return 2
     print("ARGV/[source] CHECK OK — every argv filename is a declared fixture")
     return 0
 

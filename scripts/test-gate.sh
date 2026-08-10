@@ -6,39 +6,49 @@
 # interleaving, unlike per-test `... FAILED` lines).
 #
 # ---------------------------------------------------------------------------
-# TWO SECTIONS SINCE BATCH 8-inst-2: the cargo suites, and the Task 18 MIGRATION
-# GATES. Until now this script matched none of the latter --
+# `--gates-only` (batch 8-inst-2) RUNS THE TASK 18 MIGRATION GATES INSTEAD, and
+# a BARE INVOCATION IS UNCHANGED FROM BASE -- same cargo suites, same runtime,
+# same output shape. That is not a style choice: the plan's Global Constraints
+# name this file as one of four that must not be modified, and ~50 plan
+# documents call the bare command as their per-task gate and assume its cost.
+# The human partner's ruling for this dispatch was "keep the wiring, but a bare
+# `bash scripts/test-gate.sh` must behave exactly as it did before", so the
+# migration gates are OPT-IN and reachable only through the flag.
+# `scripts/check-determinism.sh` and `mise.toml` remain untouched and still
+# under the original prohibition.
+#
+# Why the wiring exists at all: until batch 8-inst-2 this script matched none of
+# those gates --
 #
 #     $ grep -c "citation_sweep\|batch5_crosscheck\|check_fixtures\|classify_drift" \
 #           scripts/test-gate.sh
 #     0
 #
-# -- and neither did anything under `.github/`. Eight batches built these gates
-# and every one of them ran by hand or not at all, which is the same failure
-# class as a figure with no command beside it: a check nobody re-runs is
-# indistinguishable from a check that was deleted (ruling 15).
+# -- and neither did anything under `.github/`. Eight batches built them and
+# every one ran by hand or not at all, which is the same failure class as a
+# figure with no command beside it: a check nobody re-runs is indistinguishable
+# from a check that was deleted (ruling 15).
 #
-# `--gates-only` runs just that section, and that is what `.github/workflows/
-# ci.yml`'s `migration-gates` job invokes -- so the gate SET lives here, in one
-# place, rather than being listed a second time in YAML where the two copies
-# would drift. That job is also the only checkout in `ci.yml` given
-# `fetch-depth: 0`, because `citation_sweep.sh` resolves a deleted source's
-# citations against a historical blob and `actions/checkout` is shallow by
-# default.
+# `.github/workflows/ci.yml`'s `migration-gates` job invokes exactly
+# `--gates-only`, so the gate SET lives here, in one place, rather than being
+# listed a second time in YAML where the two copies would drift. That job is
+# also the only checkout in `ci.yml` given `fetch-depth: 0`, because
+# `citation_sweep.sh` resolves a deleted source's citations against a historical
+# blob and `actions/checkout` is shallow by default.
 #
-# WHAT IS DELIBERATELY NOT HERE. `classify_drift.py` with no arguments (the
-# census: run all 14 generators and require each to be a fixed point) needs a
-# built `libkali_common` rlib and REWRITES `cases/browser/` while it runs,
-# refusing to start unless that directory is clean. Wiring it in would make this
-# script unusable to the one person most likely to run it -- someone with an
-# edit open in exactly that directory. Its `--selftest` is here; the census
-# stays a deliberate, clean-tree invocation.
+# WHAT IS DELIBERATELY NOT IN THE SET. `classify_drift.py` with no arguments
+# (the census: run all 14 generators and require each to be a fixed point) needs
+# a built `libkali_common` rlib and REWRITES `cases/browser/` while it runs,
+# refusing to start unless that directory is clean. Wiring it in would make the
+# flag unusable to the one person most likely to pass it -- someone with an edit
+# open in exactly that directory. Its `--selftest` is here; the census stays a
+# deliberate, clean-tree invocation.
 # ---------------------------------------------------------------------------
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PILOT="$REPO/tools/task-18-browser-pilot"
-MODE="${1:-all}"
+MODE="${1:-tests}"
 
 run_gates() {
     local fail=0 rc
@@ -99,8 +109,8 @@ run_tests() {
 }
 
 case "$MODE" in
+    # No argument: EXACTLY what this script did at BASE, and nothing else.
+    tests)        run_tests || exit 1 ;;
     --gates-only) run_gates || exit 1 ;;
-    --tests-only) run_tests || exit 1 ;;
-    all)          run_gates || exit 1; run_tests || exit 1 ;;
-    *)            echo "usage: test-gate.sh [--gates-only|--tests-only]"; exit 2 ;;
+    *)            echo "usage: test-gate.sh [--gates-only]"; exit 2 ;;
 esac

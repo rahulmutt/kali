@@ -91,13 +91,23 @@ runnable core** — no hardcoded paths, no uncommitted inputs:
   that it fires and that it is not a blanket excuse), the ghost-stem staleness
   arm in all three declarations, `citation_tiers._ref_carries`' two failure
   modes, `verify_pair.sh`'s delegation and its `--rs` non-match arm, and the
-  population-banner equality. Listed in `scripts/test-gate.sh`, which is what
-  answers "the probe itself may be ungated". Writes nothing to the repository.
+  population-banner equality, plus `_kind_of`, `main`'s chained return, both
+  `${...}` substitution failure paths and `resolve_source`'s no-case-file exit.
+  Its docstring enumerates what is probed **and what is not**, in place of a
+  quantifier over its own completeness. Listed in
+  `scripts/test-gate.sh --gates-only`, which is what answers "the probe itself
+  may be ungated". Writes nothing to the repository — no file, no git object, no
+  config; run it with `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null`
+  for the CI-equivalent control, which is the condition an earlier version failed
+  under.
 
-The gate set is run by `scripts/test-gate.sh` (all of it, or `--gates-only`),
-which is also what `.github/workflows/ci.yml`'s `migration-gates` job invokes —
-the only checkout in that file given `fetch-depth: 0`, because the sweep resolves
-a deleted source's citations against a historical blob.
+The gate set is run by `scripts/test-gate.sh --gates-only`, which is also what
+`.github/workflows/ci.yml`'s `migration-gates` job invokes — the only checkout in
+that file given `fetch-depth: 0`, because the sweep resolves a deleted source's
+citations against a historical blob. **A bare `bash scripts/test-gate.sh` runs
+the cargo suites and nothing else, exactly as it did before**: the plan's Global
+Constraints name that file as one that must not be modified, and the migration
+gates are opt-in for that reason.
 
 Full narrative (what each file's shape was, why matrix was or wasn't used,
 the audit findings, the scaling measurement, and the five review-round-1

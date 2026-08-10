@@ -2283,21 +2283,34 @@ def ghost_declarations():
     Zero live instances at BASE (`bd275ddd71`), which is why the arm is verified
     by an injection probe rather than by the sweep staying green --
     `inst2_probes.py` probe 3.
+
+    ONE LINE PER GHOST STEM, not one per declaration table (round 1, M4). A stem
+    can sit in all three, and 8C's family deletion is exactly when ghosts appear
+    en masse -- a list that repeats the same stem three times is how a real
+    finding gets missed at the moment it matters most. The tables it appears in
+    are named on the one line instead. Measured, because the routed concern said
+    ~135x: a full `citation_sweep.sh` reports a ghost ONCE, not per stem, because
+    the sweep passes all 135 specs to a single `batch5_crosscheck.py` invocation
+    (`citation_sweep.sh:296`) and this runs outside the per-stem loop --
+        $ bash tools/task-18-browser-pilot/citation_sweep.sh | grep -c '<ghost>'
+        1
+    with a ghost injected into `NO_NEEDLE_DECLARED`. The real multiplicity was
+    the three tables, and that is what is collapsed here.
     """
-    out = []
+    where = collections.defaultdict(list)
     for name, keys in (("NO_NEEDLE_DECLARED", sorted(NO_NEEDLE_DECLARED)),
                        ("PINNED_SPLIT_DECLARED", sorted(PINNED_SPLIT_DECLARED)),
                        ("UNGATED_REDLIST", sorted({k[0] for k in UNGATED_REDLIST}))):
         for stem in keys:
-            if _stem_exists(stem):
-                continue
-            out.append(
-                f"{stem}: {name} declares this stem, and the corpus has neither "
-                f"cases/browser/{stem}.toml nor browser_{stem}.rs. A declaration "
-                "for a stem no run can visit is compared against nothing in "
-                "either direction, so it neither gates nor reports -- delete the "
-                "entry along with the file it was written for.")
-    return out
+            if not _stem_exists(stem):
+                where[stem].append(name)
+    return [
+        f"{stem}: declared by {', '.join(where[stem])}, and the "
+        f"corpus has neither cases/browser/{stem}.toml nor browser_{stem}.rs. A "
+        "declaration for a stem no run can visit is compared against nothing in "
+        "either direction, so it neither gates nor reports -- delete the entry "
+        "along with the file it was written for."
+        for stem in sorted(where)]
 
 
 def main(argv):

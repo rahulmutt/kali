@@ -1027,8 +1027,24 @@ def unquote(raw: str) -> str:
     reduces the untouched double backslash to the single literal backslash
     the source actually meant. Inert on this corpus at the time of this fix
     (no `.rs` file contains the literal `\\u{` byte pattern that would
-    trigger it), verified additive by re-running this script against all 50
-    then-migrated `.rs`/`.toml` pairs before and after: 50/50 both times.
+    trigger it), and re-run before and after against the `.rs`/`.toml` pairs
+    that were migrated then -- the case files at that fix's own base, plus
+    `soundness/textcodec.toml`, which the same review added:
+
+        git ls-tree -r --name-only ec895f8149 \\
+            -- crates/kali_cli/tests/cases/{string,array,math,object,soundness}
+
+    THE COUNT THAT USED TO SIT IN THAT SENTENCE IS DELETED, NOT CORRECTED
+    (batch 8-inst-2 fix round 1). It read "all 50 then-migrated pairs ...
+    50/50 both times". It was exact when written and describes a population
+    that has grown in every batch since, because it counts files this script
+    does not contain and nothing fails when it stops being true -- the same
+    disposition, and the same ruling 15/16 reasoning, applied to its twin in
+    `soundness/textcodec.toml:101-103`. Deleting one figure and leaving its
+    identical twin two files away is the inconsistency the rule exists to
+    stop. The command above is pinned to an immutable ref and cannot go
+    stale; THIS SCRIPT is the live side, so anyone re-deriving the result
+    must say which revision of it they ran.
     """
     raw = raw.strip()
     if raw.startswith("r"):
