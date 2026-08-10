@@ -67,6 +67,17 @@ runnable core** — no hardcoded paths, no uncommitted inputs:
   pattern notes.
 - `toml_emit.py` — single-line vs. triple-quoted TOML string emission.
   `toml_string(value, multiline=None)`, `toml_str_array(values)`.
+- `classify_drift.py` — **regenerate-and-diff, as a gate.** Runs every
+  `gen_batch*.py` in this directory (the population is the directory, not a
+  list), compares each case file it writes against `HEAD`, classifies any
+  difference as citation-form-only or content drift by two independent methods
+  that must agree, and requires both enumerated sets to equal their
+  declarations. `--selftest` runs 13 poisoned probes, including the reflow
+  control whose absence made an earlier instrument report 6/20 instead of 25/1.
+  Its controls run first: a comparator that has not been shown to fire is not
+  evidence. Added in batch 8-inst-1, which is also when regenerating stopped
+  being a gate regression — `case_emit.write` now folds the citation reword in,
+  so a generator emits the gated form rather than needing a post-pass.
 
 Full narrative (what each file's shape was, why matrix was or wasn't used,
 the audit findings, the scaling measurement, and the five review-round-1
