@@ -685,6 +685,46 @@ def probe_env_program_texts(tmp):
           (rc_a, out_a) != (rc_b, out_b) and rc_a == 0 and rc_b == 1,
           f"rc_clean={rc_a} rc_poison={rc_b}")
 
+    # The other half of batch 8B's check_fixtures work: PROGRAM_HINT gained a
+    # `let <ident> =` alternative because `browser_wasm_threads_browser_surface.rs`'s
+    # entire program under test is `let value = 1 + 2; value;` and matched none
+    # of the older alternatives -- so the arm found NO fixture and returned its
+    # vacuity floor, i.e. it checked nothing for that whole target.
+    ws_rs = os.path.join(TESTS, "browser_wasm_threads_browser_surface.rs")
+    ws_toml = os.path.join(TESTS, "cases/browser/wasm_threads_browser_surface_explicit_api.toml")
+    rc, out = run(os.path.join(HERE, "check_fixtures.py"), ws_rs, ws_toml)
+    check("CONTROL: the `let ...` program is now FOUND and matched (not vacuous)",
+          rc == 0 and "FIXTURE CHECK OK" in out and "VACUOUS" not in out,
+          f"rc={rc} {out[:140]}")
+
+    ws_poison = os.path.join(tmp, "ws_poisoned.toml")
+    ws_text = open(ws_toml).read()
+    check("POISON PRECONDITION: the `let ...` program is present to corrupt",
+          "let value = 1 + 2; value;" in ws_text, ws_text[:120])
+    open(ws_poison, "w").write(
+        ws_text.replace("let value = 1 + 2; value;", "let value = 1 + 3; value;", 1))
+    rc, out = run(os.path.join(HERE, "check_fixtures.py"), ws_rs, ws_poison)
+    check("POISON: a corrupted `let ...` program turns the arm RED",
+          rc == 1 and "UNMATCHED" in out, f"rc={rc} {out[:200]}")
+
+    # One layer up: with the alternative removed the SAME poison must stop being
+    # caught -- and it must stop being caught by going VACUOUS, which is the
+    # specific way this defect hid.
+    import re as _re
+    real_hint = C.PROGRAM_HINT
+    try:
+        C.PROGRAM_HINT = _re.compile(
+            r"console\.log|Kali\.test|await import|function\s|const\s|export\s")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc_old = C.main([ws_rs, ws_poison])
+    finally:
+        C.PROGRAM_HINT = real_hint
+    check("KILL POWER: without the `let ...` alternative the same poison is not "
+          "caught -- the arm reports VACUOUS and checks nothing",
+          rc_old == 2 and "VACUOUS" in buf.getvalue(),
+          f"rc={rc_old} {buf.getvalue()[:140]}")
+
 
 def main():
     tmp = tempfile.mkdtemp(prefix="inst2-probes-")

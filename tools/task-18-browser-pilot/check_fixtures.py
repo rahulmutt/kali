@@ -56,7 +56,25 @@ CASES = os.path.join(REPO, "crates/kali_cli/tests/cases")
 
 SOURCE_FN = re.compile(r"\bfn\s+([a-z0-9_]*source[a-z0-9_]*)\s*\(\s*\)\s*->\s*&'static\s+str")
 # A literal is "program-shaped" if it spans lines or reads like JS/TS.
-PROGRAM_HINT = re.compile(r"console\.log|Kali\.test|await import|function\s|const\s|export\s")
+#
+# `let <ident> =` added in batch 8B. `browser_wasm_threads_browser_surface.rs`'s
+# whole program under test is `let value = 1 + 2; value;`, which matched none of
+# the other alternatives, so the arm found NO fixture at all and returned its
+# vacuity floor (rc 2) -- a source with exactly one program and no way to check
+# that it survived migration.
+#
+# The blast radius was MEASURED before the alternative was added, not argued:
+# over every `.rs` in `crates/kali_cli/tests`, exactly five files gain a
+# literal, and every gained literal is a real JS/TS program --
+# `bitwise_operators_runtime.rs` (1), `browser_wasm_threads_browser_surface.rs`
+# (1), `runtime_forin.rs` (3), `runtime_smoke.rs` (2),
+# `trap_diagnostics_runtime.rs` (2). Four of the five are outside the browser
+# family this gate runs against today; the fifth is the one that needed it. The
+# `<ident> =` tail is what keeps it from matching English prose containing the
+# word "let". Probed by `inst2_probes.py` section 9.
+PROGRAM_HINT = re.compile(
+    r"console\.log|Kali\.test|await import|function\s|const\s|export\s"
+    r"|\blet\s+[A-Za-z_$][\w$]*\s*=")
 
 
 def _format_segments(template):
