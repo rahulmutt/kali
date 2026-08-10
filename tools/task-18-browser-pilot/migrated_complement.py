@@ -72,12 +72,34 @@ insensitive to reordering and to the `//!` header the retention added.
 It exits non-zero if the retained file is not a subset of the pre-trim one by
 name, which is the way this could silently produce a wrong answer.
 
+A `#[path]` SUBMODULE CARRIER NEEDS MORE THAN ITEM SUBTRACTION, and `--carrier`
+is that mode. The carrier holds the helpers but every `#[test]` fn lives in the
+sibling directory, so subtracting carrier items alone yields a source with ZERO
+tests and `audit-case-migration.py` exits 2 on "0 `#[test]` fns found" rather
+than auditing anything. `--carrier` appends each MIGRATED submodule's pre-trim
+text below the removed carrier items, joined the way
+`audit-case-migration.py`'s own `main` joins a carrier with its submodules, so
+the audit sees exactly the corpus it would have seen pre-trim minus the retained
+half. Which submodules are migrated is DERIVED -- the pre-trim carrier's
+`#[path]` set minus whatever still resolves from the retained one -- not listed,
+so it cannot drift from the trim that actually happened.
+
+Both sides come from things that exist: the blob at the ref the RETAINED file's
+own header declares, and the shipped retained files. The ref is read from the
+header rather than passed, for the reason `case_emit.source_text` records -- a
+ref carried anywhere but the header is the moving figure ruling 11 forbids.
+
 Usage:
   migrated_complement.py PRETRIM.rs RETAINED.rs > MIGRATED_PART.rs
+  migrated_complement.py --carrier RETAINED.rs > MIGRATED_PART.rs
+  migrated_complement.py --carrier RETAINED.rs --audit TARGET.toml [TARGET.toml ...]
 """
 
+import os
 import re
+import subprocess
 import sys
+import tempfile
 
 ITEM = re.compile(r"^(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)", re.M)
 
@@ -109,7 +131,104 @@ def split_items(text):
     return preamble, items
 
 
+def _git_show(repo, ref, path):
+    p = subprocess.run(["git", "show", f"{ref}:{path}"], cwd=repo,
+                       capture_output=True, text=True)
+    if p.returncode != 0:
+        raise SystemExit(f"cannot read {path} at {ref}: {p.stderr.strip()}")
+    return p.stdout
+
+
+def carrier_complement(retained_path):
+    """(complement text, removed item names, migrated submodule names, ref)."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    repo = os.path.abspath(os.path.join(here, "..", ".."))
+    sys.path.insert(0, here)
+    from submodules import submodule_paths
+
+    retained = open(retained_path).read()
+    m = re.search(r"PRE-TRIM REF:\s*([0-9a-f]{40})\b", retained)
+    if not m:
+        raise SystemExit(
+            f"{retained_path} declares no full-sha `PRE-TRIM REF:` in its header; "
+            "this tool will not guess one.")
+    ref = m.group(1)
+    rel = os.path.relpath(os.path.abspath(retained_path), repo)
+    pretrim = _git_show(repo, ref, rel)
+
+    pre_preamble, pre_items = split_items(pretrim)
+    _rp, ret_items = split_items(retained)
+    unknown = [n for n in ret_items if n not in pre_items]
+    if unknown:
+        raise SystemExit(f"retained carrier has item(s) absent from the pre-trim "
+                         f"carrier: {unknown} -- not a trim of one another")
+    removed = [n for n in pre_items if n not in ret_items]
+
+    # DERIVED: the submodules the pre-trim carrier declared, minus the ones the
+    # retained carrier still resolves. No hardcoded list to drift.
+    pre_subs = re.findall(r'#\[path = "([^"]+)"\]', pretrim)
+    still = {p.name for p in submodule_paths(retained_path)}
+    migrated = [s for s in pre_subs if os.path.basename(s) not in still]
+    if not migrated and not removed:
+        raise SystemExit("nothing was removed -- a whole-file retention, not a trim")
+
+    # The `#[path] mod` block sits after the last fn, so `split_items` folds it
+    # into that item's text and it rides along unless stripped. It must be: the
+    # submodule TEXT is inlined below instead, and a `#[path]` resolved from a
+    # temp directory finds nothing, which makes the audit exit 2 on a file that
+    # is otherwise correct.
+    removed_text = "\n".join(pre_items[n] for n in removed)
+    removed_text = re.sub(r'#\[path = "[^"]+"\]\s*\n\s*mod \w+;\n?', "", removed_text)
+    if "#[path" in removed_text or re.search(r"^\s*mod \w+;", removed_text, re.M):
+        raise SystemExit("a `mod` declaration survived the strip")
+
+    pieces = [pre_preamble.rstrip("\n"), removed_text]
+    for sub in migrated:
+        text = _git_show(repo, ref, f"crates/kali_cli/tests/{sub}")
+        pieces.append("\n".join(l for l in text.split("\n")
+                                if l.strip() != "use super::*;"))
+    return "\n".join(pieces).rstrip("\n") + "\n", removed, migrated, ref
+
+
+def _carrier_main(argv):
+    retained = argv[0]
+    text, removed, migrated, ref = carrier_complement(retained)
+    n_tests = sum(1 for l in text.split("\n") if l.strip() == "#[test]")
+    if "--audit" not in argv:
+        sys.stdout.write(text)
+        print(f"carrier complement at {ref}: removed item(s) {', '.join(removed)}; "
+              f"migrated submodule(s) {', '.join(migrated)}; {n_tests} `#[test]` fn(s)",
+              file=sys.stderr)
+        return 0
+    tomls = argv[argv.index("--audit") + 1:]
+    if not tomls:
+        raise SystemExit("--audit needs at least one TARGET.toml")
+    here = os.path.dirname(os.path.abspath(__file__))
+    repo = os.path.abspath(os.path.join(here, "..", ".."))
+    print(f"PRE-TRIM REF {ref}")
+    print(f"carrier items removed by the trim: {', '.join(removed)}")
+    print(f"migrated submodules inlined: {', '.join(migrated)}")
+    print(f"complement holds {n_tests} `#[test]` fn(s)\n")
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, os.path.basename(retained))
+        with open(path, "w") as f:
+            f.write(text)
+        p = subprocess.run(
+            [sys.executable, os.path.join(repo, "scripts/audit-case-migration.py"),
+             path] + [os.path.abspath(t) for t in tomls],
+            cwd=repo, capture_output=True, text=True)
+        sys.stdout.write(p.stdout)
+        sys.stderr.write(p.stderr)
+        if p.returncode != 0:
+            print("\nAUDIT AGAINST THE MIGRATED COMPLEMENT FAILED", file=sys.stderr)
+        return p.returncode
+
+
 def main(argv):
+    if argv and argv[0] == "--carrier":
+        if len(argv) < 2:
+            raise SystemExit(__doc__)
+        return _carrier_main(argv[1:])
     if len(argv) != 2:
         raise SystemExit(__doc__)
     pretrim = open(argv[0]).read()

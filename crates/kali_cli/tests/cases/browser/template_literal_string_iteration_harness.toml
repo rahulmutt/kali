@@ -1,5 +1,16 @@
 # Migrated from tests/browser_template_literal_string_iteration_harness.rs.
 #
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
+# tests/browser_template_literal_string_iteration_harness.rs has 1 Rust comment block(s), listed with their
+# line numbers before any TOML was written:
+#   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:64) -- opens a 2-line block
+# It sits in `assert_browser_harness_template_literal_string_iteration`, which every `#[test]` fn in the file calls,
+# so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
+# by this generator (its comment_blocks helper, named plainly rather than backticked:
+# U8's gate resolves every backticked lower-case identifier against this source's own
+# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
+# become `--`.
+#
 # RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
 # 16 `#[test]` fns, 16 real helper invocations with every loop
 # expanded:
@@ -37,16 +48,31 @@
 # (That is the axis on which this file differs from `set_iteration_harness`, whose
 # looped fn reuses `main.<ext>` for BOTH commands and therefore does need renames.)
 #
-# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
-# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
-# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
-# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
-# and `exit = "failure"` is exactly as strong as the assertion it replaces.
-# The source's fail-closed assertion is at `output.status.success()` :66.
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `assert_browser_harness_template_literal_string_iteration`,
+#   `browser_template_literal_string_iteration_source` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# This file runs no `browser_bundle_harness` step at all -- every case is a single
+# `kali run`/`kali test` invocation -- so ruling 6's runner-infrastructure paragraph
+# is omitted rather than printed about a chain this file never reaches.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
 #
 # RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.
-# The program under test interpolates two of its own bindings with a real JS template
-# literal. `expand.rs`'s `substitute()` hard-fails on any `${...}` it cannot resolve,
+# The program under test interpolates 2 of its own bindings (prefix, suffix) with a real JS
+# template literal. `expand.rs`'s `substitute()` hard-fails on any `${...}` it cannot resolve,
 # and `expand.rs:195` substitutes `[source]` BODIES as well as step fields, so this file
 # declares `[constants] dollar = "$"` and spells every genuine `${` as `${dollar}{`.
 # The RESOLVED program text is byte-identical to the source's -- this is an encoding of
@@ -61,38 +87,12 @@
 # a genuinely new one will not be on this list and will fail the gate.
 # EXTRA-OK: '$' -- the value of the rule-10 `[constants] dollar` escape, not an assertion at all -- `check_extra_claims.py` reads every [constants] value as a claim string, and this one exists purely so `expand.rs`'s substitute() can put a literal `$` back into the fixture. The RESOLVED program text is byte-identical to the source's, which is the whole point of rule 10
 #
-# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
-# which differs between the two helper shapes and is not normalised here:
-#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
-#              pair is appended AFTER the subcommand and its flags.
-#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
-#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
-#              BEFORE the subcommand.
-# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
-# passes the bare filename relative to the trial dir, matching every previously shipped
-# `browser/` case file.
-#
-# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
-#   `assert_browser_harness_template_literal_string_iteration`,
-#   `browser_template_literal_string_iteration_source` -- none carries a `///` doc comment.
-# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
-# case file reproduces in [source], so their docs are claim prose and are carried
-# into the rationale of every case that helper's text reaches (ruling 6's test:
-# carry the docs if the migrated case still depends on what the helper computed).
-# This file runs no `browser_bundle_harness` step at all -- every case is a single
-# `kali run`/`kali test` invocation -- so ruling 6's runner-infrastructure paragraph
-# is omitted rather than printed about a chain this file never reaches.
-#
-# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
-# tests/browser_template_literal_string_iteration_harness.rs has 1 Rust comment block(s), listed with their
-# line numbers before any TOML was written:
-#   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:64) -- opens a 2-line block
-# It sits in `assert_browser_harness_template_literal_string_iteration`, which every `#[test]` fn in the file calls,
-# so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
-# by this generator (its comment_blocks helper, named plainly rather than backticked:
-# U8's gate resolves every backticked lower-case identifier against this source's own
-# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
-# become `--`.
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# The source's fail-closed assertion is at `output.status.success()` :66.
 #
 # No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
 # family-wide population count has no gateable home inside a case file, and the

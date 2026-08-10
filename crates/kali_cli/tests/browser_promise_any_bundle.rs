@@ -2,8 +2,8 @@
 //!
 //! GROUND: FIXTURE SELF-INSPECTION (controller ruling 4 / ruling 10).
 //! All 8 `#[test]` fns in this file route through
-//! `assert_browser_bundle_promise_any` (`:68`), which runs 6
-//! `assert!(source.contains(...))` self-checks (`:72-92`) on the JS fixture's
+//! `assert_browser_bundle_promise_any` (`:71`), which runs 6
+//! `assert!(source.contains(...))` self-checks (`:75-95`) on the JS fixture's
 //! OWN TEXT -- a dev-time invariant check that the fixture still literally
 //! embeds every frozen-callable `Promise.any` spelling this file means to
 //! exercise -- before the fixture is ever written to disk or `kali` is ever
@@ -38,7 +38,10 @@
 //! where the on-disk `.rs` is shorter than the source its case file was migrated
 //! from and every literal-comparison gate therefore runs against the wrong
 //! left-hand side. This is a WHOLE-FILE retention: nothing was trimmed, so there
-//! is no pre-trim/post-trim divergence, no `PRE-TRIM REF:` line, and ruling 12's
+//! is no pre-trim/post-trim divergence, no pre-trim ref declaration (the
+//! literal marker is deliberately NOT spelled here: several readers grep the
+//! whole file for it, so a header quoting it would be read as declaring one),
+//! and ruling 12's
 //! third (migrated-complement) column does not apply either -- there is no
 //! migrated complement. There is also no right-hand side: `verify_pair.sh promise_any_bundle`
 //! exits 2 with `missing .../cases/browser/promise_any_bundle.toml` before running any gate,

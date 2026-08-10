@@ -25,15 +25,15 @@
 //!
 //! GROUND FOR THE RETENTION: A CLAIM FROM UNREACHABLE CODE.
 //! Three of this file's shared assert helpers --
-//! `assert_browser_requested_reflect_own_keys` (`:473`),
-//! `assert_json_browser_requested_reflect_own_keys` (`:508`) and
-//! `assert_inherited_browser_api_surface_reflect_own_keys` (`:563`) --
+//! `assert_browser_requested_reflect_own_keys` (`:509`),
+//! `assert_json_browser_requested_reflect_own_keys` (`:544`) and
+//! `assert_inherited_browser_api_surface_reflect_own_keys` (`:599`) --
 //! each carry an `if command == "run"` branch asserting
-//! `stdout.contains("reflect ownKeys ok")` (`:502`), and again at
-//! `stdout.contains("reflect ownKeys ok")` (`:636`); two of them assert it on
+//! `stdout.contains("reflect ownKeys ok")` (`:538`), and again at
+//! `stdout.contains("reflect ownKeys ok")` (`:672`); two of them assert it on
 //! the JSON stdout leaf instead, at
-//! `.contains("reflect ownKeys ok"),` (`:550`) and again at
-//! `.contains("reflect ownKeys ok"),` (`:621`).
+//! `.contains("reflect ownKeys ok"),` (`:586`) and again at
+//! `.contains("reflect ownKeys ok"),` (`:657`).
 //! NO `#[test]` FN REACHES ANY OF THEM, before the trim or after it. PR #16
 //! rev2's honest re-pin moved every `run` caller into run.rs's own local
 //! `_fails_closed` variants, leaving these three helpers with 16 call sites --
@@ -90,17 +90,35 @@
 //! `.rs` is shorter than the source the case files were migrated from, and the
 //! literal-comparison gates need the right left-hand side. THREE COLUMNS:
 //!
-//!   gate                              post-trim  pre-trim  complement
-//!   audit-case-migration.py              RED        RED       green
-//!   check_extra_claims.py                RED        green     green
-//!   check_fixtures.py     (explicit)     RED        RED       green
-//!   check_fixtures.py     (inherited)    RED        RED       RED    <- see below
-//!   comment_coverage.py   (explicit)     RED        RED       RED    <- see below
-//!   comment_coverage.py   (inherited)    RED        green     green
+//!   gate                                 post-trim  pre-trim  complement
+//!   audit-case-migration.py                 RED        RED       green
+//!   check_extra_claims.py                   RED        green     green
+//!   check_fixtures.py        (explicit)     RED        RED       green
+//!   check_fixtures.py        (inherited)    RED        RED       RED    <- below
+//!   comment_coverage.py      (explicit)     RED        RED       RED    <- below
+//!   comment_coverage.py      (inherited)    RED        green     green
+//!   check_rationale_fn_names.py (both)      RED        RED       RED    <- below
 //!
-//! EVERY CELL ABOVE WAS RUN, not reasoned about; two of them came back the
-//! opposite of what a first draft of this paragraph asserted, which is why the
-//! table is measured rather than derived from the shape of the trim.
+//! EVERY CELL ABOVE WAS RUN, not reasoned about; three of them came back the
+//! opposite of a first draft of this paragraph, which is why the table is
+//! measured rather than derived from the shape of the trim.
+//!
+//! TO REPRODUCE THE PRE-TRIM COLUMN, MATERIALISE THE SUBMODULES BESIDE THE
+//! BLOB. `git show <ref>:...browser_reflect_own_keys.rs > /tmp/x.rs` alone
+//! gives a carrier whose `#[path]` declarations resolve to nothing, and the
+//! gates then read a source with no `#[test]` fns and no submodule literals in
+//! it -- which reports `check_extra_claims.py` RED on filenames that are
+//! plainly there. Reproduce the whole directory, exactly as
+//! `citation_sweep.sh` now does for a trimmed carrier:
+//!
+//!     $ ref=$(grep -oP '(?<=PRE-TRIM REF: )[0-9a-f]{40}' \
+//!         crates/kali_cli/tests/browser_reflect_own_keys.rs)
+//!     $ mkdir -p /tmp/pt/browser_reflect_own_keys
+//!     $ git show $ref:crates/kali_cli/tests/browser_reflect_own_keys.rs \
+//!         > /tmp/pt/browser_reflect_own_keys.rs
+//!     $ for m in run build check test; do git show \
+//!         $ref:crates/kali_cli/tests/browser_reflect_own_keys/$m.rs \
+//!         > /tmp/pt/browser_reflect_own_keys/$m.rs; done
 //!
 //! This target NEEDS the third column (ruling 12): the retained `test.rs` half
 //! carries literal claims of its own -- `ok 1`, and the envelope's
@@ -109,11 +127,14 @@
 //! red against the post-trim file (the migrated claims are no longer in it).
 //! Build the correct left-hand side mechanically, which also runs the audit:
 //!
-//!     $ python3 tools/task-18-browser-pilot/batch8a_complement.py
+//!     $ python3 tools/task-18-browser-pilot/migrated_complement.py --carrier \
+//!         crates/kali_cli/tests/browser_reflect_own_keys.rs --audit \
+//!         crates/kali_cli/tests/cases/browser/reflect_own_keys_explicit_api.toml \
+//!         crates/kali_cli/tests/cases/browser/reflect_own_keys_inherited_manifest.toml
 //!     AUDIT OK -- every literal claim is present in the case files.
 //!
-//! THE TWO CELLS THAT STAY RED ON THE COMPLEMENT ARE U2-SPLIT AND U6 ARTIFACTS,
-//! NOT DEFECTS, and neither is peculiar to this target:
+//! THE THREE CELLS THAT STAY RED ON THE COMPLEMENT ARE U2-SPLIT, U6 AND U8
+//! ARTIFACTS, NOT DEFECTS, and none is peculiar to this target:
 //!
 //!   * `check_fixtures.py` on the INHERITED half reports the bundle fixture and
 //!     the bundle-harness body "not present verbatim". They are not supposed to
@@ -122,19 +143,34 @@
 //!     so each half is missing the other's fixtures by construction. Batch 6B's
 //!     already-shipped two-file U2 split behaves identically -- measured:
 //!     `non_literal_iterator_sources_explicit_api` green,
-//!     `..._inherited_manifest` RED. Check the halves together, or read the
-//!     explicit half's green as covering the fixtures the inherited half lacks.
+//!     `..._inherited_manifest` RED.
 //!
 //!   * `comment_coverage.py` on the EXPLICIT half reports run.rs's comment
 //!     block missing from that file's 12 build/check cases. It IS missing, and
 //!     U6 requires it to be: the block sits in `run.rs` and reaches only the 8
 //!     run-derived cases. Copying it into the other 12 would turn the checker
-//!     green and violate U6. The checker has no per-helper attribution; this is
-//!     its documented limitation, the same one `set_iteration_harness` and the
-//!     already-shipped `map_iteration_harness` record.
-//!     Post-trim it is red for a different and duller reason: the trimmed
-//!     source carries no Rust comment at all, so the ruling-5 floor fires on
-//!     "0 comment lines checked".
+//!     green and violate U6. Post-trim it is red for a duller reason: the
+//!     trimmed source carries no Rust comment at all, so the ruling-5 floor
+//!     fires on "0 comment lines checked".
+//!
+//!   * `check_rationale_fn_names.py` reports FOUR residual names per half, and
+//!     all four are benign. Named rather than left as a count:
+//!       - `reflect_own_keys_source`, `reflect_own_keys_test_source`: real
+//!         carrier fns, but RETAINED, so absent from the complement by
+//!         construction. Present in the post-trim file; the gate is red there
+//!         for the mirror-image reason.
+//!       - `reflect_own_keys_frozen_callable_source`: a real `kali_common` fn,
+//!         the owner of the rule-13 doc this file carries. Never in any `.rs`
+//!         under tests/.
+//!       - `check_accepts_reflect_own_keys_in_js_input` (explicit half only): a
+//!         NEGATED mention -- the header says this fn does not exist, which is
+//!         exactly why `check.rs` covers only jsx/tsx. Substring matching has no
+//!         sentence boundary (ruling 18's own note), so the gate reads the
+//!         denial as a citation.
+//!       - `wasmtime` (inherited half only): a runtime name in the U2 paragraph
+//!         recording which measurement was retired, not an identifier at all.
+//!     None is fixable reader-side without deleting true prose, and none was
+//!     resolved by widening the gate's ALLOW list.
 //!
 //! EVERY `:N` CITATION IN THE TWO CASE FILES IS A PRE-TRIM LINE NUMBER, against
 //! the ref declared above. The citations in THIS header are post-trim numbers,

@@ -658,7 +658,30 @@ def check(spec, citations_only=False):
             return [f"{stem}: no case file at {toml_path} and no retention header"]
         problems += _header_cite_arm(stem, "\n".join(rs_header), live_lines)
         problems += _gated_arm(stem, "retention header", "\n".join(rs_header))
-        print(f"{stem}: no case file (whole-file retention); "
+        # THE LABEL IS DERIVED FROM THE HEADER, NOT FROM "no same-stem .toml".
+        # `browser_reflect_own_keys.rs` is a U4 TRIM whose migrated half went to
+        # two U2-split case files under different stems, so no `.toml` matches
+        # its stem and this arm printed "whole-file retention" -- flatly
+        # contradicting the carrier's own header. 8C reads this line before an
+        # irreversible deletion, so a wrong label is not cosmetic. A
+        # `PRE-TRIM REF:` in the header is exactly the fact that distinguishes a
+        # trim from a whole-file retention, and it is already required to be
+        # there (U3 + `case_emit.source_text_at`, which raises on a ref without
+        # a header).
+        header_text = "\n".join(rs_header)
+        # A DECLARATION, NOT A MENTION: require the 40-char sha that follows the
+        # marker, the same shape `batch8a_complement.py` and `citation_sweep.sh`
+        # demand. A bare substring test labelled `promise_any_bundle` -- a
+        # genuine whole-file retention -- a trim, because its own gates
+        # paragraph says the words "no PRE-TRIM REF line". Prose about a file is
+        # an input to any measurement of that file.
+        trimmed = bool(re.search(r"PRE-TRIM REF:\s*[0-9a-f]{40}\b", header_text))
+        if trimmed:
+            kind = ("U4 TRIM -- part of this target is migrated under other stem(s); "
+                    "the retained half stays. DO NOT delete this source")
+        else:
+            kind = "whole-file retention"
+        print(f"{stem}: no same-stem case file ({kind}); "
               f"{len(rs_header)} retention-header line(s) checked, "
               f"{len(problems)} problem(s)")
         return problems
@@ -2426,10 +2449,23 @@ def main(argv):
         for p in all_problems:
             print(f"  {p}")
         return 1
-    print("\nCROSSCHECK OK — header structure consistent, every code citation the "
+    # THE BANNER NAMES ONLY THE ARMS THAT RAN. Under `--citations-only` the
+    # header-structure arm is skipped (`check()` iterates `()` instead of
+    # `SECTIONS`), and this line still said "header structure consistent" -- a
+    # success message asserting an arm that did not run, which is ruling 18's
+    # exact failure mode and is what `citation_sweep.sh` prints on every sweep,
+    # because the sweep invokes `--citations-only`. Derived from the same flag
+    # the arm is gated on, so the two cannot drift apart.
+    structure = ("" if citations_only else
+                 "header structure consistent, ")
+    skipped = ("  (header structure NOT checked: --citations-only skips that arm; "
+               "run without it to check section order)\n" if citations_only else "")
+    print(f"\nCROSSCHECK OK — {structure}every code citation the "
           "gate can resolve resolves, every one it cannot is declared "
           "(UNGATED_REDLIST / NO_NEEDLE_DECLARED), and how much the declared bare "
           "needles actually pin matches PINNED_SPLIT_DECLARED")
+    if skipped:
+        print(skipped, end="")
     return 0
 
 

@@ -235,18 +235,41 @@ RULE10_EXTRA_OK = P.EXTRA_CLAIM_PREAMBLE + [
                     "is byte-identical to the source's, which is the whole point of rule 10"),
 ]
 
-RULE10_PROSE = [
-    "RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.",
-    "The program under test interpolates two of its own bindings with a real JS template",
-    "literal. `expand.rs`'s `substitute()` hard-fails on any `${...}` it cannot resolve,",
-    "and `expand.rs:195` substitutes `[source]` BODIES as well as step fields, so this file",
-    "declares `[constants] dollar = \"$\"` and spells every genuine `${` as `${dollar}{`.",
-    "The RESOLVED program text is byte-identical to the source's -- this is an encoding of",
-    "rule 9, not an exception to it. The generator DERIVES this rather than marking it:",
-    "it escapes whatever `${` the captured fixture actually contains and raises if any",
-    "survives unescaped, so a file cannot declare the constant it does not need or need",
-    "the constant it does not declare.",
-]
+def rule10_prose(escaped):
+    """The RULE 10 block, with its binding count DERIVED from the escaped bodies.
+
+    This was a constant reading "interpolates two of its own bindings" -- true
+    for the `template_literal` pair, FALSE for `reflect_own_keys_explicit_api`
+    (one binding, `${result}`), and vacuous for any file that needs no escape at
+    all. A hardcoded figure inside prose that no gate reads is exactly ruling
+    15's liability, so it is counted here instead: the distinct `${NAME}`
+    bindings actually present, in the bodies actually emitted.
+    """
+    import re as _re
+    names = sorted({m.group(1) for body in escaped.values()
+                    for m in _re.finditer(r"\$\{dollar\}\{(\w+)\}", body)})
+    if not names:
+        raise AssertionError(
+            "rule10_prose called for a file with no escaped template literal -- "
+            "the block would describe a property the file does not have")
+    # Named plainly, not backticked: U8's `check_rationale_fn_names.py` resolves
+    # every backticked lower-case identifier against the source's fn list, and
+    # these are JS BINDINGS inside the fixture, which will never be in it.
+    listed = ", ".join(names)
+    count = ("one of its own bindings" if len(names) == 1
+             else f"{len(names)} of its own bindings")
+    return [
+        "RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.",
+        f"The program under test interpolates {count} ({listed}) with a real JS",
+        "template literal. `expand.rs`'s `substitute()` hard-fails on any `${...}` it cannot resolve,",
+        "and `expand.rs:195` substitutes `[source]` BODIES as well as step fields, so this file",
+        "declares `[constants] dollar = \"$\"` and spells every genuine `${` as `${dollar}{`.",
+        "The RESOLVED program text is byte-identical to the source's -- this is an encoding of",
+        "rule 9, not an exception to it. The generator DERIVES this rather than marking it:",
+        "it escapes whatever `${` the captured fixture actually contains and raises if any",
+        "survives unescaped, so a file cannot declare the constant it does not need or need",
+        "the constant it does not declare.",
+    ]
 
 RULING16_NOTE = [
     "No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a",
@@ -343,12 +366,18 @@ def build_bundle(name, spec):
     raw = check_captured(f"app.${{ext}} ({name})", spec["fixture"], text,
                          anchors=spec["anchors"], must_contain="async function"
                          if "async function" in spec["fixture"] else "function ")
-    source, constants = _rule10({"app.${ext}": raw})
-
-    harness_body = check_program(
+    raw_harness = check_program(
         "harness body",
         _harness_body(text, helper, spec["export"]),
         must_contain="await import(")
+    # The harness `body` is substituted by `expand.rs` exactly as a `[source]`
+    # body is, so it goes through the same rule-10 escape. No bundle harness in
+    # this batch contains a `${`, but a body that grew one and was not escaped
+    # would hard-fail `substitute()` at run time rather than here.
+    escaped, constants = _rule10({"app.${ext}": raw, "__harness__": raw_harness})
+    escaped_all = dict(escaped)
+    harness_body = escaped.pop("__harness__")
+    source = escaped
 
     blocks = rule12_from(text, expect=1)
     repin = prose_of(blocks[0])
@@ -358,6 +387,13 @@ def build_bundle(name, spec):
 
     header = hdr(
         f"Migrated from tests/browser_{name}.rs.",
+        "",
+        # SECTION ORDER IS FIXED BY `batch5_crosscheck.SECTIONS` and checked by
+        # its structure arm: Migrated from / RULE 12 / RULE 7 / RULE 6 / U2 /
+        # RULE 13 / ARGV ORDER / ASSERTION SHAPE. Blocks the list does not name
+        # (U5, RULE 10, ruling 16) may sit anywhere between them.
+        _rule12_block(name, blocks, "every case in this file",
+                      f"`{helper}`, which every `#[test]` fn in the file calls", text),
         "",
         P.matrix_arithmetic(
             test_fns=8, invocations=8,
@@ -375,15 +411,12 @@ def build_bundle(name, spec):
         "text, to `app.<ext>` in every test, so the file-wide `[source]` namespace has one",
         "entry per extension and nothing collides.",
         "",
-        _bundle_shape(c_build_exit, c_meta, c_fail, c_errors),
-        "",
-        (RULE10_PROSE + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
-        P.ARGV_ORDER,
-        "",
         P.rule13_header(chain, docs_carried=docs),
         "",
-        _rule12_block(name, blocks, "every case in this file",
-                      f"`{helper}`, which every `#[test]` fn in the file calls", text),
+        P.ARGV_ORDER,
+        "",
+        (rule10_prose(escaped_all) + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
+        _bundle_shape(c_build_exit, c_meta, c_fail, c_errors),
         "",
         RULING16_NOTE,
     )
@@ -598,6 +631,8 @@ def build_harness(name, spec):
             "body from the command, so they must differ")
     source, constants = _rule10({"main.${ext}": run_raw,
                                  "smoke.test.${ext}": test_raw})
+    escaped_all = source        # this shape emits no harness step, so every
+                                # substituted body is a `[source]` body.
 
     blocks = rule12_from(text, expect=1)
     repin = prose_of(blocks[0])
@@ -606,6 +641,9 @@ def build_harness(name, spec):
 
     header = hdr(
         f"Migrated from tests/browser_{name}.rs.",
+        "",
+        _rule12_block(name, blocks, "every case in this file",
+                      f"`{helper}`, which every `#[test]` fn in the file calls", text),
         "",
         P.matrix_arithmetic(
             test_fns=16, invocations=16,
@@ -629,19 +667,16 @@ def build_harness(name, spec):
         "(That is the axis on which this file differs from `set_iteration_harness`, whose",
         "looped fn reuses `main.<ext>` for BOTH commands and therefore does need renames.)",
         "",
-        FAIL_CLOSED_NOTE,
-        f"The source's fail-closed assertion is at :{c_fail}.",
-        "",
-        (RULE10_PROSE + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
-        P.ARGV_ORDER,
-        "",
         P.rule13_header(chain, docs_carried=docs, runner_exemption=False),
         "This file runs no `browser_bundle_harness` step at all -- every case is a single",
         "`kali run`/`kali test` invocation -- so ruling 6's runner-infrastructure paragraph",
         "is omitted rather than printed about a chain this file never reaches.",
         "",
-        _rule12_block(name, blocks, "every case in this file",
-                      f"`{helper}`, which every `#[test]` fn in the file calls", text),
+        P.ARGV_ORDER,
+        "",
+        (rule10_prose(escaped_all) + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
+        FAIL_CLOSED_NOTE,
+        f"The source's fail-closed assertion is at :{c_fail}.",
         "",
         RULING16_NOTE,
     )
@@ -857,6 +892,8 @@ def build_set_iteration():
     header = hdr(
         f"Migrated from tests/browser_{SET_STEM}.rs.",
         "",
+        _set_rule12_block(blocks, by_owner),
+        "",
         P.matrix_declined(
             test_fns=5, invocations=16, cases=16,
             reason=[
@@ -895,15 +932,6 @@ def build_set_iteration():
         "`smoke.test.js` are already distinct and are NOT renamed -- only the colliding keys",
         "are.",
         "",
-        FAIL_CLOSED_NOTE,
-        f"The source's fail-closed assertion is at {c_fail}.",
-        "",
-        P.EXTRA_CLAIM_PREAMBLE + [
-            P.extra_ok(k, P.EXTRA_OK_U5_RENAME)
-            for k in sorted(source) if k not in ("main.js", "smoke.test.js")],
-        "",
-        P.ARGV_ORDER,
-        "",
         P.rule13_header([helper, "browser_harness_set_iteration_run_source",
                          "browser_harness_set_iteration_test_source"],
                         runner_exemption=False),
@@ -911,7 +939,14 @@ def build_set_iteration():
         "runner-infrastructure paragraph is omitted rather than printed about a chain this",
         "file never reaches.",
         "",
-        _set_rule12_block(blocks, by_owner),
+        P.EXTRA_CLAIM_PREAMBLE + [
+            P.extra_ok(k, P.EXTRA_OK_U5_RENAME)
+            for k in sorted(source) if k not in ("main.js", "smoke.test.js")],
+        "",
+        P.ARGV_ORDER,
+        "",
+        FAIL_CLOSED_NOTE,
+        f"The source's fail-closed assertion is at {c_fail}.",
         "",
         RULING16_NOTE,
     )
@@ -993,7 +1028,7 @@ def _set_rationale(cmd, filename, entry, json_output, looped, repin,
         f"`kali {argv}` with that dir as cwd and the browser harness command variable set to "
         f"`node`.",
         f"ASSERTION SHAPE: the source's ONLY process assertion in this file is "
-        f"`assert!(!output.status.success(), \"must fail closed: {{output:?}}\")` (:{c_fail}) "
+        f"{c_fail} "
         f"-- no exit code, no stdout/stderr needle, no envelope field, in either output mode "
         f"-- so this case carries exactly `exit = \"failure\"` and nothing else. Adding a "
         f"diagnostic code or a stream claim would invent a claim the source never made "
@@ -1328,8 +1363,8 @@ RK_U10 = [
 
 def _rk_u2(half, other_stem, here_fns, here_invocations):
     common = [
-        "U2 -- `[source]` IS FILE-WIDE, WHICH IS WHY THE MIGRATED HALF IS TWO CASE FILES",
-        "AND NOT ONE.",
+        "U2 -- `[source]` is FILE-WIDE, WHICH IS WHY THE MIGRATED HALF IS TWO CASE",
+        "FILES AND NOT ONE.",
         "U10 says migrate a submodule carrier and its sibling directory into ONE `.toml`.",
         "That is wrong here and U2 takes precedence. Of the 28 `#[test]` fns migrated from",
         "this target, 8 -- all in `run.rs` -- go through a helper that writes a `kali.json`",
@@ -1530,10 +1565,17 @@ def _rk_rationale(row, carrier, subs, half, other_stem, repin_prose):
            "what keeps this case able to FAIL if `--api browser` regressed.")
         + f" The other half is in {other_stem}.toml. They cannot share a file: `expand()` "
           f"clones the whole file-level `[source]` map into every trial, so a shared "
-          f"`kali.json` would supply the browser surface to the explicit cases too -- "
-          f"measured, the manifest's presence alone moves `payload.hostContract` from "
-          f"`kali-hosted` to `browser-requested` -- with no literal dropped, so the audit "
-          f"cannot see it, and with the trial still green, so `cargo test` cannot either.")
+          f"`kali.json` would supply the browser surface to the explicit cases too. "
+          f"Measured on a claim this migration actually carries: `kali build --bundle "
+          f"app.js` with no manifest and no `--api` exits 5 and emits no "
+          f"`app/app.meta.json` at all, while the same command with `kali.json` present "
+          f"exits 0 and writes `apiSurface = \"browser\"` into it -- so the 8 `build` "
+          f"cases, which pin exactly those two, would pass whether or not `--api browser` "
+          f"did anything. No literal is dropped by that leak, so the audit cannot see it, "
+          f"and the trial still passes, so `cargo test` cannot either. (The "
+          f"`payload.hostContract` measurement that justified this split before the U4 "
+          f"trim is NOT cited here: those fields are asserted only by the retained "
+          f"`test.rs`, so they no longer cover anything either file claims.)")
 
     if row["sub"] == "run.rs":
         parts.append(
@@ -1541,6 +1583,47 @@ def _rk_rationale(row, carrier, subs, half, other_stem, repin_prose):
             f"one of this target's five files that carries any, carried verbatim: "
             f"\"{repin_prose}\"")
     return " ".join(parts)
+
+
+def _rk_assertion_shape(rows):
+    """The file's claim inventory, DERIVED from the helper each row calls.
+
+    reflect_own_keys is the only file in this batch whose cases do not all make
+    the same shape of claim -- `run.rs` asserts a FAILURE and everything else a
+    SUCCESS with pins -- so the block is built from the rows rather than
+    written, and it raises on a helper it does not know rather than silently
+    describing a file it has not read.
+    """
+    kinds = {}
+    for r in rows:
+        h = r["helper"]
+        if h.endswith("_fails_closed"):
+            k = ("`exit = \"failure\"` and nothing else -- the source's only process "
+                 "assertion on this path is `assert!(!output.status.success())`, so a "
+                 "diagnostic code or a stream needle would be a rule-2 invention")
+        elif h == "assert_browser_bundle_reflect_own_keys":
+            k = ("`exit = \"success\"` on the build, the `app/app.meta.json` "
+                 "apiSurface/artifactKind pins, and -- unlike every other bundle target in "
+                 "this batch -- `exit = \"success\"` on the harness too, plus "
+                 "`stdout_contains = [\"0\"]`. No `errors` claim: this helper does not "
+                 "make one")
+        elif h == "assert_browser_checked_reflect_own_keys":
+            k = ("`exit = \"success\"`, and in JSON mode the envelope's "
+                 "schemaVersion/command/success/exitCode, `payload.filesChecked = 1` and an "
+                 "empty `errors` array. In text mode that is the helper's ONLY assertion")
+        else:
+            k = ("`exit = \"success\"` plus `stdout_contains = [\"ok 1\"]` in text mode, "
+                 "or the full envelope in JSON mode; the ENVELOPE-level `exitCode = 0` is "
+                 "pinned for `test` as well as `run` because the source asserts it above "
+                 "its `if command == \"run\"`")
+        kinds.setdefault(k, []).append(r["fn"])
+    if not kinds:
+        raise AssertionError("no rows -- nothing to describe")
+    out = ["ASSERTION SHAPE, mirrored from the source and nothing more. This file's cases",
+           "do NOT all make the same shape of claim, so each is stated with its count:"]
+    for k, fns in sorted(kinds.items(), key=lambda kv: -len(kv[1])):
+        out.append(f"  * {len(fns)} case(s): {k}.")
+    return out
 
 
 def _rk_rule12(subs, blocks):
@@ -1573,8 +1656,10 @@ def _rk_rule12(subs, blocks):
         "limitation, recorded here rather than papered over by copying the prose into cases",
         "whose producing file never runs, which U6 forbids even though it would turn the",
         "checker green.",
-        "The text is COPIED out of the `.rs` by this generator (`comment_blocks`), not",
-        "retyped, so an em-dash cannot become `--`.",
+        "The text is COPIED out of the `.rs` by this generator (its comment_blocks helper,",
+        "named plainly rather than backticked: U8's gate resolves every backticked",
+        "lower-case identifier against this source's own fn list, and that one lives in the",
+        "generator), not retyped, so an em-dash cannot become `--`.",
     ]
 
 
@@ -1638,11 +1723,28 @@ def _rk_build(half):
     elif any(k == "kali.json" for k in raw_source):
         raise AssertionError("the explicit half must not carry a manifest")
 
+    # THE HARNESS BODY BELONGS TO THE EXPLICIT HALF ONLY. `build.rs` is entirely
+    # explicit, so the inherited half emits no `browser_bundle_harness` step at
+    # all. Feeding the harness body through `_rule10` for BOTH halves made the
+    # inherited file declare `[constants] dollar`, print the whole RULE 10
+    # block, and carry an `EXTRA-OK: '$'` suppression -- for a file whose
+    # fixtures contain no `${` anywhere. `_rule10`'s own docstring promises "a
+    # file cannot declare the constant it does not need"; that is only true if
+    # it is shown the bodies the file actually emits.
+    emits_harness = any(r["helper"] == "assert_browser_bundle_reflect_own_keys"
+                        for r in rows)
+    if emits_harness != (half == "explicit"):
+        raise AssertionError(
+            f"the {half} half {'does' if emits_harness else 'does not'} emit a bundle "
+            "harness step; the rule-10 input set is derived from that and the two disagree")
     bodies = dict(raw_source)
-    bodies["__harness__"] = harness_raw
+    if emits_harness:
+        bodies["__harness__"] = harness_raw
     escaped, constants = _rule10(bodies)
-    harness_body = escaped.pop("__harness__")
-    source = escaped
+    escaped_all = dict(escaped)          # the prose counts bindings over EVERY
+    harness_body = escaped.pop("__harness__", None)   # emitted body, and the
+    source = escaped                     # explicit half's only `${` is in the
+                                         # harness body, not in `[source]`.
 
     if half == "explicit":
         matrix = None
@@ -1677,15 +1779,21 @@ def _rk_build(half):
         f"Migrated from tests/browser_{RK}.rs and its `#[path]` submodule directory",
         f"tests/browser_{RK}/ -- the {'manifest-inherited' if half == 'inherited' else 'explicit-`--api browser`'} half of a two-file U2 split.",
         "",
-        RK_U10,
+        # SECTION ORDER IS FIXED BY `batch5_crosscheck.SECTIONS`: Migrated from /
+        # RULE 12 / RULE 7 / RULE 6 / U2 / RULE 13 / ARGV ORDER / ASSERTION
+        # SHAPE. U10, U5, RULE 10 and ruling 16 are not on that list and sit
+        # between them.
+        _rk_rule12(subs, blocks),
         "",
-        _rk_u2(half, other, len(rows), len(rows) * (4 if matrix else 1)),
+        RK_U10,
         "",
         matrix_block,
         "",
         (P.rule6_matrix_fold(
             "one `json_output` half of this file's 8 fns, fanned to the 4 extensions")
          if matrix else P.RULE6_ONE_TO_ONE),
+        "",
+        _rk_u2(half, other, len(rows), len(rows) * (4 if matrix else 1)),
         "",
         "U5 -- NO `[source]` KEY RENAME IS NEEDED. Each of this target's three program",
         "texts has its own filename stem in the source (`main.<ext>` for the run-mode probe,",
@@ -1696,12 +1804,7 @@ def _rk_build(half):
         "collision -- the two texts are byte-identical because they are the same call to the",
         "same builder.",
         "",
-        (RULE10_PROSE + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
-        P.ARGV_ORDER,
-        "The `check` shape follows the build convention: `check --api browser",
-        "[--output json] <entry>`, with the `--output json` pair appended AFTER the",
-        "subcommand and its flags.",
-        "",
+        (rule10_prose(escaped_all) + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
         P.rule13_header(
             ["assert_browser_requested_reflect_own_keys",
              "assert_json_browser_requested_reflect_own_keys",
@@ -1720,7 +1823,14 @@ def _rk_build(half):
          "IS carried in the sibling file: the manifest-inherited helpers write the same "
          "run-mode fixture, so the doc is carried here too where that fixture appears."),
         "",
-        _rk_rule12(subs, blocks),
+        P.ARGV_ORDER,
+        ("The `check` shape follows the build convention: `check --api browser "
+         "[--output json] <entry>`, with the `--output json` pair appended AFTER the "
+         "subcommand and its flags." if half == "explicit" else
+         "No `build` or `check` invocation appears in this half, so only the run/test argv "
+         "shape above applies here."),
+        "",
+        _rk_assertion_shape(rows),
         "",
         RULING16_NOTE,
     )

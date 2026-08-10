@@ -1,5 +1,16 @@
 # Migrated from tests/browser_template_literal_string_iteration_bundle.rs.
 #
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
+# tests/browser_template_literal_string_iteration_bundle.rs has 1 Rust comment block(s), listed with their
+# line numbers before any TOML was written:
+#   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:113) -- opens a 2-line block
+# It sits in `assert_browser_bundle_template_literal_string_iteration`, which every `#[test]` fn in the file calls,
+# so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
+# by this generator (its comment_blocks helper, named plainly rather than backticked:
+# U8's gate resolves every backticked lower-case identifier against this source's own
+# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
+# become `--`.
+#
 # RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
 # 8 `#[test]` fns, 8 real helper invocations with every loop
 # expanded:
@@ -28,47 +39,6 @@
 # text, to `app.<ext>` in every test, so the file-wide `[source]` namespace has one
 # entry per extension and nothing collides.
 #
-# ASSERTION SHAPE, mirrored from the source and nothing more.
-# `exit = "success"` on the `kali build --bundle` process: `output.status.success(),` (:58).
-# In JSON mode the envelope's schemaVersion/command/success/exitCode and
-# payload(artifactKind, bundleFormat) are pinned, plus `errors = []` -- `envelope["errors"]` (:73) --
-# this file's helper does assert the errors array is empty, and a file whose helper
-# does not would not carry the claim.
-# The emitted `app/app.meta.json` is pinned to apiSurface/artifactKind: `join("app.meta.json")` (:81).
-# THEN THE HARNESS PROCESS MUST FAIL CLOSED -- `assert!(!output.status.success(), "must fail closed` (:115) -- so the
-# `browser_bundle_harness` step carries `exit = "failure"` and NO output claim,
-# because the source makes none
-# there. Adding a diagnostic code or a stream needle would be a rule-2 invention even
-# though the real binary does emit one.
-#
-# RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.
-# The program under test interpolates two of its own bindings with a real JS template
-# literal. `expand.rs`'s `substitute()` hard-fails on any `${...}` it cannot resolve,
-# and `expand.rs:195` substitutes `[source]` BODIES as well as step fields, so this file
-# declares `[constants] dollar = "$"` and spells every genuine `${` as `${dollar}{`.
-# The RESOLVED program text is byte-identical to the source's -- this is an encoding of
-# rule 9, not an exception to it. The generator DERIVES this rather than marking it:
-# it escapes whatever `${` the captured fixture actually contains and raises if any
-# survives unescaped, so a file cannot declare the constant it does not need or need
-# the constant it does not declare.
-#
-# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
-# check_extra_claims.py compares this file's claim strings against the source's and fails
-# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
-# a genuinely new one will not be on this list and will fail the gate.
-# EXTRA-OK: '$' -- the value of the rule-10 `[constants] dollar` escape, not an assertion at all -- `check_extra_claims.py` reads every [constants] value as a claim string, and this one exists purely so `expand.rs`'s substitute() can put a literal `$` back into the fixture. The RESOLVED program text is byte-identical to the source's, which is the whole point of rule 10
-#
-# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
-# which differs between the two helper shapes and is not normalised here:
-#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
-#              pair is appended AFTER the subcommand and its flags.
-#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
-#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
-#              BEFORE the subcommand.
-# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
-# passes the bare filename relative to the trial dir, matching every previously shipped
-# `browser/` case file.
-#
 # RULE 13 -- transitive helper docs. Checked every fn in each call chain:
 #   `assert_browser_bundle_template_literal_string_iteration`,
 #   `browser_bundle_template_literal_string_iteration_source` -- none carries a `///` doc comment.
@@ -85,16 +55,46 @@
 # controller ruling 6, which writes the exemption into the rule rather than leaving it
 # to implementer discretion.
 #
-# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
-# tests/browser_template_literal_string_iteration_bundle.rs has 1 Rust comment block(s), listed with their
-# line numbers before any TOML was written:
-#   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:113) -- opens a 2-line block
-# It sits in `assert_browser_bundle_template_literal_string_iteration`, which every `#[test]` fn in the file calls,
-# so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
-# by this generator (its comment_blocks helper, named plainly rather than backticked:
-# U8's gate resolves every backticked lower-case identifier against this source's own
-# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
-# become `--`.
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.
+# The program under test interpolates 2 of its own bindings (prefix, suffix) with a real JS
+# template literal. `expand.rs`'s `substitute()` hard-fails on any `${...}` it cannot resolve,
+# and `expand.rs:195` substitutes `[source]` BODIES as well as step fields, so this file
+# declares `[constants] dollar = "$"` and spells every genuine `${` as `${dollar}{`.
+# The RESOLVED program text is byte-identical to the source's -- this is an encoding of
+# rule 9, not an exception to it. The generator DERIVES this rather than marking it:
+# it escapes whatever `${` the captured fixture actually contains and raises if any
+# survives unescaped, so a file cannot declare the constant it does not need or need
+# the constant it does not declare.
+#
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '$' -- the value of the rule-10 `[constants] dollar` escape, not an assertion at all -- `check_extra_claims.py` reads every [constants] value as a claim string, and this one exists purely so `expand.rs`'s substitute() can put a literal `$` back into the fixture. The RESOLVED program text is byte-identical to the source's, which is the whole point of rule 10
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# `exit = "success"` on the `kali build --bundle` process: `output.status.success(),` (:58).
+# In JSON mode the envelope's schemaVersion/command/success/exitCode and
+# payload(artifactKind, bundleFormat) are pinned, plus `errors = []` -- `envelope["errors"]` (:73) --
+# this file's helper does assert the errors array is empty, and a file whose helper
+# does not would not carry the claim.
+# The emitted `app/app.meta.json` is pinned to apiSurface/artifactKind: `join("app.meta.json")` (:81).
+# THEN THE HARNESS PROCESS MUST FAIL CLOSED -- `assert!(!output.status.success(), "must fail closed` (:115) -- so the
+# `browser_bundle_harness` step carries `exit = "failure"` and NO output claim,
+# because the source makes none
+# there. Adding a diagnostic code or a stream needle would be a rule-2 invention even
+# though the real binary does emit one.
 #
 # No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
 # family-wide population count has no gateable home inside a case file, and the
