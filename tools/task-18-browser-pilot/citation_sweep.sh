@@ -78,6 +78,28 @@ trap 'rm -rf "$TMPDIR_"' EXIT
 # resolve it. Neither can now see the other's files (minor 6).
 mkdir -p "$TMPDIR_/pretrim" "$TMPDIR_/refs"
 
+# Materialise a PRE-TRIM blob AND, for a `#[path]` carrier, its pre-trim sibling
+# submodule directory. The blob alone is not enough for a carrier: its `#[path]`
+# declarations resolve relative to the blob's own directory, and a U4 trim that
+# MIGRATED some submodules has deleted them from the tree, so every qualified
+# `<file>.rs:N` citation in the pair is reported as naming a non-submodule -- a
+# correct pair turned red by an artefact of the materialisation. Same
+# reproduction the `SOURCE REF:` arm does for a deleted source, applied to a
+# trimmed one. The submodule list is enumerated from the BLOB, so a submodule
+# the trim removed is still found.
+materialise_pretrim() {
+  local ref="$1" rel="$2" out="$3"
+  git -C "$REPO" show "$ref:crates/kali_cli/tests/$rel" > "$out" \
+    || { echo "cannot read $ref:$rel -- this sweep needs FULL history: in CI, actions/checkout must be given \`fetch-depth: 0\`; locally, git fetch --unshallow"; exit 2; }
+  local sub
+  for sub in $(grep -oP '(?<=#\[path = ")[^"]+(?="\])' "$out" 2>/dev/null); do
+    mkdir -p "$(dirname "$out")/$(dirname "$sub")"
+    git -C "$REPO" show "$ref:crates/kali_cli/tests/$sub" \
+      > "$(dirname "$out")/$sub" 2>/dev/null \
+      || { echo "cannot read $ref:$sub -- the pre-trim submodule a qualified citation needs"; exit 2; }
+  done
+}
+
 # The case file's HEADER: leading `#` lines, blank lines skipped, stop at the
 # first content line. This is `batch5_crosscheck.py`'s `_header()`, so a
 # `#`-prefixed line inside a `[source]` fixture body is not part of it.
@@ -185,8 +207,7 @@ for t in cases/browser/*.toml; do
       # The remedy is on this message too, because a shallow clone hits THIS arm
       # first (`PRE-TRIM REF:` precedes the SOURCE-DELETED arm in the glob) and
       # "cannot read <ref>" alone does not say that full history is the fix.
-      git -C "$REPO" show "$pt:crates/kali_cli/tests/$rs" > "$blob" \
-        || { echo "cannot read $pt:$rs -- this sweep needs FULL history: in CI, actions/checkout must be given \`fetch-depth: 0\`; locally, git fetch --unshallow"; exit 2; }
+      materialise_pretrim "$pt" "$rs" "$blob"
       SPECS+=("$s=$blob"); RESOLVED+=("$s $pt $rs")
       check_ref_content "$s" "$ref" "$rs" "$blob"
     else
@@ -196,6 +217,23 @@ for t in cases/browser/*.toml; do
     continue
   fi
   if [[ -n "$src" && -f "$src" ]]; then
+    # THE NAMED SOURCE MAY ITSELF BE A TRIMMED CARRIER (batch 8A). A U2 split
+    # names one source from two case files, so the stem here is the CASE FILE's
+    # (`reflect_own_keys_explicit_api`) and never matches a `.rs`; this arm
+    # resolves it by the `Migrated from` name. If that file declares a
+    # `PRE-TRIM REF:`, every `:N` in the case file is a PRE-TRIM number
+    # (ruling 9) and the live file is the wrong side to resolve against -- for a
+    # `#[path]` carrier it also resolves only the RETAINED submodules, so
+    # citations into the migrated ones look like bad names. Take the same
+    # pre-trim route the same-named arm above takes.
+    srcpt=$(grep -oP '(?<=PRE-TRIM REF:)\s*\S+' "$TESTS/$src" | head -1 | tr -d ' ')
+    if [[ -n "$srcpt" ]]; then
+      srcblob="$TMPDIR_/pretrim/$s.rs"
+      materialise_pretrim "$srcpt" "$src" "$srcblob"
+      SPECS+=("$s=$srcblob"); RESOLVED+=("$s $srcpt $src")
+      check_ref_content "$s" "$ref" "$src" "$srcblob"
+      continue
+    fi
     SPECS+=("$s=$TESTS/$src"); RESOLVED+=("$s - $src")
     check_ref_content "$s" "$ref" "$src" "$TESTS/$src"
     continue

@@ -1407,12 +1407,23 @@ def _rk_cite(row, carrier, subs):
     carrier.
     """
     sub_text = subs[row["sub"]]
-    fn_cite = "%s:%d" % (row["sub"], P.cite_line(sub_text, "fn " + row["fn"] + r"\("))
+    # Each citation carries the construct it points at, so the gate can
+    # re-resolve it (ruling 11: a pointer nothing re-resolves is a figure in
+    # disguise). The construct is the literal this function searched for.
+    # The snippet is `<name>(` with NO leading `fn `, which is the form batch
+    # 6B's shipped submodule citations use and the only one the gate's needle
+    # extractor gives a needle to -- a snippet containing a space yields none,
+    # and the citation then "matches but yields NO NEEDLE", i.e. nothing
+    # re-resolves it. Copied from the working precedent rather than invented.
+    fn_cite = "`%s(` (%s:%d)" % (
+        row["fn"], row["sub"], P.cite_line(sub_text, "fn " + row["fn"] + r"\("))
     helper = row["helper"]
     if "fn " + helper + "(" in sub_text:
-        helper_cite = "%s:%d" % (row["sub"], P.cite_line(sub_text, "fn " + helper + r"\("))
+        helper_cite = "`%s(` (%s:%d)" % (
+            helper, row["sub"], P.cite_line(sub_text, "fn " + helper + r"\("))
     else:
-        helper_cite = ":%d" % P.cite_line(carrier, "fn " + helper + r"\(")
+        helper_cite = "`%s(` (:%d)" % (
+            helper, P.cite_line(carrier, "fn " + helper + r"\("))
     return fn_cite, helper_cite
 
 
@@ -1423,14 +1434,14 @@ def _rk_rationale(row, carrier, subs, half, other_stem, repin_prose):
 
     parts = [
         f"Migrated from browser_{RK}.rs, the `{row['fn']}` `#[test]` fn in its "
-        f"`{row['sub'][:-3]}` `#[path]` submodule ({fn_cite}). That fn is a single unlooped "
+        f"`{row['sub'][:-3]}` `#[path]` submodule -- {fn_cite}. That fn is a single unlooped "
         f"helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name "
         f"verbatim -- the case is the only remaining trace of the fn (rule 6)."
     ]
 
     if h.endswith("_fails_closed"):
         parts.append(
-            f"`{h}(` ({helper_cite}) is a LOCAL, run-module-only variant of the carrier's "
+            f"{helper_cite} is a LOCAL, run-module-only variant of the carrier's "
             f"shared helper of the same name minus the suffix: it copies the command shape "
             f"and narrows the assertion to the honest fail-closed result. The source's only "
             f"process assertion on this path is `assert!(!output.status.success(), \"must "
@@ -1440,7 +1451,7 @@ def _rk_rationale(row, carrier, subs, half, other_stem, repin_prose):
             f"one.")
     elif h == "assert_browser_bundle_reflect_own_keys":
         parts.append(
-            f"`{h}(` ({helper_cite}) writes the tree-shakeable "
+            f"{helper_cite} writes the tree-shakeable "
             f"`reflectOwnKeysSmoke` bundle fixture to `{row['entry']}`, builds it with "
             f"`kali build --bundle --api browser"
             f"{' --output json' if json_output else ''}`"
@@ -1463,7 +1474,7 @@ def _rk_rationale(row, carrier, subs, half, other_stem, repin_prose):
                 "carried here. Mirroring the source means mirroring what it omits.")
     elif h == "assert_browser_checked_reflect_own_keys":
         parts.append(
-            f"`{h}(` ({helper_cite}) writes the run-mode probe to "
+            f"{helper_cite} writes the run-mode probe to "
             f"`{row['entry']}` and runs `kali check --api browser"
             f"{' --output json' if json_output else ''}`, asserting the process succeeds"
             + (" and pinning the envelope's schemaVersion/command/success/exitCode, "
@@ -1479,7 +1490,7 @@ def _rk_rationale(row, carrier, subs, half, other_stem, repin_prose):
         surface = ("the manifest (`kali.json`), with no `--api` flag on argv"
                    if row["inherited"] else "the explicit `--api browser` flag")
         parts.append(
-            f"`{h}(` ({helper_cite}) writes the `Kali.test` probe to "
+            f"{helper_cite} writes the `Kali.test` probe to "
             f"`{row['entry']}` and runs `kali {'--output json ' if json_output else ''}"
             f"{row['cmd']}{'' if row['inherited'] else ' --api browser'} {row['entry']}` "
             f"with the browser harness command variable set to `node`; the browser API "
@@ -1537,12 +1548,23 @@ def _rk_rule12(subs, blocks):
     # The citation carries the comment's own first line as its backticked
     # construct, so the gate has something to re-resolve; a comment block has no
     # CODE construct beside it (ruling 11).
-    first = subs["run.rs"].split("\n")[start - 1].strip()
+    # THE CITATION POINTS AT CODE, NOT AT THE COMMENT. A comment line yields no
+    # needle -- the gate strips comment text when extracting one -- so a
+    # `(run.rs:3)` pointing at the block itself matches the reader and then
+    # re-resolves nothing, which ruling 11 says is a figure in disguise. The
+    # block's position is given instead as an offset from the first `fn` BELOW
+    # it, which is a real construct the gate resolves, and the offset is derived
+    # here rather than written down.
+    lines = subs["run.rs"].split("\n")
+    below = next(i for i in range(start + len(body) - 1, len(lines))
+                 if lines[i].startswith("fn "))
+    anchor = lines[below].split("(")[0].replace("fn ", "").strip()
+    gap = (below + 1) - start
     return [
         "RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.",
         "The carrier and three of its four submodules carry NO Rust comment at all; the",
-        f"whole target has exactly one block, `{first}`",
-        f"(run.rs:{start}), opening {len(body)} line(s), and it",
+        f"whole target has exactly one block, opening {gap} lines above",
+        f"`{anchor}(` (run.rs:{below + 1}) and running {len(body)} line(s), and it",
         "sits at module scope in `run.rs` above that file's three local `_fails_closed`",
         "helpers. It is therefore carried into the rationale of every case that came from",
         "run.rs and into no others -- which is per-helper attribution (U6), not pooling.",

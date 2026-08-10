@@ -731,6 +731,25 @@ def check(spec, citations_only=False):
         bases = []
         if os.path.dirname(os.path.abspath(rs_path)) == os.path.abspath(TESTS):
             bases.append(rs_path)          # a --rs split: already a tree file
+        # AN OVERRIDE BLOB THAT RESOLVES ITS OWN SUBMODULES WINS OVER THE LIVE
+        # TREE (batch 8A). For a U4 trim of a `#[path]` carrier the live file is
+        # the TRIMMED one: it resolves only the submodules that were RETAINED,
+        # `found` is non-empty, the loop breaks on it, and every citation into a
+        # MIGRATED submodule is then reported as naming a non-submodule. The
+        # citations are pre-trim numbers (ruling 9), so the pre-trim submodule
+        # set is the right one -- and `citation_sweep.sh` now reproduces it next
+        # to the blob.
+        #
+        # DERIVED, NOT GUESSED FROM THE FILENAME. A first version tested for a
+        # directory named after the blob's own basename; the blob is written as
+        # `<stem>.rs` while its `#[path]` names `browser_<stem>/...`, so the
+        # test never fired and the arm was dead while looking correct. Asking
+        # `submodule_paths` whether anything actually resolves is immune to that,
+        # and it is inert for a flat blob, which resolves nothing and falls
+        # through to the bases below exactly as before.
+        if (os.path.dirname(os.path.abspath(rs_path)) != os.path.abspath(TESTS)
+                and submodule_paths(rs_path, base=rs_path)):
+            bases.append(rs_path)
         if os.path.exists(live_path):
             bases.append(live_path)        # a --pretrim blob of a live stem
         named = _migrated_from(text)       # the case file names its own source
