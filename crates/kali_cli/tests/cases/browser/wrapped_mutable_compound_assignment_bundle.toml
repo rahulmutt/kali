@@ -51,8 +51,8 @@
 # run. THE BUILD SUCCEEDS AND SO DOES THE HARNESS: the source asserts
 # `output.status.success()` on both and additionally that the harness's stdout is
 # EXACTLY empty, so the harness step carries `exit = "success"` and `stdout = ""`.
-# That exact-empty pin is the source's own `is_empty()` claim, not an invention: a
-# `stdout_absent` list cannot express "nothing at all" (rule 1).
+# That exact-empty pin is the source's own emptiness assertion on the harness stdout,
+# not an invention: a `stdout_absent` list cannot express "nothing at all" (rule 1).
 # Per controller ruling 6, the `browser_bundle_harness` step kind means the RUNNER
 # builds the harness script, so the `///` docs on
 # `kali_runtime_contract::browser_bundle_harness_script` and

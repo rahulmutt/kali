@@ -105,6 +105,26 @@ def toml_program_texts(path):
         for st in steps:
             if isinstance(st, dict) and isinstance(st.get("body"), str):
                 out.append(st["body"])
+            # A step's `env` VALUES, added in batch 8B. `[source]` and `body`
+            # were the only two places a migrated program could live until this
+            # batch, whose `runtime_summary_fallback_*` targets carry the
+            # program under test's *harness* -- a whole `node -e '...'` script
+            # that fabricates the browser summary file and stdout -- in
+            # `KALI_BROWSER_BUNDLE_HARNESS_COMMAND`, per case, because that is
+            # where the source puts it and there is nowhere else for it to go.
+            #
+            # Without this the gate reported 46 correct fixtures across the four
+            # files as UNMATCHED, which is a false failure of the loud kind --
+            # but the quiet direction is what makes the addition necessary
+            # rather than convenient: a case file that MANGLED one of those
+            # scripts would have been reported identically, so the arm could not
+            # tell a correct file from a corrupted one for this whole shape.
+            # Probed by `inst2_probes.py` section 9: corrupt one byte of an
+            # `env` program and the gate must go red.
+            if isinstance(st, dict) and isinstance(st.get("env"), dict):
+                for value in st["env"].values():
+                    if isinstance(value, str):
+                        out.append(value)
     return out
 
 

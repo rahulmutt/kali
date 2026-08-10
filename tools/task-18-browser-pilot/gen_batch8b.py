@@ -286,6 +286,7 @@ def build_step(claims, argv, env, *, caps=None, cap_key=None, files=None,
         step["stderr"] = ""
     if any(c[0] == "stdout_empty" for c in claims):
         step["stdout"] = ""
+        PINNED.append(("empty-stdout", "stdout", ""))
 
     paths = {}
     for c in claims:
@@ -303,6 +304,7 @@ def build_step(claims, argv, env, *, caps=None, cap_key=None, files=None,
         if caps is None:
             raise AssertionError("a json-leaf `.contains` needs a live capture")
         observed = caps.json_leaf(cap_key, files, argv, env, c[1])
+        PINNED.append(("json-leaf", c[1], observed))
         if not isinstance(observed, str) or c[2] not in observed:
             raise AssertionError(
                 f"{cap_key}: the captured json.{c[1]} does not contain the source's "
@@ -377,6 +379,43 @@ def ruling7_block(source):
         "RULING 7 -- NOTHING TO HOIST. This file has a single `[source]` entry, so there is no",
         "duplicated body for U13 to hoist and no identity to assert.",
     ]
+
+
+def extra_ok_block(renames=()):
+    """The `# EXTRA-OK:` declarations, DERIVED from what this file just pinned.
+
+    Ruling 18 in miniature: a hand-written declaration list is prose that has to
+    be kept in step with the emitted claims, and nothing keeps it there. So the
+    list is built from `PINNED`, which is appended to at the exact moment a pin
+    is taken from a capture, and from the U5 rename table, which is built by
+    detecting a real collision. A file that stops pinning something stops
+    declaring it in the same run.
+    """
+    entries = []
+    for kind, path, value in PINNED:
+        if kind == "json-leaf":
+            entries.append((value, P.EXTRA_OK_JSON_STDOUT if path == "stdout" else (
+                f"live-captured exact `json.{path}` pin; the source asserts `.contains` on a "
+                "JSON leaf, which has no substring form, so ruling 3 requires an exact pin "
+                "captured from the real binary")))
+        elif kind == "empty-stdout":
+            entries.append((value,
+                            "the exact-empty `stdout` pin on the browser-bundle harness step. "
+                            "The source spells it as an `is_empty` check on the harness "
+                            "process's stdout, which carries no literal for the extractor to "
+                            "find, and no substring key can express \"nothing at all\" (rule 1)"))
+    for _, new, _ in renames:
+        for ext in EXT_ORDER:
+            entries.append((new.replace("${ext}", ext), P.EXTRA_OK_U5_RENAME))
+    if not entries:
+        return []
+    seen, lines = set(), list(P.EXTRA_CLAIM_PREAMBLE)
+    for value, why in entries:
+        if value in seen:
+            continue
+        seen.add(value)
+        lines.append(P.extra_ok(value, why))
+    return lines
 
 
 RULING16_NOTE = [
@@ -470,6 +509,7 @@ SF_STEMS = [f"runtime_summary_fallback_{e}_input" for e in ("js", "jsx", "ts", "
 
 
 def build_summary_fallback(stem):
+    PINNED.clear()
     rows, carrier, subs, writer, fixture = summary_fallback_rows(stem)
     ext = stem[len("runtime_summary_fallback_"):-len("_input")]
 
@@ -544,8 +584,8 @@ def build_summary_fallback(stem):
             "This carrier covers exactly ONE input extension "
             f"(`.{ext}`), so there is no `ext`",
             "dimension to hoist: every fixture in it already ends `." + ext + "`. The two",
-            "dimensions that DO vary -- `command` (run/test) and `json_output` -- change the",
-            "ASSERTION SHAPE rather than substituting a string, and the fixture NAME differs",
+            "dimensions that DO vary -- the subcommand (run/test) and the output mode -- change",
+            "the ASSERTION SHAPE rather than substituting a string, and the fixture NAME differs",
             "between them as well (`<case>." + ext + "` for run, `<case>.test." + ext + "` for test),",
             "so neither is a substitutable axis. Each case additionally carries its own",
             "`KALI_BROWSER_BUNDLE_HARNESS_COMMAND` program, which is per-case data and not an",
@@ -565,6 +605,9 @@ def build_summary_fallback(stem):
     header += ruling7_block(source)
     header += [""]
     header += RULING16_NOTE
+    block = extra_ok_block()
+    if block:
+        header += [""] + block
     return header, {}, source, cases
 
 
@@ -584,6 +627,18 @@ def _sf_rule12_block(stem, docs, subs):
             "Each is carried into the rationale of exactly the cases whose output passes",
             "through that helper (U6 bottom-up; copying both into every case to make",
             "`comment_coverage.py` read clean would be the over-attribution U6 forbids).",
+            "",
+            "CONSEQUENCE: `comment_coverage.py` IS RED ON THIS PAIR, AND MUST STAY RED.",
+            "The checker pools the header and every rationale and asks whether each source",
+            "comment line appears in ALL of them; it has no per-helper attribution. Each doc",
+            "block above documents ONE assertion helper and is carried only by the cases that",
+            "reach it, so the checker reports the other cases as missing it. That report is",
+            "correct about the text and wrong about the requirement: U6 states in terms that",
+            "the fix is NOT to copy the prose into cases whose helper never runs, and",
+            "explicitly forbids doing so to turn the checker green. This is the same",
+            "documented limitation the shipped `map_iteration_harness` and",
+            "`set_iteration_harness` pairs carry. Every other arm of `verify_pair.sh` is green",
+            "on this pair.",
         ]
     return lines
 
@@ -714,6 +769,14 @@ from batch8b_extract import (  # noqa: E402
 )
 
 EXT_ORDER = ["js", "ts", "jsx", "tsx"]
+
+# Every claim string a file carries that the source does NOT spell as a literal,
+# accumulated as it is emitted rather than listed by hand. `check_extra_claims.py`
+# (U14's `extra` direction, rule 2's checkable invariant) reports each of these,
+# and a declaration written from memory is a declaration that stops matching the
+# moment a pin moves.
+PINNED = []
+
 
 
 def extify(name):
@@ -897,6 +960,7 @@ def emit_flat(*, stem, out_stem, helpers, keep_manifest, other_stem, half_label,
               program_desc, helper_desc, measurement, disarmed_shape,
               extra_header=None, or_pins=None, extra_bind=None,
               rule12_expect=0, migration_notes=()):
+    PINNED.clear()
     text, rows = flat_rows(stem, helpers, extra_bind=extra_bind)
     blocks = comment_blocks(text, "//")
     if len(blocks) != rule12_expect:
@@ -1043,6 +1107,9 @@ def emit_flat(*, stem, out_stem, helpers, keep_manifest, other_stem, half_label,
     header += ruling7_block(source)
     header += [""]
     header += RULING16_NOTE
+    block = extra_ok_block(renames)
+    if block:
+        header += [""] + block
 
     out = []
     for c in cases:
@@ -1242,7 +1309,9 @@ SPLIT_TARGETS = {
         measurement=DISARM_MEASUREMENT,
         notes_explicit=[P.migration_note_stale_fn_name(
             "assert_browser_requested_rejects_positive_spawned_process_budget",
-            "its name says `browser_requested`, but unlike its `_accepts_` twin it writes NO "
+            "its name says browser-requested (spelled without backticks here: U8's gate resolves "
+            "every backticked lower-case identifier against this source's fn list, and that is a "
+            "prose fragment of a fn name, not a fn), but unlike its accepting twin it writes NO "
             "`kali.json` and passes NO `--api browser`, so no browser API surface is requested "
             "at all; the E5506 it asserts is the spawned-process budget rejection, which fires "
             "on the default surface too."),
@@ -1324,6 +1393,7 @@ BUNDLE_TARGETS = {
 
 
 def build_bundle(stem):
+    PINNED.clear()
     spec = BUNDLE_TARGETS[stem]
     text = rs(stem)
     fixture = literals(fn_body(text, spec["builder"])[0])
@@ -1424,8 +1494,8 @@ def build_bundle(stem):
         "run. THE BUILD SUCCEEDS AND SO DOES THE HARNESS: the source asserts",
         "`output.status.success()` on both and additionally that the harness's stdout is",
         "EXACTLY empty, so the harness step carries `exit = \"success\"` and `stdout = \"\"`.",
-        "That exact-empty pin is the source's own `is_empty()` claim, not an invention: a",
-        "`stdout_absent` list cannot express \"nothing at all\" (rule 1).",
+        "That exact-empty pin is the source's own emptiness assertion on the harness stdout,",
+        "not an invention: a `stdout_absent` list cannot express \"nothing at all\" (rule 1).",
         "Per controller ruling 6, the `browser_bundle_harness` step kind means the RUNNER",
         "builds the harness script, so the `///` docs on",
         "`kali_runtime_contract::browser_bundle_harness_script` and",
@@ -1439,11 +1509,14 @@ def build_bundle(stem):
     header += ruling7_block(escaped)
     header += [""]
     header += RULING16_NOTE
+    block = extra_ok_block()
     if constants:
-        header += [""] + P.EXTRA_CLAIM_PREAMBLE + [
+        block = (block or list(P.EXTRA_CLAIM_PREAMBLE)) + [
             P.extra_ok("$", "the value of the rule-10 `[constants] dollar` escape, not an "
                             "assertion at all -- the RESOLVED program text is byte-identical "
                             "to the source's, which is the whole point of rule 10")]
+    if block:
+        header += [""] + block
     return header, {"ext": EXT_ORDER}, escaped, cases, constants
 
 

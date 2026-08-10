@@ -84,6 +84,13 @@
 # No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
 # family-wide population count has no gateable home inside a case file, and the
 # remaining batches would falsify it by construction.
+#
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'test does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract (selected host contract: browser-requested). Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.' -- live-captured exact `json.errors.0.message` pin; the source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# EXTRA-OK: 'run does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract (selected host contract: browser-requested). Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.' -- live-captured exact `json.errors.0.message` pin; the source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 
 [source]
 "smoke.test.js" = "Kali.test('browser', () => {});"

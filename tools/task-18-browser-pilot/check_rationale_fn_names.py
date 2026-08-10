@@ -58,6 +58,15 @@ ALLOW = {
     # family `mapset`)". The prose cannot be reworded to satisfy this gate
     # without violating rule 12, so the vocabulary is what has to grow.
     "mapset",
+    # `test_run_succeeded` is the Stage-0 predicate named inside the `///` doc
+    # comments on `parse_failed_json_stdout` / `assert_browser_summary_json_failed`
+    # in all four `browser_runtime_summary_fallback_*` carriers. Rule 13 requires
+    # those docs carried into the rationale of every case whose call chain
+    # reaches the helper, and rule 12 requires them carried VERBATIM, so the
+    # prose cannot be reworded to satisfy this gate -- exactly the `mapset`
+    # situation above. The predicate is a function in the production runtime,
+    # not in the `.rs` under migration, so no prefix rule can ever explain it.
+    "test_run_succeeded",
 }
 
 

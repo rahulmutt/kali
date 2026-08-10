@@ -75,6 +75,8 @@ dicts, `source_ref_rehearsal.sweep`, `check_fixtures._kind_of`) restore in a
         python3 tools/task-18-browser-pilot/inst2_probes.py
 """
 
+import contextlib
+import io
 import os
 import re
 import shutil
@@ -603,6 +605,87 @@ def probe_structure_arm_disclosure(tmp):
           "header structure checked for" in restored, restored[-200:])
 
 
+# ---------------------------------------------------------------------------
+# 9. `check_fixtures` must see a program carried in a step's `env`
+#    (batch 8B).
+# ---------------------------------------------------------------------------
+def probe_env_program_texts(tmp):
+    """Batch 8B taught `toml_program_texts` to read a step's `env` VALUES.
+
+    Until then `[source]` and a `browser_bundle_harness` `body` were the only
+    two places a migrated program could live. The four
+    `runtime_summary_fallback_*` targets carry a whole `node -e '...'` script --
+    the thing that fabricates the browser harness's summary file and stdout --
+    in `KALI_BROWSER_BUNDLE_HARNESS_COMMAND`, per case, because that is where
+    the source puts it.
+
+    The loud direction (46 correct fixtures reported UNMATCHED) is not what
+    justifies the change; a false failure is at least visible. The QUIET
+    direction is: before the change the arm could not distinguish a faithful
+    `env` program from a mangled one, because neither was ever looked at. So
+    this probe corrupts one, and requires red.
+    """
+    print("\n9. check_fixtures reads a program carried in a step's `env` (batch 8B)")
+    rs = os.path.join(TESTS, "browser_runtime_summary_fallback_ts_input.rs")
+    src = os.path.join(TESTS, "cases/browser/runtime_summary_fallback_ts_input.toml")
+
+    rc, out = run(os.path.join(HERE, "check_fixtures.py"), rs, src)
+    check("CONTROL: the shipped pair is green on fixtures",
+          rc == 0 and "FIXTURE CHECK OK" in out, f"rc={rc} {out[:160]}")
+
+    text = open(src).read()
+    needle = 'fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \\"not-json\\")'
+    check("POISON PRECONDITION: the env program is present to corrupt",
+          needle in text, needle[:80])
+    poisoned = os.path.join(tmp, "env_poisoned.toml")
+    open(poisoned, "w").write(text.replace(
+        needle,
+        needle.replace('\\"not-json\\"', '\\"not-jsonX\\"'), 1))
+    rc, out = run(os.path.join(HERE, "check_fixtures.py"), rs, poisoned)
+    check("POISON: one corrupted byte in an `env` program turns the arm RED",
+          rc == 1 and "UNMATCHED" in out, f"rc={rc} {out[:200]}")
+
+    # One layer up: with the `env` limb removed the poison must stop being
+    # caught, or the limb is not what is catching it.
+    import check_fixtures as C
+    real = C.toml_program_texts
+    try:
+        def without_env(path):
+            import tomllib as _t
+            doc = _t.load(open(path, "rb"))
+            out_ = [v for v in (doc.get("source") or {}).values() if isinstance(v, str)]
+            for case in doc.get("case") or []:
+                for st in (case.get("step") or [case]):
+                    if isinstance(st, dict) and isinstance(st.get("body"), str):
+                        out_.append(st["body"])
+            return out_
+        C.toml_program_texts = without_env
+        buf_clean, buf_poison = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_clean):
+            rc_clean = C.main([rs, src])
+        with contextlib.redirect_stdout(buf_poison):
+            rc_poison = C.main([rs, poisoned])
+    finally:
+        C.toml_program_texts = real
+    # THE CLAIM IS INDISTINGUISHABILITY, NOT REDNESS. A first version asserted
+    # only `rc == 1` with the limb removed -- which passes because ALL 23 env
+    # programs are then unmatched, i.e. for a reason that has nothing to do with
+    # the poison. A limb that would pass whether or not the poison were there
+    # measures nothing, which is the exact defect this whole section exists to
+    # rule out. So: with the limb removed, the CLEAN pair and the POISONED pair
+    # must produce byte-identical output -- the arm genuinely cannot tell them
+    # apart -- and with it restored they must differ.
+    check("KILL POWER: without the `env` limb, clean and poisoned are "
+          "INDISTINGUISHABLE (same rc, byte-identical output)",
+          (rc_clean, buf_clean.getvalue()) == (rc_poison, buf_poison.getvalue()),
+          f"rc_clean={rc_clean} rc_poison={rc_poison}")
+    rc_a, out_a = run(os.path.join(HERE, "check_fixtures.py"), rs, src)
+    rc_b, out_b = run(os.path.join(HERE, "check_fixtures.py"), rs, poisoned)
+    check("RESTORED: with the limb, clean and poisoned DO differ",
+          (rc_a, out_a) != (rc_b, out_b) and rc_a == 0 and rc_b == 1,
+          f"rc_clean={rc_a} rc_poison={rc_b}")
+
+
 def main():
     tmp = tempfile.mkdtemp(prefix="inst2-probes-")
     try:
@@ -614,6 +697,7 @@ def main():
         probe_population_banner()
         probe_supporting_arms(tmp)
         probe_structure_arm_disclosure(tmp)
+        probe_env_program_texts(tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     if FAILURES:
@@ -626,7 +710,7 @@ def main():
     # sentence was a ruling-13 universal about this file's own completeness, and
     # it was false: several arms in the same diff were not probed. What is probed
     # is the list in the docstring, and what is not is named there too.
-    print("\nPROBES OK -- the eight sections above each fired on the defect they "
+    print("\nPROBES OK -- the nine sections above each fired on the defect they "
           "exist to catch and stayed silent on their control; see this file's "
           "docstring for what is probed and what is not")
     return 0
