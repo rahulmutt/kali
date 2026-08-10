@@ -62,7 +62,10 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases/browser")
 
-from case_emit import fixture_in_fn, fixture_starting, emit, write  # noqa: E402
+from case_emit import (  # noqa: E402
+    fixture_in_fn, fixture_starting, emit, write, source_text,
+    cargo_target_dir, require_debug_artifact,
+)
 from math_shapes import (  # noqa: E402
     bundle_steps, harness_step, envelope_build, envelope_harness, META,
 )
@@ -77,7 +80,11 @@ HARNESS_ENV = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND"
 # literal, so the migrated `env` is faithful only if the constant resolves to
 # this name. Asserted below in `assert_env_constant`.
 
-KALI = os.path.join(REPO, ".cache/cargo-target/debug/kali")
+# Cargo's target dir is pinned ABSOLUTELY by ~/.cargo/config.toml, so it is
+# asked of cargo rather than derived from this file's own repo root -- see
+# case_emit.cargo_target_dir for the failure that motivated it.
+KALI = require_debug_artifact(
+    "kali", why="`cargo build -p kali_cli` (the `kali` binary U9 captures against)")
 
 
 def target(name):
@@ -88,7 +95,17 @@ def target(name):
 
 
 def rs(name):
-    return open(os.path.join(TESTS, f"browser_{name}.rs")).read()
+    """The source a case file is generated FROM (`case_emit.source_text`).
+
+    NOT a plain working-tree read: a U4 trim-and-keep retention leaves only the
+    retained half on disk, so the migrated fn this generator extracts from is
+    gone and the run dies with `no fn ... in source`. The resolver reads the
+    PRE-TRIM blob, taking the ref from the retained file's own `PRE-TRIM REF:`
+    line. Shared rather than re-implemented -- this predicate already existed
+    in three places and a fourth copy is how this project's measurement bugs
+    have started.
+    """
+    return source_text(name)
 
 
 def assert_env_constant():
@@ -207,11 +224,22 @@ def kali_common_str_fn(fn_name):
     fixture. Nothing in the repository is edited (no temporary `#[test]` is
     added to any `.rs`), and no byte of the fixture is typed here.
     """
-    deps = os.path.join(REPO, ".cache/cargo-target/debug/deps")
+    # UNDECLARED BUILD PRECONDITION, now declared (batch 7A gap 4). This used to
+    # read `<REPO>/.cache/cargo-target/debug/deps`, computed from THIS FILE's own
+    # repo root -- but ~/.cargo/config.toml pins build.target-dir absolutely, so
+    # outside the pinned checkout the directory does not exist, the generator
+    # aborted, and a census run from a worktree silently came out short instead
+    # of red. Ask cargo where its target dir is, and if the rlib is genuinely
+    # absent say WHICH build produces it rather than printing a path.
+    deps = os.path.join(cargo_target_dir(), "debug", "deps")
     rlibs = sorted(glob.glob(os.path.join(deps, "libkali_common-*.rlib")),
                    key=os.path.getmtime, reverse=True)
     if not rlibs:
-        raise AssertionError(f"no built libkali_common rlib under {deps}")
+        raise AssertionError(
+            f"no built libkali_common rlib under {deps}. This generator captures the "
+            f"fixture by EXECUTING kali_common (rule 9), so the crate must be built "
+            f"first: run `cargo build -p kali_common` (or any `cargo test -p kali_cli`) "
+            f"and re-run. Do NOT substitute a retyped fixture.")
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "dump.rs")
         exe = os.path.join(d, "dump")

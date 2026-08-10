@@ -25,6 +25,111 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from toml_emit import toml_string, toml_str_array  # noqa: E402
 from lexer import string_literals_in_range, find_string_literals  # noqa: E402
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
+TESTS = os.path.join(REPO, "crates/kali_cli/tests")
+
+
+def source_text(name, *, quiet=False):
+    """The source a case file is generated FROM -- not always the working tree.
+
+    THREE generators crashed outright because they read the working-tree `.rs`
+    directly: once a U4 trim-and-keep retention lands, the working tree holds
+    only the RETAINED half, so the migrated fn the generator extracts its
+    fixture from no longer exists and `fixture_in_fn` raises `no fn ... in
+    source`. `gen_batch5_group_a/b/c` all died that way, on
+    `math_pow_bracketed_frozen_wrapper`, `math_pow_bracketed_frozen_wrapper_
+    harness` and `math_max_min_frozen_aliases` respectively.
+
+    The rule is already settled and already implemented three times over
+    (ruling 9; `citation_sweep.sh`; `reword_ungated_citations._pretrim_lines`;
+    `gen_batch6a.rs`): a trimmed source's case file is numbered and extracted
+    against the PRE-TRIM blob, and the ref comes from the retained file's own
+    `PRE-TRIM REF:` line rather than from a constant in the generator -- a ref
+    carried anywhere but the header is the moving figure ruling 11 forbids.
+    This is that rule, in ONE place, so a fourth divergent copy is not written.
+
+    A `//!` header with NO `PRE-TRIM REF:` is a whole-file retention, not a
+    trim: nothing was removed, so the working tree IS the source. A missing
+    `.rs` raises rather than returning empty -- a generator whose source has
+    been deleted must be told so, not silently emit a case file with no
+    fixtures.
+    """
+    path = os.path.join(TESTS, f"browser_{name}.rs")
+    if not os.path.exists(path):
+        raise AssertionError(
+            f"browser_{name}.rs does not exist. If its source was deleted, this "
+            f"generator must be pointed at the historical blob (SOURCE REF) "
+            f"explicitly; it will not guess.")
+    return source_text_at(path, quiet=quiet)
+
+
+def source_text_at(path, *, quiet=False):
+    """`source_text`, by path -- for a `#[path]` submodule carrier or any other
+    caller that already holds one. Same rule, one implementation."""
+    text = open(path).read()
+    if not text.startswith("//!"):
+        return text
+    m = re.search(r"PRE-TRIM REF:\s*(\S+)", text)
+    if not m:
+        return text
+    import subprocess
+    ref = m.group(1)
+    rel = os.path.relpath(os.path.abspath(path), REPO)
+    if not quiet:
+        print(f"    reading {rel} at its own PRE-TRIM REF {ref}")
+    blob = subprocess.run(["git", "show", f"{ref}:{rel}"],
+                          cwd=REPO, capture_output=True, text=True)
+    if blob.returncode != 0:
+        raise AssertionError(
+            f"{rel} declares PRE-TRIM REF {ref} but `git show` cannot read it: "
+            f"{blob.stderr.strip()}")
+    return blob.stdout
+
+
+def cargo_target_dir():
+    """Cargo's REAL target directory, asked of cargo rather than assumed.
+
+    `gen_batch5_group_d` computed it as `<its own repo root>/.cache/cargo-target`
+    and aborted with `no built libkali_common rlib under ...` from anywhere that
+    is not /workspace -- an undeclared build precondition (batch 7A gap 4). The
+    cause is that `~/.cargo/config.toml` pins `build.target-dir` to an ABSOLUTE
+    path, so every worktree and scratchpad shares one target dir and a
+    repo-relative guess is wrong everywhere but the one checkout it was written
+    in. In a fresh worktree the generator therefore died, and a census run there
+    silently came out short.
+
+    `cargo metadata --no-deps` honours the config, needs no build (~30ms), and
+    is the authority. If cargo cannot be asked, this raises with the reason
+    rather than falling back to a guess that reintroduces the same bug.
+    """
+    import json
+    import subprocess
+    p = subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+        cwd=REPO, capture_output=True, text=True)
+    if p.returncode != 0:
+        raise AssertionError(
+            "cannot resolve cargo's target directory: `cargo metadata` exited "
+            f"{p.returncode}. This tooling will not guess a repo-relative path -- "
+            "`~/.cargo/config.toml` pins build.target-dir absolutely, so a guess "
+            f"is wrong outside the pinned checkout. stderr: {p.stderr.strip()[-300:]}")
+    return json.loads(p.stdout)["target_directory"]
+
+
+def require_debug_artifact(relpath, *, why):
+    """An absolute path under cargo's debug profile, or a loud, specific abort.
+
+    `why` names the build that produces it, so the failure states the
+    precondition instead of the symptom.
+    """
+    path = os.path.join(cargo_target_dir(), "debug", relpath)
+    if not os.path.exists(os.path.dirname(path)):
+        raise AssertionError(
+            f"{os.path.dirname(path)} does not exist -- nothing has been built into "
+            f"cargo's target dir ({cargo_target_dir()}). Precondition: {why}")
+    return path
+
 
 def fixture(rs_text, first_line, last_line, index=0):
     """The decoded value of a string literal in the source, by line range.

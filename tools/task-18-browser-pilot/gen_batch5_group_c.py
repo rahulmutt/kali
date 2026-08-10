@@ -37,7 +37,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases/browser")
 
-from case_emit import fixture_in_fn, fixture_starting, emit, write  # noqa: E402
+from case_emit import fixture_in_fn, fixture_starting, emit, write, source_text  # noqa: E402
 from math_shapes import (                                    # noqa: E402
     bundle_steps, harness_step, envelope_build, envelope_harness, META,
 )
@@ -53,7 +53,17 @@ WIDTH = 86
 
 
 def rs(stem):
-    return open(os.path.join(TESTS, f"browser_{stem}.rs")).read()
+    """The source a case file is generated FROM (`case_emit.source_text`).
+
+    NOT a plain working-tree read: a U4 trim-and-keep retention leaves only the
+    retained half on disk, so the migrated fn this generator extracts from is
+    gone and the run dies with `no fn ... in source`. The resolver reads the
+    PRE-TRIM blob, taking the ref from the retained file's own `PRE-TRIM REF:`
+    line. Shared rather than re-implemented -- this predicate already existed
+    in three places and a fourth copy is how this project's measurement bugs
+    have started.
+    """
+    return source_text(stem)
 
 
 def rs_path(stem):

@@ -129,7 +129,16 @@ def rule12_no_comments_prose(rs_path, stem):
     _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
     from enumerate_invocations import strip_block_comments_and_strings
 
-    text = open(rs_path).read()
+    # The source this prose is ABOUT, which for a U4 trim-and-keep target is the
+    # PRE-TRIM blob, not the working tree. The prose emits `:N` citations, and a
+    # trimmed target's case file declares every `:N` in it as a PRE-TRIM number
+    # (ruling 9); deriving them from the post-trim file puts one post-trim number
+    # into a pre-trim-numbered file, so a reader following the header's own
+    # instruction looks at the wrong line. gen_batch4_group_b hit exactly this
+    # and worked around it locally (`:23` pre-trim vs `:104` post-trim); the rule
+    # belongs here, where every caller gets it.
+    from case_emit import source_text_at
+    text = source_text_at(rs_path, quiet=True)
     # Mask strings first so fixture-internal `//` is excluded, then look for
     # Rust comment lines in what remains.
     lines = text.split("\n")
