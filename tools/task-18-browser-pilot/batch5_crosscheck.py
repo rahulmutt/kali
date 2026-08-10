@@ -2244,6 +2244,62 @@ def _source_ref_base_selftest():
     return out
 
 
+def _stem_exists(stem):
+    """Is `stem` still a member of the sweep's population?
+
+    DERIVED FROM THE TREE, not from what this run happened to visit. The two
+    shapes `citation_sweep.sh` builds a spec from are a case file
+    (`cases/browser/<stem>.toml`, whatever its source turns out to be) and a
+    whole-file retention (`browser_<stem>.rs` with a `//!` header and no case
+    file); a stem that is neither is not in the population any more. This
+    deliberately does NOT re-resolve the source -- a SOURCE-REF stem whose `.rs`
+    is gone is still a live stem, and asking that question here would be a third
+    copy of the population loop.
+    """
+    return (os.path.exists(os.path.join(CASES, f"{stem}.toml"))
+            or os.path.exists(os.path.join(TESTS, f"browser_{stem}.rs")))
+
+
+def ghost_declarations():
+    """Declarations naming a stem the corpus no longer has (batch 8-inst-2 §3).
+
+    THE HOLE THIS CLOSES. Both declarations are checked for equality PER STEM,
+    and the loops that do it run `for stem in sorted(visited)` -- deliberately,
+    so a single-stem invocation does not report the other hundred. The
+    consequence is that an entry whose stem is in NO run's `visited` set is
+    compared against nothing, in either direction, on every invocation
+    including the full sweep. It is accepted silently: exactly the shape ruling
+    18 #3 names, where failure-to-match is indistinguishable from
+    nothing-to-check.
+
+    Batch 8 grows that population BY CONSTRUCTION -- 8A/8B migrate the last 27
+    targets and 8C deletes the family -- so a stem that loses its case file
+    leaves its `NO_NEEDLE_DECLARED` / `PINNED_SPLIT_DECLARED` / `UNGATED_REDLIST`
+    entries behind as a carve-out nobody re-checks, which is the same defect the
+    STALE-red-list arm above exists to catch, one door along. Hence: an ERROR,
+    not a printed observation, and independent of `visited` because a ghost stem
+    is by definition never visited.
+
+    Zero live instances at BASE (`bd275ddd71`), which is why the arm is verified
+    by an injection probe rather than by the sweep staying green --
+    `inst2_probes.py` probe 3.
+    """
+    out = []
+    for name, keys in (("NO_NEEDLE_DECLARED", sorted(NO_NEEDLE_DECLARED)),
+                       ("PINNED_SPLIT_DECLARED", sorted(PINNED_SPLIT_DECLARED)),
+                       ("UNGATED_REDLIST", sorted({k[0] for k in UNGATED_REDLIST}))):
+        for stem in keys:
+            if _stem_exists(stem):
+                continue
+            out.append(
+                f"{stem}: {name} declares this stem, and the corpus has neither "
+                f"cases/browser/{stem}.toml nor browser_{stem}.rs. A declaration "
+                "for a stem no run can visit is compared against nothing in "
+                "either direction, so it neither gates nor reports -- delete the "
+                "entry along with the file it was written for.")
+    return out
+
+
 def main(argv):
     if "--selftest" in argv:
         return selftest()
@@ -2301,6 +2357,7 @@ def main(argv):
                 f"{key[0]}: UNGATED_REDLIST entry {key[1]} {key[2]} is STALE -- "
                 "nothing fired it. Delete the entry (the citation was reworded or "
                 "removed) rather than leaving a carve-out nobody re-checks.")
+    all_problems += ghost_declarations()
     if all_problems:
         print("\nCROSSCHECK FAILED")
         for p in all_problems:
