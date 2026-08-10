@@ -31,10 +31,15 @@ figures that may sit inline are the ones an equality check corrects on the next
 run -- `NO_NEEDLE_DECLARED`, and `BARE_NEEDLE_ADMITTED` through it.
 
 THE POPULATION, stated once because getting it wrong is what hid two defects.
-`sweep_specs()` builds exactly the spec list `citation_sweep.sh` passes to
-`batch5_crosscheck.py`, and its printed stem count must equal that script's
-`sweep over N stems` banner. Specs come in three shapes and the figures below
-NEVER average across them:
+`sweep_specs()` builds the spec list `citation_sweep.sh` passes to
+`batch5_crosscheck.py`. That it is the SAME list, and that its size equals that
+script's `sweep over N stems` banner, is COMPARED rather than claimed here --
+`source_ref_rehearsal.population_agreement` diffs this file's `--specs` against
+`citation_sweep.sh --print-specs` line by line, then requires `#population`, the
+number of printed spec lines and the banner to be one number. The banner half
+used to be this sentence and nothing read it; the two figures are built from
+different arrays, so "must equal" was an invitation for them not to. Specs come
+in three shapes and the figures below NEVER average across them:
 
   * RESOLVING  -- a case file plus a source the gate resolves against: its own
     `browser_<stem>.rs` (TREE), a `PRE-TRIM REF:` blob for a U4 trim (PRETRIM),
@@ -82,9 +87,18 @@ _REF_TREES = {}
 SPEC_FACTS = {}
 # How many declarations `_check_ref_content` compared by content this run.
 VALIDATED = [0]
+# WHERE THE MATERIALISED ARTEFACTS GO, AND WHO REMOVES THEM. Normally: a private
+# temp dir per ref, deleted on exit, because every caller in this file consumes
+# the paths inside the same process. `--resolve-source --into DIR` sets this,
+# and then the paths have to OUTLIVE the process -- `verify_pair.sh` runs eight
+# gates against them afterwards -- so they are written under the caller's DIR
+# and `_cleanup_blobs` keeps its hands off. The caller's own trap removes DIR.
+ARTIFACT_DIR = [None]
 
 
 def _cleanup_blobs():
+    if ARTIFACT_DIR[0]:
+        return
     for path in _BLOBS:
         try:
             os.unlink(path)
@@ -113,7 +127,7 @@ def _ref_tree(ref, why):
                      f"{shown.stderr.decode(errors='replace').strip()}\nEvery figure "
                      "this instrument prints depends on that tree; refusing to "
                      "print any.")
-        d = tempfile.mkdtemp(prefix="citation-tiers-ref-")
+        d = tempfile.mkdtemp(prefix="citation-tiers-ref-", dir=ARTIFACT_DIR[0])
         with tarfile.open(fileobj=io.BytesIO(shown.stdout)) as tf:
             tf.extractall(d, filter="data")
         _REF_TREES[ref] = d
@@ -139,14 +153,40 @@ def _declared_ref(stem, toml, text):
 
 
 def _ref_carries(stem, ref, name):
+    """The blob, or a hard stop naming WHICH of the two failures happened.
+
+    THE TWO FAILURES HAVE DIFFERENT REMEDIES AND THIS USED TO GIVE BOTH THE
+    SAME ONE. One `git cat-file blob <ref>:<path>` decided it, so ANY non-zero
+    return code printed "the ref must name a commit where the source still
+    EXISTS, i.e. the deletion commit's PARENT" -- failure mode 3's sentence.
+    An unreachable ref (failure mode 2, which is what a shallow clone produces
+    for every `SOURCE REF:` in the family) got that sentence too, and it is not
+    merely unhelpful, it is wrong: it sends the reader off to re-derive a ref
+    that was correct all along, when the actual fix is to fetch the history.
+    `citation_sweep.sh`'s `ref_carries` has always split them -- `rev-parse
+    --verify` with the fetch-depth remedy, then `cat-file -e` -- and this now
+    mirrors it. The gating path is unaffected either way: both modes stop.
+
+    Reachable ahead of `_ref_tree` since batch 8, so this is the message a
+    shallow CI checkout hits first; before that the same clone surfaced git's
+    own stderr from `_ref_tree`, which at least said `not a valid object name`.
+    """
+    if subprocess.run(
+            ["git", "-C", X.REPO, "rev-parse", "-q", "--verify",
+             f"{ref}^{{commit}}"], capture_output=True).returncode:
+        sys.exit(f"{stem}: `SOURCE REF: {ref}` is not reachable in this "
+                 "repository. This instrument needs FULL history: in CI, "
+                 "actions/checkout must be given `fetch-depth: 0` (a default "
+                 "checkout is shallow and cannot resolve it); locally, git "
+                 "fetch --unshallow.")
     got = subprocess.run(
         ["git", "-C", X.REPO, "cat-file", "blob",
          f"{ref}:crates/kali_cli/tests/{name}"], capture_output=True)
     if got.returncode:
-        sys.exit(f"{stem}: `SOURCE REF: {ref}` does not resolve to "
-                 f"crates/kali_cli/tests/{name} -- the ref must name a commit "
-                 "where the source still EXISTS, i.e. the deletion commit's "
-                 "PARENT.")
+        sys.exit(f"{stem}: `SOURCE REF: {ref}` resolves, but that commit does "
+                 f"not contain crates/kali_cli/tests/{name}. The ref must name "
+                 "a commit where the source still EXISTS -- the deletion "
+                 "commit's PARENT, not the deletion commit.")
     return got.stdout
 
 
@@ -180,6 +220,114 @@ def provenance(stem, ref, name):
     return "TREE" if name == f"browser_{stem}.rs" else "SPLIT"
 
 
+def resolve_case_stem(stem, toml):
+    """ONE case file -> `(spec, ref, source-file-name)`, the sweep's own answer.
+
+    This is the body of `sweep_specs`'s loop, lifted out unchanged so that a
+    PER-PAIR caller can ask the same question about one stem without becoming
+    another implementation of it. `verify_pair.sh` is that caller (batch 8-inst-2
+    §6): the moment 8C deletes the family it has no `browser_<stem>.rs` to hand
+    its eight arms, and the resolution it needs -- working-tree file, `PRE-TRIM
+    REF:` blob, U2 split's named source, or `SOURCE REF:` reproduction -- is
+    exactly this. `8-inst-1` counted SEVEN live readers of the pre-trim ref
+    already; an eighth, written in bash, could disagree with this one about which
+    blob a pair's `:N` citations mean, and the disagreement would be invisible
+    because each reader looks locally correct. So the shell asks this function,
+    through `--resolve-source`, and gets the string `sweep_specs` would have
+    built.
+
+    `ref` and `source-file-name` are the two RESOLUTION FACTS `provenance()`
+    derives its label from; returning them rather than a label is ruling 18 #1
+    (dispatch on provenance, do not stamp it on).
+    """
+    rs = os.path.join(X.TESTS, f"browser_{stem}.rs")
+    text = open(toml).read()
+    named = X.MIGRATED_FROM.search(text)
+    # Read for EVERY case file, not only a sourceless one: a declaration on
+    # a case file whose source is still present is checkable by content, and
+    # that window is the only one in which it ever is.
+    ref = _declared_ref(stem, toml, text)
+
+    if os.path.exists(rs):
+        pretrim = re.search(r"PRE-TRIM REF:\s*(\S+)", open(rs).read())
+        if not pretrim:
+            _check_ref_content(stem, ref, f"browser_{stem}.rs", rs)
+            return stem, "-", f"browser_{stem}.rs"
+        # HARD-FAIL ON AN UNREADABLE REF (N5, fix round 3). This used to
+        # write `subprocess.run(...).stdout` into the blob without checking
+        # the return code, so a `PRE-TRIM REF:` naming a SHA that is not in
+        # the repository produced an EMPTY pre-trim source and the
+        # instrument carried on. The shell driver hard-stops with `cannot
+        # read <ref>` and exit 2; this printed `population: 111 spec(s)` and
+        # a table reading `resolved 3015 -> 2970`, `bad-range 0 -> 45`,
+        # `silent 412 -> 457`. The one instrument whose whole purpose is
+        # that figures cannot be wrong was the one that would print silently
+        # wrong figures.
+        shown = subprocess.run(
+            ["git", "-C", X.REPO, "show",
+             f"{pretrim.group(1)}:crates/kali_cli/tests/browser_{stem}.rs"],
+            capture_output=True, text=True)
+        if shown.returncode:
+            sys.exit(f"cannot read {pretrim.group(1)}:browser_{stem}.rs -- "
+                     f"{shown.stderr.strip()}\nEvery figure this instrument "
+                     "prints depends on that blob; refusing to print any.")
+        blob = tempfile.NamedTemporaryFile("w", suffix=".rs", delete=False,
+                                           dir=ARTIFACT_DIR[0])
+        blob.write(shown.stdout)
+        blob.close()
+        _BLOBS.append(blob.name)
+        # Against the PRE-TRIM blob, not the trimmed tree file: that is what
+        # every `:N` in this case file was written against.
+        _check_ref_content(stem, ref, f"browser_{stem}.rs", blob.name)
+        return f"{stem}={blob.name}", pretrim.group(1), f"browser_{stem}.rs"
+
+    if named and os.path.exists(os.path.join(X.TESTS, named.group(1))):
+        src = os.path.join(X.TESTS, named.group(1))
+        _check_ref_content(stem, ref, named.group(1), src)
+        return f"{stem}={src}", "-", named.group(1)
+
+    # SOURCE DELETED FROM THE TREE (batch 8) -- resolve against the
+    # `SOURCE REF:` reproduction, the same way the shell driver does. This
+    # used to append the bare stem, which reaches `batch5_crosscheck.py`'s
+    # gatedness-only branch; after task 18's family deletion that would have
+    # made every figure this instrument prints an aggregate over a corpus it
+    # had stopped reading. The error paths are `sys.exit` for the same
+    # reason the `PRE-TRIM REF:` arm above uses one.
+    if not named:
+        sys.exit(f"{stem}: no browser_{stem}.rs and no `Migrated from "
+                 f"tests/<file>.rs` line in {toml}.")
+    if ref is None:
+        sys.exit(f"{stem}: {named.group(1)} is absent from the tree and "
+                 f"{toml} declares no `SOURCE REF:`. See "
+                 "citation_sweep.sh's SOURCE-DELETED arm.")
+    _ref_carries(stem, ref, named.group(1))
+    blob = os.path.join(_ref_tree(ref, stem), named.group(1))
+    if not os.path.isfile(blob):
+        sys.exit(f"{stem}: {ref} contains crates/kali_cli/tests/"
+                 f"{named.group(1)} but the reproduction does not -- the "
+                 "materialisation is incomplete.")
+    return f"{stem}={blob}", ref, named.group(1)
+
+
+def resolve_source(stem):
+    """`(path-to-the-.rs, provenance, ref, source-file-name)` for one case stem.
+
+    The path is where a per-pair gate must read this pair's source from, which
+    after 8C's deletion is a reproduction under `ARTIFACT_DIR[0]` rather than
+    anything in the tree. Set that directory (via `--into`) and the caller owns
+    the lifetime; leave it unset and `_cleanup_blobs` takes the artefacts away on
+    exit, which is right for an in-process caller and useless for a shell one.
+    """
+    toml = os.path.join(X.CASES, f"{stem}.toml")
+    if not os.path.isfile(toml):
+        sys.exit(f"{stem}: no {toml}. `--resolve-source` answers for a MIGRATED "
+                 "pair; a whole-file retention has no case file and its source "
+                 "is the working-tree `.rs` by definition.")
+    spec, ref, name = resolve_case_stem(stem, toml)
+    path = spec.partition("=")[2] or os.path.join(X.TESTS, name)
+    return path, provenance(stem, ref, name), ref, name
+
+
 def sweep_specs():
     """The spec SET `citation_sweep.sh` builds.
 
@@ -206,79 +354,9 @@ def sweep_specs():
     VALIDATED[0] = 0
     for toml in sorted(glob.glob(os.path.join(X.CASES, "*.toml"))):
         stem = os.path.basename(toml)[:-5]
-        rs = os.path.join(X.TESTS, f"browser_{stem}.rs")
-        text = open(toml).read()
-        named = X.MIGRATED_FROM.search(text)
-        # Read for EVERY case file, not only a sourceless one: a declaration on
-        # a case file whose source is still present is checkable by content, and
-        # that window is the only one in which it ever is.
-        ref = _declared_ref(stem, toml, text)
-
-        if os.path.exists(rs):
-            pretrim = re.search(r"PRE-TRIM REF:\s*(\S+)", open(rs).read())
-            if not pretrim:
-                specs.append(stem)
-                SPEC_FACTS[stem] = ("-", f"browser_{stem}.rs")
-                _check_ref_content(stem, ref, f"browser_{stem}.rs", rs)
-                continue
-            # HARD-FAIL ON AN UNREADABLE REF (N5, fix round 3). This used to
-            # write `subprocess.run(...).stdout` into the blob without checking
-            # the return code, so a `PRE-TRIM REF:` naming a SHA that is not in
-            # the repository produced an EMPTY pre-trim source and the
-            # instrument carried on. The shell driver hard-stops with `cannot
-            # read <ref>` and exit 2; this printed `population: 111 spec(s)` and
-            # a table reading `resolved 3015 -> 2970`, `bad-range 0 -> 45`,
-            # `silent 412 -> 457`. The one instrument whose whole purpose is
-            # that figures cannot be wrong was the one that would print silently
-            # wrong figures.
-            shown = subprocess.run(
-                ["git", "-C", X.REPO, "show",
-                 f"{pretrim.group(1)}:crates/kali_cli/tests/browser_{stem}.rs"],
-                capture_output=True, text=True)
-            if shown.returncode:
-                sys.exit(f"cannot read {pretrim.group(1)}:browser_{stem}.rs -- "
-                         f"{shown.stderr.strip()}\nEvery figure this instrument "
-                         "prints depends on that blob; refusing to print any.")
-            blob = tempfile.NamedTemporaryFile("w", suffix=".rs", delete=False)
-            blob.write(shown.stdout)
-            blob.close()
-            _BLOBS.append(blob.name)
-            specs.append(f"{stem}={blob.name}")
-            SPEC_FACTS[stem] = (pretrim.group(1), f"browser_{stem}.rs")
-            # Against the PRE-TRIM blob, not the trimmed tree file: that is what
-            # every `:N` in this case file was written against.
-            _check_ref_content(stem, ref, f"browser_{stem}.rs", blob.name)
-            continue
-
-        if named and os.path.exists(os.path.join(X.TESTS, named.group(1))):
-            src = os.path.join(X.TESTS, named.group(1))
-            specs.append(f"{stem}={src}")
-            SPEC_FACTS[stem] = ("-", named.group(1))
-            _check_ref_content(stem, ref, named.group(1), src)
-            continue
-
-        # SOURCE DELETED FROM THE TREE (batch 8) -- resolve against the
-        # `SOURCE REF:` reproduction, the same way the shell driver does. This
-        # used to append the bare stem, which reaches `batch5_crosscheck.py`'s
-        # gatedness-only branch; after task 18's family deletion that would have
-        # made every figure this instrument prints an aggregate over a corpus it
-        # had stopped reading. The error paths are `sys.exit` for the same
-        # reason the `PRE-TRIM REF:` arm above uses one.
-        if not named:
-            sys.exit(f"{stem}: no browser_{stem}.rs and no `Migrated from "
-                     f"tests/<file>.rs` line in {toml}.")
-        if ref is None:
-            sys.exit(f"{stem}: {named.group(1)} is absent from the tree and "
-                     f"{toml} declares no `SOURCE REF:`. See "
-                     "citation_sweep.sh's SOURCE-DELETED arm.")
-        _ref_carries(stem, ref, named.group(1))
-        blob = os.path.join(_ref_tree(ref, stem), named.group(1))
-        if not os.path.isfile(blob):
-            sys.exit(f"{stem}: {ref} contains crates/kali_cli/tests/"
-                     f"{named.group(1)} but the reproduction does not -- the "
-                     "materialisation is incomplete.")
-        specs.append(f"{stem}={blob}")
-        SPEC_FACTS[stem] = (ref, named.group(1))
+        spec, ref, name = resolve_case_stem(stem, toml)
+        specs.append(spec)
+        SPEC_FACTS[stem] = (ref, name)
 
     for rs in sorted(glob.glob(os.path.join(X.TESTS, "browser_*.rs"))):
         stem = os.path.basename(rs)[len("browser_"):-3]
@@ -957,6 +1035,17 @@ def variants(specs):
 
 
 def main(argv):
+    if "--resolve-source" in argv[1:]:
+        # ONE LINE, MACHINE-READABLE, for `verify_pair.sh`: the four facts, in
+        # `--specs` order with the resolved path appended. Everything else this
+        # file prints goes to stdout too, so this mode prints nothing else.
+        rest = argv[1:]
+        stem = rest[rest.index("--resolve-source") + 1]
+        if "--into" in rest:
+            ARTIFACT_DIR[0] = rest[rest.index("--into") + 1]
+        path, prov, ref, name = resolve_source(stem)
+        print(f"{stem} {prov} {ref} {name} {path}")
+        return 0
     base_ref = next((a.split("=", 1)[1] for a in argv[1:]
                      if a.startswith("--base=")), None)
     if base_ref:
@@ -984,6 +1073,7 @@ def main(argv):
         for stem in sorted(SPEC_FACTS):
             ref, name = SPEC_FACTS[stem]
             print(f"{stem} {provenance(stem, ref, name)} {ref} {name}")
+        print(f"#population {len(specs)}")
         print(f"#validated {VALIDATED[0]}")
         return 0
     kinds = collections.Counter(provenance(s, *f)
@@ -992,7 +1082,8 @@ def main(argv):
 
     print(f"$ python3 tools/task-18-browser-pilot/citation_tiers.py")
     print(f"population: {len(specs)} spec(s) -- equality with citation_sweep.sh's "
-          f"is gated, per spec and per provenance, by source_ref_rehearsal.py")
+          f"is gated by source_ref_rehearsal.py: per spec, per provenance, and "
+          f"against the sweep's own `sweep over N stems` banner")
     print("  " + "  ".join(f"{k.lower()}={v}" for k, v in sorted(kinds.items()))
           + "\n")
 

@@ -91,8 +91,57 @@ TESTS="$REPO/crates/kali_cli/tests"
 RS="$TESTS/browser_${RS_STEM:-$STEM}.rs"
 TOML="$TESTS/cases/browser/$STEM.toml"
 
-[[ -f "$RS"   ]] || { echo "missing $RS"; exit 2; }
 [[ -f "$TOML" ]] || { echo "missing $TOML"; exit 2; }
+
+# --------------------------------------------------------------------------
+# SOURCE DELETED FROM THE TREE -- DELEGATE, DO NOT RE-RESOLVE (batch 8-inst-2).
+#
+# All eight arms take a `.rs` path. Once a source is deleted there is none, and
+# this script used to stop at `missing <path>` and exit 2 -- measured at BASE,
+# that is already the state of 23 of the 128 case-file stems (their sources went
+# in batches 6B/7), and 8C deletes the rest of the family in one commit. So the
+# tool that verifies a migrated pair would be unrunnable on every migrated pair,
+# at exactly the moment 8C needs it.
+#
+# WHAT IT DELEGATES TO, AND WHY IT DOES NOT RE-IMPLEMENT IT. `citation_tiers.py`
+# already resolves this, per stem, for the sweep: working-tree `.rs`, a
+# `PRE-TRIM REF:` blob for a U4 trim, a U2 split's `Migrated from` source, or the
+# `SOURCE REF:` reproduction of the whole `crates/kali_cli/tests` tree (whole
+# tree, because a U10 `#[path]` carrier's submodules must still resolve beside
+# it). `8-inst-1` established SEVEN live readers of the pre-trim ref; a bash
+# eighth that re-parsed the headers here could disagree with the gate about which
+# blob a pair's `:N` citations mean, and each reader would look locally correct.
+# `--resolve-source` hands back the string `sweep_specs` would have built, so
+# there is one resolver and this file holds none.
+#
+# The scratch dir is OURS: `--into` tells the resolver to materialise there and
+# not clean up, because the eight arms run after it exits.
+# --------------------------------------------------------------------------
+SCRATCH=""
+cleanup() { [[ -n "$SCRATCH" ]] && rm -rf "$SCRATCH"; }
+trap cleanup EXIT
+RESOLVED_PROV=""
+if [[ ! -f "$RS" ]]; then
+  SCRATCH="$(mktemp -d -t "verify_pair_${STEM}_XXXXXX")"
+  if ! line=$(python3 "$REPO/tools/task-18-browser-pilot/citation_tiers.py" \
+                --resolve-source "$STEM" --into "$SCRATCH"); then
+    echo "cannot resolve a source for $STEM: $line"; exit 2
+  fi
+  read -r _stem RESOLVED_PROV RESOLVED_REF RESOLVED_NAME RS <<< "$line"
+  echo "browser_${RS_STEM:-$STEM}.rs is not in the tree; resolved $RESOLVED_NAME"
+  echo "  as $RESOLVED_PROV at ref $RESOLVED_REF -> $RS"
+  [[ -f "$RS" ]] || { echo "resolver returned $RS, which is not a file"; exit 2; }
+  # A NON-MATCH IS AN ERROR (ruling 18 #3). `--rs` is the caller's claim about
+  # which source this case file was migrated from; the resolver derives the same
+  # thing from the case file's own `Migrated from` line. If they disagree, one of
+  # them is verifying the wrong pair and there is no way to tell which, so stop.
+  if [[ -n "$RS_STEM" && "$RESOLVED_NAME" != "browser_$RS_STEM.rs" ]]; then
+    echo "--rs $RS_STEM says browser_$RS_STEM.rs, the case file's own header"
+    echo "resolves to $RESOLVED_NAME -- these cannot both be this pair's source"
+    exit 2
+  fi
+fi
+[[ -f "$RS"   ]] || { echo "missing $RS"; exit 2; }
 
 # Case files migrated from the same source, for the two arms whose subject is
 # the whole migration rather than this one file.
@@ -146,8 +195,11 @@ echo "fidelity exit=$fidelity_rc (report only; enforcement is check_extra_claims
 note "CITATIONS (ruling 11 -- :N is exempt ONLY because it is mechanically gated)"
 xcheck_spec="$STEM"
 # A --rs split pair has no browser_<case stem>.rs, so the citation gate is given
-# the real source through the same `=PATH` override --pretrim uses.
-[[ -n "$RS_STEM" ]] && xcheck_spec="$STEM=$RS"
+# the real source through the same `=PATH` override --pretrim uses. A pair whose
+# source was resolved out of the tree above needs the same override, and for the
+# same reason: without it the gate falls into its no-source branch and runs the
+# GATEDNESS arm alone -- green, and reading none of this pair's citations.
+[[ -n "$RS_STEM" || -n "$RESOLVED_PROV" ]] && xcheck_spec="$STEM=$RS"
 if [[ -n "$PRETRIM" ]]; then
   # THE BLOB IS TAKEN FROM THE SOURCE STEM, NOT THE CASE STEM (fix round 1, I5).
   # This used to read browser_$STEM.rs unconditionally, so `--rs` + `--pretrim`
