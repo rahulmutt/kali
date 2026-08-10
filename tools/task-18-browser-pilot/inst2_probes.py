@@ -557,29 +557,38 @@ def probe_structure_arm_disclosure(tmp):
     # resolves against the trimmed file and reports spurious `past end of the
     # source` failures. Checking the wording would not have caught that; running
     # it does.
+    # THE EXTRACTION IS ASSERTED FOR BOTH ARMS, BEFORE EITHER BRANCHES.
+    # Round 4 shipped this loop with the `must_work=True` arm asserting
+    # `m is not None` and the `else` arm guarding on a bare `if m:`. So a regex
+    # that stopped matching -- a reformatted hint, backticks dropped, wording
+    # otherwise intact -- silently skipped the truth-check and `PROBES OK` still
+    # printed. That is ruling 18's exact failure mode, "failure to match is
+    # indistinguishable from nothing to check", inside the code added to guard
+    # against that class. Hoisting the check makes a non-match LOUD for every
+    # arm, present and future, rather than for the one that remembered to ask.
     import re as _re
     for stem, must_work in ((no_trim_split, True), (split, False)):
         text = banner(stem)
         m = _re.search(r"`([a-z0-9_]+=crates/kali_cli/tests/[^`]+)`", text)
+        check(f"OVERRIDE STRING EXTRACTED from {stem}'s hint (a miss here would "
+              "silently skip the limbs below)", m is not None, text[:220])
+        if m is None:
+            continue
         if must_work:
-            check(f"HINT IS FOLLOWABLE: {stem} emits an override and it is offered",
-                  m is not None, text[:200])
-            if m:
-                _rc, out = run(path, m.group(1))
-                check(f"HINT IS FOLLOWABLE: obeying `{m.group(1)[:52]}...` "
-                      "produces no past-end failure",
-                      "past end of the source" not in out, out[-200:])
+            _rc, out = run(path, m.group(1))
+            check(f"HINT IS FOLLOWABLE: obeying `{m.group(1)[:52]}...` "
+                  "produces no past-end failure",
+                  "past end of the source" not in out, out[-200:])
         else:
             # The trimmed carrier: the same form must be WARNED AGAINST, and the
             # warning must be true -- so obey it anyway and require it to fail.
             check(f"HINT WARNS: {stem} says that override would resolve against "
                   "the TRIMMED file",
                   "would resolve against the TRIMMED file" in text, text[:200])
-            if m:
-                _rc, out = run(path, m.group(1))
-                check("HINT WARNS: and the warning is true -- obeying it does "
-                      "produce a past-end failure",
-                      "past end of the source" in out, out[-200:])
+            _rc, out = run(path, m.group(1))
+            check("HINT WARNS: and the warning is true -- obeying it does "
+                  "produce a past-end failure",
+                  "past end of the source" in out, out[-200:])
 
     try:
         open(path, "w").write(pristine.replace(guarded, "        pass\n"))
