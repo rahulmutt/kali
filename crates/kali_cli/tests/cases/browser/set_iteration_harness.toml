@@ -50,7 +50,8 @@
 # body -- no dynamic-import call and no CommonJS require call names any of them, checked
 # against every `[source]` value in this file -- so renaming does not rewrite the program
 # under test (rule 9).
-# The helper picks its body from the COMMAND (:323) and writes it to whatever
+# The helper picks its body from the COMMAND -- `if command == "test"` (:323) -- and writes it to
+# whatever
 # filename it was handed, which is what creates the collision. `main.js` and
 # `smoke.test.js` are already distinct and are NOT renamed -- only the colliding keys
 # are.
@@ -83,11 +84,13 @@
 # RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
 # tests/browser_set_iteration_harness.rs has 2 Rust comment blocks, listed with their
 # line numbers before any TOML was written, and they do NOT reach the same cases:
-#   * `browser_map_iteration_harness.rs` :161 (7 line(s)) sits inside `browser_harness_set_iteration_test_source`,
-#     which the assert helper calls ONLY when `command == "test"`, so it is carried
-#     into the 8 `test` rationales and into no others.
-#   * :348 (6 line(s)) sits inside `assert_browser_harness_set_iteration`,
-#     which every one of the 16 invocations goes through, so it is carried into all 16.
+#   * `// See the matching comment in browser_map_iteration_harness.rs: the whole` (:161) opens a 7-line block inside
+#     `browser_harness_set_iteration_test_source`, which the assert helper calls ONLY
+#     when `command == "test"`, so it is carried into the 8 `test` rationales and into
+#     no others.
+#   * `// Honest re-pin (PR #16 rev2, family `mapset`): kali fails closed/loud here` (:348) opens a 6-line block inside
+#     `assert_browser_harness_set_iteration`, which every one of the 16 invocations goes
+#     through, so it is carried into all 16.
 # `comment_coverage.py` has no per-helper attribution and will therefore report the
 # 7 lines of the `browser_map_iteration_harness.rs` :161 block "missing" from the 8 `run` `[[case]]` entries. That
 # is the checker's known limitation, recorded here rather than papered over by copying

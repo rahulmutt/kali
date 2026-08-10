@@ -177,6 +177,25 @@ def prose_of(block):
     return " ".join(line for line in block[1] if line).strip()
 
 
+def cited(rs_text, needle, *, expect=1, pick=0):
+    """`` `needle` (:N) `` -- a citation the gate can actually re-resolve.
+
+    Ruling 11 exempts `:N` from the no-moving-figures rule ONLY because it is
+    mechanically gated: "a pointer nothing re-resolves is a figure in disguise".
+    A bare `(:37)` matches no reader pattern in `batch5_crosscheck.py` and is
+    reported clean whether it is right or wrong, which is what
+    `reword_ungated_citations.py` exists to repair after the fact. Rendering the
+    construct here means the generator emits the gated form directly, and the
+    construct is the LITERAL THIS FUNCTION SEARCHED FOR, so the pointer and the
+    number cannot disagree.
+    """
+    import re as _re
+    n = P.cite_line(rs_text, _re.escape(needle), label=needle, expect=expect)
+    if expect > 1:
+        n = n[pick]
+    return f"`{needle}` (:{n})"
+
+
 def _rule10(fixtures):
     """Derive whether this file needs `[constants] dollar`, never mark it.
 
@@ -292,12 +311,16 @@ def build_bundle(name, spec):
     text = rs(name)
     helper = spec["helper"]
 
-    c_helper = P.cite_line(text, rf"fn {helper}\(")
-    c_builder = P.cite_line(text, rf"fn {spec['builder']}\(")
-    c_build_exit = P.cite_line(text, r"^\s*output\.status\.success\(\),")
-    c_meta = P.cite_line(text, r'join\("app\.meta\.json"\)')
-    c_fail = P.cite_line(text, r"must fail closed")
-    c_errors = P.cite_line(text, r'envelope\["errors"\]')
+    c_helper = cited(text, f"fn {helper}(")
+    c_builder = cited(text, f"fn {spec['builder']}(")
+    # Two lines carry this text: the build-success assert and the harness
+    # fail-closed assert (`!output.status.success(),`). `expect=2` makes the
+    # ambiguity explicit -- if a source ever grows a third, this raises rather
+    # than silently citing the wrong one.
+    c_build_exit = cited(text, "output.status.success(),", expect=2, pick=0)
+    c_meta = cited(text, 'join("app.meta.json")')
+    c_fail = cited(text, 'assert!(!output.status.success(), "must fail closed')
+    c_errors = cited(text, 'envelope["errors"]')
 
     raw = check_captured(f"app.${{ext}} ({name})", spec["fixture"], text,
                          anchors=spec["anchors"], must_contain="async function"
@@ -342,7 +365,7 @@ def build_bundle(name, spec):
         P.rule13_header(chain, docs_carried=docs),
         "",
         _rule12_block(name, blocks, "every case in this file",
-                      f"`{helper}`, which every `#[test]` fn in the file calls"),
+                      f"`{helper}`, which every `#[test]` fn in the file calls", text),
         "",
         RULING16_NOTE,
     )
@@ -395,28 +418,34 @@ def _harness_body(text, helper, export):
 def _bundle_shape(c_build_exit, c_meta, c_fail, c_errors):
     return [
         "ASSERTION SHAPE, mirrored from the source and nothing more.",
-        f"`exit = \"success\"` on the `kali build --bundle` process (:{c_build_exit}).",
+        f"`exit = \"success\"` on the `kali build --bundle` process: {c_build_exit}.",
         f"In JSON mode the envelope's schemaVersion/command/success/exitCode and",
-        f"payload(artifactKind, bundleFormat) are pinned, plus `errors = []` (:{c_errors}) --",
+        f"payload(artifactKind, bundleFormat) are pinned, plus `errors = []` -- {c_errors} --",
         "this file's helper does assert the errors array is empty, and a file whose helper",
         "does not would not carry the claim.",
-        f"The emitted `app/app.meta.json` (:{c_meta}) is pinned to apiSurface/artifactKind.",
-        f"THEN THE HARNESS PROCESS MUST FAIL CLOSED (:{c_fail}): the `browser_bundle_harness`",
-        "step carries `exit = \"failure\"` and NO output claim, because the source makes none",
+        f"The emitted `app/app.meta.json` is pinned to apiSurface/artifactKind: {c_meta}.",
+        f"THEN THE HARNESS PROCESS MUST FAIL CLOSED -- {c_fail} -- so the",
+        "`browser_bundle_harness` step carries `exit = \"failure\"` and NO output claim,",
+        "because the source makes none",
         "there. Adding a diagnostic code or a stream needle would be a rule-2 invention even",
         "though the real binary does emit one.",
     ]
 
 
-def _rule12_block(name, blocks, reach, helper_desc):
+def _rule12_block(name, blocks, reach, helper_desc, rs_text):
     lines = [
         "RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.",
         f"tests/browser_{name}.rs has {len(blocks)} Rust comment block(s), listed with their",
         "line numbers before any TOML was written:",
     ]
     for start, body in blocks:
-        first = next((l for l in body if l), "")
-        lines.append(f"  * :{start} ({len(body)} line(s)) -- \"{first}...\"")
+        # The citation carries the comment's own first line as its backticked
+        # construct, so `batch5_crosscheck.py` has something to re-resolve. A
+        # bare `(:93)` matches no reader pattern and reports clean whether it is
+        # right or wrong (ruling 11) -- and a comment block has no CODE
+        # construct beside it, so the construct has to be the comment text.
+        raw = rs_text.split("\n")[start - 1].strip()
+        lines.append(f"  * `{raw}` (:{start}) -- opens a {len(body)}-line block")
     lines += [
         f"It sits in {helper_desc},",
         f"so it is carried into the rationale of {reach}. The text is COPIED out of the `.rs`",
@@ -434,19 +463,19 @@ def _bundle_rationale(name, spec, json_output, fn_names, repin, docs,
         f"source's 8 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it "
         f"stands for {listed} -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned "
         f"rule-7 fold, stated here as the rule requires).",
-        f"`{spec['helper']}(` (:{c_helper}) writes {spec['what']} to `app.<ext>` in a fresh "
+        f"{c_helper} writes {spec['what']} to `app.<ext>` in a fresh "
         f"temp dir, builds it with `kali build --bundle --api browser"
         f"{' --output json' if json_output else ''}`, asserts the build succeeds "
-        f"(:{c_build_exit})"
+        f" -- {c_build_exit}"
         + (f", asserts the JSON envelope's schemaVersion/command/success/exitCode and "
-           f"payload(artifactKind, bundleFormat) and that `errors` is empty (:{c_errors})"
+           f"payload(artifactKind, bundleFormat) and that `errors` is empty ({c_errors})"
            if json_output else "")
-        + f", asserts the emitted `app/app.meta.json` metadata (:{c_meta}), then writes the "
+        + f", asserts the emitted `app/app.meta.json` metadata ({c_meta}), then writes the "
           f"browser-bundle harness and runs it under node.",
-        f"THE BUILD SUCCEEDS; it is the HARNESS process that must fail closed (:{c_fail}), so "
+        f"THE BUILD SUCCEEDS; it is the HARNESS process that must fail closed ({c_fail}), so "
         f"the `browser_bundle_harness` step carries `exit = \"failure\"` and no output claim -- "
         f"the source makes none there, and inventing one would break rule 2.",
-        f"The program under test is `{spec['builder']}()` (:{c_builder}); its text is the "
+        f"The program under test is {c_builder}; its text is the "
         f"byte-exact output of executing that real code (rules 8 and 9), never hand-derived.",
         f"RULE 12 -- the Rust comment prose of browser_{name}.rs, carried verbatim: "
         f"\"{repin}\"",
@@ -591,7 +620,7 @@ def build_harness(name, spec):
         "is omitted rather than printed about a chain this file never reaches.",
         "",
         _rule12_block(name, blocks, "every case in this file",
-                      f"`{helper}`, which every `#[test]` fn in the file calls"),
+                      f"`{helper}`, which every `#[test]` fn in the file calls", text),
         "",
         RULING16_NOTE,
     )
@@ -748,7 +777,7 @@ def build_set_iteration():
     c_fail = P.cite_line(text, r"must fail closed")
     c_loop = P.cite_line(text, r'for extension in \["ts", "jsx", "tsx"\]')
     c_filename = P.cite_line(text, r'let filename = format!\("main\.\{extension\}"\)')
-    c_pick = P.cite_line(text, r'if command == "test"')
+    c_pick = cited(text, 'if command == "test"')
 
     run_body = check_captured("run fixture", C.CAP_SET_ITERATION_RUN, text,
                               anchors=[("browserSetIteration", "browserSetIteration")],
@@ -843,7 +872,8 @@ def build_set_iteration():
              ("main.jsx", "main_run.jsx / main_test.jsx", "same"),
              ("main.tsx", "main_run.tsx / main_test.tsx", "same")],
             collision="two different program texts to the same filename"),
-        f"The helper picks its body from the COMMAND (:{c_pick}) and writes it to whatever",
+        f"The helper picks its body from the COMMAND -- {c_pick} -- and writes it to",
+        "whatever",
         "filename it was handed, which is what creates the collision. `main.js` and",
         "`smoke.test.js` are already distinct and are NOT renamed -- only the colliding keys",
         "are.",
@@ -896,12 +926,15 @@ def _set_rule12_block(blocks, by_owner):
     ]
     hs, hb = by_owner["helper"]
     ts, tb = by_owner["test_source"]
+    src = open(os.path.join(TESTS, f"browser_{SET_STEM}.rs")).read().split("\n")
     lines += [
-        f"  * :{ts} ({len(tb)} line(s)) sits inside `browser_harness_set_iteration_test_source`,",
-        "    which the assert helper calls ONLY when `command == \"test\"`, so it is carried",
-        "    into the 8 `test` rationales and into no others.",
-        f"  * :{hs} ({len(hb)} line(s)) sits inside `assert_browser_harness_set_iteration`,",
-        "    which every one of the 16 invocations goes through, so it is carried into all 16.",
+        f"  * `{src[ts - 1].strip()}` (:{ts}) opens a {len(tb)}-line block inside",
+        "    `browser_harness_set_iteration_test_source`, which the assert helper calls ONLY",
+        "    when `command == \"test\"`, so it is carried into the 8 `test` rationales and into",
+        "    no others.",
+        f"  * `{src[hs - 1].strip()}` (:{hs}) opens a {len(hb)}-line block inside",
+        "    `assert_browser_harness_set_iteration`, which every one of the 16 invocations goes",
+        "    through, so it is carried into all 16.",
         "`comment_coverage.py` has no per-helper attribution and will therefore report the",
         f"{len(tb)} lines of the :{ts} block \"missing\" from the 8 `run` `[[case]]` entries. That",
         "is the checker's known limitation, recorded here rather than papered over by copying",

@@ -69,7 +69,7 @@
 # RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
 # tests/browser_promise_all_harness.rs has 1 Rust comment block(s), listed with their
 # line numbers before any TOML was written:
-#   * :50 (2 line(s)) -- "Honest re-pin (PR #16 rev2): kali fails closed/loud here;..."
+#   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:50) -- opens a 2-line block
 # It sits in `assert_browser_requested_promise_all`, which every `#[test]` fn in the file calls,
 # so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
 # by this generator (`comment_blocks`), not retyped, so an em-dash cannot become `--`.

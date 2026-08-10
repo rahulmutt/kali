@@ -1096,6 +1096,17 @@ NO_NEEDLE_DECLARED = {
     "object_entries_iteration": 1,
     "object_enumeration_finalization_bundle": 1,
     "object_enumeration_finalization_harness": 2,
+    "promise_all_bundle": 5,
+    "promise_all_harness": 1,
+    "promise_all_settled_bundle": 5,
+    "promise_all_settled_harness": 1,
+    "promise_race_bundle": 5,
+    "promise_race_harness": 1,
+    "set_iteration_harness": 2,
+    "string_concatenation_bundle": 5,
+    "string_concatenation_harness": 1,
+    "template_literal_string_iteration_bundle": 5,
+    "template_literal_string_iteration_harness": 1,
 }
 
 _NO_NEEDLE = collections.Counter()
