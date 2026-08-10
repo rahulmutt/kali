@@ -33,6 +33,12 @@ universal quantifier that used to close `main()` and was false (round 1, I1):
      `check_fixtures.main`'s chained `return argv_main(...)`, both `${...}`
      substitution failure paths, and `citation_tiers.resolve_source`'s
      no-case-file exit
+  8. `batch5_crosscheck.check`'s NO-SOURCE branch -- that it no longer lets the
+     banner claim "header structure consistent" over a population that branch
+     returned before checking, that it does not call a U2 split stem's source
+     "deleted", and that the disclosure vanishes when the line recording it is
+     removed (added batch 8A fix round 3; this is the second limb of the defect
+     fix round 1 closed for `--citations-only`)
 
 WHAT IS NOT, named rather than left to be assumed: `verify_pair.sh`'s two
 resolver-failure branches (`cannot resolve a source`, `resolver returned a
@@ -40,7 +46,11 @@ non-file`) -- neither is reachable without mutating a shipped case file, which
 this script may not do; and `population_agreement`'s `len(declared) != 1` guard,
 which needs a doctored `--print-specs` shape rather than a doctored figure.
 
-Nothing here writes to the repository -- no object, no file, no config. Round 1
+Nothing here writes to the repository PERMANENTLY -- no object, no config, and
+no shipped case file at all. Probe 8 rewrites `batch5_crosscheck.py` in place
+for one subprocess call and restores it in a `finally`, which is the same
+mutate-and-restore `source_ref_rehearsal.selftest_kill_power` uses; a kill-power
+limb cannot be written any other way for a module the probe must re-import. Round 1
 (C1) had this sentence while probe 4 used `git commit-tree`, which needs a
 committer identity CI does not have AND leaves a dangling object every run; it
 now derives a real ancestor commit instead. Poisoned copies live under
@@ -462,6 +472,87 @@ def probe_supporting_arms(tmp):
           "answers for a MIGRATED pair" in raised, raised[:110])
 
 
+# ---------------------------------------------------------------------------
+# 8. The no-source branch must not let the banner claim an arm it skipped
+#    (batch 8A fix round 3).
+# ---------------------------------------------------------------------------
+def probe_structure_arm_disclosure(tmp):
+    """`batch5_crosscheck.py <stem>` used to print `CROSSCHECK OK — header
+    structure consistent` for a stem whose source it never resolved.
+
+    `check()`'s no-source branch returns before the structure arm, so a caller
+    who did NOT pass `--citations-only` -- i.e. one who believes section order
+    is being checked -- got a clean verdict over a population the arm never
+    touched. Fix round 1 closed the `--citations-only` limb of the same defect;
+    this is the other limb, and it is the one 8C meets, because a U2 split stem
+    and a `SOURCE REF:` stem both land here.
+
+    Measured cost of the silence: a per-stem census over `cases/browser/`
+    reports 44 stems failing structure where the sweep's own materialised route
+    reports 67, and the 23-stem gap is exactly this branch.
+
+    THREE LIMBS, and the third is the one that makes the first two evidence:
+      * CONTROL -- a stem WITH a source still claims "header structure
+        consistent", so the disclosure has not simply been switched on for
+        everything;
+      * POISON -- a split stem discloses the skip and does NOT claim structure
+        was checked;
+      * KILL POWER -- delete the line that records the skip and the disclosure
+        must vanish. A probe that stays red when the thing it guards is removed
+        is testing something else.
+
+    The kill-power limb asserts on the DISCLOSURE, not on the "header structure
+    consistent" phrase, and that is deliberate: a split stem also trips the
+    no-needle equality, so it takes the CROSSCHECK FAILED path and never reaches
+    the OK banner at all. Asserting the phrase reappears would be asserting
+    something neither state prints. The disclosure is printed on BOTH verdicts,
+    which is what makes it observable here.
+    """
+    print("\n8. the no-source branch's banner (batch 8A fix round 3)")
+    path = os.path.join(REPO, "tools/task-18-browser-pilot/batch5_crosscheck.py")
+    pristine = open(path).read()
+
+    # The recorded skip is what the banner reads; deleting it is the mutation.
+    guarded = "        _STRUCTURE_SKIPPED[stem] = why\n"
+    if pristine.count(guarded) != 1:
+        check("locate the line the disclosure rests on", False,
+              "expected exactly one `_STRUCTURE_SKIPPED[stem] = why`")
+        return
+
+    sourced = "promise_all_bundle"          # has browser_<stem>.rs
+    split = "reflect_own_keys_explicit_api"  # U2 split: no same-stem .rs
+
+    def banner(stem):
+        _rc, out = run(path, stem)
+        return out
+
+    control = banner(sourced)
+    check("CONTROL: a sourced stem still claims structure was checked",
+          "header structure consistent" in control,
+          control[-200:])
+
+    poisoned = banner(split)
+    check("POISON: a split stem does NOT claim structure was checked",
+          "header structure consistent" not in poisoned, poisoned[-200:])
+    check("POISON: and it says so, naming the stem and why",
+          "header structure checked for" in poisoned and split in poisoned,
+          poisoned[-300:])
+    check("POISON: and it does not call a split stem's source deleted",
+          "source deleted post-migration" not in poisoned, poisoned[-300:])
+
+    try:
+        open(path, "w").write(pristine.replace(guarded, "        pass\n"))
+        killed = banner(split)
+        check("KILL POWER: with the recording deleted, the disclosure vanishes "
+              "and the reader is told nothing",
+              "header structure checked for" not in killed, killed[-200:])
+    finally:
+        open(path, "w").write(pristine)
+    restored = banner(split)
+    check("restored: the disclosure is back",
+          "header structure checked for" in restored, restored[-200:])
+
+
 def main():
     tmp = tempfile.mkdtemp(prefix="inst2-probes-")
     try:
@@ -472,6 +563,7 @@ def main():
         probe_verify_pair_delegation(tmp)
         probe_population_banner()
         probe_supporting_arms(tmp)
+        probe_structure_arm_disclosure(tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     if FAILURES:
@@ -484,7 +576,7 @@ def main():
     # sentence was a ruling-13 universal about this file's own completeness, and
     # it was false: several arms in the same diff were not probed. What is probed
     # is the list in the docstring, and what is not is named there too.
-    print("\nPROBES OK -- the seven sections above each fired on the defect they "
+    print("\nPROBES OK -- the eight sections above each fired on the defect they "
           "exist to catch and stayed silent on their control; see this file's "
           "docstring for what is probed and what is not")
     return 0

@@ -644,7 +644,23 @@ def check(spec, citations_only=False):
         starts = {m.start() for m in CITE.finditer(text)}
         starts |= {m.start() for m in SUBMOD_CITE.finditer(text)}
         _NO_NEEDLE[stem] += len(starts)
-        print(f"{stem}: source deleted post-migration; gatedness arm only, "
+        # "SOURCE DELETED" IS ONLY ONE OF THE TWO WAYS TO GET HERE, and calling
+        # the other one that is false. A U2 SPLIT stem
+        # (`reflect_own_keys_explicit_api`) has no `browser_<stem>.rs` because
+        # its source is named in its own `Migrated from` line and shared with a
+        # sibling case file -- the source is right there in the tree. Derived
+        # from whether that named file exists, so the label cannot describe a
+        # state the tree does not have.
+        named = _migrated_from(text)
+        if named and os.path.exists(os.path.join(TESTS, named)):
+            why = (f"no same-stem source; migrated from {named}, which IS in the "
+                   "tree (U2 split or renamed target) -- pass "
+                   f"`{stem}={named}` to resolve against it")
+        else:
+            why = "source deleted post-migration"
+        _STRUCTURE_SKIPPED[stem] = why
+        print(f"{stem}: {why}; gatedness arm only (header-structure and "
+              f"citation-resolution arms SKIPPED), "
               f"{len(starts)} unresolvable citation match(es), "
               f"{len(problems)} problem(s)")
         return problems
@@ -1172,6 +1188,20 @@ NO_NEEDLE_DECLARED = {
 }
 
 _NO_NEEDLE = collections.Counter()
+
+# WHICH STEMS HAD THE HEADER-STRUCTURE ARM SKIPPED, AND WHY. `check()`'s
+# no-source branch returns before the structure arm, so a caller that did NOT
+# pass `--citations-only` -- i.e. one that believes it is checking section order
+# -- got `CROSSCHECK OK` over a population the arm never touched. Fix round 1
+# made the banner honest about `--citations-only`; this is the same defect one
+# branch over, and ruling 18 is explicit that a success message must not assert
+# an arm that did not run.
+#
+# It is not hypothetical and the cost is measured: a per-stem census over
+# `cases/browser/` reports 44 stems failing structure, where the sweep's own
+# materialised route reports 67. The 23-stem gap is exactly the stems that fall
+# to this branch, and it is what made a controller figure wrong.
+_STRUCTURE_SKIPPED = {}
 
 # HOW MUCH `BARE_NEEDLE_ADMITTED` ACTUALLY BUYS, PER STEM, DECLARED AND
 # EQUALITY-CHECKED (fix round 5, N-1).
@@ -2444,28 +2474,52 @@ def main(argv):
                 "nothing fired it. Delete the entry (the citation was reworded or "
                 "removed) rather than leaving a carve-out nobody re-checks.")
     all_problems += ghost_declarations()
+    # THE BANNER NAMES ONLY THE ARMS THAT ACTUALLY RAN, on BOTH the ways they can
+    # fail to run. `--citations-only` skips the header-structure arm for every
+    # stem; `check()`'s no-source branch skips it for SOME stems even when the
+    # caller never asked for that. The second is the one 8C meets, because a
+    # split or sourceless stem is exactly what this family looks like once
+    # migration completes -- and it is what made a per-stem census report 44
+    # where the sweep's materialised route reports 67.
+    #
+    # COMPUTED BEFORE THE VERDICT, AND PRINTED ON BOTH. A skipped arm is no less
+    # skipped because some other arm failed, and a reader who sees CROSSCHECK
+    # FAILED, fixes the named problems and re-runs would otherwise never learn
+    # that section order went unchecked for part of the population.
+    if citations_only:
+        structure = ""
+        skipped = ("  (header structure NOT checked: --citations-only skips that arm; "
+                   "run without it to check section order)")
+    elif _STRUCTURE_SKIPPED:
+        n = len(_STRUCTURE_SKIPPED)
+        structure = ""
+        lines = [f"  (header structure checked for {len(stems) - n} of {len(stems)} "
+                 f"stem(s); SKIPPED for {n}, which returned before that arm:)"]
+        for st in sorted(_STRUCTURE_SKIPPED):
+            lines.append(f"     {st}: {_STRUCTURE_SKIPPED[st]}")
+        lines += [
+            "   A per-stem census that ignores this UNDERCOUNTS: these stems are reported",
+            "   clean whatever their headers look like. Resolve them the way",
+            "   citation_sweep.sh does -- citation_tiers.resolve_case_stem picks the right",
+            "   side (pre-trim blob, SOURCE REF reproduction, or the named tree file); an",
+            "   `=<path>` guess can name the wrong one, which for a U4 trim is the trimmed",
+            "   file rather than the pre-trim blob the citations were written against.",
+        ]
+        skipped = "\n".join(lines)
+    else:
+        structure = "header structure consistent, "
+        skipped = ""
+    if skipped:
+        print(skipped)
     if all_problems:
         print("\nCROSSCHECK FAILED")
         for p in all_problems:
             print(f"  {p}")
         return 1
-    # THE BANNER NAMES ONLY THE ARMS THAT RAN. Under `--citations-only` the
-    # header-structure arm is skipped (`check()` iterates `()` instead of
-    # `SECTIONS`), and this line still said "header structure consistent" -- a
-    # success message asserting an arm that did not run, which is ruling 18's
-    # exact failure mode and is what `citation_sweep.sh` prints on every sweep,
-    # because the sweep invokes `--citations-only`. Derived from the same flag
-    # the arm is gated on, so the two cannot drift apart.
-    structure = ("" if citations_only else
-                 "header structure consistent, ")
-    skipped = ("  (header structure NOT checked: --citations-only skips that arm; "
-               "run without it to check section order)\n" if citations_only else "")
     print(f"\nCROSSCHECK OK — {structure}every code citation the "
           "gate can resolve resolves, every one it cannot is declared "
           "(UNGATED_REDLIST / NO_NEEDLE_DECLARED), and how much the declared bare "
           "needles actually pin matches PINNED_SPLIT_DECLARED")
-    if skipped:
-        print(skipped, end="")
     return 0
 
 
