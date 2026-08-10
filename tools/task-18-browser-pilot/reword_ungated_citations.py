@@ -163,12 +163,25 @@ def _resolves(snippet, lines, first, last):
     return all(tok in stmt for tok in needles)
 
 
-def rework(stem, apply=False):
-    toml_path = os.path.join(CASES, f"{stem}.toml")
-    text = open(toml_path).read()
+def rework_text(stem, text):
+    """The reword, as a pure function of (stem, case-file text).
+
+    This is the whole of the reword, and it is called from ONE place at
+    generation time -- `case_emit.write` -- so a generator cannot emit an
+    ungated citation that a later post-pass has to repair. Everything below
+    used to run only as that post-pass, which is exactly why the shipped tree
+    stopped being reproducible: the generators emitted `(:N)` and the tree
+    carried `` `snippet` (:N) ``.
+
+    Returns `(text, done, failed)`. It is IDEMPOTENT: a citation that already
+    carries a backticked construct is matched by `CITE`/`SUBMOD_CITE` and is
+    therefore excluded from `sites`, so re-running over reworded text is a
+    no-op. That is what lets the fold sit under every generator, including the
+    three that were already fixed points.
+    """
     lines = _pretrim_lines(stem, text)
     if lines is None:
-        return [], [f"{stem}: no resolvable source"]
+        return text, [], [f"{stem}: no resolvable source"]
     covered = [(m.start(), m.end()) for m in
                list(X.SUBMOD_CITE.finditer(text)) + list(X.CITE.finditer(text))]
     sites = [m for m in X.WRITTEN_CITE.finditer(text)
@@ -196,6 +209,14 @@ def rework(stem, apply=False):
             continue
         text = text[:m.start()] + f"`{pick}` " + text[m.start():]
         done.append((cite, pick))
+    return text, done, failed
+
+
+def rework(stem, apply=False):
+    """The on-disk driver. Kept so the standalone report/`--apply` run still
+    works; the generation-time path goes through `rework_text` directly."""
+    toml_path = os.path.join(CASES, f"{stem}.toml")
+    text, done, failed = rework_text(stem, open(toml_path).read())
     if apply and done:
         with open(toml_path, "w") as f:
             f.write(text)

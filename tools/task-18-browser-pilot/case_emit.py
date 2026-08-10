@@ -232,6 +232,45 @@ def emit(header_lines, matrix, source, cases):
 
 
 def write(path, text):
+    """Render-to-disk, WITH the citation reword folded in.
+
+    Why the reword lives here and not in each generator's own `cite()`: every
+    one of this project's generators writes through this function (14 of 14 --
+    `grep -L 'from case_emit import.*write' gen_batch*.py` returns nothing), and
+    the reword is a *derivation*, not a transcription: it reads the construct it
+    inserts out of the very source lines the citation points at
+    (`reword_ungated_citations`'s module docstring states why that matters).
+    Folding it here therefore gives every generator the reworded form without
+    hard-coding one byte of post-processed output into any of them.
+
+    Before this fold, `reword_ungated_citations.py --apply` was run as a
+    post-pass over the shipped tree and no generator was ever taught the result,
+    so a shipped `` `console.log` (:77) `` regenerated as `(:77)` and every
+    generator that emits a citation drifted. The reword is idempotent on
+    already-gated citations, so the three generators that were already fixed
+    points stay fixed points.
+
+    Unresolvable sites are left BARE on purpose, because that is what the tree
+    carries and what `citation_sweep.sh` already declares (UNGATED_REDLIST /
+    NO_NEEDLE_DECLARED). They are printed rather than raised: raising here would
+    turn a declared, gated condition into a generator crash. A STALE citation --
+    one pointing past the end of its source -- is a different thing and does
+    raise, because nothing else in the pipeline reads it.
+    """
+    from reword_ungated_citations import rework_text  # noqa: E402  (cycle-free; imported late for import cost)
+
+    stem = os.path.basename(path)
+    if stem.endswith(".toml"):
+        stem = stem[:-5]
+    text, done, failed = rework_text(stem, text)
+    stale = [f for f in failed if "STALE" in f]
+    if stale:
+        raise AssertionError(
+            "citation past the end of its source -- the number is wrong, and no "
+            "reword can paper over it:\n  " + "\n  ".join(stale))
     with open(path, "w") as f:
         f.write(text)
-    print(f"wrote {path} ({len(text.splitlines())} lines)")
+    note = f", {len(done)} citation(s) reworded" if done else ""
+    print(f"wrote {path} ({len(text.splitlines())} lines{note})")
+    for f in failed:
+        print(f"  UNGATED (left bare, must be declared to the sweep): {f}")
