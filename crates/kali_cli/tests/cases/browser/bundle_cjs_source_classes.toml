@@ -1,6 +1,5 @@
 # Migrated from tests/browser_bundle_cjs_source_classes.rs.
 #   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
-#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_bundle_cjs_source_classes.rs
 #
 # Matrix arithmetic: all 8 #[test] fns are individual, unlooped calls to
 # `assert_browser_bundle_cjs_source_class(filename, inherited)` -- grouped by

@@ -613,12 +613,18 @@ def check(spec, citations_only=False):
         # any reader matches is a property of the case file's own text.
         #
         # BATCH 7 FIX ROUND 1, I2. This used to return one problem and stop, and
-        # `citation_sweep.sh` avoided that by SKIPPING such a stem entirely --
-        # 23 of the 104 case files, `_gated_arm` never run on any of them. Two
-        # ungated citations were hiding there (`bundle_cjs_source_classes.toml`
-        # and `..._inherited.toml`, both `classes.rs:23-33`): unearned AND
-        # undisclosed, which is the exact state item 1 exists to end. Running the
-        # arm that CAN run is strictly better than skipping the file.
+        # `citation_sweep.sh` avoided that by SKIPPING such a stem entirely, so
+        # `_gated_arm` never ran on a sourceless case file at all and ungated
+        # citations were hiding there: unearned AND undisclosed, which is the
+        # exact state item 1 exists to end. Running the arm that CAN run is
+        # strictly better than skipping the file.
+        #
+        # BATCH 8: THE SWEEP NO LONGER REACHES THIS BRANCH. A sourceless case
+        # file resolves against its `SOURCE REF:` blob, and one that declares
+        # none makes `citation_sweep.sh` exit 2 rather than emit a bare stem.
+        # The branch is kept because `check()` is a library entry point other
+        # callers still pass bare stems to; it is no longer the family's
+        # disposition for a deleted source.
         if not os.path.exists(toml_path):
             return [f"{stem}: no source at {rs_path} and no case file at {toml_path}"]
         text = open(toml_path).read()
@@ -632,11 +638,9 @@ def check(spec, citations_only=False):
         # while the identical line in a sourced stem was reported.
         #
         # With no source there is nothing to resolve against, so EVERY citation
-        # match here is unresolvable and every one is counted. That is 0 today --
-        # these 23 stems carry no citation match at all, only the two red-listed
-        # ungated ones -- so the equality check now passes for a MEASURED reason
-        # instead of because the counter was never touched, and a citation added
-        # to one of them moves the count off its declared 0 and fails.
+        # match here is unresolvable and every one is counted, which is what
+        # makes the equality check pass for a MEASURED reason instead of because
+        # the counter was never touched.
         starts = {m.start() for m in CITE.finditer(text)}
         starts |= {m.start() for m in SUBMOD_CITE.finditer(text)}
         _NO_NEEDLE[stem] += len(starts)
@@ -740,10 +744,18 @@ def check(spec, citations_only=False):
         # declarations name, and is a real base. None of the three bases above
         # can be: the reproduction is not `TESTS`, `live_path` is exactly what
         # the deletion removed, and `named` resolves back into `TESTS` where the
-        # source no longer is. Tried LAST, so it never displaces a tree base for
-        # the `--pretrim` case, where the temp dir holds a lone blob and nothing
-        # resolves out of it anyway.
-        bases.append(rs_path)
+        # source no longer is.
+        #
+        # TRIED LAST, and the reason is the ORDER, not the contents of the
+        # scratch dir. The first version of this comment said a `--pretrim`
+        # blob's directory "holds a lone blob and nothing resolves out of it",
+        # which stopped being true in the same commit: `$TMPDIR_` also held every
+        # `SOURCE REF:` reproduction. What actually protects the pre-trim case is
+        # that its `live_path` exists and is tried first; `citation_sweep.sh` now
+        # also keeps pre-trim blobs and ref reproductions in separate
+        # subdirectories so neither can resolve out of the other (minor 6).
+        if rs_path not in bases:               # `--rs` split: already added
+            bases.append(rs_path)
         for base in bases:
             if not os.path.exists(base):
                 continue
@@ -2147,8 +2159,8 @@ def _source_ref_base_selftest():
     miss.
 
     Three properties, against a synthetic carrier + `#[path]` submodule written
-    into a temp dir (never a tree file -- every `#[path]` carrier in the tree is
-    itself a batch-8 deletion target):
+    into a temp dir rather than anchored on a tree file, so the probe survives
+    the deletion of the carriers it guards:
 
       1. REPRODUCED, correct citation -> clean. A mutation deleting the new base
          turns this red with "declares `#[path]` submodule(s) but none could be

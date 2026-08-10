@@ -1,6 +1,5 @@
 # Migrated from tests/browser_find_family_bundle.rs.
 #   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
-#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_find_family_bundle.rs
 #
 # `browser_bundle_find_family_js_source()` and `..._ts_source()` are
 # byte-identical text (both build the same JS body), so a single shared

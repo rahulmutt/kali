@@ -1,6 +1,5 @@
 # Migrated from tests/browser_object_keys_harness.rs.
 #   SOURCE REF: fd75de19cad9c174165048a565468ce99064c87f
-#   git show fd75de19cad9c174165048a565468ce99064c87f:crates/kali_cli/tests/browser_object_keys_harness.rs
 #
 # Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud
 # here (12 of this file's 41 worklist members were tagged class B by the

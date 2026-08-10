@@ -1,6 +1,5 @@
 # Migrated from tests/browser_bundle_template_literal_interpolation.rs.
 #   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
-#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_bundle_template_literal_interpolation.rs
 #
 # Interpolated template literals print interpolated values through the
 # browser bundle glue under the node harness.

@@ -1,10 +1,8 @@
 # Migrated from tests/browser_bundle_cjs_source_classes.rs (the `inherited
-#
-#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
-#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_bundle_cjs_source_classes.rs
 # == true` half; see `bundle_cjs_source_classes.toml`'s header for the full
 # explanation of why this is a separate FILE, not just a separate case in
 # that file).
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
 #
 # Matrix arithmetic: 4 of the file's 8 #[test] fns (the `json_build_emits_
 # inherited_*` group) are individual, unlooped calls to

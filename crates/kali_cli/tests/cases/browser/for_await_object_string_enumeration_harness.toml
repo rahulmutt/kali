@@ -1,6 +1,5 @@
 # Migrated from tests/browser_for_await_object_string_enumeration_harness.rs.
 #   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
-#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_for_await_object_string_enumeration_harness.rs
 #
 # Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here
 # (growable-array lane rejects push-then-alias with E5506), never a silent

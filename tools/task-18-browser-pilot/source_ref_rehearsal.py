@@ -205,6 +205,62 @@ def check_sample():
 # ---------------------------------------------------------------------------
 # 1. The equivalence rehearsal.
 # ---------------------------------------------------------------------------
+def validated_count(scratch):
+    """`citation_sweep.sh --print-specs`'s `#validated N` -- how many declared
+    refs were compared BY CONTENT against a source still in the tree."""
+    rc, out = sweep(scratch, ("--print-specs",))
+    line = next((l for l in out.split("\n") if l.startswith("#validated ")), None)
+    return None if (rc or line is None) else int(line.split()[1])
+
+
+def wrong_ref_while_source_present(scratch, srcs):
+    """IMPORTANT-2's probe. A declaration is only falsifiable by CONTENT while
+    its source is still in the tree, which under the declare-first-delete-later
+    workflow is the whole window in which a wrong sha gets introduced. A ref
+    naming an OLDER REVISION of the same file passes every existence check, so
+    without this arm it would sit unnoticed until deletion day and then shift
+    every `:N` in the case file at once.
+
+    The wrong ref is derived, not invented: the newest commit in the file's own
+    history whose blob differs from the working-tree copy."""
+    for stem, src in zip(SAMPLE, srcs):
+        path = f"{TESTS_REL}/{src}"
+        with open(os.path.join(REPO, TESTS_REL, src), "rb") as fh:
+            current = fh.read()
+        older = None
+        for candidate in git("log", "--format=%H", "--", path).stdout.split():
+            blob = subprocess.run(
+                ["git", "-C", REPO, "cat-file", "blob", f"{candidate}:{path}"],
+                capture_output=True).stdout
+            if blob and blob != current:
+                older = candidate
+                break
+        if older is None:
+            NOTE.append(f"{src} has no historical revision differing from the "
+                        "working tree, so it cannot carry the wrong-content probe")
+            continue
+        toml = toml_path(scratch, stem)
+        pristine = open(toml).read()
+        try:
+            open(toml, "w").write(
+                re.sub(r"(SOURCE REF: )[0-9a-f]{40}", r"\g<1>" + older, pristine))
+            rc, out = sweep(scratch)
+            hit = "DIFFERS from the source this case file's citations resolve" in out
+            print(f"  {stem}: SOURCE REF moved to {older[:10]} (an older revision "
+                  f"of {src}, source still present): rc={rc}, "
+                  f"{'content mismatch reported' if hit else 'NOT REPORTED'}")
+            if rc != 2 or not hit:
+                fail(f"{stem}: a SOURCE REF naming an older revision of a source "
+                     f"that is still in the tree gave rc={rc} without a content "
+                     "mismatch. Existence checks alone cannot catch this, and "
+                     "after the deletion nothing can.\n" + out[-1500:])
+        finally:
+            open(toml, "w").write(pristine)
+        return
+    fail("no sample source has a differing historical revision, so the "
+         "wrong-content probe never ran")
+
+
 def rehearse(scratch, sha):
     srcs = [declare(scratch, stem, sha) for stem in SAMPLE]
     rc_with, out_with = sweep(scratch)
@@ -213,6 +269,16 @@ def rehearse(scratch, sha):
              f"rehearsal cannot mean anything against a red baseline:\n"
              f"{out_with[-2000:]}")
         return None, None, srcs
+    got = validated_count(scratch)
+    print(f"  declarations checked by content while the sources are present: "
+          f"{got} (expected {len(SAMPLE)})")
+    if got != len(SAMPLE):
+        fail(f"with all {len(SAMPLE)} sample sources present and declared, the "
+             f"content-validation arm ran on {got} of them -- an arm that does "
+             "not run is not an arm")
+    print("\n6. wrong-content declaration, caught while the source is still here")
+    wrong_ref_while_source_present(scratch, srcs)
+    print()
     removed = []
     for src in srcs:
         removed += delete_source(scratch, src)
@@ -222,6 +288,13 @@ def rehearse(scratch, sha):
     if rc_del != 0:
         fail(f"the DELETED-state sweep did not exit 0 (rc={rc_del}):\n"
              f"{out_del[-3000:]}")
+    got = validated_count(scratch)
+    print(f"  declarations checkable by content once the sources are gone: {got} "
+          "(expected 0 -- there is nothing left to compare against, which is why "
+          "the check has to happen before deletion day)")
+    if got != 0:
+        fail(f"the deleted state reported {got} content-validated declaration(s); "
+             "with the sources gone there is nothing to validate against")
     diff = list(difflib.unified_diff(
         out_with.split("\n"), out_del.split("\n"),
         "with-source", "source-deleted", lineterm="", n=1))
@@ -421,8 +494,10 @@ def population_agreement(scratch):
         return
     a = sorted(l for l in shell.split("\n") if l.strip())
     b = sorted(l for l in tiers.stdout.split("\n") if l.strip())
-    print(f"  citation_sweep.sh: {len(a)} spec(s); citation_tiers.py: "
-          f"{len(b)} spec(s)")
+    print(f"  citation_sweep.sh: {sum(1 for l in a if not l.startswith('#'))} "
+          f"spec(s); citation_tiers.py: "
+          f"{sum(1 for l in b if not l.startswith('#'))} spec(s); "
+          "compared on stem, provenance, ref and source file")
     if a != b:
         fail("the two population loops disagree:\n" + "\n".join(
             difflib.unified_diff(a, b, "citation_sweep.sh", "citation_tiers.py",

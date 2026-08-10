@@ -1,6 +1,5 @@
 # Migrated from tests/browser_for_await_array_iteration_harness_wrappers_js_input.rs.
 #   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
-#   git show 3e083edc5d8ba24dd69a79cc75c60889d8258cb5:crates/kali_cli/tests/browser_for_await_array_iteration_harness_wrappers_js_input.rs
 #
 # 72 #[test] fns, ALL individual calls (zero loops anywhere in this file --
 # confirmed by reading every fn), each a single call to

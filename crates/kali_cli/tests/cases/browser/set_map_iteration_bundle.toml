@@ -1,6 +1,5 @@
 # Migrated from tests/browser_set_map_iteration_bundle.rs.
 #   SOURCE REF: fd75de19cad9c174165048a565468ce99064c87f
-#   git show fd75de19cad9c174165048a565468ce99064c87f:crates/kali_cli/tests/browser_set_map_iteration_bundle.rs
 #
 # Honest re-pin (PR #16 rev2): kali fails closed/loud here; see
 # docs/superpowers/followups/pr16-honest-repin-inventory.md.
