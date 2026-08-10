@@ -364,6 +364,23 @@ def imul_omitted_operands():
     run_needle = "0\n0\n0\n0\n0"
     test_needle = "0\n0\n0\n0\n0\nok 1"
 
+    # THE ARTIFACT IS RIGHT in the `contrast ... in
+    # browser_math_hypot_empty_identity.rs` clause below, and this generator is
+    # brought up to it -- one of only two places in the family where the
+    # reconciliation runs artifact -> generator. The block used to write
+    # `contrast :81-84 of ...`, a line number belonging to a DIFFERENT source.
+    # `batch5_crosscheck.CITE` binds a number to the nearest backticked construct
+    # within 40 characters, which here is this file's own `errors`, so the pair's
+    # gate resolved a cross-file pointer against the wrong source. Batch 7 fix
+    # round 1 (M8, commit 32fb3e3fab) dropped the cross-file number and stated the
+    # contrast by name -- ruling 15's third answer, delete the figure. That review
+    # fix never reached this generator, so regenerating reintroduced the
+    # mis-binding. Verified against the `.rs` arbiter, which is what decides
+    # anything that is not citation form: browser_math_imul_omitted_operands.rs
+    # contains no `errors` at all (`grep -c errors` -> 0) and
+    # browser_math_hypot_empty_identity.rs:81-84 does assert
+    # `envelope["errors"] ... .is_empty()`, so the surviving sentence is true
+    # without the integer.
     header = f"""\
 Migrated from tests/browser_math_imul_omitted_operands.rs.
 
@@ -406,7 +423,7 @@ ASSERTION SHAPE, mirrored from the source and nothing more.
 Bundle helper: `exit = "success"` on the build (:71) and on the harness process
 (:123); in json mode schemaVersion/command/success/exitCode and payload
 artifactKind/bundleFormat (:80-86) and NOTHING ELSE -- this file makes NO
-`errors` claim on the build envelope (contrast :81-84 of
+`errors` claim on the build envelope (contrast the same envelope in
 `browser_math_hypot_empty_identity.rs`, which does), so `errors = []` is
 deliberately absent here; the emitted `app/app.meta.json` metadata (:94-95),
 read outside the `if json_output`; then the bundle-harness `stdout_contains`

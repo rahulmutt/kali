@@ -176,11 +176,60 @@ def with_stdout_pin(envelope, pin):
     return out
 
 
+def _break_is_load_bearing(lines):
+    """Accept hand-broken block lines only where flowing them would MISCITE.
+
+    Ruling 18's shape: derive the property rather than marking it, and make a
+    non-match an error. The property this checks is the one that forces the
+    break -- that re-flowing the same words to WIDTH would put a `:N` within
+    `batch5_crosscheck.CITE`'s window of a backtick that is not its anchor, so
+    the gate would resolve the number against the wrong construct. If reflowing
+    is harmless, the wrapper is used and this raises, so the escape hatch cannot
+    become a general licence to hand-wrap.
+    """
+    import batch5_crosscheck as X
+    flowed = textwrap.wrap(" ".join(ln.strip() for ln in lines), width=WIDTH,
+                           initial_indent="  ", subsequent_indent="    ")
+    if flowed == list(lines):
+        raise AssertionError(
+            "hand-broken block is what the wrapper produces anyway -- use the "
+            "flowed form")
+    # Every `:N` in the hand-broken form must be UNgated (so the reword can
+    # anchor it), and at least one of them must become gated -- to the wrong
+    # thing -- once reflowed. That difference is the whole justification.
+    def gated(text):
+        return {(m.group(0), m.start()) for m in X.CITE.finditer(text)}
+    if gated("\n".join(lines)):
+        raise AssertionError(
+            "hand-broken block already carries a matched citation; the reword "
+            "cannot anchor it and the break buys nothing")
+    if not gated("\n".join(flowed)):
+        raise AssertionError(
+            "reflowing this block gates nothing, so the hand break is cosmetic; "
+            "use the flowed form")
+    return list(lines)
+
+
 def count_keys_block(entries):
     """The `THE COUNT KEYS` header block: every count site, searched, mirrored."""
     lines = ["THE COUNT KEYS. Every `.matches(...).count()` site in the source, with the",
              "bound this file mirrors:"]
-    for desc, cite, bound in entries:
+    for entry in entries:
+        # An entry is either (desc, cite, bound) -- flowed to WIDTH -- or a list
+        # of already-broken lines. The second form exists because ONE entry in
+        # C1 carries TWO citations, and flowing it puts the first number on the
+        # same line as the backticked construct in front of it, inside CITE's
+        # 40-character window: the gate then resolves that number against the
+        # WRONG construct and the reword declines to fix it, because a citation
+        # that is already matched is by definition already gated. Where a break
+        # is load-bearing for the gate it is stated, not left to the wrapper.
+        # `_break_is_load_bearing` proves it is load-bearing rather than
+        # asserting it, so this form cannot be used to smuggle an arbitrary
+        # hand-wrap past the flow.
+        if isinstance(entry, (list, tuple)) and len(entry) and isinstance(entry[0], list):
+            lines += _break_is_load_bearing(entry[0])
+            continue
+        desc, cite, bound = entry
         lines += textwrap.wrap(f"* {desc} ({cite}) -- {bound}", width=WIDTH,
                                initial_indent="  ", subsequent_indent="    ")
     lines += [
@@ -274,8 +323,20 @@ def build_c1():
         test_fns=9, invocations=24, cases=6, axis="ext", values=EXTS,
         helpers=[
             (BUNDLE_FN, 8, "ext(js/ts/jsx/tsx) x json_output(false/true), 8 unlooped fns"),
+            # THE ARTIFACT IS RIGHT HERE, and this is one of exactly two places
+            # in the whole family where that is so. Written as a bare
+            # `ONE looping fn (:239)`, the number sits within CITE's 40-character
+            # window of the *helper* name backticked earlier on the same line, so
+            # the gate resolves :239 against `assert_browser_harness_frozen_math_
+            # sin_cos_tan` -- a DIFFERENT fn -- and the reword then declines to
+            # touch it because it looks already-gated. Breaking the line and
+            # naming the looping fn's own signature puts the right anchor beside
+            # the number. Both halves are derived (`LOOP_FN` is asserted to exist,
+            # `loop_line` is searched for `^fn LOOP_FN($`), so nothing here is a
+            # transcription of post-processed output.
             (HARNESS_FN, 16,
-             f"ONE looping fn ({c(loop_line)}): its 8 entries x output_json(false/true)"),
+             f"ONE looping fn,\n    `{LOOP_FN}(` ({c(loop_line)}):"
+             f" its 8 entries x output_json(false/true)"),
         ]) + [""]
     header += P.rule6_matrix_fold("one `ext` cell of the source") + [
         "THE TWO FOLDS ARE NOT THE SAME KIND OF FOLD, and rule 6 wants that said. For the two",
@@ -290,8 +351,21 @@ def build_c1():
     header += count_keys_block([
         ("the bundle harness process's raw stdout, `stdout.matches(\"0\\n\").count() >= 4`",
          c(b_count), "`stdout_count` with `at_least = 4`"),
-        ("the harness helper's JSON branch, the same count taken against "
-         "`json[\"stdout\"].as_str()`", c(h_json_count), "`json_count` with `at_least = 4`"),
+        # THE ARTIFACT IS RIGHT HERE TOO (second of the two). "the same count"
+        # names ONE site and the entry then carries ONE number, so the JSON
+        # branch's two distinct source constructs collapse into one citation:
+        # :188 (the `.matches().count()` assert) is dropped and `as_str()` is
+        # re-attributed to it. They are two statements in the source and both
+        # are cited, each beside the construct it points at -- and each number
+        # starts its own line so the reword can anchor it, which is what
+        # `_break_is_load_bearing` verifies rather than assumes.
+        ([
+            "  * the harness helper's JSON branch, "
+            "`stdout.matches(\"0\\n\").count() >= 4`",
+            f"    ({c(h_json_count)}), taken against the leaf bound by "
+            "`json[\"stdout\"].as_str()`",
+            f"    ({c(h_leaf)}) -- `json_count` with `at_least = 4`",
+        ],),
         ("the harness helper's text branch, against raw stdout",
          c(h_txt_count), "`stdout_count` with `at_least = 4`"),
     ]) + wrap(
