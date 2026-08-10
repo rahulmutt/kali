@@ -7,15 +7,15 @@
 //! check.rs 4). Inventory, audit and delete the two together.
 //!
 //! Three of this file's shared assert helpers --
-//! `assert_browser_requested_reflect_own_keys` (`:577`),
-//! `assert_json_browser_requested_reflect_own_keys` (`:612`) and
-//! `assert_inherited_browser_api_surface_reflect_own_keys` (`:667`) --
+//! `assert_browser_requested_reflect_own_keys` (`:578`),
+//! `assert_json_browser_requested_reflect_own_keys` (`:613`) and
+//! `assert_inherited_browser_api_surface_reflect_own_keys` (`:668`) --
 //! each carry an `if command == "run"` branch asserting
-//! `stdout.contains("reflect ownKeys ok")` (`:606`), and again at
-//! `stdout.contains("reflect ownKeys ok")` (`:740`); two of them assert it on
+//! `stdout.contains("reflect ownKeys ok")` (`:607`), and again at
+//! `stdout.contains("reflect ownKeys ok")` (`:741`); two of them assert it on
 //! the JSON stdout leaf instead, at
-//! `.contains("reflect ownKeys ok"),` (`:654`) and again at
-//! `.contains("reflect ownKeys ok"),` (`:725`).
+//! `.contains("reflect ownKeys ok"),` (`:655`) and again at
+//! `.contains("reflect ownKeys ok"),` (`:726`).
 //! NO LIVE `#[test]` FN REACHES ANY OF THEM. PR #16 rev2's honest
 //! re-pin moved every `run` caller into `run.rs`'s own local `_fails_closed`
 //! variants -- that file's module comment says so in as many words -- leaving
@@ -70,8 +70,9 @@
 //! retention, where the on-disk `.rs` is shorter than the source its case file
 //! was migrated from and every literal-comparison gate therefore runs against
 //! the wrong left-hand side. This is a WHOLE-FILE retention: nothing was
-//! trimmed, so there is no pre-trim/post-trim divergence, no `PRE-TRIM REF:`
-//! line, and ruling 12's third (migrated-complement) column does not apply --
+//! trimmed, so there is no pre-trim/post-trim divergence, no pre-trim ref
+//! declaration, and ruling 12's third (migrated-complement) column does not
+//! apply --
 //! there is no migrated complement. There is also no right-hand side:
 //! `verify_pair.sh reflect_own_keys` exits 2 with `missing
 //! .../cases/browser/reflect_own_keys.toml` before running any gate, so the

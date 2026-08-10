@@ -88,13 +88,23 @@ so both files declare `[constants] dollar = "$"`. That is DERIVED, not marked:
 `_rule10` inspects the captured fixture and raises if a file that declares the
 constant has no `${` in it, or if a file that does not declare it has one.
 
-U9. Every claim emitted by this generator is live-verified against the real
-built `kali` by `--verify`, which runs each emitted case's argv in a fresh temp
-dir seeded with that file's own `[source]` table and compares the observed exit
-status and output against what the case asserts -- every case, not a sample.
+U9. Every case emitted here is live-verified against the real built `kali` by
+`cargo test -p kali_cli --test cases`, which materialises each trial's
+`[source]` table into a fresh directory, runs the real binary with the case's
+own argv, and checks every claim the case makes. That is per-case and not a
+sample: the 136 trials these files add all execute, and the suite is red if any
+claim is wrong. No separate verifier is shipped, because a second, weaker
+re-implementation of what the runner already does is exactly the duplicated
+predicate this project has been bitten by three times -- the runner IS the
+authority on what a case asserts.
 
-Run: python3 gen_batch8a.py [name ...]     (no args = all)
-     python3 gen_batch8a.py --verify       (emit, then live-verify every case)
+The pinned VALUES those cases carry were captured from the real binary before
+they were written (`_rk_envelope`'s fields, `payload.filesChecked`,
+`payload.total/passed/failed`, the `hostContract`/`runtimeBackend` pair used in
+the U2 derivation above), not hand-computed.
+
+Run: python3 gen_batch8a.py [name ...]           (no args = all)
+     python3 gen_batch8a.py --reflect-preview    (render the escalated split)
 """
 
 import json as _json
@@ -123,10 +133,9 @@ EXTS4 = ["js", "ts", "jsx", "tsx"]
 HARNESS_ENV = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND"
 
 REGISTRY = {}
-# Every emitted file's live-verification plan, filled in as each target renders
-# so `--verify` runs the SAME argv/source/claims the file was emitted with
-# rather than a second reading of the shipped TOML. U9 wants the binary asked
-# about the case, not about a re-parse of it.
+# Per-file record of the steps each target emitted, keyed by stem. Kept because
+# the reflect_own_keys builders are not registered (see their block below) and
+# this is the only handle a reviewer has on what they WOULD have shipped.
 VERIFY = {}
 
 
@@ -734,7 +743,6 @@ for _n, _s in HARNESS_TARGETS.items():
 
 
 def main(argv):
-    verify = "--verify" in argv
     names = [a for a in argv if not a.startswith("--")] or sorted(REGISTRY)
     unknown = [n for n in names if n not in REGISTRY]
     if unknown:
@@ -750,9 +758,6 @@ def main(argv):
             text = fn()
             print(f"--- {fn.__name__}: {len(text.splitlines())} lines "
                   f"({text.count('[[case]]')} [[case]] entries)")
-    if verify:
-        import verify_batch8a
-        return verify_batch8a.run(VERIFY)
     return 0
 
 
@@ -1097,10 +1102,25 @@ def _rk_read():
         raise AssertionError(
             f"submodules resolved to {sorted(subs)}, expected {sorted(RK_SUBS)}")
 
-    counts = {n: t.count("#[test]") for n, t in subs.items()}
-    if sum(counts.values()) != 44 or carrier.count("#[test]") != 0:
+    # Count real `#[test]` ATTRIBUTE LINES, not substring hits, and skip any
+    # leading `//!` retention header: this carrier's own U3 header discusses
+    # `#[test]` in prose, and a substring count read that as three extra tests.
+    # Prose about the file is an input to any measurement of the file -- the
+    # same self-reference ruling 11 exists for.
+    def n_tests(text):
+        out, lines = 0, text.split("\n")
+        i = 0
+        while i < len(lines) and lines[i].startswith("//!"):
+            i += 1
+        for line in lines[i:]:
+            if line.strip() == "#[test]":
+                out += 1
+        return out
+
+    counts = {n: n_tests(t) for n, t in subs.items()}
+    if sum(counts.values()) != 44 or n_tests(carrier) != 0:
         raise AssertionError(f"submodule #[test] census {counts}, carrier "
-                             f"{carrier.count('#[test]')}; expected 44 / 0")
+                             f"{n_tests(carrier)}; expected 44 / 0")
 
     for row in RK_ROWS:
         sub_text = subs[row["sub"]]
@@ -1473,13 +1493,26 @@ def _rk_build(half):
     if len(rows) != expected:
         raise AssertionError(f"{half} half has {len(rows)} rows, expected {expected}")
 
-    blocks = comment_blocks(subs["run.rs"])
+    def source_comment_blocks(text):
+        """`comment_blocks` minus a leading `//!` retention header.
+
+        Rule 12 is about comments the SOURCE already had; a `//!` header is
+        prose this migration added (U3), and `math_shapes.rule12_no_comments_
+        prose` skips it for exactly that reason. Without the skip, adding the
+        header to this carrier turned its own rule-12 check red.
+        """
+        blocks = comment_blocks(text)
+        if blocks and blocks[0][0] == 1 and text.startswith("//!"):
+            blocks = blocks[1:]
+        return blocks
+
+    blocks = source_comment_blocks(subs["run.rs"])
     if len(blocks) != 1:
         raise AssertionError(
             f"run.rs has {len(blocks)} comment block(s), this generator accounts for 1")
     for name, text in [(f"browser_{RK}.rs", carrier)] + [
             (n, t) for n, t in subs.items() if n != "run.rs"]:
-        if comment_blocks(text):
+        if source_comment_blocks(text):
             raise AssertionError(f"{name} has grown a Rust comment block; rule 12 unhandled")
     repin_prose = prose_of(blocks[0])
 
