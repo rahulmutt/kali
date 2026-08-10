@@ -27,9 +27,19 @@ Exits 1 if any fixture is unmatched, 2 if it found no fixtures to check at all
 (a vacuous green, the dangerous direction -- same floor `comment_coverage.py`
 grew in batch 3).
 
-Usage: check_fixtures.py SOURCE.rs TARGET.toml [TARGET2.toml ...]
+SECOND ARM (batch 8-inst-2): ARGV/`[source]` CORRESPONDENCE. The arm above asks
+whether the .rs's programs reached the .toml; this one asks whether the .toml's
+own argv still names programs the .toml declares. See
+`argv_source_correspondence` for why that is not implied by a green test run.
+
+Usage:
+  check_fixtures.py SOURCE.rs TARGET.toml [TARGET2.toml ...]
+  check_fixtures.py --argv-correspondence [CASE.toml ...]   # that arm alone;
+        with no paths, every case file under crates/kali_cli/tests/cases/.
 """
 
+import glob
+import itertools
 import os
 import re
 import sys
@@ -39,6 +49,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from case_emit import fixture_in_fn  # noqa: E402
 from lexer import find_string_literals  # noqa: E402
 from submodules import read_with_submodules  # noqa: E402
+
+REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "..", ".."))
+CASES = os.path.join(REPO, "crates/kali_cli/tests/cases")
 
 SOURCE_FN = re.compile(r"\bfn\s+([a-z0-9_]*source[a-z0-9_]*)\s*\(\s*\)\s*->\s*&'static\s+str")
 # A literal is "program-shaped" if it spans lines or reads like JS/TS.
@@ -52,6 +66,32 @@ def _format_segments(template):
     tmp = template.replace("{{", "\x00").replace("}}", "\x01")
     parts = re.split(r"\{[^{}]*\}", tmp)
     return [p.replace("\x00", "{").replace("\x01", "}") for p in parts]
+
+
+def _replace_needles(text):
+    """The needle of every `<expr>.replace(NEEDLE, ...)` in the .rs.
+
+    DERIVED FROM THE SOURCE, NOT NAMED HERE. The one shipped instance spells it
+    `"  __TS_ONLY__"` (two leading spaces, load-bearing), but writing that
+    string into this gate would make the gate's input a marker in the prose it
+    polices -- ruling 18's whole subject. Any `.replace` needle is found the
+    same way, by position: the first string literal of the call.
+    """
+    out = []
+    for lit in find_string_literals(text):
+        if text[:lit["start"]].rstrip().endswith(".replace("):
+            out.append(lit["value"])
+    return out
+
+
+def _replace_segments(template, needles):
+    """`template` split on whichever needle it carries -- the `.replace` analogue
+    of `_format_segments`. Returns [] when it carries none, so the arm cannot
+    fire on a fixture that has nothing to do with `str::replace`."""
+    for needle in needles:
+        if needle and needle in template:
+            return template.split(needle)
+    return []
 
 
 def toml_program_texts(path):
@@ -68,7 +108,170 @@ def toml_program_texts(path):
     return out
 
 
+# --------------------------------------------------------------------------
+# ARM 2: the argv/`[source]` correspondence gate (batch 8-inst-2, item 1).
+#
+# WHAT IT CATCHES, AND WHY NOTHING ELSE DOES. A `cli` step's `args` name a
+# fixture the same file's `[source]` table has to declare; the runner writes
+# `[source]` into a tempdir and runs `kali` there. Rename one side and not the
+# other and `kali` is handed a path that does not exist. For a step that pins
+# stdout that surfaces immediately -- but 400 of the corpus's `cli` steps assert
+# `exit = "failure"` and NOTHING ELSE, and those pass just as happily on "no
+# such file" as on the diagnostic they were migrated to pin. Derived, not
+# inherited (`--argv-correspondence` prints both populations):
+#
+#     cli steps                                         4403 in 208 case files
+#     of them, exit = "failure" with no output claim      400 in  22 case files
+#
+# There are ZERO live instances of the defect, which is the argument FOR the
+# gate rather than against it: the population that would hide one is large, it
+# grows with every batch, and a fail-closed step cannot report its own vacuity.
+#
+# THE FILENAME PREDICATE IS DERIVED FROM THE CORPUS, NOT A LIST OF EXTENSIONS.
+# `kali`'s subcommands and flags carry no `.` -- over all 4403 cli steps the
+# tokens without one are exactly `run check build test browser cjs json
+# --api --bundle --format --output --max-spawned-processes --max-threads 0` --
+# so "contains a dot" separates filenames from argv furniture with nothing to
+# keep up to date. Re-derive both halves with:
+#
+#     $ python3 tools/task-18-browser-pilot/check_fixtures.py \
+#           --argv-correspondence --census
+#
+# ONE DIRECTION ONLY, AND THE OTHER IS MEASURED RATHER THAN ASSUMED. Requiring
+# every `[source]` key to be named by some argv would be red on exactly one file
+# today -- `non_literal_iterator_sources_inherited_manifest.toml`'s `kali.json`
+# -- and that is U2's whole shape: a fixture whose mere PRESENCE is the case's
+# point is never named in argv. A gate with a carve-out list for that is a
+# red-list nobody re-checks. The argv->`[source]` direction needs none, and it
+# already catches a rename desync from either side: rename the key and the argv
+# token stops resolving; rename the argv and it stops resolving too.
+# --------------------------------------------------------------------------
+def _substitute(text, bindings):
+    """`expand.rs::substitute`, in Python: every `${name}`, or an error."""
+    out, rest = [], text
+    while True:
+        start = rest.find("${")
+        if start < 0:
+            break
+        out.append(rest[:start])
+        after = rest[start + 2:]
+        end = after.find("}")
+        if end < 0:
+            raise ValueError(f"unterminated `${{` in {text!r}")
+        name = after[:end]
+        if name not in bindings:
+            raise KeyError(f"unresolved placeholder `${{{name}}}` in {text!r}")
+        out.append(bindings[name])
+        rest = after[end + 1:]
+    out.append(rest)
+    return "".join(out)
+
+
+def _cells(doc):
+    """One bindings map per `[matrix]` cell -- `expand.rs::matrix_cells` plus
+    `[constants]`. The correspondence has to hold in every cell, because
+    `${ext}` lands in argv tokens AND in `[source]` keys and a case file can
+    perfectly well be consistent in one cell and not another."""
+    consts = {k: v for k, v in (doc.get("constants") or {}).items()
+              if isinstance(v, str)}
+    matrix = doc.get("matrix") or {}
+    axes = sorted(matrix)
+    for values in itertools.product(*[matrix[a] for a in axes]):
+        cell = dict(consts)
+        cell.update(dict(zip(axes, values)))
+        yield cell
+
+
+def _kind_of(step):
+    """`model.rs::finalize_step`'s default: `cli` only when no kind-specific
+    field is set. Derived the same way rather than assuming a missing `kind`
+    means `cli`, which is the reading that file's own comment warns against."""
+    if step.get("kind"):
+        return step["kind"]
+    for field in ("path", "fields", "entry", "body"):
+        if field in step:
+            return f"<implied by `{field}`>"
+    return "cli"
+
+
+def argv_source_correspondence(paths):
+    """(problems, cli_steps_checked, argv_filenames_checked, fail_closed_only)."""
+    problems, steps, tokens, failclosed = [], 0, 0, 0
+    for path in paths:
+        doc = tomllib.load(open(path, "rb"))
+        rel = os.path.relpath(path, REPO)
+        for bindings in _cells(doc):
+            try:
+                declared = {_substitute(k, bindings)
+                            for k in (doc.get("source") or {})}
+            except (KeyError, ValueError) as exc:
+                problems.append(f"{rel}: [source] key: {exc}")
+                continue
+            for case in doc.get("case") or []:
+                for step in (case.get("step") or [case]):
+                    if not isinstance(step, dict) or _kind_of(step) != "cli":
+                        continue
+                    steps += 1
+                    if step.get("exit") == "failure" and not any(
+                            step.get(k) for k in CLAIM_KEYS):
+                        failclosed += 1
+                    for arg in step.get("args") or []:
+                        try:
+                            arg = _substitute(arg, bindings)
+                        except (KeyError, ValueError) as exc:
+                            problems.append(f"{rel}: {case.get('name')}: {exc}")
+                            continue
+                        if "." not in arg:
+                            continue
+                        tokens += 1
+                        if arg in declared:
+                            continue
+                        problems.append(
+                            f"{rel}: case `{case.get('name')}` passes `{arg}` to "
+                            "`kali`, and no `[source]` key of this file resolves "
+                            "to it. The runner writes only `[source]` into the "
+                            "tempdir, so `kali` is handed a path that does not "
+                            "exist -- which a step asserting only a failure exit "
+                            "cannot tell apart from the diagnostic it was "
+                            f"migrated to pin. Declared here: {sorted(declared)}")
+    return problems, steps, tokens, failclosed
+
+
+CLAIM_KEYS = ("stdout", "stdout_contains", "stdout_absent", "stdout_count",
+              "stderr", "stderr_contains", "stderr_absent",
+              "json", "json_null", "json_count")
+
+
+def argv_main(argv):
+    census = "--census" in argv
+    paths = [a for a in argv if not a.startswith("--")]
+    if not paths:
+        paths = sorted(glob.glob(os.path.join(CASES, "**", "*.toml"),
+                                 recursive=True))
+    problems, steps, tokens, failclosed = argv_source_correspondence(paths)
+    print(f"{len(paths)} case file(s); {steps} `cli` step(s); {tokens} argv "
+          f"filename token(s) checked against `[source]`")
+    if census:
+        print(f"  of those `cli` steps, {failclosed} assert `exit = \"failure\"` "
+              f"and no output claim -- the population that cannot report its own "
+              f"vacuity, which is what this arm exists for")
+    if not tokens:
+        print("VACUOUS: no argv filename token in any of those files, so this "
+              "arm checked nothing -- exit 2 rather than a green, same floor as "
+              "the fixture arm above")
+        return 2
+    for p in problems:
+        print(f"  UNDECLARED ARGV: {p}")
+    if problems:
+        print(f"ARGV/[source] CHECK FAILED — {len(problems)} problem(s)")
+        return 1
+    print("ARGV/[source] CHECK OK — every argv filename is a declared fixture")
+    return 0
+
+
 def main(argv):
+    if "--argv-correspondence" in argv:
+        return argv_main([a for a in argv if a != "--argv-correspondence"])
     if len(argv) < 2:
         raise SystemExit(__doc__)
     rs_path, toml_paths = argv[0], argv[1:]
@@ -79,6 +282,7 @@ def main(argv):
     # holds some fixtures and leaves others in a submodule. Same resolution
     # `audit-case-migration.py` does for itself.
     text = read_with_submodules(rs_path)
+    replace_needles = _replace_needles(text)
 
     wanted = {}
     for m in SOURCE_FN.finditer(text):
@@ -116,6 +320,22 @@ def main(argv):
         if segs and all(any(s in h for h in haystacks) for s in segs):
             print(f"  format!-built (segments matched): {name}")
             continue
+        # ...or by `str::replace`, which is the same situation reached through a
+        # different builder and which batch 7A disclosed as a hole in this gate
+        # rather than closing (it was forbidden from editing `tools/`):
+        # `object_from_entries_harness`'s two program literals are UNRESOLVED
+        # templates carrying a `__TS_ONLY__` needle, and the case file correctly
+        # holds the four RESOLVED texts. The `format!` arm above cannot cover it
+        # -- a `.replace` template has no `{...}`, so it is one segment and the
+        # arm never fires -- so `verify_pair.sh object_from_entries_harness`
+        # exited 1 on a correct pair. Same test as the `format!` arm: split the
+        # template on the needle the .rs itself passes to `.replace`, and require
+        # every segment to survive verbatim. `_replace_segments` returns [] when
+        # the body carries no needle, so this cannot excuse an unrelated miss.
+        segs = [s for s in _replace_segments(body, replace_needles) if len(s) >= 12]
+        if len(segs) > 1 and all(any(s in h for h in haystacks) for s in segs):
+            print(f"  .replace-built (segments matched): {name}")
+            continue
         missing.append((name, body))
 
     print(f"{len(wanted)} fixture(s) in {os.path.basename(rs_path)}; "
@@ -126,7 +346,10 @@ def main(argv):
         print(f"FIXTURE CHECK FAILED — {len(missing)} fixture(s) not present verbatim")
         return 1
     print("FIXTURE CHECK OK — every fixture program appears verbatim")
-    return 0
+    # Arm 2 runs on the same case files, so a per-pair invocation (which is how
+    # `verify_pair.sh` reaches this file) checks both directions. The corpus-wide
+    # run is `--argv-correspondence`, which `scripts/test-gate.sh` uses.
+    return argv_main(list(toml_paths))
 
 
 if __name__ == "__main__":
