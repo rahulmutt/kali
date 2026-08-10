@@ -502,6 +502,30 @@ def population_agreement(scratch):
         fail("the two population loops disagree:\n" + "\n".join(
             difflib.unified_diff(a, b, "citation_sweep.sh", "citation_tiers.py",
                                  lineterm="")))
+    # THE BANNER, WHICH USED TO BE A SENTENCE. `citation_tiers.py`'s docstring
+    # said "its printed stem count must equal that script's `sweep over N stems`
+    # banner"; nothing compared them, and the two figures come from different
+    # arrays (`RESOLVED` drives `--print-specs`, `SPECS` drives the banner and is
+    # what actually reaches the crosscheck). A stem appended to one and not the
+    # other would shrink the swept population with every printed figure still
+    # agreeing. So all three are compared here.
+    declared = [int(l.split()[1]) for l in a if l.startswith("#population ")]
+    listed = sum(1 for l in a if not l.startswith("#"))
+    rc_full, full = sweep(scratch)
+    banner = re.search(r"sweep over (\d+) stems", full)
+    if len(declared) != 1 or banner is None:
+        fail(f"cannot read the population figures back (rc={rc_full}, "
+             f"#population lines={declared}, banner={banner and banner.group(0)})"
+             f"\n{full[-800:]}")
+        return
+    print(f"  #population {declared[0]}, {listed} spec line(s), banner says "
+          f"{banner.group(1)}")
+    if not (declared[0] == listed == int(banner.group(1))):
+        fail(f"the sweep's own three counts disagree: `#population "
+             f"{declared[0]}`, {listed} printed spec line(s), banner `sweep over "
+             f"{banner.group(1)} stems`. The banner is the population the "
+             "crosscheck actually receives; a printed listing that does not match "
+             "it describes a sweep that did not happen.")
 
 
 def selftest_kill_power(scratch):

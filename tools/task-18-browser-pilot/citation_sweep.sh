@@ -282,6 +282,15 @@ if ((PRINT_SPECS)); then
     read -r st rf nm <<< "$r"
     printf '%s %s %s %s\n' "$st" "$(provenance "$st" "$rf" "$nm")" "$rf" "$nm"
   done
+  # THE POPULATION THE SWEEP PROPER WOULD PASS TO THE CROSSCHECK, printed from
+  # `SPECS` while the loop above printed from `RESOLVED`. Two arrays appended in
+  # lockstep by every arm, and nothing checked that they stay that way; now
+  # `source_ref_rehearsal.population_agreement` compares this figure against the
+  # `sweep over N stems` banner AND against the number of lines above, so a stem
+  # that reaches one array and not the other is a failure rather than a silently
+  # shorter sweep. It also turns citation_tiers.py's "its printed stem count must
+  # equal that script's banner" from a sentence into a comparison.
+  printf '#population %s\n' "${#SPECS[@]}"
   # HOW MANY DECLARATIONS WERE CHECKED BY CONTENT, not just by existence. It is
   # reported HERE rather than in the sweep proper for a reason the rehearsal
   # depends on: the sweep's own output has to be byte-identical either side of

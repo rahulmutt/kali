@@ -82,6 +82,22 @@ runnable core** — no hardcoded paths, no uncommitted inputs:
   so it refuses to start on a dirty tree rather than discarding your edit;
   `--probe-guards` demonstrates that refusal, and the restore-on-disagreement
   path, actually firing.
+- `inst2_probes.py` — **the injection probes for every arm batch 8-inst-2 added,
+  and it gates.** Each of those arms had zero live instances of its defect on
+  the shipped tree, so a green sweep is evidence about none of them (ruling 15).
+  Each probe poisons a real artifact, requires the gate to go red, and is paired
+  with the unpoisoned control that must stay green. Covered: the argv/`[source]`
+  correspondence arm and its vacuity floor, the `.replace`-template arm (both
+  that it fires and that it is not a blanket excuse), the ghost-stem staleness
+  arm in all three declarations, `citation_tiers._ref_carries`' two failure
+  modes, `verify_pair.sh`'s delegation and its `--rs` non-match arm, and the
+  population-banner equality. Listed in `scripts/test-gate.sh`, which is what
+  answers "the probe itself may be ungated". Writes nothing to the repository.
+
+The gate set is run by `scripts/test-gate.sh` (all of it, or `--gates-only`),
+which is also what `.github/workflows/ci.yml`'s `migration-gates` job invokes —
+the only checkout in that file given `fetch-depth: 0`, because the sweep resolves
+a deleted source's citations against a historical blob.
 
 Full narrative (what each file's shape was, why matrix was or wasn't used,
 the audit findings, the scaling measurement, and the five review-round-1
