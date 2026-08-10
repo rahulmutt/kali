@@ -713,11 +713,931 @@ def main(argv):
     for name in names:
         print(f"--- {name}")
         write(os.path.join(CASES, f"{name}.toml"), REGISTRY[name]())
+    if "--reflect-preview" in argv:
+        # Renders both halves of the escalated reflect_own_keys split WITHOUT
+        # writing them, so the escalation can be reviewed against real output
+        # rather than a description of it.
+        for fn in (build_rk_explicit, build_rk_inherited):
+            text = fn()
+            print(f"--- {fn.__name__}: {len(text.splitlines())} lines "
+                  f"({text.count('[[case]]')} [[case]] entries)")
     if verify:
         import verify_batch8a
         return verify_batch8a.run(VERIFY)
     return 0
 
+
+
+# =========================================================================
+# SHAPE C -- set_iteration_harness. 5 fns, 16 invocations, and the extension
+#            axis is NOT uniform, so `[matrix]` is declined for the file.
+# =========================================================================
+
+SET_STEM = "set_iteration_harness"
+SET_FN = ("{cmd}_supports_set_constructor_iteration_in_browser_api_surface"
+          "_with_harness_{ext}_input")
+SET_LOOP_FN = ("supports_set_constructor_iteration_in_browser_api_surface"
+               "_with_harness_ts_jsx_tsx_input")
+
+
+@target(SET_STEM)
+def build_set_iteration():
+    text = rs(SET_STEM)
+    helper = "assert_browser_harness_set_iteration"
+    c_helper = P.cite_line(text, rf"fn {helper}\(")
+    c_fail = P.cite_line(text, r"must fail closed")
+    c_loop = P.cite_line(text, r'for extension in \["ts", "jsx", "tsx"\]')
+    c_filename = P.cite_line(text, r'let filename = format!\("main\.\{extension\}"\)')
+    c_pick = P.cite_line(text, r'if command == "test"')
+
+    run_body = check_captured("run fixture", C.CAP_SET_ITERATION_RUN, text,
+                              anchors=[("browserSetIteration", "browserSetIteration")],
+                              must_contain="console.log")
+    test_body = check_captured("test fixture", C.CAP_SET_ITERATION_TEST, text,
+                               anchors=[("Kali.test(", "Kali.test(")],
+                               must_contain="Kali.test(")
+    if run_body == test_body:
+        raise AssertionError("set_iteration: run and test fixtures are byte-identical")
+
+    # The 16 invocations, expanded from the source's loops rather than listed.
+    rows = [("run", "main.js", False), ("test", "smoke.test.js", False),
+            ("run", "main.js", True), ("test", "smoke.test.js", True)]
+    for ext in ("ts", "jsx", "tsx"):
+        for cmd, js in (("run", False), ("test", False), ("run", True), ("test", True)):
+            rows.append((cmd, f"main.{ext}", js))
+    if len(rows) != 16:
+        raise AssertionError(f"expanded {len(rows)} invocations, expected 16")
+
+    # U5: only the COLLIDING keys are renamed. `main.<ext>` for ts/jsx/tsx
+    # carries BOTH program texts (the looped fn reuses one filename for both
+    # commands), which one flat file-wide key cannot hold; `main.js` and
+    # `smoke.test.js` are already distinct and keep their source names.
+    def key_for(cmd, filename):
+        if filename in ("main.js", "smoke.test.js"):
+            return filename
+        stem, ext = filename.rsplit(".", 1)
+        return f"{stem}_{'test' if cmd == 'test' else 'run'}.{ext}"
+
+    collisions = sorted({f for _, f, _ in rows
+                         if len({c for c, g, _ in rows if g == f}) > 1})
+    if collisions != ["main.jsx", "main.ts", "main.tsx"]:
+        raise AssertionError(f"unexpected colliding filenames: {collisions}")
+
+    source = {}
+    for cmd, filename, _ in rows:
+        source[key_for(cmd, filename)] = test_body if cmd == "test" else run_body
+    if len(source) != 8:
+        raise AssertionError(f"[source] has {len(source)} entries, expected 8")
+    P.assert_rename_is_argv_only(source, [key_for(c, f) for c, f, _ in rows], EXTS4)
+
+    blocks = rule12_from(text, expect=2)
+    # U6 -- per-helper attribution, derived from WHERE each block sits, not
+    # assigned by hand. The first block is inside the `test`-only fixture
+    # builder, the second inside the assert helper every invocation reaches.
+    test_only_start = P.cite_line(
+        text, r"fn browser_harness_set_iteration_test_source\(")
+    helper_start = P.cite_line(text, r"fn assert_browser_harness_set_iteration\(")
+    by_owner = {}
+    for start, body in blocks:
+        owner = "test_source" if test_only_start < start < helper_start else "helper"
+        if owner in by_owner:
+            raise AssertionError(f"two comment blocks resolved to the same owner {owner}")
+        by_owner[owner] = (start, body)
+    if set(by_owner) != {"test_source", "helper"}:
+        raise AssertionError(f"unattributed comment block(s): {sorted(by_owner)}")
+    repin = prose_of(by_owner["helper"])
+    test_only_prose = prose_of(by_owner["test_source"])
+
+    header = hdr(
+        f"Migrated from tests/browser_{SET_STEM}.rs.",
+        "",
+        P.matrix_declined(
+            test_fns=5, invocations=16, cases=16,
+            reason=[
+                "THE FILENAME PATTERN IS NOT UNIFORM OVER THE EXTENSION AXIS, which is what",
+                "rules the axis out. The four individual `#[test]` fns use `main.js` for `run`",
+                f"and `smoke.test.js` for `test`; the fifth fn, `{SET_LOOP_FN}`,",
+                f"loops `for extension in [\"ts\", \"jsx\", \"tsx\"]` (:{c_loop}) building a SINGLE",
+                f"`format!(\"main.{{extension}}\")` filename (:{c_filename}) that it then uses for",
+                "BOTH the `run` and the `test` legs of its inner `for (command, json_output)`",
+                "loop -- so ts/jsx/tsx run `kali test main.ts`/`main.jsx`/`main.tsx`, never",
+                "`smoke.test.ts`/`.jsx`/`.tsx`. One file-wide `ext` axis could not express that",
+                "without inventing an untested `kali test smoke.test.ts` (if it followed the js",
+                "pattern) or an untested `kali test main.js` (if it followed the ts/jsx/tsx",
+                "pattern) -- a rule-2 invention either way.",
+                "4 individual invocations + (3 extensions x 4 (command, json_output) pairs) =",
+                "4 + 12 = 16 invocations across 5 `#[test]` fns, expanded by reading the loops.",
+            ]),
+        "",
+        P.RULE6_ONE_TO_ONE,
+        "The twelve siblings that came from the looped fn are named for the invocation they",
+        "are, not numbered, per rule 5.",
+        "",
+        P.u2_source_file_wide(sorted(source)),
+        "No `kali.json` manifest is written anywhere in this file, so no case's point is the",
+        "presence or absence of one.",
+        "",
+        P.u5_renames(
+            [("main.ts", "main_run.ts / main_test.ts", "the looped fn writes BOTH program "
+              "texts to this one filename"),
+             ("main.jsx", "main_run.jsx / main_test.jsx", "same"),
+             ("main.tsx", "main_run.tsx / main_test.tsx", "same")],
+            collision="two different program texts to the same filename"),
+        f"The helper picks its body from the COMMAND (:{c_pick}) and writes it to whatever",
+        "filename it was handed, which is what creates the collision. `main.js` and",
+        "`smoke.test.js` are already distinct and are NOT renamed -- only the colliding keys",
+        "are.",
+        "",
+        FAIL_CLOSED_NOTE,
+        f"The source's fail-closed assertion is at :{c_fail}.",
+        "",
+        P.ARGV_ORDER,
+        "",
+        P.rule13_header([helper, "browser_harness_set_iteration_run_source",
+                         "browser_harness_set_iteration_test_source"],
+                        runner_exemption=False),
+        "This file runs no `browser_bundle_harness` step at all, so ruling 6's",
+        "runner-infrastructure paragraph is omitted rather than printed about a chain this",
+        "file never reaches.",
+        "",
+        _set_rule12_block(blocks, by_owner),
+        "",
+        RULING16_NOTE,
+    )
+
+    cases, plans = [], []
+    for cmd, filename, json_output in rows:
+        ext = filename.rsplit(".", 1)[1]
+        name = ("json_" if json_output else "") + SET_FN.format(cmd=cmd, ext=ext)
+        entry = key_for(cmd, filename)
+        looped = ext != "js"
+        if not looped:
+            P.cite_line(text, rf"fn {name}\(")
+        step = fail_closed_harness_step(cmd, entry, json_output=json_output,
+                                        thread_flags=True)
+        cases.append({"name": name,
+                      "rationale": _set_rationale(cmd, filename, entry, json_output,
+                                                  looped, repin, c_helper, c_fail,
+                                                  c_loop, c_filename,
+                                                  test_only_prose if cmd == "test" else None),
+                      "steps": [step]})
+        plans.append({"kind": "harness", "steps": [step], "source": source,
+                      "constants": {}})
+
+    VERIFY[SET_STEM] = plans
+    return emit(header, None, source, cases)
+
+
+def _set_rule12_block(blocks, by_owner):
+    lines = [
+        "RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.",
+        f"tests/browser_{SET_STEM}.rs has {len(blocks)} Rust comment blocks, listed with their",
+        "line numbers before any TOML was written, and they do NOT reach the same cases:",
+    ]
+    hs, hb = by_owner["helper"]
+    ts, tb = by_owner["test_source"]
+    lines += [
+        f"  * :{ts} ({len(tb)} line(s)) sits inside `browser_harness_set_iteration_test_source`,",
+        "    which the assert helper calls ONLY when `command == \"test\"`, so it is carried",
+        "    into the 8 `test` rationales and into no others.",
+        f"  * :{hs} ({len(hb)} line(s)) sits inside `assert_browser_harness_set_iteration`,",
+        "    which every one of the 16 invocations goes through, so it is carried into all 16.",
+        "`comment_coverage.py` has no per-helper attribution and will therefore report the",
+        f"{len(tb)} lines of the :{ts} block \"missing\" from the 8 `run` `[[case]]` entries. That",
+        "is the checker's known limitation, recorded here rather than papered over by copying",
+        "the prose into cases whose producing helper never runs -- which U6 forbids even",
+        "though it would turn the checker green.",
+        "The text of both blocks is COPIED out of the `.rs` by this generator",
+        "(`comment_blocks`), not retyped, so an em-dash cannot become `--`.",
+    ]
+    return lines
+
+
+def _set_rationale(cmd, filename, entry, json_output, looped, repin,
+                   c_helper, c_fail, c_loop, c_filename, test_only_prose):
+    argv = (("--output json " if json_output else "") + cmd
+            + " --api browser --max-threads 0 --max-spawned-processes 0")
+    origin = (
+        f"Migrated from browser_{SET_STEM}.rs. "
+        + (f"This `[[case]]` is one of the 12 invocations the looped fn "
+           f"`{SET_LOOP_FN}` makes: it loops "
+           f"`for extension in [\"ts\", \"jsx\", \"tsx\"]` (:{c_loop}) building a single "
+           f"`format!(\"main.{{extension}}\")` filename (:{c_filename}) and then loops "
+           f"`for (command, json_output)`, so this is exactly the "
+           f"`({cmd}, {'json' if json_output else 'text'}, {filename})` one, split into a "
+           f"named sibling per rule 5 rather than folded."
+           if looped else
+           "That source `#[test]` fn is a single unlooped helper call, so it maps 1:1 to "
+           "this one `[[case]]` and keeps the fn's name verbatim (rule 6).")
+    )
+    return " ".join([
+        origin,
+        f"`assert_browser_harness_set_iteration(` (:{c_helper}) writes the Set-constructor "
+        f"iteration probe to `{filename}` in a fresh temp dir and runs the real "
+        f"`kali {argv}` with that dir as cwd and the browser harness command variable set to "
+        f"`node`.",
+        f"ASSERTION SHAPE: the source's ONLY process assertion in this file is "
+        f"`assert!(!output.status.success(), \"must fail closed: {{output:?}}\")` (:{c_fail}) "
+        f"-- no exit code, no stdout/stderr needle, no envelope field, in either output mode "
+        f"-- so this case carries exactly `exit = \"failure\"` and nothing else. Adding a "
+        f"diagnostic code or a stream claim would invent a claim the source never made "
+        f"(rule 2), even though the real binary does emit one.",
+        (f"NO [matrix] in this file: the looped fn uses one `main.<ext>` filename for BOTH "
+         f"commands while the four individual fns use `main.js`/`smoke.test.js`, so a "
+         f"file-wide `ext` axis could not express the filename pattern without inventing an "
+         f"untested combination (see the file header's arithmetic)."),
+        (f"The `[source]` key is `{entry}` rather than `{filename}`: the helper picks its "
+         f"body from the command while the looped fn writes both bodies to the same "
+         f"`main.<ext>` name, which one flat file-wide `[source]` key cannot carry. The "
+         f"rename is argv-only and no fixture body in this file names any of these files by "
+         f"string, so it does not rewrite the program under test (rule 9)."
+         if entry != filename else
+         f"The `[source]` key is `{filename}`, the source's own filename -- this one does "
+         f"not collide, so it is not renamed."),
+        f"RULE 12 -- the Rust comment prose of browser_{SET_STEM}.rs that this case's call "
+        f"path reaches, carried verbatim: \"{repin}\""
+        + (f" And, from the `test`-only fixture builder this case does reach: "
+           f"\"{test_only_prose}\"" if test_only_prose else ""),
+    ])
+
+
+# =========================================================================
+# SHAPE D -- browser_reflect_own_keys, the U10 submodule carrier, split into
+#            TWO case files on MANIFEST PRESENCE (U2). The measured derivation
+#            is in this module's docstring; the mechanical half is below.
+# =========================================================================
+
+RK = "reflect_own_keys"
+RK_EXPLICIT = "reflect_own_keys_explicit_api"
+RK_INHERITED = "reflect_own_keys_inherited_manifest"
+RK_SUBS = ("run.rs", "build.rs", "check.rs", "test.rs")
+
+# The 44 `#[test]` fns, one row each (rule 6: the case is the only remaining
+# trace of the fn). `helper` is what the fn's body calls; everything the split
+# turns on is DERIVED from that helper's own source below, never from this
+# table and never from the fn's name.
+RK_ROWS = []
+for _ext in EXTS4:
+    RK_ROWS += [
+        dict(sub="run.rs", fn=f"run_supports_reflect_own_keys_in_{_ext}_input_when_browser_harness_is_configured",
+             helper="assert_browser_requested_reflect_own_keys_fails_closed",
+             cmd="run", entry=f"main.{_ext}", json=False, ext=_ext),
+        dict(sub="run.rs", fn=f"json_run_supports_reflect_own_keys_in_{_ext}_input_when_browser_harness_is_configured",
+             helper="assert_json_browser_requested_reflect_own_keys_fails_closed",
+             cmd="run", entry=f"main.{_ext}", json=True, ext=_ext),
+        dict(sub="run.rs", fn=f"run_supports_reflect_own_keys_in_{_ext}_input_when_browser_api_surface_is_inherited",
+             helper="assert_inherited_browser_api_surface_reflect_own_keys_fails_closed",
+             cmd="run", entry=f"main.{_ext}", json=False, ext=_ext),
+        dict(sub="run.rs", fn=f"json_run_supports_reflect_own_keys_in_{_ext}_input_when_browser_api_surface_is_inherited",
+             helper="assert_inherited_browser_api_surface_reflect_own_keys_fails_closed",
+             cmd="run", entry=f"main.{_ext}", json=True, ext=_ext),
+        dict(sub="test.rs", fn=f"test_supports_reflect_own_keys_in_{_ext}_input_when_browser_harness_is_configured",
+             helper="assert_browser_requested_reflect_own_keys",
+             cmd="test", entry=f"smoke.test.{_ext}", json=False, ext=_ext),
+        dict(sub="test.rs", fn=f"json_test_supports_reflect_own_keys_in_{_ext}_input_when_browser_harness_is_configured",
+             helper="assert_json_browser_requested_reflect_own_keys",
+             cmd="test", entry=f"smoke.test.{_ext}", json=True, ext=_ext),
+        dict(sub="test.rs", fn=f"test_supports_reflect_own_keys_in_{_ext}_input_when_browser_api_surface_is_inherited",
+             helper="assert_inherited_browser_api_surface_reflect_own_keys",
+             cmd="test", entry=f"smoke.test.{_ext}", json=False, ext=_ext),
+        dict(sub="test.rs", fn=f"json_test_supports_reflect_own_keys_in_{_ext}_input_when_browser_api_surface_is_inherited",
+             helper="assert_inherited_browser_api_surface_reflect_own_keys",
+             cmd="test", entry=f"smoke.test.{_ext}", json=True, ext=_ext),
+        dict(sub="build.rs", fn=f"build_emits_browser_bundle_reflect_own_keys_semantics_in_{_ext}_input",
+             helper="assert_browser_bundle_reflect_own_keys",
+             cmd="build", entry=f"app.{_ext}", json=False, ext=_ext),
+        dict(sub="build.rs", fn=f"json_build_emits_browser_bundle_reflect_own_keys_semantics_in_{_ext}_input",
+             helper="assert_browser_bundle_reflect_own_keys",
+             cmd="build", entry=f"app.{_ext}", json=True, ext=_ext),
+    ]
+for _ext in ("jsx", "tsx"):
+    RK_ROWS += [
+        dict(sub="check.rs", fn=f"check_accepts_reflect_own_keys_in_{_ext}_input_on_browser_surface",
+             helper="assert_browser_checked_reflect_own_keys",
+             cmd="check", entry=f"main.{_ext}", json=False, ext=_ext),
+        dict(sub="check.rs", fn=f"json_check_accepts_reflect_own_keys_in_{_ext}_input_on_browser_surface",
+             helper="assert_browser_checked_reflect_own_keys",
+             cmd="check", entry=f"main.{_ext}", json=True, ext=_ext),
+    ]
+
+
+def _fn_body(text, fn):
+    """The brace-balanced body of `fn <fn>` in `text`."""
+    import re
+    m = re.search(r"\bfn\s+" + re.escape(fn) + r"\s*[(<]", text)
+    if not m:
+        raise AssertionError(f"no `fn {fn}` in this source")
+    brace = text.find("{", m.end() - 1)
+    depth, i = 0, brace
+    while i < len(text):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return text[brace:i + 1]
+
+
+def _rk_read():
+    """The carrier plus every `#[path]` submodule, and the census, all derived.
+
+    U10 names the failure this closes: `grep -c '#[test]'` on the carrier
+    returns 0 and would silently drop all 44 tests. The submodule paths come
+    from `submodules.py`, which delegates to `audit-case-migration.py`'s own
+    `resolve_path_mods` rather than re-implementing the resolution.
+
+    RULING 18 -- THE SPLIT PROPERTY IS DERIVED, AND A NON-MATCH IS AN ERROR.
+    `inherited` is decided by asking whether the helper a fn actually calls
+    writes a `kali.json`, not by looking at the fn's name. The two are then
+    cross-checked against each other, so a fn named `..._is_inherited` whose
+    helper writes no manifest -- or the reverse -- fails the generator instead
+    of being filed into the wrong half, where nothing downstream would catch
+    it (that is exactly the U2 failure this split exists to prevent).
+    """
+    from submodules import submodule_paths
+    carrier_path = os.path.join(TESTS, f"browser_{RK}.rs")
+    carrier = rs(RK)
+    subs = {p.name: p.read_text() for p in submodule_paths(carrier_path)}
+    if set(subs) != set(RK_SUBS):
+        raise AssertionError(
+            f"submodules resolved to {sorted(subs)}, expected {sorted(RK_SUBS)}")
+
+    counts = {n: t.count("#[test]") for n, t in subs.items()}
+    if sum(counts.values()) != 44 or carrier.count("#[test]") != 0:
+        raise AssertionError(f"submodule #[test] census {counts}, carrier "
+                             f"{carrier.count('#[test]')}; expected 44 / 0")
+
+    for row in RK_ROWS:
+        sub_text = subs[row["sub"]]
+        if f"fn {row['fn']}(" not in sub_text:
+            raise AssertionError(f"{row['sub']} has no `fn {row['fn']}`")
+        body = _fn_body(sub_text, row["fn"])
+        if f"{row['helper']}(" not in body:
+            raise AssertionError(
+                f"{row['sub']}::{row['fn']} does not call `{row['helper']}`; "
+                f"body is {body.strip()[:120]!r}")
+        helper_text = sub_text if f"fn {row['helper']}(" in sub_text else carrier
+        derived = 'join("kali.json")' in _fn_body(helper_text, row["helper"])
+        named = "_is_inherited" in row["fn"]
+        if derived != named:
+            raise AssertionError(
+                f"{row['sub']}::{row['fn']}: helper `{row['helper']}` "
+                f"{'writes' if derived else 'does not write'} a kali.json, but the fn name "
+                f"says {'inherited' if named else 'explicit'}. Derived and declared disagree; "
+                "one of them would have put this case in the wrong half of the U2 split.")
+        row["inherited"] = derived
+
+    seen = [r["fn"] for r in RK_ROWS]
+    if len(set(seen)) != 44:
+        raise AssertionError("duplicate fn in the census table")
+    total = sum(len([1 for i, l in enumerate(t.split("\n")) if l.strip() == "#[test]"])
+                for t in subs.values())
+    if total != len(RK_ROWS):
+        raise AssertionError(
+            f"the sources declare {total} `#[test]` fns but this table lists "
+            f"{len(RK_ROWS)}; a fn exists that is migrated by nothing")
+    return carrier, subs
+
+
+def _rk_fixtures(carrier):
+    run_body = check_captured("main.<ext>", C.CAP_REFLECT_RUN, carrier,
+                              anchors=[("reflect ownKeys ok", "reflect ownKeys ok")],
+                              must_contain="console.log")
+    test_body = check_captured("smoke.test.<ext>", C.CAP_REFLECT_TEST, carrier,
+                               anchors=[("Kali.test(", "Kali.test(")],
+                               must_contain="Kali.test(")
+    bundle_body = check_captured("app.<ext>", C.CAP_REFLECT_BUNDLE, carrier,
+                                 anchors=[("kali-tree-shake: reflectOwnKeysSmoke",
+                                           "kali-tree-shake: reflectOwnKeysSmoke")],
+                                 must_contain="reflectOwnKeysSmoke")
+    return run_body, test_body, bundle_body
+
+
+def _rk_manifest(carrier, subs):
+    """The `kali.json` text, and RULING 7's mandatory identity assertion.
+
+    Two helpers write a manifest -- one in the carrier, one in `run.rs` -- and
+    the two texts must be byte-identical for a single `[source]` entry to stand
+    for both. That is ASSERTED here, not eyeballed, which is the mandatory half
+    of controller ruling 7.
+    """
+    from case_emit import fixture_starting
+    a = fixture_starting(carrier, "assert_inherited_browser_api_surface_reflect_own_keys",
+                         '{\n  "schemaVersion"')
+    b = fixture_starting(subs["run.rs"],
+                         "assert_inherited_browser_api_surface_reflect_own_keys_fails_closed",
+                         '{\n  "schemaVersion"')
+    return P.assert_identical("kali.json written by the two inherited helpers", a, b)
+
+
+def _rk_envelope(command, *, errors):
+    """The `run|test --output json` envelope claims THESE helpers make.
+
+    Written out rather than taken from `math_shapes.envelope_harness` because
+    this source differs from that builder in one real place: it asserts the
+    ENVELOPE-level `exitCode == 0` for `test` as well as for `run`
+    (`assert_eq!(json["exitCode"], 0)` sits above the `if command == "run"`),
+    while `envelope_harness` emits it only for `run`. Using the shared builder
+    here would silently DROP a claim the source makes -- a rule-1 weakening
+    that no gate reads the builder for.
+    """
+    payload = {"hostContract": "browser-requested", "runtimeBackend": "browser-harness"}
+    if command == "run":
+        payload["exitCode"] = 0
+    else:
+        payload.update({"total": 1, "passed": 1, "failed": 0})
+    j = {"schemaVersion": 1, "command": command, "success": True, "exitCode": 0,
+         "payload": payload, "stdout": "", "stderr": ""}
+    if errors:
+        j["errors"] = []
+    return j
+
+
+def _rk_steps(row, fixtures, harness_body):
+    """One row's steps, keyed off the helper it actually calls."""
+    h, entry, json_output = row["helper"], row["entry"], row["json"]
+    env = {HARNESS_ENV: "node"}
+
+    if h.endswith("_fails_closed"):
+        argv = (["--output", "json"] if json_output else [])
+        argv += [row["cmd"]]
+        if not row["inherited"]:
+            argv += ["--api", "browser"]
+        argv += [entry]
+        return [{"args": argv, "env": env, "exit": "failure"}]
+
+    if h == "assert_browser_bundle_reflect_own_keys":
+        return bundle_steps(entry, harness_body,
+                            {"exit": "success", "stdout_contains": ["0"]},
+                            json_output=json_output,
+                            json_claims=envelope_build(errors=False) if json_output else None,
+                            meta_fields=META)
+
+    if h == "assert_browser_checked_reflect_own_keys":
+        argv = ["check", "--api", "browser"] + (["--output", "json"] if json_output else [])
+        step = {"args": argv + [entry], "exit": "success"}
+        if json_output:
+            step["json"] = {"schemaVersion": 1, "command": "check", "success": True,
+                            "exitCode": 0, "payload": {"filesChecked": 1}, "errors": []}
+        return [step]
+
+    # The four `test`-command helpers on the success path.
+    argv = (["--output", "json"] if json_output else []) + [row["cmd"]]
+    if not row["inherited"]:
+        argv += ["--api", "browser"]
+    step = {"args": argv + [entry], "env": env, "exit": "success"}
+    if json_output:
+        # The explicit-half helper asserts `errors` is empty; the inherited-half
+        # helper returns before that line and does not. Mirrored exactly.
+        step["json"] = _rk_envelope(row["cmd"], errors=not row["inherited"])
+    else:
+        step["stdout_contains"] = ["ok 1"]
+        if row["inherited"]:
+            # Only the inherited text path asserts stderr is empty.
+            step["stderr"] = ""
+    return [step]
+
+
+RK_U10 = [
+    "U10 -- SUBMODULE CARRIER, AND THE TRAP IT EXISTS FOR.",
+    f"`grep -c '#\\[test\\]'` on tests/browser_{RK}.rs returns 0 and would silently drop",
+    "every test in this target: all 44 of them live behind a `#[path = \"...\"] mod`",
+    "declaration, in 4 sibling files (build.rs, check.rs, run.rs, test.rs). The carrier",
+    "holds only the three fixture builders and the five shared assert helpers.",
+    "Citations into a submodule are written `<file>.rs:N` and are resolved against THAT",
+    "file by batch5_crosscheck.py; a bare `:N` means the carrier.",
+    f"The carrier and its sibling directory tests/browser_{RK}/ are RETAINED by this",
+    "commit -- they are deleted together, by the family-wide operation after batch 8, not",
+    "here.",
+]
+
+
+def _rk_u2(half, other_stem, here_fns, here_invocations):
+    common = [
+        "U2 -- `[source]` IS FILE-WIDE, WHICH IS WHY THIS TARGET IS TWO CASE FILES AND NOT",
+        "ONE.",
+        "U10 says migrate a submodule carrier and its sibling directory into ONE `.toml`.",
+        "That is wrong here and U2 takes precedence. Two of this target's helpers write a",
+        "`kali.json` manifest, and for the 16 `#[test]` fns that reach them the manifest's",
+        "PRESENCE is the whole case: those invocations pass no `--api` flag at all and the",
+        "browser API surface is resolved from the manifest instead. The other 28 pass",
+        "`--api browser` explicitly and run against a tree with NO manifest.",
+        "`crates/kali_case_runner/src/expand.rs`'s `expand()` substitutes and clones the",
+        "whole file-level `[source]` map into EVERY trial regardless of which case",
+        "references which key, so one shared table would make `kali.json` unconditionally",
+        "present. MEASURED, not argued -- same argv, same fixtures, the manifest's mere",
+        "presence moves the two envelope fields these cases actually assert:",
+        "    kali --output json test smoke.test.js   (no manifest, no --api)",
+        "      payload.hostContract = kali-hosted        runtimeBackend = wasmtime",
+        "    kali --output json test smoke.test.js   (kali.json present, no --api)",
+        "      payload.hostContract = browser-requested  runtimeBackend = browser-harness",
+        "So a shared `[source]` would let the explicit cases assert",
+        "`hostContract = \"browser-requested\"` and have it supplied by the leaked manifest",
+        "rather than by the flag under test. No literal is dropped by that leak, so",
+        "audit-case-migration.py cannot see it; the trial still passes, so `cargo test`",
+        "cannot either. That invisibility is exactly why U2 exists.",
+        "THE SPLIT IS ON MANIFEST PRESENCE, NOT ON THE SUBMODULE BOUNDARY, and the",
+        "difference is load-bearing: run.rs and test.rs EACH straddle it (8 explicit + 8",
+        "inherited apiece), so one case file per submodule would reproduce the disarmament",
+        "above, twice. The generator DERIVES which half a fn belongs to by asking whether",
+        "the helper it calls writes a `kali.json`, then cross-checks that against the fn's",
+        "own name and raises on disagreement (ruling 18: derive the property, make a",
+        "non-match an error) -- so a case cannot be filed into the wrong half silently.",
+        f"THIS FILE carries {here_fns} of the 44 `#[test]` fns ({here_invocations} trials).",
+    ]
+    if half == "explicit":
+        return common + [
+            "THIS FILE is the EXPLICIT-`--api browser` half: `kali.json` appears in its",
+            f"`[source]` table NOWHERE. Its sibling is {other_stem}.toml.",
+            "Within this file `[source]` is safe in the ordinary way: every fixture is written",
+            "unconditionally by the source into a fresh temp dir, none is written behind an",
+            "`if`, and every command names its entry explicitly on argv -- verified against",
+            "the real binary rather than assumed, in a directory holding all 12 fixtures:",
+            "`kali --output json check --api browser main.jsx` still reports",
+            "`payload.filesChecked = 1`, and `kali --output json test --api browser",
+            "smoke.test.js` still reports `payload.total = 1`, so no sibling fixture is",
+            "picked up by discovery and the unused ones are inert.",
+        ]
+    return common + [
+        "THIS FILE is the MANIFEST-INHERITED half: `kali.json` IS in its `[source]` table",
+        "and no argv below carries `--api`, so the browser API surface can only come from",
+        f"the manifest. Its sibling is {other_stem}.toml, whose `[source]` deliberately",
+        "holds no manifest at all -- see that file's header for why one shared table would",
+        "silently disarm it.",
+        "Within this file `[source]` is safe in the ordinary way: the manifest is written",
+        "unconditionally by both of this half's helpers, and the two texts they write are",
+        "asserted byte-identical by this file's generator (ruling 7's mandatory mechanical",
+        "duplicate-identity check) rather than eyeballed, so one `[source]` entry standing",
+        "for both is not an approximation.",
+    ]
+
+
+def _rk_cite(row, carrier, subs):
+    """(fn citation, helper citation) for one row, both derived by search.
+
+    A citation into a submodule is written `<file>.rs:N`; a bare `:N` means the
+    carrier. Which one a helper gets is decided by where the helper actually
+    is, not by which submodule the fn is in -- `run.rs` defines three local
+    `_fails_closed` helpers of its own while the other five live in the
+    carrier.
+    """
+    sub_text = subs[row["sub"]]
+    fn_cite = "%s:%d" % (row["sub"], P.cite_line(sub_text, "fn " + row["fn"] + r"\("))
+    helper = row["helper"]
+    if "fn " + helper + "(" in sub_text:
+        helper_cite = "%s:%d" % (row["sub"], P.cite_line(sub_text, "fn " + helper + r"\("))
+    else:
+        helper_cite = ":%d" % P.cite_line(carrier, "fn " + helper + r"\(")
+    return fn_cite, helper_cite
+
+
+def _rk_rationale(row, carrier, subs, half, other_stem, repin_prose):
+    fn_cite, helper_cite = _rk_cite(row, carrier, subs)
+    h = row["helper"]
+    json_output = row["json"]
+
+    parts = [
+        f"Migrated from browser_{RK}.rs, the `{row['fn']}` `#[test]` fn in its "
+        f"`{row['sub'][:-3]}` `#[path]` submodule ({fn_cite}). That fn is a single unlooped "
+        f"helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name "
+        f"verbatim -- the case is the only remaining trace of the fn (rule 6)."
+    ]
+
+    if h.endswith("_fails_closed"):
+        parts.append(
+            f"`{h}(` ({helper_cite}) is a LOCAL, run-module-only variant of the carrier's "
+            f"shared helper of the same name minus the suffix: it copies the command shape "
+            f"and narrows the assertion to the honest fail-closed result. The source's only "
+            f"process assertion on this path is `assert!(!output.status.success(), \"must "
+            f"fail closed: {{output:?}}\")`, so this case carries exactly `exit = \"failure\"` "
+            f"and nothing else. Adding a diagnostic code or a stream claim would invent a "
+            f"claim the source never made (rule 2), even though the real binary does emit "
+            f"one.")
+    elif h == "assert_browser_bundle_reflect_own_keys":
+        parts.append(
+            f"`{h}(` ({helper_cite}) writes the tree-shakeable "
+            f"`reflectOwnKeysSmoke` bundle fixture to `{row['entry']}`, builds it with "
+            f"`kali build --bundle --api browser"
+            f"{' --output json' if json_output else ''}`"
+            + (", asserts the JSON envelope's schemaVersion/command/success/exitCode and "
+               "payload(artifactKind, bundleFormat)"
+               if json_output else "")
+            + ", asserts the emitted `app/app.meta.json` metadata, then writes the "
+              "browser-bundle harness and runs it under node.")
+        parts.append(
+            "UNLIKE the other bundle targets in this batch, BOTH processes succeed here: the "
+            "source asserts `output.status.success()` on the harness too, and then "
+            "`stdout.contains('0')`. So the `browser_bundle_harness` step carries "
+            "`exit = \"success\"` and `stdout_contains = [\"0\"]` -- a plain `.contains` "
+            "against a field that HAS a substring form, mirrored as `stdout_contains` rather "
+            "than strengthened to an exact pin (ruling 3).")
+        if json_output:
+            parts.append(
+                "This helper does NOT assert that the envelope's `errors` array is empty -- "
+                "the other five bundle helpers in this batch do -- so no `errors` claim is "
+                "carried here. Mirroring the source means mirroring what it omits.")
+    elif h == "assert_browser_checked_reflect_own_keys":
+        parts.append(
+            f"`{h}(` ({helper_cite}) writes the run-mode probe to "
+            f"`{row['entry']}` and runs `kali check --api browser"
+            f"{' --output json' if json_output else ''}`, asserting the process succeeds"
+            + (" and pinning the envelope's schemaVersion/command/success/exitCode, "
+               "`payload.filesChecked = 1`, and an empty `errors` array."
+               if json_output else
+               ". In text mode that is the ONLY assertion the helper makes -- no stdout, no "
+               "stderr, no envelope -- so this case carries exactly `exit = \"success\"`."))
+        parts.append(
+            "NOTE THE EXTENSION DOMAIN: `check` is exercised for `jsx` and `tsx` ONLY, never "
+            "for `js` or `ts`. That is why this file declares no `[matrix]` -- see the "
+            "header's arithmetic.")
+    else:
+        surface = ("the manifest (`kali.json`), with no `--api` flag on argv"
+                   if row["inherited"] else "the explicit `--api browser` flag")
+        parts.append(
+            f"`{h}(` ({helper_cite}) writes the `Kali.test` probe to "
+            f"`{row['entry']}` and runs `kali {'--output json ' if json_output else ''}"
+            f"{row['cmd']}{'' if row['inherited'] else ' --api browser'} {row['entry']}` "
+            f"with the browser harness command variable set to `node`; the browser API "
+            f"surface comes from {surface}.")
+        if json_output:
+            parts.append(
+                "The envelope claims are mirrored exactly: schemaVersion/command/success and "
+                "the ENVELOPE-level `exitCode = 0` (the source asserts that one above its "
+                "`if command == \"run\"`, for `test` as well as `run`), "
+                "`payload.hostContract = \"browser-requested\"`, "
+                "`payload.runtimeBackend = \"browser-harness\"`, "
+                "`payload.total/passed/failed = 1/1/0`, `stdout = \"\"` and `stderr = \"\"`."
+                + (" The explicit-half helper also asserts the `errors` array is empty, so "
+                   "that claim is carried here."
+                   if not row["inherited"] else
+                   " The inherited-half helper RETURNS before the `errors` assertion, so no "
+                   "`errors` claim is carried here -- mirroring the source means mirroring "
+                   "where it stops."))
+        else:
+            parts.append(
+                "The text-mode claim is `stdout.contains(\"ok 1\")`, a plain `.contains` "
+                "against a field that HAS a substring form, so it is mirrored as "
+                "`stdout_contains` and NOT strengthened to an exact pin (ruling 3)."
+                + (" This helper additionally asserts `stderr` is exactly empty, which the "
+                   "explicit-half helper does not, so `stderr = \"\"` is carried here."
+                   if row["inherited"] else
+                   " This helper makes no `stderr` claim, so none is carried -- the "
+                   "inherited-half helper does, and that difference is preserved."))
+
+    parts.append(
+        f"U2 TWO-FILE SPLIT: this case is in the {'MANIFEST-INHERITED' if row['inherited'] else 'EXPLICIT-`--api browser`'} "
+        f"half. "
+        + ("`kali.json` is in this file's `[source]` table and no argv here carries `--api`, "
+           "so the browser API surface can only come from the manifest."
+           if row["inherited"] else
+           "`kali.json` appears nowhere in this file's `[source]` table, which is exactly "
+           "what keeps this case able to FAIL if `--api browser` regressed.")
+        + f" The other half is in {other_stem}.toml. They cannot share a file: `expand()` "
+          f"clones the whole file-level `[source]` map into every trial, so a shared "
+          f"`kali.json` would supply the browser surface to the explicit cases too -- "
+          f"measured, the manifest's presence alone moves `payload.hostContract` from "
+          f"`kali-hosted` to `browser-requested` -- with no literal dropped, so the audit "
+          f"cannot see it, and with the trial still green, so `cargo test` cannot either.")
+
+    if row["sub"] == "run.rs":
+        parts.append(
+            f"RULE 12 -- the Rust comment prose of the `run` submodule, which is the only "
+            f"one of this target's five files that carries any, carried verbatim: "
+            f"\"{repin_prose}\"")
+    return " ".join(parts)
+
+
+def _rk_rule12(subs, blocks):
+    start, body = blocks[0]
+    return [
+        "RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.",
+        "The carrier and three of its four submodules carry NO Rust comment at all; the",
+        f"whole target has exactly one block, run.rs:{start} ({len(body)} line(s)), and it",
+        "sits at module scope in `run.rs` above that file's three local `_fails_closed`",
+        "helpers. It is therefore carried into the rationale of every case that came from",
+        "run.rs and into no others -- which is per-helper attribution (U6), not pooling.",
+        "`comment_coverage.py` has no per-helper attribution and will report those lines",
+        "missing from the cases that did NOT come from run.rs. That is the checker's known",
+        "limitation, recorded here rather than papered over by copying the prose into cases",
+        "whose producing file never runs, which U6 forbids even though it would turn the",
+        "checker green.",
+        "The text is COPIED out of the `.rs` by this generator (`comment_blocks`), not",
+        "retyped, so an em-dash cannot become `--`.",
+    ]
+
+
+def _rk_build(half):
+    carrier, subs = _rk_read()
+    run_body, test_body, bundle_body = _rk_fixtures(carrier)
+    manifest = _rk_manifest(carrier, subs)
+    stem = RK_EXPLICIT if half == "explicit" else RK_INHERITED
+    other = RK_INHERITED if half == "explicit" else RK_EXPLICIT
+
+    rows = [r for r in RK_ROWS if r["inherited"] == (half == "inherited")]
+    expected = 16 if half == "inherited" else 28
+    if len(rows) != expected:
+        raise AssertionError(f"{half} half has {len(rows)} rows, expected {expected}")
+
+    blocks = comment_blocks(subs["run.rs"])
+    if len(blocks) != 1:
+        raise AssertionError(
+            f"run.rs has {len(blocks)} comment block(s), this generator accounts for 1")
+    for name, text in [(f"browser_{RK}.rs", carrier)] + [
+            (n, t) for n, t in subs.items() if n != "run.rs"]:
+        if comment_blocks(text):
+            raise AssertionError(f"{name} has grown a Rust comment block; rule 12 unhandled")
+    repin_prose = prose_of(blocks[0])
+
+    harness_raw = check_program(
+        "harness body",
+        _harness_body(carrier, "assert_browser_bundle_reflect_own_keys",
+                      "reflectOwnKeysSmoke"),
+        must_contain="await import(")
+
+    # The fixture set is exactly the entries THIS half's rows name, so an unused
+    # fixture cannot ride along and a needed one cannot be missing.
+    raw_source = {}
+    for r in rows:
+        raw_source[r["entry"]] = {
+            "main": run_body, "smoke": test_body, "app": bundle_body,
+        }[r["entry"].split(".")[0] if r["entry"].startswith("app") else
+          ("smoke" if r["entry"].startswith("smoke") else "main")]
+    raw_source = dict(sorted(raw_source.items()))
+    if half == "inherited":
+        raw_source["kali.json"] = manifest
+    elif any(k == "kali.json" for k in raw_source):
+        raise AssertionError("the explicit half must not carry a manifest")
+
+    bodies = dict(raw_source)
+    bodies["__harness__"] = harness_raw
+    escaped, constants = _rule10(bodies)
+    harness_body = escaped.pop("__harness__")
+    source = escaped
+
+    if half == "explicit":
+        matrix = None
+        matrix_block = P.matrix_declined(
+            test_fns=28, invocations=28, cases=28,
+            reason=[
+                "THE EXTENSION AXIS IS NOT UNIFORM ACROSS THIS FILE. The run, test and build",
+                "submodules each cover all four of js/ts/jsx/tsx, but `check.rs` covers `jsx`",
+                "and `tsx` ONLY -- there is no `check_accepts_reflect_own_keys_in_js_input` and",
+                "no `..._in_ts_input`. A file-wide `ext(4)` axis would fan the four check cases",
+                "to `js` and `ts` as well, manufacturing four `kali check --api browser main.js`",
+                "/ `main.ts` trials the source never ran (a rule-2 invention).",
+                "Nor can the axis be `ext(2)`: that would drop 3/4 of the run, test and build",
+                "coverage, which is a rule-1 weakening.",
+                "28 `#[test]` fns, each one unlooped: run.rs contributes 8, test.rs 8,",
+                "build.rs 8 and check.rs 4, and none of the four submodules contains a loop, so",
+                "28 fns = 28 invocations.",
+            ])
+    else:
+        matrix = {"ext": EXTS4}
+        matrix_block = P.matrix_arithmetic(
+            test_fns=16, invocations=16,
+            helpers=[
+                ("assert_inherited_browser_api_surface_reflect_own_keys_fails_closed", 8,
+                 "run.rs's 8 manifest-inheriting fns = json_output(2) x ext(4)"),
+                ("assert_inherited_browser_api_surface_reflect_own_keys", 8,
+                 "test.rs's 8 manifest-inheriting fns = json_output(2) x ext(4)"),
+            ],
+            cases=4, axis="ext", values=EXTS4)
+
+    header = hdr(
+        f"Migrated from tests/browser_{RK}.rs and its `#[path]` submodule directory",
+        f"tests/browser_{RK}/ -- the {'manifest-inherited' if half == 'inherited' else 'explicit-`--api browser`'} half of a two-file U2 split.",
+        "",
+        RK_U10,
+        "",
+        _rk_u2(half, other, len(rows), len(rows) * (4 if matrix else 1)),
+        "",
+        matrix_block,
+        "",
+        (P.rule6_matrix_fold(
+            "one `(command, json_output)` cell of this half's 16 fns, fanned to the 4 "
+            "extensions")
+         if matrix else P.RULE6_ONE_TO_ONE),
+        "",
+        "U5 -- NO `[source]` KEY RENAME IS NEEDED. Each of this target's three program",
+        "texts has its own filename stem in the source (`main.<ext>` for the run-mode probe,",
+        "`smoke.test.<ext>` for the `Kali.test` probe, `app.<ext>` for the bundle fixture),",
+        "so the flat file-wide namespace has no collision and every key below is the",
+        "source's own filename. `check.rs` writes the SAME run-mode probe to the same",
+        "`main.<ext>` names that `run.rs` uses, which is a shared entry rather than a",
+        "collision -- the two texts are byte-identical because they are the same call to the",
+        "same builder.",
+        "",
+        (RULE10_PROSE + [""]) if constants else None,
+        P.ARGV_ORDER,
+        "The `check` shape follows the build convention: `check --api browser",
+        "[--output json] <entry>`, with the `--output json` pair appended AFTER the",
+        "subcommand and its flags.",
+        "",
+        P.rule13_header(
+            ["assert_browser_requested_reflect_own_keys",
+             "assert_json_browser_requested_reflect_own_keys",
+             "assert_inherited_browser_api_surface_reflect_own_keys",
+             "assert_browser_bundle_reflect_own_keys",
+             "assert_browser_checked_reflect_own_keys",
+             "reflect_own_keys_source", "reflect_own_keys_test_source",
+             "browser_bundle_reflect_own_keys_source"],
+            docs_carried=[RK_DOC] if half == "explicit" else [],
+            runner_exemption=(half == "explicit")),
+        ("" if half == "explicit" else
+         "This half runs no `browser_bundle_harness` step -- every case is a single `kali "
+         "run`/`kali test` invocation -- so ruling 6's runner-infrastructure paragraph is "
+         "omitted rather than printed about a chain this file never reaches. It also never "
+         "reaches `kali_common::reflect_own_keys_frozen_callable_source`, whose `///` doc "
+         "IS carried in the sibling file: the manifest-inherited helpers write the same "
+         "run-mode fixture, so the doc is carried here too where that fixture appears."),
+        "",
+        _rk_rule12(subs, blocks),
+        "",
+        RULING16_NOTE,
+    )
+
+    cases, plans = [], []
+    for r in rows:
+        entry = r["entry"]
+        if matrix:
+            entry = entry.rsplit(".", 1)[0] + ".${ext}"
+        row = dict(r, entry=entry)
+        steps = _rk_steps(row, source, harness_body)
+        cases.append({
+            "name": r["fn"] if not matrix else
+                    f"{'json_' if r['json'] else ''}{r['cmd']}_reflect_own_keys_inherited",
+            "rationale": _rk_rationale(row, carrier, subs, half, other, repin_prose),
+            "steps": steps,
+        })
+        plans.append({"kind": "reflect", "steps": steps, "source": source,
+                      "constants": constants, "matrix": matrix})
+
+    if matrix:
+        # The 16 fns collapse to 4 cases; dedupe by (cmd, json).
+        seen, deduped, dplans = set(), [], []
+        for c, p, r in zip(cases, plans, rows):
+            key = (r["cmd"], r["json"])
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(c)
+            dplans.append(p)
+        if len(deduped) != 4:
+            raise AssertionError(f"matrix fold produced {len(deduped)} cases, expected 4")
+        cases, plans = deduped, dplans
+
+    VERIFY[stem] = plans
+    return emit6a(header, constants, matrix, source, cases)
+
+
+RK_DOC = "Canonical source text for the supported `Reflect.ownKeys` frozen callable aliases."
+
+
+# NOT REGISTERED, AND THE REASON IS A CONTROLLER RULING, NOT AN OMISSION.
+#
+# `browser_reflect_own_keys` is a CLASS A (claim from unreachable code) §5.11
+# retention. Its three shared success helpers each carry an `if command ==
+# "run"` branch asserting `stdout.contains("reflect ownKeys ok")`, and NO live
+# `#[test]` fn reaches it -- PR #16 rev2's honest re-pin moved every `run`
+# caller into `run.rs`'s own local `_fails_closed` helpers, leaving the shared
+# helpers with 16 callers that all pass `"test"`:
+#
+#     $ cd crates/kali_cli/tests && grep -rn \
+#     >   'assert_browser_requested_reflect_own_keys(\|assert_json_browser_requested_reflect_own_keys(\|assert_inherited_browser_api_surface_reflect_own_keys(' \
+#     >   browser_reflect_own_keys/ | grep -v _fails_closed | grep -c '"test"'
+#     16          # of 16 call sites; none passes "run"
+#
+# So `audit-case-migration.py` reports `[contains literals] 'reflect ownKeys
+# ok'` absent from the case files, and it cannot be satisfied honestly: no live
+# test asserts it (rule 2 forbids inventing it), the `run` cases fail closed and
+# emit no such stdout (so the claim would also be false), and `[source]` is
+# excluded from the audit's case-side search by design (U8), so the fixture's
+# own trailing `console.log('reflect ownKeys ok')` cannot discharge it either.
+#
+# Ledger ruling R1 (progress.md:1645-1648, and its Class A/B consequence at
+# :1653): "Unreachable-code claims -> the target stays HAND-WRITTEN per the
+# plan's existing spec 5.11 escape hatch, and its .toml is deleted. Explicitly
+# REJECTED: adding a per-file audit exception mechanism ..., and teaching the
+# script Rust reachability analysis." Five files in this family already sit on
+# that keep list for the same shape (progress.md:1679-1681).
+#
+# The two builders below are KEPT AND KEPT WORKING because the disposition is
+# ESCALATED, not closed: U4 says whole-file retention is legitimate only when
+# EVERY test reaches the construct, and here ZERO do, which is a real tension
+# between U4 and R1 that only the controller can settle. If the ruling comes
+# back "trim test.rs and migrate the other 28", these two functions are the
+# migration and the U2 derivation they encode is unaffected. Registering them
+# would ship a red audit, which rule 3 forbids absolutely.
+#
+#     python3 gen_batch8a.py --reflect-preview     # renders both, writes nothing
+def build_rk_explicit():
+    return _rk_build("explicit")
+
+
+def build_rk_inherited():
+    return _rk_build("inherited")
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
