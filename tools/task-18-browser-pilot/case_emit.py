@@ -41,13 +41,27 @@ def source_text(name, *, quiet=False):
     `math_pow_bracketed_frozen_wrapper`, `math_pow_bracketed_frozen_wrapper_
     harness` and `math_max_min_frozen_aliases` respectively.
 
-    The rule is already settled and already implemented three times over
-    (ruling 9; `citation_sweep.sh`; `reword_ungated_citations._pretrim_lines`;
-    `gen_batch6a.rs`): a trimmed source's case file is numbered and extracted
-    against the PRE-TRIM blob, and the ref comes from the retained file's own
-    `PRE-TRIM REF:` line rather than from a constant in the generator -- a ref
-    carried anywhere but the header is the moving figure ruling 11 forbids.
-    This is that rule, in ONE place, so a fourth divergent copy is not written.
+    The rule itself is settled (ruling 9): a trimmed source's case file is
+    numbered and extracted against the PRE-TRIM blob, and the ref comes from the
+    retained file's own `PRE-TRIM REF:` line rather than from a constant in the
+    generator -- a ref carried anywhere but the header is the moving figure
+    ruling 11 forbids.
+
+    It is NOT implemented only here. Other live readers of the same header line,
+    enumerated rather than remembered:
+
+        $ grep -rn 'PRE-TRIM REF:' tools/task-18-browser-pilot/ | grep -v '^\\S*:\\s*#' \\
+              | grep -vE '(\\.md|classify_drift)'
+
+    -- `citation_sweep.sh`, `citation_tiers.py` (twice), `gen_batch6a.rs`, this
+    function, and (until this round) `reword_ungated_citations._pretrim_lines`,
+    plus `gen_batch4_group_b`'s hardcoded `PRETRIM_REF` constant. What this
+    function does is make ONE of them serve the whole GENERATION path:
+    `_pretrim_lines` now delegates here, because `case_emit.write` puts it and
+    this function inside the same generator invocation, where two resolvers that
+    disagree would silently produce two different answers about the same file.
+    Nothing was deleted from the sweep-side readers; consolidating those is a
+    separate question about their contract.
 
     A `//!` header with NO `PRE-TRIM REF:` is a whole-file retention, not a
     trim: nothing was removed, so the working tree IS the source. A missing
@@ -66,11 +80,31 @@ def source_text(name, *, quiet=False):
 
 def source_text_at(path, *, quiet=False):
     """`source_text`, by path -- for a `#[path]` submodule carrier or any other
-    caller that already holds one. Same rule, one implementation."""
+    caller that already holds one. Same rule, one implementation.
+
+    THE `//!` AND THE `PRE-TRIM REF:` MUST AGREE, AND A NON-MATCH IS AN ERROR.
+    This function keyed on the `//!` header and `_pretrim_lines` keyed on the
+    ref line alone; both now run inside one generator invocation, so on a file
+    that carried a ref without a header they would have returned two different
+    sources for the same `.rs` -- and each would have looked locally correct.
+    Ruling 18: a non-match is raised rather than resolved, so a file that grows
+    a ref without a U3 header fails loudly instead of being read two ways.
+    All ten such files carry both today:
+
+        $ for f in $(grep -rl 'PRE-TRIM REF:' crates/kali_cli/tests --include=*.rs); do
+              head -c3 "$f" | grep -q '^//!' || echo "NOT //!: $f"; done
+        (prints nothing)
+    """
     text = open(path).read()
-    if not text.startswith("//!"):
-        return text
     m = re.search(r"PRE-TRIM REF:\s*(\S+)", text)
+    if not text.startswith("//!"):
+        if m:
+            raise AssertionError(
+                f"{path} declares PRE-TRIM REF {m.group(1)} but has no `//!` header. "
+                "A trim retention carries both (U3); one without the other means two "
+                "readers of this line disagree about which source this file is, and "
+                "which one you get depends on which reader ran.")
+        return text
     if not m:
         return text
     import subprocess
@@ -340,9 +374,28 @@ def write(path, text):
     """Render-to-disk, WITH the citation reword folded in.
 
     Why the reword lives here and not in each generator's own `cite()`: every
-    one of this project's generators writes through this function (14 of 14 --
-    `grep -L 'from case_emit import.*write' gen_batch*.py` returns nothing), and
-    the reword is a *derivation*, not a transcription: it reads the construct it
+    one of this project's generators writes through this function -- 14 of 14,
+    by a command that actually agrees with the claim beside it:
+
+        $ python3 - <<'EOF'   # run in tools/task-18-browser-pilot/
+        import ast, os
+        bad = []
+        for f in sorted(x for x in os.listdir(".")
+                        if x.startswith("gen_batch") and x.endswith(".py")):
+            names = {a.name for n in ast.walk(ast.parse(open(f).read()))
+                     if isinstance(n, ast.ImportFrom) and n.module == "case_emit"
+                     for a in n.names}
+            if "write" not in names:
+                bad.append(f)
+        print(bad or "NONE -- 14 of 14 import case_emit.write")
+        EOF
+
+    The line-oriented `grep -L 'from case_emit import.*write' gen_batch*.py`
+    that used to be recorded here PRINTS `gen_batch5_group_d.py`, whose import
+    is parenthesised across lines -- the claim was true and the command was
+    wrong, which is ruling 13's exact defect.
+
+    And the reword is a *derivation*, not a transcription: it reads the construct it
     inserts out of the very source lines the citation points at
     (`reword_ungated_citations`'s module docstring states why that matters).
     Folding it here therefore gives every generator the reworded form without

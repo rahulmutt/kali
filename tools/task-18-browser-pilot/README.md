@@ -78,6 +78,10 @@ runnable core** — no hardcoded paths, no uncommitted inputs:
   evidence. Added in batch 8-inst-1, which is also when regenerating stopped
   being a gate regression — `case_emit.write` now folds the citation reword in,
   so a generator emits the gated form rather than needing a post-pass.
+  **It rewrites `cases/browser/` while it runs** (`git checkout` + `git clean`),
+  so it refuses to start on a dirty tree rather than discarding your edit;
+  `--probe-guards` demonstrates that refusal, and the restore-on-disagreement
+  path, actually firing.
 
 Full narrative (what each file's shape was, why matrix was or wasn't used,
 the audit findings, the scaling measurement, and the five review-round-1

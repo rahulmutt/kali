@@ -52,13 +52,28 @@ run RAISES rather than picking one, per ruling 18's "make a non-match an error":
 a classifier whose two halves silently diverge is exactly the instrument this
 gate exists to replace.
 
-Usage:
-  classify_drift.py              regenerate everything, classify, gate
-  classify_drift.py --selftest   poisoned probes for both methods (no tree writes)
-  classify_drift.py --only NAME  one generator (still restores and proves)
+IT REWRITES THE CASES TREE WHILE IT RUNS, so it refuses to start unless
+`cases/browser/` is clean: `restore()` is `git checkout --` plus `git clean
+-fdq`, which would silently discard an in-progress edit in the one directory a
+batch implementer is most likely to have open. That precondition also gives the
+tool a single notion of "shipped" -- the working tree it just proved clean --
+instead of baselining the tree and comparing against `HEAD:` blobs, which are
+the same bytes only when the tree is clean.
 
-Exit 0 only if every generator runs, the census matches both declarations, and
-the tree is restored byte-for-byte afterwards.
+Usage:
+  classify_drift.py                regenerate everything, classify, gate
+  classify_drift.py --selftest     poisoned probes for both methods (no tree writes)
+  classify_drift.py --probe-guards shows the clean-tree refusal and the
+                                   restore-on-disagreement path firing (WRITES,
+                                   then removes its own edit by hand)
+  classify_drift.py --only NAME    one generator (still restores and proves)
+
+Exit 0 only if the tree started clean, every generator ran, the census matched
+both declarations, and the tree was restored byte-for-byte afterwards. The tree
+is restored on every path out of the census loop, including the documented
+two-method disagreement, which is carried as a value rather than as an escaping
+exception -- an exception there skipped the restore and left this tool's own
+poison edit in a shipped case file.
 """
 
 import hashlib
@@ -321,10 +336,38 @@ def prove_restored(base):
     return (not diff and not status), diff, status
 
 
-def shipped_text(name):
+def dirty_paths():
+    """Anything uncommitted under the cases tree, as `git status --porcelain`."""
     return subprocess.run(
-        ["git", "-C", REPO, "show", f"HEAD:{CASES_REL}/{name}"],
-        capture_output=True, text=True, check=True).stdout
+        ["git", "-C", REPO, "status", "--porcelain", "--", CASES_REL],
+        capture_output=True, text=True).stdout.strip()
+
+
+def require_clean_tree():
+    """PRECONDITION, checked before anything is written or discarded.
+
+    `restore()` is `git checkout --` plus `git clean -fdq`, which DESTROYS
+    uncommitted work under `cases/browser/`. Without this guard the tool would
+    happily eat an in-progress edit and only afterwards report that the tree did
+    not match -- loud, but too late, and it is the one directory a batch
+    implementer is most likely to have open.
+
+    It also collapses the tool's two notions of "shipped" into one. The census
+    baselines the WORKING TREE but used to compare against `HEAD:` blobs, so on
+    a dirty tree "drift" meant one thing to the comparator and another to the
+    classifier. On a clean tree they are the same bytes by construction, and
+    `shipped` below is read straight from the tree it just proved clean.
+    """
+    dirt = dirty_paths()
+    if dirt:
+        print(f"REFUSING TO RUN -- uncommitted changes under {CASES_REL}:")
+        for line in dirt.split("\n"):
+            print(f"  {line}")
+        print("This tool restores the tree with `git checkout` + `git clean`, which would\n"
+              "DISCARD the above. Commit or stash first. Nothing has been written or\n"
+              "removed by this run.")
+        return False
+    return True
 
 
 def generators():
@@ -342,35 +385,106 @@ def generators():
                   if f.startswith("gen_batch") and f.endswith(".py"))
 
 
-def run_controls(base):
+def run_controls(base, shipped):
     """§3.4: a comparator that has not been shown to fire is not evidence."""
     print("CONTROLS (run FIRST -- a comparator that has not fired is not evidence)")
     victim = sorted(base)[0]
     path = os.path.join(CASES, victim)
-    with open(path, "a") as fh:
-        fh.write("# injected control probe\n")
-    seen = changed(base, snapshot())
-    c1 = seen == [victim]
-    print(f"  control 1  append a line to {victim} -> comparator says {seen or 'NOTHING'}"
-          f"   VERDICT: {'DRIFTED, as required' if c1 else 'FAILED -- comparator is blind'}")
+    c1 = c2 = False
+    try:
+        with open(path, "a") as fh:
+            fh.write("# injected control probe\n")
+        seen = changed(base, snapshot())
+        c1 = seen == [victim]
+        print(f"  control 1  append a line to {victim} -> comparator says {seen or 'NOTHING'}"
+              f"   VERDICT: {'DRIFTED, as required' if c1 else 'FAILED -- comparator is blind'}")
 
-    poisoned = open(path).read()
-    v, _ = classify(shipped_text(victim), poisoned)
-    c2 = v == "CONTENT_DRIFT"
-    print(f"  control 2  classify that same injected line -> {v}"
-          f"   VERDICT: {'correct' if c2 else 'FAILED -- classifier is blind'}")
-
-    restore()
+        verdict, _ = _classify_or_report(shipped[victim], open(path).read(), victim)
+        c2 = verdict == "CONTENT_DRIFT"
+        print(f"  control 2  classify that same injected line -> {verdict}"
+              f"   VERDICT: {'correct' if c2 else 'FAILED -- classifier is blind'}")
+    finally:
+        # The probe above is a tool-authored edit to a SHIPPED case file. It is
+        # removed whatever happens in between -- an escaping exception here used
+        # to leave it on disk.
+        restore()
     ok, diff, status = prove_restored(base)
     print(f"  control 3  restore -> every sha back to baseline AND git status empty: {ok}"
           f"   VERDICT: {'restored' if ok else f'FAILED diff={diff} status={status!r}'}")
     return c1 and c2 and ok
 
 
+DISAGREEMENT = "METHODS_DISAGREED"
+
+
+def _classify_or_report(shipped, regen, name):
+    """`classify`, with the documented raise turned into a reportable verdict.
+
+    `classify` raises when M1 and M2 disagree -- that is deliberate, and it is
+    the only honest answer. But an exception escaping the census loop skipped
+    `restore()`, so the documented "refuses to pick one" path left a tool-
+    authored poison edit sitting in a shipped case file, and the module
+    docstring's "exit 0 only if ... the tree is restored" was a guarantee this
+    tool did not make on exactly that path. The disagreement is now carried as a
+    value: the tree is still restored, the file is named, and the gate fails.
+    """
+    try:
+        return classify(shipped, regen)
+    except AssertionError as exc:
+        return DISAGREEMENT, [f"{name}: " + " / ".join(exc.args[0].split("\n"))]
+
+
+def _run_one(gen, base, shipped, *, run=None, classify_fn=_classify_or_report):
+    """Run one generator, classify what it changed, and ALWAYS restore.
+
+    `run` and `classify_fn` are seams for `--probe-guards`, which has to show
+    the restore-on-disagreement path firing; nothing else passes them. The
+    restore lives in a `finally`, so it happens whether the generator crashes,
+    the classifier raises, or the run is interrupted.
+    """
+    if run is None:
+        def run():
+            p = subprocess.run([sys.executable, os.path.join(HERE, gen)],
+                               capture_output=True, text=True, cwd=HERE)
+            return p.returncode, " | ".join(p.stderr.strip().split("\n")[-2:])
+    out = {"gen": gen, "crashed": False, "citation_form": [], "content": [],
+           "disagreed": [], "restored": True}
+    try:
+        rc, tail = run()
+        drift = changed(base, snapshot())
+        if rc != 0:
+            out["crashed"] = True
+            print(f"  {gen:<26} CRASHED rc={rc}   {tail[:160]}")
+        elif not drift:
+            print(f"  {gen:<26} FIXED POINT")
+        else:
+            print(f"  {gen:<26} DRIFTED, {len(drift)} file(s)")
+        for name in drift:
+            regen = open(os.path.join(CASES, name)).read()
+            verdict, why = classify_fn(shipped[name], regen, name)
+            {"CITATION_FORM_ONLY": out["citation_form"],
+             "CONTENT_DRIFT": out["content"],
+             DISAGREEMENT: out["disagreed"]}.get(verdict, out["content"]).append(name)
+            print(f"      {name}: {verdict}")
+            for line in why:
+                print(f"          {line}")
+    finally:
+        restore()
+        ok, diff, status = prove_restored(base)
+        out["restored"] = ok
+        if not ok:
+            print(f"      RESTORE FAILED after {gen}: diff={diff} status={status!r}")
+    return out
+
+
 def census():
+    if not require_clean_tree():
+        return 2
     base = snapshot()
-    print(f"BASELINE: {len(base)} case file(s) under {CASES_REL}\n")
-    if not run_controls(base):
+    # ONE notion of "shipped": the working tree, just proved clean, read once.
+    shipped = {name: open(os.path.join(CASES, name)).read() for name in base}
+    print(f"BASELINE: {len(base)} case file(s) under {CASES_REL}, tree clean\n")
+    if not run_controls(base, shipped):
         print("\nCONTROLS FAILED -- every verdict below would be unevidenced.")
         return 2
 
@@ -381,51 +495,40 @@ def census():
         return 2
 
     print(f"\nCENSUS over {len(gens)} generator(s)")
-    citation_form, content, crashed, failed_restore = [], [], [], []
-    for gen in gens:
-        proc = subprocess.run([sys.executable, os.path.join(HERE, gen)],
-                              capture_output=True, text=True, cwd=HERE)
-        drift = changed(base, snapshot())
-        if proc.returncode != 0:
-            crashed.append(gen)
-            tail = " | ".join(proc.stderr.strip().split("\n")[-2:])
-            print(f"  {gen:<26} CRASHED rc={proc.returncode}   {tail[:160]}")
-        elif not drift:
-            print(f"  {gen:<26} FIXED POINT")
-        else:
-            print(f"  {gen:<26} DRIFTED, {len(drift)} file(s)")
-        for name in drift:
-            verdict, why = classify(shipped_text(name), open(os.path.join(CASES, name)).read())
-            (citation_form if verdict == "CITATION_FORM_ONLY" else content).append(name)
-            print(f"      {name}: {verdict}")
-            for line in why:
-                print(f"          {line}")
-        restore()
-        ok, diff, status = prove_restored(base)
-        if not ok:
-            failed_restore.append(gen)
-            print(f"      RESTORE FAILED after {gen}: diff={diff} status={status!r}")
+    results = [_run_one(gen, base, shipped) for gen in gens]
+    return _verdict(results, len(gens), len(base))
+
+
+def _verdict(results, n_gens, n_files):
+    citation_form = sorted({n for r in results for n in r["citation_form"]})
+    content = sorted({n for r in results for n in r["content"]})
+    disagreed = sorted({n for r in results for n in r["disagreed"]})
+    crashed = [r["gen"] for r in results if r["crashed"]]
+    failed_restore = [r["gen"] for r in results if not r["restored"]]
 
     print("\nENUMERATED SETS (the gate's own output, compared with the declarations)")
     problems = []
     for label, got, want in (
-            ("citation-form-only", sorted(set(citation_form)), sorted(CITATION_FORM_ONLY_DECLARED)),
-            ("content-drift", sorted(set(content)), sorted(CONTENT_DRIFT_DECLARED))):
+            ("citation-form-only", citation_form, sorted(CITATION_FORM_ONLY_DECLARED)),
+            ("content-drift", content, sorted(CONTENT_DRIFT_DECLARED))):
         print(f"  {label}: {got or 'EMPTY'}")
         if got != want:
             problems.append(f"{label} set is {got}, declared {want}")
+    if disagreed:
+        print(f"  UNCLASSIFIED (the two methods disagreed): {disagreed}")
+        problems.append(f"the two methods disagreed on: {disagreed}")
     if crashed:
         problems.append(f"generator(s) failed to run: {crashed}")
     if failed_restore:
-        problems.append(f"tree not restored after: {failed_restore}")
+        problems.append(f"tree NOT restored after: {failed_restore}")
 
     if problems:
         print("\nGATE FAILED:")
         for p in problems:
             print(f"  * {p}")
         return 1
-    print(f"\nCLASSIFIER OK -- {len(gens)} generator(s) ran, "
-          f"{len(base)} case file(s) reproduced byte-for-byte, both declared sets empty "
+    print(f"\nCLASSIFIER OK -- {n_gens} generator(s) ran, "
+          f"{n_files} case file(s) reproduced byte-for-byte, both declared sets empty "
           f"and matched against this run's own output, tree restored.")
     return 0
 
@@ -566,9 +669,93 @@ def selftest():
     return 1
 
 
+# --------------------------------------------------------------------------
+# Guard probes -- the two guards that protect the TREE rather than the verdict.
+# The selftest never writes; these do, so they are a separate mode, and each
+# one checks the tree afterwards rather than trusting the exit code.
+# --------------------------------------------------------------------------
+
+def probe_guards():
+    """Show the clean-tree refusal and the restore-on-disagreement path firing.
+
+    A green run is not evidence a guard is wired: both of these are silent
+    exactly when they are needed.
+    """
+    if not require_clean_tree():
+        print("probe needs a clean tree to start from")
+        return 2
+    ok = []
+    victim = sorted(f for f in os.listdir(CASES) if f.endswith(".toml"))[0]
+    path = os.path.join(CASES, victim)
+    marker = "# guard probe -- must survive the refusal\n"
+
+    # ---- PROBE 1: the clean-tree precondition refuses, and does NOT clean ----
+    original = open(path).read()
+    with open(path, "a") as fh:
+        fh.write(marker)
+    rc = census()
+    survived = open(path).read().endswith(marker)
+    good = rc == 2 and survived
+    ok.append(good)
+    print(f"\n  {'ok  ' if good else 'FAIL'} probe 1: census() on a dirty tree -> rc={rc} "
+          f"(want 2), uncommitted edit survived: {survived} (want True)")
+    with open(path, "w") as fh:          # undo the probe's own edit BY HAND,
+        fh.write(original)               # never with the destructive restore()
+    clean_again = not dirty_paths()
+    ok.append(clean_again)
+    print(f"  {'ok  ' if clean_again else 'FAIL'} probe 1b: probe removed its own edit "
+          f"without git clean; tree clean again: {clean_again}")
+
+    # ---- PROBE 2: a two-method disagreement restores and gates ----
+    base = snapshot()
+    shipped = {name: open(os.path.join(CASES, name)).read() for name in base}
+
+    def drifting_run():
+        with open(path, "a") as fh:
+            fh.write("# drift injected by probe 2\n")
+        return 0, ""
+
+    def always_disagrees(shipped_text_, regen_text, name):
+        """`_classify_or_report` with a `classify` that always raises.
+
+        The RAISE itself is probed by `--selftest`; what is probed here is the
+        handling -- that the exception becomes a value, the tree still gets
+        restored, and the gate still fails.
+        """
+        def raising(_a, _b):
+            raise AssertionError("THE TWO METHODS DISAGREE -- refusing to pick one.\n"
+                                 "  M1 -> CITATION_FORM_ONLY\n  M2 -> CONTENT_DRIFT")
+        real, globals()["classify"] = classify, raising
+        try:
+            return _classify_or_report(shipped_text_, regen_text, name)
+        finally:
+            globals()["classify"] = real
+
+    result = _run_one("<probe-2 stand-in>", base, shipped,
+                      run=drifting_run, classify_fn=always_disagrees)
+    restored = result["restored"] and not dirty_paths()
+    reported = result["disagreed"] == [victim]
+    gated = _verdict([result], 1, len(base)) != 0
+    for label, good in (("tree restored after the disagreement", restored),
+                        ("the file is named rather than swallowed", reported),
+                        ("the gate fails rather than exiting 0", gated)):
+        ok.append(good)
+        print(f"  {'ok  ' if good else 'FAIL'} probe 2: {label}: {good}")
+
+    if all(ok):
+        print(f"\nGUARD PROBES OK -- {len(ok)} checks: the clean-tree precondition refuses "
+              "without discarding, and a two-method disagreement restores the tree, names "
+              "the file and fails the gate.")
+        return 0
+    print(f"\nGUARD PROBES FAILED -- {ok.count(False)} of {len(ok)}")
+    return 1
+
+
 def main():
     if "--selftest" in sys.argv:
         return selftest()
+    if "--probe-guards" in sys.argv:
+        return probe_guards()
     return census()
 
 

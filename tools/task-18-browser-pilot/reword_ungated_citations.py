@@ -40,11 +40,11 @@ Exit 0 if every ungated site was reworded (or there were none), 1 otherwise.
 
 import os
 import re
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import batch5_crosscheck as X  # noqa: E402
+import case_emit  # noqa: E402  (module-level is cycle-free: case_emit imports THIS lazily)
 
 TESTS = X.TESTS
 CASES = X.CASES
@@ -84,6 +84,15 @@ def _pretrim_lines(stem, toml_text):
     A U4 trim's case-file citations are PRE-TRIM line numbers (ruling 9), so the
     blob, not the working tree, is the right side -- the same rule
     `citation_sweep.sh` applies. A U2 split names its source in its own header.
+
+    THE TRIM ARM DELEGATES rather than re-implementing. It used to key on the
+    `PRE-TRIM REF:` line alone while `case_emit.source_text_at` keyed on the
+    `//!` header, and since `case_emit.write` now calls this module at GENERATION
+    time, both resolvers run inside one generator invocation. Two resolvers that
+    can disagree about which bytes a `.rs` "is" produce a silent wrong answer on
+    the first file where they part company, and each looks locally correct.
+    There is one resolver on this path now, and it raises on the disagreement
+    case rather than picking a side.
     """
     rs = os.path.join(TESTS, f"browser_{stem}.rs")
     if not os.path.exists(rs):
@@ -92,16 +101,7 @@ def _pretrim_lines(stem, toml_text):
             return None
         rs = os.path.join(TESTS, named)
         return open(rs).read().split("\n") if os.path.exists(rs) else None
-    ref = re.search(r"PRE-TRIM REF:\s*(\S+)", open(rs).read())
-    if ref:
-        blob = subprocess.run(
-            ["git", "-C", X.REPO, "show",
-             f"{ref.group(1)}:crates/kali_cli/tests/browser_{stem}.rs"],
-            capture_output=True, text=True)
-        if blob.returncode != 0:
-            return None
-        return blob.stdout.split("\n")
-    return open(rs).read().split("\n")
+    return case_emit.source_text_at(rs, quiet=True).split("\n")
 
 
 def _elide(expr):
