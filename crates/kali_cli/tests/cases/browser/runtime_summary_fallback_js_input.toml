@@ -1,0 +1,664 @@
+# Migrated from tests/browser_runtime_summary_fallback_js_input.rs AND its two `#[path]` submodules
+# (tests/browser_runtime_summary_fallback_js_input/run.rs, tests/browser_runtime_summary_fallback_js_input/test.rs). U10: the sibling directory is part of
+# the unit, so all of it lands in this one file.
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, LISTED BEFORE ANY TOML WAS WRITTEN.
+# tests/browser_runtime_summary_fallback_js_input.rs carries 1 `///` doc comment block(s) and NO bare
+# `//` comment block; neither submodule carries any comment at all. The generator
+# raises if either count is wrong, so a source that grows a comment breaks generation
+# rather than shipping a file that silently drops it.
+# The doc blocks, with the helper each documents:
+#   * parse_failed_json_stdout -- "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)"
+# Each is carried into the rationale of exactly the cases whose output passes
+# through that helper (U6 bottom-up; copying both into every case to make
+# `comment_coverage.py` read clean would be the over-attribution U6 forbids).
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 34 `#[test]` fns, 34 real helper invocations with every loop
+# expanded.
+# This carrier covers exactly ONE input extension (`.js`), so there is no `ext`
+# dimension to hoist: every fixture in it already ends `.js`. The two
+# dimensions that DO vary -- `command` (run/test) and `json_output` -- change the
+# ASSERTION SHAPE rather than substituting a string, and the fixture NAME differs
+# between them as well (`<case>.js` for run, `<case>.test.js` for test),
+# so neither is a substitutable axis. Each case additionally carries its own
+# `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` program, which is per-case data and not an
+# axis value.
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 34 invocations -> 34 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+#
+# U2 -- `[source]` is FILE-WIDE, AND THE run/test FOLD IS SAFE HERE. MEASURED.
+# Both `#[path]` submodules land in this one file, so `expand.rs` clones every fixture
+# below into every trial. That is the exact shape U2 warns about, so it was measured
+# against the real binary rather than argued:
+#   * no fixture in either submodule is written behind an `if` -- all 34 `#[test]`
+#     fns call the same unconditional writer, and this file's generator raises if any fn
+#     writes other than exactly one filename;
+#   * the halves' filenames are disjoint (14 `run` names ending `.js`, 16 `test` names
+#     ending `.test.js`), so the union is a merge and not an overwrite, and every
+#     body in it is byte-identical (asserted mechanically, ruling 7);
+#   * for each of the 34 fns the binary was run on the same argv and environment in a
+#     directory holding only its own fixture, in one holding its own half's fixtures, and
+#     in one holding BOTH halves' -- and the output is identical in all three, modulo
+#     `payload.runtimeMs`, which nothing here pins.
+# The measurement is `gen_batch8b.py --derive`, and it is checked against a known
+# positive in the same run: adding a `kali.json` and dropping the flag under test makes
+# the same instrument report DISARMED, so the zero above is a fact about this fold
+# rather than about the instrument.
+# Every command names its entry explicitly on argv, so the unused siblings are inert.
+#
+# RULE 13 -- transitive helper docs, carried verbatim into every rationale whose call
+# chain reaches the documented helper (bottom-up, U6: never pooled, never
+# over-attributed):
+#   * parse_failed_json_stdout -- "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)"
+#
+# ARGV ORDER. `args` reproduces the source's own argument order exactly, token for
+# token, and the order is DERIVED from the source's `.arg(...)` chain by this file's
+# generator rather than written down. The entry filename is last, as the source
+# appends it last.
+# `--output json` appears first in the json cases below, because that is where the source builds it.
+#
+# ASSERTION SHAPE. Text cases carry `stdout_contains` and an exact `stderr = ""`,
+# mirroring the source's plain `.contains(...)` against raw stdout and its
+# `assert_eq!(String::from_utf8_lossy(&output.stderr), "")` -- ruling 3, mirror the
+# source, so the substring claim is NOT strengthened. JSON cases carry the envelope
+# paths the source asserts and an EXACT `json.stdout` pin, because a JSON string leaf
+# has no substring form in this format (ruling 3's other limb); every such pin was
+# captured from the real binary and the generator refuses to emit one that does not
+# contain the source's own needle, so the strengthening is verified rather than
+# assumed.
+# The per-case envelope claim sets are NOT hand-listed: they are the claims of the
+# assertion helper the fn routes through (`parse_failed_json_stdout`, `parse_json_stdout`)
+# merged with the fn's own inline asserts, read out of the `.rs`.
+#
+# ONE THING THIS FORMAT CANNOT EXPRESS, AND IT IS NOT PAPERED OVER.
+# 2 of these `#[test]` fn(s) carry `#[cfg(unix)]` in the source:
+#   * `run_falls_back_to_stdout_when_browser_summary_file_is_unreadable_when_browser_harness_is_configured_in_js_input` (run.rs)
+#   * `json_test_falls_back_to_stdout_when_browser_summary_file_is_unreadable_when_browser_harness_is_configured_in_js_input` (test.rs)
+# They chmod the summary file to 0o000 and require the read to fail, which is a unix
+# property. There is no platform key in this format, and `ignore = true` would
+# disable the case on unix too -- a weakening (rule 1). They are migrated
+# unconditionally: nothing the source asserts is lost, and the suite has no non-unix
+# lane for the extra claim to be evaluated on. The batch report escalates the choice
+# and specifies the alternative (a U4 trim retaining exactly these fns).
+#
+# RULING 7 -- DUPLICATE `[source]` BODIES ARE NOT HOISTED. Several entries below hold
+# byte-identical program text. U13 would hoist them into `[constants]`; controller ruling 7
+# declines that for `browser/` (a hoisted body makes `check_fixtures.py` go red on a correct
+# file, and hoisting moves program text onto the surface `assertion_strings()` searches).
+# The mandatory half of that ruling is honoured instead: the duplication is asserted
+# MECHANICALLY in this file's generator, not eyeballed -- the generator compares the
+# extracted fixture strings and raises if they are not byte-identical.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+
+[source]
+"missing-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"unparseable-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"padded-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"whitespace-labels-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"whitespace-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"thread-topology-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"empty-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"invalid-args.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"invalid-tests-array-items.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"unreadable-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"invalid-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"null-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"invalid-numeric-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"incomplete-summary.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"missing-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"unparseable-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"whitespace-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"padded-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"whitespace-labels-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"thread-topology-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"merged-thread-topology.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"empty-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"unreadable-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"invalid-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"null-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"unexpected-keys-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"invalid-numeric-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"invalid-args.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"invalid-tests-array-items.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+"incomplete-summary.test.js" = """Kali.test('browser unparseable', () => { console.log('browser unparseable'); });
+"""
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_is_missing_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `missing-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "missing-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'process.stdout.write(\"browser missing summary\\n\");'" }
+exit = "success"
+stdout_contains = ["browser missing summary"]
+stderr = ""
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_is_unparseable_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `unparseable-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "unparseable-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"not-json\"); process.stdout.write(\"browser unparseable\\n\");'" }
+exit = "success"
+stdout_contains = ["browser unparseable"]
+stderr = ""
+
+[[case]]
+name = "json_run_canonicalizes_whitespace_padded_host_labels_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `padded-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json run --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "run", "--api", "browser", "padded-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser padded labels\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\" browser-requested \\\",\\\"runtimeBackend\\\":\\\" browser-harness \\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser padded labels\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\" browser-requested \\\",\\\"runtimeBackend\\\":\\\" browser-harness \\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.payload.exitCode = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser padded labels\"],\"testsFailed\":0,\"hostContract\":\" browser-requested \",\"runtimeBackend\":\" browser-harness \"}\n"
+
+[[case]]
+name = "json_run_falls_back_to_stdout_when_browser_summary_file_has_whitespace_only_host_labels_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `whitespace-labels-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json run --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "run", "--api", "browser", "whitespace-labels-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser whitespace labels\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"   \\\",\\\"runtimeBackend\\\":\\\" \\t \\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser whitespace labels\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.payload.exitCode = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser whitespace labels\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_is_whitespace_only_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `whitespace-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "whitespace-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \" \\n\\t\\n\"); process.stdout.write(\"browser whitespace summary\\n\");'" }
+exit = "success"
+stdout_contains = ["browser whitespace summary"]
+stderr = ""
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_thread_topology_script_url_is_whitespace_padded_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `thread-topology-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "thread-topology-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"summary\\\"],\\\"tests\\\":[\\\"browser merge\\\"],\\\"testsFailed\\\":2,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\",\\\"threadTopology\\\":{\\\"totalInstances\\\":1,\\\"terminatedInstances\\\":0,\\\"liveInstances\\\":[{\\\"instanceId\\\":0,\\\"scriptUrl\\\":\\\" https://example.com/thread.js \\\",\\\"postedMessages\\\":[],\\\"postedSharedBuffers\\\":[],\\\"wasTerminated\\\":false}]}}\\n\"); process.stdout.write(\"browser thread topology summary\\n\");'" }
+exit = "success"
+stdout_contains = ["browser thread topology summary"]
+stderr = ""
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_is_empty_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `empty-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "empty-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"\"); process.stdout.write(\"browser empty summary\\n\");'" }
+exit = "success"
+stdout_contains = ["browser empty summary"]
+stderr = ""
+
+[[case]]
+name = "json_run_falls_back_to_stdout_when_browser_summary_file_is_missing_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `missing-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json run --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "run", "--api", "browser", "missing-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'process.stdout.write(\"browser missing summary\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.payload.exitCode = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "browser missing summary\n"
+
+[[case]]
+name = "json_run_falls_back_to_stdout_when_browser_summary_file_is_empty_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `empty-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json run --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "run", "--api", "browser", "empty-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"\"); process.stdout.write(\"browser empty summary\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.payload.exitCode = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "browser empty summary\n"
+
+[[case]]
+name = "json_run_falls_back_to_stdout_when_browser_summary_file_has_invalid_args_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `invalid-args.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json run --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "run", "--api", "browser", "invalid-args.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[1],\\\"tests\\\":[\\\"browser invalid args\\\"],\\\"testsFailed\\\":4,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser invalid args\\\"],\\\"testsFailed\\\":8,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.payload.exitCode = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser invalid args\"],\"testsFailed\":8,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_run_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_array_items_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `invalid-tests-array-items.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json run --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "run", "--api", "browser", "invalid-tests-array-items.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[1],\\\"testsFailed\\\":4,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser invalid tests array items\\\"],\\\"testsFailed\\\":8,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.payload.exitCode = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser invalid tests array items\"],\"testsFailed\":8,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_is_unreadable_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `unreadable-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. MIGRATION NOTE: the source fn carries `#[cfg(unix)]`, so it is compiled only on unix. The case format has no platform key, so this case runs on every platform the suite runs on. Nothing the source asserts is weakened; the file header and the batch report record the escalation. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "unreadable-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); const summary = process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE; fs.writeFileSync(summary, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser unreadable summary\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); fs.chmodSync(summary, 0o000); process.stdout.write(\"browser unreadable summary\\n\");'" }
+exit = "success"
+stdout_contains = ["browser unreadable summary"]
+stderr = ""
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_failed_type_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `invalid-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "invalid-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser invalid summary\\\"],\\\"testsFailed\\\":\\\"oops\\\",\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"browser invalid summary\\n\");'" }
+exit = "success"
+stdout_contains = ["browser invalid summary"]
+stderr = ""
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_has_null_args_and_tests_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `null-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "null-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":null,\\\"tests\\\":null,\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"browser null summary\\n\");'" }
+exit = "success"
+stdout_contains = ["browser null summary"]
+stderr = ""
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_has_invalid_numeric_tests_failed_value_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `invalid-numeric-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "invalid-numeric-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser invalid numeric summary\\\"],\\\"testsFailed\\\":-1,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"browser invalid numeric summary\\n\");'" }
+exit = "success"
+stdout_contains = ["browser invalid numeric summary"]
+stderr = ""
+
+[[case]]
+name = "run_uses_stdout_metadata_when_browser_summary_file_is_missing_tests_failed_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `incomplete-summary.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "incomplete-summary.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser incomplete summary\\\"],\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"browser incomplete summary\\n\");'" }
+exit = "success"
+stdout_contains = ["browser incomplete summary"]
+stderr = ""
+
+[[case]]
+name = "run_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_array_items_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `run.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `invalid-tests-array-items.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali run --api browser <entry>`. The fn asserts directly on the process output; there is no assertion helper in its call chain, so no helper claims and no helper doc are carried here. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. `stderr = ""` is an exact pin because the source spells an exact equality (`assert_eq!(String::from_utf8_lossy(&output.stderr), "")`), which rule 1 requires be carried as an exact pin rather than a substring claim. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["run", "--api", "browser", "invalid-tests-array-items.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[1],\\\"testsFailed\\\":4,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"browser invalid tests array items\\n\");'" }
+exit = "success"
+stdout_contains = ["browser invalid tests array items"]
+stderr = ""
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_is_missing_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `missing-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "missing-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser missing summary\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser missing summary\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_is_unparseable_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `unparseable-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "unparseable-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"not-json\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser unparseable\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser unparseable\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_is_whitespace_only_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `whitespace-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "whitespace-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \" \\n\\t\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser whitespace summary\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser whitespace summary\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_canonicalizes_whitespace_padded_host_labels_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `padded-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "padded-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser padded labels\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\" browser-requested \\\",\\\"runtimeBackend\\\":\\\" browser-harness \\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser padded labels\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\" browser-requested \\\",\\\"runtimeBackend\\\":\\\" browser-harness \\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser padded labels\"],\"testsFailed\":0,\"hostContract\":\" browser-requested \",\"runtimeBackend\":\" browser-harness \"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_has_whitespace_only_host_labels_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `whitespace-labels-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "whitespace-labels-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser whitespace labels\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"   \\\",\\\"runtimeBackend\\\":\\\" \\t \\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser whitespace labels\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser whitespace labels\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_thread_topology_script_url_is_whitespace_padded_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `thread-topology-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_failed_json_stdout(` (:34), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. RULE 13 -- the `///` doc on parse_failed_json_stdout, carried verbatim: "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)" On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "thread-topology-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"summary\\\"],\\\"tests\\\":[\\\"browser merge\\\"],\\\"testsFailed\\\":2,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\",\\\"threadTopology\\\":{\\\"totalInstances\\\":1,\\\"terminatedInstances\\\":0,\\\"liveInstances\\\":[{\\\"instanceId\\\":0,\\\"scriptUrl\\\":\\\" https://example.com/thread.js \\\",\\\"postedMessages\\\":[],\\\"postedSharedBuffers\\\":[],\\\"wasTerminated\\\":false}]}}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser merge\\\"],\\\"testsFailed\\\":1,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\",\\\"threadTopology\\\":{\\\"totalInstances\\\":1,\\\"terminatedInstances\\\":0,\\\"liveInstances\\\":[{\\\"instanceId\\\":0,\\\"scriptUrl\\\":\\\"https://example.com/stdout-thread.js\\\",\\\"postedMessages\\\":[],\\\"postedSharedBuffers\\\":[],\\\"wasTerminated\\\":false}]}}\\n\");'" }
+exit = "failure"
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser merge\"],\"testsFailed\":1,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\",\"threadTopology\":{\"totalInstances\":1,\"terminatedInstances\":0,\"liveInstances\":[{\"instanceId\":0,\"scriptUrl\":\"https://example.com/stdout-thread.js\",\"postedMessages\":[],\"postedSharedBuffers\":[],\"wasTerminated\":false}]}}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_thread_topology_is_invalid_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `thread-topology-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_failed_json_stdout(` (:34), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. RULE 13 -- the `///` doc on parse_failed_json_stdout, carried verbatim: "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)" On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "thread-topology-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser merge\\\"],\\\"testsFailed\\\":2,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\",\\\"threadTopology\\\":{\\\"totalInstances\\\":1,\\\"terminatedInstances\\\":0,\\\"liveInstances\\\":[{\\\"instanceId\\\":0,\\\"scriptUrl\\\":\\\"https://example.com/thread.js\\\",\\\"postedMessages\\\":[],\\\"postedSharedBuffers\\\":[],\\\"wasTerminated\\\":false}]}}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser merge\\\"],\\\"testsFailed\\\":1,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "failure"
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser merge\"],\"testsFailed\":1,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_merges_thread_topology_from_stdout_when_browser_summary_file_omits_it_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `merged-thread-topology.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_failed_json_stdout(` (:34), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. RULE 13 -- the `///` doc on parse_failed_json_stdout, carried verbatim: "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)" U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "merged-thread-topology.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"summary\\\"],\\\"tests\\\":[\\\"browser merge\\\"],\\\"testsFailed\\\":2,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser merge\\\"],\\\"testsFailed\\\":1,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\",\\\"threadTopology\\\":{\\\"totalInstances\\\":1,\\\"terminatedInstances\\\":0,\\\"liveInstances\\\":[{\\\"instanceId\\\":0,\\\"scriptUrl\\\":\\\"https://example.com/stdout-thread.js\\\",\\\"postedMessages\\\":[],\\\"postedSharedBuffers\\\":[],\\\"wasTerminated\\\":false}]}}\\n\");'" }
+exit = "failure"
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.payload.threadTopology = { totalInstances = 1, terminatedInstances = 0, liveInstances = [{ instanceId = 0, scriptUrl = "https://example.com/stdout-thread.js", postedMessages = [], postedSharedBuffers = [], wasTerminated = false }] }
+json.stderr = ""
+json.errors = []
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_is_empty_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `empty-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "empty-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser empty summary\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser empty summary\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_is_unreadable_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `unreadable-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. MIGRATION NOTE: the source fn carries `#[cfg(unix)]`, so it is compiled only on unix. The case format has no platform key, so this case runs on every platform the suite runs on. Nothing the source asserts is weakened; the file header and the batch report record the escalation. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "unreadable-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); const summary = process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE; fs.writeFileSync(summary, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser unreadable summary\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); fs.chmodSync(summary, 0o000); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser unreadable summary\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser unreadable summary\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_failed_type_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `invalid-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_failed_json_stdout(` (:34), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. RULE 13 -- the `///` doc on parse_failed_json_stdout, carried verbatim: "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)" On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "invalid-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser invalid summary\\\"],\\\"testsFailed\\\":\\\"oops\\\",\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser invalid summary\\\"],\\\"testsFailed\\\":7,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "failure"
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.payload.total = 1
+json.payload.passed = 0
+json.payload.failed = 7
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser invalid summary\"],\"testsFailed\":7,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_has_null_args_and_tests_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `null-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_json_stdout(` (:18), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "null-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":null,\\\"tests\\\":null,\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser null summary\\\"],\\\"testsFailed\\\":0,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser null summary\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_has_unexpected_keys_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `unexpected-keys-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_failed_json_stdout(` (:34), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. RULE 13 -- the `///` doc on parse_failed_json_stdout, carried verbatim: "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)" On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "unexpected-keys-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser unexpected keys\\\"],\\\"testsFailed\\\":4,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\",\\\"unexpected\\\":true}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser unexpected keys\\\"],\\\"testsFailed\\\":8,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "failure"
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.payload.total = 1
+json.payload.passed = 0
+json.payload.failed = 8
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser unexpected keys\"],\"testsFailed\":8,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_numeric_tests_failed_value_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `invalid-numeric-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_failed_json_stdout(` (:34), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. RULE 13 -- the `///` doc on parse_failed_json_stdout, carried verbatim: "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)" On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "invalid-numeric-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser invalid numeric summary\\\"],\\\"testsFailed\\\":1.5,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser invalid numeric summary\\\"],\\\"testsFailed\\\":7,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "failure"
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.payload.total = 1
+json.payload.passed = 0
+json.payload.failed = 7
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser invalid numeric summary\"],\"testsFailed\":7,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_args_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `invalid-args.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_failed_json_stdout(` (:34), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. RULE 13 -- the `///` doc on parse_failed_json_stdout, carried verbatim: "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)" On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "invalid-args.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[1],\\\"tests\\\":[\\\"browser invalid args\\\"],\\\"testsFailed\\\":4,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser invalid args\\\"],\\\"testsFailed\\\":8,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "failure"
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.payload.total = 1
+json.payload.passed = 0
+json.payload.failed = 8
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser invalid args\"],\"testsFailed\":8,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_array_items_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `invalid-tests-array-items.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_failed_json_stdout(` (:34), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. RULE 13 -- the `///` doc on parse_failed_json_stdout, carried verbatim: "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)" On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "invalid-tests-array-items.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[1],\\\"testsFailed\\\":4,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser invalid tests array items\\\"],\\\"testsFailed\\\":8,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "failure"
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.payload.total = 1
+json.payload.passed = 0
+json.payload.failed = 8
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser invalid tests array items\"],\"testsFailed\":8,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"
+
+[[case]]
+name = "json_test_uses_stdout_metadata_when_browser_summary_file_is_missing_tests_failed_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_runtime_summary_fallback_js_input.rs, `#[path]` submodule `test.rs` -- one `[[case]]` per source `#[test]` fn, no `[matrix]`, so this case is exactly one fn and one real invocation (rule 6). The fn writes the shared browser test program to `incomplete-summary.test.js` in a fresh temp dir (`write_js_source(` (:10)), points `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` at a `node -e` program that fabricates the browser harness's summary file and stdout, and runs `kali --output json test --api browser <entry>`. Its output goes through `parse_failed_json_stdout(` (:34), whose own claims (2 of them) are merged into this case rather than restated: they are read out of that helper's body by this file's generator. RULE 13 -- the `///` doc on parse_failed_json_stdout, carried verbatim: "Twin of `parse_json_stdout` for a run whose summary reports failed tests: under the honest Stage-0 predicate (`test_run_succeeded`), `kali test` exits non-zero with `success:false` while still carrying the fallback-parsed metadata. (throw-fallout Stage 0 re-pin.)" On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this file merges both `#[path]` submodules. The fold was measured against the real binary (see the file header): with every fixture of both halves present the output of this exact command is unchanged, so no claim here is supplied by a sibling fixture."""
+args = ["--output", "json", "test", "--api", "browser", "incomplete-summary.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node -e 'const fs = require(\"fs\"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, \"{\\\"args\\\":[\\\"alpha\\\"],\\\"tests\\\":[\\\"browser incomplete summary\\\"],\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\"); process.stdout.write(\"{\\\"args\\\":[\\\"stdout\\\"],\\\"tests\\\":[\\\"browser incomplete summary\\\"],\\\"testsFailed\\\":1,\\\"hostContract\\\":\\\"browser-requested\\\",\\\"runtimeBackend\\\":\\\"browser-harness\\\"}\\n\");'" }
+exit = "failure"
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.payload.total = 1
+json.payload.passed = 0
+json.payload.failed = 1
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.stderr = ""
+json.errors = []
+json.stdout = "{\"args\":[\"stdout\"],\"tests\":[\"browser incomplete summary\"],\"testsFailed\":1,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"

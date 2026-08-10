@@ -1,0 +1,145 @@
+# Migrated from tests/browser_wasm_threads_browser_surface.rs -- the inherited-manifest half.
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE. tests/browser_wasm_threads_browser_surface.rs carries NO
+# Rust comment block at all -- neither a bare `//` block nor a `///` doc comment on
+# any helper (the generator counts both and raises if either count changes), so
+# there is no prose to move verbatim into a `rationale` here.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 2 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_wasm_threads_rejection_for_command` -- 16 invocation(s) = every real call of it in this half, with every `for` loop expanded
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one `(command, json_output)` cell of the source's fns, fanned to the four extensions; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, WHICH IS WHY THIS TARGET IS TWO CASE FILES.
+# The source writes `kali.json` behind an `if with_browser_api_surface_manifest`.
+# `expand.rs` clones the whole file-level `[source]` map into EVERY trial and a
+# `[[case]]` cannot opt out of a fixture a sibling case needs, so one shared file would
+# make the manifest unconditionally present. That is invisible to
+# `audit-case-migration.py` (no literal is dropped) and invisible to `cargo test` (the
+# trial still passes), so it is measured instead:
+#   $ gen_batch8b.py --derive
+#     with the flag under test present and NO manifest (what the source runs): the
+#       case's pins hold;
+#     with the manifest present and the flag REMOVED: the case's pins STILL hold.
+#   So in a shared file the flag would be unverified -- the manifest would supply the
+#   claim, no literal would be dropped (so the audit cannot see it) and the trial would
+#   still pass (so `cargo test` cannot either).
+# This file is the inherited-manifest half: 2 source `#[test]` fn(s) worth of
+# invocations (16 of them). The other half is `wasm_threads_browser_surface_explicit_api`.
+# The disarmed shape, stated so a reader can check the split is on the right line: the rejecting cases pin an E5506 whose *cause* is the requested wasm-threads profile, which the manifest requests on its own
+# Every command below names its entry explicitly on argv, so the unused sibling
+# fixtures in a trial dir are inert.
+#
+# RULE 13 -- transitive helper docs. This source's helper chain carries NO `///`
+# doc comment on any helper any case reaches (checked mechanically by this file's
+# generator, which raises if the count it accounts for is wrong), so there is none
+# to carry. Controller ruling 6's runner-infrastructure exemption is separate and is
+# not relied on here.
+#
+# ARGV ORDER. `args` reproduces the source's own argument order exactly, token for
+# token, and the order is DERIVED from the source's `.arg(...)` chain by this file's
+# generator rather than written down. The entry filename is last, as the source
+# appends it last.
+# `--output json` appears first in the json cases below, because that is where the source builds it.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. Every entry filename in this half
+# carries exactly one program text, so the flat file-wide `[source]` namespace has
+# no collision. Checked mechanically, not eyeballed: the generator raises if any
+# filename would carry two different bodies.
+#
+# ASSERTION SHAPE. Every key below is derived from the source's own asserts, resolved
+# for this case's `(command, json_output)` binding by this file's generator, which
+# RAISES on a branch condition it cannot evaluate rather than letting both branches
+# contribute. Text cases keep `stdout_contains`/`stderr_contains` (ruling 3: a plain
+# `.contains` against a field that HAS a substring form is not strengthened). JSON
+# cases pin the envelope paths the source asserts; where the source spells
+# `.contains(...)` against a JSON string leaf, which has no substring form in this
+# format, ruling 3 requires an exact pin, and the generator refuses to emit one that
+# does not contain the source's own needle -- so the strengthening is verified.
+# `assert!(!errors.is_empty())` is carried by the `errors.0.*` pins, which a missing
+# path hard-fails on; the generator raises if a file asserts non-emptiness with no
+# `errors.0` pin to carry it.
+#
+# RULE 11 / RULING 17 -- ONE OR-SHAPED SOURCE ASSERTION, RESOLVED BY OBSERVATION.
+# The source accepts either of two stderr needles. Run against the real binary over
+# every cell, BOTH disjuncts are true and the cells agree, which is the case rule 11
+# does not cover and ruling 17 does: pin the FIRST in source order
+# ('runtime profile'), disclose the other
+# ('wasm-threads'), and do NOT pin both --
+# `A` and `A and B` are both stronger than `A or B`, but they are ordered, so pinning
+# one disjunct is the strictly weaker and more faithful strengthening. Pinning the
+# other as well would assert unconditionally something the source only ever offered
+# as an alternative (rule 2).
+#
+# RULING 7 -- NOTHING TO HOIST. The `[source]` entries below are all DIFFERENT
+# programs (checked mechanically by this file's generator, which raises if any two
+# entries would carry the same key with different bodies), so U13 has no duplicated
+# body to hoist and controller ruling 7's decline does not arise.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """let value = 1 + 2; value;
+"""
+"kali.json" = """{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser",
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"""
+
+[[case]]
+name = "check_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs__text"
+rationale = """Migrated from browser_wasm_threads_browser_surface.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `check_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is the two-line `let value = 1 + 2; value;` written to `app.<ext>` (rule 9: copied out of the source). It routes through `assert_browser_wasm_threads_rejection_for_command(` (:36); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts exit code 5 plus the E5506 runtime-profile rejection on whichever stream the mode selects. The source spells this as a plain `.contains(...)` against raw stdout/stderr, so it is carried as stdout_contains/stderr_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 11 / RULING 17 -- the source's disjunction sentence, carried so the narrowing is recorded rather than silent: it accepts stderr containing either 'runtime profile' or 'wasm-threads'. Both are true on every cell of the real binary's output, so the first in source order is pinned and the other is disclosed but not asserted (pinning both would be a rule-2 invention). U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `wasm_threads_browser_surface_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["check", "app.${ext}"]
+exit = 5
+stderr_contains = ["E5506", "runtime profile"]
+
+[[case]]
+name = "check_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs__json"
+rationale = """Migrated from browser_wasm_threads_browser_surface.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `check_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is the two-line `let value = 1 + 2; value;` written to `app.<ext>` (rule 9: copied out of the source). It routes through `assert_browser_wasm_threads_rejection_for_command(` (:36); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts exit code 5 plus the E5506 runtime-profile rejection on whichever stream the mode selects. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.errors.0.message`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `wasm_threads_browser_surface_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["--output", "json", "check", "app.${ext}"]
+exit = 5
+json.schemaVersion = 1
+json.command = "check"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "selected runtime profile(s) [\"wasm-threads\"] are unavailable in this phase"
+
+[[case]]
+name = "build_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs__text"
+rationale = """Migrated from browser_wasm_threads_browser_surface.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `build_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is the two-line `let value = 1 + 2; value;` written to `app.<ext>` (rule 9: copied out of the source). It routes through `assert_browser_wasm_threads_rejection_for_command(` (:36); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts exit code 5 plus the E5506 runtime-profile rejection on whichever stream the mode selects. The source spells this as a plain `.contains(...)` against raw stdout/stderr, so it is carried as stdout_contains/stderr_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 11 / RULING 17 -- the source's disjunction sentence, carried so the narrowing is recorded rather than silent: it accepts stderr containing either 'runtime profile' or 'wasm-threads'. Both are true on every cell of the real binary's output, so the first in source order is pinned and the other is disclosed but not asserted (pinning both would be a rule-2 invention). U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `wasm_threads_browser_surface_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["build", "--bundle", "app.${ext}"]
+exit = 5
+stderr_contains = ["E5506", "runtime profile"]
+
+[[case]]
+name = "build_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs__json"
+rationale = """Migrated from browser_wasm_threads_browser_surface.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `build_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is the two-line `let value = 1 + 2; value;` written to `app.<ext>` (rule 9: copied out of the source). It routes through `assert_browser_wasm_threads_rejection_for_command(` (:36); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts exit code 5 plus the E5506 runtime-profile rejection on whichever stream the mode selects. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.errors.0.message`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `wasm_threads_browser_surface_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["--output", "json", "build", "--bundle", "app.${ext}"]
+exit = 5
+json.schemaVersion = 1
+json.command = "build"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "selected runtime profile(s) [\"wasm-threads\"] are unavailable in this phase"

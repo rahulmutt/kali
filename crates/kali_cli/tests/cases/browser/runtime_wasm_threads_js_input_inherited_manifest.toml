@@ -1,0 +1,216 @@
+# Migrated from tests/browser_runtime_wasm_threads_js_input.rs -- the inherited-manifest half.
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE. tests/browser_runtime_wasm_threads_js_input.rs carries NO
+# Rust comment block at all -- neither a bare `//` block nor a `///` doc comment on
+# any helper (the generator counts both and raises if either count changes), so
+# there is no prose to move verbatim into a `rationale` here.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 6 `#[test]` fns, 32 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_wasm_threads_acceptance_for_command` -- 32 invocation(s) = every real call of it in this half, with every `for` loop expanded
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 8 `[[case]]` entries x ext(4) = 32 trials = 32 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one `(command, json_output)` cell of the source's fns, fanned to the four extensions; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, WHICH IS WHY THIS TARGET IS TWO CASE FILES.
+# The source writes `kali.json` behind an `if with_browser_api_surface_manifest`.
+# `expand.rs` clones the whole file-level `[source]` map into EVERY trial and a
+# `[[case]]` cannot opt out of a fixture a sibling case needs, so one shared file would
+# make the manifest unconditionally present. That is invisible to
+# `audit-case-migration.py` (no literal is dropped) and invisible to `cargo test` (the
+# trial still passes), so it is measured instead:
+#   $ gen_batch8b.py --derive
+#     with the flag under test present and NO manifest (what the source runs): the
+#       case's pins hold;
+#     with the manifest present and the flag REMOVED: the case's pins STILL hold.
+#   So in a shared file the flag would be unverified -- the manifest would supply the
+#   claim, no literal would be dropped (so the audit cannot see it) and the trial would
+#   still pass (so `cargo test` cannot either).
+# This file is the inherited-manifest half: 6 source `#[test]` fn(s) worth of
+# invocations (32 of them). The other half is `runtime_wasm_threads_js_input_explicit_api`.
+# The disarmed shape, stated so a reader can check the split is on the right line: the accepting cases pin `payload.hostContract = "browser-requested"`, which the manifest supplies on its own
+# Every command below names its entry explicitly on argv, so the unused sibling
+# fixtures in a trial dir are inert.
+#
+# RULE 13 -- transitive helper docs. This source's helper chain carries NO `///`
+# doc comment on any helper any case reaches (checked mechanically by this file's
+# generator, which raises if the count it accounts for is wrong), so there is none
+# to carry. Controller ruling 6's runner-infrastructure exemption is separate and is
+# not relied on here.
+#
+# ARGV ORDER. `args` reproduces the source's own argument order exactly, token for
+# token, and the order is DERIVED from the source's `.arg(...)` chain by this file's
+# generator rather than written down. The entry filename is last, as the source
+# appends it last.
+# `--output json` appears first in the json cases below, because that is where the source builds it.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. Every entry filename in this half
+# carries exactly one program text, so the flat file-wide `[source]` namespace has
+# no collision. Checked mechanically, not eyeballed: the generator raises if any
+# filename would carry two different bodies.
+#
+# ASSERTION SHAPE. Every key below is derived from the source's own asserts, resolved
+# for this case's `(command, json_output)` binding by this file's generator, which
+# RAISES on a branch condition it cannot evaluate rather than letting both branches
+# contribute. Text cases keep `stdout_contains`/`stderr_contains` (ruling 3: a plain
+# `.contains` against a field that HAS a substring form is not strengthened). JSON
+# cases pin the envelope paths the source asserts; where the source spells
+# `.contains(...)` against a JSON string leaf, which has no substring form in this
+# format, ruling 3 requires an exact pin, and the generator refuses to emit one that
+# does not contain the source's own needle -- so the strengthening is verified.
+# `assert!(!errors.is_empty())` is carried by the `errors.0.*` pins, which a missing
+# path hard-fails on; the generator raises if a file asserts non-emptiness with no
+# `errors.0` pin to carry it.
+#
+# RULING 7 -- NOTHING TO HOIST. The `[source]` entries below are all DIFFERENT
+# programs (checked mechanically by this file's generator, which raises if any two
+# entries would carry the same key with different bodies), so U13 has no duplicated
+# body to hoist and controller ruling 7's decline does not arise.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """console.log('browser wasm threads ok');
+"""
+"smoke.test.${ext}" = """Kali.test('browser wasm threads', () => {
+  console.log('browser wasm threads ok');
+});
+"""
+"kali.json" = """{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser",
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"""
+
+[[case]]
+name = "run_supports_inherited_browser_api_surface_with_wasm_threads_in_all_inputs__text"
+rationale = """Migrated from browser_runtime_wasm_threads_js_input.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `run_supports_inherited_browser_api_surface_with_wasm_threads_in_js_input_when_browser_harness_is_configured`, `run_supports_inherited_browser_api_surface_with_wasm_threads_in_ts_jsx_and_tsx_inputs_when_browser_harness_is_configured` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is a one-line `console.log` for `run` and a single `Kali.test` registration for `test`, written to `main.<ext>` / `smoke.test.<ext>`; both are copied out of the source, never retyped (rule 9). It routes through `assert_browser_wasm_threads_acceptance_for_command(` (:30); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts a clean exit plus -- on the JSON branch -- the envelope's schemaVersion/command/success, the browser host-contract pair, an empty thread topology, and the run/test-specific payload fields. The source spells this as a plain `.contains(...)` against raw stdout/stderr, so it is carried as stdout_contains/stderr_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_wasm_threads_js_input_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["run", "--max-threads", "1", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["browser wasm threads ok"]
+
+[[case]]
+name = "run_supports_inherited_browser_api_surface_with_wasm_threads_in_all_inputs__json"
+rationale = """Migrated from browser_runtime_wasm_threads_js_input.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `run_supports_inherited_browser_api_surface_with_wasm_threads_in_js_input_when_browser_harness_is_configured`, `run_supports_inherited_browser_api_surface_with_wasm_threads_in_ts_jsx_and_tsx_inputs_when_browser_harness_is_configured` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is a one-line `console.log` for `run` and a single `Kali.test` registration for `test`, written to `main.<ext>` / `smoke.test.<ext>`; both are copied out of the source, never retyped (rule 9). It routes through `assert_browser_wasm_threads_acceptance_for_command(` (:30); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts a clean exit plus -- on the JSON branch -- the envelope's schemaVersion/command/success, the browser host-contract pair, an empty thread topology, and the run/test-specific payload fields. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_wasm_threads_js_input_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["--output", "json", "run", "--max-threads", "1", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.exitCode = 0
+json.payload.exitCode = 0
+json.stderr = ""
+json.payload.threadTopology.totalInstances = 0
+json.payload.threadTopology.terminatedInstances = 0
+json.payload.threadTopology.liveInstances = []
+json.errors = []
+json.stdout = "browser wasm threads ok\n"
+
+[[case]]
+name = "test_supports_inherited_browser_api_surface_with_wasm_threads_in_all_inputs__text"
+rationale = """Migrated from browser_runtime_wasm_threads_js_input.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `test_supports_inherited_browser_api_surface_with_wasm_threads_in_js_input_when_browser_harness_is_configured`, `test_supports_inherited_browser_api_surface_with_wasm_threads_in_ts_jsx_and_tsx_inputs_when_browser_harness_is_configured` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is a one-line `console.log` for `run` and a single `Kali.test` registration for `test`, written to `main.<ext>` / `smoke.test.<ext>`; both are copied out of the source, never retyped (rule 9). It routes through `assert_browser_wasm_threads_acceptance_for_command(` (:30); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts a clean exit plus -- on the JSON branch -- the envelope's schemaVersion/command/success, the browser host-contract pair, an empty thread topology, and the run/test-specific payload fields. The source spells this as a plain `.contains(...)` against raw stdout/stderr, so it is carried as stdout_contains/stderr_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_wasm_threads_js_input_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["test", "--max-threads", "1", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["browser wasm threads ok", "ok 1"]
+
+[[case]]
+name = "test_supports_inherited_browser_api_surface_with_wasm_threads_in_all_inputs__json"
+rationale = """Migrated from browser_runtime_wasm_threads_js_input.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `test_supports_inherited_browser_api_surface_with_wasm_threads_in_js_input_when_browser_harness_is_configured`, `test_supports_inherited_browser_api_surface_with_wasm_threads_in_ts_jsx_and_tsx_inputs_when_browser_harness_is_configured` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is a one-line `console.log` for `run` and a single `Kali.test` registration for `test`, written to `main.<ext>` / `smoke.test.<ext>`; both are copied out of the source, never retyped (rule 9). It routes through `assert_browser_wasm_threads_acceptance_for_command(` (:30); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts a clean exit plus -- on the JSON branch -- the envelope's schemaVersion/command/success, the browser host-contract pair, an empty thread topology, and the run/test-specific payload fields. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_wasm_threads_js_input_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["--output", "json", "test", "--max-threads", "1", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.stderr = ""
+json.payload.threadTopology.totalInstances = 0
+json.payload.threadTopology.terminatedInstances = 0
+json.payload.threadTopology.liveInstances = []
+json.errors = []
+json.stdout = "browser wasm threads ok\n"
+
+[[case]]
+name = "run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs__text"
+rationale = """Migrated from browser_runtime_wasm_threads_js_input.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is a one-line `console.log` for `run` and a single `Kali.test` registration for `test`, written to `main.<ext>` / `smoke.test.<ext>`; both are copied out of the source, never retyped (rule 9). It routes through `assert_browser_wasm_threads_acceptance_for_command(` (:30); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts a clean exit plus -- on the JSON branch -- the envelope's schemaVersion/command/success, the browser host-contract pair, an empty thread topology, and the run/test-specific payload fields. The source spells this as a plain `.contains(...)` against raw stdout/stderr, so it is carried as stdout_contains/stderr_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_wasm_threads_js_input_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["browser wasm threads ok"]
+
+[[case]]
+name = "run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs__json"
+rationale = """Migrated from browser_runtime_wasm_threads_js_input.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is a one-line `console.log` for `run` and a single `Kali.test` registration for `test`, written to `main.<ext>` / `smoke.test.<ext>`; both are copied out of the source, never retyped (rule 9). It routes through `assert_browser_wasm_threads_acceptance_for_command(` (:30); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts a clean exit plus -- on the JSON branch -- the envelope's schemaVersion/command/success, the browser host-contract pair, an empty thread topology, and the run/test-specific payload fields. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_wasm_threads_js_input_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["--output", "json", "run", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.exitCode = 0
+json.payload.exitCode = 0
+json.stderr = ""
+json.payload.threadTopology.totalInstances = 0
+json.payload.threadTopology.terminatedInstances = 0
+json.payload.threadTopology.liveInstances = []
+json.errors = []
+json.stdout = "browser wasm threads ok\n"
+
+[[case]]
+name = "test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs__text"
+rationale = """Migrated from browser_runtime_wasm_threads_js_input.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is a one-line `console.log` for `run` and a single `Kali.test` registration for `test`, written to `main.<ext>` / `smoke.test.<ext>`; both are copied out of the source, never retyped (rule 9). It routes through `assert_browser_wasm_threads_acceptance_for_command(` (:30); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts a clean exit plus -- on the JSON branch -- the envelope's schemaVersion/command/success, the browser host-contract pair, an empty thread topology, and the run/test-specific payload fields. The source spells this as a plain `.contains(...)` against raw stdout/stderr, so it is carried as stdout_contains/stderr_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_wasm_threads_js_input_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["browser wasm threads ok", "ok 1"]
+
+[[case]]
+name = "test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs__json"
+rationale = """Migrated from browser_runtime_wasm_threads_js_input.rs. This `[[case]]` is one `(command, json_output)` cell of the source, matrix-fanned by `ext(4)`, so it stands for `test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs` -- one trial per real invocation, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). The program under test is a one-line `console.log` for `run` and a single `Kali.test` registration for `test`, written to `main.<ext>` / `smoke.test.<ext>`; both are copied out of the source, never retyped (rule 9). It routes through `assert_browser_wasm_threads_acceptance_for_command(` (:30); that helper loops `for json_output in [false, true]`, so each of its call sites is two real invocations, and it asserts a clean exit plus -- on the JSON branch -- the envelope's schemaVersion/command/success, the browser host-contract pair, an empty thread topology, and the run/test-specific payload fields. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.stdout`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_wasm_threads_js_input_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["--output", "json", "test", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.stderr = ""
+json.payload.threadTopology.totalInstances = 0
+json.payload.threadTopology.terminatedInstances = 0
+json.payload.threadTopology.liveInstances = []
+json.errors = []
+json.stdout = "browser wasm threads ok\n"
