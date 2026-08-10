@@ -109,6 +109,7 @@ Run: python3 gen_batch8a.py [name ...]           (no args = all)
 
 import json as _json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -1095,6 +1096,48 @@ def _fn_body(text, fn):
     return text[brace:i + 1]
 
 
+def _rk_submodules(carrier_path):
+    """Every submodule's text as it stood PRE-TRIM, by name.
+
+    After the U4 trim, `run.rs`/`build.rs`/`check.rs` are gone from disk, so
+    `submodules.submodule_paths` resolves only the retained `test.rs`. The case
+    files were migrated from the pre-trim tree and every `:N` in them is a
+    pre-trim number (ruling 9), so this reads the missing three from the ref the
+    RETAINED FILE ITSELF DECLARES -- the same rule `case_emit.source_text_at`
+    follows, and for the same reason: a ref carried anywhere but the header is
+    the moving figure ruling 11 forbids.
+
+    Whatever IS still on disk is read from disk and cross-checked against the
+    blob at that ref; a retained submodule that has been edited since the trim
+    would make the generator emit citations into a file that no longer says what
+    they point at, so a mismatch raises rather than being resolved silently
+    (ruling 18).
+    """
+    from submodules import submodule_paths
+    text = open(carrier_path).read()
+    m = re.search(r"PRE-TRIM REF:\s*([0-9a-f]{40})\b", text)
+    on_disk = {p.name: p.read_text() for p in submodule_paths(carrier_path)}
+    if not m:
+        return on_disk
+    ref = m.group(1)
+    out = {}
+    for name in RK_SUBS:
+        rel = f"crates/kali_cli/tests/browser_{RK}/{name}"
+        blob = subprocess.run(["git", "show", f"{ref}:{rel}"], cwd=REPO,
+                              capture_output=True, text=True)
+        if blob.returncode != 0:
+            raise AssertionError(
+                f"{rel} is not readable at the declared PRE-TRIM REF {ref}: "
+                f"{blob.stderr.strip()}")
+        if name in on_disk and on_disk[name] != blob.stdout:
+            raise AssertionError(
+                f"{rel} is RETAINED but differs from its own pre-trim blob at {ref}. "
+                "The case files' citations are pre-trim numbers; regenerating against an "
+                "edited retained file would emit numbers that point at different code.")
+        out[name] = blob.stdout
+    return out
+
+
 def _rk_read():
     """The carrier plus every `#[path]` submodule, and the census, all derived.
 
@@ -1111,10 +1154,9 @@ def _rk_read():
     of being filed into the wrong half, where nothing downstream would catch
     it (that is exactly the U2 failure this split exists to prevent).
     """
-    from submodules import submodule_paths
     carrier_path = os.path.join(TESTS, f"browser_{RK}.rs")
-    carrier = rs(RK)
-    subs = {p.name: p.read_text() for p in submodule_paths(carrier_path)}
+    carrier = rs(RK)          # honours the header's own PRE-TRIM REF
+    subs = _rk_submodules(carrier_path)
     if set(subs) != set(RK_SUBS):
         raise AssertionError(
             f"submodules resolved to {sorted(subs)}, expected {sorted(RK_SUBS)}")
