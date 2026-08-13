@@ -866,7 +866,7 @@ GATE_RED_REASON = {
         "it turns the checker green. FILE-WIDE PROSE IN THE HEADER (`from ALL N`): "
         "prose describing the whole file goes in this `#` header, which the checker "
         "deliberately does not read as coverage. U6 anticipates the first exactly: "
-        "on such a file the checker's false `missing` is documented in the header. "
+        "on such a file the checker's false MISSING report is documented in the header. "
         "THE CLASS LIST IS GATED, not asserted -- gen_task19_batch4's declaration "
         "check re-runs the checker and requires the classes its output contains to "
         "match the ones named here."),
