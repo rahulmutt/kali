@@ -253,20 +253,20 @@ const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
 
 [[case]]
 name = "check_accepts_reflect_own_keys_in_js_input"
-rationale = """Migrated from reflect_own_keys_js_input.rs. `kali check` accepts every supported `Reflect.ownKeys` spelling. The source asserts success and an exact exit code of 0, and nothing about either stream. Carried per rule 13 from kali_common::reflect_own_keys_frozen_callable_source, which builds part of this fixture: "Canonical source text for the supported `Reflect.ownKeys` frozen callable aliases.""""
+rationale = """Migrated from reflect_own_keys_js_input.rs. `kali check` accepts every supported `Reflect.ownKeys` spelling. The source asserts success and an exact exit code of 0, and nothing about either stream. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: reflect_own_keys_frozen_callable_source: "Canonical source text for the supported `Reflect.ownKeys` frozen callable aliases.""""
 args = ["check", "main.js"]
 exit = 0
 
 [[case]]
 name = "run_accepts_reflect_own_keys_in_js_input"
-rationale = """Migrated from reflect_own_keys_js_input.rs. Running the program, its own ordering self-check passes and it prints its marker. Carried per rule 13 from kali_common::reflect_own_keys_frozen_callable_source, which builds part of this fixture: "Canonical source text for the supported `Reflect.ownKeys` frozen callable aliases.""""
+rationale = """Migrated from reflect_own_keys_js_input.rs. Running the program, its own ordering self-check passes and it prints its marker. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: reflect_own_keys_frozen_callable_source: "Canonical source text for the supported `Reflect.ownKeys` frozen callable aliases.""""
 args = ["run", "main.js"]
 exit = 0
 stdout_contains = ["reflect ownKeys ok"]
 
 [[case]]
 name = "json_run_accepts_reflect_own_keys_in_js_input"
-rationale = """Migrated from reflect_own_keys_js_input.rs. The same `run` under `--output json`; the marker claim is a plain `.contains` against the JSON string leaf `stdout`, so it is `json_count` with `at_least = 1` rather than an exact pin (ruling 3, amended clause 4). Carried per rule 13 from kali_common::reflect_own_keys_frozen_callable_source, which builds part of this fixture: "Canonical source text for the supported `Reflect.ownKeys` frozen callable aliases.""""
+rationale = """Migrated from reflect_own_keys_js_input.rs. The same `run` under `--output json`; the marker claim is a plain `.contains` against the JSON string leaf `stdout`, so it is `json_count` with `at_least = 1` rather than an exact pin (ruling 3, amended clause 4). Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: reflect_own_keys_frozen_callable_source: "Canonical source text for the supported `Reflect.ownKeys` frozen callable aliases.""""
 args = ["--output", "json", "run", "main.js"]
 exit = 0
 json.schemaVersion = 1

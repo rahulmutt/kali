@@ -38,6 +38,81 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from submodules import submodule_paths  # noqa: E402
 
 
+def _raw_string_spans(text):
+    """Line numbers (1-based) that lie inside an `r#"..."#` literal.
+
+    A JS/TS fixture body is written as a raw string precisely because its
+    interior can hold anything, `//` included -- a `// kali-tree-shake:` marker,
+    a JS comment, a URL. Those are program text, not source prose, and rule 12
+    has nothing to say about them.
+    """
+    inside = set()
+    i, n, line = 0, len(text), 1
+    while i < n:
+        if text[i] == "\n":
+            line += 1
+            i += 1
+            continue
+        m = re.match(r'r(#*)"', text[i:])
+        if m:
+            close = '"' + m.group(1)
+            end = text.find(close, i + m.end())
+            end = n if end == -1 else end + len(close)
+            for _ in range(text.count("\n", i, end)):
+                inside.add(line)
+                line += 1
+            inside.add(line)
+            i = end
+            continue
+        i += 1
+    return inside
+
+
+def extract_trailing_comments(text):
+    """`(line, text)` for every `// ...` that FOLLOWS code on its line.
+
+    THE RULE-12 GATE'S BLIND SPOT, CLOSED. `extract_comment_paragraphs` matches
+    a `^\\s*//` anchor, so a comment sharing a line with code was invisible to it -- not
+    reported missing, not reported at all. That is a false green, and the
+    dangerous direction: a source comment could be dropped in migration and this
+    checker would say nothing. Found by review on
+    `heap_grow_runtime.rs:199`'s `// 4*19999 + (0+1+2+3)`, which was genuinely
+    uncarried and which no gate flagged.
+
+    Quote-aware and raw-string-aware, because the naive predicate misfires on
+    both: a `"http://..."` inside a plain string, and any `//` inside a fixture
+    body.
+    """
+    raw = _raw_string_spans(text)
+    out = []
+    for n, line in enumerate(text.split('\n'), 1):
+        if n in raw:
+            continue
+        i, instr = 0, False
+        while i < len(line):
+            c = line[i]
+            if instr:
+                if c == '\\':
+                    i += 2
+                    continue
+                if c == '"':
+                    instr = False
+                i += 1
+                continue
+            if c == '"':
+                instr = True
+                i += 1
+                continue
+            if c == '/' and i + 1 < len(line) and line[i + 1] == '/':
+                if line[:i].strip():
+                    body = line[i:].lstrip('/').strip()
+                    if body and 'kali-tree-shake' not in body:
+                        out.append((n, body))
+                break
+            i += 1
+    return out
+
+
 def extract_comment_paragraphs(text):
     lines = text.split('\n')
     paragraphs = []
@@ -118,7 +193,9 @@ def check(rs_path, toml_paths):
     total = 0
     for path in files:
         src = path.read_text(encoding='utf-8')
-        for start, para in extract_comment_paragraphs(src):
+        paragraphs = list(extract_comment_paragraphs(src))
+        paragraphs += [(n, [body]) for n, body in extract_trailing_comments(src)]
+        for start, para in paragraphs:
             if is_divider(para):
                 continue
             for j, line in enumerate(para):

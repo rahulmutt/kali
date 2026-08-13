@@ -222,6 +222,15 @@ def retention_adoptions(pretend_missing=frozenset()) -> list:
     `pretend_missing` is the known-positive hook: a set of `(family, stem)` pairs
     whose case file is treated as absent, so the probe can manufacture exactly
     the condition this check exists to catch without touching the tree.
+
+    SCOPE LIMIT, STATED RATHER THAN LEFT TO BE DISCOVERED: this covers only
+    families with a NON-EMPTY prefix, so `misc/` -- where most of Task 19 batch
+    2's pairs live -- is outside it. That is not a hole under the sweep as it
+    stands, because `citation_sweep.sh`'s own retention arm skips an
+    empty-prefix family too (it would otherwise adopt every unprefixed `.rs` in
+    `tests/`, `cases.rs` included), so there is no adoption there to cross-check.
+    It BECOMES a hole the day that arm learns to run on an empty-prefix family,
+    and this comment is what should be read then.
     """
     out = []
     for family, prefix in sorted(_family_prefixes().items()):

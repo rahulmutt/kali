@@ -5,11 +5,11 @@
 //! PRE-TRIM REF: 8bb67edb9d0632fe42f3f41b7ff9050264409b4f
 //!
 //! THE BLOCKING CONSTRUCT, BY NAME AND LINE.
-//! `assert_frozen_object_has_own` (`:115`) asserts nothing beyond
-//! `output.status.success()` (`:137`) for any test in this file. Its
+//! `assert_frozen_object_has_own` (`:132`) asserts nothing beyond
+//! `output.status.success()` (`:154`) for any test in this file. Its
 //! `json_output` branch and its `command == "run"` branch are both UNREACHABLE:
 //! the only caller is
-//! `check_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input` (`:170`),
+//! `check_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input` (`:187`),
 //! which passes `json_output = false` and `command = "check"`, so neither branch
 //! is ever taken. Eleven literals live in those two branches -- the marker
 //! string the run branch greps for, and the ten JSON keys the json branch
@@ -39,19 +39,36 @@
 //! post-trim file and the pre-trim blob, and the correct left-hand side is the
 //! MIGRATED COMPLEMENT built mechanically by `migrated_complement.py`:
 //!
-//!   gate                        post-trim   pre-trim    complement
-//!   audit-case-migration.py     RED         RED         GREEN
-//!   check_extra_claims.py       RED         GREEN       GREEN
-//!   comment_coverage.py         RED         GREEN       GREEN
-//!   check_fixtures.py           GREEN       GREEN       GREEN
+//!   gate                          post-trim  pre-trim  complement  correct side
+//!   audit-case-migration.py       RED        RED       GREEN       complement
+//!   check_fixtures.py             GREEN      GREEN     GREEN       complement
+//!   comment_coverage.py           RED        GREEN     GREEN       complement
+//!   check_extra_claims.py         RED        GREEN     GREEN       pre-trim
+//!   check_rationale_fn_names.py   RED        GREEN     RED         pre-trim
 //!
-//! MEASURED, NOT PREDICTED -- and the first draft of this table was wrong in
-//! three cells, which is why it says so. `check_fixtures.py` is green on all
-//! three sides (the retained half's own fixture survives the trim intact), and
-//! `comment_coverage.py` is red only against the post-trim file. The row that
-//! decides the pair is the audit's: red against BOTH older sides and green
-//! against the complement, which is exactly ruling 12's discriminator for a
-//! trim whose RETAINED half carries literal claims of its own.
+//! MEASURED, NOT PREDICTED -- and two earlier versions of this table were
+//! wrong, which is why it says so. The first predicted three cells it had not
+//! run. The second OMITTED `check_rationale_fn_names.py` entirely, which is
+//! literally the failure ruling 9 was minted for: a gate that goes red on a
+//! retention pair through the standard entry point, and is not on the red-list.
+//! `verify_pair.sh <stem> --family misc --pretrim <the ref above>` surfaces
+//! FOUR reds; all four are in the table.
+//!
+//! THE CORRECT SIDE IS PER GATE, BY DIRECTION OF CHECK -- not prose-vs-claims,
+//! which is what this header said before and what the reviewer disproved by
+//! construction. A FORWARD coverage gate asks "did everything in the source
+//! reach the case file", so it wants the migrated complement: give it the
+//! pre-trim blob and it reports the retained half's content as missing.
+//! `comment_coverage.py` is one of those, and it is green on both older sides
+//! here ONLY because this trim's retained half happens to carry no comments --
+//! add one and pre-trim goes red while the complement stays green. A REVERSE
+//! existence gate asks "does everything the case file cites exist in the
+//! source", so it wants the pre-trim blob, which is the only side carrying
+//! both halves' names.
+//!
+//! The row that decides the pair is still the audit's: red against BOTH older
+//! sides and green against the complement, which is ruling 12's discriminator
+//! for a trim whose RETAINED half carries literal claims of its own.
 //!
 //! Reproduce the column that decides the pair:
 //!

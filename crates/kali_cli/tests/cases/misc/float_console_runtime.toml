@@ -44,15 +44,20 @@
 # EXTRA-OK: 'floats_from_mutable_locals_and_params.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
 # EXTRA-OK: 'small_magnitudes_exponent_notation.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
 #
-# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR,
-# FOR U6's REASON. The checker asks whether every source comment line appears in EVERY
-# case's rationale; U6 says a comment belongs in the rationale of exactly the cases its
-# producing helper reaches, and calls copying all of a file's comments into all of its
-# cases "over-attribution ... forbidden, even though it turns the checker green". Every
-# `MISSING` it reports here is a per-test comment correctly attributed to its own case and
-# correctly absent from its siblings. U6 anticipates this exactly: "on such a file the
-# checker's false `missing` must be documented in the header instead." That is what this
-# paragraph is. Reproduce with:
+# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR
+# [classes: per-case, file-wide]. The checker asks whether every source comment line
+# appears in EVERY case's rationale, and it reports two different things that way:
+#
+#   * PER-CASE ATTRIBUTION (`from N/M cases` lines). A comment attached to one `#[test]` fn belongs in the rationale of the case that fn produced and nowhere else. U6 says so and calls copying all of a file's comments into all of its cases "over-attribution ... forbidden, even though it turns the checker green".
+#   * FILE-WIDE PROSE IN THE HEADER (`from ALL N cases` lines). The source's `//!` module doc, and any helper doc carried under ruling 6's exemption, describe the whole file rather than any one case, so rule 12 puts them in this file's `#` header -- which `comment_coverage.py` deliberately does not read as coverage. Every such line is prose that IS carried, in the one place the rule says it belongs.
+#
+# U6 anticipates the first exactly: "on such a file the checker's false `missing` must be
+# documented in the header instead." That is what this paragraph is. THE CLASS LIST ABOVE
+# IS GATED, not asserted: `gen_task19_batch2.check_gate_declarations` re-runs the checker
+# and requires the classes its output actually contains to match the ones named here --
+# the first version of this paragraph claimed every `MISSING` was per-test attribution,
+# which was false on five of seven files, and nothing would have caught it. Reproduce
+# with:
 #
 #   python3 tools/task-18-browser-pilot/comment_coverage.py \
 #     crates/kali_cli/tests/float_console_runtime.rs \

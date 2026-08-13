@@ -99,6 +99,18 @@ run_gates() {
         # in those headers to AGREE with the gate it names (ruling 18 #3) --
         # which caught three headers claiming a red that had gone green.
         "python3 $REPO/tools/migration/gen_task19_batch2.py"
+        # ADDED IN TASK 19 BATCH 2 FIX ROUND 2, and the reason is that batch's
+        # own report claimed it was already here and it was not:
+        #
+        #     $ grep -c screen_candidates scripts/test-gate.sh   # -> 0 before this line
+        #
+        # `screen_candidates.py` is the instrument every remaining batch draws
+        # its work list from, and its `--selftest` carries both directions of
+        # ground truth (a self-documented retention must not score CLEAN; an
+        # already-migrated target must still score CLEAN) plus the retention
+        # cross-check that closes the `runtime_monomorphize` masquerade, with
+        # its own known positive. All of that was re-run by whoever remembered.
+        "python3 $REPO/tools/migration/screen_candidates.py --selftest"
     )
     for g in "${gates[@]}"; do
         printf '\n=== MIGRATION GATE: %s ===\n' "$g"

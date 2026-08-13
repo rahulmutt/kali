@@ -40,15 +40,20 @@
 # No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the
 # shape U2 exists to stop.
 #
-# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR,
-# FOR U6's REASON. The checker asks whether every source comment line appears in EVERY
-# case's rationale; U6 says a comment belongs in the rationale of exactly the cases its
-# producing helper reaches, and calls copying all of a file's comments into all of its
-# cases "over-attribution ... forbidden, even though it turns the checker green". Every
-# `MISSING` it reports here is a per-test comment correctly attributed to its own case and
-# correctly absent from its siblings. U6 anticipates this exactly: "on such a file the
-# checker's false `missing` must be documented in the header instead." That is what this
-# paragraph is. Reproduce with:
+# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR
+# [classes: per-case, file-wide]. The checker asks whether every source comment line
+# appears in EVERY case's rationale, and it reports two different things that way:
+#
+#   * PER-CASE ATTRIBUTION (`from N/M cases` lines). A comment attached to one `#[test]` fn belongs in the rationale of the case that fn produced and nowhere else. U6 says so and calls copying all of a file's comments into all of its cases "over-attribution ... forbidden, even though it turns the checker green".
+#   * FILE-WIDE PROSE IN THE HEADER (`from ALL N cases` lines). The source's `//!` module doc, and any helper doc carried under ruling 6's exemption, describe the whole file rather than any one case, so rule 12 puts them in this file's `#` header -- which `comment_coverage.py` deliberately does not read as coverage. Every such line is prose that IS carried, in the one place the rule says it belongs.
+#
+# U6 anticipates the first exactly: "on such a file the checker's false `missing` must be
+# documented in the header instead." That is what this paragraph is. THE CLASS LIST ABOVE
+# IS GATED, not asserted: `gen_task19_batch2.check_gate_declarations` re-runs the checker
+# and requires the classes its output actually contains to match the ones named here --
+# the first version of this paragraph claimed every `MISSING` was per-test attribution,
+# which was false on five of seven files, and nothing would have caught it. Reproduce
+# with:
 #
 #   python3 tools/task-18-browser-pilot/comment_coverage.py \
 #     crates/kali_cli/tests/closure_return_isolation.rs \
@@ -57,16 +62,21 @@
 # CONSEQUENCE FOR THE GATES -- `check_rationale_fn_names.py` (U8) IS EXPECTED-RED (rc=1)
 # ON THIS PAIR, AND IT CANNOT BE MADE GREEN WITHOUT BREAKING RULE 12. The gate requires
 # every backticked fn-shaped identifier in this file to resolve against the source `.rs`'s
-# own fn list. The identifiers it cannot resolve here are carried VERBATIM out of the
-# source's own comments (rule 12 requires the carry; U7 forbids rewording them), and they
-# name items that live in other crates or in the Rust standard library, which this file's
-# source never declares. The gate's premise -- that a case file's prose only names things
-# in its own test source -- holds for `browser/`, whose comments describe harness
-# behaviour, and fails for a CLI target whose comments name the machinery the behaviour
-# comes from. The remedy is a CLI-family entry in the gate's own known-identifier
-# allowlist, which is an instrument change and not this batch's to make; the pilot flagged
-# the same gap in `nullish/assign_reject.toml` and `misc/growable_array_fail_closed.toml`.
-# Documented, not silenced. Reproduce with:
+# own fn list. The ones it cannot resolve here are carried VERBATIM out of the source's
+# own comments -- rule 12 requires the carry, U7 forbids rewording it -- and they are:
+# `return`.
+#
+# REMEDY: a CLI-family entry in the gate's own known-identifier allowlist. These name
+# items in other crates or in the Rust standard library, which this file's source never
+# declares, so no amount of correct prose resolves them. The pilot flagged the same gap on
+# `nullish/assign_reject.toml` and `misc/growable_array_fail_closed.toml`.
+#
+# THE NAMES AND THEIR CLASSIFICATION ARE DERIVED, not asserted:
+# `gen_task19_batch2.u8_reason` re-runs the gate, reads back the identifiers it could not
+# explain, and decides for each whether the source DEFINES it inside a fixture program.
+# The first version of this paragraph said all of them named other-crate or
+# standard-library items, which was false here and would have sent a reader to a remedy
+# that could not work. Reproduce with:
 #
 #   python3 tools/task-18-browser-pilot/check_rationale_fn_names.py \
 #     crates/kali_cli/tests/closure_return_isolation.rs \

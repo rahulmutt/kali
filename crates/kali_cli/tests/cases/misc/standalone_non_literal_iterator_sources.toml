@@ -84,14 +84,14 @@ main();
 
 [[case]]
 name = "set_source_rejects_in_run_text_output"
-rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. Source `#[test]` fn: standalone_non_literal_set_and_map_sources_reject_in_run -- it loops both sources and both output modes, so it splits into four named siblings under rule 5; the fn name is recorded here so it survives the source's deletion. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
 args = ["run", "set-main.js"]
 exit = 1
 stderr_contains = ["E5506", "literal array"]
 
 [[case]]
 name = "set_source_rejects_in_run_json_output"
-rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. Source `#[test]` fn: standalone_non_literal_set_and_map_sources_reject_in_run -- it loops both sources and both output modes, so it splits into four named siblings under rule 5; the fn name is recorded here so it survives the source's deletion. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
 args = ["--output", "json", "run", "set-main.js"]
 exit = 1
 json.schemaVersion = 1
@@ -103,14 +103,14 @@ json_count = [{ path = "errors.0.message", needle = "literal array", at_least = 
 
 [[case]]
 name = "set_source_rejects_in_test_text_output"
-rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. Source `#[test]` fn: standalone_non_literal_set_and_map_sources_reject_in_test -- it loops both sources and both output modes, so it splits into four named siblings under rule 5; the fn name is recorded here so it survives the source's deletion. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
 args = ["test", "set-main.js"]
 exit = 1
 stderr_contains = ["E5506", "literal array"]
 
 [[case]]
 name = "set_source_rejects_in_test_json_output"
-rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. Source `#[test]` fn: standalone_non_literal_set_and_map_sources_reject_in_test -- it loops both sources and both output modes, so it splits into four named siblings under rule 5; the fn name is recorded here so it survives the source's deletion. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
 args = ["--output", "json", "test", "set-main.js"]
 exit = 1
 json.schemaVersion = 1
@@ -122,14 +122,14 @@ json_count = [{ path = "errors.0.message", needle = "literal array", at_least = 
 
 [[case]]
 name = "map_source_rejects_in_run_text_output"
-rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. Source `#[test]` fn: standalone_non_literal_set_and_map_sources_reject_in_run -- it loops both sources and both output modes, so it splits into four named siblings under rule 5; the fn name is recorded here so it survives the source's deletion. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
 args = ["run", "map-main.js"]
 exit = 1
 stderr_contains = ["E5506", "literal array"]
 
 [[case]]
 name = "map_source_rejects_in_run_json_output"
-rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. Source `#[test]` fn: standalone_non_literal_set_and_map_sources_reject_in_run -- it loops both sources and both output modes, so it splits into four named siblings under rule 5; the fn name is recorded here so it survives the source's deletion. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
 args = ["--output", "json", "run", "map-main.js"]
 exit = 1
 json.schemaVersion = 1
@@ -141,14 +141,14 @@ json_count = [{ path = "errors.0.message", needle = "literal array", at_least = 
 
 [[case]]
 name = "map_source_rejects_in_test_text_output"
-rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. Source `#[test]` fn: standalone_non_literal_set_and_map_sources_reject_in_test -- it loops both sources and both output modes, so it splits into four named siblings under rule 5; the fn name is recorded here so it survives the source's deletion. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
 args = ["test", "map-main.js"]
 exit = 1
 stderr_contains = ["E5506", "literal array"]
 
 [[case]]
 name = "map_source_rejects_in_test_json_output"
-rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. Source `#[test]` fn: standalone_non_literal_set_and_map_sources_reject_in_test -- it loops both sources and both output modes, so it splits into four named siblings under rule 5; the fn name is recorded here so it survives the source's deletion. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
 args = ["--output", "json", "test", "map-main.js"]
 exit = 1
 json.schemaVersion = 1

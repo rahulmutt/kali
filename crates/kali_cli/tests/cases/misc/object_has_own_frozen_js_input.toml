@@ -44,10 +44,16 @@
 # literal anywhere, so both were captured by EXECUTING the real code
 # (`tools/migration/t19b2_captures.py` records the command); nothing was hand-substituted.
 #
-# RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED. All four helpers sit in the call chain of
-# BOTH fixtures and the case reproduces their output, so ruling 6's test comes out the
-# carry way and every doc lands in every case's rationale (each of the four cases is
-# reached by one fixture or the other, and both fixtures reach all four helpers).
+# RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED, AND THE CHAIN IS DERIVED RATHER THAN
+# ENUMERATED. The fixtures are built one level removed inside `kali_common` and the case
+# reproduces what those helpers computed, so ruling 6's test comes out the CARRY way, not
+# the runner-infrastructure-exemption way. Which helpers that is was not decided here:
+# `gen_task19_batch2.doc_chain` walks the call graph from each fixture builder and carries
+# every documented fn it reaches, transitively, so a documented helper added upstream
+# breaks the generator instead of quietly going uncarried. The first version of this batch
+# enumerated the chain by hand and under-carried it -- two documented helpers, on this
+# file and on both of the Number-predicate files -- which is exactly the failure a derived
+# chain cannot have.
 #
 # U2 CHECK, RUN RATHER THAN ASSUMED. `[source]` is one flat FILE-WIDE map that `expand()`
 # clones into every trial, so a fixture a sibling case needs is present in this case's
@@ -120,7 +126,7 @@ result`) and lowers to a wasm `error[E4000]` runtime trap, nonzero exit.
 Honest re-pin (PR #16 rev2): kali fails closed/loud here;
 see docs/superpowers/followups/pr16-honest-repin-inventory.md.
 
-Text-mode `run`. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, text mode puts it on stderr. Carried per rule 13 from the four kali_common helpers in this fixture's chain: "Canonical source text for the supported `Object.hasOwn` frozen callable aliases." "Canonical source text for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases." "Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases." "Canonical boolean-check source for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.""""
+Text-mode `run`. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, text mode puts it on stderr. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: object_has_own_frozen_callable_source: "Canonical source text for the supported `Object.hasOwn` frozen callable aliases." object_has_own_frozen_callable_aliases: "Canonical frozen callable aliases for the supported `Object.hasOwn` helper slice." object_has_own_property_call_frozen_callable_source: "Canonical source text for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases." object_has_own_property_call_frozen_callable_aliases: "Canonical frozen callable aliases for the supported `Object.prototype.hasOwnProperty.call` helper slice." object_has_own_frozen_callable_condition_source: "Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases." object_has_own_property_call_frozen_callable_condition_source: "Canonical boolean-check source for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.""""
 args = ["run", "main.${ext}"]
 exit = "failure"
 stderr_contains = ["E4000"]
@@ -137,7 +143,7 @@ result`) and lowers to a wasm `error[E4000]` runtime trap, nonzero exit.
 Honest re-pin (PR #16 rev2): kali fails closed/loud here;
 see docs/superpowers/followups/pr16-honest-repin-inventory.md.
 
-JSON-mode `run`. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, JSON mode leaves stderr EMPTY and carries the code inside the envelope on stdout, so this case pins the stdout branch. Carried per rule 13 from the four kali_common helpers in this fixture's chain: "Canonical source text for the supported `Object.hasOwn` frozen callable aliases." "Canonical source text for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases." "Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases." "Canonical boolean-check source for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.""""
+JSON-mode `run`. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, JSON mode leaves stderr EMPTY and carries the code inside the envelope on stdout, so this case pins the stdout branch. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: object_has_own_frozen_callable_source: "Canonical source text for the supported `Object.hasOwn` frozen callable aliases." object_has_own_frozen_callable_aliases: "Canonical frozen callable aliases for the supported `Object.hasOwn` helper slice." object_has_own_property_call_frozen_callable_source: "Canonical source text for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases." object_has_own_property_call_frozen_callable_aliases: "Canonical frozen callable aliases for the supported `Object.prototype.hasOwnProperty.call` helper slice." object_has_own_frozen_callable_condition_source: "Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases." object_has_own_property_call_frozen_callable_condition_source: "Canonical boolean-check source for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.""""
 args = ["--output", "json", "run", "main.${ext}"]
 exit = "failure"
 stdout_contains = ["E4000"]
@@ -154,7 +160,7 @@ result`) and lowers to a wasm `error[E4000]` runtime trap, nonzero exit.
 Honest re-pin (PR #16 rev2): kali fails closed/loud here;
 see docs/superpowers/followups/pr16-honest-repin-inventory.md.
 
-Text-mode `test`. Rule 11: resolved against the real binary, text mode puts the code on stderr. Carried per rule 13 from the four kali_common helpers in this fixture's chain: "Canonical source text for the supported `Object.hasOwn` frozen callable aliases." "Canonical source text for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases." "Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases." "Canonical boolean-check source for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.""""
+Text-mode `test`. Rule 11: resolved against the real binary, text mode puts the code on stderr. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: object_has_own_frozen_callable_source: "Canonical source text for the supported `Object.hasOwn` frozen callable aliases." object_has_own_frozen_callable_aliases: "Canonical frozen callable aliases for the supported `Object.hasOwn` helper slice." object_has_own_property_call_frozen_callable_source: "Canonical source text for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases." object_has_own_property_call_frozen_callable_aliases: "Canonical frozen callable aliases for the supported `Object.prototype.hasOwnProperty.call` helper slice." object_has_own_frozen_callable_condition_source: "Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases." object_has_own_property_call_frozen_callable_condition_source: "Canonical boolean-check source for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.""""
 args = ["test", "main.test.${ext}"]
 exit = "failure"
 stderr_contains = ["E4000"]
@@ -171,7 +177,7 @@ result`) and lowers to a wasm `error[E4000]` runtime trap, nonzero exit.
 Honest re-pin (PR #16 rev2): kali fails closed/loud here;
 see docs/superpowers/followups/pr16-honest-repin-inventory.md.
 
-JSON-mode `test`. Rule 11: resolved against the real binary, JSON mode leaves stderr empty and carries the code inside the envelope's own `stderr` field on stdout. Carried per rule 13 from the four kali_common helpers in this fixture's chain: "Canonical source text for the supported `Object.hasOwn` frozen callable aliases." "Canonical source text for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases." "Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases." "Canonical boolean-check source for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.""""
+JSON-mode `test`. Rule 11: resolved against the real binary, JSON mode leaves stderr empty and carries the code inside the envelope's own `stderr` field on stdout. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: object_has_own_frozen_callable_source: "Canonical source text for the supported `Object.hasOwn` frozen callable aliases." object_has_own_frozen_callable_aliases: "Canonical frozen callable aliases for the supported `Object.hasOwn` helper slice." object_has_own_property_call_frozen_callable_source: "Canonical source text for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases." object_has_own_property_call_frozen_callable_aliases: "Canonical frozen callable aliases for the supported `Object.prototype.hasOwnProperty.call` helper slice." object_has_own_frozen_callable_condition_source: "Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases." object_has_own_property_call_frozen_callable_condition_source: "Canonical boolean-check source for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.""""
 args = ["--output", "json", "test", "main.test.${ext}"]
 exit = "failure"
 stdout_contains = ["E4000"]

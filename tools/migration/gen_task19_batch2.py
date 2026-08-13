@@ -50,7 +50,8 @@ sys.path.insert(0, os.path.join(REPO, "tools/task-18-browser-pilot"))
 sys.path.insert(0, HERE)
 
 from case_emit import emit, source_text_at  # noqa: E402
-from comment_coverage import extract_comment_paragraphs, is_divider  # noqa: E402
+from comment_coverage import (extract_comment_paragraphs,  # noqa: E402
+                              extract_trailing_comments, is_divider)
 from lexer import find_string_literals  # noqa: E402
 import t19b2_captures as CAP  # noqa: E402
 
@@ -127,27 +128,119 @@ def para(stem, anchor):
     return hits[0].strip("\n")
 
 
-def doc(path, fn_name):
-    """The `///` doc lines immediately above `fn <fn_name>` in `path`, verbatim.
+def trailing(stem, anchor):
+    """The unique TRAILING comment of `<stem>.rs` containing `anchor`, verbatim.
 
-    Rule 13's carrier. Reading them out of the crate rather than restating them
-    is the same discipline `para` applies to `//` comments: a doc that is
-    reworded upstream fails the citation here rather than shipping a rationale
-    that quotes a sentence nobody wrote.
+    Rule 12 does not distinguish a comment that owns its line from one that
+    shares a line with code, and neither does this: the text is read out of the
+    `.rs` like every other carry. Added after review found
+    `heap_grow_runtime.rs:199` uncarried and the rule-12 gate blind to the whole
+    shape -- `comment_coverage.py` matched `^\\s*//` and could not see it.
     """
-    src = open(os.path.join(REPO, path)).read().split("\n")
-    idx = [i for i, l in enumerate(src)
-           if l.startswith(f"pub fn {fn_name}(") or l.startswith(f"pub fn {fn_name}<")]
-    if len(idx) != 1:
-        raise AssertionError(f"{path}: {len(idx)} definition(s) of `pub fn {fn_name}`, wanted 1")
-    out = []
-    i = idx[0] - 1
-    while i >= 0 and src[i].strip().startswith("///"):
-        out.insert(0, src[i].strip()[3:].strip())
-        i -= 1
-    if not out:
-        raise AssertionError(f"{path}: `pub fn {fn_name}` carries no `///` doc")
-    return " ".join(out)
+    hits = [c for _, c in extract_trailing_comments(rs(stem)) if anchor in c]
+    if len(hits) != 1:
+        raise AssertionError(
+            f"{stem}.rs: {len(hits)} trailing comment(s) contain {anchor!r}, wanted 1")
+    return hits[0]
+
+
+_CRATE_ITEMS = {}
+
+
+def _crate_items(crate):
+    """`{fn name: (doc, body)}` over every non-test module of a crate.
+
+    Whole-crate, not per-file, because a documented helper is routinely in a
+    different module from its caller (`join_semicolon_terminated_segments` lives
+    in `helpers.rs`, its callers in `object.rs`).
+    """
+    if crate not in _CRATE_ITEMS:
+        items = {}
+        root = os.path.join(REPO, crate)
+        for name in sorted(os.listdir(root)):
+            if not name.endswith(".rs") or name.endswith("_tests.rs"):
+                continue
+            src = open(os.path.join(root, name)).read()
+            for m in re.finditer(
+                    r"^((?:[ \t]*///[^\n]*\n)*)[ \t]*(?:pub(?:\([^)]*\))?\s+)?"
+                    r"(?:const\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)", src, re.M):
+                doc = " ".join(l.strip()[3:].strip()
+                               for l in m.group(1).splitlines() if l.strip())
+                brace = src.find("{", m.end())
+                if brace == -1:
+                    continue
+                depth, i = 0, brace
+                while i < len(src):
+                    if src[i] == "{":
+                        depth += 1
+                    elif src[i] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    i += 1
+                items[m.group(2)] = (doc, src[brace:i + 1])
+        _CRATE_ITEMS[crate] = items
+    return _CRATE_ITEMS[crate]
+
+
+def doc_chain(crate, entry):
+    """Every `///` doc on every fn in `entry`'s call chain, in call order.
+
+    THE GATE RULE 13 HAS NEVER HAD. `doc(path, fn)` -- what this batch shipped
+    first -- reads the block above ONE NAMED function, so the chain was
+    author-enumerated and nothing checked it for completeness. Three of this
+    batch's seventeen files carried the resulting defect (two uncarried
+    documented helpers each) and no gate would have caught it: rule 13 says a
+    case produced through a helper call chain carries EVERY doc on EVERY helper
+    in that chain, and until now the only thing enforcing "every" was the
+    author's attention.
+
+    This walks the chain instead: from `entry`, every call to a fn the crate
+    itself defines, transitively, breadth-first in call order. A documented fn
+    reached anywhere in that closure MUST be carried, and `carry_docs` raises
+    when one is not -- so the failure mode is a loud generator rather than a
+    quiet under-carry.
+
+    Undocumented helpers in the chain are walked THROUGH but contribute
+    nothing: rule 13's subject is doc comments, and a helper with no doc has no
+    prose to carry. That is not an exemption -- there is nothing to exempt.
+    """
+    items = _crate_items(crate)
+    if entry not in items:
+        raise AssertionError(f"{crate}: no fn {entry}")
+    order, seen, queue = [], {entry}, [entry]
+    while queue:
+        name = queue.pop(0)
+        doc, body = items[name]
+        if doc:
+            order.append((name, doc))
+        for call in re.findall(r"\b([a-z_][A-Za-z0-9_]*)\s*\(", body):
+            if call in items and call not in seen:
+                seen.add(call)
+                queue.append(call)
+    if not order:
+        raise AssertionError(f"{crate}::{entry}'s chain carries no `///` doc at all")
+    return order
+
+
+def carry_docs(crate, entries, *, lead):
+    """The rule-13 sentence for a rationale, with completeness DERIVED.
+
+    `entries` are the chain roots the fixture actually calls. Every documented
+    fn reachable from any of them is carried, in call order, deduplicated across
+    roots -- so a header cannot claim a complete carry that is not one, and
+    adding a documented helper upstream in `kali_common` breaks the generator
+    instead of silently shipping an under-carried rationale.
+    """
+    carried, seen = [], set()
+    for entry in entries:
+        for name, doc in doc_chain(crate, entry):
+            if name in seen:
+                continue
+            seen.add(name)
+            carried.append((name, doc))
+    body = " ".join(f'{name}: "{doc}"' for name, doc in carried)
+    return f"{lead} {body}"
 
 
 def check_captured(name, stem, needles):
@@ -169,6 +262,23 @@ def check_captured(name, stem, needles):
 # --------------------------------------------------------------------------
 # Header boilerplate, DERIVED per file rather than restated 17 times.
 # --------------------------------------------------------------------------
+
+CK = "crates/kali_common/src"
+
+RULE13_CHAIN = (
+    "RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED, AND THE CHAIN IS DERIVED "
+    "RATHER THAN ENUMERATED. The fixtures are built one level removed inside "
+    "`kali_common` and the case reproduces what those helpers computed, so "
+    "ruling 6's test comes out the CARRY way, not the "
+    "runner-infrastructure-exemption way. Which helpers that is was not decided "
+    "here: `gen_task19_batch2.doc_chain` walks the call graph from each fixture "
+    "builder and carries every documented fn it reaches, transitively, so a "
+    "documented helper added upstream breaks the generator instead of quietly "
+    "going uncarried. The first version of this batch enumerated the chain by "
+    "hand and under-carried it -- two documented helpers, on this file and on "
+    "both of the Number-predicate files -- which is exactly the failure a derived "
+    "chain cannot have.")
+
 
 def head(stem, subject):
     return [f"Migrated from tests/{stem}.rs.",
@@ -240,17 +350,38 @@ def extra_ok(pairs):
     return [f"EXTRA-OK: {v!r} -- {why}" for v, why in pairs]
 
 
+CC_RED_PER_CASE = (
+    "PER-CASE ATTRIBUTION (`from N/M cases` lines). A comment attached to one "
+    "`#[test]` fn belongs in the rationale of the case that fn produced and "
+    "nowhere else. U6 says so and calls copying all of a file's comments into "
+    "all of its cases \"over-attribution ... forbidden, even though it turns "
+    "the checker green\".")
+
+CC_RED_FILE_WIDE = (
+    "FILE-WIDE PROSE IN THE HEADER (`from ALL N cases` lines). The source's "
+    "`//!` module doc, and any helper doc carried under ruling 6's exemption, "
+    "describe the whole file rather than any one case, so rule 12 puts them in "
+    "this file's `#` header -- which `comment_coverage.py` deliberately does "
+    "not read as coverage. Every such line is prose that IS carried, in the "
+    "one place the rule says it belongs.")
+
 CC_RED = (
-    "CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON "
-    "THIS PAIR, FOR U6's REASON. The checker asks whether every source comment "
-    "line appears in EVERY case's rationale; U6 says a comment belongs in the "
-    "rationale of exactly the cases its producing helper reaches, and calls "
-    "copying all of a file's comments into all of its cases \"over-attribution "
-    "... forbidden, even though it turns the checker green\". Every `MISSING` it "
-    "reports here is a per-test comment correctly attributed to its own case and "
-    "correctly absent from its siblings. U6 anticipates this exactly: \"on such a "
-    "file the checker's false `missing` must be documented in the header "
-    "instead.\" That is what this paragraph is. Reproduce with:\n"
+    "CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) "
+    "ON THIS PAIR [classes: {classes}]. The checker asks whether every source "
+    "comment line appears in EVERY case's rationale, and it reports two "
+    "different things that way:\n"
+    "\n"
+    "  * {per_case}\n"
+    "  * {file_wide}\n"
+    "\n"
+    "U6 anticipates the first exactly: \"on such a file the checker's false "
+    "`missing` must be documented in the header instead.\" That is what this "
+    "paragraph is. THE CLASS LIST ABOVE IS GATED, not asserted: "
+    "`gen_task19_batch2.check_gate_declarations` re-runs the checker and "
+    "requires the classes its output actually contains to match the ones named "
+    "here -- the first version of this paragraph claimed every `MISSING` was "
+    "per-test attribution, which was false on five of seven files, and nothing "
+    "would have caught it. Reproduce with:\n"
     "\n"
     "  python3 tools/task-18-browser-pilot/comment_coverage.py \\\n"
     "    crates/kali_cli/tests/{stem}.rs \\\n"
@@ -285,27 +416,85 @@ CF_VACUOUS = (
     "    crates/kali_cli/tests/cases/{family}/{toml}.toml")
 
 
+U8_MARKER = object()
+
 U8_RED = (
     "CONSEQUENCE FOR THE GATES -- `check_rationale_fn_names.py` (U8) IS "
     "EXPECTED-RED (rc=1) ON THIS PAIR, AND IT CANNOT BE MADE GREEN WITHOUT "
-    "BREAKING RULE 12. The gate requires every backticked fn-shaped identifier in "
-    "this file to resolve against the source `.rs`'s own fn list. The identifiers "
-    "it cannot resolve here are carried VERBATIM out of the source's own comments "
-    "(rule 12 requires the carry; U7 forbids rewording them), and they name items "
-    "that live in other crates or in the Rust standard library, which this file's "
-    "source never declares. The gate's premise -- that a case file's prose only "
-    "names things in its own test source -- holds for `browser/`, whose comments "
-    "describe harness behaviour, and fails for a CLI target whose comments name "
-    "the machinery the behaviour comes from. The remedy is a CLI-family entry in "
-    "the gate's own known-identifier allowlist, "
-    "which is an instrument change and not this batch's to make; the pilot flagged "
-    "the same gap in `nullish/assign_reject.toml` and "
-    "`misc/growable_array_fail_closed.toml`. Documented, not silenced. "
-    "Reproduce with:\n"
+    "BREAKING RULE 12. The gate requires every backticked fn-shaped identifier "
+    "in this file to resolve against the source `.rs`'s own fn list. The ones "
+    "it cannot resolve here are carried VERBATIM out of the source's own "
+    "comments -- rule 12 requires the carry, U7 forbids rewording it -- and "
+    "they are: {names}\n"
+    "\n"
+    "{remedy}\n"
+    "\n"
+    "THE NAMES AND THEIR CLASSIFICATION ARE DERIVED, not asserted: "
+    "`gen_task19_batch2.u8_reason` re-runs the gate, reads back the identifiers "
+    "it could not explain, and decides for each whether the source DEFINES it "
+    "inside a fixture program. The first version of this paragraph said all of "
+    "them named other-crate or standard-library items, which was false here and "
+    "would have sent a reader to a remedy that could not work. Reproduce with:\n"
     "\n"
     "  python3 tools/task-18-browser-pilot/check_rationale_fn_names.py \\\n"
     "    crates/kali_cli/tests/{stem}.rs \\\n"
     "    crates/kali_cli/tests/cases/{family}/{toml}.toml")
+
+U8_REMEDY_ALLOWLIST = (
+    "REMEDY: a CLI-family entry in the gate's own known-identifier allowlist. "
+    "These name items in other crates or in the Rust standard library, which "
+    "this file's source never declares, so no amount of correct prose resolves "
+    "them. The pilot flagged the same gap on `nullish/assign_reject.toml` and "
+    "`misc/growable_array_fail_closed.toml`.")
+
+U8_REMEDY_FIXTURE = (
+    "REMEDY: NOT an allowlist entry -- and this is why the classification "
+    "matters. These are JAVASCRIPT functions the source DEFINES inside its own "
+    "fixture program text, so an allowlist would have to grow a name per "
+    "fixture and would still be listing things that are not Rust items at all. "
+    "The gate's premise is that a case file's prose only names Rust fns in its "
+    "own test source; a CLI target whose comments quote the program under test "
+    "breaks that premise structurally. The fix is for the gate to read fixture "
+    "literals as a source of defined names, or to stop treating a backticked "
+    "token inside carried prose as a citation -- an instrument change either "
+    "way, and not this batch's to make.")
+
+
+def u8_reason(stem, toml_path):
+    """The U8 paragraph for this pair, with its names and remedy DERIVED.
+
+    Runs the gate, reads the identifiers it could not explain, and asks of each
+    whether the SOURCE defines a function of that name inside a fixture string
+    literal. A name that is defined in the program under test needs a different
+    remedy from one that lives in another crate, and the first version of this
+    paragraph asserted the second for a file where every name was the first.
+    """
+    import subprocess
+    out = subprocess.run(
+        [sys.executable,
+         os.path.join(REPO, "tools/task-18-browser-pilot/check_rationale_fn_names.py"),
+         _gate_source(stem, "check_rationale_fn_names.py"), toml_path],
+        cwd=REPO, capture_output=True, text=True)
+    names = re.findall(r"UNEXPLAINED: `([^`]+)`", out.stdout)
+    if not names:
+        return None
+    fixtures = "\n".join(x["value"] for x in find_string_literals(rs(stem)))
+    in_fixture = [n for n in names
+                  if re.search(r"\bfunction\s+" + re.escape(n) + r"\s*\(", fixtures)]
+    rendered = ", ".join(f"`{n}`" for n in sorted(names))
+    if in_fixture and len(in_fixture) == len(names):
+        return U8_RED.replace("{names}", rendered + " -- every one of them a function "
+                              "DEFINED IN THIS SOURCE'S OWN FIXTURE PROGRAM.") \
+                     .replace("{remedy}", U8_REMEDY_FIXTURE)
+    if in_fixture:
+        return U8_RED.replace(
+            "{names}", rendered + " -- of which "
+            + ", ".join(f"`{n}`" for n in sorted(in_fixture))
+            + " are functions DEFINED IN THIS SOURCE'S OWN FIXTURE PROGRAM and the rest "
+              "name items in other crates or in the standard library.") \
+            .replace("{remedy}", U8_REMEDY_FIXTURE + " " + U8_REMEDY_ALLOWLIST)
+    return U8_RED.replace("{names}", rendered + ".").replace("{remedy}", U8_REMEDY_ALLOWLIST)
+
 
 U4_TRIM = (
     "U4 TRIM-AND-KEEP: THE FIFTH `#[test]` FN IS RETAINED HAND-WRITTEN, AND THE "
@@ -360,10 +549,58 @@ def hoist_note(const_spelling, stem, family, toml):
     return [text.replace("<CONST>", const_spelling), ""]
 
 
+_CC_CLASSES = {}
+
+
+def cc_classes_of(stem, toml_path):
+    """The classes `comment_coverage.py` actually reports for a rendered pair.
+
+    DERIVED FROM THE GATE'S OWN OUTPUT (ruling 18 #1), so a header cannot name a
+    class the checker does not report, or omit one it does.
+
+    NOT CIRCULAR, and the reason is a property of the checker rather than an
+    assumption: `comment_coverage.py` reads only `rationale` fields and never
+    the `#` header, so the classes depend on the half of the file this arm does
+    not write. `rendered()` therefore renders once with the classes unknown,
+    measures them against that rendering, and renders again -- and asserts the
+    second rendering is a fixed point.
+    """
+    import subprocess
+    p = subprocess.run(
+        [sys.executable, os.path.join(REPO, "tools/task-18-browser-pilot/comment_coverage.py"),
+         _gate_source(stem, "comment_coverage.py"), toml_path],
+        cwd=REPO, capture_output=True, text=True)
+    found = []
+    if re.search(r"from \d+/\d+ cases", p.stdout):
+        found.append("per-case")
+    if "from ALL " in p.stdout:
+        found.append("file-wide")
+    return found
+
+
+def cc_classes(stem, toml_path):
+    return _CC_CLASSES.get(toml_path, ["per-case", "file-wide"])
+
+
 def gates(entries, stem, family, toml):
     out = []
+    toml_path = os.path.join(CASES, family, toml + ".toml")
     for e in entries:
-        out.append(e.format(stem=stem, family=family, toml=toml))
+        text = e
+        if e is U8_MARKER:
+            text = u8_reason(stem, toml_path)
+            if text is None:
+                continue
+        elif "{classes}" in e:
+            found = cc_classes(stem, toml_path)
+            text = e.replace("{classes}", ", ".join(found) or "none")
+            text = text.replace("{per_case}",
+                                CC_RED_PER_CASE if "per-case" in found
+                                else "(no per-case lines on this pair)")
+            text = text.replace("{file_wide}",
+                                CC_RED_FILE_WIDE if "file-wide" in found
+                                else "(no file-wide lines on this pair)")
+        out.append(text.format(stem=stem, family=family, toml=toml))
         out.append("")
     return out
 
@@ -594,7 +831,12 @@ def f_standalone_iter():
                 mode = "json" if js else "text"
                 cases.append(dict(
                     name=f"{src}_source_rejects_in_{cmd}_{mode}_output",
-                    rationale=R(stem, f"A `new {src.capitalize()}(...)` whose argument is a "
+                    rationale=R(stem, "Source `#[test]` fn: "
+                                      f"standalone_non_literal_set_and_map_sources_reject_in_{cmd}"
+                                      " -- it loops both sources and both output modes, so it "
+                                      "splits into four named siblings under rule 5; the fn name "
+                                      "is recorded here so it survives the source's deletion. "
+                                      f"A `new {src.capitalize()}(...)` whose argument is a "
                                       "`.filter(Boolean)` call rather than a literal array is "
                                       "not a supported iterator source, so `kali "
                                       f"{cmd}` must reject it. The source asserts "
@@ -709,7 +951,7 @@ def f_closure_return_isolation():
            "`# EXTRA-OK:` declaration is required for them.",
            ""]
         + [U2_INERT, ""]
-        + gates([CC_RED, U8_RED], stem, "misc", "closure_return_isolation"))
+        + gates([CC_RED, U8_MARKER], stem, "misc", "closure_return_isolation"))
     cases = [
         dict(name="run_executes_statements_after_const_expression_bodied_arrow_declaration",
              rationale=R(stem, "Declaring an expression-bodied arrow must not truncate the "
@@ -789,7 +1031,7 @@ def f_heap_grow():
                      "COMPUTED in Rust, so it exists as no literal anywhere in the `.rs`. "
                      "Captured from the real binary per U9, never arithmetic done here")])
         + [""]
-        + gates([CC_RED, U8_RED], stem, "misc", "heap_grow_runtime"))
+        + gates([CC_RED, U8_MARKER], stem, "misc", "heap_grow_runtime"))
     cases = [
         dict(name="allocation_beyond_one_megabyte_succeeds",
              rationale=R(stem, para(stem, "~3 MB of i64 array storage")
@@ -799,8 +1041,9 @@ def f_heap_grow():
         dict(name="recursive_allocation_beyond_wall_no_longer_traps",
              rationale=R(stem, para(stem, "NOTE: the task brief's Step 5")
                          + "\n\n" + para(stem, "4001 calls * (64+1)*8 bytes/array")
+                         + "\n\n" + trailing(stem, "256064")
                          + "\n\nThe source pins `stdout.trim() == (4001 * 64).to_string()`; the "
-                           "exact stdout was captured from the real binary."),
+                           "exact stdout was live-captured, never arithmetic done here."),
              steps=[dict(args=["run", "recurse_grow.ts"], exit="success", stdout="256064\n")]),
         dict(name="oom_past_sandbox_cap_fails_cleanly",
              rationale=R(stem, "An allocation loop under a 4 MB `resources.maxMemoryMB` policy "
@@ -813,6 +1056,7 @@ def f_heap_grow():
                          stderr_absent=["panic"])]),
         dict(name="multi_page_array_allocations_are_correct",
              rationale=R(stem, para(stem, "Task 5 (page-pool allocator)")
+                         + "\n\n" + trailing(stem, "4*19999")
                          + "\n\nExact `assert_eq!` on the whole stdout, so an exact `stdout` "
                            "pin (ruling 3, clause 1)."),
              steps=[dict(args=["run", "span_arrays.ts"], exit="success",
@@ -876,7 +1120,7 @@ def f_trap_diagnostics():
                     for v in ("fuel_runaway.ts", "quiet_trap.ts", "stdout_before_trap.ts",
                               "trees_64mb.ts")])
         + [""]
-        + gates([CC_RED, U8_RED], stem, "misc", "trap_diagnostics_runtime"))
+        + gates([CC_RED, U8_MARKER], stem, "misc", "trap_diagnostics_runtime"))
     cases = [
         dict(name="fuel_exhaustion_reports_e4003_with_actionable_message",
              rationale=R(stem, para(stem, "Runs forever; exhausts the 60M default fuel budget")
@@ -975,15 +1219,13 @@ NP_STDOUT = ("1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n
              "0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1")
 
 NP_RULE13 = (
-    "RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED. Both fixtures are built one "
-    "level removed, inside the library crate `kali_common`, and the case "
-    "reproduces what those helpers computed (their output IS the `[source]` "
-    "body). Ruling 6's test therefore comes out the CARRY way, not the "
-    "runner-infrastructure-exemption way: the case still depends on what the "
-    "helper computed. Each doc is carried into the rationale of exactly the "
-    "cases that helper reaches, per U6 -- the run-source doc into the two `run` "
-    "cases, the test-source doc into the two `test` cases, neither into the "
-    "other pair.")
+    RULE13_CHAIN + "\n"
+    "\n"
+    "ATTRIBUTION IS STILL PER HELPER (U6): the run-source CHAIN's docs go into "
+    "the two `run` cases and the test-source CHAIN's into the two `test` cases, "
+    "neither into the other pair. The two chains share a documented helper, "
+    "which is why the same sentence appears on both sides -- that is the shared "
+    "helper being carried twice, not one chain over-attributed.")
 
 
 def f_number_predicates():
@@ -992,8 +1234,12 @@ def f_number_predicates():
                              ["kali_common::number_predicates_runtime_source()"])
     test_src = check_captured("CAP_NUMBER_PREDICATES__TEST", stem,
                               ["kali_common::number_predicates_test_source()"])
-    d_run = doc("crates/kali_common/src/number.rs", "number_predicates_runtime_source")
-    d_test = doc("crates/kali_common/src/number.rs", "number_predicates_test_source")
+    d_run = carry_docs(CK, ["number_predicates_runtime_source"],
+                       lead="Carried per rule 13 from every documented helper in this "
+                            "fixture's kali_common chain, derived by walking it:")
+    d_test = carry_docs(CK, ["number_predicates_test_source"],
+                        lead="Carried per rule 13 from every documented helper in this "
+                             "fixture's kali_common chain, derived by walking it:")
     header = (
         head(stem, "The supported `Number` predicate slice runs and tests identically in "
                    "text and `--output json` mode.")
@@ -1024,28 +1270,22 @@ def f_number_predicates():
         + gates([CC_EMPTY, CF_VACUOUS], stem, "misc", "number_predicates_runtime"))
     cases = [
         dict(name="run_supports_number_predicates_in_js_input",
-             rationale=R(stem, "Text-mode `run` over the predicate slice. Carried per rule 13 "
-                               "from kali_common::number_predicates_runtime_source: \""
-                         + d_run + "\""),
+             rationale=R(stem, "Text-mode `run` over the predicate slice. " + d_run),
              steps=[dict(args=["run", "main.js"], exit="success", stdout=NP_STDOUT + "\n")]),
         dict(name="json_run_supports_number_predicates_in_js_input",
-             rationale=R(stem, "The same `run`, asserting the JSON envelope. Carried per rule "
-                               "13 from kali_common::number_predicates_runtime_source: \""
-                         + d_run + "\""),
+             rationale=R(stem, "The same `run`, asserting the JSON envelope. " + d_run),
              steps=[dict(args=["--output", "json", "run", "main.js"], exit="success",
                          json_paths={"schemaVersion": 1, "command": "run", "success": True,
                                      "stdout": NP_STDOUT + "\n", "errors": []})]),
         dict(name="test_supports_number_predicates_in_js_input",
              rationale=R(stem, "Text-mode `test` over the predicate slice; the two source "
                                "claims are `.contains` against stdout and stay "
-                               "`stdout_contains`. Carried per rule 13 from "
-                               "kali_common::number_predicates_test_source: \"" + d_test + "\""),
+                               "`stdout_contains`. " + d_test),
              steps=[dict(args=["test", "smoke.test.js"], exit="success",
                          stdout_contains=[NP_STDOUT, "ok 1"])]),
         dict(name="json_test_supports_number_predicates_in_js_input",
              rationale=R(stem, "The same `test`, asserting the JSON envelope and the payload "
-                               "counters. Carried per rule 13 from "
-                               "kali_common::number_predicates_test_source: \"" + d_test + "\""),
+                               "counters. " + d_test),
              steps=[dict(args=["--output", "json", "test", "smoke.test.js"], exit="success",
                          json_paths={"schemaVersion": 1, "command": "test", "success": True,
                                      "payload.passed": 1, "payload.failed": 0, "errors": []})]),
@@ -1064,8 +1304,12 @@ def f_number_predicates_freeze():
                               ["fn freeze_number_predicates_expected_stdout"])
     if expected != NP_STDOUT:
         raise AssertionError("the freeze target's expected stdout no longer matches")
-    d_run = doc("crates/kali_common/src/number.rs", "number_predicates_runtime_source")
-    d_test = doc("crates/kali_common/src/number.rs", "number_predicates_test_source")
+    d_run = carry_docs(CK, ["number_predicates_runtime_source"],
+                       lead="Carried per rule 13 from every documented helper in this "
+                            "fixture's kali_common chain, derived by walking it:")
+    d_test = carry_docs(CK, ["number_predicates_test_source"],
+                        lead="Carried per rule 13 from every documented helper in this "
+                             "fixture's kali_common chain, derived by walking it:")
     header = (
         head(stem, "The frozen-alias spelling of the `Number` predicate slice: the same "
                    "two programs, run and tested in text and `--output json` mode.")
@@ -1083,42 +1327,42 @@ def f_number_predicates_freeze():
            "(rule 2) -- the json one additionally pins the payload counters, which it "
            "does assert. The json `run` fn's `assert_eq!(json[\"stdout\"], "
            "format!(\"{}\\n\", expected))` is exact and becomes an exact `json.stdout` "
-           "pin; per rule 8 that value was NOT hand-assembled from the `format!` -- it "
-           "is the captured output of executing the real code.",
+           "pin. Its newline-less half is the byte-exact output of EXECUTING the real "
+           "`kali_common` helper, which the generator asserts; the trailing newline "
+           "the `format!` adds is appended by the generator, and the trial pins the "
+           "assembled string against the real binary on every run.",
            ""]
         + extra_ok([(NP_STDOUT + "\n", "a deliberate live-captured exact pin. The source "
                      "asserts `json[\"stdout\"] == format!(\"{}\\n\", expected)`; the trailing "
                      "newline is added by the `format!` at runtime, so the assembled string "
                      "exists as no literal in the `.rs` -- only the newline-less constant does. "
-                     "Rule 8 forbids hand-assembling it, so this is the captured output of "
-                     "executing the real code")])
+                     "Provenance stated exactly rather than waved at: the newline-less half "
+                     "is the byte-exact output of executing the real helper (asserted by the "
+                     "generator), and the one appended newline is the only hand-applied "
+                     "character -- live-verified, because the trial pins this exact string "
+                     "against the real binary")])
         + [""]
         + gates([CC_EMPTY, CF_VACUOUS], stem, "misc", "number_predicates_freeze_runtime"))
     cases = [
         dict(name="run_supports_frozen_number_predicates_in_js_input",
              rationale=R(stem, "Text-mode `run`; the source's `assert_eq!(stdout.trim(), ...)` "
                                "is exact modulo trailing whitespace, so this pins the exact "
-                               "stdout captured from the real binary. Carried per rule 13 from "
-                               "kali_common::number_predicates_runtime_source: \"" + d_run + "\""),
+                               "stdout, live-captured. " + d_run),
              steps=[dict(args=["run", "main.js"], exit="success", stdout=NP_STDOUT + "\n")]),
         dict(name="json_run_supports_frozen_number_predicates_in_js_input",
              rationale=R(stem, "The same `run` in JSON mode, pinning the envelope and the exact "
-                               "embedded `stdout`. Carried per rule 13 from "
-                               "kali_common::number_predicates_runtime_source: \"" + d_run + "\""),
+                               "embedded `stdout`. " + d_run),
              steps=[dict(args=["--output", "json", "run", "main.js"], exit="success",
                          json_paths={"schemaVersion": 1, "command": "run", "success": True,
                                      "exitCode": 0, "stdout": NP_STDOUT + "\n"})]),
         dict(name="test_supports_frozen_number_predicates_in_js_input",
              rationale=R(stem, "Text-mode `test`. The source asserts ONLY that the command "
                                "succeeded, so this case claims only that -- pinning the stdout "
-                               "it was observed to emit would be a rule-2 invention. Carried "
-                               "per rule 13 from kali_common::number_predicates_test_source: \""
-                         + d_test + "\""),
+                               "it was observed to emit would be a rule-2 invention. " + d_test),
              steps=[dict(args=["test", "smoke.test.js"], exit="success")]),
         dict(name="json_test_supports_frozen_number_predicates_in_js_input",
              rationale=R(stem, "The same `test` in JSON mode; the source pins the envelope and "
-                               "the three payload counters. Carried per rule 13 from "
-                               "kali_common::number_predicates_test_source: \"" + d_test + "\""),
+                               "the three payload counters. " + d_test),
              steps=[dict(args=["--output", "json", "test", "smoke.test.js"], exit="success",
                          json_paths={"schemaVersion": 1, "command": "test", "success": True,
                                      "payload.total": 1, "payload.passed": 1,
@@ -1171,6 +1415,11 @@ def f_promise(stem, toml, what, cap_run, cap_test, e4000):
         cases.append(dict(
             name=f"{kind}_supports_promise_{what}_in_js_and_ts_input",
             rationale=R(stem, note + "\n\n"
+                        + f"Source `#[test]` fns: {kind}_supports_promise_{what}_in_js_input, "
+                        + f"{kind}_supports_promise_{what}_in_ts_input -- folded into one "
+                        + "`[[case]]` by the file-wide `ext` axis under rule 7, named here so "
+                        + "the fn names survive the sources' deletion (rule 6's reason, not "
+                        + "just its letter). "
                         + f"`kali {cmd}` over the `Promise.{what}` fixture must exit nonzero. "
                         + ("Rule 11: the source accepts E4000 on EITHER stream; resolved "
                            "against the real binary, this stream is stderr, and that branch is "
@@ -1222,7 +1471,7 @@ def f_monomorphize():
         + extra_ok([(v, "U5 variant-suffixed `[source]` key surfaced as an argv token; it is a "
                      "fixture FILENAME, not a claim about behaviour") for v in keys])
         + [""]
-        + gates([CC_RED, U8_RED], stem, "runtime", "monomorphize"))
+        + gates([CC_RED, U8_MARKER], stem, "runtime", "monomorphize"))
     cases = [
         dict(name="dump_two_distinct_shapes_prints_three_then_two",
              rationale=R(stem, para(stem, "The design-doc repro")
@@ -1264,12 +1513,12 @@ def f_object_has_own():
     test_src = check_captured("CAP_OBJECT_HAS_OWN__TEST", stem,
                               ["fn frozen_object_has_own_test_source",
                                "Kali.test('frozen object hasOwn'"])
-    docs = [doc("crates/kali_common/src/object.rs", n) for n in
-            ("object_has_own_frozen_callable_source",
-             "object_has_own_property_call_frozen_callable_source",
-             "object_has_own_frozen_callable_condition_source",
-             "object_has_own_property_call_frozen_callable_condition_source")]
-    carried = " ".join(f'"{d}"' for d in docs)
+    carried = carry_docs(CK, ["object_has_own_frozen_callable_source",
+                              "object_has_own_property_call_frozen_callable_source",
+                              "object_has_own_frozen_callable_condition_source",
+                              "object_has_own_property_call_frozen_callable_condition_source"],
+                         lead="Carried per rule 13 from every documented helper in this "
+                              "fixture's kali_common chain, derived by walking it:")
     header = (
         head(stem, "The frozen `Object.hasOwn` alias surface: `check` accepts it in all "
                    "four input extensions, while `run` and `test` fail closed and loud "
@@ -1288,12 +1537,7 @@ def f_object_has_own():
            "code (`tools/migration/t19b2_captures.py` records the command); nothing was "
            "hand-substituted.",
            ""]
-        + ["RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED. All four helpers sit in the "
-           "call chain of BOTH fixtures and the case reproduces their output, so ruling "
-           "6's test comes out the carry way and every doc lands in every case's "
-           "rationale (each of the four cases is reached by one fixture or the other, "
-           "and both fixtures reach all four helpers).",
-           ""]
+        + [RULE13_CHAIN, ""]
         + [U2_INERT, ""]
         + ["RULE 11 -- AN OR-SHAPED ASSERTION WHOSE STREAM DEPENDS ON THE OUTPUT MODE. "
            "The fail-closed helper accepts `stderr.contains(\"E4000\") || "
@@ -1309,8 +1553,7 @@ def f_object_has_own():
         + gates([], stem, "misc", "object_has_own_frozen_js_input"))
     note = para(stem, "Batch-local variant (PR #16 rev2, batch 7)")
     repin = para(stem, "Honest re-pin (PR #16 rev2)")
-    rule13 = "Carried per rule 13 from the four kali_common helpers in this fixture's chain: " \
-             + carried
+    rule13 = carried
     cases = [
         dict(name="run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input",
              rationale=R(stem, note + "\n\n" + repin
@@ -1439,7 +1682,9 @@ def f_reflect_own_keys():
     test_src = check_captured("CAP_REFLECT_OWN_KEYS__TEST", stem,
                               ["fn reflect_own_keys_test_source",
                                "Kali.test('reflect ownKeys'"])
-    d = doc("crates/kali_common/src/object.rs", "reflect_own_keys_frozen_callable_source")
+    d = carry_docs(CK, ["reflect_own_keys_frozen_callable_source"],
+                   lead="Carried per rule 13 from every documented helper in this fixture's "
+                        "kali_common chain, derived by walking it:")
     header = (
         head(stem, "`Reflect.ownKeys` ordering holds across every supported spelling of "
                    "the callable -- dotted, bracketed, single-quoted, parenthesized and "
@@ -1473,8 +1718,7 @@ def f_reflect_own_keys():
            "`(json[\"stderr\"], \"\")` claims are exact and are pinned exactly.",
            ""]
         + gates([CC_EMPTY], stem, "misc", "reflect_own_keys_js_input"))
-    rule13 = ("Carried per rule 13 from kali_common::reflect_own_keys_frozen_callable_source, "
-              "which builds part of this fixture: \"" + d + "\"")
+    rule13 = d
     cases = [
         dict(name="check_accepts_reflect_own_keys_in_js_input",
              rationale=R(stem, "`kali check` accepts every supported `Reflect.ownKeys` "
@@ -1596,7 +1840,7 @@ def _wrap(entries, width=88):
     return out
 
 
-def rendered():
+def _render_all():
     out = {}
     for f in build():
         path = os.path.join(CASES, f["family"], f["toml"] + ".toml")
@@ -1604,6 +1848,32 @@ def rendered():
             emit(_wrap(f["header"]), f["matrix"], f["source"], f["cases"]),
             f["constants"])
     return out
+
+
+def rendered():
+    """Render, measure the comment-coverage classes against that rendering,
+    render again, and require the second to be a fixed point."""
+    import tempfile
+    first = _render_all()
+    d = tempfile.mkdtemp(prefix="gen-cc-classes-")
+    changed = False
+    for path, text in first.items():
+        stem = next(f["stem"] for f in build()
+                    if os.path.join(CASES, f["family"], f["toml"] + ".toml") == path)
+        probe = os.path.join(d, os.path.basename(path))
+        with open(probe, "w") as fh:
+            fh.write(text)
+        found = cc_classes_of(stem, probe)
+        if _CC_CLASSES.get(path) != found:
+            changed = True
+        _CC_CLASSES[path] = found
+    if not changed:
+        return first
+    second = _render_all()
+    third = _render_all()
+    if second != third:
+        raise AssertionError("class measurement is not a fixed point")
+    return second
 
 
 # The gate reds a header is allowed to declare, and the command that decides
@@ -1658,6 +1928,18 @@ def _declared_reds(text):
     return found
 
 
+def _gate_source(stem, gate):
+    """The `.rs` a gate should be run against for this pair.
+
+    For an ordinary pair, the working-tree source. For a U4 trim pair, the side
+    the gate's DIRECTION calls for -- see `_TRIM_SIDE`.
+    """
+    pre_trim, complement = _trim_sides(stem)
+    if not pre_trim:
+        return os.path.join(TESTS, stem + ".rs")
+    return complement if _TRIM_SIDE.get(gate) == "complement" else pre_trim
+
+
 def _trim_sides(stem):
     """`(pre_trim_path, complement_path)` for a trimmed stem, else `(None, None)`.
 
@@ -1705,14 +1987,23 @@ def check_gate_declarations(files):
         spec = next(f for f in build()
                     if os.path.join(CASES, f["family"], f["toml"] + ".toml") == path)
         declared = _declared_reds(text)
-        pre_trim, complement = _trim_sides(spec["stem"])
         for gate, cmd in DECLARABLE.items():
-            source = os.path.join(TESTS, spec["stem"] + ".rs")
-            if pre_trim:
-                source = complement if _TRIM_SIDE.get(gate) == "complement" else pre_trim
+            source = _gate_source(spec["stem"], gate)
             rc = subprocess.run(
                 [sys.executable, os.path.join(REPO, cmd[0]), source, path],
                 cwd=REPO, capture_output=True).returncode
+            if gate == "comment_coverage.py" and rc == 1:
+                found = cc_classes_of(spec["stem"], path)
+                m = re.search(r"comment_coverage\.py` IS EXPECTED-RED \(rc=1\) ON THIS "
+                              r"PAIR \[classes: ([^\]]*)\]",
+                              re.sub(r"\s+", " ", " ".join(
+                                  l.lstrip("#").strip() for l in text.split("\n")
+                                  if l.startswith("#"))))
+                stated = [c.strip() for c in m.group(1).split(",")] if m else []
+                if stated != found:
+                    problems.append(
+                        f"{spec['family']}/{spec['toml']}: header declares "
+                        f"comment_coverage classes {stated}, the checker reports {found}")
             want = declared.get(gate)
             if rc == 0 and want is not None:
                 problems.append(f"{spec['family']}/{spec['toml']}: header declares {gate} "

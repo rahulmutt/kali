@@ -68,7 +68,7 @@ name = "run_supports_promise_any_in_js_and_ts_input"
 rationale = """Migrated from promise_any_sequencing.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here;
 see docs/superpowers/followups/pr16-honest-repin-inventory.md.
 
-`kali run` over the `Promise.any` fixture must exit nonzero. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, this stream is stderr, and that branch is what is pinned. This case is fanned over `ext` by the file-wide `[matrix]`, reproducing the source's `js` and `ts` invocations 1:1."""
+Source `#[test]` fns: run_supports_promise_any_in_js_input, run_supports_promise_any_in_ts_input -- folded into one `[[case]]` by the file-wide `ext` axis under rule 7, named here so the fn names survive the sources' deletion (rule 6's reason, not just its letter). `kali run` over the `Promise.any` fixture must exit nonzero. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, this stream is stderr, and that branch is what is pinned. This case is fanned over `ext` by the file-wide `[matrix]`, reproducing the source's `js` and `ts` invocations 1:1."""
 args = ["run", "main.${ext}"]
 exit = "failure"
 stderr_contains = ["E4000"]
@@ -78,7 +78,7 @@ name = "test_supports_promise_any_in_js_and_ts_input"
 rationale = """Migrated from promise_any_sequencing.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here;
 see docs/superpowers/followups/pr16-honest-repin-inventory.md.
 
-`kali test` over the `Promise.any` fixture must exit nonzero. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, this stream is stderr, and that branch is what is pinned. This case is fanned over `ext` by the file-wide `[matrix]`, reproducing the source's `js` and `ts` invocations 1:1."""
+Source `#[test]` fns: test_supports_promise_any_in_js_input, test_supports_promise_any_in_ts_input -- folded into one `[[case]]` by the file-wide `ext` axis under rule 7, named here so the fn names survive the sources' deletion (rule 6's reason, not just its letter). `kali test` over the `Promise.any` fixture must exit nonzero. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, this stream is stderr, and that branch is what is pinned. This case is fanned over `ext` by the file-wide `[matrix]`, reproducing the source's `js` and `ts` invocations 1:1."""
 args = ["test", "smoke.test.${ext}"]
 exit = "failure"
 stderr_contains = ["E4000"]

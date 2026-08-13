@@ -24,22 +24,33 @@
 # No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the
 # shape U2 exists to stop.
 #
-# RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED. Both fixtures are built one level removed,
-# inside the library crate `kali_common`, and the case reproduces what those helpers
-# computed (their output IS the `[source]` body). Ruling 6's test therefore comes out the
-# CARRY way, not the runner-infrastructure-exemption way: the case still depends on what
-# the helper computed. Each doc is carried into the rationale of exactly the cases that
-# helper reaches, per U6 -- the run-source doc into the two `run` cases, the test-source
-# doc into the two `test` cases, neither into the other pair.
+# RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED, AND THE CHAIN IS DERIVED RATHER THAN
+# ENUMERATED. The fixtures are built one level removed inside `kali_common` and the case
+# reproduces what those helpers computed, so ruling 6's test comes out the CARRY way, not
+# the runner-infrastructure-exemption way. Which helpers that is was not decided here:
+# `gen_task19_batch2.doc_chain` walks the call graph from each fixture builder and carries
+# every documented fn it reaches, transitively, so a documented helper added upstream
+# breaks the generator instead of quietly going uncarried. The first version of this batch
+# enumerated the chain by hand and under-carried it -- two documented helpers, on this
+# file and on both of the Number-predicate files -- which is exactly the failure a derived
+# chain cannot have.
+#
+# ATTRIBUTION IS STILL PER HELPER (U6): the run-source CHAIN's docs go into the two `run`
+# cases and the test-source CHAIN's into the two `test` cases, neither into the other
+# pair. The two chains share a documented helper, which is why the same sentence appears
+# on both sides -- that is the shared helper being carried twice, not one chain
+# over-attributed.
 #
 # ASSERTION SHAPES. The two `test` fns assert ONLY `output.status.success()`; no stdout
 # claim is written for them, because the source makes none (rule 2) -- the json one
 # additionally pins the payload counters, which it does assert. The json `run` fn's
 # `assert_eq!(json["stdout"], format!("{}\n", expected))` is exact and becomes an exact
-# `json.stdout` pin; per rule 8 that value was NOT hand-assembled from the `format!` -- it
-# is the captured output of executing the real code.
+# `json.stdout` pin. Its newline-less half is the byte-exact output of EXECUTING the real
+# `kali_common` helper, which the generator asserts; the trailing newline the `format!`
+# adds is appended by the generator, and the trial pins the assembled string against the
+# real binary on every run.
 #
-# EXTRA-OK: '1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1\n' -- a deliberate live-captured exact pin. The source asserts `json["stdout"] == format!("{}\n", expected)`; the trailing newline is added by the `format!` at runtime, so the assembled string exists as no literal in the `.rs` -- only the newline-less constant does. Rule 8 forbids hand-assembling it, so this is the captured output of executing the real code
+# EXTRA-OK: '1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1\n' -- a deliberate live-captured exact pin. The source asserts `json["stdout"] == format!("{}\n", expected)`; the trailing newline is added by the `format!` at runtime, so the assembled string exists as no literal in the `.rs` -- only the newline-less constant does. Provenance stated exactly rather than waved at: the newline-less half is the byte-exact output of executing the real helper (asserted by the generator), and the one appended newline is the only hand-applied character -- live-verified, because the trial pins this exact string against the real binary
 #
 # CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=2) ON THIS PAIR,
 # AND THE RED IS THE GATE WORKING. The source carries no comment lines at all, so the
@@ -73,14 +84,14 @@
 
 [[case]]
 name = "run_supports_frozen_number_predicates_in_js_input"
-rationale = """Migrated from number_predicates_freeze_runtime.rs. Text-mode `run`; the source's `assert_eq!(stdout.trim(), ...)` is exact modulo trailing whitespace, so this pins the exact stdout captured from the real binary. Carried per rule 13 from kali_common::number_predicates_runtime_source: "Canonical runtime source text for the supported Number predicate slice.""""
+rationale = """Migrated from number_predicates_freeze_runtime.rs. Text-mode `run`; the source's `assert_eq!(stdout.trim(), ...)` is exact modulo trailing whitespace, so this pins the exact stdout, live-captured. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: number_predicates_runtime_source: "Canonical runtime source text for the supported Number predicate slice." number_predicates_preamble_source: "Canonical source text for the supported Number predicate slice." number_predicates_console_log_body_source: "Canonical console-log body for the supported Number predicate slice.""""
 args = ["run", "main.js"]
 exit = "success"
 stdout = "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1\n"
 
 [[case]]
 name = "json_run_supports_frozen_number_predicates_in_js_input"
-rationale = """Migrated from number_predicates_freeze_runtime.rs. The same `run` in JSON mode, pinning the envelope and the exact embedded `stdout`. Carried per rule 13 from kali_common::number_predicates_runtime_source: "Canonical runtime source text for the supported Number predicate slice.""""
+rationale = """Migrated from number_predicates_freeze_runtime.rs. The same `run` in JSON mode, pinning the envelope and the exact embedded `stdout`. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: number_predicates_runtime_source: "Canonical runtime source text for the supported Number predicate slice." number_predicates_preamble_source: "Canonical source text for the supported Number predicate slice." number_predicates_console_log_body_source: "Canonical console-log body for the supported Number predicate slice.""""
 args = ["--output", "json", "run", "main.js"]
 exit = "success"
 json.schemaVersion = 1
@@ -91,13 +102,13 @@ json.stdout = "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\
 
 [[case]]
 name = "test_supports_frozen_number_predicates_in_js_input"
-rationale = """Migrated from number_predicates_freeze_runtime.rs. Text-mode `test`. The source asserts ONLY that the command succeeded, so this case claims only that -- pinning the stdout it was observed to emit would be a rule-2 invention. Carried per rule 13 from kali_common::number_predicates_test_source: "Canonical `Kali.test` source text for the supported Number predicate slice.""""
+rationale = """Migrated from number_predicates_freeze_runtime.rs. Text-mode `test`. The source asserts ONLY that the command succeeded, so this case claims only that -- pinning the stdout it was observed to emit would be a rule-2 invention. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: number_predicates_test_source: "Canonical `Kali.test` source text for the supported Number predicate slice." number_predicates_preamble_source: "Canonical source text for the supported Number predicate slice." number_predicates_console_log_body_source: "Canonical console-log body for the supported Number predicate slice.""""
 args = ["test", "smoke.test.js"]
 exit = "success"
 
 [[case]]
 name = "json_test_supports_frozen_number_predicates_in_js_input"
-rationale = """Migrated from number_predicates_freeze_runtime.rs. The same `test` in JSON mode; the source pins the envelope and the three payload counters. Carried per rule 13 from kali_common::number_predicates_test_source: "Canonical `Kali.test` source text for the supported Number predicate slice.""""
+rationale = """Migrated from number_predicates_freeze_runtime.rs. The same `test` in JSON mode; the source pins the envelope and the three payload counters. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: number_predicates_test_source: "Canonical `Kali.test` source text for the supported Number predicate slice." number_predicates_preamble_source: "Canonical source text for the supported Number predicate slice." number_predicates_console_log_body_source: "Canonical console-log body for the supported Number predicate slice.""""
 args = ["--output", "json", "test", "smoke.test.js"]
 exit = "success"
 json.schemaVersion = 1

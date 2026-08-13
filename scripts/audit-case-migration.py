@@ -600,6 +600,154 @@ def resolve_path_mods(old_path: Path, source: str) -> list[Path]:
 _RAW_STRING = re.compile(r'(?<![A-Za-z0-9_])r(#*)"(?:.*?)"\1', re.DOTALL)
 
 
+def _blank_line_comments(source: str) -> str:
+    """`source` with every `//` line comment's text replaced by spaces.
+
+    Needed only on the ACCEPTANCE side of the count-claim arm, and the
+    asymmetry is ruling 14's own lesson on a different arm: in the FORWARD
+    direction a loose extraction creates a DEMAND (an extra literal the case
+    file must carry), which is safe; in the reverse direction it creates a
+    PERMISSION, and a commented-out `.contains` must not permit anything. The
+    scan is quote-aware so a `//` inside a string literal -- a URL, a JS
+    comment in a fixture -- is not mistaken for a comment.
+    """
+    out = list(source)
+    i, n = 0, len(source)
+    while i < n:
+        c = source[i]
+        if c == '"':
+            i += 1
+            while i < n:
+                if source[i] == "\\":
+                    i += 2
+                    continue
+                if source[i] == '"':
+                    break
+                i += 1
+            i += 1
+            continue
+        if c == "/" and i + 1 < n and source[i + 1] == "/":
+            j = source.find("\n", i)
+            j = n if j == -1 else j
+            for k in range(i, j):
+                out[k] = " "
+            i = j
+            continue
+        i += 1
+    return "".join(out)
+
+
+_LET_BINDING = re.compile(
+    r"\blet\s+(?:mut\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?::[^=;]*)?=\s*([^;]+);", re.S)
+_LEADING_INDEX = re.compile(r'\A\s*\[\s*(?:"([^"]*)"|\'([^\']*)\'|(\d+))\s*\]')
+_HEAD_IDENT = re.compile(r"\A\s*&?\s*([A-Za-z_][A-Za-z0-9_]*)")
+_CONTAINS_CALL = re.compile(r"\.\s*contains\s*\(\s*(\"(?:[^\"\\\\]|\\\\.)*\")\s*\)")
+
+
+def _json_path_of(expr: str, env: dict) -> str | None:
+    """The dotted json path an expression addresses, or None if it is not a
+    json leaf. `json` is the root; a `let`-bound name inherits the path it was
+    bound to. Only the index chain immediately after the head identifier is
+    read -- everything after it (`.as_str()`, `.expect(...)`) is a coercion,
+    not a path segment."""
+    m = _HEAD_IDENT.match(expr)
+    if not m:
+        return None
+    head = m.group(1)
+    if head == "json":
+        path: list[str] = []
+    elif head in env:
+        path = env[head].split(".") if env[head] else []
+    else:
+        return None
+    rest = expr[m.end():]
+    while True:
+        idx = _LEADING_INDEX.match(rest)
+        if not idx:
+            break
+        path.append(next(g for g in idx.groups() if g is not None))
+        rest = rest[idx.end():]
+    return ".".join(path)
+
+
+def _receiver_expression(text: str, dot: int) -> str:
+    """The receiver chain ending at `text[dot]`, walked backwards with bracket
+    balancing. Returns "" when the walk finds no expression."""
+    close = {")": "(", "]": "[", "}": "{"}
+    depth: list[str] = []
+    i = dot - 1
+    while i >= 0:
+        c = text[i]
+        if c in close:
+            depth.append(close[c])
+            i -= 1
+            continue
+        if c in "([{":
+            if depth and depth[-1] == c:
+                depth.pop()
+                i -= 1
+                continue
+            break
+        if depth:
+            i -= 1
+            continue
+        if c.isalnum() or c in "_.\"'":
+            i -= 1
+            continue
+        if c.isspace():
+            # A postfix chain in this corpus is routinely wrapped across lines
+            # (`json["stdout"]\n    .as_str()\n    .expect(..)\n    .contains(..)`),
+            # so whitespace INSIDE the chain has to be walked over -- but
+            # whitespace that precedes the chain's head must stop the walk, or
+            # the receiver swallows `assert!(` and everything before it. Skip
+            # the run, then decide on what it separates: a character that can
+            # END an expression fragment continues the chain, anything else
+            # (`(`, `!`, `,`, `=`) is the boundary.
+            j = i
+            while j >= 0 and text[j].isspace():
+                j -= 1
+            if j >= 0 and (text[j].isalnum() or text[j] in "_.\"')]"):
+                i = j
+                continue
+            break
+        break
+    return text[i + 1:dot].strip()
+
+
+def json_leaf_contains_sites(source: str) -> set:
+    """`{(dotted json path, needle)}` for every `.contains("lit")` in `source`
+    whose RECEIVER is the json leaf at that path.
+
+    THE RECEIVER REQUIREMENT IS THE WHOLE SPECIFICATION, and it is what the
+    first version of the count-claim acceptance lacked. Ruling 3's amended
+    clause 4 reads "plain `.contains(x)` against a JSON STRING LEAF", and its
+    entire content is the correspondence between the source's json leaf and the
+    path the case file pins. Accepting any `.contains` anywhere in the file
+    instead let four things through that the reviewer demonstrated and that the
+    tests below now pin: a commented-out `.contains`, a `.contains(` inside a
+    JS fixture raw string, a `.contains` on RAW STDOUT pinned as a `json_count`
+    at some json path, and a `.contains` against json `stdout` pinned at
+    `errors.0.message`. The last two are refused by construction here, because
+    the path has to match; the first two by blanking comments and raw strings
+    before the scan.
+    """
+    text = _blank_line_comments(_blank_raw_strings(source))
+    env: dict[str, str] = {}
+    for m in _LET_BINDING.finditer(text):
+        path = _json_path_of(m.group(2), env)
+        if path is not None:
+            env[m.group(1)] = path
+    out = set()
+    for m in _CONTAINS_CALL.finditer(text):
+        receiver = _receiver_expression(text, m.start())
+        if not receiver:
+            continue
+        path = _json_path_of(receiver, env)
+        if path:
+            out.add((path, unquote(m.group(1))))
+    return out
+
+
 def _blank_raw_strings(source: str) -> str:
     """`source` with every raw-string literal's entire span (delimiters and
     interior alike) replaced by spaces of the same length. Used only to
@@ -1551,7 +1699,7 @@ def count_claim_correspondence(
     case_claims: list[dict],
     source_sites: list[tuple[str, frozenset[str], tuple[str, int] | None]],
     source_json_keys: set[str],
-    source_contains: dict[str, frozenset[str]] | None = None,
+    source_contains: set[tuple[str, str]] | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     """Check every count claim the NEW files make against the OLD source --
     the reverse of every other check in this script (see the module
@@ -1574,7 +1722,7 @@ def count_claim_correspondence(
     """
     failures: list[str] = []
     unauditable: list[str] = []
-    source_contains = source_contains or {}
+    source_contains = source_contains or set()
 
     for claim in case_claims:
         where = f"case {claim['case']!r} {claim['key']}"
@@ -1627,6 +1775,15 @@ def count_claim_correspondence(
             # dropping the claim by rule 1. Two Task 19 batch-2 targets were
             # withdrawn on it before the controller ruled.
             #
+            # TWO CONDITIONS, NOT ONE, AND THE FIRST WAS MISSING FROM THE FIRST
+            # VERSION OF THIS ACCEPTANCE. The source `.contains` must be taken
+            # ON THE JSON LEAF AT THE PINNED PATH -- `json_leaf_contains_sites`
+            # resolves the receiver, so a `.contains` on raw stdout cannot
+            # justify a `json_count`, and a `.contains` on one json leaf cannot
+            # justify a claim pinned at another. Accepting any `.contains`
+            # anywhere in the file, as the first version did, opened four doors
+            # the reviewer demonstrated; all four are pinned as refusal tests.
+            #
             # THE BOUND IS THE DISCRIMINATOR, and that is what keeps the arm's
             # strength where it was actually protecting something. `at_least = 1`
             # is the only bound a `.contains` can justify: it is a presence
@@ -1642,8 +1799,7 @@ def count_claim_correspondence(
             # and the accepted form is what the binary actually emits (the two
             # pairs it admits are live-verified trials).
             if claim["bound"] == ("at_least", 1) and claim["key"] == "json_count" \
-                    and any(_needle_correspondence(needle, variants)
-                            for variants in source_contains.values()):
+                    and (claim["path"], needle) in source_contains:
                 continue
             failures.append(
                 f"{where}: needle {needle!r} corresponds to no "
@@ -1784,7 +1940,7 @@ def main() -> int:
     ]
     fabricated, unauditable, unmirrored = count_claim_correspondence(
         case_claims, source_sites, set(old_claims["json keys"]),
-        old_claims["contains literals"],
+        json_leaf_contains_sites(old_source_combined),
     )
 
     # Rule 11's OR shape: a group of `.contains` literals the source asserts

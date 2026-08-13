@@ -24,13 +24,22 @@
 # No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the
 # shape U2 exists to stop.
 #
-# RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED. Both fixtures are built one level removed,
-# inside the library crate `kali_common`, and the case reproduces what those helpers
-# computed (their output IS the `[source]` body). Ruling 6's test therefore comes out the
-# CARRY way, not the runner-infrastructure-exemption way: the case still depends on what
-# the helper computed. Each doc is carried into the rationale of exactly the cases that
-# helper reaches, per U6 -- the run-source doc into the two `run` cases, the test-source
-# doc into the two `test` cases, neither into the other pair.
+# RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED, AND THE CHAIN IS DERIVED RATHER THAN
+# ENUMERATED. The fixtures are built one level removed inside `kali_common` and the case
+# reproduces what those helpers computed, so ruling 6's test comes out the CARRY way, not
+# the runner-infrastructure-exemption way. Which helpers that is was not decided here:
+# `gen_task19_batch2.doc_chain` walks the call graph from each fixture builder and carries
+# every documented fn it reaches, transitively, so a documented helper added upstream
+# breaks the generator instead of quietly going uncarried. The first version of this batch
+# enumerated the chain by hand and under-carried it -- two documented helpers, on this
+# file and on both of the Number-predicate files -- which is exactly the failure a derived
+# chain cannot have.
+#
+# ATTRIBUTION IS STILL PER HELPER (U6): the run-source CHAIN's docs go into the two `run`
+# cases and the test-source CHAIN's into the two `test` cases, neither into the other
+# pair. The two chains share a documented helper, which is why the same sentence appears
+# on both sides -- that is the shared helper being carried twice, not one chain
+# over-attributed.
 #
 # ASSERTION SHAPES. The text `run` branch asserts `assert_eq!(stdout.trim(), <exact>)`, an
 # exact assertion modulo trailing whitespace, so it becomes an exact `stdout` pin. The
@@ -75,14 +84,14 @@
 
 [[case]]
 name = "run_supports_number_predicates_in_js_input"
-rationale = """Migrated from number_predicates_runtime.rs. Text-mode `run` over the predicate slice. Carried per rule 13 from kali_common::number_predicates_runtime_source: "Canonical runtime source text for the supported Number predicate slice.""""
+rationale = """Migrated from number_predicates_runtime.rs. Text-mode `run` over the predicate slice. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: number_predicates_runtime_source: "Canonical runtime source text for the supported Number predicate slice." number_predicates_preamble_source: "Canonical source text for the supported Number predicate slice." number_predicates_console_log_body_source: "Canonical console-log body for the supported Number predicate slice.""""
 args = ["run", "main.js"]
 exit = "success"
 stdout = "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1\n"
 
 [[case]]
 name = "json_run_supports_number_predicates_in_js_input"
-rationale = """Migrated from number_predicates_runtime.rs. The same `run`, asserting the JSON envelope. Carried per rule 13 from kali_common::number_predicates_runtime_source: "Canonical runtime source text for the supported Number predicate slice.""""
+rationale = """Migrated from number_predicates_runtime.rs. The same `run`, asserting the JSON envelope. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: number_predicates_runtime_source: "Canonical runtime source text for the supported Number predicate slice." number_predicates_preamble_source: "Canonical source text for the supported Number predicate slice." number_predicates_console_log_body_source: "Canonical console-log body for the supported Number predicate slice.""""
 args = ["--output", "json", "run", "main.js"]
 exit = "success"
 json.schemaVersion = 1
@@ -93,14 +102,14 @@ json.errors = []
 
 [[case]]
 name = "test_supports_number_predicates_in_js_input"
-rationale = """Migrated from number_predicates_runtime.rs. Text-mode `test` over the predicate slice; the two source claims are `.contains` against stdout and stay `stdout_contains`. Carried per rule 13 from kali_common::number_predicates_test_source: "Canonical `Kali.test` source text for the supported Number predicate slice.""""
+rationale = """Migrated from number_predicates_runtime.rs. Text-mode `test` over the predicate slice; the two source claims are `.contains` against stdout and stay `stdout_contains`. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: number_predicates_test_source: "Canonical `Kali.test` source text for the supported Number predicate slice." number_predicates_preamble_source: "Canonical source text for the supported Number predicate slice." number_predicates_console_log_body_source: "Canonical console-log body for the supported Number predicate slice.""""
 args = ["test", "smoke.test.js"]
 exit = "success"
 stdout_contains = ["1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1", "ok 1"]
 
 [[case]]
 name = "json_test_supports_number_predicates_in_js_input"
-rationale = """Migrated from number_predicates_runtime.rs. The same `test`, asserting the JSON envelope and the payload counters. Carried per rule 13 from kali_common::number_predicates_test_source: "Canonical `Kali.test` source text for the supported Number predicate slice.""""
+rationale = """Migrated from number_predicates_runtime.rs. The same `test`, asserting the JSON envelope and the payload counters. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: number_predicates_test_source: "Canonical `Kali.test` source text for the supported Number predicate slice." number_predicates_preamble_source: "Canonical source text for the supported Number predicate slice." number_predicates_console_log_body_source: "Canonical console-log body for the supported Number predicate slice.""""
 args = ["--output", "json", "test", "smoke.test.js"]
 exit = "success"
 json.schemaVersion = 1

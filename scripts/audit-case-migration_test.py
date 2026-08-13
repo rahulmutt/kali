@@ -1931,6 +1931,112 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("corresponds to no", out)
 
+    # THE FOUR DOORS THE FIRST VERSION OF THIS ACCEPTANCE LEFT OPEN. It tested
+    # only the BOUND and accepted any member of `claims()["contains literals"]`,
+    # which is built from the UN-STRIPPED source. Each probe below was ACCEPTED
+    # by that version and is REFUSED by the previous gate and by this one; they
+    # are the specification the ruling's wording did not carry.
+    #
+    # The asymmetry is ruling 14's lesson on a different arm: in the FORWARD
+    # direction a loose extraction creates a DEMAND and is safe; in this reverse
+    # arm it creates a PERMISSION.
+
+    def test_door1_a_commented_out_contains_permits_nothing(self):
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    // assert!(json["stdout"].as_str().expect("s").contains("marker ok"));\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "marker ok", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_door2_a_contains_inside_a_fixture_raw_string_permits_nothing(self):
+        source = (
+            'fn fixture() -> &\'static str {\n'
+            '    r#"const s = "abc"; if (s.contains("marker ok")) { console.log(1); }"#\n'
+            '}\n'
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "marker ok", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_door3_a_contains_on_raw_stdout_cannot_justify_a_json_count(self):
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let stdout = String::from_utf8_lossy(&output.stdout);\n'
+            '    assert!(stdout.contains("marker ok"));\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'stdout_contains = ["marker ok"]\n'
+            'json_count = [{ path = "stdout", needle = "marker ok", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_door4_a_contains_on_one_json_leaf_cannot_justify_another_path(self):
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    let errors = json["errors"].as_array().expect("errors array");\n'
+            '    let message = errors[0]["message"].as_str().expect("m");\n'
+            '    assert!(json["stdout"].as_str().expect("s").contains("marker ok"));\n'
+            '    assert_eq!(message, "x");\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "errors.0.message", needle = "marker ok", '
+            'at_least = 1 }]\n'
+            'json.errors.0.message = "x"\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_the_two_shipped_shapes_still_resolve(self):
+        # The known positive for the RECEIVER resolver, in both spellings the
+        # shipped pairs use: a direct `json["k"].as_str().contains(..)` chain
+        # wrapped across lines, and a two-level `let` chain reaching
+        # `errors.0.message`. A resolver that accepted neither would make every
+        # refusal above pass for the wrong reason.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("audit", _SCRIPT_PATH)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        source = (
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    let errors = json["errors"].as_array().expect("errors array");\n'
+            '    let message = errors[0]["message"].as_str().expect("m");\n'
+            '    assert!(message.contains("literal array"));\n'
+            '    assert!(\n'
+            '        json["stdout"]\n'
+            '            .as_str()\n'
+            '            .expect("run stdout")\n'
+            '            .contains("reflect ownKeys ok"),\n'
+            '        "json: {json}"\n'
+            '    );\n'
+            '}\n'
+        )
+        self.assertEqual(
+            mod.json_leaf_contains_sites(source),
+            {("errors.0.message", "literal array"), ("stdout", "reflect ownKeys ok")})
+
     def test_the_json_path_arm_still_bites(self):
         # The acceptance is about the BOUND only. A `json_count` whose path
         # names a key the source never indexed is still a failure, so the
