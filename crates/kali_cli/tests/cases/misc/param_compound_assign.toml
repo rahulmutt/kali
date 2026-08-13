@@ -1,0 +1,459 @@
+# Migrated from tests/param_compound_assign.rs.
+#   SOURCE REF: 020b5c33707052455d68dc44cac72a12e961f6ae
+#
+# Compound assignment and `++` on a PARAMETER: the provably-scalar lanes run, and every shape whose scalar-ness interprocedural flow cannot positively prove rejects fail-closed instead of miscompiling.
+#
+# MATRIX DECLINED. 19 source helper invocation(s) == 19 case(s) x 1 -- no axis every case varies over uniformly (rule 7, U1). Every `#[test]` fn in this source runs a DIFFERENT program with a different expectation; there is no extension, command or output-mode axis to fan them over, and inventing one would produce combinations the source never exercised (rule 2). The identity is asserted inside `gen_task19_batch3.arithmetic`, so this sentence cannot state arithmetic that does not close.
+#
+# THE SHAPE THIS FILE WAS MIGRATED FROM, AND WHAT DERIVED ITS CLAIMS. The source declares one helper -- `fn run_source(src: &str) -> std::process::Output` -- which writes a single program to `main.ts` under a fresh temp directory and runs `kali run <path>` on it. Every `#[test]` fn in the file calls it EXACTLY ONCE and constructs no other command, so one `#[test]` fn is one `[[case]]` is one trial (rule 6, one-to-one) and rule 5's split never applies. ("one-to-one", not the arithmetic spelling: `citation_sweep.sh`'s `CITE` reads a backticked construct followed by a colon-digit as a line citation, and batch 2 had to reword the same phrase for the same reason.)
+#
+# The claim set of every case below is DERIVED from the source by `tools/migration/t19b3_extract.py`, not listed by hand, and its shape table is CLOSED: an `assert!`/`assert_eq!` it does not model raises rather than being skipped. That direction is the point -- a forward extractor that silently skips what it does not understand turns a DROPPED claim into a green run. The modelled shapes are exactly:
+#
+#   assert!(out.status.success(), ..)              -> exit = "success"
+#   assert!(!out.status.success(), ..)             -> exit = "failure"
+#   assert_eq!(String::from_utf8_lossy(&out.stdout), <str>)  -> exact `stdout`
+#   assert!(out.stdout.is_empty(), ..)            -> exact `stdout = ""`
+#   assert!(<stderr>.contains(<str>), ..)          -> `stderr_contains`
+#   assert!(<stderr>.contains(A) || <stderr>.contains(B), ..)
+#                                                  -> rule 11 / ruling 17
+#
+# An `assert!`'s second and later arguments are its PANIC MESSAGE, which the program under test never sees; they are not claims and are not migrated. Reproduce the derivation with:
+#
+#   python3 tools/migration/t19b3_extract.py param_compound_assign
+#
+# ASSERTION STRENGTH -- RULING 3, MIRROR THE SOURCE, CLAUSE BY CLAUSE.
+#
+#   * an exact `assert_eq!` on the WHOLE of stdout is an exact source assertion, so it becomes an exact `stdout` pin (clause 1). The pinned text is COPIED out of the source's own literal by `lexer.find_string_literals`; it is not a live capture and this header does not claim it is. Batch 2 shipped a header saying "captured from the real binary, never computed" about values that were in fact copied out of the source, and had to correct it -- the distinction is recorded here so it is not lost again.
+#   * `assert!(out.stdout.is_empty())` is an exact assertion about the whole of stdout, so it becomes `stdout = ""`. That is the same exact-stdout discipline used everywhere else on a taken, verified path, not a rule-2 invention.
+#   * a plain `.contains` against stderr stays `stderr_contains` (clause 3): the field has a substring form, and it is NOT strengthened to an exact pin just because the exact output was observed.
+#   * a test whose only assertion is `!out.status.success()` pins `exit = "failure"` and NOTHING about either stream. The real binary emits a diagnostic on every one of them, and pinning it would be rule 2's exact prohibition: never add an assertion the source did not make merely because it is true.
+#
+# REALISM IS PROVEN SEPARATELY FROM FIDELITY (U9). Every trial in this file runs against the real `kali` binary in the suite; that proves the case matches what the binary does today. It does not prove nothing was dropped -- only the source-vs-TOML direction does that, which is what the derived extraction and `check_extra_claims.py` are for.
+#
+# `[source]` KEYS ARE VARIANT-SUFFIXED (U5), ALL 19 OF THEM. The source wrote every one of these programs to `main.ts`, under a fresh temp directory per `#[test]`. `[source]` here is one FILE-WIDE namespace that `expand()` clones into every trial, so 19 programs cannot share one key -- the last body written would win and every other case would silently run the wrong program. Each case's program is keyed by the source `#[test]` fn that wrote it, and that name is what the case passes as argv, so the mapping from trial to source fn survives the deletion of `param_compound_assign.rs`. Every renamed key is declared `# EXTRA-OK:` below: it is a fixture FILENAME surfaced as an argv token, not a claim about behaviour. No program in this file references a sibling filename by string, which is the check U5 actually asks for and which `gen_task19_batch3.check_no_fixture_names_referenced` runs over every fixture body rather than over argv alone.
+#
+# U2 CHECK, RUN RATHER THAN ASSUMED. `[source]` is one flat FILE-WIDE map that `expand()` clones into every trial, so every sibling case's program is present in this case's trial directory too. That is inert here, and the controls were run rather than reasoned about:
+#
+#   * every case names its own program explicitly on argv, exactly as the source did (`kali run <fn-name>.ts`), so a sibling `.ts` in the same directory is never read. Control: `kali run a.ts` in a directory also holding a `b.ts` that fails to compile still prints a.ts's output, rc=0; the same command naming `b.ts` fails, rc=1. The discriminator is argv, and argv is what these cases carry.
+#   * `kali.json` IS auto-discovered as a manifest and would NOT be inert. No fixture in this file is named `kali.json` -- every key is a source `#[test]` fn name with a `.ts` suffix -- and gen_task19_batch3's check_no_manifest_named_fixture asserts it rather than leaving it to inspection. (Tool function names are written unbackticked in this header on purpose: `check_rationale_fn_names.py` reads a backticked fn-shaped token as a citation into the SOURCE, and a generator's own function is not one.)
+#
+# No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the shape U2 exists to stop: every case in this family is a single program run by name.
+#
+# RULE 12 ATTRIBUTION, DERIVED FROM THE SOURCE'S OWN LAYOUT (U6). Every comment in the source is carried, and which rationale it lands in is decided by position rather than per-comment judgement -- `t19b3_extract.prose` implements the split and this generator reads it:
+#
+#   * a comment paragraph (or `///` doc block) INSIDE a `#[test]`'s body, or directly abutting it, goes into THAT case's rationale and no other. U6: over-attribution is forbidden even though it turns `comment_coverage.py` green. The inside-the-body arm is not decoration: an abutting-only predicate filed this batch's in-body comments as file-wide, which is under-attribution, and the shipped predicate checks it first.
+#   * a SECTION BANNER -- a paragraph the source itself brackets with `----` divider lines, or a single line wrapped in them (`---- Finding 2: ... ----`) -- goes into the rationale of every case in its section, the section running from the banner to the next banner or to end of file. That is rule 12's own sentence for prose attached to a section, applied mechanically to the source's own delimiters instead of re-deciding per test which of the following fns a banner "really" means.
+#   * FILE-WIDE prose -- the `//!` module doc and the comments attached to `run_source`/`kali_bin` -- is carried in this `#` header, which is the one place rule 12 puts prose that every case reaches equally.
+#
+# TRAILING comments (U16) are attributed by line to whichever `#[test]` body encloses them. `comment_coverage.py` was blind to that whole shape until Task 19 batch 2 closed it.
+#
+# FILE-WIDE SOURCE PROSE, CARRIED VERBATIM (rule 12). Read out of `param_compound_assign.rs` by `t19b3_extract.prose`, never retyped:
+#
+#   Write `src` to a uniquely-named temp file and `kali run` it. The unique
+#   slug (pid + atomic counter + src length) avoids the concurrent-fixture
+#   collision flake documented for the mandelbrot fixture work.
+#
+# RULING 6 EXEMPTION, APPLIED TO THE HARNESS HELPER'S OWN PROSE. The comments carried in the paragraph above describe how the Rust harness kept its own temp directories from colliding (a pid + atomic-counter slug). The migrated case depends on nothing that helper computed: the case runner gives every trial its own directory, so the helper's job is now the runner's job -- which is ruling 6's own test for the exemption. Carried verbatim here so nothing is dropped (rule 12), and deliberately NOT replicated into every rationale, because attributing harness mechanics to every case is the over-attribution U6 forbids.
+#
+# EXTRA-OK: 'param_compound_minus_equals_in_loop_runs.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'param_compound_plus_equals_runs.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'param_update_increment_runs.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'param_compound_float_runs.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'param_compound_string_runs.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'array_param_compound_still_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'array_param_update_increment_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'array_param_compound_minus_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'object_param_compound_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'string_param_update_increment_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'float_param_update_increment_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'param_compound_indirect_array_call_return_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'param_compound_indirect_array_passthrough_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'param_update_indirect_array_passthrough_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'param_compound_indirect_array_member_expr_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'never_called_param_compound_rejects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'mixed_scalar_and_indirect_edges_reject_param_compound.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'mixed_scalar_and_indirect_array_edges_reject_param_compound.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'all_scalar_edges_still_admit_param_compound.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: '' -- the exact `stdout = ""` pin that `assert!(out.stdout.is_empty())` becomes. The empty string is not a literal anywhere and cannot be; it is the source's own exact claim about the whole of stdout
+#
+# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR [classes: per-case, file-wide]. The checker asks whether every source comment line appears in EVERY case's rationale, and it reports two different things that way:
+#
+#   * PER-CASE ATTRIBUTION (`from N/M cases` lines). A comment attached to one `#[test]` fn belongs in the rationale of the case that fn produced and nowhere else, and a SECTION banner belongs in the rationales of its own section and nowhere else. U6 says so and calls copying all of a file's comments into all of its cases "over-attribution ... forbidden, even though it turns the checker green".
+#   * FILE-WIDE PROSE IN THE HEADER (`from ALL N cases` lines). The source's `//!` module doc, the prose attached to `run_source`/`kali_bin` carried under ruling 6's exemption, and the `----` divider ornament that `comment_coverage.py` counts as a comment line whenever it shares a paragraph with text, all describe the whole file rather than any one case. Rule 12 puts them in this `#` header -- which `comment_coverage.py` deliberately does not read as coverage. Every such line is prose that IS carried, in the one place the rule says it belongs.
+#
+# U6 anticipates the first exactly: "on such a file the checker's false `missing` must be documented in the header instead." That is what this paragraph is. THE CLASS LIST ABOVE IS GATED, not asserted: `gen_task19_batch3.check_gate_declarations` re-runs the checker and requires the classes its output actually contains to match the ones named here. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/param_compound_assign.rs \
+#     crates/kali_cli/tests/cases/misc/param_compound_assign.toml
+#
+# CONSEQUENCE FOR THE GATES -- `check_rationale_fn_names.py` (U8) IS EXPECTED-RED (rc=1) ON THIS PAIR, AND IT CANNOT BE MADE GREEN WITHOUT BREAKING RULE 12. The gate requires every backticked fn-shaped identifier in this file to resolve against the source `.rs`'s own fn list. The ones it cannot resolve here are carried VERBATIM out of the source's own comments -- rule 12 requires the carry, U7 forbids rewording it -- and they are: `emit_update_expression`, `non_scalar_params`.
+#
+# REMEDY: a CLI-family entry in the gate's own known-identifier allowlist. These name items in other crates, in the compiler under test, or in the Rust standard library, which this file's source never declares, so no amount of correct prose resolves them. The pilot flagged the same gap on `nullish/assign_reject.toml` and `misc/growable_array_fail_closed.toml`, and batch 2 on four more.
+#
+# THE NAMES AND THEIR CLASSIFICATION ARE DERIVED, not asserted: `gen_task19_batch3.u8_reason` re-runs the gate, reads back the identifiers it could not explain, and decides for each whether the source DEFINES a JavaScript function of that name inside its own fixture programs. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/check_rationale_fn_names.py \
+#     crates/kali_cli/tests/param_compound_assign.rs \
+#     crates/kali_cli/tests/cases/misc/param_compound_assign.toml
+#
+
+[source]
+"param_compound_minus_equals_in_loop_runs.ts" = "function f(n){var t=0;while(n>0){t=t+1;n-=1;}return t;} console.log(f(4));"
+"param_compound_plus_equals_runs.ts" = "function g(n){var i=0;while(i<3){n+=2;i=i+1;}return n;} console.log(g(10));"
+"param_update_increment_runs.ts" = "function h(n){var i=0;while(i<3){n++;i=i+1;}return n;} console.log(h(0));"
+"param_compound_float_runs.ts" = "function f(x){x+=0.5;return x;} console.log(f(1.5));"
+"param_compound_string_runs.ts" = "function f(s){s+=\"b\";return s;} console.log(f(\"a\"));"
+"array_param_compound_still_rejects.ts" = "function g(a){a+=1;return a;} var xs=[1,2]; console.log(g(xs));"
+"array_param_update_increment_rejects.ts" = "function f(a){a++;return a;} console.log(f([1,2]));"
+"array_param_compound_minus_rejects.ts" = "function f(p){p-=2;return p;} var xs=[5,6]; console.log(f(xs));"
+"object_param_compound_rejects.ts" = "var o={x:1}; function f(p){p+=1;return p;} console.log(f(o));"
+"string_param_update_increment_rejects.ts" = "function f(s){s++;return s;} console.log(f(\"a\"));"
+"float_param_update_increment_rejects.ts" = "function f(x){x++;return x;} console.log(f(1.5));"
+"param_compound_indirect_array_call_return_rejects.ts" = "function g(){return [1,2];} function f(p){p+=1;return p;} console.log(f(g()));"
+"param_compound_indirect_array_passthrough_rejects.ts" = "var xs=[1,2]; function h(p){p+=1;return p;} function f(a){return h(a);} console.log(f(xs));"
+"param_update_indirect_array_passthrough_rejects.ts" = "var xs=[1,2]; function h(p){p++;return p;} function f(a){return h(a);} console.log(f(xs));"
+"param_compound_indirect_array_member_expr_rejects.ts" = "var o={a:[1,2]}; function f(p){p+=1;return p;} console.log(f(o.a));"
+"never_called_param_compound_rejects.ts" = "function f(n){n+=1;return n;} console.log(1);"
+"mixed_scalar_and_indirect_edges_reject_param_compound.ts" = """function g() { return {x:1}; }
+function f(p) { p += 1; return p; }
+f(5);
+console.log(f(g()));
+"""
+"mixed_scalar_and_indirect_array_edges_reject_param_compound.ts" = """function g() { return [1, 2]; }
+function f(p) { p += 1; return p; }
+f(5);
+console.log(f(g()));
+"""
+"all_scalar_edges_still_admit_param_compound.ts" = """function f(p) { p += 1; return p; }
+console.log(f(2 * 3));
+console.log(f(10 + 0));
+"""
+
+[[case]]
+name = "param_compound_minus_equals_in_loop_runs"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `param_compound_minus_equals_in_loop_runs` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+A compound `-=` targeting a PARAMETER (`n`), decremented in a loop — the
+exact shape fasta's `fastaRepeat`/`fastaRandom` use (`n -= lenOut`)."""
+args = ["run", "param_compound_minus_equals_in_loop_runs.ts"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "param_compound_plus_equals_runs"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `param_compound_plus_equals_runs` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+`+=` on a parameter that is also read after (accumulate into the param)."""
+args = ["run", "param_compound_plus_equals_runs.ts"]
+exit = "success"
+stdout = "16\n"
+
+[[case]]
+name = "param_update_increment_runs"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `param_update_increment_runs` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+`n++` (update expression) on a parameter."""
+args = ["run", "param_update_increment_runs.ts"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "param_compound_float_runs"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `param_compound_float_runs` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+`x += 0.5` on a FLOAT parameter — the f64 compound lowering. Pins the
+float lane of the provably-scalar allowlist."""
+args = ["run", "param_compound_float_runs.ts"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "param_compound_string_runs"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `param_compound_string_runs` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+`s += "b"` on a STRING parameter — the string-concat compound lowering.
+Pins the string lane of the provably-scalar allowlist."""
+args = ["run", "param_compound_string_runs.ts"]
+exit = "success"
+stdout = "ab\n"
+
+[[case]]
+name = "array_param_compound_still_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `array_param_compound_still_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+FAIL-CLOSED GUARD: compound-assign on a non-scalar (array) parameter must
+NOT miscompile — it must reject. Marking params mutable only removes the
+mutability barrier; the array repr still has no compound lowering, so this
+must still fail (never silently produce output). The param's array-ness is
+known only from the call-site flow (`g(xs)` where `xs` is an array), tracked
+via the `non_scalar_params` taint the resolve-phase allowlist consults."""
+args = ["run", "array_param_compound_still_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "array_param_update_increment_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `array_param_update_increment_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+`a++` (update expression) on an array parameter passed as a DIRECT array
+literal `f([1, 2])`. node prints `NaN`; kali must reject, not print `1`."""
+args = ["run", "array_param_update_increment_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "array_param_compound_minus_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `array_param_compound_minus_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+`p -= 2` on an array parameter (identifier arg). node prints `NaN`; kali
+must reject, not print `-2`."""
+args = ["run", "array_param_compound_minus_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "object_param_compound_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `object_param_compound_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+`p += 1` on an OBJECT parameter. node prints `[object Object]1`; kali
+previously leaked a raw heap address (`4105`) — it must reject. The object
+argument propagates `Repr::Object` onto the param scalar, which the
+provably-scalar allowlist rejects (it admits only I64/F64/String)."""
+args = ["run", "object_param_compound_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "string_param_update_increment_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `string_param_update_increment_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+`s++` (update expression) on a STRING parameter. node prints `NaN`; the
+compound-gate allowlist admits String (it has a compound `+=` lowering),
+but codegen's update arm (`emit_update_expression`) is I64-only with no
+string lowering — the narrower update-only gate must reject this fail
+closed rather than silently print the untouched string `a`."""
+args = ["run", "string_param_update_increment_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "float_param_update_increment_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `float_param_update_increment_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+`x++` (update expression) on a FLOAT parameter. node prints `2.5`; codegen's
+update arm is I64-only, so pre-narrowing this reached codegen and failed
+late with an ugly E4201 WASM validation error. The narrower update-only
+gate must now reject this as a clean compile-time E5506, not E4201."""
+args = ["run", "float_param_update_increment_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "param_compound_indirect_array_call_return_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `param_compound_indirect_array_call_return_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+POSITIVE-PROOF gate (fasta Spec 6 final-review follow-up). The `non_scalar_params`
+array taint only sees a DIRECT array argument (a bare-identifier array binding
+or a syntactic `[..]`/`new Array`). A param that receives an array through an
+INDIRECT call shape keeps the DEFAULT `I64` repr — indistinguishable from a
+genuine int param — and would pass a repr-only allowlist and miscompile. The
+gate now admits a compound/update param ONLY when interprocedural flow
+POSITIVELY proved it receives a scalar; every indirect array shape below is
+left unproven and rejects. Each reproducer prints a wrong scalar + exit 0 on
+the pre-fix binary (node disagrees); all must reject fail-closed.
+
+Indirect array via CALL RETURN: `f(g())` where `g` returns an array. node
+prints `1,21`; the pre-fix compiler printed `1`."""
+args = ["run", "param_compound_indirect_array_call_return_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "param_compound_indirect_array_passthrough_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `param_compound_indirect_array_passthrough_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+POSITIVE-PROOF gate (fasta Spec 6 final-review follow-up). The `non_scalar_params`
+array taint only sees a DIRECT array argument (a bare-identifier array binding
+or a syntactic `[..]`/`new Array`). A param that receives an array through an
+INDIRECT call shape keeps the DEFAULT `I64` repr — indistinguishable from a
+genuine int param — and would pass a repr-only allowlist and miscompile. The
+gate now admits a compound/update param ONLY when interprocedural flow
+POSITIVELY proved it receives a scalar; every indirect array shape below is
+left unproven and rejects. Each reproducer prints a wrong scalar + exit 0 on
+the pre-fix binary (node disagrees); all must reject fail-closed.
+
+Indirect array via a PASS-THROUGH param chain: `f(xs)` -> `h(a)` with the
+compound on `h`'s param. node prints `1,21`; the pre-fix compiler printed `1`."""
+args = ["run", "param_compound_indirect_array_passthrough_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "param_update_indirect_array_passthrough_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `param_update_indirect_array_passthrough_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+POSITIVE-PROOF gate (fasta Spec 6 final-review follow-up). The `non_scalar_params`
+array taint only sees a DIRECT array argument (a bare-identifier array binding
+or a syntactic `[..]`/`new Array`). A param that receives an array through an
+INDIRECT call shape keeps the DEFAULT `I64` repr — indistinguishable from a
+genuine int param — and would pass a repr-only allowlist and miscompile. The
+gate now admits a compound/update param ONLY when interprocedural flow
+POSITIVELY proved it receives a scalar; every indirect array shape below is
+left unproven and rejects. Each reproducer prints a wrong scalar + exit 0 on
+the pre-fix binary (node disagrees); all must reject fail-closed.
+
+Same pass-through chain but with a `p++` UPDATE. node prints `NaN`; the
+pre-fix compiler printed `1`."""
+args = ["run", "param_update_indirect_array_passthrough_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "param_compound_indirect_array_member_expr_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `param_compound_indirect_array_member_expr_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+POSITIVE-PROOF gate (fasta Spec 6 final-review follow-up). The `non_scalar_params`
+array taint only sees a DIRECT array argument (a bare-identifier array binding
+or a syntactic `[..]`/`new Array`). A param that receives an array through an
+INDIRECT call shape keeps the DEFAULT `I64` repr — indistinguishable from a
+genuine int param — and would pass a repr-only allowlist and miscompile. The
+gate now admits a compound/update param ONLY when interprocedural flow
+POSITIVELY proved it receives a scalar; every indirect array shape below is
+left unproven and rejects. Each reproducer prints a wrong scalar + exit 0 on
+the pre-fix binary (node disagrees); all must reject fail-closed.
+
+Indirect array via a MEMBER-EXPRESSION argument: `f(o.a)` where `o.a` is an
+array. node prints `1,21`; the pre-fix compiler printed a wrong scalar."""
+args = ["run", "param_compound_indirect_array_member_expr_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "never_called_param_compound_rejects"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `never_called_param_compound_rejects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`.
+
+POSITIVE-PROOF gate (fasta Spec 6 final-review follow-up). The `non_scalar_params`
+array taint only sees a DIRECT array argument (a bare-identifier array binding
+or a syntactic `[..]`/`new Array`). A param that receives an array through an
+INDIRECT call shape keeps the DEFAULT `I64` repr — indistinguishable from a
+genuine int param — and would pass a repr-only allowlist and miscompile. The
+gate now admits a compound/update param ONLY when interprocedural flow
+POSITIVELY proved it receives a scalar; every indirect array shape below is
+left unproven and rejects. Each reproducer prints a wrong scalar + exit 0 on
+the pre-fix binary (node disagrees); all must reject fail-closed.
+
+NEVER-CALLED function: its param has NO call-site flow evidence at all, so the
+positive-proof gate cannot prove a scalar and rejects. This is acceptable and
+explicit: pre-branch, an immutable param already rejected any compound/update,
+so no working program regresses. Documents the positive-proof edge case."""
+args = ["run", "never_called_param_compound_rejects.ts"]
+exit = "failure"
+stdout = ""
+
+[[case]]
+name = "mixed_scalar_and_indirect_edges_reject_param_compound"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `mixed_scalar_and_indirect_edges_reject_param_compound` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true. RULE 11 / RULING 17 -- AN OR-SHAPED ASSERTION, RESOLVED BY OBSERVATION. The source's own sentence is carried verbatim: `stderr.contains("E5506") || stderr.contains("not a provably scalar")`. The format has no disjunction, so the OR was resolved against the real binary. Observed on this cell: the stream is stderr and EVERY disjunct holds -- it emits `error[E5506]: compound assignment on binding 'p' is unavailable: it is not a provably scalar number or string (an array or object value has no compound-assignment lowering)`. Ruling 17 therefore applies: among disjuncts universally true on that stream, pin the FIRST IN SOURCE ORDER -- 'E5506' -- and disclose the others, which are 'not a provably scalar'. Pinning all of them would be a rule-2 invention: `A` and `A and B` are both stronger than `A or B`, but they are ordered, so pinning one is the strictly weaker and more faithful strengthening, and the source never asserted the second unconditionally.
+
+POSITIVE-PROOF gate (fasta Spec 6 final-review follow-up). The `non_scalar_params`
+array taint only sees a DIRECT array argument (a bare-identifier array binding
+or a syntactic `[..]`/`new Array`). A param that receives an array through an
+INDIRECT call shape keeps the DEFAULT `I64` repr — indistinguishable from a
+genuine int param — and would pass a repr-only allowlist and miscompile. The
+gate now admits a compound/update param ONLY when interprocedural flow
+POSITIVELY proved it receives a scalar; every indirect array shape below is
+left unproven and rejects. Each reproducer prints a wrong scalar + exit 0 on
+the pre-fix binary (node disagrees); all must reject fail-closed.
+
+Existential-laundering closure (Spec 7 Task 1): a scalar edge at one call
+site must NOT admit a compound assign when ANOTHER edge passes an unproven
+(indirect, non-syntactically-scalar) argument. `g()` is a call-result → the
+`f(g())` edge is a veto → `f`'s `p += 1` must reject fail-closed (E5506),
+even though `f(5)` is a scalar edge. Masked today (indirect delivery gives 0)
+but must be structurally closed."""
+args = ["run", "mixed_scalar_and_indirect_edges_reject_param_compound.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "mixed_scalar_and_indirect_array_edges_reject_param_compound"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `mixed_scalar_and_indirect_array_edges_reject_param_compound` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It also asserts `out.stdout.is_empty()` -- an exact assertion about the whole of stdout -- pinned as `stdout = ""`. RULE 11 / RULING 17 -- AN OR-SHAPED ASSERTION, RESOLVED BY OBSERVATION. The source's own sentence is carried verbatim: `stderr.contains("E5506") || stderr.contains("not a provably scalar")`. The format has no disjunction, so the OR was resolved against the real binary. Observed on this cell: the stream is stderr and EVERY disjunct holds -- it emits `error[E5506]: compound assignment on binding 'p' is unavailable: it is not a provably scalar number or string (an array or object value has no compound-assignment lowering)`. Ruling 17 therefore applies: among disjuncts universally true on that stream, pin the FIRST IN SOURCE ORDER -- 'E5506' -- and disclose the others, which are 'not a provably scalar'. Pinning all of them would be a rule-2 invention: `A` and `A and B` are both stronger than `A or B`, but they are ordered, so pinning one is the strictly weaker and more faithful strengthening, and the source never asserted the second unconditionally.
+
+POSITIVE-PROOF gate (fasta Spec 6 final-review follow-up). The `non_scalar_params`
+array taint only sees a DIRECT array argument (a bare-identifier array binding
+or a syntactic `[..]`/`new Array`). A param that receives an array through an
+INDIRECT call shape keeps the DEFAULT `I64` repr — indistinguishable from a
+genuine int param — and would pass a repr-only allowlist and miscompile. The
+gate now admits a compound/update param ONLY when interprocedural flow
+POSITIVELY proved it receives a scalar; every indirect array shape below is
+left unproven and rejects. Each reproducer prints a wrong scalar + exit 0 on
+the pre-fix binary (node disagrees); all must reject fail-closed.
+
+Same laundering shape but with g() returning an ARRAY. This is the variant
+that actually MISCOMPILED pre-veto (printed `1`, exit 0): the object variant
+above already rejected via Repr::Object return-flow onto the param, but an
+array call-return leaves the param at the default I64 repr, so ONLY the
+∀-veto (the `f(g())` edge is not syntactically scalar → veto) rejects it.
+This test pins the veto itself against a revert."""
+args = ["run", "mixed_scalar_and_indirect_array_edges_reject_param_compound.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "all_scalar_edges_still_admit_param_compound"
+rationale = """Migrated from param_compound_assign.rs, source `#[test]` fn `all_scalar_edges_still_admit_param_compound` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+POSITIVE-PROOF gate (fasta Spec 6 final-review follow-up). The `non_scalar_params`
+array taint only sees a DIRECT array argument (a bare-identifier array binding
+or a syntactic `[..]`/`new Array`). A param that receives an array through an
+INDIRECT call shape keeps the DEFAULT `I64` repr — indistinguishable from a
+genuine int param — and would pass a repr-only allowlist and miscompile. The
+gate now admits a compound/update param ONLY when interprocedural flow
+POSITIVELY proved it receives a scalar; every indirect array shape below is
+left unproven and rejects. Each reproducer prints a wrong scalar + exit 0 on
+the pre-fix binary (node disagrees); all must reject fail-closed.
+
+A purely-scalar call site (fasta's shape: `2*n`, `k+0`) still ADMITS — the
+∀-condition must not over-reject genuine scalar flow."""
+args = ["run", "all_scalar_edges_still_admit_param_compound.ts"]
+exit = "success"
+stdout = "7\n11\n"

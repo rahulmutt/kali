@@ -1,0 +1,448 @@
+# Migrated from tests/runtime_ternary.rs.
+#   SOURCE REF: 020b5c33707052455d68dc44cac72a12e961f6ae
+#
+# Runtime conditional expressions: arm selection, laziness, promotion and string-armed concatenation run, while arm-type conflicts, ternary `.length` and ternary-wrapped runtime-string stores reject.
+#
+# MATRIX DECLINED. 21 source helper invocation(s) == 21 case(s) x 1 -- no axis every case varies over uniformly (rule 7, U1). Every `#[test]` fn in this source runs a DIFFERENT program with a different expectation; there is no extension, command or output-mode axis to fan them over, and inventing one would produce combinations the source never exercised (rule 2). The identity is asserted inside `gen_task19_batch3.arithmetic`, so this sentence cannot state arithmetic that does not close.
+#
+# THE SHAPE THIS FILE WAS MIGRATED FROM, AND WHAT DERIVED ITS CLAIMS. The source declares one helper -- `fn run_source(src: &str) -> std::process::Output` -- which writes a single program to `main.ts` under a fresh temp directory and runs `kali run <path>` on it. Every `#[test]` fn in the file calls it EXACTLY ONCE and constructs no other command, so one `#[test]` fn is one `[[case]]` is one trial (rule 6, one-to-one) and rule 5's split never applies. ("one-to-one", not the arithmetic spelling: `citation_sweep.sh`'s `CITE` reads a backticked construct followed by a colon-digit as a line citation, and batch 2 had to reword the same phrase for the same reason.)
+#
+# The claim set of every case below is DERIVED from the source by `tools/migration/t19b3_extract.py`, not listed by hand, and its shape table is CLOSED: an `assert!`/`assert_eq!` it does not model raises rather than being skipped. That direction is the point -- a forward extractor that silently skips what it does not understand turns a DROPPED claim into a green run. The modelled shapes are exactly:
+#
+#   assert!(out.status.success(), ..)              -> exit = "success"
+#   assert!(!out.status.success(), ..)             -> exit = "failure"
+#   assert_eq!(String::from_utf8_lossy(&out.stdout), <str>)  -> exact `stdout`
+#   assert!(out.stdout.is_empty(), ..)            -> exact `stdout = ""`
+#   assert!(<stderr>.contains(<str>), ..)          -> `stderr_contains`
+#   assert!(<stderr>.contains(A) || <stderr>.contains(B), ..)
+#                                                  -> rule 11 / ruling 17
+#
+# An `assert!`'s second and later arguments are its PANIC MESSAGE, which the program under test never sees; they are not claims and are not migrated. Reproduce the derivation with:
+#
+#   python3 tools/migration/t19b3_extract.py runtime_ternary
+#
+# ASSERTION STRENGTH -- RULING 3, MIRROR THE SOURCE, CLAUSE BY CLAUSE.
+#
+#   * an exact `assert_eq!` on the WHOLE of stdout is an exact source assertion, so it becomes an exact `stdout` pin (clause 1). The pinned text is COPIED out of the source's own literal by `lexer.find_string_literals`; it is not a live capture and this header does not claim it is. Batch 2 shipped a header saying "captured from the real binary, never computed" about values that were in fact copied out of the source, and had to correct it -- the distinction is recorded here so it is not lost again.
+#   * `assert!(out.stdout.is_empty())` is an exact assertion about the whole of stdout, so it becomes `stdout = ""`. That is the same exact-stdout discipline used everywhere else on a taken, verified path, not a rule-2 invention.
+#   * a plain `.contains` against stderr stays `stderr_contains` (clause 3): the field has a substring form, and it is NOT strengthened to an exact pin just because the exact output was observed.
+#   * a test whose only assertion is `!out.status.success()` pins `exit = "failure"` and NOTHING about either stream. The real binary emits a diagnostic on every one of them, and pinning it would be rule 2's exact prohibition: never add an assertion the source did not make merely because it is true.
+#
+# REALISM IS PROVEN SEPARATELY FROM FIDELITY (U9). Every trial in this file runs against the real `kali` binary in the suite; that proves the case matches what the binary does today. It does not prove nothing was dropped -- only the source-vs-TOML direction does that, which is what the derived extraction and `check_extra_claims.py` are for.
+#
+# `[source]` KEYS ARE VARIANT-SUFFIXED (U5), ALL 21 OF THEM. The source wrote every one of these programs to `main.ts`, under a fresh temp directory per `#[test]`. `[source]` here is one FILE-WIDE namespace that `expand()` clones into every trial, so 21 programs cannot share one key -- the last body written would win and every other case would silently run the wrong program. Each case's program is keyed by the source `#[test]` fn that wrote it, and that name is what the case passes as argv, so the mapping from trial to source fn survives the deletion of `runtime_ternary.rs`. Every renamed key is declared `# EXTRA-OK:` below: it is a fixture FILENAME surfaced as an argv token, not a claim about behaviour. No program in this file references a sibling filename by string, which is the check U5 actually asks for and which `gen_task19_batch3.check_no_fixture_names_referenced` runs over every fixture body rather than over argv alone.
+#
+# U2 CHECK, RUN RATHER THAN ASSUMED. `[source]` is one flat FILE-WIDE map that `expand()` clones into every trial, so every sibling case's program is present in this case's trial directory too. That is inert here, and the controls were run rather than reasoned about:
+#
+#   * every case names its own program explicitly on argv, exactly as the source did (`kali run <fn-name>.ts`), so a sibling `.ts` in the same directory is never read. Control: `kali run a.ts` in a directory also holding a `b.ts` that fails to compile still prints a.ts's output, rc=0; the same command naming `b.ts` fails, rc=1. The discriminator is argv, and argv is what these cases carry.
+#   * `kali.json` IS auto-discovered as a manifest and would NOT be inert. No fixture in this file is named `kali.json` -- every key is a source `#[test]` fn name with a `.ts` suffix -- and gen_task19_batch3's check_no_manifest_named_fixture asserts it rather than leaving it to inspection. (Tool function names are written unbackticked in this header on purpose: `check_rationale_fn_names.py` reads a backticked fn-shaped token as a citation into the SOURCE, and a generator's own function is not one.)
+#
+# No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the shape U2 exists to stop: every case in this family is a single program run by name.
+#
+# RULE 12 ATTRIBUTION, DERIVED FROM THE SOURCE'S OWN LAYOUT (U6). Every comment in the source is carried, and which rationale it lands in is decided by position rather than per-comment judgement -- `t19b3_extract.prose` implements the split and this generator reads it:
+#
+#   * a comment paragraph (or `///` doc block) INSIDE a `#[test]`'s body, or directly abutting it, goes into THAT case's rationale and no other. U6: over-attribution is forbidden even though it turns `comment_coverage.py` green. The inside-the-body arm is not decoration: an abutting-only predicate filed this batch's in-body comments as file-wide, which is under-attribution, and the shipped predicate checks it first.
+#   * a SECTION BANNER -- a paragraph the source itself brackets with `----` divider lines, or a single line wrapped in them (`---- Finding 2: ... ----`) -- goes into the rationale of every case in its section, the section running from the banner to the next banner or to end of file. That is rule 12's own sentence for prose attached to a section, applied mechanically to the source's own delimiters instead of re-deciding per test which of the following fns a banner "really" means.
+#   * FILE-WIDE prose -- the `//!` module doc and the comments attached to `run_source`/`kali_bin` -- is carried in this `#` header, which is the one place rule 12 puts prose that every case reaches equally.
+#
+# TRAILING comments (U16) are attributed by line to whichever `#[test]` body encloses them. `comment_coverage.py` was blind to that whole shape until Task 19 batch 2 closed it.
+#
+# FILE-WIDE SOURCE PROSE, CARRIED VERBATIM (rule 12). Read out of `runtime_ternary.rs` by `t19b3_extract.prose`, never retyped:
+#
+#   A per-process AtomicU64 counter makes the slug unique even when two
+#   sources share a length (sharing a length previously collided the dir and
+#   caused macOS CI temp-slug flakes — repo convention is a counter).
+#
+# RULING 6 EXEMPTION, APPLIED TO THE HARNESS HELPER'S OWN PROSE. The comments carried in the paragraph above describe how the Rust harness kept its own temp directories from colliding (a pid + atomic-counter slug). The migrated case depends on nothing that helper computed: the case runner gives every trial its own directory, so the helper's job is now the runner's job -- which is ruling 6's own test for the exemption. Carried verbatim here so nothing is dropped (rule 12), and deliberately NOT replicated into every rationale, because attributing harness mechanics to every case is the over-attribution U6 forbids.
+#
+# EXTRA-OK: 'int_ternary_selects_branch.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'float_ternary_selects_and_prints_float.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'mixed_int_float_arms_promote_to_float.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'string_arms_ternary_prints.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'string_ternary_as_concat_operand_prints.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'string_ternary_equality_compares_content.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'only_taken_arm_evaluates.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'nested_ternary_selects.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'string_and_number_arms_are_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'string_and_float_arms_are_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'length_of_non_ascii_literal_armed_ternary_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'length_of_ascii_armed_ternary_is_rejected_fail_closed.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'length_of_runtime_string_var_armed_ternary_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'storing_tainted_concat_armed_ternary_into_element_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'filling_with_tainted_concat_armed_ternary_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'storing_substring_armed_ternary_into_element_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'storing_all_substring_armed_ternary_into_element_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'filling_with_all_substring_armed_ternary_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'storing_all_substring_armed_ternary_into_field_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'ternary_of_substrings_in_read_position_prints.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'ternary_in_never_called_function_still_compiles.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+#
+# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR [classes: per-case, file-wide]. The checker asks whether every source comment line appears in EVERY case's rationale, and it reports two different things that way:
+#
+#   * PER-CASE ATTRIBUTION (`from N/M cases` lines). A comment attached to one `#[test]` fn belongs in the rationale of the case that fn produced and nowhere else, and a SECTION banner belongs in the rationales of its own section and nowhere else. U6 says so and calls copying all of a file's comments into all of its cases "over-attribution ... forbidden, even though it turns the checker green".
+#   * FILE-WIDE PROSE IN THE HEADER (`from ALL N cases` lines). The source's `//!` module doc, the prose attached to `run_source`/`kali_bin` carried under ruling 6's exemption, and the `----` divider ornament that `comment_coverage.py` counts as a comment line whenever it shares a paragraph with text, all describe the whole file rather than any one case. Rule 12 puts them in this `#` header -- which `comment_coverage.py` deliberately does not read as coverage. Every such line is prose that IS carried, in the one place the rule says it belongs.
+#
+# U6 anticipates the first exactly: "on such a file the checker's false `missing` must be documented in the header instead." That is what this paragraph is. THE CLASS LIST ABOVE IS GATED, not asserted: `gen_task19_batch3.check_gate_declarations` re-runs the checker and requires the classes its output actually contains to match the ones named here. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/runtime_ternary.rs \
+#     crates/kali_cli/tests/cases/runtime/ternary.toml
+#
+# CONSEQUENCE FOR THE GATES -- `check_rationale_fn_names.py` (U8) IS EXPECTED-RED (rc=1) ON THIS PAIR, AND IT CANNOT BE MADE GREEN WITHOUT BREAKING RULE 12. The gate requires every backticked fn-shaped identifier in this file to resolve against the source `.rs`'s own fn list. The ones it cannot resolve here are carried VERBATIM out of the source's own comments -- rule 12 requires the carry, U7 forbids rewording it -- and they are: `ascii`, `emit_as_string`, `expression_is_runtime_string_value`, `expression_is_string_typed`, `expression_repr_is_ascii_string`, `int_to_string`, `is_string_valued`, `operand_repr_is_string`.
+#
+# REMEDY: a CLI-family entry in the gate's own known-identifier allowlist. These name items in other crates, in the compiler under test, or in the Rust standard library, which this file's source never declares, so no amount of correct prose resolves them. The pilot flagged the same gap on `nullish/assign_reject.toml` and `misc/growable_array_fail_closed.toml`, and batch 2 on four more.
+#
+# THE NAMES AND THEIR CLASSIFICATION ARE DERIVED, not asserted: `gen_task19_batch3.u8_reason` re-runs the gate, reads back the identifiers it could not explain, and decides for each whether the source DEFINES a JavaScript function of that name inside its own fixture programs. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/check_rationale_fn_names.py \
+#     crates/kali_cli/tests/runtime_ternary.rs \
+#     crates/kali_cli/tests/cases/runtime/ternary.toml
+#
+
+[source]
+"int_ternary_selects_branch.ts" = """let a = 1;
+console.log(a > 0 ? 10 : 20);
+console.log(a < 0 ? 10 : 20);
+"""
+"float_ternary_selects_and_prints_float.ts" = """let a = 1;
+let x = a > 0 ? 1.5 : 2.5;
+console.log(x);
+"""
+"mixed_int_float_arms_promote_to_float.ts" = """let a = 0;
+let x = a > 0 ? 1.5 : 2;
+console.log(x);
+"""
+"string_arms_ternary_prints.ts" = """let a = 1;
+let s = "x";
+console.log(a > 0 ? s + "1" : s + "2");
+"""
+"string_ternary_as_concat_operand_prints.ts" = """let c = 1;
+let x = "z";
+console.log((c > 0 ? "a" + x : "b" + x) + "!");
+"""
+"string_ternary_equality_compares_content.ts" = """let c = 1;
+let x = "z";
+if ((c > 0 ? "a" + x : "b" + x) == "az") { console.log(1); } else { console.log(2); }
+"""
+"only_taken_arm_evaluates.ts" = """function boom() { console.log(999);
+return 1; }
+let a = 1;
+let x = a > 0 ? 5 : boom();
+console.log(x);
+"""
+"nested_ternary_selects.ts" = """let a = 2;
+console.log(a == 1 ? 10 : a == 2 ? 20 : 30);
+"""
+"string_and_number_arms_are_rejected.ts" = """let a = 1;
+let s = "x";
+let v = a > 0 ? s : 5;
+console.log(v);
+"""
+"string_and_float_arms_are_rejected.ts" = """let a = 1;
+let s = "x";
+console.log(a > 0 ? s + "!" : 1.5);
+"""
+"length_of_non_ascii_literal_armed_ternary_is_rejected.ts" = """let c = 1;
+console.log((c > 0 ? "héllo" : "x").length);
+"""
+"length_of_ascii_armed_ternary_is_rejected_fail_closed.ts" = """let c = 1;
+console.log((c > 0 ? "abcd" : "wx").length);
+"""
+"length_of_runtime_string_var_armed_ternary_is_rejected.ts" = """let c = 1;
+let a = "héllo";
+let b = "x";
+console.log((c > 0 ? a : b).length);
+"""
+"storing_tainted_concat_armed_ternary_into_element_is_rejected.ts" = """let c = 1;
+let x = "x";
+let t = x + "y";
+let arr = [0];
+arr[0] = c > 0 ? t : t;
+console.log(arr[0]);
+"""
+"filling_with_tainted_concat_armed_ternary_is_rejected.ts" = """let c = 1;
+let x = "x";
+let t = x + "y";
+let a = [0, 0];
+a.fill(c > 0 ? t : t);
+console.log(a[0]);
+"""
+"storing_substring_armed_ternary_into_element_is_rejected.ts" = """let a2 = "GGCC";
+let i = 1;
+let arr2 = [0];
+arr2[0] = i > 0 ? a2.substring(0, i) : a2;
+console.log(arr2[0]);
+"""
+"storing_all_substring_armed_ternary_into_element_is_rejected.ts" = """let a = "GGCC";
+let i = 1;
+let arr = [0];
+arr[0] = i > 0 ? a.substring(0, i) : a.substring(i);
+console.log(arr[0]);
+"""
+"filling_with_all_substring_armed_ternary_is_rejected.ts" = """let a = "GGCC";
+let i = 1;
+let arr = [0];
+arr.fill(i > 0 ? a.substring(0, i) : a.substring(i));
+console.log(arr[0]);
+"""
+"storing_all_substring_armed_ternary_into_field_is_rejected.ts" = """let a = "GGCC";
+let i = 1;
+let o = { v: 1 };
+o.v = i > 0 ? a.substring(0, i) : a.substring(i);
+console.log(o.v);
+"""
+"ternary_of_substrings_in_read_position_prints.ts" = """let a = "abcd";
+let c = 1;
+let i = 1;
+console.log(c > 0 ? a.substring(i) : a.substring(0, i));
+"""
+"ternary_in_never_called_function_still_compiles.ts" = """function unused(a) { return a > 0 ? 1 : 2; }
+console.log(7);
+"""
+
+[[case]]
+name = "int_ternary_selects_branch"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `int_ternary_selects_branch` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "int_ternary_selects_branch.ts"]
+exit = "success"
+stdout = "10\n20\n"
+
+[[case]]
+name = "float_ternary_selects_and_prints_float"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `float_ternary_selects_and_prints_float` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "float_ternary_selects_and_prints_float.ts"]
+exit = "success"
+stdout = "1.5\n"
+
+[[case]]
+name = "mixed_int_float_arms_promote_to_float"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `mixed_int_float_arms_promote_to_float` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "mixed_int_float_arms_promote_to_float.ts"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "string_arms_ternary_prints"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `string_arms_ternary_prints` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "string_arms_ternary_prints.ts"]
+exit = "success"
+stdout = "x1\n"
+
+[[case]]
+name = "string_ternary_as_concat_operand_prints"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `string_ternary_as_concat_operand_prints` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+Handle-leak pin: a string-armed ternary used as a `+` operand must be
+concatenated as a STRING. Without a ternary arm in `is_string_valued`,
+`emit_as_string` misclassifies the ternary as numeric and routes its
+tagged handle through `int_to_string` — printing the raw handle bits
+(e.g. "-9223354375949254654!") with exit 0 and no diagnostic."""
+args = ["run", "string_ternary_as_concat_operand_prints.ts"]
+exit = "success"
+stdout = "az!\n"
+
+[[case]]
+name = "string_ternary_equality_compares_content"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `string_ternary_equality_compares_content` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+RE-PIN (throw-fallout Stage 1): `==` on a string-armed ternary is now
+content equality via `__streq` — the taken arm "a"+"z" equals "az"
+(node: prints 1). Pre-Stage-1 this was the fail-closed E3200 reject
+(and before THAT, a silent wrong-branch handle compare)."""
+args = ["run", "string_ternary_equality_compares_content.ts"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "only_taken_arm_evaluates"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `only_taken_arm_evaluates` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+Laziness pin: the untaken arm's side effect must not run.
+
+ADAPTED from the brief's module-`let` mutation form (`let n = 0; function
+inc() { n = n + 1; ... }`). That form is rejected by a PRE-EXISTING E5506
+gate on module-binding read/write from a function — it fails to compile
+even when `inc` is called directly, so it is unrelated to the ternary and
+was never a valid RED/GREEN target. The laziness property the brief means
+to pin is preserved here with a compilable observable side effect: the
+untaken arm calls `boom()`, whose `console.log(999)` must NOT appear. If
+both arms evaluated, stdout would be "999\\n5\\n"; only the taken arm gives
+"5\\n"."""
+args = ["run", "only_taken_arm_evaluates.ts"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "nested_ternary_selects"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `nested_ternary_selects` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "nested_ternary_selects.ts"]
+exit = "success"
+stdout = "20\n"
+
+[[case]]
+name = "string_and_number_arms_are_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `string_and_number_arms_are_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Repr conflict (merge_nodes) or codegen guard — either way: no compile."""
+args = ["run", "string_and_number_arms_are_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "string_and_float_arms_are_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `string_and_float_arms_are_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+A float-typed result block would promote a handle to f64 — reject."""
+args = ["run", "string_and_float_arms_are_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "length_of_non_ascii_literal_armed_ternary_is_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `length_of_non_ascii_literal_armed_ternary_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Final-review CRITICAL 1: codegen's `is_string_valued` ternary arm outran
+the types-side string predicates (all ternary-blind), so the `.length`
+gate never classified a ternary receiver as a string and codegen emitted
+`handle & 0xFFFF_FFFF` (a BYTE count: HEAD printed 6, node 5). The types
+predicates now carry a ConditionalExpression arm; a non-ASCII-armed
+ternary `.length` fails closed. `expression_repr_is_ascii_string` stays
+ternary-blind, so EVERY string-armed ternary `.length` rejects."""
+args = ["run", "length_of_non_ascii_literal_armed_ternary_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "length_of_ascii_armed_ternary_is_rejected_fail_closed"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `length_of_ascii_armed_ternary_is_rejected_fail_closed` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Decision pin: `expression_repr_is_ascii_string` stays ternary-blind, so
+even an ALL-ASCII-armed ternary `.length` rejects as unprovable-ASCII
+(fail-closed, never fail-open) rather than becoming a supported shape.
+If a precise `ascii(cons) && ascii(alt)` arm is added later, this pin
+flips to a green per-arm-length expectation."""
+args = ["run", "length_of_ascii_armed_ternary_is_rejected_fail_closed.ts"]
+exit = "failure"
+
+[[case]]
+name = "length_of_runtime_string_var_armed_ternary_is_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `length_of_runtime_string_var_armed_ternary_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+CRITICAL 1 through runtime string variables: both arms are non-ASCII
+runtime string bindings. Same fail-closed rejection."""
+args = ["run", "length_of_runtime_string_var_armed_ternary_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "storing_tainted_concat_armed_ternary_into_element_is_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `storing_tainted_concat_armed_ternary_into_element_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Final-review CRITICAL 2: the F1 store gate was bypassed by a ternary
+wrapping a runtime string. `t` is a tainted concat; the ternary must be
+classified as a runtime string value so the element store fails closed
+(HEAD compiled silently and printed 0; node prints the string)."""
+args = ["run", "storing_tainted_concat_armed_ternary_into_element_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "filling_with_tainted_concat_armed_ternary_is_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `filling_with_tainted_concat_armed_ternary_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+CRITICAL 2 via Array.prototype.fill."""
+args = ["run", "filling_with_tainted_concat_armed_ternary_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "storing_substring_armed_ternary_into_element_is_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `storing_substring_armed_ternary_into_element_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+CRITICAL 2: one arm is a runtime substring slice; the store must reject."""
+args = ["run", "storing_substring_armed_ternary_into_element_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "storing_all_substring_armed_ternary_into_element_is_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `storing_all_substring_armed_ternary_into_element_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Re-review residual Critical: when EVERY arm is a substring member-call,
+neither `expression_is_string_typed` nor `operand_repr_is_string`
+recognizes the arms (no member-call arm in either), so only
+`expression_is_runtime_string_value`'s own ternary recursion reaches its
+substring fallthrough. Pre-fix this compiled silently and printed 0."""
+args = ["run", "storing_all_substring_armed_ternary_into_element_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "filling_with_all_substring_armed_ternary_is_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `filling_with_all_substring_armed_ternary_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Same residual Critical via Array.prototype.fill (pre-fix: printed 0)."""
+args = ["run", "filling_with_all_substring_armed_ternary_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "storing_all_substring_armed_ternary_into_field_is_rejected"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `storing_all_substring_armed_ternary_into_field_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Same residual Critical via an object-field store. Pre-fix the field lane
+happened to print the right value, but the design (§7 row 5) mandates a
+compile error — the gate must fire, not rely on luck."""
+args = ["run", "storing_all_substring_armed_ternary_into_field_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "ternary_of_substrings_in_read_position_prints"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `ternary_of_substrings_in_read_position_prints` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+MUST-STAY-GREEN companion (reviewer's p20): a ternary of substring calls
+in READ position (console.log) is supported — the store/fill gates must
+not leak into read positions."""
+args = ["run", "ternary_of_substrings_in_read_position_prints.ts"]
+exit = "success"
+stdout = "bcd\n"
+
+[[case]]
+name = "ternary_in_never_called_function_still_compiles"
+rationale = """Migrated from runtime_ternary.rs, source `#[test]` fn `ternary_in_never_called_function_still_compiles` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "ternary_in_never_called_function_still_compiles.ts"]
+exit = "success"
+stdout = "7\n"

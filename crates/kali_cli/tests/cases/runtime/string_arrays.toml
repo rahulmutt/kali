@@ -1,0 +1,344 @@
+# Migrated from tests/runtime_string_arrays.rs.
+#   SOURCE REF: 020b5c33707052455d68dc44cac72a12e961f6ae
+#
+# Runtime String-element arrays: element stores, reads, `.length`, `.substring` and reallocation work, while every non-structural store target and every mixed-element shape rejects.
+#
+# MATRIX DECLINED. 14 source helper invocation(s) == 14 case(s) x 1 -- no axis every case varies over uniformly (rule 7, U1). Every `#[test]` fn in this source runs a DIFFERENT program with a different expectation; there is no extension, command or output-mode axis to fan them over, and inventing one would produce combinations the source never exercised (rule 2). The identity is asserted inside `gen_task19_batch3.arithmetic`, so this sentence cannot state arithmetic that does not close.
+#
+# THE SHAPE THIS FILE WAS MIGRATED FROM, AND WHAT DERIVED ITS CLAIMS. The source declares one helper -- `fn run_source(src: &str) -> std::process::Output` -- which writes a single program to `main.ts` under a fresh temp directory and runs `kali run <path>` on it. Every `#[test]` fn in the file calls it EXACTLY ONCE and constructs no other command, so one `#[test]` fn is one `[[case]]` is one trial (rule 6, one-to-one) and rule 5's split never applies. ("one-to-one", not the arithmetic spelling: `citation_sweep.sh`'s `CITE` reads a backticked construct followed by a colon-digit as a line citation, and batch 2 had to reword the same phrase for the same reason.)
+#
+# The claim set of every case below is DERIVED from the source by `tools/migration/t19b3_extract.py`, not listed by hand, and its shape table is CLOSED: an `assert!`/`assert_eq!` it does not model raises rather than being skipped. That direction is the point -- a forward extractor that silently skips what it does not understand turns a DROPPED claim into a green run. The modelled shapes are exactly:
+#
+#   assert!(out.status.success(), ..)              -> exit = "success"
+#   assert!(!out.status.success(), ..)             -> exit = "failure"
+#   assert_eq!(String::from_utf8_lossy(&out.stdout), <str>)  -> exact `stdout`
+#   assert!(out.stdout.is_empty(), ..)            -> exact `stdout = ""`
+#   assert!(<stderr>.contains(<str>), ..)          -> `stderr_contains`
+#   assert!(<stderr>.contains(A) || <stderr>.contains(B), ..)
+#                                                  -> rule 11 / ruling 17
+#
+# An `assert!`'s second and later arguments are its PANIC MESSAGE, which the program under test never sees; they are not claims and are not migrated. Reproduce the derivation with:
+#
+#   python3 tools/migration/t19b3_extract.py runtime_string_arrays
+#
+# ASSERTION STRENGTH -- RULING 3, MIRROR THE SOURCE, CLAUSE BY CLAUSE.
+#
+#   * an exact `assert_eq!` on the WHOLE of stdout is an exact source assertion, so it becomes an exact `stdout` pin (clause 1). The pinned text is COPIED out of the source's own literal by `lexer.find_string_literals`; it is not a live capture and this header does not claim it is. Batch 2 shipped a header saying "captured from the real binary, never computed" about values that were in fact copied out of the source, and had to correct it -- the distinction is recorded here so it is not lost again.
+#   * `assert!(out.stdout.is_empty())` is an exact assertion about the whole of stdout, so it becomes `stdout = ""`. That is the same exact-stdout discipline used everywhere else on a taken, verified path, not a rule-2 invention.
+#   * a plain `.contains` against stderr stays `stderr_contains` (clause 3): the field has a substring form, and it is NOT strengthened to an exact pin just because the exact output was observed.
+#   * a test whose only assertion is `!out.status.success()` pins `exit = "failure"` and NOTHING about either stream. The real binary emits a diagnostic on every one of them, and pinning it would be rule 2's exact prohibition: never add an assertion the source did not make merely because it is true.
+#
+# REALISM IS PROVEN SEPARATELY FROM FIDELITY (U9). Every trial in this file runs against the real `kali` binary in the suite; that proves the case matches what the binary does today. It does not prove nothing was dropped -- only the source-vs-TOML direction does that, which is what the derived extraction and `check_extra_claims.py` are for.
+#
+# `[source]` KEYS ARE VARIANT-SUFFIXED (U5), ALL 14 OF THEM. The source wrote every one of these programs to `main.ts`, under a fresh temp directory per `#[test]`. `[source]` here is one FILE-WIDE namespace that `expand()` clones into every trial, so 14 programs cannot share one key -- the last body written would win and every other case would silently run the wrong program. Each case's program is keyed by the source `#[test]` fn that wrote it, and that name is what the case passes as argv, so the mapping from trial to source fn survives the deletion of `runtime_string_arrays.rs`. Every renamed key is declared `# EXTRA-OK:` below: it is a fixture FILENAME surfaced as an argv token, not a claim about behaviour. No program in this file references a sibling filename by string, which is the check U5 actually asks for and which `gen_task19_batch3.check_no_fixture_names_referenced` runs over every fixture body rather than over argv alone.
+#
+# U2 CHECK, RUN RATHER THAN ASSUMED. `[source]` is one flat FILE-WIDE map that `expand()` clones into every trial, so every sibling case's program is present in this case's trial directory too. That is inert here, and the controls were run rather than reasoned about:
+#
+#   * every case names its own program explicitly on argv, exactly as the source did (`kali run <fn-name>.ts`), so a sibling `.ts` in the same directory is never read. Control: `kali run a.ts` in a directory also holding a `b.ts` that fails to compile still prints a.ts's output, rc=0; the same command naming `b.ts` fails, rc=1. The discriminator is argv, and argv is what these cases carry.
+#   * `kali.json` IS auto-discovered as a manifest and would NOT be inert. No fixture in this file is named `kali.json` -- every key is a source `#[test]` fn name with a `.ts` suffix -- and gen_task19_batch3's check_no_manifest_named_fixture asserts it rather than leaving it to inspection. (Tool function names are written unbackticked in this header on purpose: `check_rationale_fn_names.py` reads a backticked fn-shaped token as a citation into the SOURCE, and a generator's own function is not one.)
+#
+# No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the shape U2 exists to stop: every case in this family is a single program run by name.
+#
+# RULE 12 ATTRIBUTION, DERIVED FROM THE SOURCE'S OWN LAYOUT (U6). Every comment in the source is carried, and which rationale it lands in is decided by position rather than per-comment judgement -- `t19b3_extract.prose` implements the split and this generator reads it:
+#
+#   * a comment paragraph (or `///` doc block) INSIDE a `#[test]`'s body, or directly abutting it, goes into THAT case's rationale and no other. U6: over-attribution is forbidden even though it turns `comment_coverage.py` green. The inside-the-body arm is not decoration: an abutting-only predicate filed this batch's in-body comments as file-wide, which is under-attribution, and the shipped predicate checks it first.
+#   * a SECTION BANNER -- a paragraph the source itself brackets with `----` divider lines, or a single line wrapped in them (`---- Finding 2: ... ----`) -- goes into the rationale of every case in its section, the section running from the banner to the next banner or to end of file. That is rule 12's own sentence for prose attached to a section, applied mechanically to the source's own delimiters instead of re-deciding per test which of the following fns a banner "really" means.
+#   * FILE-WIDE prose -- the `//!` module doc and the comments attached to `run_source`/`kali_bin` -- is carried in this `#` header, which is the one place rule 12 puts prose that every case reaches equally.
+#
+# TRAILING comments (U16) are attributed by line to whichever `#[test]` body encloses them. `comment_coverage.py` was blind to that whole shape until Task 19 batch 2 closed it.
+#
+# EXTRA-OK: 'string_element_store_and_read_roundtrip.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'string_element_read_feeds_length_and_substring.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'interned_literal_element_identity_equality_stays_green.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'tainted_element_equality_compares_content.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'mixed_element_array_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'object_field_string_store_still_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'non_ascii_element_length_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'array_alloc_reassignment_int_elements.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'array_alloc_reassignment_string_elements.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'array_to_array_binding_copy.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'scalar_reassignment_of_array_binding_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'string_store_into_call_result_captor_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'reassigning_array_binding_to_literal_array_binding_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+# EXTRA-OK: 'element_read_of_returned_string_array_is_rejected.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program, not a claim about behaviour
+#
+# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR [classes: per-case, file-wide]. The checker asks whether every source comment line appears in EVERY case's rationale, and it reports two different things that way:
+#
+#   * PER-CASE ATTRIBUTION (`from N/M cases` lines). A comment attached to one `#[test]` fn belongs in the rationale of the case that fn produced and nowhere else, and a SECTION banner belongs in the rationales of its own section and nowhere else. U6 says so and calls copying all of a file's comments into all of its cases "over-attribution ... forbidden, even though it turns the checker green".
+#   * FILE-WIDE PROSE IN THE HEADER (`from ALL N cases` lines). The source's `//!` module doc, the prose attached to `run_source`/`kali_bin` carried under ruling 6's exemption, and the `----` divider ornament that `comment_coverage.py` counts as a comment line whenever it shares a paragraph with text, all describe the whole file rather than any one case. Rule 12 puts them in this `#` header -- which `comment_coverage.py` deliberately does not read as coverage. Every such line is prose that IS carried, in the one place the rule says it belongs.
+#
+# U6 anticipates the first exactly: "on such a file the checker's false `missing` must be documented in the header instead." That is what this paragraph is. THE CLASS LIST ABOVE IS GATED, not asserted: `gen_task19_batch3.check_gate_declarations` re-runs the checker and requires the classes its output actually contains to match the ones named here. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/runtime_string_arrays.rs \
+#     crates/kali_cli/tests/cases/runtime/string_arrays.toml
+#
+
+[source]
+"string_element_store_and_read_roundtrip.ts" = """function f(s) {
+  const a = new Array(2);
+  a[0] = s.substring(0, 2);
+  a[1] = "!";
+  console.log(a[0]);
+  console.log(a[0] + a[1]);
+}
+f("hey");
+"""
+"string_element_read_feeds_length_and_substring.ts" = """function f(s) {
+  const a = new Array(1);
+  a[0] = s.substring(0, 2);
+  console.log(a[0].length);
+  console.log(a[0].substring(1, 2));
+}
+f("hey");
+"""
+"interned_literal_element_identity_equality_stays_green.ts" = """const a = new Array(1);
+a[0] = "x";
+if (a[0] == "x") {
+  console.log(7);
+}
+"""
+"tainted_element_equality_compares_content.ts" = """function f(s) {
+  const a = new Array(1);
+  a[0] = s + "y";
+  if (a[0] == "xy") {
+    console.log(1);
+  }
+}
+f("x");
+"""
+"mixed_element_array_is_rejected.ts" = """const a = new Array(2);
+a[0] = "x";
+a[1] = 1;
+console.log(a[0]);
+"""
+"object_field_string_store_still_rejected.ts" = """function f(s) {
+  const o = { v: 0 };
+  o.v = s;
+}
+f("x");
+"""
+"non_ascii_element_length_is_rejected.ts" = """const a = new Array(1);
+a[0] = "héllo";
+console.log(a[0].length);
+"""
+"array_alloc_reassignment_int_elements.ts" = """function g(n) {
+  let a = new Array(60);
+  if (n < 60) {
+    a = new Array(n);
+  }
+  for (let i = 0; i < a.length; i = i + 1) {
+    a[i] = i * 10;
+  }
+  console.log(a[1]);
+  console.log(a.length);
+}
+g(3);
+"""
+"array_alloc_reassignment_string_elements.ts" = """function g(n, s) {
+  let a = new Array(4);
+  if (n < 4) {
+    a = new Array(n);
+  }
+  for (let i = 0; i < a.length; i = i + 1) {
+    a[i] = s.substring(0, 1);
+  }
+  console.log(a[0] + a[1]);
+  console.log(a.length);
+}
+g(2, "xy");
+"""
+"array_to_array_binding_copy.ts" = """function g() {
+  const b = new Array(2);
+  b[0] = 5;
+  b[1] = 6;
+  let a = new Array(1);
+  a = b;
+  console.log(a[1]);
+  console.log(a.length);
+}
+g();
+"""
+"scalar_reassignment_of_array_binding_is_rejected.ts" = """let a = new Array(2);
+a[0] = 1;
+a = 5;
+console.log(a[0]);
+"""
+"string_store_into_call_result_captor_is_rejected.ts" = """function mk() {
+  return new Array(2);
+}
+function f(s) {
+  const c = mk();
+  c[0] = s.substring(0, 1);
+  console.log(c[0]);
+}
+f("xy");
+"""
+"reassigning_array_binding_to_literal_array_binding_is_rejected.ts" = """let b = [7, 8];
+let a = new Array(2);
+a = b;
+console.log(a[0]);
+"""
+"element_read_of_returned_string_array_is_rejected.ts" = """function mk(s) {
+  const a = new Array(2);
+  a[0] = s.substring(0, 1);
+  a[1] = s.substring(1, 2);
+  return a;
+}
+function f(s) {
+  const c = mk(s);
+  console.log(c[0]);
+}
+f("xy");
+"""
+
+[[case]]
+name = "string_element_store_and_read_roundtrip"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `string_element_store_and_read_roundtrip` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "string_element_store_and_read_roundtrip.ts"]
+exit = "success"
+stdout = "he\nhe!\n"
+
+[[case]]
+name = "string_element_read_feeds_length_and_substring"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `string_element_read_feeds_length_and_substring` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "string_element_read_feeds_length_and_substring.ts"]
+exit = "success"
+stdout = "2\ne\n"
+
+[[case]]
+name = "interned_literal_element_identity_equality_stays_green"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `interned_literal_element_identity_equality_stays_green` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "interned_literal_element_identity_equality_stays_green.ts"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "tainted_element_equality_compares_content"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `tainted_element_equality_compares_content` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+RE-PIN (throw-fallout Stage 1): a concat-tainted element read now
+compares by content via `__streq` (node: prints 1)."""
+args = ["run", "tainted_element_equality_compares_content.ts"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "mixed_element_array_is_rejected"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `mixed_element_array_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true."""
+args = ["run", "mixed_element_array_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "object_field_string_store_still_rejected"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `object_field_string_store_still_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true."""
+args = ["run", "object_field_string_store_still_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "non_ascii_element_length_is_rejected"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `non_ascii_element_length_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true."""
+args = ["run", "non_ascii_element_length_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "array_alloc_reassignment_int_elements"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `array_alloc_reassignment_int_elements` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured.
+
+fastaRandom's partial-last-line shape; silent-wrong 0 on main 745a3ecea."""
+args = ["run", "array_alloc_reassignment_int_elements.ts"]
+exit = "success"
+stdout = "10\n3\n"
+
+[[case]]
+name = "array_alloc_reassignment_string_elements"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `array_alloc_reassignment_string_elements` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "array_alloc_reassignment_string_elements.ts"]
+exit = "success"
+stdout = "xx\n2\n"
+
+[[case]]
+name = "array_to_array_binding_copy"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `array_to_array_binding_copy` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `assert_eq!` on the whole of stdout is an exact source assertion, so it becomes an exact `stdout` pin (ruling 3 clause 1); the value is COPIED out of that literal, not retyped and not captured."""
+args = ["run", "array_to_array_binding_copy.ts"]
+exit = "success"
+stdout = "6\n2\n"
+
+[[case]]
+name = "scalar_reassignment_of_array_binding_is_rejected"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `scalar_reassignment_of_array_binding_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true."""
+args = ["run", "scalar_reassignment_of_array_binding_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "string_store_into_call_result_captor_is_rejected"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `string_store_into_call_result_captor_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Final-review fix round: structural runtime-array registry (C1) + literal-
+array reassignment gate (I1) + String-element-array return conflict (I2).
+Each shape below was silent (printed "0", exit 0) at pre-fix HEAD.
+
+p32: `const c = mk()` captures a returned `new Array(2)`; codegen never
+registers `c` in `f`, so `c[0] = s.substring(...)` had no element-store
+lowering and `c[0]` read back a silent `0`. Non-structural store target
+-> reject (fail-closed)."""
+args = ["run", "string_store_into_call_result_captor_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "reassigning_array_binding_to_literal_array_binding_is_rejected"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `reassigning_array_binding_to_literal_array_binding_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Final-review fix round: structural runtime-array registry (C1) + literal-
+array reassignment gate (I1) + String-element-array return conflict (I2).
+Each shape below was silent (printed "0", exit 0) at pre-fix HEAD.
+
+p13 (I1): `a = b` where `b` is a literal-array binding. codegen cannot
+copy a literal array into a runtime buffer, so it clobbered `a`'s handle
+with `0` (node prints 7). rhs_is_array_shape now requires `b` to be a
+STRUCTURAL runtime array -> a literal-array copy source rejects."""
+args = ["run", "reassigning_array_binding_to_literal_array_binding_is_rejected.ts"]
+exit = "failure"
+
+[[case]]
+name = "element_read_of_returned_string_array_is_rejected"
+rationale = """Migrated from runtime_string_arrays.rs, source `#[test]` fn `element_read_of_returned_string_array_is_rejected` -- one `[[case]]` per source `#[test]` fn (rule 6), and the `[source]` key is that fn's name so the mapping survives the source's deletion.
+
+The source asserts `!out.status.success()`, pinned as `exit = "failure"`. It makes no claim about either stream, so none is written: the trial does emit a diagnostic, and pinning it would be rule 2's exact prohibition against adding an assertion merely because it is true.
+
+Final-review fix round: structural runtime-array registry (C1) + literal-
+array reassignment gate (I1) + String-element-array return conflict (I2).
+Each shape below was silent (printed "0", exit 0) at pre-fix HEAD.
+
+p15b (I2): `const c = mk(s); c[0]` captures a returned String-element
+array. No gate consults element READS, so C1 alone does not close it;
+repr_infer now fail-closes the RETURN of a String-element array at its
+choke point (mk's `return a`), rejecting the whole captor family."""
+args = ["run", "element_read_of_returned_string_array_is_rejected.ts"]
+exit = "failure"

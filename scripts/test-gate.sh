@@ -111,6 +111,27 @@ run_gates() {
         # cross-check that closes the `runtime_monomorphize` masquerade, with
         # its own known positive. All of that was re-run by whoever remembered.
         "python3 $REPO/tools/migration/screen_candidates.py --selftest"
+        # ADDED BY TASK 19 BATCH 3, for the reason the batch-2 entry above gives
+        # and one more. Its default mode is the CHECK direction: it re-renders
+        # all 7 of that batch's case files -- 123 cases, one per source `#[test]`
+        # fn -- from their spec and requires each to be byte-identical to what is
+        # shipped, and requires every `EXPECTED-RED (rc=N)` paragraph to AGREE
+        # with the gate it names (ruling 18 #3).
+        #
+        # The extra reason: batch 3's fidelity argument is that
+        # `t19b3_extract.claims_of` RAISES on an assertion shape it does not
+        # model rather than skipping it, so every claim in those 123 cases is
+        # derived rather than hand-listed. That guarantee is only worth
+        # anything while something re-runs the derivation against the sources --
+        # which is what this line is. A source that grows an assertion shape the
+        # extractor cannot model now fails HERE.
+        #
+        # This takes the gate set from 11 to 12. Batch 3's brief asked for
+        # `--gates-only` 11/11 AND for the batch's generator to be wired into
+        # the lane; those two are not simultaneously satisfiable, and the batch
+        # took the wiring, which is the requirement about its own work. The
+        # arithmetic is 11 + 1 = 12 and is stated in that batch's report.
+        "python3 $REPO/tools/migration/gen_task19_batch3.py"
     )
     for g in "${gates[@]}"; do
         printf '\n=== MIGRATION GATE: %s ===\n' "$g"
