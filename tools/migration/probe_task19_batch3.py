@@ -253,11 +253,23 @@ def section2():
 
 
 def section3(rows):
-    """Poison EVERY occurrence, and re-ask arm A. rc=1 there means the single-site
-    miss was a declination; rc=0 means a genuine blind spot."""
-    print("\nSECTION 3 -- declination or blind spot: poison every occurrence")
+    """Poison EVERY OCCURRENCE, and re-ask arm A.
+
+    "Every occurrence" means every place the literal appears in the case file,
+    INCLUDING inside a longer pin -- not just the sites that spell it as a whole
+    value. That distinction is the whole discriminator and getting it wrong
+    manufactures a blind spot out of a declination: `runtime/substring_length`'s
+    `"CCAA\\n"` occurs once as a whole `stdout` value and twice more inside
+    `"CCAA\\nGGC\\nAATT\\n"` and `"TTGGCCAA\\n"`, so poisoning only the first
+    leaves the audit's SUBSTRING coverage arm satisfied by the other two -- a
+    coverage tool behaving exactly correctly. rc=1 after poisoning all of them
+    means the single-site miss was a declination; rc=0 means the audit has no
+    claim for that value at all.
+    """
+    print("\nSECTION 3 -- declination or blind spot: poison EVERY occurrence, "
+          "substrings of longer pins included")
     out = []
-    for (pair, name, key, a, _b, _c) in rows:
+    for (pair, _name, _key, a, _b, _c) in rows:
         family, toml = pair.split("/")
         stem = next(s for f, t, s, _x in FILES if (f, t) == (family, toml))
         toml_path = os.path.join(CASES, family, toml + ".toml")
@@ -266,18 +278,168 @@ def section3(rows):
         poisoned = _poison_value(value)
         spelled = toml_string(value, multiline=False)[1:-1]
         spelled_bad = toml_string(poisoned, multiline=False)[1:-1]
-        sites = original.count(f'= "{spelled}"')
+        sites = original.count(spelled)
         try:
             with open(toml_path, "w") as fh:
-                fh.write(original.replace(f'= "{spelled}"', f'= "{spelled_bad}"'))
+                fh.write(original.replace(spelled, spelled_bad))
             rc = _audit(stem, toml_path)
         finally:
             with open(toml_path, "w") as fh:
                 fh.write(original)
-        verdict = ("declination" if rc else "BLIND SPOT") if not a else "arm A already fired"
+        verdict = ("arm A already fired on one site" if a
+                   else ("declination" if rc else "BLIND SPOT"))
         out.append((pair, sites, rc, verdict))
-        print(f"  {pair:<32} sites={sites:<3} all-poisoned audit rc={rc}  {verdict}")
+        print(f"  {pair:<32} occurrences={sites:<3} all-poisoned audit rc={rc}  "
+              f"{verdict}")
     return out
+
+
+def _poisonable(text, name, s, e):
+    """The claim this case is probed on, and how to poison it.
+
+    Priority is fixed rather than chosen per case: an exact `stdout` pin with a
+    poisonable character, then a `stderr_contains` needle, then the empty-stdout
+    pin, then the exit status. Every case in this family has at least one, which
+    is why section 4 can be exhaustive.
+    """
+    block = text[s:e]
+    m = re.search(r'^stdout = (".*")$', block, re.M)
+    if m:
+        raw = m.group(1)
+        value = re.sub(r'\\n', '\n', raw[1:-1]).replace('\\"', '"').replace("\\\\", "\\")
+        if any(c.isalnum() for c in value):
+            return "stdout", value, _poison_value(value), m.start() + s, m.end() + s
+        return "stdout(empty)", value, "Q\n", m.start() + s, m.end() + s
+    m = re.search(r'^stderr_contains = \["([^"]+)"\]$', block, re.M)
+    if m:
+        v = m.group(1)
+        return ("stderr_contains", v, _poison_value(v),
+                m.start() + s, m.end() + s)
+    m = re.search(r'^exit = "(\w+)"$', block, re.M)
+    flip = {"success": "failure", "failure": "success"}[m.group(1)]
+    return "exit", m.group(1), flip, m.start() + s, m.end() + s
+
+
+def _rewrite_claim(text, lo, hi, key, value):
+    key = {"stdout(empty)": "stdout"}.get(key, key)
+    if key == "stderr_contains":
+        return text[:lo] + f"stderr_contains = [{toml_string(value, multiline=False)}]" + text[hi:]
+    return text[:lo] + f"{key} = {toml_string(value, multiline=False)}" + text[hi:]
+
+
+def _arm_c_generic(doc_source, argv, key, poisoned):
+    d = tempfile.mkdtemp(prefix="t19b3-probe-")
+    try:
+        for fname, body in doc_source.items():
+            with open(os.path.join(d, fname), "w") as fh:
+                fh.write(body)
+        p = subprocess.run([_kali()] + argv, cwd=d, capture_output=True, text=True)
+        if key in ("stdout", "stdout(empty)"):
+            return p.stdout != poisoned
+        if key == "stderr_contains":
+            return poisoned not in p.stderr
+        return (p.returncode == 0) != (poisoned == "success")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def section4():
+    """EXHAUSTIVE: poison every case, one at a time, and record which arm fires.
+
+    Batch 2 reported arm A at 9/17 and said in as many words that one poison per
+    pair is a LOWER BOUND rather than a measurement. This is the same probe run
+    over every case in the batch instead of one per file -- 123 poisons -- so the
+    number it reports is what the gates catch on this family, not a sample of it.
+    """
+    import tomllib
+    print("\nSECTION 4 -- EXHAUSTIVE: every case poisoned, one at a time")
+    tot = {"A": 0, "B": 0, "C": 0, "n": 0}
+    per_file = []
+    misses = []
+    arm_a_misses = []
+    for family, toml, stem, _subject in FILES:
+        toml_path = os.path.join(CASES, family, toml + ".toml")
+        original = open(toml_path).read()
+        doc = tomllib.load(open(toml_path, "rb"))
+        by_name = {c["name"]: c for c in doc["case"]}
+        base_missing = _fidelity_missing(stem, toml_path)
+        f = {"A": 0, "B": 0, "C": 0, "n": 0}
+        try:
+            for name, s, e in _case_blocks(original):
+                key, _value, poisoned, lo, hi = _poisonable(original, name, s, e)
+                with open(toml_path, "w") as fh:
+                    fh.write(_rewrite_claim(original, lo, hi, key, poisoned))
+                a = _audit(stem, toml_path) != 0
+                b = len(_fidelity_missing(stem, toml_path)) > len(base_missing)
+                c = _arm_c_generic(doc["source"], by_name[name]["args"], key, poisoned)
+                for k, v in (("A", a), ("B", b), ("C", c)):
+                    f[k] += bool(v)
+                    tot[k] += bool(v)
+                f["n"] += 1
+                tot["n"] += 1
+                if not (a or b or c):
+                    misses.append(f"{family}/{toml}::{name} ({key})")
+                if not a:
+                    arm_a_misses.append((family, toml, stem, name, key, _value))
+        finally:
+            with open(toml_path, "w") as fh:
+                fh.write(original)
+        per_file.append((f"{family}/{toml}", f))
+        print(f"  {family}/{toml:<24} n={f['n']:<4} A={f['A']:<4} B={f['B']:<4} C={f['C']}")
+    print(f"\n  {tot['n']} case(s) poisoned one at a time")
+    print(f"  arm A (audit)            fired on {tot['A']}/{tot['n']}")
+    print(f"  arm B (fidelity MISSING) fired on {tot['B']}/{tot['n']}")
+    print(f"  arm C (the real binary)  fired on {tot['C']}/{tot['n']}")
+    for m in misses:
+        print(f"  UNCAUGHT BY EVERY ARM: {m}")
+    return len(misses), tot, per_file, arm_a_misses
+
+
+def section5(arm_a_misses):
+    """Classify EVERY arm-A miss, not a sample: declination or blind spot.
+
+    Batch 2 classified nine misses by hand. This runs the discriminator over all
+    of them: poison every occurrence of the literal in the file (substrings of
+    longer pins included) and re-ask the audit. Two classes need no run because
+    they are structural:
+
+      * an `exit` poison -- the audit declares exit status out of scope for a
+        literal-coverage tool, so it can never fire on one. Not a blind spot: a
+        gate that says what it does not cover is not blind, and `exit` is what
+        covers it.
+      * an empty-`stdout` poison -- the empty string is not a literal and
+        `fidelity.BORING` excludes it by name.
+    """
+    print("\nSECTION 5 -- every arm-A miss classified")
+    classes = {}
+    detail = []
+    for family, toml, stem, name, key, value in arm_a_misses:
+        if key == "exit":
+            klass = "exit: out of the audit's scope by design"
+        elif key == "stdout(empty)":
+            klass = "empty stdout: not a literal, BORING-excluded"
+        else:
+            toml_path = os.path.join(CASES, family, toml + ".toml")
+            original = open(toml_path).read()
+            spelled = toml_string(value, multiline=False)[1:-1]
+            bad = toml_string(_poison_value(value), multiline=False)[1:-1]
+            try:
+                with open(toml_path, "w") as fh:
+                    fh.write(original.replace(spelled, bad))
+                rc = _audit(stem, toml_path)
+            finally:
+                with open(toml_path, "w") as fh:
+                    fh.write(original)
+            klass = ("declination: the literal survives in a sibling claim"
+                     if rc else "BLIND SPOT: the audit has no claim for this value")
+        classes[klass] = classes.get(klass, 0) + 1
+        detail.append((f"{family}/{toml}::{name}", klass))
+    for klass, n in sorted(classes.items(), key=lambda kv: -kv[1]):
+        print(f"  {n:>4}  {klass}")
+    blind = [d for d in detail if d[1].startswith("BLIND SPOT")]
+    for pair, _k in blind:
+        print(f"  BLIND SPOT: {pair}")
+    return classes, detail
 
 
 def main():
@@ -291,17 +453,24 @@ def main():
     bad = section1()
     bad2, rows = section2()
     section3(rows)
+    bad4, tot = 0, None
+    if "--quick" not in sys.argv[1:]:
+        bad4, tot, _per, arm_a_misses = section4()
+        section5(arm_a_misses)
     dirty = subprocess.run(["git", "status", "--porcelain", "--", "crates/kali_cli/tests/cases"],
                            cwd=REPO, capture_output=True, text=True).stdout
     if dirty.strip():
         print("\nPROBE FAILED -- case files were not restored:\n" + dirty)
         return 1
-    if bad or bad2:
+    if bad or bad2 or bad4:
         print(f"\nPROBE FAILED -- {bad} extraction refusal(s) missed, {bad2} pair(s) "
-              "whose poison no arm caught")
+              f"whose poison no arm caught, {bad4} exhaustive poison(s) no arm caught")
         return 1
+    tail = (f", and all {tot['n']} cases poisoned exhaustively with arm A at "
+            f"{tot['A']}/{tot['n']} and arm C at {tot['C']}/{tot['n']}") if tot else ""
     print(f"\nPROBE OK -- {len(MUTATIONS)} extraction refusals all fired, "
-          f"{len(FILES)} pairs each caught by at least the live arm, every file restored")
+          f"{len(FILES)} pairs each caught by at least the live arm{tail}, "
+          "every file restored")
     return 0
 
 
