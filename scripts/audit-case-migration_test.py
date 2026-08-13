@@ -2032,26 +2032,70 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("corresponds to no", out)
 
-    def test_a_block_comment_open_inside_a_fixture_does_not_swallow_the_source(self):
-        # The order this arm masks in is load-bearing: raw strings first, then
-        # comments. This corpus really does contain `"./*": "./src/*.js"` inside
-        # a raw string (`package_corpus.rs`), and masking comments first would
-        # blank from that `/*` to the next `*/` -- taking the real `.contains`
-        # with it and turning a legitimate pin into a refusal.
+    def test_door6_a_contains_inside_a_NESTED_block_comment_permits_nothing(self):
+        # THE SIXTH DOOR. Rust block comments NEST, and the masker's block
+        # branch did a naive `find('*/')`, so it stopped at the INNER closer and
+        # left everything up to the true outer close unmasked as live code.
+        #
+        # PRE-EXISTING, not introduced by reusing the masker: the branch has
+        # been naive since it was written, and `json_leaf_contains_sites` only
+        # made the consequence reachable in a new direction. Dormant here --
+        # there is no genuine block comment in `crates/kali_cli/tests` at all --
+        # which is exactly the state door 5 sat in for two rounds.
         source = (
-            'fn fixture() -> &\'static str {\n'
-            '    r#"{ "exports": { "./*": "./src/*.js" } }"#\n'
-            '}\n'
             '#[test]\n'
             'fn t() {\n'
             '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
-            '    assert!(json["stdout"].as_str().expect("s").contains("marker ok"));\n'
+            '    /* outer comment start\n'
+            '       /* inner */\n'
+            '       assert!(json["stdout"].as_str().expect("s").contains("marker ok"));\n'
+            '    end outer */\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
             '}\n'
         )
         rc, out = _run_audit(source, {"new.toml": self._toml(
-            'json_count = [{ path = "stdout", needle = "marker ok", at_least = 1 }]\n')})
-        self.assertEqual(rc, 0, out)
-        self.assertIn("AUDIT OK", out)
+            'json_count = [{ path = "stdout", needle = "marker ok", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_the_two_masking_passes_commute_on_this_corpus(self):
+        """`_blank_raw_strings` then `_mask_comments_outside_strings`, or the
+        reverse, over every `.rs` under `crates/kali_cli/tests`.
+
+        THIS REPLACES A TEST THAT ASSERTED A PREFERENCE AND CALLED IT A HAZARD.
+        The deleted one used `"./*": "./src/*.js"` inside a raw string and
+        claimed the shipped order was load-bearing -- that masking comments
+        first would blank from that `/*` to the next `*/`. It does not: the
+        masker is INDEPENDENTLY string-aware, recognising `r#"..."#` through the
+        same `_skip_string` primitive `_blank_raw_strings` uses, so it never
+        misreads that `/*` whichever pass runs first. The two orders produce
+        byte-identical text on that fixture, so the test would have passed
+        unchanged under the order it claimed to rule out. An unverified
+        quantifier, in the round that caught its own.
+
+        What is TRUE is asserted here instead, and gated rather than written in
+        prose (ruling 15's first answer). The one shape that would break it is a
+        raw string carrying a comment closer inside a block comment --
+        `/* r#"*/"# ... */` -- where the two orders genuinely differ. Rust's own
+        lexer does not respect strings inside block comments, so the comment
+        really ends at that first `*/` and the inverted order is the one that
+        matches the language; the shipped order masks further and REFUSES,
+        which is the conservative direction for an arm that grants permission.
+        No source in this tree contains that shape, and this test is what will
+        say so the day one does.
+        """
+        import glob
+        mod = _load_audit_module()
+        checked = 0
+        for path in sorted(glob.glob(
+                str(_REPO_ROOT / "crates/kali_cli/tests/**/*.rs"), recursive=True)):
+            src = open(path, encoding="utf-8").read()
+            forward = mod._mask_comments_outside_strings(mod._blank_raw_strings(src))
+            reverse = mod._blank_raw_strings(mod._mask_comments_outside_strings(src))
+            self.assertEqual(forward, reverse, f"{path}: the two masking orders disagree")
+            checked += 1
+        self.assertGreater(checked, 100, "corpus scan found almost nothing -- vacuous")
 
     def test_the_two_shipped_shapes_still_resolve(self):
         # The known positive for the RECEIVER resolver, in both spellings the

@@ -382,8 +382,32 @@ def _mask_comments_outside_strings(source: str) -> str:
             i = end
             continue
         if c == '/' and i + 1 < n and source[i + 1] == '*':
-            close = source.find('*/', i + 2)
-            end = (close + 2) if close != -1 else n
+            # RUST BLOCK COMMENTS NEST, and a naive `find('*/')` stops at the
+            # INNER closer -- leaving everything between it and the true outer
+            # close unmasked as live code. Reproduced end to end before this
+            # fix: an `assert!(json[..].contains(..))` sitting between an inner
+            # `*/` and its outer one was read as a real assertion and permitted
+            # a `json_count` claim (`rc=0, AUDIT OK`, where it must refuse).
+            #
+            # Pre-existing rather than introduced by the reuse in
+            # `json_leaf_contains_sites`: this branch has been naive since the
+            # function was written, and that call site only made the
+            # consequence reachable in a new direction. Dormant in this corpus
+            # -- there is no genuine block comment in `crates/kali_cli/tests`
+            # at all -- and dormancy is precisely why it is fixed on sight:
+            # ruling 14's corpus differential cannot see a permission nobody
+            # has exploited yet, so a green sweep is not evidence about it.
+            depth, j = 1, i + 2
+            while j < n and depth:
+                if source.startswith('/*', j):
+                    depth += 1
+                    j += 2
+                elif source.startswith('*/', j):
+                    depth -= 1
+                    j += 2
+                else:
+                    j += 1
+            end = j if not depth else n
             segment = source[i:end]
             out.append(''.join(ch if ch == '\n' else ' ' for ch in segment))
             i = end
@@ -708,9 +732,24 @@ def json_leaf_contains_sites(source: str) -> set:
     cannot see a permission nobody has exploited yet, so a green sweep is not
     evidence about this arm.
 
-    Order is load-bearing: raw strings first, so a `/*` inside a fixture body
-    (`"./*": "./src/*.js"` in this corpus) is already blank when the masker
-    runs and cannot swallow the file from there to the next `*/`.
+    ORDER, STATED AS WHAT IS ACTUALLY TRUE. An earlier version of this
+    docstring said the order was load-bearing, and it is not: the masker is
+    INDEPENDENTLY string-aware -- it recognises `r#"..."#` through the same
+    `_skip_string` primitive `_blank_raw_strings` uses -- so a `/*` inside a
+    fixture body (`"./*": "./src/*.js"` in this corpus) is safe whichever pass
+    runs first. Measured: the two orders produce byte-identical text on every
+    `.rs` under `crates/kali_cli/tests`, and that equality is asserted every
+    gate run by `test_the_two_masking_passes_commute_on_this_corpus` rather
+    than claimed here.
+
+    They differ on exactly one shape, which no source in this tree contains: a
+    raw string carrying a comment closer inside a block comment,
+    `/* r#"*/"# ... */`. Rust's lexer does not respect strings inside block
+    comments, so the comment really ends at that first `*/` and the INVERTED
+    order is the one that matches the language; the order used here masks
+    further and refuses, which is the conservative direction for an arm that
+    grants permission rather than demanding coverage. Recorded because a reader
+    who finds that input should know the divergence is known, not accidental.
     """
     text = _mask_comments_outside_strings(_blank_raw_strings(source))
     env: dict[str, str] = {}
