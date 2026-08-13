@@ -2073,6 +2073,175 @@ class DisjunctiveContainsClaims(unittest.TestCase):
         self.assertFalse(every["runtime profile"] <= groups[0]["sites"])
 
 
+# ---------------------------------------------------------------------------
+# Bug 9: an unreferenced `[constants]` entry restored a dropped claim to green.
+# ---------------------------------------------------------------------------
+class Bug9_UnreferencedConstantFalseGreen(unittest.TestCase):
+    """`assertion_strings()` extended over every `[constants]` value whether
+    or not anything referenced it, and nothing rejected an unused one. The
+    joined haystack is searched by SUBSTRING, so a dead constant was a
+    free-text channel into the gate rule 3 calls absolute -- a genuinely
+    dropped assertion could be returned to `AUDIT OK` by adding a constant
+    that the runner never reads.
+
+    Found by the Task 19 pilot (§12), reproduced independently by two
+    reviewers and a third time on the real `nullish_assign_reject` pair
+    before this fix. The three tests below are that reproduction in
+    miniature and in order: the KNOWN POSITIVE (the claim present, green),
+    the POISON'S PRECONDITION (the claim dropped, red), and the POISON
+    (dropped claim plus a dead constant carrying its text) -- which must
+    now stay red, and must stay red FOR BOTH REASONS. A version that
+    reported only the dead constant would still have the substring channel
+    open for a literal that no `missing` entry names.
+    """
+
+    _SOURCE = 'fn t() {\n    assert!(stderr.contains("E5506"));\n}\n#[test]\nfn a() {}\n'
+
+    def test_known_positive_the_claim_is_present(self):
+        rc, out = _run_audit(self._SOURCE, {"new.toml": (
+            '[[case]]\nname = "c"\nkind = "cli"\nstderr_contains = ["E5506"]\n')})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+
+    def test_dropping_the_claim_is_red(self):
+        rc, out = _run_audit(self._SOURCE, {"new.toml": (
+            '[[case]]\nname = "c"\nkind = "cli"\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("[contains literals] 'E5506'", out)
+
+    def test_a_dead_constant_does_not_restore_the_dropped_claim(self):
+        rc, out = _run_audit(self._SOURCE, {"new.toml": (
+            '[constants]\nUNUSED_NOTE = "E5506"\n\n'
+            '[[case]]\nname = "c"\nkind = "cli"\n')})
+        self.assertEqual(rc, 1, out)
+        # BOTH arms, not either: the channel is closed AND it is audible.
+        self.assertIn("[contains literals] 'E5506'", out)
+        self.assertIn("[unreferenced constant]", out)
+        self.assertIn("UNUSED_NOTE", out)
+
+    def test_a_dead_constant_is_red_even_when_nothing_else_is_wrong(self):
+        # Ruling 18 #3: a dead constant and no constant at all must not be
+        # indistinguishable. Without this arm the previous test would pass
+        # on a fix that merely stopped counting the value.
+        rc, out = _run_audit(self._SOURCE, {"new.toml": (
+            '[constants]\nUNUSED_NOTE = "nothing to do with the source"\n\n'
+            '[[case]]\nname = "c"\nkind = "cli"\nstderr_contains = ["E5506"]\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("[unreferenced constant]", out)
+
+    def test_a_referenced_constant_still_carries_its_claim(self):
+        # The control in the other direction, and the reason the fix is
+        # reference-based rather than a blanket removal of `[constants]`
+        # from the assertion surface: `switch/runtime.toml` hoists
+        # `switch_runtime.rs`'s `const S`/`const SS` bodies, and those
+        # `rule constants` claims are satisfiable NOWHERE ELSE in the case
+        # file. Dropping `[constants]` outright would take that shipped,
+        # correct pair from AUDIT OK to AUDIT FAILED.
+        source = 'const S: &str = "hoisted body";\n#[test]\nfn a() {}\n'
+        rc, out = _run_audit(source, {"new.toml": (
+            '[constants]\nS = "hoisted body"\n\n'
+            '[source]\n"main.js" = "${S}"\n\n'
+            '[[case]]\nname = "c"\nkind = "cli"\n')})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+
+    def test_reference_from_a_rationale_does_not_count(self):
+        # `expand.rs` never substitutes `rationale` (or a case `name`), so a
+        # `${X}` written there is inert prose, not a reference. If it counted,
+        # the poison would be one sentence away from working again.
+        rc, out = _run_audit(self._SOURCE, {"new.toml": (
+            '[constants]\nUNUSED_NOTE = "E5506"\n\n'
+            '[[case]]\nname = "c"\nrationale = "see ${UNUSED_NOTE}"\nkind = "cli"\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("[unreferenced constant]", out)
+        self.assertIn("[contains literals] 'E5506'", out)
+
+    def test_reference_from_a_matrix_axis_value_does_not_count(self):
+        # `matrix_cells` uses axis values raw; they are never substituted.
+        rc, out = _run_audit(self._SOURCE, {"new.toml": (
+            '[constants]\nUNUSED_NOTE = "E5506"\n\n'
+            '[matrix]\next = ["${UNUSED_NOTE}"]\n\n'
+            '[[case]]\nname = "c"\nkind = "cli"\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("[unreferenced constant]", out)
+
+    def test_reference_from_another_constant_does_not_count(self):
+        # `substitute()` is single-pass and `bindings` is `file.constants`
+        # as-is, so `A = "x"` / `B = "${A}"` leaves a literal `${A}` in the
+        # expanded text: A is genuinely dead, and counting B's mention of it
+        # as a reference would reopen the channel through one indirection.
+        rc, out = _run_audit(self._SOURCE, {"new.toml": (
+            '[constants]\nA = "E5506"\nB = "${A}"\n\n'
+            '[source]\n"main.js" = "${B}"\n\n'
+            '[[case]]\nname = "c"\nkind = "cli"\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("[unreferenced constant]", out)
+        self.assertIn("A", out)
+        self.assertIn("[contains literals] 'E5506'", out)
+
+    def test_a_constant_shadowed_by_a_matrix_axis_is_unreachable(self):
+        # `expand()` builds `bindings` from the constants and then inserts
+        # each axis over the top, so an axis of the same name wins and the
+        # constant can never be read -- referenced-looking, but dead.
+        rc, out = _run_audit(self._SOURCE, {"new.toml": (
+            '[constants]\next = "E5506"\n\n'
+            '[matrix]\next = ["js", "ts"]\n\n'
+            '[[case]]\nname = "c"\nkind = "cli"\nargs = ["main.${ext}"]\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("[unreferenced constant]", out)
+        self.assertIn("[contains literals] 'E5506'", out)
+
+    def test_every_substituted_step_field_counts_as_a_reference(self):
+        # `_substituted_strings` must reach every field `substitute_step`
+        # touches, not just the assertion-bearing ones -- `path`, `entry`
+        # and `body` are substituted too, and a constant referenced only
+        # from one of them is live. Driven per field so a field dropped from
+        # the walk fails here rather than becoming a false "dead constant".
+        for field, snippet in (
+            ("args", 'args = ["${P}"]'),
+            ("env", '[case.env]\nK = "${P}"'),
+            ("stdout", 'stdout = "${P}"'),
+            ("stdout_contains", 'stdout_contains = ["${P}"]'),
+            ("stderr_absent", 'stderr_absent = ["${P}"]'),
+            ("json", 'json = { k = "${P}" }'),
+            ("json_null", 'json_null = ["${P}"]'),
+            ("fields", 'fields = { k = "${P}" }'),
+            ("path", 'path = "${P}"'),
+            ("entry", 'entry = "${P}"'),
+            ("body", 'body = "${P}"'),
+            ("stdout_count", 'stdout_count = [{ needle = "${P}", at_least = 1 }]'),
+            ("json_count", 'json_count = [{ path = "a", needle = "${P}", at_least = 1 }]'),
+            ("source-value", None),
+            ("source-key", None),
+        ):
+            with self.subTest(field=field):
+                if field == "source-value":
+                    body = '[source]\n"main.js" = "${P}"\n\n[[case]]\nname = "c"\nkind = "cli"\n'
+                elif field == "source-key":
+                    body = '[source]\n"${P}.js" = "x"\n\n[[case]]\nname = "c"\nkind = "cli"\n'
+                else:
+                    body = f'[[case]]\nname = "c"\nkind = "cli"\n{snippet}\n'
+                doc = tomllib.loads('[constants]\nP = "v"\n\n' + body)
+                self.assertEqual(
+                    audit.unreferenced_constants(doc), [],
+                    f"a `${{P}}` in {field} is a real reference (expand.rs "
+                    f"substitutes it) but was reported dead")
+
+    def test_the_shipped_corpus_has_no_unreferenced_constant(self):
+        # Ruling 15 #1: the figure this fix's "no verdict moved" claim rests
+        # on, gated rather than recorded. The fix can only change a verdict
+        # for a case file that HAS a dead constant; asserting there are none
+        # is what makes "nothing moved" survive an unrelated edit, and it
+        # fails loudly the day a new one is written.
+        cases = sorted((_REPO_ROOT / "crates/kali_cli/tests/cases").glob("*/*.toml"))
+        self.assertGreater(len(cases), 200, "corpus not found where expected")
+        dead = []
+        for path in cases:
+            doc = tomllib.loads(path.read_text())
+            dead += [f"{path.name}: {n}" for n in audit.unreferenced_constants(doc)]
+        self.assertEqual(dead, [])
+
+
 class DocumentedLimitations(unittest.TestCase):
     def test_rprefix_inside_a_line_comment_is_still_read_as_a_raw_string_open(self):
         # `_RAW_STRING`'s own doc comment names this residual directly: the

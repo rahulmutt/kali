@@ -55,6 +55,22 @@ run_gates() {
     # Each entry runs from a clean checkout, needs no build, and GATES (U12).
     # The order is cheapest-first so a broken corpus is reported in seconds.
     local -a gates=(
+        # ADDED BY THE TASK 19 INSTRUMENT DISPATCH, and the reason is this
+        # file's own header two paragraphs up: "a check nobody re-runs is
+        # indistinguishable from a check that was deleted". This is the
+        # regression suite for `audit-case-migration.py` -- the gate rule 3
+        # calls ABSOLUTE, in which six separate bugs have been found, every
+        # one by a human rather than by a script -- and NOTHING ran it.
+        # Neither this file nor `.github/workflows/ci.yml` mentioned it:
+        #
+        #     $ grep -c audit-case-migration_test .github/workflows/ci.yml \
+        #           scripts/test-gate.sh          # -> 0, 0 before this line
+        #
+        # It is stdlib `unittest`, needs no build, and takes under a second.
+        # It also carries the corpus-wide census that pins the Task 19
+        # `[constants]` fix ("no shipped case file has an unreferenced
+        # constant"), so that figure is gated rather than recorded.
+        "python3 $REPO/scripts/audit-case-migration_test.py"
         "python3 $PILOT/check_fixtures.py --argv-correspondence --census"
         "python3 $PILOT/batch5_crosscheck.py --selftest"
         "python3 $PILOT/find_fixture_self_inspection.py --selftest"

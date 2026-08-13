@@ -81,7 +81,14 @@ assertions*: a step's `args`, `env` values, `stdout`, `stdout_contains`,
 every key inside `json`/`fields`, every `stdout_count`/`json_count` claim's
 `needle` (and a `json_count`'s `path`), and `[constants]` values (referenced into
 assertions via `${NAME}`, so a rule constant vanishing from `[constants]`
-matters exactly like it did in the old `const NAME: &str` form). Both the
+matters exactly like it did in the old `const NAME: &str` form). **Only a
+REFERENCED constant**: an entry expansion can never reach is excluded from
+the search surface and reported as a failure in its own right, because the
+search is by substring and a dead constant was otherwise a free-text channel
+that could return a genuinely dropped assertion to `AUDIT OK`. See
+`unreferenced_constants` for the reproduction and for what "referenced"
+means (it is derived from `expand.rs`, not from where the text happens to
+sit). Both the
 inline single-step shorthand and `[[case.step]]` lists are read. `name`,
 `rationale`, `ignore`, `kind`, and `path`/`entry` carry no claim (they are
 file references), so they don't affect assertions. `body` and everything
@@ -1356,14 +1363,129 @@ def resolved_steps(doc: dict) -> list[tuple[str, dict]]:
     return out
 
 
+# A `${name}` placeholder, spelled exactly as `expand.rs`'s `substitute()`
+# reads it: `${`, then everything up to the FIRST `}`. Same scan, same
+# termination rule, so a name this finds is a name the runner would look up.
+_PLACEHOLDER = re.compile(r"\$\{([^}]*)\}")
+
+
+def _substituted_strings(doc: dict) -> list[str]:
+    """Every string in one parsed case file that `expand.rs` actually runs
+    `substitute()` over -- i.e. every place a `${NAME}` reference can be
+    real rather than inert text.
+
+    Derived from `crates/kali_case_runner/src/expand.rs`, not guessed:
+    `expand()` substitutes each `[source]` KEY and VALUE (`:189-192`), and
+    `substitute_step()` substitutes every string-bearing field of a step
+    (`:80-146`) -- args, env keys and values, stdout/stderr and their
+    `_contains`/`_absent` lists, the `json`/`fields` trees including their
+    KEYS (`substitute_value`), `json_null` paths, `stdout_count` needles,
+    `json_count` paths and needles, and `path`/`entry`/`body`.
+
+    What it deliberately does NOT reach is the whole point:
+
+    - `rationale` and a case's `name` are never substituted (`expand()`
+      clones them verbatim), so a `${X}` written in prose is not a
+      reference to anything.
+    - `[matrix]` axis VALUES are not substituted either (`matrix_cells`
+      uses them raw), so a `${X}` there is inert.
+    - `[constants]` values are not substituted into each other. `bindings`
+      is `file.constants` as-is and `substitute()` is single-pass -- it
+      pushes a looked-up value onto `out` and never rescans it -- so
+      `A = "x"` / `B = "${A}"` leaves a literal `${A}` in the expanded text
+      and A is genuinely dead. This function therefore never reads the
+      `[constants]` table when collecting references.
+
+    A step's `kind` is a string this walk also sees; it is an enum spelling
+    (`cli`, `browser_bundle_harness`, ...) and can never contain `${`, so
+    including it costs nothing and keeps the walk a plain leaf walk rather
+    than a second key whitelist that could drift from `substitute_step`."""
+    out: list[str] = []
+
+    def walk(value) -> None:
+        if isinstance(value, str):
+            out.append(value)
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                if isinstance(key, str):
+                    out.append(key)
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    source = doc.get("source")
+    if isinstance(source, dict):
+        walk(source)
+
+    for _name, step in resolved_steps(doc):
+        walk(step)
+
+    return out
+
+
+def unreferenced_constants(doc: dict) -> list[str]:
+    """The `[constants]` entries of one parsed case file that expansion can
+    never reach: no `${NAME}` in any substituted string, or a `[matrix]`
+    axis of the same name shadowing it (`expand()` builds `bindings` from
+    the constants and then `insert`s each axis over the top, so the axis
+    wins and the constant is unreachable).
+
+    WHY THIS EXISTS -- the false green it closes. `assertion_strings()` used
+    to extend over every `[constants]` value whether or not anything
+    referenced it, and nothing rejected an unused one. The joined haystack
+    is searched by SUBSTRING, so a dead constant is a free-text channel into
+    the gate rule 3 calls absolute:
+
+        audit(nullish_assign_reject.rs, cases/nullish/assign_reject.toml)
+          control                                            AUDIT OK   rc=0
+          with the real `stderr_contains = ["E5506"]` deleted AUDIT FAILED rc=1
+          the same deletion + an unreferenced
+            `[constants] UNUSED_NOTE = "E5506"`              AUDIT OK   rc=0
+
+    -- a genuinely dropped assertion returned to green by a constant nothing
+    uses (Task 19 pilot report §12, reproduced independently by two
+    reviewers and a third time by this dispatch before the fix).
+
+    Both halves of the fix are needed and neither is redundant. Excluding a
+    dead constant from `assertion_strings()` is what removes the channel;
+    REPORTING it as a failure is ruling 18 #3 -- otherwise a dead constant
+    and no constant at all are indistinguishable, and the next person to add
+    one gets a `claim absent` message that says nothing about the constant
+    sitting three lines above it. A constant expansion cannot reach has no
+    legitimate use: the runner never reads it, so it can only be dead weight
+    or a gate-facing one."""
+    constants = doc.get("constants")
+    if not isinstance(constants, dict):
+        return []
+    referenced: set[str] = set()
+    for text in _substituted_strings(doc):
+        referenced.update(_PLACEHOLDER.findall(text))
+    matrix = doc.get("matrix")
+    shadowed = set(matrix) if isinstance(matrix, dict) else set()
+    return [name for name in constants
+            if name not in referenced or name in shadowed]
+
+
 def assertion_strings(doc: dict) -> list[str]:
-    """Every claim-bearing string in one parsed case file: `[constants]`
-    values, plus each case's inline step and/or `[[case.step]]` list."""
+    """Every claim-bearing string in one parsed case file: each case's
+    inline step and/or `[[case.step]]` list, plus the `[constants]` values
+    that expansion actually reaches.
+
+    The `[constants]` values are here because a hoisted constant is a real
+    carrier of a claim -- `switch/runtime.toml` hoists `switch_runtime.rs`'s
+    `const S`/`const SS` bodies, and the source's `rule constants` claims
+    are satisfiable nowhere else. But only a REFERENCED constant is a
+    carrier of anything; see `unreferenced_constants` for the false green
+    the unfiltered version left open, and `main` for the failure that makes
+    a dead constant loud instead of merely inert."""
     out: list[str] = []
 
     constants = doc.get("constants")
     if isinstance(constants, dict):
-        out.extend(v for v in constants.values() if isinstance(v, str))
+        dead = set(unreferenced_constants(doc))
+        out.extend(v for name, v in constants.items()
+                   if isinstance(v, str) and name not in dead)
 
     for _name, step in resolved_steps(doc):
         out.extend(_step_assertion_strings(step))
@@ -1593,6 +1715,16 @@ def main() -> int:
         piece for _path, doc in new_docs for piece in assertion_strings(doc)
     )
 
+    # A `[constants]` entry expansion can never reach. Collected here and
+    # reported below with the other verdicts; `assertion_strings` has already
+    # excluded its value from `new_text`, which is what closes the false
+    # green -- this arm is what makes it audible (see
+    # `unreferenced_constants`).
+    dead_constants: list[str] = []
+    for path, doc in new_docs:
+        for name in unreferenced_constants(doc):
+            dead_constants.append(f"{path.name}: [constants] {name}")
+
     old_claims = claims(old_source_combined)
 
     # The reverse direction, for the count keys only (module docstring):
@@ -1709,7 +1841,18 @@ def main() -> int:
         )
         return 1
 
-    if missing or fabricated:
+    if missing or fabricated or dead_constants:
+        if dead_constants:
+            print(
+                f"\nAUDIT FAILED — {len(dead_constants)} `[constants]` "
+                "entr(y/ies) that expansion can never reach (no `${NAME}` in "
+                "any substituted string, or shadowed by a `[matrix]` axis of "
+                "the same name). Their values are NOT counted as claim "
+                "carriers; a dead constant is a free-text channel into this "
+                "gate:"
+            )
+            for note in dead_constants:
+                print(f"  [unreferenced constant] {note}")
         if missing:
             print(f"\nAUDIT FAILED — {len(missing)} claim(s) absent from the case files:")
             for kind, value in missing:
