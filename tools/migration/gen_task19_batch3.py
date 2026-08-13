@@ -991,7 +991,11 @@ def _selftest_declaration_gate():
     bad = []
     for gate, family, toml, stem, mutate in _DECL_PROBES:
         real = os.path.join(CASES, family, toml + ".toml")
-        probe = os.path.join(CASES, family, toml + ".declprobe.toml")
+        # NOT a `.toml` suffix: the case runner discovers `cases/**/*.toml`, and
+        # `check_fixtures.py --census` globs the same pattern. A probe file
+        # leaked by a kill between the write and the `finally` would become a
+        # duplicate discovered case rather than an obvious orphan.
+        probe = os.path.join(CASES, family, toml + ".declprobe")
         original = open(real).read()
         mutated = mutate(original)
         if mutated == original:
