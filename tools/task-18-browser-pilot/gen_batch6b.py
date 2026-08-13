@@ -42,7 +42,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases/browser")
 
-from case_emit import emit, fixture_in_fn, fixture_starting, write  # noqa: E402
+from case_emit import emit, fixture_in_fn, fixture_starting, write, source_text_at  # noqa: E402
 from enumerate_invocations import (  # noqa: E402
     invocations, strip_block_comments_and_strings, test_fn_bodies,
 )
@@ -68,7 +68,7 @@ CONTRACT = os.path.join(REPO, "crates/kali_runtime_contract/src/browser/contract
 # 1. The source, its submodules, and its fixtures.
 # --------------------------------------------------------------------------
 
-CARRIER_TEXT = open(CARRIER).read()
+CARRIER_TEXT = source_text_at(CARRIER, quiet=True)   # 8C: deleted U2 source
 SUBMODULES = {p.name: p for p in submodule_paths(CARRIER)}
 SUB_TEXT = {name: p.read_text() for name, p in SUBMODULES.items()}
 

@@ -67,7 +67,7 @@ TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases/browser")
 KALI_COMMON_OBJECT = os.path.join(REPO, "crates/kali_common/src/object.rs")
 
-from case_emit import emit, fixture_in_fn, fixture_starting, write  # noqa: E402
+from case_emit import emit, fixture_in_fn, fixture_starting, write, source_text  # noqa: E402
 from lexer import find_string_literals  # noqa: E402
 from math_shapes import (  # noqa: E402
     META, envelope_build, envelope_harness, rule12_no_comments_prose,
@@ -112,7 +112,7 @@ def rs(name):
     makes it unnecessary IS checked, so a later trim cannot silently regenerate
     a smaller case file from a trimmed source.
     """
-    text = open(os.path.join(TESTS, f"browser_{name}.rs")).read()
+    text = source_text(name, quiet=True)
     if text.startswith("//!"):
         raise AssertionError(
             f"browser_{name}.rs has a `//!` header -- batch 7A declares no retentions, so "

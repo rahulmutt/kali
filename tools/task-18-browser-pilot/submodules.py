@@ -68,7 +68,27 @@ def submodule_paths(rs_path, mod=None, base=None):
     """
     mod = mod or audit_module()
     path = Path(rs_path)
-    paths = mod.resolve_path_mods(Path(base) if base else path, path.read_text())
+    # BATCH 8C: the CARRIER's own read was unguarded. The sentence above --
+    # "missing files are dropped here rather than raised" -- was only ever true
+    # of the SUBMODULES, and after the family deletion the carrier is the file
+    # that is missing, so this raised `FileNotFoundError` into four generators
+    # and `math_shapes.rule12_no_comments_prose`. Resolved through the same
+    # reader everything else uses, so a carrier's text is the same bytes here as
+    # in the sweep.
+    if path.is_file():
+        text = path.read_text()
+        paths = mod.resolve_path_mods(Path(base) if base else path, text)
+        return [p for p in paths if p.is_file()]
+    # THE SIBLING DIRECTORY WENT WITH THE CARRIER (U10), so resolving the
+    # carrier's bytes alone is not enough: `#[path = "browser_x/run.rs"]` would
+    # resolve to a file that is also gone, `p.is_file()` would drop it, and the
+    # caller would be told this carrier HAS no submodules rather than that they
+    # could not be found. Materialise carrier and siblings together and resolve
+    # inside that directory, which is what `citation_tiers` does for the sweep.
+    from case_emit import materialise_source_tree  # noqa: E402 (late: cycle-free)
+    root = Path(materialise_source_tree(path.name))
+    here = root / path.name
+    paths = mod.resolve_path_mods(Path(base) if base else here, here.read_text())
     return [p for p in paths if p.is_file()]
 
 

@@ -26,7 +26,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases/browser")
 
-from case_emit import fixture_in_fn, fixture_starting, emit, write  # noqa: E402
+from case_emit import fixture_in_fn, fixture_starting, emit, write, source_text  # noqa: E402
 from math_shapes import (  # noqa: E402
     rule12_no_comments_prose,  # noqa: E402
     bundle_steps, harness_step, envelope_build, envelope_harness, META,
@@ -43,7 +43,17 @@ def target(name):
 
 
 def rs(name):
-    return open(os.path.join(TESTS, f"browser_{name}.rs")).read()
+    """The source a case file is generated FROM.
+
+    BATCH 8C: delegated to `case_emit.source_text`, which reads the working tree
+    when the file is there and the family-deletion blob when it is not. This was
+    a bare `open(TESTS/browser_<name>.rs)`, one of fifteen such readers across
+    the generators, and every one of them raised `FileNotFoundError` the moment
+    the family was deleted -- which `classify_drift.py` counts as a gate
+    failure, not a skip. One resolver, so a later reader cannot disagree with
+    the sweep about which bytes a source is.
+    """
+    return source_text(name, quiet=True)
 
 
 # ---------------------------------------------------------------------------

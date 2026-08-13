@@ -45,6 +45,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 
 from lexer import find_string_literals  # noqa: E402
+from case_emit import source_text, source_bytes  # noqa: E402  (8C: sources resolve from history)
 
 HARNESS_ENV = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND"
 
@@ -343,7 +344,9 @@ def submodules(carrier_text, stem):
 
 
 def read_submod(stem, rel):
-    return open(os.path.join(TESTS, rel)).read()
+    # 8C: the sibling directory went with its carrier (U10), so a submodule is
+    # resolved from history exactly as the carrier is -- one reader, one answer.
+    return source_bytes(rel)
 
 
 def summary_fallback_rows(stem):
@@ -355,7 +358,7 @@ def summary_fallback_rows(stem):
     the assertion helper it routes its output through, and its own inline
     claims.
     """
-    carrier = open(os.path.join(TESTS, f"browser_{stem}.rs")).read()
+    carrier = source_text(stem, quiet=True)   # 8C: deleted source
     subs = submodules(carrier, stem)
     writer = re.search(r"fn (write_\w+_source)\(", carrier).group(1)
     fixture_body = literals(fn_body(carrier, writer)[0])

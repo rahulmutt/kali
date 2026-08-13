@@ -70,7 +70,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases/browser")
 
-from case_emit import fixture_in_fn, fixture_starting, write  # noqa: E402
+from case_emit import fixture_in_fn, fixture_starting, write, source_text  # noqa: E402
 from math_shapes import META, envelope_build, envelope_harness  # noqa: E402
 from submodules import submodule_paths  # noqa: E402
 import batch5_prose as P  # noqa: E402
@@ -106,7 +106,7 @@ def rs(name):
     true IS checked, so a later trim cannot silently regenerate a smaller case
     file from a trimmed source.
     """
-    text = open(os.path.join(TESTS, f"browser_{name}.rs")).read()
+    text = source_text(name, quiet=True)
     if text.startswith("//!"):
         raise AssertionError(
             f"browser_{name}.rs has a `//!` header -- batch 7B declares no retentions, so "

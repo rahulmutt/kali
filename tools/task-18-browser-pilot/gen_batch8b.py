@@ -173,7 +173,7 @@ TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases/browser")
 
 import batch5_prose as P  # noqa: E402
-from case_emit import emit, write, source_text  # noqa: E402
+from case_emit import emit, write, source_text, source_bytes  # noqa: E402
 from batch8b_capture import Captures  # noqa: E402
 from batch8b_claims import claims_for  # noqa: E402
 from batch8b_extract import (  # noqa: E402
@@ -546,7 +546,9 @@ def build_summary_fallback(stem):
             f"{stem}: carrier has {len(plain)} bare `//` comment block(s) this generator "
             "does not carry (rule 12)")
     for rel in subs:
-        sub_text = open(os.path.join(TESTS, rel)).read()
+        # 8C: U10's sibling directory went with the carrier; resolve from
+        # history through the same reader the carrier uses.
+        sub_text = source_bytes(rel)
         if comment_blocks(sub_text, "//") or comment_blocks(sub_text, "///"):
             raise AssertionError(f"{rel}: has Rust comments this generator does not carry")
 

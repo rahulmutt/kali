@@ -982,7 +982,7 @@ def _set_rule12_block(blocks, by_owner):
     ]
     hs, hb = by_owner["helper"]
     ts, tb = by_owner["test_source"]
-    src = open(os.path.join(TESTS, f"browser_{SET_STEM}.rs")).read().split("\n")
+    src = source_text(SET_STEM, quiet=True).split("\n")   # 8C: deleted source
     lines += [
         f"  * `{src[ts - 1].strip()}` (:{ts}) opens a {len(tb)}-line block inside",
         "    `browser_harness_set_iteration_test_source`, which the assert helper calls ONLY",

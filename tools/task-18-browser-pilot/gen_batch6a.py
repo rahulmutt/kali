@@ -56,7 +56,7 @@ TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases/browser")
 KALI_COMMON_NUMBER = os.path.join(REPO, "crates/kali_common/src/number.rs")
 
-from case_emit import emit, fixture_in_fn, fixture_starting, write  # noqa: E402
+from case_emit import emit, fixture_in_fn, fixture_starting, write, source_text  # noqa: E402
 from math_shapes import (  # noqa: E402
     META, bundle_steps, envelope_build, envelope_harness, harness_step,
 )
@@ -92,20 +92,15 @@ def rs(name):
     PRE-TRIM blob, and it takes the ref from the retained file's own
     `PRE-TRIM REF:` line rather than from a constant here -- a ref carried
     anywhere but the header is the moving figure ruling 11 forbids.
+    BATCH 8C: the body below was a fourth hand-rolled copy of this resolution
+    (working tree, then `PRE-TRIM REF:` blob) and it read the working tree
+    FIRST, so the family deletion turned it into a `FileNotFoundError`.
+    `case_emit.source_text` applies the same rule, plus the family-deletion
+    fallback, and is the one the sweep and `reword_ungated_citations` already
+    share -- so a trimmed target cannot be read one way here and another way
+    there.
     """
-    path = os.path.join(TESTS, f"browser_{name}.rs")
-    text = open(path).read()
-    if not text.startswith("//!"):
-        return text
-    m = re.search(r"PRE-TRIM REF:\s*(\S+)", text)
-    if not m:
-        return text
-    import subprocess
-    ref = m.group(1)
-    print(f"    reading browser_{name}.rs at its own PRE-TRIM REF {ref}")
-    return subprocess.run(
-        ["git", "show", f"{ref}:crates/kali_cli/tests/browser_{name}.rs"],
-        cwd=REPO, capture_output=True, text=True, check=True).stdout
+    return source_text(name)
 
 
 def hdr(*chunks):

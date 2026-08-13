@@ -19,6 +19,7 @@ the order §5.4 lists them.
 import os
 import re
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -108,6 +109,43 @@ def source_bytes(name, *, toml_text=None):
         m = re.search(r"SOURCE REF:\s*([0-9a-f]{40})", toml_text)
         declared = m.group(1) if m else None
     return _blob_at(declared or FAMILY_DELETION_REF, name)
+
+
+_TREE_CACHE = {}
+
+
+def materialise_source_tree(name):
+    """A directory holding `<name>` AND every `#[path]` sibling it declares.
+
+    `source_bytes` answers "what are this file's bytes"; a U10 `#[path]` carrier
+    needs more than that, because its submodules are a separate question and the
+    family deletion took the sibling DIRECTORY with the carrier. A carrier
+    materialised alone has `#[path]` declarations resolving to nothing, and
+    `submodules.submodule_paths` filters on `p.is_file()`, so it returns the
+    empty list -- which reads to its callers as "this carrier has no
+    submodules", not as "I could not find them". `gen_batch7b` said so out loud
+    (`declares no resolvable submodule`); `gen_batch6b` did not, and failed
+    later with a `KeyError` on a helper citation it never collected.
+
+    Cached per name: the generators ask repeatedly and each miss is a `git
+    cat-file`.
+    """
+    if name not in _TREE_CACHE:
+        d = tempfile.mkdtemp(prefix="case-emit-source-tree-")
+        todo, seen = [name], set()
+        while todo:
+            rel = todo.pop()
+            if rel in seen:
+                continue
+            seen.add(rel)
+            dst = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            text = source_bytes(rel)
+            with open(dst, "w") as fh:
+                fh.write(text)
+            todo.extend(re.findall(r'#\[path = "([^"]+)"\]', text))
+        _TREE_CACHE[name] = d
+    return _TREE_CACHE[name]
 
 
 def deleted_by_family_deletion(name):
@@ -214,6 +252,15 @@ def source_text_at(path, *, quiet=False):
               head -c3 "$f" | grep -q '^//!' || echo "NOT //!: $f"; done
         (prints nothing)
     """
+    # BATCH 8C: A PATH INTO `tests/` THAT NO LONGER EXISTS IS RESOLVED, NOT
+    # RAISED. This is the deepest of the source readers -- `math_shapes.
+    # rule12_no_comments_prose` and several generators reach it with a path they
+    # built themselves -- so the family deletion surfaced here as
+    # `FileNotFoundError` from four generators at once. Anything outside
+    # `tests/` still raises, because this fallback only knows how to resolve
+    # this family's sources.
+    if not os.path.exists(path) and os.path.dirname(os.path.abspath(path)) == TESTS:
+        return source_bytes(os.path.basename(path))
     text = open(path).read()
     m = re.search(r"PRE-TRIM REF:\s*(\S+)", text)
     if not text.startswith("//!"):

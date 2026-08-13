@@ -20,12 +20,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 
-from case_emit import fixture, emit, write  # noqa: E402
+from case_emit import fixture, emit, write, source_text_at  # noqa: E402
 
 RS = os.path.join(REPO, "crates/kali_cli/tests/browser_math_log2_log10.rs")
 OUT = os.path.join(REPO, "crates/kali_cli/tests/cases/browser/math_log2_log10.toml")
 
-text = open(RS).read()
+text = source_text_at(RS, quiet=True)   # 8C: RS may be a deleted source
 
 # Every fixture below is pulled from the .rs by line range through lexer.py
 # (rule 9 -- never retype the program under test).
