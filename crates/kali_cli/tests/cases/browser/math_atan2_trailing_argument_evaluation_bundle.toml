@@ -1,5 +1,4 @@
-# Migrated from
-# tests/browser_math_atan2_trailing_argument_evaluation_bundle.rs.
+# Migrated from tests/browser_math_atan2_trailing_argument_evaluation_bundle.rs.
 # No Rust comments exist anywhere in the source file (checked: `grep -nE
 # '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
 # shake:` markers, which are program text, not Rust comments), so there is no

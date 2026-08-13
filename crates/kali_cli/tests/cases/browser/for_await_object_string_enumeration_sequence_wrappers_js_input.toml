@@ -1,5 +1,4 @@
-# Migrated from tests/browser_for_await_object_string_enumeration_
-# sequence_wrappers_js_input.rs.
+# Migrated from tests/browser_for_await_object_string_enumeration_sequence_wrappers_js_input.rs.
 #
 # Honest re-pin (PR #16 rev2): kali fails closed/loud here; see
 # docs/superpowers/followups/pr16-honest-repin-inventory.md.

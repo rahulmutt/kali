@@ -1,5 +1,4 @@
-# Migrated from
-# tests/browser_for_of_array_iteration_break_continue_harness.rs.
+# Migrated from tests/browser_for_of_array_iteration_break_continue_harness.rs.
 #
 # MATRIX ARITHMETIC (rule 7): all 32 #[test] fns are individual (no loops
 # anywhere in this file) and funnel through the single helper
