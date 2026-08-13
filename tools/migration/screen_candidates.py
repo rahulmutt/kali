@@ -86,6 +86,16 @@ KNOWN_CLEAN = {
     # combined stdout+stderr shape and screens as ADJUDICATE. It was migrated
     # after adjudicating that site (rule 11 + rule 2's presence/absence
     # asymmetry), which is exactly what ADJUDICATE is supposed to prompt.
+    #
+    # `template_literal_interpolation_runtime` is NOT here for the same reason
+    # and it is the second instance: Task 19 batch 4 widened S26 to match its
+    # `(stdout.clone() + &stderr)` spelling, which moved it CLEAN -> ADJUDICATE,
+    # and then migrated it in the same batch after resolving the site against the
+    # real binary (the needle is on stderr, on the one cell that carries it, and
+    # the claim is a PRESENCE claim so rule 2's asymmetry does not bite). A
+    # target that screens ADJUDICATE and has been adjudicated is migratable; the
+    # verdict is a prompt, not a refusal, and this list is only for targets that
+    # must screen CLEAN.
 }
 
 RETENTION_PHRASES = (
@@ -117,9 +127,43 @@ BLOCKING = [
     ("S25_compile_env",  r"env!\(",                     "compile-time env baked into the expectation"),
 ]
 
+# S26 WAS WIDENED BY TASK 19 BATCH 4, AND THE BLAST RADIUS WAS MEASURED FIRST.
+#
+# The original pattern matched two spellings of "build one haystack out of both
+# streams" -- a `push_str` of the lossy stderr, and a `combined.push_str`. It did
+# NOT match the third spelling in this corpus, `(stdout.clone() + &stderr)`, so
+# `template_literal_interpolation_runtime` screened CLEAN while carrying the
+# adjudicable shape. Batch 3 measured that, reported it, and deliberately left
+# the decision, because widening a blocking predicate moves the CLEAN/ADJUDICATE
+# split and therefore every later batch's scope.
+#
+# WHAT MOVED, derived before the edit rather than after it:
+#
+#   python3 - <<'EOF'   # over crates/kali_cli/tests/**/*.rs, browser included
+#   concat      -> 1 file : template_literal_interpolation_runtime.rs
+#   concat_rev  -> 0 files ( `stderr + &stdout` )
+#   format2     -> 0 files ( `format!("{}{}", stdout, stderr)` )
+#   concat_fn   -> 0 files ( `[stdout, stderr].concat()` )
+#   EOF
+#
+# So the whole move is ONE target and SIX tests: CLEAN 46 -> 45, ADJUDICATE
+# 2 -> 3, BLOCKED unchanged at 40. No already-migrated target moves, which is
+# what `KNOWN_CLEAN`'s selftest arm proves rather than asserts.
+#
+# The three spellings that match NOTHING today are in the pattern anyway. That
+# is deliberate and it is the direction this screen is supposed to fail in: a
+# blocking predicate that only recognises the spellings already in the corpus
+# has to be widened again by whoever writes the next one, one spelling at a
+# time, which is the failure mode the raw-string guard class cost this project
+# three batches to learn.
 ADJUDICABLE = [
     ("S26_combined_streams",
-     r"push_str\(&String::from_utf8_lossy\(&output\.stderr\)|combined\.push_str",
+     r"push_str\(&String::from_utf8_lossy\(&output\.stderr\)"
+     r"|combined\.push_str"
+     r"|(?:stdout|out)[A-Za-z0-9_]*(?:\.clone\(\))?\s*\+\s*&\s*[A-Za-z0-9_]*(?:stderr|err)[A-Za-z0-9_]*"
+     r"|(?:stderr|err)[A-Za-z0-9_]*(?:\.clone\(\))?\s*\+\s*&\s*[A-Za-z0-9_]*(?:stdout|out)[A-Za-z0-9_]*"
+     r"|format!\(\s*\"[^\"]*\"\s*,\s*[A-Za-z0-9_.]*stdout[A-Za-z0-9_.()]*\s*,\s*[A-Za-z0-9_.]*stderr"
+     r"|\[\s*&?[A-Za-z0-9_.]*stdout[^\]]*stderr[^\]]*\]\s*\.concat\(\)",
      "asserts against stdout+stderr CONCATENATED; resolvable per rule 11 for a "
      "presence claim, but an absence claim may not be narrowed (rule 2)"),
 ]

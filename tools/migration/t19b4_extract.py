@@ -118,6 +118,20 @@ DISQUALIFY = {
 }
 
 
+# ADJUDICATED, and therefore in the work list even though the screen no longer
+# calls it CLEAN. Task 19 batch 4 widened `screen_candidates.py`'s S26 to match
+# the `(stdout.clone() + &stderr)` spelling of a combined-stream claim, which
+# moved this one target from CLEAN to ADJUDICATE (CLEAN 46 -> 45, ADJUDICATE
+# 2 -> 3, BLOCKED unchanged). ADJUDICATE is a PROMPT, not a refusal: the site was
+# resolved against the real binary before anything was written, the needle is on
+# stderr on the one cell that carries it, and the claim is a PRESENCE claim so
+# rule 2's absence-narrowing prohibition does not bite. `bitwise_operators_runtime`
+# is the precedent -- migrated by the Task 19 pilot after adjudicating the same
+# shape. Named here rather than silently folded into the predicate, so a reader
+# of `select()` sees that the screen and the work list disagree and why.
+ADJUDICATED = {"template_literal_interpolation_runtime"}
+
+
 class UnknownShape(AssertionError):
     """A construct this extractor does not model.
 
@@ -1171,15 +1185,22 @@ def select() -> list[str]:
     """The work list, re-derived rather than tabulated (ruling 13)."""
     import glob
     import subprocess
+    # "Migrated by an EARLIER batch". This batch's own targets are excluded from
+    # the exclusion, so the predicate answers the same list before and after its
+    # own commit -- otherwise it returns [] the moment the case files land and
+    # the STEMS assertion below becomes a check that fires once and never again.
+    # The content of the assertion is unchanged: every stem in STEMS must still
+    # satisfy the predicate, and no OTHER unmigrated target may.
     pat = re.compile(r"Migrated from tests/([A-Za-z0-9_/]+)\.rs")
     migrated = set()
     for p in glob.glob(os.path.join(TESTS, "cases/*/*.toml")):
         migrated |= set(pat.findall(open(p, encoding="utf-8").read()))
+    migrated -= set(STEMS)
     clean = subprocess.run(
         [sys.executable, os.path.join(REPO, "tools/migration/screen_candidates.py"),
          "--list-clean"], capture_output=True, text=True, check=True).stdout.split()
     out = []
-    for s in sorted(clean):
+    for s in sorted(set(clean) | ADJUDICATED):
         if s in migrated:
             continue
         t = open(os.path.join(TESTS, s + ".rs"), encoding="utf-8").read()
