@@ -31,7 +31,14 @@ assertions -- with the `[matrix]` expanded first, so `app.${ext}` is compared as
 Anything else is an assertion whose text exists nowhere in the source and which
 nobody justified -- an invention, or a typo in a pin. Exit 1.
 
-Usage: check_extra_claims.py SOURCE.rs TARGET.toml
+Usage: check_extra_claims.py SOURCE.rs TARGET.toml [TARGET.toml ...]
+
+SEVERAL TARGETS = A U1/U2 SPLIT, and each is evaluated AGAINST ITS OWN
+`# EXTRA-OK:` declarations, never the union. The verdict is aggregated (one
+exit code for the pair), but the declarations stay file-scoped, for the same
+reason ruling 14 keeps disjunction suppression site-scoped: a justification
+written for one file's live-captured pin must not silence an invention in
+its sibling. Only the SOURCE side is shared, because it is the same source.
 """
 
 import importlib.util
@@ -112,9 +119,9 @@ def declared_extras(toml_path):
 
 
 def main(argv):
-    if len(argv) != 2:
+    if len(argv) < 2:
         raise SystemExit(__doc__)
-    rs_path, toml_path = argv
+    rs_path, toml_paths = argv[0], argv[1:]
     mod = _audit_module()
     # U10: for a `#[path = "..."] mod ...;` carrier, the top-level `.rs` holds
     # the helpers and the SUBMODULES hold every `#[test]` fn -- so the argv
@@ -126,32 +133,38 @@ def main(argv):
     rs_text = read_with_submodules(rs_path, mod)
 
     source_claims = {v for vals in mod.claims(rs_text).values() for v in vals}
-    toml_claims = expanded_assertion_strings(mod, toml_path)
-    declared = declared_extras(toml_path)
 
-    extras = sorted(c for c in toml_claims if c not in source_claims)
-    in_source_text, justified, unexplained = [], [], []
-    for e in extras:
-        if e in declared:
-            justified.append(e)
-        elif e and _in_source(e, rs_text):
-            in_source_text.append(e)
-        else:
-            unexplained.append(e)
+    total_unexplained = 0
+    for toml_path in toml_paths:
+        toml_claims = expanded_assertion_strings(mod, toml_path)
+        declared = declared_extras(toml_path)
 
-    print(f"{len(toml_claims)} claim string(s) in {os.path.basename(toml_path)}; "
-          f"{len(extras)} not among the source's extracted claims")
-    print(f"  {len(in_source_text)} present verbatim in the source .rs (helper args, env values)")
-    print(f"  {len(justified)} declared via `# EXTRA-OK:`")
-    for e in justified:
-        print(f"      {e!r} -- {declared[e]}")
-    for e in unexplained:
-        print(f"  UNEXPLAINED EXTRA: {e!r}")
-    if unexplained:
-        print(f"EXTRA CHECK FAILED — {len(unexplained)} asserted string(s) appear nowhere in "
+        extras = sorted(c for c in toml_claims if c not in source_claims)
+        in_source_text, justified, unexplained = [], [], []
+        for e in extras:
+            if e in declared:
+                justified.append(e)
+            elif e and _in_source(e, rs_text):
+                in_source_text.append(e)
+            else:
+                unexplained.append(e)
+
+        print(f"{len(toml_claims)} claim string(s) in {os.path.basename(toml_path)}; "
+              f"{len(extras)} not among the source's extracted claims")
+        print(f"  {len(in_source_text)} present verbatim in the source .rs (helper args, env values)")
+        print(f"  {len(justified)} declared via `# EXTRA-OK:`")
+        for e in justified:
+            print(f"      {e!r} -- {declared[e]}")
+        for e in unexplained:
+            print(f"  UNEXPLAINED EXTRA: {e!r}")
+        total_unexplained += len(unexplained)
+
+    if total_unexplained:
+        print(f"EXTRA CHECK FAILED — {total_unexplained} asserted string(s) appear nowhere in "
               "the source and are not declared. Rule 2: never invent a claim.")
         return 1
-    print("EXTRA CHECK OK — every extra claim is in the source text or declared")
+    print(f"EXTRA CHECK OK — every extra claim in {len(toml_paths)} case file(s) "
+          "is in the source text or declared")
     return 0
 
 

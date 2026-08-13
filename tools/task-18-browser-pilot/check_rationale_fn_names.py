@@ -16,7 +16,11 @@ citation that may be invented.
 
 Exits 1 if any cited fn-shaped name is unexplained, 0 otherwise.
 
-Usage: check_rationale_fn_names.py SOURCE.rs TARGET.toml
+Usage: check_rationale_fn_names.py SOURCE.rs TARGET.toml [TARGET.toml ...]
+
+SEVERAL TARGETS = A U1/U2 SPLIT: one source, several case files, forced by
+matrix scope or by `[source]` being file-wide. Each is checked against the
+same source's fn list and the verdict is aggregated into one exit code.
 """
 
 import os
@@ -117,9 +121,21 @@ def sibling_case_stems(toml_path):
 
 
 def main(argv):
-    if len(argv) != 2:
+    if len(argv) < 2:
         raise SystemExit(__doc__)
-    rs_path, toml_path = argv
+    rs_path, toml_paths = argv[0], argv[1:]
+    total_unexplained = 0
+    for toml_path in toml_paths:
+        total_unexplained += _check_one(rs_path, toml_path)
+    if total_unexplained:
+        print("U8 CHECK FAILED — a rationale may be citing something that does not exist")
+        return 1
+    print(f"U8 CHECK OK — every cited fn-shaped name in {len(toml_paths)} case "
+          "file(s) resolves")
+    return 0
+
+
+def _check_one(rs_path, toml_path):
     cited = cited_names(toml_path)
     known = source_names(rs_path) | ALLOW | sibling_case_stems(toml_path)
     # A case name is a source fn name with its `_in_<ext>_input` suffix stripped,
@@ -149,11 +165,7 @@ def main(argv):
           f"{len(unexplained)} unexplained")
     for n in unexplained:
         print(f"  UNEXPLAINED: `{n}` -- not a fn/binding in {os.path.basename(rs_path)}")
-    if unexplained:
-        print("U8 CHECK FAILED — a rationale may be citing something that does not exist")
-        return 1
-    print("U8 CHECK OK — every cited fn-shaped name resolves")
-    return 0
+    return len(unexplained)
 
 
 if __name__ == "__main__":

@@ -69,12 +69,26 @@ def normalize(s):
     return re.sub(r'\s+', ' ', s).strip()
 
 
-def check(rs_path, toml_path):
-    """Returns (total_lines_checked, missing), where `missing` is a list of
-    (source_position, line_text, case_name) for every (paragraph line, case)
-    pair where that case's OWN rationale does not contain the line's text.
-    A case with no `rationale` at all is reported missing for every line
-    (there is nothing to check membership against).
+def check(rs_path, toml_paths):
+    """Returns (total_lines_checked, missing, n_cases), where `missing` is a
+    list of (source_position, line_text, case_name) for every (paragraph
+    line, case) pair where that case's OWN rationale does not contain the
+    line's text. A case with no `rationale` at all is reported missing for
+    every line (there is nothing to check membership against).
+
+    `toml_paths` IS A LIST, and the whole list is one denominator. A U1/U2
+    split puts one source's cases in two or more case files -- forced by
+    matrix scope or by `[source]` being file-wide, never chosen -- and this
+    gate used to take exactly one TOML, so such a pair could not be checked
+    as a pair at all. Checking one half alone is not merely partial, it is
+    WRONG in a specific direction: every comment belonging to the other
+    half's helpers is reported "MISSING from ALL N cases", a hard red that
+    no correct file can clear. U6's unit of attribution is the migrated
+    SET -- a comment belongs in the rationale of exactly the cases its
+    producing helper reaches, wherever those cases were forced to live -- so
+    the set is what the denominator has to be. Case names are qualified with
+    their file's stem once more than one file is in scope, because two case
+    files may legitimately use the same case name.
 
     U10: a `#[path = "..."] mod ...;` carrier's prose can live in the carrier,
     in any submodule, or in both, and reading only the carrier would report a
@@ -85,13 +99,20 @@ def check(rs_path, toml_path):
     is the same ambiguity that makes a `:N` citation into a carrier meaningless
     when the construct is in a submodule."""
     files = [Path(rs_path)] + submodule_paths(rs_path)
-    doc = tomllib.load(open(toml_path, 'rb'))
-    cases = doc.get('case', []) or []
+    if isinstance(toml_paths, (str, Path)):        # one-TOML callers still work
+        toml_paths = [toml_paths]
+    qualify = len(toml_paths) > 1
 
     case_blobs = []
-    for case in cases:
-        r = case.get('rationale') or ''
-        case_blobs.append((case.get('name', '<unnamed>'), normalize(r)))
+    cases = []
+    for toml_path in toml_paths:
+        stem = Path(toml_path).stem
+        doc = tomllib.load(open(toml_path, 'rb'))
+        for case in doc.get('case', []) or []:
+            cases.append(case)
+            name = case.get('name', '<unnamed>')
+            r = case.get('rationale') or ''
+            case_blobs.append((f"{stem}::{name}" if qualify else name, normalize(r)))
 
     missing = []
     total = 0
@@ -127,12 +148,12 @@ def main() -> int:
     if '--allow-empty' in argv:
         allow_empty = True
         argv = [a for a in argv if a != '--allow-empty']
-    if len(argv) != 2:
-        print("usage: comment_coverage.py [--allow-empty] SOURCE.rs TARGET.toml",
-              file=sys.stderr)
+    if len(argv) < 2:
+        print("usage: comment_coverage.py [--allow-empty] SOURCE.rs "
+              "TARGET.toml [TARGET.toml ...]", file=sys.stderr)
         return 64  # EX_USAGE -- distinct from 1 (missing) and 2 (vacuous)
-    rs, toml = argv[0], argv[1]
-    total, missing, n_cases = check(rs, toml)
+    rs, tomls = argv[0], argv[1:]
+    total, missing, n_cases = check(rs, tomls)
     # Group by (line, text) so a comment paragraph missing from every case
     # isn't printed N times; report the case COUNT it's missing from instead.
     by_line = {}
