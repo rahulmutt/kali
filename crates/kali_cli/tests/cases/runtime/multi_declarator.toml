@@ -1,0 +1,94 @@
+# Migrated from tests/runtime_multi_declarator.rs.
+#   SOURCE REF: ee0d086a82729d3938fcd4e822ed01f2507c68d7
+#
+# Multi-declarator `var`/`let`/`const` statements bind every declarator, not
+# just the first.
+#
+# Six source `#[test]` fns become six named `[[case]]` siblings, 1:1 per rule 6.
+# No `[matrix]`: each case runs a different program and pins a different stdout,
+# so there is no axis every case varies over uniformly (rule 7). Matrix
+# arithmetic, recorded because rule 7 requires a declined matrix to be stated:
+# 6 helper invocations == 6 cases x 1 — no axis product to close.
+#
+# `[source]` KEYS ARE VARIANT-SUFFIXED (U5), NOT `main.ts`. The source wrote
+# every program to the same `main.ts` because each `#[test]` got a fresh
+# directory. `[source]` here is one flat FILE-WIDE namespace cloned into every
+# trial (U2; `crates/kali_case_runner/src/expand.rs:195`), so six cases cannot
+# share one key — the last body written would win and five cases would silently
+# run the wrong program. Each case therefore owns a key named after it and
+# passes that name as argv.
+#
+# U2 CHECK, run rather than assumed: the other five fixtures being present in
+# every trial is inert here. Each program is standalone — none contains an
+# import, require or filesystem reference to a sibling file (verified by
+# searching every `[source]` body below for a filename), and `kali run X.ts`
+# reads only
+# the file named in argv. This is NOT a case where a fixture's mere presence is
+# the claim, which is the shape U2 exists to stop.
+#
+# COMMENT CARRIED FROM THE SOURCE HELPER, and why it is here rather than in
+# every rationale. `run_source` (`runtime_multi_declarator.rs:8-27`) carries:
+#
+#   "A per-process AtomicU64 counter makes the slug unique even when two
+#    sources share a length (a shared length previously collided the dir and
+#    caused macOS CI temp-slug flakes — repo convention is a counter)."
+#
+# That comment describes how the Rust harness kept its own temp directories from
+# colliding. The migrated case depends on nothing the helper computed: the case
+# runner gives every trial its own `tempfile::tempdir()`
+# (`crates/kali_case_runner/src/steps.rs:179`), so the helper's job is now the
+# runner's job. That is controller ruling 6's own test for the exemption,
+# applied here to a local `//` comment rather than to the cross-crate `///`
+# docs ruling 6 was written about. Carried verbatim above so nothing is dropped
+# (rule 12), and not replicated into six rationales, because attributing harness
+# mechanics to every case is the over-attribution U6 forbids.
+
+[source]
+"two_declarators_both_bind.ts" = "var a = 1, b = 2;\nconsole.log(a + b);\n"
+"three_declarators_all_bind.ts" = "var a = 1, b = 2, c = 3;\nconsole.log(a + b + c);\n"
+"mixed_init_and_no_init_declarator.ts" = "var r = 5, c;\nc = r + 1;\nconsole.log(r);\nconsole.log(c);\n"
+"let_multi_declarator.ts" = "let x = 10, y = 20;\nconsole.log(x + y);\n"
+"const_multi_declarator.ts" = "const p = 4, q = 5;\nconsole.log(p * q);\n"
+"single_declarator_unchanged.ts" = "var a = 42;\nconsole.log(a);\n"
+
+[[case]]
+name = "two_declarators_both_bind"
+rationale = """Migrated from runtime_multi_declarator.rs. RED anchor: pre-fix the parser dropped the second declarator `b`, so `b` was an undefined identifier (E3100). Both must bind and sum to 3."""
+args = ["run", "two_declarators_both_bind.ts"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "three_declarators_all_bind"
+rationale = """Migrated from runtime_multi_declarator.rs. Multi-declarator `var` binds every declarator, not just the first: `var a = 1, b = 2, c = 3` sums to 6."""
+args = ["run", "three_declarators_all_bind.ts"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "mixed_init_and_no_init_declarator"
+rationale = """Migrated from runtime_multi_declarator.rs. The capstone's `selectRandom` shape: `var r = <init>, c;` — the second declarator has no initializer but must still be a declared binding that can be assigned later."""
+args = ["run", "mixed_init_and_no_init_declarator.ts"]
+exit = "success"
+stdout = "5\n6\n"
+
+[[case]]
+name = "let_multi_declarator"
+rationale = """Migrated from runtime_multi_declarator.rs. Multi-declarator `let` binds every declarator, not just the first: `let x = 10, y = 20` sums to 30."""
+args = ["run", "let_multi_declarator.ts"]
+exit = "success"
+stdout = "30\n"
+
+[[case]]
+name = "const_multi_declarator"
+rationale = """Migrated from runtime_multi_declarator.rs. Multi-declarator `const` binds every declarator, not just the first: `const p = 4, q = 5` multiplies to 20."""
+args = ["run", "const_multi_declarator.ts"]
+exit = "success"
+stdout = "20\n"
+
+[[case]]
+name = "single_declarator_unchanged"
+rationale = """Migrated from runtime_multi_declarator.rs. Regression guard: the single-declarator path must stay identical."""
+args = ["run", "single_declarator_unchanged.ts"]
+exit = "success"
+stdout = "42\n"

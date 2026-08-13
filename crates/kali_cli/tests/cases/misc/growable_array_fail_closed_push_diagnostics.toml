@@ -1,0 +1,59 @@
+# Migrated from tests/growable_array_fail_closed.rs.
+#   SOURCE REF: ee0d086a82729d3938fcd4e822ed01f2507c68d7
+#
+# The second half of one migration. `growable_array_fail_closed.rs`'s other
+# eleven `#[test]` fns live in `cases/misc/growable_array_fail_closed.toml`;
+# this file carries `malformed_push_call_reports_the_push_not_a_position`
+# alone, and the two are audited together against the one source.
+#
+# WHY IT IS SPLIT OUT — U1, not preference. The sibling file declares
+# `[matrix] ext = ["js", "ts"]`, because `assert_fail_closed_e5506` runs every
+# source it is given under both extensions. `[matrix]` is FILE-WIDE and has no
+# per-case opt-out (U1): every `[[case]]` in a file is fanned by the full
+# cross-product. This source fn does NOT vary over that axis — it hardcodes
+# `smoke.test.js` (`growable_array_fail_closed.rs:157`) and never builds a
+# `.ts` command. Fanning it by `ext` would manufacture two `.ts` trials the
+# source never ran: a rule-2 invention, and a rule-7 arithmetic break. A
+# `[[case]]` cannot opt out of a file's matrix, so only a separate case file
+# can carry it. The full arithmetic, and how the two files sum to the source's
+# 26 real invocations, is stated in the sibling file's header.
+#
+# Rule 5 split: the source fn loops over two independent programs, so it
+# becomes two named sibling cases rather than one folded case.
+#
+# NOTE — NO `stdout` PIN HERE, DELIBERATELY (rule 2). The ten cases that go
+# through `assert_fail_closed_e5506` pin `stdout = ""`, because that helper
+# asserts `stdout.is_empty()` (`:41-44`). This source fn does NOT: its loop body
+# (`:156-178`) asserts only `!status.success()`, `stderr.contains("error[E5506]")`,
+# `stderr.contains("has a \`.push\` call")`, and
+# `!stderr.contains("appears in a position")`. Both programs do in fact produce
+# empty stdout on the real binary (captured live), and pinning it here would be
+# an assertion added because it is true rather than because the source made it —
+# exactly what rule 2 forbids.
+#
+# The `!stderr.contains(...)` claim is carried by `stderr_absent`, which is its
+# direct equivalent: a negated substring claim on the same stream.
+
+[source]
+"malformed_push_object_literal_arg.test.js" = "function m(){const o=[];o.push({a:1});console.log(o.length);}m();"
+"malformed_push_wrong_arity.test.js" = "function m(){const o=[];o.push(1,2);console.log(o.length);}m();"
+
+[[case]]
+name = "malformed_push_call_reports_the_push_not_a_position_object_literal_arg"
+rationale = """Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
+
+Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `o.push({a:1})` program."""
+args = ["run", "malformed_push_object_literal_arg.test.js"]
+exit = "failure"
+stderr_contains = ["error[E5506]", "has a `.push` call"]
+stderr_absent = ["appears in a position"]
+
+[[case]]
+name = "malformed_push_call_reports_the_push_not_a_position_wrong_arity"
+rationale = """Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
+
+Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `o.push(1,2)` program."""
+args = ["run", "malformed_push_wrong_arity.test.js"]
+exit = "failure"
+stderr_contains = ["error[E5506]", "has a `.push` call"]
+stderr_absent = ["appears in a position"]

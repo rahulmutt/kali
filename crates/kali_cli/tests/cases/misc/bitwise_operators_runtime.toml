@@ -1,0 +1,215 @@
+# Migrated from tests/bitwise_operators_runtime.rs.
+#   SOURCE REF: ee0d086a82729d3938fcd4e822ed01f2507c68d7
+#
+# Bitwise and shift operators against a runtime-packed byte, plus the
+# fail-closed reject for a float operand.
+#
+# Eight source `#[test]` fns become eight named `[[case]]` siblings, 1:1 per
+# rule 6. No `[matrix]`: seven cases run through `run_js` (which asserts
+# success) and one through `run_js_expect_failure` (which asserts failure), and
+# each pins a different stdout, so no axis is varied uniformly by all eight
+# (rule 7). Declined-matrix arithmetic, recorded per rule 7: 8 helper
+# invocations == 8 cases x 1 — no axis product to close.
+#
+# RULE 8 — THE `format!` FIXTURES WERE RESOLVED BY EXECUTION, NOT BY HAND.
+# Seven of the eight sources are built as `format!("{PACK}...")`. Their resolved
+# text was captured by compiling and running the real `format!` calls
+# (`tools/task-19-pilot/dump_bitwise.rs`, copied verbatim from the source's
+# `PACK` constant at `:50` and its eight `#[test]` bodies), never by hand-applying
+# Rust's substitution rules. Note what that execution settled and a hand
+# derivation would have got wrong: the resolved program has NO trailing newline
+# after the final `console.log(...);` — `PACK` ends in `\n` but the appended
+# text does not.
+#
+# U13 — `PACK` IS HOISTED INTO `[constants]`, AND THE TWO GATES DISAGREE ABOUT
+# WHETHER THAT IS CORRECT. THE AUDIT WINS, BECAUSE RULE 3 SAYS IT IS ABSOLUTE.
+#
+# U13 requires a body duplicated across entries, or a long common prefix shared
+# by two or more entries, to be hoisted and the identity asserted mechanically.
+# `PACK`'s two lines are a byte-identical prefix of seven of the eight fixtures,
+# so U13 applies. Controller ruling 7 declined exactly this hoist for
+# `browser/`, on the ground that `check_fixtures.py` searches only `[source]`
+# values and step `body`, so a hoisted body makes the rule-9 gate go red on a
+# correct file.
+#
+# That ground was re-tested here rather than inherited, and BOTH placements were
+# run against BOTH gates. The result is a deadlock — there is no placement of
+# `PACK` that satisfies both:
+#
+#   PACK hoisted into [constants]   check_fixtures.py: RED    audit: GREEN
+#   PACK inlined into [source]      check_fixtures.py: GREEN  audit: RED
+#
+# Inlined, `check_fixtures.py` reports `FIXTURE CHECK OK — every fixture program
+# appears verbatim` (and prints `format!-built (segments matched)` for all
+# seven), while the audit reports `AUDIT FAILED — 1 claim(s) absent: [rule
+# constants] 'let byte = 0;\nfor (let i = 0; i < 8; ...'`. Hoisted, they swap.
+#
+# WHY THIS DIFFERS FROM `browser/`, which is the transferable part: in
+# `browser/` the duplicated text was a bundle BODY — an inline literal the audit
+# has no claim about, so declining the hoist cost nothing at the audit. Here
+# `PACK` is a genuine source-level string constant declared at `:50`, which the
+# audit extracts as a RULE CONSTANT claim, and the audit searches `[constants]` but
+# deliberately NOT `[source]` (program text is not a claim). So the audit
+# REQUIRES the hoist. Ruling 7's declination therefore does not transfer to a
+# shared prefix that is a declared source constant; the discriminator is whether
+# the duplicated text is a declared source constant (hoist is mandatory) or an
+# inline literal
+# (decline, per ruling 7).
+#
+# CONSEQUENCE FOR THE GATES: `check_fixtures.py` is EXPECTED-RED on this pair
+# and the red is a false failure. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/check_fixtures.py \
+#     crates/kali_cli/tests/bitwise_operators_runtime.rs \
+#     crates/kali_cli/tests/cases/misc/bitwise_operators_runtime.toml
+#   # -> UNMATCHED: <inline literal ...> 'let byte = 0;\nfor (let i = 0; ...'
+#
+# It is a tool limitation with a named fix, not a property of the format:
+# `check_fixtures.py` already carries `_substitute` (`:195`), an exact port of
+# `expand.rs::substitute`, but applies it only in the `--argv-correspondence`
+# arm (`:251`, `:266`). Resolving `${...}` into `[source]` BODIES before the
+# verbatim search would make this pair green and would be strictly more correct,
+# since it would compare what the runner actually writes to disk. Left for the
+# instrument dispatch; not worked around here.
+#
+# The mechanical identity assertion ruling 7 makes mandatory is the substitution
+# itself: `${PACK}` cannot differ between entries, because there is only one
+# definition of it.
+#
+# `[source]` keys are variant-suffixed per U5. The source wrote every program to
+# the same `main.js` under a fresh `tempdir()` per test; `[source]` here is one
+# flat FILE-WIDE namespace cloned into every trial (U2), so eight cases cannot
+# share one key. Every program is standalone and references no sibling
+# filename, so the other seven being present in each trial is inert — the U2
+# check, run rather than assumed.
+#
+# WHY FOUR KEYS ARE `bw_*` AND NOT `bitwise_*`: A `[source]` KEY MUST NOT
+# CONTAIN A LITERAL THE SOURCE ASSERTS. This was found by running the audit, not
+# by reasoning. The keys were first named after their cases — `bitwise_and.js`,
+# `bitwise_or.js`, `bitwise_xor.js`, `bitwise_on_float_operand_is_rejected.js`.
+# Every `[source]` key is also passed as an argv token, and `args` is a field
+# `audit-case-migration.py` searches as an assertion surface (correctly: argv
+# tokens are claims). The source's disjunction needle `bitwise` is a SUBSTRING of
+# those four filenames, so the audit reported:
+#
+#   DISJUNCTION — ... the case files pin '5506', 'bitwise'.
+#                     Every branch is pinned; nothing is suppressed
+#
+# — crediting this file with pinning a branch it does not pin. Renaming the four
+# keys to `bw_*`, changing nothing else, flips it to the truthful:
+#
+#   DISJUNCTION — ... the case files pin '5506'.
+#                     Unpinned and NOT reported missing: 'bitwise'
+#
+# Harmless here (the audit exits 0 either way and this arm is advisory), but the
+# CHANNEL is not harmless: the audit's forward direction is "an old literal must
+# appear somewhere in the new files," and a filename can satisfy it. The audit's
+# own docstring reasons carefully about excluding prose homes — comments,
+# `rationale`, `name`, `[source]` bodies — but `args` is deliberately INCLUDED,
+# and U5's convention of naming a key after its case smuggles descriptive prose
+# into argv. The rule this file follows, and proposes: a `[source]` key may not
+# contain any literal its source asserts.
+#
+# RULE 11 / RULING 17 — THE OR IN `bitwise_on_float_operand_is_rejected`.
+# The source asserts a disjunction:
+#
+#   out.contains("5506") || out.to_lowercase().contains("bitwise")
+#
+# where `out` is `run_js_expect_failure`'s STDOUT AND STDERR CONCATENATED
+# (`:43-45`). Rule 11 resolves an OR against the real binary. Ruling 17 governs
+# what happens when more than one disjunct is true, which is the case here, and
+# its procedure was followed:
+#
+#   1. Resolve the stream by observation. Captured live: stdout is EMPTY and
+#      stderr carries `error[E5506]: bitwise operator '&' on a floating-point
+#      operand is unavailable in the current phase; use integer operands or the
+#      later compatibility path`. Unambiguous — the claim is a stderr claim.
+#   2. Among disjuncts universally true on that stream, pin the FIRST IN SOURCE
+#      ORDER. Both are true: the stream contains `5506`, and lowercased it
+#      contains `bitwise`. First in source order is `out.contains("5506")`, so
+#      `stderr_contains = ["5506"]` is the pin — the needle exactly as the
+#      source spells it (`5506`, not `E5506`).
+#   3. Disclose the other. The second disjunct,
+#      `out.to_lowercase().contains("bitwise")`, also holds on the observed
+#      stream. It is NOT pinned: pinning every true disjunct is a rule-2
+#      invention, not the conservative choice (ruling 17). It is also the
+#      disjunct the format could not carry faithfully in any case — it is a
+#      CASE-INSENSITIVE substring claim, and there is no case-folding assertion
+#      key. That is a second, independent reason it is disclosed rather than
+#      pinned, and it is recorded here because it is a shape the browser family
+#      never produced.
+
+[constants]
+PACK = "let byte = 0;\nfor (let i = 0; i < 8; i = i + 1) { byte = (byte << 1) | 1; }\n"
+
+[source]
+"shift_left_and_or_pack_bits.js" = "${PACK}console.log(\"\" + byte);"
+"bw_and.js" = "${PACK}console.log(\"\" + (byte & 15));"
+"bw_or.js" = "${PACK}console.log(\"\" + (byte | 256));"
+"bw_xor.js" = "${PACK}console.log(\"\" + (byte ^ 255));"
+"shift_right_arithmetic.js" = "${PACK}console.log(\"\" + (byte >> 4));"
+"shift_right_arithmetic_negative.js" = "${PACK}let neg = 0 - byte;\nconsole.log(\"\" + (neg >> 1));"
+"unsigned_shift_zero_extends.js" = "${PACK}let neg = 0 - byte;\nconsole.log(\"\" + (neg >>> 0));"
+"bw_on_float_rejected.js" = "let x = 0.0;\nfor (let i = 0; i < 3; i = i + 1) { x = x + 1.5; }\nconsole.log(\"\" + (x & 1));"
+
+[[case]]
+name = "shift_left_and_or_pack_bits"
+rationale = """Migrated from bitwise_operators_runtime.rs. Builds a runtime byte = 255 via loop-carried shift+or (mandelbrot's packing), defeating constant folding, then exercises each operator against it."""
+args = ["run", "shift_left_and_or_pack_bits.js"]
+exit = "success"
+stdout = "255\n"
+
+[[case]]
+name = "bitwise_and"
+rationale = """Migrated from bitwise_operators_runtime.rs. Builds a runtime byte = 255 via loop-carried shift+or (mandelbrot's packing), defeating constant folding, then exercises each operator against it."""
+args = ["run", "bw_and.js"]
+exit = "success"
+stdout = "15\n"
+
+[[case]]
+name = "bitwise_or"
+rationale = """Migrated from bitwise_operators_runtime.rs. Builds a runtime byte = 255 via loop-carried shift+or (mandelbrot's packing), defeating constant folding, then exercises each operator against it."""
+args = ["run", "bw_or.js"]
+exit = "success"
+stdout = "511\n"
+
+[[case]]
+name = "bitwise_xor"
+rationale = """Migrated from bitwise_operators_runtime.rs. Builds a runtime byte = 255 via loop-carried shift+or (mandelbrot's packing), defeating constant folding, then exercises each operator against it."""
+args = ["run", "bw_xor.js"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "shift_right_arithmetic"
+rationale = """Migrated from bitwise_operators_runtime.rs. Builds a runtime byte = 255 via loop-carried shift+or (mandelbrot's packing), defeating constant folding, then exercises each operator against it."""
+args = ["run", "shift_right_arithmetic.js"]
+exit = "success"
+stdout = "15\n"
+
+[[case]]
+name = "shift_right_arithmetic_negative"
+rationale = """Migrated from bitwise_operators_runtime.rs. Builds a runtime byte = 255 via loop-carried shift+or (mandelbrot's packing), defeating constant folding, then exercises each operator against it.
+
+neg = -255 (runtime), -255 >> 1 = -128 (sign-preserving)"""
+args = ["run", "shift_right_arithmetic_negative.js"]
+exit = "success"
+stdout = "-128\n"
+
+[[case]]
+name = "unsigned_shift_zero_extends"
+rationale = """Migrated from bitwise_operators_runtime.rs. Builds a runtime byte = 255 via loop-carried shift+or (mandelbrot's packing), defeating constant folding, then exercises each operator against it.
+
+-255 >>> 0 = 4294967041 (uint32)"""
+args = ["run", "unsigned_shift_zero_extends.js"]
+exit = "success"
+stdout = "4294967041\n"
+
+[[case]]
+name = "bitwise_on_float_operand_is_rejected"
+rationale = """Migrated from bitwise_operators_runtime.rs. x is f64 (seeded by 1.5), loop-derived so not folded; `x & 1` must reject.
+
+The source accepts either of two outcomes: `out.contains("5506") || out.to_lowercase().contains("bitwise")`, taken against stdout and stderr concatenated. Resolved against the real binary per rule 11 and ruling 17: stdout is empty, stderr carries `error[E5506]: bitwise operator '&' on a floating-point operand is unavailable in the current phase; use integer operands or the later compatibility path`. Both disjuncts hold on that stream, so the first in source order is pinned (`5506` on stderr) and the second is disclosed rather than pinned — pinning every true disjunct would be a rule-2 invention, and the second disjunct is a case-insensitive claim the format has no key for."""
+args = ["run", "bw_on_float_rejected.js"]
+exit = "failure"
+stderr_contains = ["5506"]

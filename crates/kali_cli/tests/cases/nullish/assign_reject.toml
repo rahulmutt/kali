@@ -1,0 +1,118 @@
+# Migrated from tests/nullish_assign_reject.rs.
+#   SOURCE REF: ee0d086a82729d3938fcd4e822ed01f2507c68d7
+#
+# The whole `??=` surface: the scalar rejects, and the one lane that survives.
+#
+# Seven source `#[test]` fns become seven named `[[case]]` siblings, 1:1 per
+# rule 6. No `[matrix]`: every case runs a different program and four of the
+# seven differ in exit status as well as stdout, so no axis is varied uniformly
+# by all seven (rule 7). Declined-matrix arithmetic, recorded per rule 7:
+# 7 helper invocations == 7 cases x 1 — no axis product to close.
+#
+# `[source]` keys are variant-suffixed per U5 for the reason spelled out in
+# `cases/runtime/multi_declarator.toml`: `[source]` is one flat FILE-WIDE
+# namespace cloned into every trial (U2), so seven cases cannot share the
+# source's single `main.ts`.
+#
+# U2 CHECK: the other six fixtures being present in every trial is inert. Each
+# program is standalone — none references a sibling filename — and `kali run
+# X.ts` reads only the file named in argv. No case here turns on a fixture's
+# presence or absence, which is the shape U2 exists to stop.
+#
+# CONSEQUENCE FOR THE GATES — `check_rationale_fn_names.py` IS EXPECTED-RED ON
+# THIS PAIR, AND THE RED IS RULE 12 DOING ITS JOB.
+#
+#   python3 tools/task-18-browser-pilot/check_rationale_fn_names.py \
+#     crates/kali_cli/tests/nullish_assign_reject.rs \
+#     crates/kali_cli/tests/cases/nullish/assign_reject.toml
+#   # -> UNEXPLAINED: `expression_is_nullish`, `is_null_or_undefined_expr`,
+#   #                 `truthy`, `undefined`        ... rc=1
+#
+# U8's gate greps every backticked fn-shaped identifier out of a rationale and
+# requires it to resolve against the SOURCE `.rs`'s own fn list. All four names
+# above are carried VERBATIM out of the source's own comments — the two
+# recognizer twins from `:127-131`, and `truthy`/`undefined` from `:92` and
+# `:125`. They name compiler internals in other crates, not fns in
+# `nullish_assign_reject.rs`, so they cannot resolve there and never could.
+#
+# Removing them to green the gate would violate rule 12, which requires source
+# prose to be carried verbatim; rewording them would violate U7, which forbids
+# silently correcting source prose. The gate's premise — that rationale prose
+# only names things in the test source — holds for `browser/`, whose comments
+# describe harness behaviour, and fails for CLI targets, whose comments
+# routinely name the compiler internals the behaviour comes from. The script
+# already has the right mechanism for this (a known-identifier allowlist, seeded
+# with browser names at `:37-63`); it needs CLI-family entries. Left for the
+# instrument dispatch, per the standing instruction not to generalise tooling
+# here. NOT worked around, and NOT silenced.
+#
+# RULE 2 — TWO CASES DELIBERATELY CARRY NO STDERR CLAIM.
+# `scalar_local_nullish_assign_rejects` and `numeric_param_nullish_assign_rejects`
+# assert exactly one thing in the source: `assert!(!out.status.success(), ...)`.
+# The string "expected E5506 reject" in each is the panic MESSAGE of that
+# assertion, not an assertion of its own — nothing in the source ever inspects
+# stderr for those two fns. The real binary does emit `error[E5506]: nullish
+# assignment on binding 'x' is unavailable: ...` on stderr for both (captured
+# live), and pinning it here would be a rule-2 invention: an assertion added
+# because it is true, which the source never made. They pin `exit = "failure"`
+# and nothing else. Only `for_in_key_alias_nullish_assign_non_null_rhs_rejects`
+# asserts `stderr.contains("E5506")` in the source, and only it carries a
+# `stderr_contains` here.
+
+[source]
+"scalar_local_nullish_assign_rejects.ts" = "let x = 0;\nx ??= 1;\nconsole.log(x);\n"
+"numeric_param_nullish_assign_rejects.ts" = "function f(p) { p ??= 1; return p; }\nconsole.log(f(0));\n"
+"for_in_key_alias_nullish_assign_still_runs.ts" = "var table = { a: 1, b: 2 };\nvar last = null;\nfor (var c in table) {\n  last = c;\n}\nlast ??= null;\nif (last) { console.log(\"set\"); }\n"
+"for_in_key_alias_nullish_assign_sentinel_aware_not_falsy.ts" = "var table = {a:7, b:8};\nvar last = null;\nfor (var c in table) { last = c; break; }\nlast ??= null;\nconsole.log(table[last]);\n"
+"for_in_key_alias_fired_nullish_null_rhs_stores_sentinel.ts" = "var table = {a:1};\nvar last = null;\nvar go = 0;\nfor (var c in table) { if (go) { last = c; } }\nlast ??= null;\nif (last) { console.log(\"truthy\"); } else { console.log(\"falsy\"); }\n"
+"for_in_key_alias_nullish_assign_non_null_rhs_rejects.ts" = "var table = {a:7, b:8};\nvar last = null;\nfor (var c in table) { last = c; break; }\nlast ??= 5;\nconsole.log(table[last]);\n"
+"for_in_key_alias_nullish_assign_undefined_rhs_admits.ts" = "var table = {a:1};\nvar last = null;\nvar go = 0;\nfor (var c in table) { if (go) { last = c; } }\nlast ??= undefined;\nif (last) { console.log(\"truthy\"); } else { console.log(\"falsy\"); }\n"
+
+[[case]]
+name = "scalar_local_nullish_assign_rejects"
+rationale = """Migrated from nullish_assign_reject.rs. `??=` lowers with a FALSY test (`I64Eqz`) and null/undefined both lower to i64 `0` for a scalar, so kali cannot distinguish `null` from `0` — a correct nullish test is unrepresentable without a nullable-scalar type. Must reject fail-closed, never miscompile `let x = 0; x ??= 1` to `1` (node: `0`)."""
+args = ["run", "scalar_local_nullish_assign_rejects.ts"]
+exit = "failure"
+
+[[case]]
+name = "numeric_param_nullish_assign_rejects"
+rationale = """Migrated from nullish_assign_reject.rs. A numeric parameter is a scalar binding, so `??=` on it must reject fail-closed for the same reason as a scalar local."""
+args = ["run", "numeric_param_nullish_assign_rejects.ts"]
+exit = "failure"
+
+[[case]]
+name = "for_in_key_alias_nullish_assign_still_runs"
+rationale = """Migrated from nullish_assign_reject.rs. The ONLY surviving `??=` lowering: a for-in-key ALIAS binding, which has a real null sentinel (`-1`) so null and a valid key ordinal stay distinct."""
+args = ["run", "for_in_key_alias_nullish_assign_still_runs.ts"]
+exit = "success"
+stdout = "set\n"
+
+[[case]]
+name = "for_in_key_alias_nullish_assign_sentinel_aware_not_falsy"
+rationale = """Migrated from nullish_assign_reject.rs. POSITIVE-BEHAVIOR pin (despite this file's name): after Spec 7 Task 3 the ONLY `??=` shape that reaches codegen is a for-in-key alias, whose null sentinel is `-1` (key ordinals are 0-based). The `??=` codegen arm previously tested the nullish condition with `I64Eqz` — a FALSY test that fires on ordinal `0`. This pins that the surviving `??=` lane is SENTINEL-AWARE (`== -1`), not falsy: `last` holds the first key's ordinal `0`, so `last ??= null` must NOT fire (0 is a valid key, not null) and `table[last]` must read key 0's value.
+
+DISCRIMINATION: this pin's RHS is `null` (the only RHS the resolve admit now accepts), and a fired `??= null` stores the `-1` sentinel (see the null-RHS store pin below). So under a regressed falsy `I64Eqz` compare, alias == 0 FIRES, stores `-1`, and `table[-1]` reads out-of-table garbage (≠ 7) — the pin still catches the falsy-compare bug even though the RHS is null. Lives here because this file owns the whole `??=` surface (rejects + the one live lane)."""
+args = ["run", "for_in_key_alias_nullish_assign_sentinel_aware_not_falsy.ts"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "for_in_key_alias_fired_nullish_null_rhs_stores_sentinel"
+rationale = """Migrated from nullish_assign_reject.rs. A FIRED `??= null` must store the `-1` null sentinel, not a raw `0` (the generic null lowering): the sentinel-aware compare (pin above) correctly ENTERS the assignment branch when the alias is genuinely null (-1), and a bare-`null` RHS emitted via the generic path would store `0` — a VALID key ordinal — flipping the alias's truthiness from false to true. (Pre-sentinel, the falsy compare never took the branch on -1, which was accidentally correct.) Mirrors the `=` arm's null-store special case (literal.rs). Node prints `falsy`; a raw-0 store prints `truthy`."""
+args = ["run", "for_in_key_alias_fired_nullish_null_rhs_stores_sentinel.ts"]
+exit = "success"
+stdout = "falsy\n"
+
+[[case]]
+name = "for_in_key_alias_nullish_assign_non_null_rhs_rejects"
+rationale = """Migrated from nullish_assign_reject.rs. A for-in-key alias `??=` with a NON-NULL RHS must reject: if it fired it would store a raw number into an ordinal-repr binding, and every downstream ordinal consumer (`table[last]`, truthiness) diverges from node (which holds a string key or the raw number, e.g. `table[last]` after `??= 1` → node `undefined`). The admit is narrowed to a `null`-literal RHS — the only RHS whose fired store (-1 sentinel) is representable."""
+args = ["run", "for_in_key_alias_nullish_assign_non_null_rhs_rejects.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "for_in_key_alias_nullish_assign_undefined_rhs_admits"
+rationale = """Migrated from nullish_assign_reject.rs. `??= undefined` now ADMITS (soundness batch 1 item 4): bare `undefined` parses as an IDENTIFIER, not a literal, but codegen's null recognizer (`is_null_or_undefined_expr`) now matches that identifier form too, and the types-side admit (`expression_is_nullish`) widened to match — the two recognizer twins agree, so the disagreement-driven reject no longer applies. `last` is null (the loop body never fires: `go` is falsy), so `??=` fires and stores the `-1` sentinel, matching node's `falsy`."""
+args = ["run", "for_in_key_alias_nullish_assign_undefined_rhs_admits.ts"]
+exit = "success"
+stdout = "falsy\n"

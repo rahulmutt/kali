@@ -1,0 +1,146 @@
+# Migrated from tests/compound_assignment_wrapped_local_binding.rs.
+#   SOURCE REF: ee0d086a82729d3938fcd4e822ed01f2507c68d7
+#
+# A parenthesis-wrapped local binding (`((value)) += 2`) is still a valid
+# compound-assignment target, across `run` and `test`, `.js` and `.ts`, the text
+# and `--output json` surfaces, and the browser-requested harness.
+#
+# The source carries no comments, so rules 12 and 13 have nothing to carry here
+# beyond the per-case provenance line — stated because "no prose" and "prose
+# missed" are indistinguishable in a report that does not say which it was.
+#
+# Ten source `#[test]` fns become ten named `[[case]]` siblings, 1:1 per rule 6.
+#
+# MATRIX DECLINED, AND THE ARITHMETIC THAT DECLINES IT (rule 7). Every test
+# calls one helper, `assert_wrapped_compound_assignment(command, filename,
+# source, json_output, browser_harness)` (`:28-81`), so the candidate axes are
+# its flags: command x extension x json_output x browser_harness. That product
+# is 2 x 2 x 2 x 2 = 16, and the source makes 10 invocations, one per fn. 16 !=
+# 10, so no `[matrix]` over those axes closes. The gap is not arbitrary — the
+# source deliberately does not exercise six combinations (there is no
+# `json_run` + `browser_harness` pair, no non-json `test` + `browser_harness`
+# pair, and no `json_test` without `browser_harness`). Declaring the axes anyway
+# would fan every case over combinations the source never ran, inventing six
+# untested cells: a rule-2 invention as well as a rule-7 break. Named siblings
+# instead. 10 real invocations == 10 cases x 1.
+#
+# `[source]` HAS FOUR KEYS FOR TEN CASES, AND THAT IS CORRECT. `[source]` is
+# file-wide (U2), and here it does not need per-case disambiguation: the ten
+# invocations run only four distinct (filename, program) pairs, and the cases
+# that share one differ in ARGV, not in program text. `main.js` carries the
+# `run` program for the plain, json and browser-harness `run` cases alike. U2's
+# hazard is a fixture whose conditional presence is a case's point; nothing here
+# turns on presence, and every program is standalone with no sibling reference.
+#
+# `exit = 0` RATHER THAN `exit = "success"`: the helper asserts BOTH
+# `output.status.success()` (`:56`) and `assert_eq!(output.status.code(),
+# Some(0))` (`:62`). The exact code claim is the stronger of the two and implies
+# the other, so pinning it carries both (rule 1: an exact source assertion
+# becomes an exact pin).
+#
+# NO `stdout` PIN ON THE SIX NON-JSON CASES (rule 2). The helper reads stdout
+# only inside `if json_output` (`:64-80`); on the text path it asserts exit
+# status and nothing else. The real binary does print `1\n` for the four `run`
+# cases and `ok 1\n` for the two text `test` cases (captured live), and pinning
+# either would be an assertion added because it is true rather than because the
+# source made it. The four json cases pin exactly the fields the helper reads.
+#
+# `errors = []` is the direct form of the helper's
+# `assert!(json["errors"].as_array().expect("errors array").is_empty())`:
+# the case runner compares arrays element-wise AFTER a length check
+# (`crates/kali_case_runner/src/jsonpath.rs`), so an empty-array expectation
+# asserts emptiness rather than asserting nothing.
+
+[source]
+"main.js" = "let value = 1; ((value)) += 2; ((value)) -= 1; ((value)) *= 5; ((value)) /= 2; ((value)) %= 4; ((value)) **= 3; console.log(value);\n"
+"main.ts" = "let value = 1; ((value)) += 2; ((value)) -= 1; ((value)) *= 5; ((value)) /= 2; ((value)) %= 4; ((value)) **= 3; console.log(value);\n"
+"main.test.js" = """Kali.test('wrapped compound assignment', () => {
+  let value = 1;
+  ((value)) += 2;
+  ((value)) -= 1;
+  ((value)) *= 5;
+  ((value)) /= 2;
+  ((value)) %= 4;
+  ((value)) **= 3;
+  return value;
+});
+"""
+"main.test.ts" = """Kali.test('wrapped compound assignment', () => {
+  let value = 1;
+  ((value)) += 2;
+  ((value)) -= 1;
+  ((value)) *= 5;
+  ((value)) /= 2;
+  ((value)) %= 4;
+  ((value)) **= 3;
+  return value;
+});
+"""
+
+[[case]]
+name = "run_supports_wrapped_compound_assignment_in_js_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target under `run` with `.js` input."""
+args = ["run", "main.js"]
+exit = 0
+
+[[case]]
+name = "run_supports_wrapped_compound_assignment_in_ts_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target under `run` with `.ts` input."""
+args = ["run", "main.ts"]
+exit = 0
+
+[[case]]
+name = "json_run_supports_wrapped_compound_assignment_in_js_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. Under `--output json`, `run` with `.js` input reports schemaVersion 1, the issuing command, success, an empty errors array and exitCode 0."""
+args = ["--output", "json", "run", "main.js"]
+exit = 0
+json = { schemaVersion = 1, command = "run", success = true, errors = [], exitCode = 0 }
+
+[[case]]
+name = "json_run_supports_wrapped_compound_assignment_in_ts_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. Under `--output json`, `run` with `.ts` input reports schemaVersion 1, the issuing command, success, an empty errors array and exitCode 0."""
+args = ["--output", "json", "run", "main.ts"]
+exit = 0
+json = { schemaVersion = 1, command = "run", success = true, errors = [], exitCode = 0 }
+
+[[case]]
+name = "run_supports_wrapped_compound_assignment_in_browser_harness_js_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target under `run --api browser` with `.js` input, driven through the node harness."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 0
+
+[[case]]
+name = "run_supports_wrapped_compound_assignment_in_browser_harness_ts_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target under `run --api browser` with `.ts` input, driven through the node harness."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 0
+
+[[case]]
+name = "test_supports_wrapped_compound_assignment_in_js_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target inside a `Kali.test` body under `test` with `.js` input."""
+args = ["test", "main.test.js"]
+exit = 0
+
+[[case]]
+name = "test_supports_wrapped_compound_assignment_in_ts_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target inside a `Kali.test` body under `test` with `.ts` input."""
+args = ["test", "main.test.ts"]
+exit = 0
+
+[[case]]
+name = "json_test_supports_wrapped_compound_assignment_in_browser_harness_js_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. Under `--output json`, `test --api browser` with `.js` input reports one passed test, none failed, and the browser-requested host contract on the browser-harness backend."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 0
+json = { schemaVersion = 1, command = "test", success = true, errors = [], payload = { passed = 1, failed = 0, hostContract = "browser-requested", runtimeBackend = "browser-harness" } }
+
+[[case]]
+name = "json_test_supports_wrapped_compound_assignment_in_browser_harness_ts_input"
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. Under `--output json`, `test --api browser` with `.ts` input reports one passed test, none failed, and the browser-requested host contract on the browser-harness backend."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 0
+json = { schemaVersion = 1, command = "test", success = true, errors = [], payload = { passed = 1, failed = 0, hostContract = "browser-requested", runtimeBackend = "browser-harness" } }
