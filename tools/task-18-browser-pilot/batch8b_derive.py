@@ -75,6 +75,16 @@ DECLARED = {
     },
     "or_group_cells": 16,
     "or_group_both_true": 16,
+    # D4. The number of MIGRATED CASES that lose an `.env_remove(...)` because
+    # the case format cannot spell "unset a variable". Gated here rather than
+    # written into prose because the hand-count that first went into the batch
+    # report was WRONG -- 8 instead of 12 -- and wrong in a specific, recorded
+    # way: it counted `env_remove` textually inside a `#[test]` body, which
+    # misses every helper-mediated one. That is ruling 10's false-negative class
+    # (the predicate that returns nothing when the construct lives in the shared
+    # helper) reappearing in a hand count instead of in a tool.
+    "env_remove_cases": 12,
+    "env_remove_naive_undercount": 8,
 }
 
 
@@ -293,6 +303,36 @@ def d3():
     return cells, both, needles
 
 
+def d4():
+    """How many migrated cases carry no `env` where the source calls env_remove?
+
+    Counted THROUGH THE CALL GRAPH, using the generator's own row enumeration --
+    so the answer covers a call made from a helper as well as one made inline in
+    a `#[test]` fn. The naive predicate is computed alongside it, because a
+    figure is easier to trust when the wrong way to get it is visible next to
+    the right one.
+    """
+    import gen_batch8b as G
+    from batch8b_extract import test_fns
+    stems = ("runtime_sandbox_js_input", "runtime_sandbox_ts_input",
+             "runtime_sandbox_jsx_tsx")
+    total = naive = 0
+    for stem in stems:
+        text, rows = G.flat_rows(stem, G.SANDBOX_HELPERS)
+        hit = [r for r in rows if r["env"] is not None and r["env"][1] is None]
+        by = {}
+        for r in hit:
+            by.setdefault(r["helper"] or "<inline in the #[test] fn>", set()).add(r["fn"])
+        print(f"  {stem}: {len(hit)} of {len(rows)} migrated cases")
+        for helper, fns in sorted(by.items()):
+            print(f"      via {helper}: {len(fns)} distinct `#[test]` fn(s)")
+        total += len(hit)
+        naive += sum(1 for f in test_fns(text) if "env_remove" in f["body"])
+    print(f"  TOTAL: {total}   (naive `env_remove` inside a #[test] body: {naive} -- "
+          "misses every helper-mediated one)")
+    return total, naive
+
+
 def main():
     print("D1 -- can a `#[path]` carrier's run/test halves share a case file?")
     probed, differing, detail = d1()
@@ -307,6 +347,9 @@ def main():
     print("\nD3 -- rule 11 / ruling 17: the one OR-shaped source assertion")
     cells, both, needles = d3()
 
+    print("\nD4 -- how many migrated cases lose an `env_remove`?")
+    env_cases, env_naive = d4()
+
     problems = []
     if probed != DECLARED["d1_probed"]:
         problems.append(f"D1 probed {probed}, declared {DECLARED['d1_probed']}")
@@ -316,6 +359,12 @@ def main():
         got = verdicts.get(key)
         if got != want:
             problems.append(f"D2 {key}: measured {got}, declared {want}")
+    if env_cases != DECLARED["env_remove_cases"]:
+        problems.append(f"D4 measured {env_cases} cases, declared "
+                        f"{DECLARED['env_remove_cases']}")
+    if env_naive != DECLARED["env_remove_naive_undercount"]:
+        problems.append(f"D4 naive undercount measured {env_naive}, declared "
+                        f"{DECLARED['env_remove_naive_undercount']}")
     if (cells, both) != (DECLARED["or_group_cells"], DECLARED["or_group_both_true"]):
         problems.append(
             f"D3 measured {both}/{cells}, declared "

@@ -399,9 +399,15 @@ def extra_ok_block(renames=()):
                 "JSON leaf, which has no substring form, so ruling 3 requires an exact pin "
                 "captured from the real binary")))
         elif kind == "empty-stdout":
+            # `is_empty` is named PLAINLY, not backticked: U8's gate
+            # (`check_rationale_fn_names.py`) resolves every backticked
+            # lower-case identifier against the source's own fn list, and this
+            # one is a std method, not a fn in the `.rs`. Backticking it turned
+            # that gate red on both bundle pairs the moment this declaration
+            # started rendering.
             entries.append((value,
                             "the exact-empty `stdout` pin on the browser-bundle harness step. "
-                            "The source spells it as an `is_empty` check on the harness "
+                            "The source spells it as an is_empty check on the harness "
                             "process's stdout, which carries no literal for the extractor to "
                             "find, and no substring key can express \"nothing at all\" (rule 1)"))
     for _, new, _ in renames:
@@ -1392,6 +1398,22 @@ BUNDLE_TARGETS = {
 }
 
 
+def _bundle_split(stem, body):
+    """A bundle helper's body, cut into its `kali` half and its harness half.
+
+    Derived from the source's own second `Command::new`, so a helper that stops
+    running a harness -- or runs two -- is a generator error rather than a step
+    quietly built from the wrong claims.
+    """
+    marker = "Command::new(&harness_executable)"
+    if body.count(marker) != 1:
+        raise AssertionError(
+            f"{stem}: {body.count(marker)} occurrence(s) of {marker!r}; the split between "
+            "the `kali` step's claims and the harness step's claims is not derivable")
+    at = body.index(marker)
+    return body[:at], body[at:]
+
+
 def build_bundle(stem):
     PINNED.clear()
     spec = BUNDLE_TARGETS[stem]
@@ -1432,26 +1454,34 @@ def build_bundle(stem):
     for json_output in (False, True):
         argv = ["build", "--bundle", "--api", "browser"] + \
             (["--output", "json"] if json_output else []) + ["app.${ext}"]
-        derived = claims_for(text, spec["helper"], {"json_output": json_output})
-        cli_claims = [c for c in derived if c[0] in ("exit_success", "exit_code", "json",
-                                                     "errors_empty")]
-        step_cli = {"args": argv, "exit": _fold_exit(cli_claims)}
-        paths = {c[1]: c[2] for c in cli_claims if c[0] == "json"}
-        if any(c[0] == "errors_empty" for c in cli_claims):
-            paths["errors"] = []
-        if paths:
-            step_cli["json_paths"] = paths
-        meta = {c[1].split(".", 1)[1]: c[2] for c in derived
-                if c[0] == "json" and c[1].startswith("metadata.")}
+        # The helper runs TWO processes -- `kali build`, then the browser-bundle
+        # harness -- and each gets its own step, so each step's claims must come
+        # from its own half of the body. Split POSITIONALLY at the harness's own
+        # `Command::new`, not by filtering claim kinds: a kind filter is a hand
+        # partition, and it is what let the harness's exact-empty `stdout` pin be
+        # hardcoded below rather than derived, which in turn meant `PINNED` never
+        # saw it and `extra_ok_block()` never declared it. Two shipped files then
+        # failed `check_extra_claims.py` on a bare `''` while this generator's
+        # docstring claimed the declarations were derived.
+        cli_part, harness_part = _bundle_split(stem, resolve(body, {"json_output": json_output}))
+        cli_claims = claims_in(cli_part)
+        harness_claims = claims_in(harness_part)
+        if not any(c[0] == "stdout_empty" for c in harness_claims):
+            raise AssertionError(
+                f"{stem}: the harness half asserts no `is_empty()` on its stdout -- the "
+                "exact-empty pin below would be a rule-2 invention")
+        step_cli, _ = build_step(cli_claims, argv, {})
         meta_claims = re.findall(r'assert_eq!\(\s*metadata\["([^"]+)"\]\s*,\s*"([^"]*)"\s*\)', body)
         if not meta_claims:
             raise AssertionError(f"{stem}: no app.meta.json claims found")
+        step_harness, _ = build_step(harness_claims, [], {})
+        step_harness.pop("args")
         steps = [
             step_cli,
             {"kind": "file_json", "path": "app/app.meta.json",
              "fields": {k: v for k, v in meta_claims}},
-            {"kind": "browser_bundle_harness", "entry": "app", "body": harness_body,
-             "exit": "success", "stdout": ""},
+            dict(kind="browser_bundle_harness", entry="app", body=harness_body,
+                 **step_harness),
         ]
         name = [f for f in fns if f.startswith("json_") == json_output][0]
         cases.append({

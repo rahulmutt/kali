@@ -81,6 +81,7 @@
 # check_extra_claims.py compares this file's claim strings against the source's and fails
 # on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
 # a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '' -- the exact-empty `stdout` pin on the browser-bundle harness step. The source spells it as an is_empty check on the harness process's stdout, which carries no literal for the extractor to find, and no substring key can express "nothing at all" (rule 1)
 # EXTRA-OK: '$' -- the value of the rule-10 `[constants] dollar` escape, not an assertion at all -- the RESOLVED program text is byte-identical to the source's, which is the whole point of rule 10
 
 [constants]

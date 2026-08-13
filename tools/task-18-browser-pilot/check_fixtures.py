@@ -63,13 +63,21 @@ SOURCE_FN = re.compile(r"\bfn\s+([a-z0-9_]*source[a-z0-9_]*)\s*\(\s*\)\s*->\s*&'
 # vacuity floor (rc 2) -- a source with exactly one program and no way to check
 # that it survived migration.
 #
-# The blast radius was MEASURED before the alternative was added, not argued:
-# over every `.rs` in `crates/kali_cli/tests`, exactly five files gain a
-# literal, and every gained literal is a real JS/TS program --
-# `bitwise_operators_runtime.rs` (1), `browser_wasm_threads_browser_surface.rs`
-# (1), `runtime_forin.rs` (3), `runtime_smoke.rs` (2),
-# `trap_diagnostics_runtime.rs` (2). Four of the five are outside the browser
-# family this gate runs against today; the fifth is the one that needed it. The
+# The blast radius was MEASURED before the alternative was added, not argued.
+# NO INTEGER IS RECORDED HERE, deliberately (ruling 15's answer 3): the count of
+# files that gain a literal is SCOPE-DEPENDENT -- a top-level `*.rs` glob and a
+# recursive one give different answers, because `runtime_smoke`'s `#[path]`
+# submodules also carry `let ...` programs and this gate resolves submodules.
+# An ungated integer whose value depends on how the reader enumerates is exactly
+# the liability that rule exists to retire. The two findings the change actually
+# rests on, both stable under either scope:
+#   * every literal newly matched is a real JS/TS program -- there is no English
+#     prose hit, which is what the `<ident> =` tail buys;
+#   * within the browser family this gate runs against, exactly one file is
+#     affected: `browser_wasm_threads_browser_surface.rs`, the one that needed
+#     it. Everything else newly matched is outside that family.
+# Re-derive with `python3 - <<'EOF'` over `find_string_literals`, comparing this
+# pattern against the one without the final alternative. The
 # `<ident> =` tail is what keeps it from matching English prose containing the
 # word "let". Probed by `inst2_probes.py` section 9.
 PROGRAM_HINT = re.compile(
