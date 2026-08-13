@@ -132,6 +132,26 @@ run_gates() {
         # took the wiring, which is the requirement about its own work. The
         # arithmetic is 11 + 1 = 12 and is stated in that batch's report.
         "python3 $REPO/tools/migration/gen_task19_batch3.py"
+        # ADDED BY TASK 19 BATCH 4, for the same reason as the line above and
+        # with one addition of its own. `gen_task19_batch4.py`'s default mode is
+        # the CHECK direction: it re-derives all nine of its case files from
+        # `t19b4_extract.py` and requires the shipped bytes to match, so a source
+        # that grows a construct outside the extractor's closed statement,
+        # expression or CLAIM language fails HERE rather than migrating short.
+        # It also re-runs all five of ruling 19's gates and requires every
+        # EXPECTED-RED declaration in every header to agree with the gate it
+        # names, in BOTH directions -- an undeclared red and a declared red that
+        # has gone green are both failures.
+        #
+        # It further RE-RUNS the real binary for both of the batch's rule-11
+        # cross-stream resolutions, so a pin that says "the needle is on stderr"
+        # cannot go stale silently. That is the one gate in this list that needs
+        # a built `kali`; it degrades to a loud failure, never to a skip.
+        #
+        # This takes the gate set from 12 to 13. The arithmetic is 12 + 1 = 13
+        # and is stated in batch 4's report; the count moves by construction
+        # whenever a batch wires its generator in, which is what batch 3 flagged.
+        "python3 $REPO/tools/migration/gen_task19_batch4.py"
     )
     for g in "${gates[@]}"; do
         printf '\n=== MIGRATION GATE: %s ===\n' "$g"
