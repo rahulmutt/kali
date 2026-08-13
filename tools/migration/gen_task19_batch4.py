@@ -271,7 +271,9 @@ def build(stem: str) -> list[dict]:
                 constants[name] = sources[key]
                 sources[key] = "${%s}" % name
         target_stem = SPLIT_STEM[(stem, part)] if part else stem
+        spec_entries = entries
         out.append({
+            "entries": spec_entries,
             "constants": constants,
             "source_stem": stem, "stem": target_stem, "part": part,
             "path": os.path.join(CASES, FAMILY, target_stem + ".toml"),
@@ -423,6 +425,33 @@ def check_no_manifest_named_fixture(spec):
     for k in spec["sources"]:
         if os.path.basename(k) in ("kali.json",):
             raise GenError(f"{spec['stem']}: fixture {k!r} is an auto-discovered manifest")
+
+
+def check_duplication_is_the_sources_own(spec, entries):
+    """RULING 7's mandatory half: duplication without a check is just duplication.
+
+    The hoist is declined, so the check has to be that every byte-identical
+    `[source]` pair in the rendered file is the SOURCE's own duplication and not
+    this generator's. Asserted two ways, mechanically:
+
+      * the number of DISTINCT bodies in the rendered `[source]` map equals the
+        number of distinct fixture texts among the invocations it renders -- so
+        the generator neither introduced a body nor collapsed two;
+      * every rendered body is one of those extracted texts, by identity of the
+        string, never by resemblance.
+    """
+    rendered = set(spec["sources"].values())
+    hoisted = set((spec.get("constants") or {}).values())
+    rendered = {b for b in rendered if not b.startswith("${")} | hoisted
+    extracted = set()
+    for _t, _i, inv in entries:
+        extracted |= set(inv.fixtures.values())
+    if rendered != extracted:
+        raise GenError(
+            f"{spec['stem']}: the rendered `[source]` bodies are not exactly the "
+            f"extracted fixture texts -- {len(rendered)} rendered vs "
+            f"{len(extracted)} extracted, "
+            f"{len(rendered ^ extracted)} on one side only")
 
 
 def u13_measure(spec):
@@ -898,6 +927,7 @@ def main(argv):
         src_text = open(rs, encoding="utf-8").read()
         for s in group:
             arithmetic(s)
+            check_duplication_is_the_sources_own(s, s["entries"])
             check_no_fixture_names_referenced(s)
             check_no_manifest_named_fixture(s)
             check_cross_stream_resolution(s)
