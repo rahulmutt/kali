@@ -11,7 +11,13 @@ Usage:  capture.py <spec.json>
 """
 import json, os, subprocess, sys, tempfile
 
-KALI = "/workspace/.cache/cargo-target/debug/kali"
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Honour CARGO_BIN_EXE_kali / KALI_BIN when set (that is how the Rust harness
+# finds it), then fall back to the workspace target dir. An absolute path baked
+# into the script does not run from a clean checkout, which U12 requires.
+KALI = (os.environ.get("CARGO_BIN_EXE_kali")
+        or os.environ.get("KALI_BIN")
+        or os.path.join(REPO, ".cache/cargo-target/debug/kali"))
 
 def run(spec):
     with tempfile.TemporaryDirectory() as d:

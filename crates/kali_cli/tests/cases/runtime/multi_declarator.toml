@@ -42,6 +42,29 @@
 # docs ruling 6 was written about. Carried verbatim above so nothing is dropped
 # (rule 12), and not replicated into six rationales, because attributing harness
 # mechanics to every case is the over-attribution U6 forbids.
+#
+# EXTRA-OK: 'const_multi_declarator.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'let_multi_declarator.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'mixed_init_and_no_init_declarator.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'single_declarator_unchanged.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'three_declarators_all_bind.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'two_declarators_both_bind.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+#
+# CONSEQUENCE FOR THE GATES — `comment_coverage.py` IS EXPECTED-RED (rc=1) ON
+# THIS PAIR, FOR U6's REASON. The checker asks whether every source comment line
+# appears in every case's rationale; U6 says a comment belongs in the rationale
+# of exactly the cases its producing helper reaches, and calls copying all of a
+# file's comments into all of its cases "over-attribution ... forbidden, even
+# though it turns the checker green". Every `MISSING` this reports is a
+# per-test comment correctly attributed to its own case and correctly absent
+# from its siblings. U6 anticipates this exactly: "on such a file the checker's
+# false `missing` must be documented in the header instead." That is what this
+# paragraph is. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/runtime_multi_declarator.rs \
+#     crates/kali_cli/tests/cases/runtime/multi_declarator.toml
+#   # -> rc=1, every line a per-test comment absent from its siblings
 
 [source]
 "two_declarators_both_bind.ts" = "var a = 1, b = 2;\nconsole.log(a + b);\n"

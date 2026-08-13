@@ -5,9 +5,35 @@
 # compound-assignment target, across `run` and `test`, `.js` and `.ts`, the text
 # and `--output json` surfaces, and the browser-requested harness.
 #
-# The source carries no comments, so rules 12 and 13 have nothing to carry here
-# beyond the per-case provenance line — stated because "no prose" and "prose
-# missed" are indistinguishable in a report that does not say which it was.
+# The source carries no `//` or `///` comments of its own. An earlier version of
+# this header turned that into "rules 12 and 13 have nothing to carry here", AND
+# THAT BLANKET CLAIM WAS WRONG — caught in review. Rule 13 carries every `///`
+# on every helper in the call chain, INCLUDING helpers in other crates, and
+# `compound_assignment_wrapped_local_binding.rs:42` reaches one:
+#
+#   /// Environment variable used to override the browser harness command.
+#   pub const BROWSER_HARNESS_COMMAND_ENV: &str = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND";
+#   (`crates/kali_runtime_contract/src/browser/contract.rs:83-84`)
+#
+# Ruling 6's test decides whether it must be carried, and here it comes out the
+# opposite way from the runner-infrastructure exemption: the migrated case still
+# depends on what that symbol denotes — it spells the variable's VALUE literally
+# in each browser-harness case's `env`. So the doc is carried, into the
+# rationale of exactly the four cases whose argv reaches it (U6), and not the six
+# it does not.
+#
+# CONSEQUENCE FOR THE GATES: `comment_coverage.py` exits **2** on this pair —
+# `0 non-divider comment lines checked against 10 cases`. That is ruling 5's
+# zero-line floor firing exactly as designed, not a defect: the source has no
+# comment lines of its own to check, and without the floor this pair would report
+# a vacuous green. The `///` carry above lives in a rationale, but it comes from
+# another crate, so it is not among the lines this checker extracts from the
+# source `.rs`. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/compound_assignment_wrapped_local_binding.rs \
+#     crates/kali_cli/tests/cases/misc/compound_assignment_wrapped_local_binding.toml
+#   # -> rc=2
 #
 # Ten source `#[test]` fns become ten named `[[case]]` siblings, 1:1 per rule 6.
 #
@@ -105,14 +131,18 @@ json = { schemaVersion = 1, command = "run", success = true, errors = [], exitCo
 
 [[case]]
 name = "run_supports_wrapped_compound_assignment_in_browser_harness_js_input"
-rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target under `run --api browser` with `.js` input, driven through the node harness."""
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target under `run --api browser` with `.js` input, driven through the node harness.
+
+Environment variable used to override the browser harness command."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = 0
 
 [[case]]
 name = "run_supports_wrapped_compound_assignment_in_browser_harness_ts_input"
-rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target under `run --api browser` with `.ts` input, driven through the node harness."""
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. A parenthesis-wrapped local binding is a valid compound-assignment target under `run --api browser` with `.ts` input, driven through the node harness.
+
+Environment variable used to override the browser harness command."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = 0
@@ -131,7 +161,9 @@ exit = 0
 
 [[case]]
 name = "json_test_supports_wrapped_compound_assignment_in_browser_harness_js_input"
-rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. Under `--output json`, `test --api browser` with `.js` input reports one passed test, none failed, and the browser-requested host contract on the browser-harness backend."""
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. Under `--output json`, `test --api browser` with `.js` input reports one passed test, none failed, and the browser-requested host contract on the browser-harness backend.
+
+Environment variable used to override the browser harness command."""
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.test.js"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = 0
@@ -139,7 +171,9 @@ json = { schemaVersion = 1, command = "test", success = true, errors = [], paylo
 
 [[case]]
 name = "json_test_supports_wrapped_compound_assignment_in_browser_harness_ts_input"
-rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. Under `--output json`, `test --api browser` with `.ts` input reports one passed test, none failed, and the browser-requested host contract on the browser-harness backend."""
+rationale = """Migrated from compound_assignment_wrapped_local_binding.rs. Under `--output json`, `test --api browser` with `.ts` input reports one passed test, none failed, and the browser-requested host contract on the browser-harness backend.
+
+Environment variable used to override the browser harness command."""
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.test.ts"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = 0

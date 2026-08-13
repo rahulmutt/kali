@@ -14,7 +14,7 @@
 # RULE 8 — THE `format!` FIXTURES WERE RESOLVED BY EXECUTION, NOT BY HAND.
 # Seven of the eight sources are built as `format!("{PACK}...")`. Their resolved
 # text was captured by compiling and running the real `format!` calls
-# (`tools/task-19-pilot/dump_bitwise.rs`, copied verbatim from the source's
+# (`tools/migration/pilot_task19_dump_bitwise.rs`, copied verbatim from the source's
 # `PACK` constant at `:50` and its eight `#[test]` bodies), never by hand-applying
 # Rust's substitution rules. Note what that execution settled and a hand
 # derivation would have got wrong: the resolved program has NO trailing newline
@@ -32,12 +32,38 @@
 # values and step `body`, so a hoisted body makes the rule-9 gate go red on a
 # correct file.
 #
-# That ground was re-tested here rather than inherited, and BOTH placements were
-# run against BOTH gates. The result is a deadlock — there is no placement of
-# `PACK` that satisfies both:
+# That ground was re-tested here rather than inherited, and the placements were
+# run against BOTH gates:
 #
-#   PACK hoisted into [constants]   check_fixtures.py: RED    audit: GREEN
-#   PACK inlined into [source]      check_fixtures.py: GREEN  audit: RED
+#   A. PACK hoisted into [constants]   check_fixtures.py: RED    audit: GREEN
+#   B. PACK inlined into [source]      check_fixtures.py: GREEN  audit: RED
+#   C. PACK inlined into [source] AND
+#      declared in [constants] with
+#      nothing referencing it           check_fixtures.py: GREEN  audit: GREEN
+#
+# CORRECTION — AN EARLIER VERSION OF THIS HEADER SAID "there is no placement of
+# `PACK` that satisfies both". THAT WAS FALSE, and placement C is why. It was
+# found in review, and reproduced here: inline every fixture body, leave the
+# `[constants] PACK` declaration in place referencing nothing, and both gates go
+# green. `assertion_strings()` (`scripts/audit-case-migration.py:1359-1371`)
+# ranges over every `[constants]` VALUE whether or not anything references it,
+# and nothing rejects an unused constant.
+#
+# PLACEMENT C IS REJECTED ANYWAY, and the reason is not aesthetic. A dead
+# `[constants]` entry is a false-green channel in the ABSOLUTE gate. Probed one
+# layer up from a known positive, on `cases/nullish/assign_reject.toml`:
+#
+#   delete its real `stderr_contains = ["E5506"]`
+#     -> AUDIT FAILED — 1 claim(s) absent: [contains literals] 'E5506'   rc=1
+#   same deletion, plus `[constants] UNUSED_NOTE = "E5506"` referenced by nothing
+#     -> AUDIT OK — every literal claim is present                       rc=0
+#
+# A genuinely dropped assertion is returned to green by a constant nothing uses.
+# So placement C duplicates the fixture body (worse on U13) AND buys its second
+# green with exactly the mechanism rule 4 forbids — "never force a false green".
+# Placement A stands. The audit hole is NOT worked around here and NOT fixed
+# here; it is routed to the instrument dispatch, because 60 more files will be
+# audited against it.
 #
 # Inlined, `check_fixtures.py` reports `FIXTURE CHECK OK — every fixture program
 # appears verbatim` (and prints `format!-built (segments matched)` for all
@@ -107,8 +133,54 @@
 # own docstring reasons carefully about excluding prose homes — comments,
 # `rationale`, `name`, `[source]` bodies — but `args` is deliberately INCLUDED,
 # and U5's convention of naming a key after its case smuggles descriptive prose
-# into argv. The rule this file follows, and proposes: a `[source]` key may not
-# contain any literal its source asserts.
+# into argv.
+#
+# THE RULE, SCOPED — an earlier version of this header proposed the absolute
+# form ("a `[source]` key may not contain any literal its source asserts"), and
+# that form is UNENFORCEABLE: measured against the shipped corpus, **77 of 161**
+# `cases/browser/*.toml` already violate it, nearly all of them because the key
+# `smoke.test.${ext}` contains the asserted literal `test`. Adopting it would
+# red-list most of a reviewed family for a collision that carries no risk, since
+# `test` is independently carried by argv and by a `json` leaf in those files.
+#
+#   python3 - <<'PY'   # the enumerating command for 77/161
+#   import glob,tomllib,os
+#   def leaves(v,o):
+#       if isinstance(v,str): o.add(v)
+#       elif isinstance(v,dict):
+#           for k,x in v.items(): o.add(k); leaves(x,o)
+#       elif isinstance(v,list):
+#           for x in v: leaves(x,o)
+#   n=0
+#   for p in glob.glob("crates/kali_cli/tests/cases/browser/*.toml"):
+#       d=tomllib.load(open(p,"rb")); keys=list((d.get("source") or {}).keys())
+#       lits=set()
+#       for c in d.get("case",[]):
+#           for s in (c.get("step") or [c]):
+#               for k in ("stdout_contains","stderr_contains","stdout_absent","stderr_absent"):
+#                   lits.update(s.get(k) or [])
+#               for k in ("stdout","stderr"):
+#                   if isinstance(s.get(k),str): lits.add(s[k])
+#               if "json" in s: leaves(s["json"],lits)
+#       if any(l and len(l)>1 and l in k for k in keys for l in lits): n+=1
+#   print(n)
+#   PY
+#
+# The enforceable form, which is what this file actually follows:
+#
+#   A LITERAL WHOSE ONLY CARRIER IS A FIXTURE NAME IS NOT PINNED. No `[source]`
+#   key, `[constants]` value, or `env` value may be the SOLE place an asserted
+#   literal appears — those three are the same channel, and `[constants]` and
+#   `env` are strictly wider than `[source]` keys, because the audit searches
+#   both as assertion surfaces and neither has to be referenced by anything to
+#   be searched (see the dead-constant probe above).
+#
+# That is the version with teeth: it flags exactly the cases where the audit's
+# green rests on a name rather than on a claim, and it leaves the 77 alone,
+# because in every one of them the literal has a real carrier elsewhere. `bw_*`
+# satisfies it either way; the rename stands, because `bitwise` had NO other
+# carrier in this file — it is an unpinned disjunct — which is precisely the
+# scoped rule's trigger.
 #
 # RULE 11 / RULING 17 — THE OR IN `bitwise_on_float_operand_is_rejected`.
 # The source asserts a disjunction:
@@ -138,6 +210,31 @@
 #      key. That is a second, independent reason it is disclosed rather than
 #      pinned, and it is recorded here because it is a shape the browser family
 #      never produced.
+#
+# EXTRA-OK: 'bw_and.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'bw_on_float_rejected.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'bw_or.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'bw_xor.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'shift_left_and_or_pack_bits.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'shift_right_arithmetic.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'shift_right_arithmetic_negative.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'unsigned_shift_zero_extends.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+#
+# CONSEQUENCE FOR THE GATES — `comment_coverage.py` IS EXPECTED-RED (rc=1) ON
+# THIS PAIR, FOR U6's REASON. The checker asks whether every source comment line
+# appears in every case's rationale; U6 says a comment belongs in the rationale
+# of exactly the cases its producing helper reaches, and calls copying all of a
+# file's comments into all of its cases "over-attribution ... forbidden, even
+# though it turns the checker green". Every `MISSING` this reports is a
+# per-test comment correctly attributed to its own case and correctly absent
+# from its siblings. U6 anticipates this exactly: "on such a file the checker's
+# false `missing` must be documented in the header instead." That is what this
+# paragraph is. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/bitwise_operators_runtime.rs \
+#     crates/kali_cli/tests/cases/misc/bitwise_operators_runtime.toml
+#   # -> rc=1, every line a per-test comment absent from its siblings
 
 [constants]
 PACK = "let byte = 0;\nfor (let i = 0; i < 8; i = i + 1) { byte = (byte << 1) | 1; }\n"
