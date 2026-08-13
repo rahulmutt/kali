@@ -96,6 +96,15 @@ KNOWN_CLEAN = {
     # target that screens ADJUDICATE and has been adjudicated is migratable; the
     # verdict is a prompt, not a refusal, and this list is only for targets that
     # must screen CLEAN.
+    #
+    # A LIMITATION OF THIS LIST, STATED SO IT IS NOT MISTAKEN FOR COVERAGE: every
+    # target that carries an S26 shape is deliberately absent from it, so
+    # `KNOWN_CLEAN` structurally CANNOT catch an over-wide S26. It bounds
+    # over-blocking by the BLOCKING shapes only. What bounds an S26 widening is
+    # the measurement recorded above the pattern -- running the screen with and
+    # without each alternative and diffing the verdicts -- and the fact that the
+    # only targets it moves are ones already migrated after adjudicating exactly
+    # that shape.
 }
 
 RETENTION_PHRASES = (
@@ -127,45 +136,86 @@ BLOCKING = [
     ("S25_compile_env",  r"env!\(",                     "compile-time env baked into the expectation"),
 ]
 
-# S26 WAS WIDENED BY TASK 19 BATCH 4, AND THE BLAST RADIUS WAS MEASURED FIRST.
+# S26 WAS WIDENED BY TASK 19 BATCH 4, AND THE POPULATIONS WERE DERIVED BY A SCAN
+# INDEPENDENT OF THE PATTERN BEING ADDED.
 #
 # The original pattern matched two spellings of "build one haystack out of both
-# streams" -- a `push_str` of the lossy stderr, and a `combined.push_str`. It did
-# NOT match the third spelling in this corpus, `(stdout.clone() + &stderr)`, so
+# streams". It missed the third, `(stdout.clone() + &stderr)`, so
 # `template_literal_interpolation_runtime` screened CLEAN while carrying the
-# adjudicable shape. Batch 3 measured that, reported it, and deliberately left
-# the decision, because widening a blocking predicate moves the CLEAN/ADJUDICATE
-# split and therefore every later batch's scope.
+# adjudicable shape; batch 3 measured that and left the decision because widening
+# a blocking predicate moves every later batch's scope.
 #
-# WHAT MOVED, derived before the edit rather than after it:
+# HOW THE POPULATIONS BELOW WERE OBTAINED, and why the first attempt was worth
+# discarding. Batch 4's first version grepped the corpus with THE VERY
+# ALTERNATIVES IT WAS ADDING and reported "three spellings match nothing today" --
+# self-confirming, which is ruling 13's exact target, and false: its `format!` row
+# read 0 and the true answer is 3. The rows below come instead from a STRUCTURAL
+# scan that knows nothing about this pattern -- find every `format!` call by
+# balanced parens (string-aware, so a `)` inside a fixture cannot close it) and
+# report the ones whose argument text mentions both streams:
 #
-#   python3 - <<'EOF'   # over crates/kali_cli/tests/**/*.rs, browser included
-#   concat      -> 1 file : template_literal_interpolation_runtime.rs
-#   concat_rev  -> 0 files ( `stderr + &stdout` )
-#   format2     -> 0 files ( `format!("{}{}", stdout, stderr)` )
-#   concat_fn   -> 0 files ( `[stdout, stderr].concat()` )
+#   cd /workspace && python3 - <<'EOF'
+#   import re, glob, os, sys
+#   sys.path.insert(0, "tools/task-18-browser-pilot")
+#   from lexer import find_string_literals
+#   ... balanced-paren scan over crates/kali_cli/tests/**/*.rs ...
 #   EOF
+#   -> runtime_string_equality.rs      "{}{}", String::from_utf8_lossy(&out.stdout), ...
+#      soundness_console_multiarg.rs   "{stdout}{stderr}"
+#      soundness_param_truncation.rs   "{stdout}{stderr}"
+#      3 file(s)
 #
-# So the whole move is ONE target and SIX tests: CLEAN 46 -> 45, ADJUDICATE
-# 2 -> 3, BLOCKED unchanged at 40. No already-migrated target moves, which is
-# what `KNOWN_CLEAN`'s selftest arm proves rather than asserts.
+# The one the first version's line-oriented grep could not see is
+# `runtime_string_equality.rs`: its `format!` spans several lines and its
+# arguments contain `::`, which that grep's argument class excluded.
 #
-# The three spellings that match NOTHING today are in the pattern anyway. That
-# is deliberate and it is the direction this screen is supposed to fail in: a
-# blocking predicate that only recognises the spellings already in the corpus
-# has to be widened again by whoever writes the next one, one spelling at a
-# time, which is the failure mode the raw-string guard class cost this project
-# three batches to learn.
+# THE FIVE ALTERNATIVES, AND WHAT EACH MATCHES TODAY:
+#
+#   push_str(&String::from_utf8_lossy(&output.stderr)) / combined.push_str
+#                                        2  bitwise_operators_runtime, imperative_core_runtime
+#   stdout(.clone())? + &stderr          1  template_literal_interpolation_runtime
+#   stderr(.clone())? + &stdout          0
+#   format!(.., stdout, .., stderr)      3  runtime_string_equality, soundness_console_multiarg,
+#                                           soundness_param_truncation
+#   [stdout, stderr].concat()            0
+#   stderr.contains(X) || stdout.contains(X)
+#                                        2  promise_any_sequencing, set_iteration_runtime
+#
+# WHAT MOVED, measured by running the screen with and without each alternative
+# rather than by reading the regex:
+#
+#   + the concat spelling      1 target : CLEAN -> ADJUDICATE (template_literal_…)
+#   + the format! spelling     0 targets (all three are already BLOCKED by S27 or S21)
+#   + the disjunction          2 targets: CLEAN -> ADJUDICATE, and BOTH ARE ALREADY
+#                              MIGRATED (promise_any_sequencing by an earlier batch,
+#                              set_iteration_runtime by batch 4) -- so no unmigrated
+#                              target moves and no later batch's work list changes.
+#
+# The disjunction is in the pattern because both of those targets resolved it the
+# SAME way independently -- pin the stream the binary actually uses, disclose the
+# other disjunct (rule 11) -- which is precisely the prompt ADJUDICATE exists to
+# give. It was outside S26 before, so both batches had to notice it by hand.
+#
+# The two alternatives that match nothing today are kept deliberately: a blocking
+# predicate that only recognises what the corpus already contains has to be
+# widened one spelling at a time by whoever writes the next batch, which is the
+# failure the raw-string recogniser class cost this project three batches to
+# learn. That claim is about the FUTURE and nothing here confirms it; what is
+# measured is the table above.
 ADJUDICABLE = [
     ("S26_combined_streams",
      r"push_str\(&String::from_utf8_lossy\(&output\.stderr\)"
      r"|combined\.push_str"
      r"|(?:stdout|out)[A-Za-z0-9_]*(?:\.clone\(\))?\s*\+\s*&\s*[A-Za-z0-9_]*(?:stderr|err)[A-Za-z0-9_]*"
      r"|(?:stderr|err)[A-Za-z0-9_]*(?:\.clone\(\))?\s*\+\s*&\s*[A-Za-z0-9_]*(?:stdout|out)[A-Za-z0-9_]*"
-     r"|format!\(\s*\"[^\"]*\"\s*,\s*[A-Za-z0-9_.]*stdout[A-Za-z0-9_.()]*\s*,\s*[A-Za-z0-9_.]*stderr"
-     r"|\[\s*&?[A-Za-z0-9_.]*stdout[^\]]*stderr[^\]]*\]\s*\.concat\(\)",
-     "asserts against stdout+stderr CONCATENATED; resolvable per rule 11 for a "
-     "presence claim, but an absence claim may not be narrowed (rule 2)"),
+     r"|format!\s*\(\s*(?:b|c)?r?#*\"[^\"]*\"\s*,[^;]{0,400}?\bstdout\b[^;]{0,400}?\bstderr\b"
+     r"|format!\s*\(\s*(?:b|c)?r?#*\"[^\"]*\{[^}]*\bstdout\b[^}]*\}[^\"]*\{[^}]*\bstderr\b"
+     r"|\[\s*&?[A-Za-z0-9_.]*stdout[^\]]*stderr[^\]]*\]\s*\.concat\(\)"
+     r"|\bstderr\b[A-Za-z0-9_.()]*\.contains\([^)]*\)\s*\|\|\s*[A-Za-z0-9_.()]*\bstdout\b[A-Za-z0-9_.()]*\.contains\("
+     r"|\bstdout\b[A-Za-z0-9_.()]*\.contains\([^)]*\)\s*\|\|\s*[A-Za-z0-9_.()]*\bstderr\b[A-Za-z0-9_.()]*\.contains\(",
+     "asserts against stdout+stderr as ONE surface -- concatenated, formatted "
+     "together, or accepted on either by a disjunction; resolvable per rule 11 "
+     "for a presence claim, but an absence claim may not be narrowed (rule 2)"),
 ]
 
 TEST_FN = re.compile(r"#\[test\]")

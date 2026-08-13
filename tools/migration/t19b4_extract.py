@@ -121,15 +121,19 @@ DISQUALIFY = {
 # ADJUDICATED, and therefore in the work list even though the screen no longer
 # calls it CLEAN. Task 19 batch 4 widened `screen_candidates.py`'s S26 to match
 # the `(stdout.clone() + &stderr)` spelling of a combined-stream claim, which
-# moved this one target from CLEAN to ADJUDICATE (CLEAN 46 -> 45, ADJUDICATE
-# 2 -> 3, BLOCKED unchanged). ADJUDICATE is a PROMPT, not a refusal: the site was
+# moved two of this batch's targets from CLEAN to ADJUDICATE -- the concat
+# spelling caught `template_literal_interpolation_runtime` and the cross-stream
+# DISJUNCTION alternative, added in fix round 1, caught `set_iteration_runtime`
+# (CLEAN 46 -> 43, ADJUDICATE 2 -> 5, BLOCKED unchanged at 40; the fifth mover is
+# `promise_any_sequencing`, migrated by an earlier batch with the identical
+# rule-11 resolution). ADJUDICATE is a PROMPT, not a refusal: each site was
 # resolved against the real binary before anything was written, the needle is on
 # stderr on the one cell that carries it, and the claim is a PRESENCE claim so
 # rule 2's absence-narrowing prohibition does not bite. `bitwise_operators_runtime`
 # is the precedent -- migrated by the Task 19 pilot after adjudicating the same
 # shape. Named here rather than silently folded into the predicate, so a reader
 # of `select()` sees that the screen and the work list disagree and why.
-ADJUDICATED = {"template_literal_interpolation_runtime"}
+ADJUDICATED = {"template_literal_interpolation_runtime", "set_iteration_runtime"}
 
 
 class UnknownShape(AssertionError):
