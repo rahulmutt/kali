@@ -4,7 +4,7 @@
 # Multi-declarator `var`/`let`/`const` statements bind every declarator, not
 # just the first.
 #
-# Six source `#[test]` fns become six named `[[case]]` siblings, 1:1 per rule 6.
+# Six source `#[test]` fns become six named `[[case]]` siblings, one-to-one per rule 6.
 # No `[matrix]`: each case runs a different program and pins a different stdout,
 # so there is no axis every case varies over uniformly (rule 7). Matrix
 # arithmetic, recorded because rule 7 requires a declined matrix to be stated:

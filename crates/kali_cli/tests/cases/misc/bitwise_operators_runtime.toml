@@ -4,7 +4,7 @@
 # Bitwise and shift operators against a runtime-packed byte, plus the
 # fail-closed reject for a float operand.
 #
-# Eight source `#[test]` fns become eight named `[[case]]` siblings, 1:1 per
+# Eight source `#[test]` fns become eight named `[[case]]` siblings, one-to-one per
 # rule 6. No `[matrix]`: seven cases run through `run_js` (which asserts
 # success) and one through `run_js_expect_failure` (which asserts failure), and
 # each pins a different stdout, so no axis is varied uniformly by all eight
@@ -15,7 +15,7 @@
 # Seven of the eight sources are built as `format!("{PACK}...")`. Their resolved
 # text was captured by compiling and running the real `format!` calls
 # (`tools/migration/pilot_task19_dump_bitwise.rs`, copied verbatim from the source's
-# `PACK` constant at `:50` and its eight `#[test]` bodies), never by hand-applying
+# `PACK` declaration and its eight `#[test]` bodies), never by hand-applying
 # Rust's substitution rules. Note what that execution settled and a hand
 # derivation would have got wrong: the resolved program has NO trailing newline
 # after the final `console.log(...);` — `PACK` ends in `\n` but the appended
@@ -73,7 +73,7 @@
 # WHY THIS DIFFERS FROM `browser/`, which is the transferable part: in
 # `browser/` the duplicated text was a bundle BODY — an inline literal the audit
 # has no claim about, so declining the hoist cost nothing at the audit. Here
-# `PACK` is a genuine source-level string constant declared at `:50`, which the
+# `PACK` is a genuine source-level string constant, declared as `const PACK: &str`, which the
 # audit extracts as a RULE CONSTANT claim, and the audit searches `[constants]` but
 # deliberately NOT `[source]` (program text is not a claim). So the audit
 # REQUIRES the hoist. Ruling 7's declination therefore does not transfer to a

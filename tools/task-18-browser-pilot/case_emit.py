@@ -23,6 +23,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import families  # noqa: E402
 from toml_emit import toml_string, toml_str_array  # noqa: E402
 from lexer import string_literals_in_range, find_string_literals  # noqa: E402
 
@@ -536,8 +537,33 @@ def emit(header_lines, matrix, source, cases):
     return "\n".join(out).rstrip() + "\n"
 
 
-MIGRATED_FROM_LINE = re.compile(
-    r"^# Migrated from tests/(browser_[A-Za-z0-9_]+\.rs)")
+# THE FOURTH SPELLING OF THE `Migrated from` MARKER, FOLDED IN (Task 19 batch 2).
+#
+# `batch5_crosscheck.py` and `source_ref_rehearsal.py` were single-sourced
+# through `families.MIGRATED_FROM` by the instrument dispatch; this one was
+# missed, and it was the browser-anchored one -- `browser_[A-Za-z0-9_]+\.rs`,
+# which no non-browser case file can ever match. Anchoring it on the shared
+# pattern instead means there is one definition of what the marker looks like,
+# so the four readers cannot drift apart again.
+#
+# INERT FOR THE BROWSER CORPUS, AND MEASURED RATHER THAN ASSUMED: over all 161
+# `cases/browser/*.toml`, the two patterns select the same line and capture the
+# same source name, and `classify_drift.py`'s full census still reproduces all
+# 161 files byte-for-byte with 16 of 16 generators at a fixed point.
+#
+# NON-BROWSER CASE FILES NOW MATCH, AND THAT CHANGES NOTHING FOR THEM by
+# construction: `declare_source_ref` immediately asks `deleted_by_family_
+# deletion(name)`, which is False for any source the browser family deletion did
+# not remove, and the False branch returns the text unmodified unless the header
+# wrongly declares the family-deletion ref. So a non-browser generator gets no
+# declaration inserted -- it writes its own, against its own ref -- and the only
+# behaviour gained is that a non-browser file claiming the BROWSER deletion ref
+# is now caught instead of ignored.
+#
+# The `^# ` anchor stays: this reader's subject is the header LINE a rendered
+# case file opens its provenance paragraph with, not any mention of the marker
+# anywhere in the text.
+MIGRATED_FROM_LINE = re.compile(r"^# " + families.MIGRATED_FROM_PATTERN)
 
 
 def declare_source_ref(text):

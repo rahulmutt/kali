@@ -32,10 +32,24 @@ first version's overconfidence:
               Reported separately and never counted as clean.
   CLEAN       no known blocking or adjudicable shape.
 
+THE RETENTION CROSS-CHECK (added in Task 19 batch 2). `citation_sweep.sh`'s
+whole-file-retention arm adopts, for a prefixed family, every `<prefix><stem>.rs`
+that carries a `//!` header and has no `cases/<family>/<stem>.toml`. Nothing in
+the tree distinguishes a U3 retention header from an ordinary module doc, so an
+UNMIGRATED target with a module doc is adopted as a retention and then passes
+vacuously -- measured at one instance, `runtime_monomorphize.rs`, before this
+batch migrated it. The screen already knows which targets are migratable, so the
+two populations can be compared: every adopted retention must be a target this
+screen calls BLOCKED. `--retention-crosscheck` is that comparison, and it runs
+inside `--selftest` so it is re-run by the gate lane rather than by whoever
+remembers. It carries its own known positive: a green cross-check that has never
+been made red is not evidence.
+
 Usage:
-  screen_candidates.py                 # full report
-  screen_candidates.py --selftest      # gate: nonzero if ground truth regresses
-  screen_candidates.py --list-clean    # the work list, one stem per line
+  screen_candidates.py                       # full report
+  screen_candidates.py --selftest            # gate: ground truth + cross-check
+  screen_candidates.py --list-clean          # the work list, one stem per line
+  screen_candidates.py --retention-crosscheck  # that arm alone
 """
 
 from __future__ import annotations
@@ -178,9 +192,136 @@ def all_stems() -> list[str]:
     return out
 
 
+CASES = os.path.join(os.path.dirname(TESTS), "tests", "cases")
+
+
+def _family_prefixes() -> dict:
+    """Each `cases/<family>/`'s source prefix, DERIVED by `families.py`.
+
+    Imported rather than tabulated for the reason `families.py` exists: a table
+    mapping every family to `<family>_` is wrong today (`misc/`'s sources carry
+    no prefix at all), and a second table would be a second thing to keep in
+    step with the first.
+    """
+    sys.path.insert(0, os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "tools", "task-18-browser-pilot"))
+    import families  # noqa: E402
+    return {f: families.prefix(f) for f in families.families()}
+
+
+def retention_adoptions(pretend_missing=frozenset()) -> list:
+    """What `citation_sweep.sh`'s whole-file-retention arm would adopt.
+
+    Reproduces that arm's own predicate -- for a family with a NON-EMPTY prefix,
+    a `<prefix><stem>.rs` in the tree with a leading `//!` and no
+    `cases/<family>/<stem>.toml`. The empty-prefix families are excluded here for
+    the same reason the sweep skips them loudly: with no prefix to filter on, the
+    arm adopts every unprefixed `.rs` in the directory, `cases.rs` included.
+
+    `pretend_missing` is the known-positive hook: a set of `(family, stem)` pairs
+    whose case file is treated as absent, so the probe can manufacture exactly
+    the condition this check exists to catch without touching the tree.
+    """
+    out = []
+    for family, prefix in sorted(_family_prefixes().items()):
+        if not prefix or family == "browser":
+            continue
+        for name in sorted(os.listdir(TESTS)):
+            if not name.endswith(".rs") or not name.startswith(prefix):
+                continue
+            stem = name[len(prefix):-3]
+            if (family, stem) not in pretend_missing and \
+                    os.path.isfile(os.path.join(CASES, family, stem + ".toml")):
+                continue
+            try:
+                text = open(os.path.join(TESTS, name), encoding="utf-8",
+                            errors="replace").read()
+            except OSError:
+                continue
+            if not text.startswith("//!"):
+                continue
+            out.append((family, name, name[:-3]))
+    return out
+
+
+def retention_crosscheck(pretend_missing=frozenset(), *, quiet=False) -> list:
+    """Adopted retentions that this screen says are migratable. Empty == good."""
+    by = {r["stem"]: r for r in [screen_one(s) for s in all_stems()]}
+    bad = []
+    for family, rs_name, target in retention_adoptions(pretend_missing):
+        row = by.get(target)
+        verdict = row["verdict"] if row else "NOT-IN-CORPUS"
+        if verdict != "BLOCKED":
+            bad.append((family, rs_name, verdict))
+        elif not quiet:
+            print(f"  ok  {rs_name:<42} adopted as a retention, screen says BLOCKED")
+    return bad
+
+
+def _crosscheck_probe() -> list:
+    """The known positive. Pick a MIGRATED target the screen calls CLEAN whose
+    `.rs` carries a `//!` header, pretend its case file is gone, and require the
+    cross-check to go red. Without this, every green above is compatible with a
+    predicate that adopts nothing at all."""
+    candidates = []
+    verdicts = {r["stem"]: r["verdict"] for r in [screen_one(s) for s in all_stems()]}
+    for family, prefix in sorted(_family_prefixes().items()):
+        if not prefix or family == "browser":
+            continue
+        for name in sorted(os.listdir(TESTS)):
+            if not name.endswith(".rs") or not name.startswith(prefix):
+                continue
+            stem = name[len(prefix):-3]
+            if not os.path.isfile(os.path.join(CASES, family, stem + ".toml")):
+                continue
+            # The seed must be a target the screen calls MIGRATABLE. Seeding it
+            # with a BLOCKED target proves nothing: the cross-check is supposed
+            # to stay quiet about those, so the probe would "pass" against a
+            # predicate that adopts nothing.
+            if verdicts.get(name[:-3]) == "BLOCKED":
+                continue
+            try:
+                text = open(os.path.join(TESTS, name), encoding="utf-8",
+                            errors="replace").read()
+            except OSError:
+                continue
+            if text.startswith("//!"):
+                candidates.append((family, stem, name))
+    if not candidates:
+        return ["retention cross-check probe has no known positive available: no "
+                "migrated, non-BLOCKED, `//!`-carrying, prefixed target exists to "
+                "seed it with"]
+    family, stem, name = candidates[0]
+    bad = retention_crosscheck({(family, stem)}, quiet=True)
+    if not any(b[1] == name for b in bad):
+        return [f"retention cross-check PROBE FAILED: with {family}/{stem}.toml treated "
+                f"as absent, {name} must be reported as an unmigrated target "
+                f"masquerading as a retention, and it was not"]
+    print(f"  ok  probe: with {family}/{stem}.toml treated as absent, {name} is caught")
+    return []
+
+
 def main(argv: list[str]) -> int:
     rows = [screen_one(s) for s in all_stems()]
     by = {r["stem"]: r for r in rows}
+
+    if "--retention-crosscheck" in argv:
+        failures = _crosscheck_probe()
+        bad = retention_crosscheck()
+        for family, rs_name, verdict in bad:
+            failures.append(
+                f"{rs_name}: `citation_sweep.sh --family {family}` adopts this as a "
+                f"whole-file RETENTION, but the screen calls it {verdict} -- an "
+                f"unmigrated target masquerading as a retention, passing vacuously")
+        if failures:
+            print("\nRETENTION CROSS-CHECK FAILED")
+            for f in failures:
+                print(f"  {f}")
+            return 1
+        print("\nRETENTION CROSS-CHECK OK — every `.rs` the sweep adopts as a "
+              "whole-file retention is a target this screen independently calls BLOCKED")
+        return 0
 
     if "--list-clean" in argv:
         for r in rows:
@@ -189,7 +330,16 @@ def main(argv: list[str]) -> int:
         return 0
 
     if "--selftest" in argv:
-        failures = []
+        # The retention cross-check runs INSIDE the selftest, not beside it, so
+        # the gate lane re-runs it every time rather than whoever remembers.
+        # Its own known positive runs first: a comparison that has never been
+        # made red is not evidence.
+        failures = _crosscheck_probe()
+        for family, rs_name, verdict in retention_crosscheck():
+            failures.append(
+                f"{rs_name}: `citation_sweep.sh --family {family}` adopts this as a "
+                f"whole-file RETENTION, but the screen calls it {verdict} -- an "
+                f"unmigrated target masquerading as a retention, passing vacuously")
         for stem in sorted(KNOWN_BLOCKED):
             r = by.get(stem)
             if r is None:

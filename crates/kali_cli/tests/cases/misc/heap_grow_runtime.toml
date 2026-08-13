@@ -1,0 +1,193 @@
+# Migrated from tests/heap_grow_runtime.rs.
+#   SOURCE REF: b7f2ed5d5644fff14b03b5266fcc7f26b13ac925
+#
+# Allocation past the old 1 MB wall succeeds -- loop-driven, recursion-driven and through
+# the multi-page span path -- while an allocation past a sandbox memory cap fails cleanly
+# rather than panicking.
+#
+# MATRIX DECLINED. 4 source helper invocation(s) == 4 case(s) x 1 -- no axis every case
+# varies over uniformly (rule 7, U1). Each `#[test]` fn runs a different program.
+#
+# `[source]` KEYS ARE VARIANT-SUFFIXED (U5). The source wrote each of these programs to
+# the same filename under a fresh directory per `#[test]`; `[source]` here is one
+# file-wide namespace, so the fourth program, which the source wrote to `main.ts`, could
+# not share one key -- the last body written would win and the other cases would silently
+# run the wrong program. Each case owns a key named after it and passes that name as argv.
+#
+# U2 CHECK, RUN RATHER THAN ASSUMED. `[source]` is one flat FILE-WIDE map that `expand()`
+# clones into every trial, so a fixture a sibling case needs is present in this case's
+# trial too. Measured, with a known positive first, because a green that was never made
+# red is not evidence:
+#
+#   * a sandbox policy file present in the working directory but NOT named on argv is inert. Control: the same deny-everything policy PASSED as `--sandbox` turns `console.log(1)` into `error[E9007]: inferred effect 'Console.Write' is not permitted by the active policy`, rc=5; the same three files present as `policy.json` / `tiny.policy.json` / `kali.policy.json` and not passed leave `kali run m.ts` printing `1`, rc=0.
+#   * a sibling `*.test.*` fixture is inert BECAUSE every case names its program explicitly on argv, exactly as the source did. Control: a bare `kali test` in a directory holding `main.test.js` and `other.test.js` discovers both and prints `ok 2`; `kali test main.test.js` in that same directory prints `ok 1`.
+#   * `kali.json` IS auto-discovered as a manifest and would not be inert. No fixture in this batch is named `kali.json`; recorded because the next batch's author cannot tell from the tree that the name is special.
+#
+# No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the
+# shape U2 exists to stop.
+#
+# HELPER DOC CARRIED FROM THE SOURCE (rule 12). `unique_fixture_slug`
+# (`heap_grow_runtime.rs:13-21`) carries:
+#
+#   Build a process-wide-unique directory name for a test fixture.
+#
+#   Uniqueness must NOT depend on wall-clock resolution: tests run
+#   multi-threaded, and on platforms with a coarse `SystemTime` clock (e.g.
+#   macOS) two concurrent calls can observe the same `as_nanos()` value,
+#   collide on the same temp dir, and clobber each other's fixture file. A
+#   process-wide monotonic counter guarantees uniqueness independently of the
+#   wall-clock's resolution. Mirrors the identical idiom in
+#   `object_call_result_args_runtime.rs` / `trap_diagnostics_runtime.rs`.
+#
+# RULING 6 EXEMPTION, APPLIED TO A LOCAL HELPER DOC RATHER THAN A CROSS-CRATE ONE. The doc
+# above describes how the Rust harness kept its own temp directories from colliding. The
+# migrated case depends on nothing that helper computed: the case runner gives every trial
+# its own `tempfile::tempdir()`, so the helper's job is now the runner's job -- which is
+# ruling 6's own test for the exemption. Carried verbatim here so nothing is dropped (rule
+# 12), and deliberately NOT replicated into every rationale, because attributing harness
+# mechanics to every case is the over-attribution U6 forbids.
+#
+# ASSERTION SHAPES. Two tests assert `assert_eq!(stdout.trim(), N.to_string())` -- an
+# EXACT assertion modulo trailing whitespace -- so each becomes an exact `stdout` pin
+# whose value was captured from the real binary, never computed (ruling 3 clause 1; U9).
+# The OOM test asserts only `!status.success()` and `!stderr.contains("panic")`, which is
+# an ABSENCE claim and becomes `stderr_absent`; it makes no positive stderr claim, so none
+# is written (rule 2).
+#
+# EXTRA-OK: 'span_arrays.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
+# EXTRA-OK: '393216\n' -- a deliberate live-captured exact pin. The source asserts `stdout.trim() == (24 * 16384).to_string()` -- the expected value is COMPUTED in Rust, so it exists as no literal anywhere in the `.rs` and `check_extra_claims.py` cannot find it there. Captured from the real binary per U9, never arithmetic done here
+# EXTRA-OK: '256064\n' -- a deliberate live-captured exact pin. The source asserts `stdout.trim() == (4001 * 64).to_string()` -- the expected value is COMPUTED in Rust, so it exists as no literal anywhere in the `.rs`. Captured from the real binary per U9, never arithmetic done here
+#
+# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR,
+# FOR U6's REASON. The checker asks whether every source comment line appears in EVERY
+# case's rationale; U6 says a comment belongs in the rationale of exactly the cases its
+# producing helper reaches, and calls copying all of a file's comments into all of its
+# cases "over-attribution ... forbidden, even though it turns the checker green". Every
+# `MISSING` it reports here is a per-test comment correctly attributed to its own case and
+# correctly absent from its siblings. U6 anticipates this exactly: "on such a file the
+# checker's false `missing` must be documented in the header instead." That is what this
+# paragraph is. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/heap_grow_runtime.rs \
+#     crates/kali_cli/tests/cases/misc/heap_grow_runtime.toml
+#
+# CONSEQUENCE FOR THE GATES -- `check_rationale_fn_names.py` (U8) IS EXPECTED-RED (rc=1)
+# ON THIS PAIR, AND IT CANNOT BE MADE GREEN WITHOUT BREAKING RULE 12. The gate requires
+# every backticked fn-shaped identifier in this file to resolve against the source `.rs`'s
+# own fn list. The identifiers it cannot resolve here are carried VERBATIM out of the
+# source's own comments (rule 12 requires the carry; U7 forbids rewording them), and they
+# name items that live in other crates or in the Rust standard library, which this file's
+# source never declares. The gate's premise -- that a case file's prose only names things
+# in its own test source -- holds for `browser/`, whose comments describe harness
+# behaviour, and fails for a CLI target whose comments name the machinery the behaviour
+# comes from. The remedy is a CLI-family entry in the gate's own known-identifier
+# allowlist, which is an instrument change and not this batch's to make; the pilot flagged
+# the same gap in `nullish/assign_reject.toml` and `misc/growable_array_fail_closed.toml`.
+# Documented, not silenced. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/check_rationale_fn_names.py \
+#     crates/kali_cli/tests/heap_grow_runtime.rs \
+#     crates/kali_cli/tests/cases/misc/heap_grow_runtime.toml
+#
+
+[source]
+"grow.ts" = """\nlet total = 0;
+for (let k = 0; k < 24; k = k + 1) {
+  const a = new Array(16384);
+  a.fill(1);
+  total = total + a.length;
+}
+console.log(total);
+"""
+"recurse_grow.ts" = """\nfunction recurse(depth, acc) {
+  const a = new Array(64);
+  a.fill(1);
+  const bumped = acc + a.length;
+  if (depth <= 0) { return bumped; }
+  return recurse(depth - 1, bumped);
+}
+console.log(recurse(4000, 0));
+"""
+"tiny.policy.json" = "{\"schemaVersion\":1,\"effects\":{\"fileSystem\":{\"read\":false,\"write\":false},\"network\":{\"fetch\":false,\"connect\":false,\"listen\":false,\"maxConnections\":null},\"process\":{\"spawn\":false,\"envRead\":false,\"envWrite\":false},\"timer\":{\"schedule\":false,\"maxTimeoutMs\":null,\"maxActiveTimers\":null},\"eval\":false,\"random\":false,\"console\":true},\"resources\":{\"maxMemoryMB\":4,\"maxCpuTimeMs\":100000,\"maxOpenFiles\":null,\"maxSpawnedProcesses\":0,\"maxThreads\":0}}"
+"oom.ts" = """for (let k=0;k<10000;k=k+1){ const a=new Array(16384); a.fill(1); }
+console.log(0);"""
+"span_arrays.ts" = """function main() {
+  let sum = 0;
+  for (let round = 0; round < 4; round = round + 1) {
+    const a = new Array(20000);
+    for (let i = 0; i < 20000; i = i + 1) {
+      a[i] = i + round;
+    }
+    sum = sum + a[19999];
+  }
+  console.log(sum);
+}
+main();
+"""
+
+[[case]]
+name = "allocation_beyond_one_megabyte_succeeds"
+rationale = """Migrated from heap_grow_runtime.rs. ~3 MB of i64 array storage: 24 arrays of 16384 elements = 24 * (16384+1)*8 bytes ~= 3.15 MB,
+well past the old 1 MB (16-page) wall. Touch each so it is not folded away.
+
+The source pins `stdout.trim() == (24 * 16384).to_string()`; the exact stdout was captured from the real binary."""
+args = ["run", "grow.ts"]
+exit = "success"
+stdout = "393216\n"
+
+[[case]]
+name = "recursive_allocation_beyond_wall_no_longer_traps"
+rationale = """Migrated from heap_grow_runtime.rs. NOTE: the task brief's Step 5 proposed a literal binary-trees smoke test
+(`bottomUpTree`/`itemCheck` on a depth-10 tree, expecting 2047). That
+program was tried verbatim during development and found to give the wrong
+answer (`1` instead of `2047`) both before AND after this change, and
+verified present on `main` at 2be3a0cac (pre-dating this whole branch) —
+i.e. it is an unrelated, pre-existing correctness bug, not something
+`memory.grow` touches. Root cause (isolated via a dozen minimal repros):
+reading an object-typed field back (a field whose *value* is itself an
+object handle, e.g. `node.left` where `left` was initialized from another
+object/variable rather than a `null` literal) does not reliably return the
+stored handle — `t.left === null` can spuriously read `true` even when
+`t.left` holds a live, non-null object reference. `bottomUpTree` depends on
+exactly this (each node's `left`/`right` holds a child *object*), so it is
+not usable as a growth-under-recursion smoke test today. This is a
+significant, separate bug in nested-object field codegen — flagged in the
+task report as a blocker for the binary-trees benchmark and for Phase 1
+(escape-analysis regions), not fixed here (out of scope for `__alloc`
+growth).
+
+This test exercises the same intent — recursion-driven allocation past the
+1 MB wall, as opposed to Step 4's loop-driven one — using arrays (whose
+element/length storage has no such bug) instead of objects.
+
+4001 calls * (64+1)*8 bytes/array ~= 2.08 MB, past the old 1 MB (16-page)
+wall; each call allocates its own array and folds its length into an
+accumulator so the allocation cannot be folded away.
+
+The source pins `stdout.trim() == (4001 * 64).to_string()`; the exact stdout was captured from the real binary."""
+args = ["run", "recurse_grow.ts"]
+exit = "success"
+stdout = "256064\n"
+
+[[case]]
+name = "oom_past_sandbox_cap_fails_cleanly"
+rationale = """Migrated from heap_grow_runtime.rs. An allocation loop under a 4 MB `resources.maxMemoryMB` policy must fail cleanly. The source's only claims are `!status.success()` and that stderr does NOT contain `panic`; the second is an absence claim, carried as `stderr_absent`. Nothing positive about the diagnostic is asserted by the source, so nothing positive is pinned here (rule 2)."""
+args = ["run", "--sandbox", "tiny.policy.json", "oom.ts"]
+exit = "failure"
+stderr_absent = ["panic"]
+
+[[case]]
+name = "multi_page_array_allocations_are_correct"
+rationale = """Migrated from heap_grow_runtime.rs. Task 5 (page-pool allocator): a `new Array(20000)` is (20000+1)*8 = 160008
+bytes, past PAYLOAD (PAGE-8 = 65528 bytes), so each iteration exercises the
+multi-page SPAN allocation path in `__page_get` (n>1 pages, no free-list
+entries yet) rather than the single-page bump/frontier path. Arrays this
+size already work via today's flat `__heap` bump (recorded as the PASSing
+baseline below, before the page-pool machinery exists); the test's value is
+catching span-path regressions once `__page_get` replaces the bump.
+
+Exact `assert_eq!` on the whole stdout, so an exact `stdout` pin (ruling 3, clause 1)."""
+args = ["run", "span_arrays.ts"]
+exit = "success"
+stdout = "80002\n"

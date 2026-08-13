@@ -1,0 +1,154 @@
+# Migrated from tests/runtime_monomorphize.rs.
+#   SOURCE REF: b7f2ed5d5644fff14b03b5266fcc7f26b13ac925
+#
+# Object-shape monomorphization: a function reached by two distinct object-param shapes is
+# specialized per shape and compiles, while a genuinely ambiguous merge still fails
+# closed.
+#
+# End-to-end acceptance for object-shape monomorphization (fasta Spec 5,
+# Task 7a-2). A function reached by two *distinct* object-param shape tuples
+# must compile — the AST clone+rename transform specializes it per shape so
+# each clone lowers monomorphically — while genuinely-ambiguous merges still
+# fail closed (E5506), never miscompile.
+#
+# FILE-WIDE PROSE (rule 12). The paragraph above is the source's `//!` module doc: it
+# describes the whole file rather than any one helper, so it lives in this header.
+# Per-test prose lives in the rationale of the case it belongs to, per U6.
+#
+# THIS TARGET WAS NOT A RETENTION, AND THE TREE COULD NOT SAY SO. Before this migration
+# `runtime_monomorphize.rs` was the one non-browser source that `citation_sweep.sh`'s
+# whole-file-retention arm adopted as a RETENTION: it carries an ordinary `//!` module doc
+# and had no case file, and nothing in the tree distinguishes a module doc from a U3
+# retention header. It contributed 0 problems and passed vacuously. Migrating it removes
+# the one instance; the general hole is closed separately by
+# `tools/migration/screen_candidates.py --retention-crosscheck`, which fails when the
+# sweep's retention population contains a target the screen calls migratable.
+#
+# MATRIX DECLINED. 4 source helper invocation(s) == 4 case(s) x 1 -- no axis every case
+# varies over uniformly (rule 7, U1). Each `#[test]` fn runs a different program.
+#
+# `[source]` KEYS ARE VARIANT-SUFFIXED (U5). The source wrote each of these programs to
+# the same filename under a fresh directory per `#[test]`; `[source]` here is one
+# file-wide namespace, so the four programs, which the source all wrote to `main.ts`,
+# could not share one key -- the last body written would win and the other cases would
+# silently run the wrong program. Each case owns a key named after it and passes that name
+# as argv.
+#
+# U2 CHECK, RUN RATHER THAN ASSUMED. `[source]` is one flat FILE-WIDE map that `expand()`
+# clones into every trial, so a fixture a sibling case needs is present in this case's
+# trial too. Measured, with a known positive first, because a green that was never made
+# red is not evidence:
+#
+#   * a sandbox policy file present in the working directory but NOT named on argv is inert. Control: the same deny-everything policy PASSED as `--sandbox` turns `console.log(1)` into `error[E9007]: inferred effect 'Console.Write' is not permitted by the active policy`, rc=5; the same three files present as `policy.json` / `tiny.policy.json` / `kali.policy.json` and not passed leave `kali run m.ts` printing `1`, rc=0.
+#   * a sibling `*.test.*` fixture is inert BECAUSE every case names its program explicitly on argv, exactly as the source did. Control: a bare `kali test` in a directory holding `main.test.js` and `other.test.js` discovers both and prints `ok 2`; `kali test main.test.js` in that same directory prints `ok 1`.
+#   * `kali.json` IS auto-discovered as a manifest and would not be inert. No fixture in this batch is named `kali.json`; recorded because the next batch's author cannot tell from the tree that the name is special.
+#
+# No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the
+# shape U2 exists to stop.
+#
+# EXTRA-OK: 'dump_two_distinct_shapes.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
+# EXTRA-OK: 'transitive_outer_inner_two_shapes.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
+# EXTRA-OK: 'nested_fn_decl_caller.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
+# EXTRA-OK: 'ambiguous_conditional_merge.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
+#
+# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR,
+# FOR U6's REASON. The checker asks whether every source comment line appears in EVERY
+# case's rationale; U6 says a comment belongs in the rationale of exactly the cases its
+# producing helper reaches, and calls copying all of a file's comments into all of its
+# cases "over-attribution ... forbidden, even though it turns the checker green". Every
+# `MISSING` it reports here is a per-test comment correctly attributed to its own case and
+# correctly absent from its siblings. U6 anticipates this exactly: "on such a file the
+# checker's false `missing` must be documented in the header instead." That is what this
+# paragraph is. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/runtime_monomorphize.rs \
+#     crates/kali_cli/tests/cases/runtime/monomorphize.toml
+#
+# CONSEQUENCE FOR THE GATES -- `check_rationale_fn_names.py` (U8) IS EXPECTED-RED (rc=1)
+# ON THIS PAIR, AND IT CANNOT BE MADE GREEN WITHOUT BREAKING RULE 12. The gate requires
+# every backticked fn-shaped identifier in this file to resolve against the source `.rs`'s
+# own fn list. The identifiers it cannot resolve here are carried VERBATIM out of the
+# source's own comments (rule 12 requires the carry; U7 forbids rewording them), and they
+# name items that live in other crates or in the Rust standard library, which this file's
+# source never declares. The gate's premise -- that a case file's prose only names things
+# in its own test source -- holds for `browser/`, whose comments describe harness
+# behaviour, and fails for a CLI target whose comments name the machinery the behaviour
+# comes from. The remedy is a CLI-family entry in the gate's own known-identifier
+# allowlist, which is an instrument change and not this batch's to make; the pilot flagged
+# the same gap in `nullish/assign_reject.toml` and `misc/growable_array_fail_closed.toml`.
+# Documented, not silenced. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/check_rationale_fn_names.py \
+#     crates/kali_cli/tests/runtime_monomorphize.rs \
+#     crates/kali_cli/tests/cases/runtime/monomorphize.toml
+#
+
+[source]
+"dump_two_distinct_shapes.ts" = """function dump(t){var s=0;for(var k in t){s=s+1;}return s;}
+var A={a:1.0,b:2.0,c:3.0}; var B={x:1.0,y:2.0};
+console.log(dump(A)); console.log(dump(B));
+"""
+"transitive_outer_inner_two_shapes.ts" = """function inner(t){var s=0;for(var k in t){s=s+1;}return s;}
+function outer(t){return inner(t);}
+var A={a:1.0,b:2.0,c:3.0}; var B={x:1.0,y:2.0};
+console.log(outer(A)); console.log(outer(B));
+"""
+"nested_fn_decl_caller.ts" = """function outer(t){ function helper(){ return 1; } var s=0; for(var k in t){ s=s+1; } return s + helper(); }
+var A={a:1.0,b:2.0,c:3.0}; var B={x:1.0,y:2.0};
+console.log(outer(A)); console.log(outer(B));
+"""
+"ambiguous_conditional_merge.ts" = """function dump(t){var s=0;for(var k in t){s=s+1;}return s;}
+var A={a:1.0,b:2.0,c:3.0}; var B={x:1.0,y:2.0}; var cond=1.0;
+var o = cond ? A : B; console.log(dump(o));
+"""
+
+[[case]]
+name = "dump_two_distinct_shapes_prints_three_then_two"
+rationale = """Migrated from runtime_monomorphize.rs. The design-doc repro. Before the transform this errors E5506 (one param
+`t` reached by two distinct shapes {a,b,c} and {x,y}); after, `dump` is
+cloned per shape and each clone's for..in bakes its own field count.
+node prints `3\\n2`.
+
+Exact `assert_eq!` on the whole stdout, so an exact `stdout` pin (ruling 3, clause 1)."""
+args = ["run", "dump_two_distinct_shapes.ts"]
+exit = "success"
+stdout = "3\n2\n"
+
+[[case]]
+name = "transitive_outer_inner_two_shapes_prints_three_then_two"
+rationale = """Migrated from runtime_monomorphize.rs. Probe P4: `outer(t)` forwards `t` to `inner(t)`. Both levels must be
+specialized transitively — the clone of `outer` for {a,b,c} must call the
+{a,b,c} clone of `inner`. node prints `3\\n2`.
+
+Exact `assert_eq!` on the whole stdout, so an exact `stdout` pin."""
+args = ["run", "transitive_outer_inner_two_shapes.ts"]
+exit = "success"
+stdout = "3\n2\n"
+
+[[case]]
+name = "nested_fn_decl_caller_still_rejects_cleanly"
+rationale = """Migrated from runtime_monomorphize.rs. Task 7a-2 follow-up (fail-closed guard): `outer` is reached by two
+distinct shapes but contains a nested `function helper(){...}`
+declaration. Cloning `outer` would duplicate `helper` into two
+same-named wasm exports, which wasm validation would reject with an
+opaque duplicate-export error. The guard drops `outer` from
+specializations instead, so this now fails closed with the existing
+clean E5506 conflicting-object-shapes diagnostic (never miscompiles,
+never surfaces the opaque wasm error).
+
+The source asserts `!status.success()` and `stderr.contains("E5506")`; the `.contains` stays `stderr_contains` (ruling 3, clause 3)."""
+args = ["run", "nested_fn_decl_caller.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "ambiguous_conditional_merge_still_rejects"
+rationale = """Migrated from runtime_monomorphize.rs. Fail-closed pin (design §4): `var o = cond ? A : B; dump(o)` merges two
+shapes into one slot at one use site — no per-call-site partition exists,
+so the plan is empty for `dump` and the existing E5506 conflict must still
+fire. Reject, never miscompile.
+
+The source asserts ONLY `!status.success()`. The trial does emit an E5506 diagnostic, but this fn never asserts it -- unlike its sibling above -- so pinning it would be a rule-2 invention and nothing about either stream is claimed here."""
+args = ["run", "ambiguous_conditional_merge.ts"]
+exit = "failure"

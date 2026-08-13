@@ -3,7 +3,7 @@
 #
 # The whole `??=` surface: the scalar rejects, and the one lane that survives.
 #
-# Seven source `#[test]` fns become seven named `[[case]]` siblings, 1:1 per
+# Seven source `#[test]` fns become seven named `[[case]]` siblings, one-to-one per
 # rule 6. No `[matrix]`: every case runs a different program and four of the
 # seven differ in exit status as well as stdout, so no axis is varied uniformly
 # by all seven (rule 7). Declined-matrix arithmetic, recorded per rule 7:
@@ -31,8 +31,8 @@
 # U8's gate greps every backticked fn-shaped identifier out of a rationale and
 # requires it to resolve against the SOURCE `.rs`'s own fn list. All four names
 # above are carried VERBATIM out of the source's own comments — the two
-# recognizer twins from `:127-131`, and `truthy`/`undefined` from `:92` and
-# `:125`. They name compiler internals in other crates, not fns in
+# recognizer twins from `:127-131`, and `truthy`/`undefined` out of the same
+# comment blocks. They name compiler internals in other crates, not fns in
 # `nullish_assign_reject.rs`, so they cannot resolve there and never could.
 #
 # Removing them to green the gate would violate rule 12, which requires source

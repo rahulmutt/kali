@@ -1,0 +1,84 @@
+# Migrated from tests/promise_any_sequencing.rs.
+#   SOURCE REF: b7f2ed5d5644fff14b03b5266fcc7f26b13ac925
+#
+# `Promise.any` sequencing fails closed and loud: the fixture's own self-check throws and
+# the run exits nonzero.
+#
+# MATRIX DECLARED. 4 source helper invocation(s) == 2 case(s) x ext(2) == 2 x 2. Four
+# `#[test]` fns == two helper shapes (`run`, `test`) x two input extensions, and every
+# case varies over the extension uniformly, so `ext` is a real axis (rule 7, U1). The
+# `[source]` keys carry the axis too, so a `js` trial materialises only the `js` fixture.
+#
+# U13 -- WHAT THE MATRIX BOUGHT. The source writes the same program text under `main.js`
+# and `main.ts` (and the same test program under `smoke.test.js` and `smoke.test.ts`).
+# Written as four named siblings that would be a duplicated `[source]` body and a U13
+# hoist question; declaring `ext` removes the duplication instead of hoisting around it,
+# which is strictly better than either horn of ruling 7's dilemma.
+#
+# U2 CHECK, RUN RATHER THAN ASSUMED. `[source]` is one flat FILE-WIDE map that `expand()`
+# clones into every trial, so a fixture a sibling case needs is present in this case's
+# trial too. Measured, with a known positive first, because a green that was never made
+# red is not evidence:
+#
+#   * a sandbox policy file present in the working directory but NOT named on argv is inert. Control: the same deny-everything policy PASSED as `--sandbox` turns `console.log(1)` into `error[E9007]: inferred effect 'Console.Write' is not permitted by the active policy`, rc=5; the same three files present as `policy.json` / `tiny.policy.json` / `kali.policy.json` and not passed leave `kali run m.ts` printing `1`, rc=0.
+#   * a sibling `*.test.*` fixture is inert BECAUSE every case names its program explicitly on argv, exactly as the source did. Control: a bare `kali test` in a directory holding `main.test.js` and `other.test.js` discovers both and prints `ok 2`; `kali test main.test.js` in that same directory prints `ok 1`.
+#   * `kali.json` IS auto-discovered as a manifest and would not be inert. No fixture in this batch is named `kali.json`; recorded because the next batch's author cannot tell from the tree that the name is special.
+#
+# No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the
+# shape U2 exists to stop.
+#
+# RULE 11 -- AN OR-SHAPED ASSERTION, RESOLVED BY OBSERVATION. The source accepts
+# `stderr.contains("E4000") || stdout.contains("E4000")`. The format has no disjunction,
+# so the OR was resolved against the real binary: on every one of these four trials the
+# code lands on STDERR and stdout does not carry it, so exactly one disjunct is true and
+# there is no ruling-17 tie to break. The source's disjunction sentence is carried into
+# every affected rationale, so the narrowing is recorded rather than silent.
+#
+
+[matrix]
+ext = ["js", "ts"]
+
+[source]
+"main.${ext}" = """async function promiseAnySmoke() {
+  const winner = await Promise.any([Promise.reject('boom'), Promise.resolve(1)]);
+  if (winner !== 1) {
+    throw new Error('unexpected Promise.any sequencing');
+  }
+}
+
+async function main() {
+  await promiseAnySmoke();
+  console.log('promise any ok');
+}
+
+main();
+"""
+"smoke.test.${ext}" = """async function promiseAnySmoke() {
+  const winner = await Promise.any([Promise.reject('boom'), Promise.resolve(1)]);
+  if (winner !== 1) {
+    throw new Error('unexpected Promise.any sequencing');
+  }
+}
+
+Kali.test('promise any', () => promiseAnySmoke());
+"""
+
+[[case]]
+name = "run_supports_promise_any_in_js_and_ts_input"
+rationale = """Migrated from promise_any_sequencing.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+
+`kali run` over the `Promise.any` fixture must exit nonzero. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, this stream is stderr, and that branch is what is pinned. This case is fanned over `ext` by the file-wide `[matrix]`, reproducing the source's `js` and `ts` invocations 1:1."""
+args = ["run", "main.${ext}"]
+exit = "failure"
+stderr_contains = ["E4000"]
+
+[[case]]
+name = "test_supports_promise_any_in_js_and_ts_input"
+rationale = """Migrated from promise_any_sequencing.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+
+`kali test` over the `Promise.any` fixture must exit nonzero. Rule 11: the source accepts E4000 on EITHER stream; resolved against the real binary, this stream is stderr, and that branch is what is pinned. This case is fanned over `ext` by the file-wide `[matrix]`, reproducing the source's `js` and `ts` invocations 1:1."""
+args = ["test", "smoke.test.${ext}"]
+exit = "failure"
+stderr_contains = ["E4000"]

@@ -1,0 +1,104 @@
+# Migrated from tests/module_var_object_compound.rs.
+#   SOURCE REF: b7f2ed5d5644fff14b03b5266fcc7f26b13ac925
+#
+# A compound assignment on an object- or array-initialized binding has no scalar lowering
+# and must reject fail-closed; a genuine numeric local must still compile and run.
+#
+# MATRIX DECLINED. 3 source helper invocation(s) == 3 case(s) x 1 -- no axis every case
+# varies over uniformly (rule 7, U1). Each `#[test]` fn runs a different program.
+#
+# `[source]` KEYS ARE VARIANT-SUFFIXED (U5). The source wrote each of these programs to
+# the same filename under a fresh directory per `#[test]`; `[source]` here is one
+# file-wide namespace, so the three programs could not share one key -- the last body
+# written would win and the other cases would silently run the wrong program. Each case
+# owns a key named after it and passes that name as argv.
+#
+# U2 CHECK, RUN RATHER THAN ASSUMED. `[source]` is one flat FILE-WIDE map that `expand()`
+# clones into every trial, so a fixture a sibling case needs is present in this case's
+# trial too. Measured, with a known positive first, because a green that was never made
+# red is not evidence:
+#
+#   * a sandbox policy file present in the working directory but NOT named on argv is inert. Control: the same deny-everything policy PASSED as `--sandbox` turns `console.log(1)` into `error[E9007]: inferred effect 'Console.Write' is not permitted by the active policy`, rc=5; the same three files present as `policy.json` / `tiny.policy.json` / `kali.policy.json` and not passed leave `kali run m.ts` printing `1`, rc=0.
+#   * a sibling `*.test.*` fixture is inert BECAUSE every case names its program explicitly on argv, exactly as the source did. Control: a bare `kali test` in a directory holding `main.test.js` and `other.test.js` discovers both and prints `ok 2`; `kali test main.test.js` in that same directory prints `ok 1`.
+#   * `kali.json` IS auto-discovered as a manifest and would not be inert. No fixture in this batch is named `kali.json`; recorded because the next batch's author cannot tell from the tree that the name is special.
+#
+# No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the
+# shape U2 exists to stop.
+#
+# RULE 11 / RULING 17 -- AN OR-SHAPED ASSERTION, RESOLVED BY OBSERVATION. Both reject
+# tests assert `stderr.contains("E5506") || stderr.contains("not a provably scalar")`. The
+# format has no disjunction, so the OR is resolved against the real binary. Observed: on
+# BOTH cells the stream is stderr and BOTH disjuncts hold -- the object case emits
+# `error[E5506]: compound assignment on binding 'o' is unavailable: it is not a provably
+# scalar number or string ...`, and the array case emits two diagnostics, the second of
+# which is the same shape for binding 'a'. Ruling 17 therefore applies: pin the FIRST
+# disjunct in source order, `E5506`, and disclose the other rather than pinning both.
+# Pinning all true disjuncts would be a rule-2 invention -- the source never asserted `not
+# a provably scalar` unconditionally, and pinning it would fail the case on a benign
+# rewording the source explicitly tolerates.
+#
+# EXTRA-OK: 'object_initialized_binding_compound.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
+# EXTRA-OK: 'array_initialized_binding_compound.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
+# EXTRA-OK: 'numeric_var_local_compound.ts' -- U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour
+#
+# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) ON THIS PAIR,
+# FOR U6's REASON. The checker asks whether every source comment line appears in EVERY
+# case's rationale; U6 says a comment belongs in the rationale of exactly the cases its
+# producing helper reaches, and calls copying all of a file's comments into all of its
+# cases "over-attribution ... forbidden, even though it turns the checker green". Every
+# `MISSING` it reports here is a per-test comment correctly attributed to its own case and
+# correctly absent from its siblings. U6 anticipates this exactly: "on such a file the
+# checker's false `missing` must be documented in the header instead." That is what this
+# paragraph is. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/module_var_object_compound.rs \
+#     crates/kali_cli/tests/cases/misc/module_var_object_compound.toml
+#
+
+[source]
+"object_initialized_binding_compound.ts" = """var o = {x:1};
+o += 1;
+console.log(o);
+"""
+"array_initialized_binding_compound.ts" = """var a = [1, 2];
+a += 1;
+console.log(a);
+"""
+"numeric_var_local_compound.ts" = """var k = 0;
+k += 1;
+k += 41;
+console.log(k);
+"""
+
+[[case]]
+name = "object_initialized_binding_compound_rejects"
+rationale = """Migrated from module_var_object_compound.rs. A compound assign on an object-initialized binding has no scalar lowering
+(node string-coerces the object; kali cannot) — must reject fail-closed,
+never miscompile `0 + 1 = 1`.
+
+Rule 11 / ruling 17: the source accepts `E5506` OR `not a provably scalar`; both hold on this stream, so the first in source order is pinned and the second is disclosed here rather than pinned."""
+args = ["run", "object_initialized_binding_compound.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "array_initialized_binding_compound_rejects"
+rationale = """Migrated from module_var_object_compound.rs. The array-literal declarator lane: an array-initialized binding likewise has
+no scalar compound lowering and must reject fail-closed (node string-coerces
+the array; kali cannot).
+
+Rule 11 / ruling 17: the source accepts `E5506` OR `not a provably scalar`; both hold on this stream, so the first in source order is pinned and the second is disclosed here rather than pinned."""
+args = ["run", "array_initialized_binding_compound.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "numeric_var_local_compound_still_runs"
+rationale = """Migrated from module_var_object_compound.rs. A genuine numeric var local still compiles and runs — the fix must not
+over-reject scalars.
+
+The source's `assert_eq!` on the whole stdout is exact, so it becomes an exact `stdout` pin (ruling 3, clause 1)."""
+args = ["run", "numeric_var_local_compound.ts"]
+exit = "success"
+stdout = "42\n"

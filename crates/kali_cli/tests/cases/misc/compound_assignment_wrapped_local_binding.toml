@@ -66,7 +66,7 @@
 #     crates/kali_cli/tests/cases/misc/compound_assignment_wrapped_local_binding.toml
 #   # -> rc=2
 #
-# Ten source `#[test]` fns become ten named `[[case]]` siblings, 1:1 per rule 6.
+# Ten source `#[test]` fns become ten named `[[case]]` siblings, one-to-one per rule 6.
 #
 # MATRIX DECLINED, AND THE ARITHMETIC THAT DECLINES IT (rule 7). Every test
 # calls one helper, `assert_wrapped_compound_assignment(command, filename,
