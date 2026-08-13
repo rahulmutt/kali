@@ -48,17 +48,31 @@
 # hand for `bundle_cjs_source_classes` + `_inherited`; this makes it a flag.
 # The other six arms are per-file by construction and take only this file.
 #
-# Usage: verify_pair.sh <stem> [--rs <stem>] [--companion <stem>]...
-#                              [--pretrim <ref>] [--structure] [--allow-empty]
+# --family <name> (Task 19 instruments, §2) -- THE PAIR IS NO LONGER
+# BROWSER-SHAPED. `browser_${STEM}.rs` and `cases/browser/$STEM.toml` were
+# spelled in throughout, so this script -- the entry point every batch's
+# per-pair verification chains through -- could not run on a `misc/` or
+# `nullish/` pair at all, and the Task 19 pilot verified its five CLI targets
+# by hand for that reason. `--family` moves the case directory and the source
+# prefix together; the prefix is DERIVED per family by `families.py`, because
+# `misc/`'s sources carry none. Default `browser`, so every existing invocation
+# is unchanged.
+#
+# Usage: verify_pair.sh <stem> [--family <name>] [--rs <stem>]
+#                              [--companion <stem>]... [--pretrim <ref>]
+#                              [--structure] [--allow-empty]
 #   stem: e.g. math_asinh_acosh_atanh_identities
-#         -> browser_<stem>.rs  vs  cases/browser/<stem>.toml
-#   --rs <stem>: take the source from browser_<stem>.rs instead (for a case file
+#         -> <prefix><stem>.rs  vs  cases/<family>/<stem>.toml
+#   --family <name>: the cases/ subdirectory this pair lives in (default
+#         browser). The source prefix is derived from that family's own case
+#         files, not assumed to be `<family>_`.
+#   --rs <stem>: take the source from <prefix><stem>.rs instead (for a case file
 #         whose stem differs from its source's, i.e. a U2 split).
-#   --companion <stem>: cases/browser/<stem>.toml is part of the same migration
-#         from the same source; passed to the AUDIT and FIXTURE arms so their
-#         left-hand side is the whole migrated set. Repeatable.
+#   --companion <stem>: cases/<family>/<stem>.toml is part of the same migration
+#         from the same source; passed to the arms whose subject is the whole
+#         migrated set rather than one file. Repeatable.
 #   --pretrim <ref>: resolve the case file's citations against
-#         `<ref>:crates/kali_cli/tests/browser_<stem>.rs` instead of the working
+#         `<ref>:crates/kali_cli/tests/<prefix><stem>.rs` instead of the working
 #         tree. The retention header's OWN citations are always resolved against
 #         the working tree regardless -- it describes the shipped file.
 #   --structure: also run the batch-5 header-section-order arm. Off by default,
@@ -73,6 +87,8 @@ shift || true
 
 PRETRIM=""
 RS_STEM=""
+FAMILY=browser
+FAMILY_ARG=()
 COMPANIONS=()
 XCHECK_FLAGS=(--citations-only)
 CC_FLAGS=()
@@ -80,6 +96,8 @@ while (( $# )); do
   case "$1" in
     --pretrim)   PRETRIM="${2:?--pretrim needs a git ref}"; shift 2 ;;
     --rs)        RS_STEM="${2:?--rs needs a stem}"; shift 2 ;;
+    --family)    FAMILY="${2:?--family needs a name}"; FAMILY_ARG=(--family "$FAMILY"); shift 2 ;;
+    --family=*)  FAMILY="${1#*=}"; FAMILY_ARG=(--family "$FAMILY"); shift ;;
     --companion) COMPANIONS+=("${2:?--companion needs a stem}"); shift 2 ;;
     --structure) XCHECK_FLAGS=(); shift ;;
     *)           CC_FLAGS+=("$1"); shift ;;
@@ -88,8 +106,9 @@ done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TESTS="$REPO/crates/kali_cli/tests"
-RS="$TESTS/browser_${RS_STEM:-$STEM}.rs"
-TOML="$TESTS/cases/browser/$STEM.toml"
+PREFIX=$(python3 "$REPO/tools/task-18-browser-pilot/families.py" --prefix "$FAMILY") || exit 2
+RS="$TESTS/$PREFIX${RS_STEM:-$STEM}.rs"
+TOML="$TESTS/cases/$FAMILY/$STEM.toml"
 
 [[ -f "$TOML" ]] || { echo "missing $TOML"; exit 2; }
 
@@ -121,6 +140,20 @@ SCRATCH=""
 cleanup() { [[ -n "$SCRATCH" ]] && rm -rf "$SCRATCH"; }
 trap cleanup EXIT
 RESOLVED_PROV=""
+if [[ ! -f "$RS" && "$FAMILY" != "browser" ]]; then
+  # THE RESOLVER IS BROWSER-ONLY, AND THAT IS SAID RATHER THAN WORKED AROUND
+  # (ruling 18 #3). `citation_tiers.py --resolve-source` reads
+  # `browser_<stem>.rs`, the browser `PRE-TRIM REF:`/`SOURCE REF:` tiers and
+  # the browser corpus; pointing it at another family would resolve the wrong
+  # blob or fall through to its no-source branch, which is green and reads
+  # nothing. Task 19 has not deleted its sources yet, so this arm is not needed
+  # yet -- but it must not look like it works when it does not.
+  echo "missing $RS, and the source resolver (citation_tiers.py) is scoped to"
+  echo "the browser family. A deleted non-browser source cannot be resolved by"
+  echo "this script yet: generalise citation_tiers.py's tier resolution first,"
+  echo "or pass the source explicitly with --rs while it is still in the tree."
+  exit 2
+fi
 if [[ ! -f "$RS" ]]; then
   SCRATCH="$(mktemp -d -t "verify_pair_${STEM}_XXXXXX")"
   if ! line=$(python3 "$REPO/tools/task-18-browser-pilot/citation_tiers.py" \
@@ -128,7 +161,7 @@ if [[ ! -f "$RS" ]]; then
     echo "cannot resolve a source for $STEM: $line"; exit 2
   fi
   read -r _stem RESOLVED_PROV RESOLVED_REF RESOLVED_NAME RS <<< "$line"
-  echo "browser_${RS_STEM:-$STEM}.rs is not in the tree; resolved $RESOLVED_NAME"
+  echo "$PREFIX${RS_STEM:-$STEM}.rs is not in the tree; resolved $RESOLVED_NAME"
   echo "  as $RESOLVED_PROV at ref $RESOLVED_REF -> $RS"
   [[ -f "$RS" ]] || { echo "resolver returned $RS, which is not a file"; exit 2; }
   # A NON-MATCH IS AN ERROR (ruling 18 #3). `--rs` is the caller's claim about
@@ -147,7 +180,7 @@ fi
 # the whole migration rather than this one file.
 JOINT=("$TOML")
 for c in ${COMPANIONS[@]+"${COMPANIONS[@]}"}; do
-  ct="$TESTS/cases/browser/$c.toml"
+  ct="$TESTS/cases/$FAMILY/$c.toml"
   [[ -f "$ct" ]] || { echo "missing companion $ct"; exit 2; }
   JOINT+=("$ct")
 done
@@ -155,8 +188,8 @@ done
 fail=0
 note() { printf '\n=== %s ===\n' "$1"; }
 
-note "TRIALS  browser/$STEM"
-cargo_out=$(cd "$REPO" && cargo test -p kali_cli --test cases -- "browser/$STEM" 2>&1)
+note "TRIALS  $FAMILY/$STEM"
+cargo_out=$(cd "$REPO" && cargo test -p kali_cli --test cases -- "$FAMILY/$STEM" 2>&1)
 rc=$?; echo "$cargo_out" | grep -E "^test result" || echo "$cargo_out" | tail -3
 (( rc )) && fail=1
 
@@ -164,12 +197,18 @@ note "AUDIT   (rule 3 -- absolute)"
 ( cd "$TESTS" && python3 "$REPO/scripts/audit-case-migration.py" "$RS" "${JOINT[@]}" )
 rc=$?; echo "audit exit=$rc"; (( rc )) && fail=1
 
+# THE THREE ARMS BELOW NOW TAKE THE WHOLE MIGRATED SET (Task 19 instruments,
+# §4). They took exactly one TOML, so on a `--companion` pair each ran against
+# half a migration: `comment_coverage.py` in particular reported every comment
+# belonging to the other half as "MISSING from ALL N cases", a red no correct
+# file could clear. `JOINT` is `$TOML` alone unless `--companion` was given, so
+# a pair with no companion is unaffected.
 note "COMMENT COVERAGE (rule 12)"
-python3 "$REPO/tools/task-18-browser-pilot/comment_coverage.py" "${CC_FLAGS[@]+"${CC_FLAGS[@]}"}" "$RS" "$TOML"
+python3 "$REPO/tools/task-18-browser-pilot/comment_coverage.py" "${CC_FLAGS[@]+"${CC_FLAGS[@]}"}" "$RS" "${JOINT[@]}"
 rc=$?; echo "comment_coverage exit=$rc"; (( rc )) && fail=1
 
 note "U8 (rationale prose is audited by nothing -- check its own citations)"
-python3 "$REPO/tools/task-18-browser-pilot/check_rationale_fn_names.py" "$RS" "$TOML"
+python3 "$REPO/tools/task-18-browser-pilot/check_rationale_fn_names.py" "$RS" "${JOINT[@]}"
 rc=$?; echo "check_rationale_fn_names exit=$rc"; (( rc )) && fail=1
 
 note "FIXTURES (rule 9 -- every program text survives verbatim)"
@@ -177,7 +216,7 @@ python3 "$REPO/tools/task-18-browser-pilot/check_fixtures.py" "$RS" "${JOINT[@]}
 rc=$?; echo "check_fixtures exit=$rc"; (( rc )) && fail=1
 
 note "EXTRA CLAIMS (U14 extra direction -- rule 2, never invent)"
-python3 "$REPO/tools/task-18-browser-pilot/check_extra_claims.py" "$RS" "$TOML"
+python3 "$REPO/tools/task-18-browser-pilot/check_extra_claims.py" "$RS" "${JOINT[@]}"
 rc=$?; echo "check_extra_claims exit=$rc"; (( rc )) && fail=1
 
 note "FIDELITY (U14 -- raw string diff, BOTH directions, NOT truncated)"
@@ -209,18 +248,18 @@ if [[ -n "$PRETRIM" ]]; then
   # retentions, which is that combination.
   pretrim_stem="${RS_STEM:-$STEM}"
   pretrim_rs="$(mktemp -t "verify_pair_${STEM}_pretrim_XXXXXX.rs")"
-  if git -C "$REPO" show "$PRETRIM:crates/kali_cli/tests/browser_$pretrim_stem.rs" > "$pretrim_rs" 2>/dev/null; then
+  if git -C "$REPO" show "$PRETRIM:crates/kali_cli/tests/$PREFIX$pretrim_stem.rs" > "$pretrim_rs" 2>/dev/null; then
     xcheck_spec="$STEM=$pretrim_rs"
-    echo "resolving case-file citations against pre-trim ref $PRETRIM (browser_$pretrim_stem.rs)"
+    echo "resolving case-file citations against pre-trim ref $PRETRIM ($PREFIX$pretrim_stem.rs)"
   else
     # Do NOT fall back to the working tree: that would silently run the very
     # comparison the --pretrim flag exists to avoid, and report its artefacts as
     # real drift. Fail loudly instead.
-    echo "cannot read browser_$pretrim_stem.rs at ref $PRETRIM"; rm -f "$pretrim_rs"; exit 2
+    echo "cannot read $PREFIX$pretrim_stem.rs at ref $PRETRIM"; rm -f "$pretrim_rs"; exit 2
   fi
 fi
 python3 "$REPO/tools/task-18-browser-pilot/batch5_crosscheck.py" \
-  "${XCHECK_FLAGS[@]+"${XCHECK_FLAGS[@]}"}" "$xcheck_spec"
+  "${XCHECK_FLAGS[@]+"${XCHECK_FLAGS[@]}"}" ${FAMILY_ARG[@]+"${FAMILY_ARG[@]}"} "$xcheck_spec"
 rc=$?; echo "batch5_crosscheck exit=$rc"; (( rc )) && fail=1
 [[ -n "${pretrim_rs:-}" ]] && rm -f "$pretrim_rs"
 

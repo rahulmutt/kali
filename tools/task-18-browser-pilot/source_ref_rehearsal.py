@@ -69,8 +69,42 @@ SAMPLE = [
     "math_sqrt_cbrt_harness",                   # a declared bare-needle stem
 ]
 
-MIGRATED = re.compile(r"^#\s*Migrated from tests/(browser_[A-Za-z0-9_]+\.rs)",
+# THE FAMILY, AND WHAT DEPENDS ON IT (Task 19 instruments, §2). The rehearsal
+# resolved `cases/browser/<stem>.toml` and `browser_<stem>.rs` directly, so it
+# could only ever rehearse the browser family's declare-then-delete window --
+# and Task 19 will delete its own sources under exactly the same rule. Default
+# `browser` with the sample above, so a bare invocation (which is what
+# `test-gate.sh --gates-only` and `ci.yml` make) rehearses precisely what it
+# rehearsed before.
+#
+# `--family <name>` REQUIRES `--sample`. There is no derivable default sample
+# for another family: the three stems above were chosen for named properties
+# (a `#[path]` carrier, a red-listed stem, a declared bare-needle stem) that
+# only that corpus has, and a rehearsal that picked three arbitrary stems would
+# be green without exercising any of them. Guessing here is the vacuous-green
+# shape, so it refuses instead (ruling 18 #3).
+FAMILY = "browser"
+PREFIX = "browser_"
+
+
+def cases_rel():
+    return f"{TESTS_REL}/cases/{FAMILY}"
+
+
+def rs_rel(stem):
+    return f"{TESTS_REL}/{PREFIX}{stem}.rs"
+
+
+def _migrated_re():
+    return re.compile(r"^#\s*Migrated from tests/([A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)*\.rs)",
                       re.M)
+
+
+# NOT ANCHORED ON `browser_`: it was, so it returned None for every correct
+# non-browser case file and `check_sample` would have reported "no `Migrated
+# from` line" for all of them. Matches `families.MIGRATED_FROM`'s shape so the
+# project has one answer to "does this header name a source".
+MIGRATED = _migrated_re()
 # A citation with a backticked construct in front of it, in both the qualified
 # `(build.rs:N)` and the bare `(:N)` form. Deliberately narrower than
 # `batch5_crosscheck.CITE`: this only has to FIND a poisonable site, and every
@@ -118,15 +152,19 @@ def build_scratch():
 
 
 def sweep(scratch, args=()):
+    # `--family` IS FORWARDED ONLY WHEN IT IS NOT THE DEFAULT, so a browser
+    # rehearsal invokes the sweep with the exact argv it always did and the
+    # equivalence comparison stays byte-for-byte.
+    family = [] if FAMILY == "browser" else ["--family", FAMILY]
     out = subprocess.run(
         ["bash", os.path.join(scratch, "tools/task-18-browser-pilot/citation_sweep.sh"),
-         *args],
+         *family, *args],
         capture_output=True, text=True)
     return out.returncode, out.stdout + out.stderr
 
 
 def toml_path(scratch, stem):
-    return os.path.join(scratch, TESTS_REL, "cases/browser", f"{stem}.toml")
+    return os.path.join(scratch, cases_rel(), f"{stem}.toml")
 
 
 def declare(scratch, stem, sha):
@@ -228,7 +266,7 @@ def sample_ref(stem):
     blob the gate it is rehearsing would read -- rather than at a ref this
     module picked, which is a second opinion about which bytes the source is.
     """
-    toml = os.path.join(REPO, TESTS_REL, "cases/browser", f"{stem}.toml")
+    toml = os.path.join(REPO, cases_rel(), f"{stem}.toml")
     m = re.search(r"SOURCE REF:\s*([0-9a-f]{40})", open(toml).read())
     return m.group(1) if m else head_sha()
 
@@ -236,8 +274,8 @@ def sample_ref(stem):
 def check_sample():
     carriers = 0
     for stem in SAMPLE:
-        rs = os.path.join(REPO, TESTS_REL, f"browser_{stem}.rs")
-        toml = os.path.join(REPO, TESTS_REL, "cases/browser", f"{stem}.toml")
+        rs = os.path.join(REPO, rs_rel(stem))
+        toml = os.path.join(REPO, cases_rel(), f"{stem}.toml")
         if not os.path.exists(toml):
             fail(f"sample stem {stem}: {toml} is missing")
             continue
@@ -252,11 +290,11 @@ def check_sample():
         # tree could not be met by any stem and the sample would be empty.
         got = subprocess.run(
             ["git", "-C", REPO, "cat-file", "blob",
-             f"{ref}:{TESTS_REL}/browser_{stem}.rs"],
+             f"{ref}:{rs_rel(stem)}"],
             capture_output=True, text=True)
         if got.returncode:
             fail(f"sample stem {stem}: {ref} does not carry "
-                 f"browser_{stem}.rs, so the with-source side cannot be built")
+                 f"{PREFIX}{stem}.rs, so the with-source side cannot be built")
             continue
         if got.stdout.startswith("//!"):
             fail(f"sample stem {stem}: its `.rs` carries a `//!` retention "
@@ -266,7 +304,7 @@ def check_sample():
         subs = re.findall(r'#\[path = "([^"]+)"\]', got.stdout)
         carriers += bool(subs)
         if os.path.exists(rs):
-            paths = [f"{TESTS_REL}/browser_{stem}.rs"] + [
+            paths = [rs_rel(stem)] + [
                 f"{TESTS_REL}/{os.path.relpath(str(p), os.path.join(REPO, TESTS_REL))}"
                 for p in submodule_paths(rs)]
             dirty = git("diff", "--quiet", ref, "--", *paths)
@@ -698,7 +736,47 @@ def selftest_kill_power(scratch):
         open(path, "w").write(pristine)
 
 
-def main():
+def main(argv=()):
+    global FAMILY, PREFIX, MIGRATED, SAMPLE
+    argv = list(argv)
+    family = sample = None
+    while argv:
+        arg = argv.pop(0)
+        if arg == "--family":
+            family = argv.pop(0) if argv else None
+        elif arg.startswith("--family="):
+            family = arg.split("=", 1)[1]
+        elif arg == "--sample":
+            sample = argv.pop(0) if argv else None
+        elif arg.startswith("--sample="):
+            sample = arg.split("=", 1)[1]
+        else:
+            print(f"unrecognised argument {arg!r}\n"
+                  "usage: source_ref_rehearsal.py [--family <name> "
+                  "--sample <stem>[,<stem>...]]")
+            return 2
+    if family is not None:
+        import families
+        try:
+            PREFIX = families.prefix(family)
+        except families.FamilyError as error:
+            print(f"error: {error}")
+            return 2
+        FAMILY = family
+        MIGRATED = _migrated_re()
+        if not sample:
+            print(f"error: --family {family} needs --sample. The default sample "
+                  "is three BROWSER stems chosen for properties only that corpus "
+                  "has (a `#[path]` carrier, a red-listed stem, a declared "
+                  "bare-needle stem); running it against another family would "
+                  "either fail on missing stems or, worse, pass without "
+                  "exercising any of those shapes. Name the stems.")
+            return 2
+    if sample:
+        SAMPLE = [s for s in sample.split(",") if s]
+    if FAMILY != "browser" or sample:
+        print(f"family={FAMILY} prefix={PREFIX!r} sample={SAMPLE}")
+
     sha = head_sha()
     print(f"REPO={REPO}\nSOURCE REF used by the rehearsal = {sha}\n")
     print("0. sample preconditions")
@@ -731,4 +809,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

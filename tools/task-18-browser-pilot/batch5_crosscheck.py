@@ -75,11 +75,50 @@ from submodules import declares_submodules, submodule_paths  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
-CASES = os.path.join(TESTS, "cases/browser")
+
+# THE FAMILY, AND THE THREE THINGS DERIVED FROM IT (Task 19 instruments, §2).
+# `CASES` and the source filename used to be `cases/browser` and
+# `browser_<stem>.rs` spelled in directly, so this gate could not run on a
+# non-browser pair at all -- and the Task 19 pilot's five CLI targets went
+# through no citation gate for that reason. `--family <name>` moves all three
+# at once through `set_family`; the DEFAULT IS `browser`, so every existing
+# invocation (`citation_sweep.sh`, `verify_pair.sh`, `test-gate.sh
+# --gates-only`, `citation_tiers.py --base=REF`, which sets `B.CASES` itself)
+# behaves exactly as before.
+#
+# The prefix is not hardcoded per family either -- `families.prefix` derives it
+# from that family's own case files, because `misc/`'s sources carry no family
+# prefix at all and a table saying otherwise would be a mark that goes stale.
+FAMILY = "browser"
+PREFIX = "browser_"
+CASES = os.path.join(TESTS, "cases", FAMILY)
+
+
+def source_filename(stem):
+    """`<prefix><stem>.rs` for the current family."""
+    return f"{PREFIX}{stem}.rs"
+
+
+def set_family(name, prefix=None):
+    """Point this gate at `cases/<name>` and `<prefix><stem>.rs`.
+
+    Raises if the prefix cannot be derived and none was given -- a gate that
+    guessed `<name>_` would resolve every `misc/` pair against a filename that
+    does not exist and report the whole family as sourceless, which is the
+    silent-degradation shape ruling 18 exists to stop."""
+    global FAMILY, PREFIX, CASES
+    import families
+    FAMILY = name
+    PREFIX = families.prefix(name) if prefix is None else prefix
+    CASES = families.cases_dir(name)
+    SECTIONS[0] = (f"Migrated from tests/{PREFIX}", SECTIONS[0][1])
+    return FAMILY, PREFIX, CASES
+
 
 # Header sections every batch-5 file carries, in order. Sections marked optional
 # appear only when the file's shape calls for them, but when present they must
-# appear in this relative order.
+# appear in this relative order. `SECTIONS[0]`'s marker tracks the family --
+# see `set_family`.
 SECTIONS = [
     ("Migrated from tests/browser_", True),
     ("RULE 12", True),
@@ -642,14 +681,14 @@ def _migrated_from_arm(stem, text):
 def check(spec, citations_only=False):
     stem, _, override = spec.partition("=")
     toml_path = os.path.join(CASES, f"{stem}.toml")
-    rs_path = override or os.path.join(TESTS, f"browser_{stem}.rs")
+    rs_path = override or os.path.join(TESTS, source_filename(stem))
     problems = []
     # The working-tree source, ALWAYS, regardless of `=PRETRIM.rs`. A retention
     # header cites its OWN file, so it must be resolved against the shipped
     # `.rs`; only the case file's citations are pre-trim. Conflating the two
     # would have made the override silently skip the retention-header arm --
     # i.e. skip exactly the place the one real drift defect occurred.
-    live_path = os.path.join(TESTS, f"browser_{stem}.rs")
+    live_path = os.path.join(TESTS, source_filename(stem))
     if not os.path.exists(rs_path):
         # NO SOURCE: the `.rs` was deleted after its migration shipped. The two
         # RESOLVING arms genuinely cannot run -- there is nothing to resolve
@@ -1501,11 +1540,20 @@ def _gated_arm(stem, origin, body):
             f"beside the number.")
     return out
 
-# The `Migrated from tests/browser_X.rs` line every case file's header opens
-# with. It is the only in-tree statement of which source a case file came from,
-# and for a U2 SPLIT (whose stem deliberately differs from its source's) it is
-# the only way to find that source at all.
-MIGRATED_FROM = re.compile(r"Migrated from tests/(browser_[A-Za-z0-9_]+\.rs)")
+# The `Migrated from tests/<X>.rs` line every case file's header opens with. It
+# is the only in-tree statement of which source a case file came from, and for
+# a U2 SPLIT (whose stem deliberately differs from its source's) it is the only
+# way to find that source at all.
+#
+# NOT ANCHORED ON `browser_` (Task 19 instruments, §2). It was, and the effect
+# was worse than "does not run on another family": `_marker_arm` reports
+# "no resolvable `Migrated from`" for EVERY correct non-browser case file, so
+# the gate is loudly wrong rather than quietly absent -- and `_migrated_from`,
+# which resolves a U2 split's source, returns None for all of them. The name
+# shape is `[A-Za-z0-9_]+` with an optional `<dir>/<file>.rs` form for a U10
+# `#[path]` carrier's submodule, matching `families.MIGRATED_FROM` so the
+# project has one answer to "does this header name a source".
+MIGRATED_FROM = re.compile(r"Migrated from tests/([A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)*\.rs)")
 
 
 def _migrated_from(case_text):
@@ -2470,8 +2518,16 @@ def _stem_exists(stem):
     deliberately does NOT re-resolve the source -- a SOURCE-REF stem whose `.rs`
     is gone is still a live stem, and asking that question here would be a third
     copy of the population loop.
+
+    RESOLVED AGAINST `browser/` REGARDLESS OF `--family`, and that is not an
+    oversight (Task 19 instruments, §2). All three declaration tables were
+    derived for the browser corpus and are keyed by browser stems. Resolving
+    them against whichever family this run happens to target would report
+    every one of them as a ghost the first time the gate runs on `misc/` --
+    a hundred-line false failure produced by pointing a gate at a different
+    directory. The declarations follow their own corpus.
     """
-    return (os.path.exists(os.path.join(CASES, f"{stem}.toml"))
+    return (os.path.exists(os.path.join(TESTS, "cases", "browser", f"{stem}.toml"))
             or os.path.exists(os.path.join(TESTS, f"browser_{stem}.rs")))
 
 
@@ -2535,6 +2591,28 @@ def main(argv):
         print(__doc__)
         return 2
     citations_only = "--citations-only" in argv
+    # `--family <name>` / `--family=<name>`, consumed before the stems are read
+    # so a family name is never mistaken for one.
+    argv = list(argv)
+    family = None
+    for i, arg in enumerate(argv):
+        if arg == "--family" and i + 1 < len(argv):
+            family = argv[i + 1]
+            del argv[i:i + 2]
+            break
+        if arg.startswith("--family="):
+            family = arg.split("=", 1)[1]
+            del argv[i]
+            break
+    if family is not None:
+        import families
+        try:
+            set_family(family)
+        except families.FamilyError as error:
+            print(f"error: {error}")
+            return 2
+        print(f"family: {FAMILY}  cases: {os.path.relpath(CASES, REPO)}  "
+              f"source: {PREFIX}<stem>.rs")
     all_problems = []
     stems = [a for a in argv[1:] if not a.startswith("--")]
     for stem in stems:
@@ -2545,6 +2623,33 @@ def main(argv):
     # silently starts covering a different one. Only checked for stems this run
     # actually visited, so a single-stem invocation does not report the rest.
     visited = {s.partition("=")[0] for s in stems}
+    # A NON-BROWSER STEM MUST NOT INHERIT A BROWSER DECLARATION (Task 19
+    # instruments, §2). All three declaration tables are keyed by BARE STEM and
+    # were derived for `browser/`; nothing in the key says which family it
+    # meant. A same-named stem in another family would silently pick up that
+    # stem's `NO_NEEDLE`/`PINNED_SPLIT` budget or its red-list carve-out, i.e.
+    # a carve-out written for one file quietly covering a different one --
+    # exactly what the STALE arm below exists to prevent, arriving through the
+    # family dimension instead. Measured at the time of writing: 161 browser
+    # stems, 86 non-browser stems, ZERO collisions
+    #     $ cd crates/kali_cli/tests/cases && ls */*.toml | \
+    #       sed 's|.*/||;s|\.toml$||' | sort | uniq -d      # -> nothing
+    # -- so this cannot fire today, and it is here because that is a fact about
+    # today's corpus and batch 2 adds ~47 files to it.
+    if FAMILY != "browser":
+        for stem in sorted(visited):
+            tables = [name for name, keys in
+                      (("NO_NEEDLE_DECLARED", NO_NEEDLE_DECLARED),
+                       ("PINNED_SPLIT_DECLARED", PINNED_SPLIT_DECLARED),
+                       ("UNGATED_REDLIST", {k[0] for k in UNGATED_REDLIST}))
+                      if stem in keys]
+            if tables:
+                all_problems.append(
+                    f"{stem}: family {FAMILY!r}, but {', '.join(tables)} already "
+                    f"declares a stem of this name for `browser/`. Those tables "
+                    f"are keyed by bare stem, so this run would inherit a "
+                    f"declaration written for a different file. Rename the case "
+                    f"file or key the declaration by family before shipping.")
     # THE NO-NEEDLE TIER, CHECKED AGAINST ITS DECLARATION (I1). Equality, not a
     # ceiling -- see `NO_NEEDLE_DECLARED`.
     for stem in sorted(visited):

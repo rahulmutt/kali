@@ -71,6 +71,16 @@ run_gates() {
         # `[constants]` fix ("no shipped case file has an unreferenced
         # constant"), so that figure is gated rather than recorded.
         "python3 $REPO/scripts/audit-case-migration_test.py"
+        # ALSO ADDED BY THE TASK 19 INSTRUMENT DISPATCH. `families.py` derives
+        # each family's source-filename prefix from that family's own case
+        # files, and `citation_sweep.sh`, `verify_pair.sh`,
+        # `batch5_crosscheck.py --family` and `source_ref_rehearsal.py --family`
+        # all resolve their source paths through it. A browser run would notice
+        # a broken derivation (the sweep exits 2), but no other family's would,
+        # and batch 2 is ~47 targets across several families. Its selftest seeds
+        # a known positive AND two poisons, per the rule that an instrument
+        # validated in one direction only passes trivially.
+        "python3 $PILOT/families.py --selftest"
         "python3 $PILOT/check_fixtures.py --argv-correspondence --census"
         "python3 $PILOT/batch5_crosscheck.py --selftest"
         "python3 $PILOT/find_fixture_self_inspection.py --selftest"

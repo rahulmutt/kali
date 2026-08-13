@@ -84,8 +84,34 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
+# --------------------------------------------------------------------------
+# NOT PARAMETERISED BY FAMILY, AND THAT IS THE DECISION (Task 19 instruments,
+# §2 -- "decide whether it needs generalising at all yet").
+#
+# It does not, and the reason is what this tool's census actually is: "run every
+# generator that produces this family's case files and require each to be a
+# fixed point". `generators()` derives that population as `gen_batch*.py` in
+# this directory, and every one of them is a browser generator that WRITES
+# `cases/browser/*.toml`. No other family has a generator in the tree at all --
+# the Task 19 pilot emitted its five CLI case files through `case_emit.py` and
+# `capture.py`, which are primitives, not fixed-point-testable generators. So a
+# `--family` flag here would buy a census with an empty generator population,
+# and would pay for it by making `git clean -fdq` aimable at a directory chosen
+# at the command line. That is the one change in this dispatch that could
+# destroy someone's work, in exchange for nothing.
+#
+# So it is hardened instead of parameterised: `CASES_REL` is a module constant,
+# and the destructive path below now (a) refuses to run unless
+# `require_clean_tree()` has passed IN THIS PROCESS, and (b) re-validates the
+# shape of the path it is about to destroy every single time. See `restore`.
+# --------------------------------------------------------------------------
 CASES = os.path.join(REPO, "crates/kali_cli/tests/cases/browser")
 CASES_REL = "crates/kali_cli/tests/cases/browser"
+
+# Set ONLY by `require_clean_tree()` returning True. `restore()` refuses
+# without it, so the destructive path is unreachable unless the precondition
+# that makes it safe actually ran and passed.
+_CLEAN_TREE_PROVEN = False
 
 
 # --------------------------------------------------------------------------
@@ -322,7 +348,55 @@ def changed(base, now):
     return sorted(f for f in set(base) | set(now) if base.get(f) != now.get(f))
 
 
+def _assert_restore_target_is_safe():
+    """The path `restore()` is about to `git checkout --` and `git clean -fdq`.
+
+    Re-validated at every call rather than once at import, because the failure
+    this guards against is an EDIT -- someone repointing `CASES_REL` at another
+    family, or at a parent directory, and the tool then discarding work nobody
+    asked it to touch. Four conditions, each of which a mis-aimed path fails:
+
+      1. exactly `crates/kali_cli/tests/cases/<one component>` -- so
+         `cases`, `crates/kali_cli/tests`, `.` and an absolute path are all
+         rejected. This is the condition that matters: `git clean -fdq` on a
+         parent is unbounded;
+      2. the directory exists;
+      3. git tracks at least one `.toml` in it, so `git checkout --` has
+         something to restore TO -- an untracked directory would be deleted
+         outright by the clean with nothing to put back;
+      4. it is the directory this process baselined (`CASES`), so the snapshot
+         and the restore cannot be about different trees.
+    """
+    parts = CASES_REL.split("/")
+    if parts[:4] != ["crates", "kali_cli", "tests", "cases"] or len(parts) != 5:
+        raise RuntimeError(
+            f"refusing to run `git clean -fdq` on {CASES_REL!r}: the destructive "
+            f"path must be exactly crates/kali_cli/tests/cases/<family>")
+    if not os.path.isdir(os.path.join(REPO, CASES_REL)):
+        raise RuntimeError(f"refusing: {CASES_REL} is not a directory")
+    tracked = subprocess.run(
+        ["git", "-C", REPO, "ls-files", "--", f"{CASES_REL}/*.toml"],
+        capture_output=True, text=True).stdout.strip()
+    if not tracked:
+        raise RuntimeError(
+            f"refusing: git tracks no *.toml under {CASES_REL}, so `git checkout "
+            f"--` would restore nothing and `git clean -fdq` would simply delete "
+            f"whatever is there")
+    if os.path.abspath(os.path.join(REPO, CASES_REL)) != os.path.abspath(CASES):
+        raise RuntimeError(
+            f"refusing: CASES_REL ({CASES_REL}) and CASES ({CASES}) name "
+            f"different directories, so the snapshot and the restore disagree")
+
+
 def restore():
+    if not _CLEAN_TREE_PROVEN:
+        raise RuntimeError(
+            "refusing to `git checkout --` + `git clean -fdq` "
+            f"{CASES_REL}: require_clean_tree() has not passed in this process, "
+            "so there is no evidence the work about to be discarded is "
+            "committed. This is a guard against a future caller reaching the "
+            "destructive path directly, not against normal use.")
+    _assert_restore_target_is_safe()
     subprocess.run(["git", "-C", REPO, "checkout", "--", CASES_REL], check=True)
     subprocess.run(["git", "-C", REPO, "clean", "-fdq", CASES_REL], check=True)
 
@@ -367,6 +441,8 @@ def require_clean_tree():
               "DISCARD the above. Commit or stash first. Nothing has been written or\n"
               "removed by this run.")
         return False
+    global _CLEAN_TREE_PROVEN
+    _CLEAN_TREE_PROVEN = True
     return True
 
 
@@ -681,10 +757,43 @@ def probe_guards():
     A green run is not evidence a guard is wired: both of these are silent
     exactly when they are needed.
     """
+    ok = []
+
+    # ---- PROBE 0: the destructive path is unreachable UNARMED, and refuses a
+    # mis-aimed target. Run BEFORE `require_clean_tree()` arms the process,
+    # because that is the only moment the unarmed state exists.
+    unarmed = False
+    try:
+        restore()
+    except RuntimeError as error:
+        unarmed = "require_clean_tree" in str(error)
+    ok.append(unarmed)
+    print(f"  {'ok  ' if unarmed else 'FAIL'} probe 0: restore() before "
+          f"require_clean_tree() refuses: {unarmed} (want True)")
+
     if not require_clean_tree():
         print("probe needs a clean tree to start from")
         return 2
-    ok = []
+
+    # ...and, now armed, still refuses a target that is not exactly one family
+    # directory. Each mis-aiming is tried separately: a parent, the cases root,
+    # and a family with no tracked case files.
+    global CASES_REL, CASES
+    real_rel, real_abs = CASES_REL, CASES
+    for bad in ("crates/kali_cli/tests/cases", "crates/kali_cli/tests",
+                "crates/kali_cli/tests/cases/no_such_family", "."):
+        CASES_REL = bad
+        CASES = os.path.join(REPO, bad)
+        refused = False
+        try:
+            restore()
+        except RuntimeError:
+            refused = True
+        ok.append(refused)
+        print(f"  {'ok  ' if refused else 'FAIL'} probe 0b: restore() aimed at "
+              f"{bad!r} refuses: {refused} (want True)")
+    CASES_REL, CASES = real_rel, real_abs
+
     victim = sorted(f for f in os.listdir(CASES) if f.endswith(".toml"))[0]
     path = os.path.join(CASES, victim)
     marker = "# guard probe -- must survive the refusal\n"
@@ -743,9 +852,10 @@ def probe_guards():
         print(f"  {'ok  ' if good else 'FAIL'} probe 2: {label}: {good}")
 
     if all(ok):
-        print(f"\nGUARD PROBES OK -- {len(ok)} checks: the clean-tree precondition refuses "
-              "without discarding, and a two-method disagreement restores the tree, names "
-              "the file and fails the gate.")
+        print(f"\nGUARD PROBES OK -- {len(ok)} checks: the destructive path refuses "
+              "while unarmed and refuses every mis-aimed target, the clean-tree "
+              "precondition refuses without discarding, and a two-method disagreement "
+              "restores the tree, names the file and fails the gate.")
         return 0
     print(f"\nGUARD PROBES FAILED -- {ok.count(False)} of {len(ok)}")
     return 1

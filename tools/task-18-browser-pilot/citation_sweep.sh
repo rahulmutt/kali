@@ -63,7 +63,37 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TESTS="$REPO/crates/kali_cli/tests"
 cd "$TESTS"
 PRINT_SPECS=0
-[[ "${1:-}" == "--print-specs" ]] && PRINT_SPECS=1
+# --------------------------------------------------------------------------
+# THE FAMILY (Task 19 instruments, §2). Default `browser`, so a bare
+# invocation -- which is what `test-gate.sh --gates-only` and
+# `.github/workflows/ci.yml` make -- sweeps exactly the population it always
+# did, byte for byte. `--family <name>` moves the case-file glob, the source
+# filename and the `Migrated from` grep together.
+#
+# THE PREFIX IS ASKED FOR, NOT ASSUMED (`families.py`): `misc/`'s sources carry
+# no family prefix at all, so `<family>_` is wrong for a family that already
+# exists. A family whose case files disagree about their prefix makes
+# `families.py` exit non-zero, and so does this.
+# --------------------------------------------------------------------------
+FAMILY=browser
+FAMILY_ARG=()          # empty unless --family was given; see below
+ARGS=()
+while (( $# )); do
+  case "$1" in
+    --print-specs) PRINT_SPECS=1; shift ;;
+    --family)      FAMILY="${2:?--family needs a name}"; FAMILY_ARG=(--family "$FAMILY"); shift 2 ;;
+    --family=*)    FAMILY="${1#*=}"; FAMILY_ARG=(--family "$FAMILY"); shift ;;
+    *)             ARGS+=("$1"); shift ;;
+  esac
+done
+if ((${#ARGS[@]})); then
+  echo "citation_sweep.sh: unrecognised argument(s): ${ARGS[*]}" >&2
+  echo "usage: citation_sweep.sh [--family <name>] [--print-specs]" >&2
+  exit 2
+fi
+PREFIX=$(python3 "$REPO/tools/task-18-browser-pilot/families.py" --prefix "$FAMILY") || exit 2
+CASES_REL="cases/$FAMILY"
+[[ -d "$CASES_REL" ]] || { echo "citation_sweep.sh: no $TESTS/$CASES_REL" >&2; exit 2; }
 SPECS=()
 RESOLVED=()
 FAILURES=()
@@ -173,15 +203,20 @@ provenance() {
   if [[ "$name" == "-" ]]; then echo RETENTION
   elif [[ ! -f "$TESTS/$name" ]]; then echo SOURCEREF
   elif [[ "$ref" != "-" ]]; then echo PRETRIM
-  elif [[ "$name" == "browser_$stem.rs" ]]; then echo TREE
+  elif [[ "$name" == "$PREFIX$stem.rs" ]]; then echo TREE
   else echo SPLIT
   fi
 }
 
-for t in cases/browser/*.toml; do
+for t in "$CASES_REL"/*.toml; do
   s=$(basename "$t" .toml)
-  rs="browser_$s.rs"
-  src=$(grep -m1 -oP '(?<=Migrated from tests/)browser_\S+\.rs' "$t" || true)
+  rs="$PREFIX$s.rs"
+  # NOT ANCHORED ON THE FAMILY PREFIX, and deliberately so: this grep exists to
+  # find a U2 SPLIT's source, whose stem differs from the case file's. Anchoring
+  # it on `$PREFIX` would still work for browser but would silently return
+  # nothing for a `misc/` split (empty prefix, `\S+` already covers it) --
+  # matching `families.MIGRATED_FROM` keeps one answer to "which source".
+  src=$(grep -m1 -oP '(?<=Migrated from tests/)[A-Za-z0-9_]+(/[A-Za-z0-9_]+)*\.rs' "$t" || true)
 
   # THE DECLARATION IS READ FOR EVERY CASE FILE, not only for a sourceless one.
   # Round 1 read it only inside the SOURCE-DELETED arm, which made a declaration
@@ -273,7 +308,7 @@ for t in cases/browser/*.toml; do
   # ref, and refs repeat across stems, so the cache makes this cheaper than
   # per-file `git show` anyway.
   if [[ -z "$src" ]]; then
-    FAILURES+=("$s: no browser_$s.rs in the tree and no \`Migrated from tests/<file>.rs\` line in $t, so the source its citations resolve against cannot even be named. Add the header line.")
+    FAILURES+=("$s: no $PREFIX$s.rs in the tree and no \`Migrated from tests/<file>.rs\` line in $t, so the source its citations resolve against cannot even be named. Add the header line.")
     continue
   fi
   if [[ -z "$ref" ]]; then
@@ -300,9 +335,39 @@ for t in cases/browser/*.toml; do
   fi
   SPECS+=("$s=$tree/$src"); RESOLVED+=("$s $ref $src")
 done
-for rs in browser_*.rs; do
-  s=${rs#browser_}; s=${s%.rs}
-  [[ -f "cases/browser/$s.toml" ]] && continue
+# WHOLE-FILE RETENTIONS: a `$PREFIX*.rs` carrying a `//!` header, with no case
+# file of its own.
+#
+# AN EMPTY PREFIX MAKES THIS GLOB THE WHOLE DIRECTORY, and the case-file test
+# below is NOT enough to keep it honest: `browser_promise_any_bundle.rs` is a
+# browser retention with a `//!` header and no `cases/misc/*.toml`, so a
+# `--family misc` sweep would adopt it. A gate that silently widens its
+# population when pointed at a different family is the failure this whole
+# generalisation exists to avoid, so the other families' prefixes are subtracted
+# explicitly. `families.py --list` is the one place they are derived, and a
+# family whose prefix is itself empty contributes nothing to subtract (there is
+# at most one such family by construction -- two would make every unprefixed
+# `.rs` ambiguous, which is a corpus problem, not a gate problem).
+# WITH AN EMPTY PREFIX THE ARM IS REFUSED, NOT WIDENED (ruling 18 #3). Filtering
+# out the other families' prefixes is not enough and this was measured, not
+# assumed: `--family misc --print-specs` with that filter in place adopted TEN
+# unprefixed `.rs` files as "retentions" -- `arena_reclamation_runtime.rs`,
+# `closure_return_isolation.rs`, `inprocess.rs`, and `cases.rs`, which is the
+# HARNESS ITSELF. Every one of them is an unmigrated target whose `//!` is
+# ordinary module documentation, not a U3 retention header. There is no fact in
+# the tree that distinguishes them, so the sweep says so and checks the case
+# files only, rather than guessing and quietly sweeping a wider population than
+# its banner claims.
+if [[ -z "$PREFIX" ]]; then
+  RETENTION_ARM="SKIPPED"
+else
+  RETENTION_ARM="ran"
+fi
+for rs in ${PREFIX}*.rs; do
+  [[ -z "$PREFIX" ]] && break
+  [[ -f "$rs" ]] || continue
+  s=${rs#"$PREFIX"}; s=${s%.rs}
+  [[ -f "$CASES_REL/$s.toml" ]] && continue
   grep -q '^//!' "$rs" || continue
   SPECS+=("$s"); RESOLVED+=("$s - -")
 done
@@ -336,11 +401,32 @@ if ((PRINT_SPECS)); then
   # gone. `source_ref_rehearsal.py` asserts it on both sides, so the arm cannot
   # be silently unwired.
   printf '#validated %s\n' "$VALIDATED"
+  # ONLY WHEN THE ARM DID NOT RUN. `source_ref_rehearsal.population_agreement`
+  # diffs this output against `citation_tiers.py --specs` line for line, so an
+  # unconditional extra line is a disagreement between the two population loops
+  # -- which is what that gate exists to catch, and it caught this. Printing it
+  # only in the skipped case keeps the browser output byte-identical AND keeps
+  # the skip audible, instead of choosing between the two.
+  [[ "$RETENTION_ARM" == "SKIPPED" ]] && printf '#retention-arm SKIPPED\n'
   exit 0
 fi
 
+if [[ "$RETENTION_ARM" == "SKIPPED" ]]; then
+  echo "note: family '$FAMILY' has an EMPTY source prefix, so a whole-file"
+  echo "      retention cannot be told from any other unprefixed .rs in"
+  echo "      crates/kali_cli/tests. The whole-file-retention arm is SKIPPED;"
+  echo "      this sweep covers $FAMILY's case files only."
+fi
+
 echo "sweep over ${#SPECS[@]} stems"
-python3 "$REPO/tools/task-18-browser-pilot/batch5_crosscheck.py" --citations-only "${SPECS[@]}"
+# `--family` IS FORWARDED ONLY WHEN IT WAS GIVEN. `batch5_crosscheck.py`
+# defaults to browser and prints a one-line family banner when told a family
+# explicitly, so a bare `citation_sweep.sh` produces output that is BYTE
+# IDENTICAL to what it produced before this file learned about families --
+# which is the evidence that the finished, deleted browser corpus did not
+# regress, and it is worth more than a banner nobody needed.
+python3 "$REPO/tools/task-18-browser-pilot/batch5_crosscheck.py" --citations-only \
+  ${FAMILY_ARG[@]+"${FAMILY_ARG[@]}"} "${SPECS[@]}"
 rc=$?
 echo "SWEEP EXIT=$rc"
 exit $rc
