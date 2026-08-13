@@ -947,7 +947,22 @@ def _skip_string(text: str, pos: int) -> int | None:
         # `b`/`c` are accepted only as a prefix to `r`; a bare `b"..."` or
         # `c"..."` is an ESCAPED literal, falls through to `None` here, and is
         # handled by the plain `"` branch on the next character exactly as
-        # before. That is what keeps the 14 files using `b"..."` unmoved.
+        # before. That is what keeps the files using `b"..."` unmoved.
+        #
+        # NO INTEGER HERE, DELIBERATELY (ruling 15's answer 3, and ruling 16's
+        # general form). This comment used to say "the 14 files" and the
+        # regression test's docstring said "the 24 files" -- two different
+        # numbers for one population, both in the commit that introduced them.
+        # The 24 came from an unanchored `grep -rl 'b"'`, which also matches
+        # `.arg("--lib")`; the word-boundary count is what a byte-string opener
+        # actually needs:
+        #
+        #   grep -rlE '(^|[^A-Za-z0-9_])b"' crates/kali_cli/tests --include=*.rs | wc -l
+        #
+        # and the answer is a live corpus count that Task 20's source deletions
+        # will change again, so writing the corrected integer would only reset
+        # the clock. The CLASS is what this comment is about, and the property
+        # is gated by `test_raw_string_prefixes_match_what_rustc_accepts`.
         k = pos + 1
         if c != 'r':
             if k >= n or text[k] != 'r':

@@ -2097,7 +2097,20 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
         so `rb` is deliberately absent from the pattern -- adding it would have
         been a dead alternative that looked like thoroughness. `b"..."` and
         `c"..."` are ESCAPED literals, not raw: they must fall through to the
-        plain-string path, which is what keeps the 24 files using `b"` unmoved.
+        plain-string path, which is what keeps the files using `b"` unmoved.
+
+        THE "24" THAT USED TO BE IN THIS SENTENCE WAS WRONG, and the commit that
+        wrote it also wrote "14" in `audit-case-migration.py`'s own comment for
+        the same population. The 24 came from an unanchored `grep -rl 'b"'`,
+        which matches `.arg("--lib")` and anything else with a `b` before a
+        quote; a byte-string opener needs the word boundary:
+
+            grep -rlE '(^|[^A-Za-z0-9_])b"' crates/kali_cli/tests --include=*.rs
+
+        Neither integer is restored here. The population is a live corpus count
+        that Task 20's source deletions will move again, so a corrected number
+        only resets the clock (ruling 16). What matters is the CLASS, and the
+        class is gated by the loop below rather than by this prose.
         """
         mod = _load_audit_module()
         for text, opens_raw in (('x = r#"ab"#;', True), ('x = br"ab";', True),
