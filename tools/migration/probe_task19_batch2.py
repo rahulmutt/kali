@@ -53,16 +53,67 @@ PAIRS = [
      'stdout = "3\\n2\\n"', 'stdout = "3\\n4\\n"'),
     ("parse_int_static_ascii", "misc/parse_int_static_ascii",
      'stdout = "42\\n-16\\n255\\n5\\n63\\n2\\n"', 'stdout = "42\\n-16\\n255\\n5\\n63\\n3\\n"'),
+    # The two pairs ruling 3 clause 4 unblocked. Both poisons target the
+    # `json_count` needle itself, so arm A is also a probe of the gate change:
+    # a needle no source `.contains` backs must still be refused.
+    ("standalone_non_literal_iterator_sources",
+     "misc/standalone_non_literal_iterator_sources",
+     'needle = "literal array"', 'needle = "literal arrayX"'),
+    ("reflect_own_keys_js_input", "misc/reflect_own_keys_js_input",
+     'needle = "reflect ownKeys ok"', 'needle = "reflect ownKeys okX"'),
+    # The U4 trim pair. Its literal arms run against the MIGRATED COMPLEMENT,
+    # not the post-trim `.rs` -- see `_source_for`.
+    ("object_has_own_frozen_js_input", "misc/object_has_own_frozen_js_input",
+     'stderr_contains = ["E4000"]', 'stderr_contains = ["E4001"]'),
 ]
+
+# A U4 trim pair's audit left-hand side is the migrated complement (ruling 12):
+# against the post-trim file the case file's claims are compared with a source
+# stripped of the half that makes them, and against the pre-trim blob with a
+# source carrying a half the case file does not cover. Both are red for reasons
+# that are artefacts of the trim, so arm A would be uninformative on either.
+TRIMMED = {"object_has_own_frozen_js_input":
+           "8bb67edb9d0632fe42f3f41b7ff9050264409b4f"}
+
+
+_COMPLEMENTS = {}
+
+
+def _source_for(rs):
+    """The `.rs` the literal arms should compare against — the migrated
+    complement for a U4 trim pair, the working-tree file otherwise."""
+    if rs not in TRIMMED:
+        return rs + ".rs"
+    if rs not in _COMPLEMENTS:
+        import tempfile
+        pre = subprocess.run(
+            ["git", "show", f"{TRIMMED[rs]}:crates/kali_cli/tests/{rs}.rs"],
+            cwd=REPO, capture_output=True, text=True)
+        assert pre.returncode == 0, pre.stderr
+        d = tempfile.mkdtemp(prefix="probe-complement-")
+        with open(os.path.join(d, "pre.rs"), "w") as fh:
+            fh.write(pre.stdout)
+        comp = subprocess.run(
+            [sys.executable,
+             os.path.join(REPO, "tools/task-18-browser-pilot/migrated_complement.py"),
+             os.path.join(d, "pre.rs"), os.path.join(T, rs + ".rs")],
+            capture_output=True, text=True)
+        assert comp.returncode == 0, comp.stderr
+        path = os.path.join(d, "complement.rs")
+        with open(path, "w") as fh:
+            fh.write(comp.stdout)
+        _COMPLEMENTS[rs] = path
+    return _COMPLEMENTS[rs]
 
 
 def audit(rs, toml):
-    return subprocess.run([sys.executable, AUDIT, rs + ".rs", "cases/" + toml + ".toml"],
+    return subprocess.run([sys.executable, AUDIT, _source_for(rs), "cases/" + toml + ".toml"],
                           cwd=T, capture_output=True, text=True).returncode
 
 
 def missing_set(rs, toml):
-    return diff([os.path.join(T, rs + ".rs")],
+    src = _source_for(rs)
+    return diff([src if os.path.isabs(src) else os.path.join(T, src)],
                 [os.path.join(T, "cases", toml + ".toml")])[2]
 
 

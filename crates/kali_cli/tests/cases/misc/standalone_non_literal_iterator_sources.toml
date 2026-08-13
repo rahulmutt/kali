@@ -1,0 +1,159 @@
+# Migrated from tests/standalone_non_literal_iterator_sources.rs.
+#   SOURCE REF: b7f2ed5d5644fff14b03b5266fcc7f26b13ac925
+#
+# A `Set`/`Map` built from a non-literal iterator source is rejected with E5506, in `run`
+# and in `test`, in text and in `--output json` mode.
+#
+# MATRIX DECLINED. 8 source helper invocation(s) == 8 case(s) x 1 -- no axis every case
+# varies over uniformly (rule 7, U1). Both `#[test]` fns loop `[(set, set-main.js), (map,
+# map-main.js)]` and call the helper twice per element, once with `json_output = false`
+# and once with `true`, so 2 fns x 2 sources x 2 output modes == 8. A `[matrix]` over the
+# output mode was DECLINED and not merely unused: `--output json` changes the ASSERTION
+# SHAPE (a json envelope replaces a stderr substring claim), not just an argv token, so no
+# axis fans these cases uniformly.
+#
+# `[source]` KEYS ARE THE SOURCE'S OWN. `set-main.js` and `map-main.js` are the filenames
+# the source itself writes, so no U5 rename was needed and no `# EXTRA-OK:` declaration is
+# required for them.
+#
+# U2 CHECK, RUN RATHER THAN ASSUMED. `[source]` is one flat FILE-WIDE map that `expand()`
+# clones into every trial, so a fixture a sibling case needs is present in this case's
+# trial too. Measured, with a known positive first, because a green that was never made
+# red is not evidence:
+#
+#   * a sandbox policy file present in the working directory but NOT named on argv is inert. Control: the same deny-everything policy PASSED as `--sandbox` turns `console.log(1)` into `error[E9007]: inferred effect 'Console.Write' is not permitted by the active policy`, rc=5; the same three files present as `policy.json` / `tiny.policy.json` / `kali.policy.json` and not passed leave `kali run m.ts` printing `1`, rc=0.
+#   * a sibling `*.test.*` fixture is inert BECAUSE every case names its program explicitly on argv, exactly as the source did. Control: a bare `kali test` in a directory holding `main.test.js` and `other.test.js` discovers both and prints `ok 2`; `kali test main.test.js` in that same directory prints `ok 1`.
+#   * `kali.json` IS auto-discovered as a manifest and would not be inert. No fixture in this batch is named `kali.json`; recorded because the next batch's author cannot tell from the tree that the name is special.
+#
+# No fixture here is one whose mere PRESENCE or ABSENCE is a case's point, which is the
+# shape U2 exists to stop.
+#
+# THE `errors` NON-EMPTINESS CLAIM. The source asserts `!errors.is_empty()` and then
+# indexes `errors[0]`. Pinning `json.errors.0.code` is strictly stronger than the
+# non-emptiness claim and subsumes it -- a path that resolves proves the array has an
+# element -- so no separate claim is written for it (rule 2: nothing invented, nothing
+# weakened).
+#
+# THE `literal array` SUBSTRING CLAIM. The source's `message.contains("literal array")` is
+# a plain `.contains` against a `json` STRING LEAF, which is ruling 3 clause 4's amended
+# case: it becomes `json_count` with `at_least = 1`, not an exact `json.errors.0.message`
+# pin, because the source's own assertion is not exact. The non-json branch's two
+# `stderr.contains` claims stay `stderr_contains`.
+#
+# THE E5506 MESSAGE THIS FILE DOES NOT PIN, recorded so a reader can see where the
+# `literal array` needle comes from. The trial emits: "for-of array iteration lowering is
+# unavailable unless the iterable is a literal array or supported string iterable with
+# literal elements and the loop target is a variable declaration or simple identifier
+# binding; use a supported loop form or the later compatibility path". Only the substring
+# the source asserts is claimed.
+#
+# EXTRA-OK: 'errors.0.message' -- a `json_count` PATH, not an assertion needle. `check_extra_claims.py` treats every claim-bearing string as a claim, and a dotted jsonpath exists as no contiguous literal in the `.rs`; the source spells the same path as `errors[0]["message"]`. The path is gated elsewhere and more precisely: `audit-case-migration.py` requires every segment of a `json_count` path to be a JSON key the source actually indexed, and it is green on this pair
+#
+# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=2) ON THIS PAIR,
+# AND THE RED IS THE GATE WORKING. The source carries no comment lines at all, so the
+# checker's ruling-5 zero-line floor fires: without it a pair with nothing to check
+# reports a vacuous green, which is the dangerous direction. Stated explicitly because *no
+# prose* and *prose missed* are otherwise indistinguishable to a later reader. Reproduce
+# with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/standalone_non_literal_iterator_sources.rs \
+#     crates/kali_cli/tests/cases/misc/standalone_non_literal_iterator_sources.toml
+#
+
+[source]
+"set-main.js" = """function main() {
+  let values = [1, 2];
+  values = values;
+  for (const value of new Set(values.filter(Boolean))) {
+    console.log(value);
+  }
+}
+main();
+"""
+"map-main.js" = """function main() {
+  let values = [[1, 2], [3, 4]];
+  values = values;
+  for (const entry of new Map(values.filter(Boolean))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+main();
+"""
+
+[[case]]
+name = "set_source_rejects_in_run_text_output"
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+args = ["run", "set-main.js"]
+exit = 1
+stderr_contains = ["E5506", "literal array"]
+
+[[case]]
+name = "set_source_rejects_in_run_json_output"
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+args = ["--output", "json", "run", "set-main.js"]
+exit = 1
+json.schemaVersion = 1
+json.command = "run"
+json.success = false
+json.exitCode = 1
+json.errors.0.code = "E5506"
+json_count = [{ path = "errors.0.message", needle = "literal array", at_least = 1 }]
+
+[[case]]
+name = "set_source_rejects_in_test_text_output"
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+args = ["test", "set-main.js"]
+exit = 1
+stderr_contains = ["E5506", "literal array"]
+
+[[case]]
+name = "set_source_rejects_in_test_json_output"
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Set(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+args = ["--output", "json", "test", "set-main.js"]
+exit = 1
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.exitCode = 1
+json.errors.0.code = "E5506"
+json_count = [{ path = "errors.0.message", needle = "literal array", at_least = 1 }]
+
+[[case]]
+name = "map_source_rejects_in_run_text_output"
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+args = ["run", "map-main.js"]
+exit = 1
+stderr_contains = ["E5506", "literal array"]
+
+[[case]]
+name = "map_source_rejects_in_run_json_output"
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali run` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+args = ["--output", "json", "run", "map-main.js"]
+exit = 1
+json.schemaVersion = 1
+json.command = "run"
+json.success = false
+json.exitCode = 1
+json.errors.0.code = "E5506"
+json_count = [{ path = "errors.0.message", needle = "literal array", at_least = 1 }]
+
+[[case]]
+name = "map_source_rejects_in_test_text_output"
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The text branch asserts only that stderr carries `E5506` and `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+args = ["test", "map-main.js"]
+exit = 1
+stderr_contains = ["E5506", "literal array"]
+
+[[case]]
+name = "map_source_rejects_in_test_json_output"
+rationale = """Migrated from standalone_non_literal_iterator_sources.rs. A `new Map(...)` whose argument is a `.filter(Boolean)` call rather than a literal array is not a supported iterator source, so `kali test` must reject it. The source asserts `!status.success()` AND `status.code() == Some(1)`; the exact code is the stronger of the two and is pinned (ruling 3, clause 1). The `--output json` branch asserts the envelope's `schemaVersion`, `command`, `success` and `exitCode`, the first error's `code`, and that its `message` mentions `literal array`. The source carries no comments, so rules 12 and 13 have nothing to carry into this rationale."""
+args = ["--output", "json", "test", "map-main.js"]
+exit = 1
+json.schemaVersion = 1
+json.command = "test"
+json.success = false
+json.exitCode = 1
+json.errors.0.code = "E5506"
+json_count = [{ path = "errors.0.message", needle = "literal array", at_least = 1 }]

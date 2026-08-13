@@ -1850,6 +1850,99 @@ class CountClaimCorrespondence(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Ruling 3's amended clause 4: a `.contains` against a json string leaf becomes
+# `json_count` with `at_least = 1`, and the reverse arm has to admit it.
+# ---------------------------------------------------------------------------
+class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
+    """The amendment and this gate contradicted each other, and the gate lost.
+
+    Ruling 3 clause 4 was amended after batch 8C: a plain `.contains(x)`
+    against a `json` string leaf migrates to `json_count` with
+    `at_least = 1`, and an exact `json.…` pin is forbidden for that shape.
+    `count_claim_correspondence` demanded a `.matches(...).count()` site as
+    the only admissible evidence for ANY count claim, so the mandated form
+    was a hard failure -- with the exact pin forbidden by the amendment and
+    dropping the claim forbidden by rule 1, all three exits were closed.
+    Two Task 19 batch-2 targets were withdrawn on it before the controller
+    ruled that the gate is what changes.
+
+    THE BOUND IS THE DISCRIMINATOR, and these tests are that claim made
+    falsifiable in both directions: `at_least = 1` backed by a `.contains`
+    is ACCEPTED, and every other bound -- a larger `at_least`, an `exact`,
+    and the same `at_least = 1` on `stdout_count` rather than `json_count`
+    -- is still REFUSED without a real counting site. A relaxation validated
+    only by its accepting case is a relaxation nobody has measured.
+    """
+
+    _SOURCE = (
+        '#[test]\n'
+        'fn json_contains() {\n'
+        '    let json: Value = serde_json::from_slice(&output.stdout).expect("json");\n'
+        '    assert!(json["stdout"].as_str().expect("s").contains("marker ok"));\n'
+        '}\n'
+    )
+
+    def _toml(self, body):
+        return '[[case]]\nname = "c"\nargs = ["run"]\n' + body
+
+    def test_at_least_one_backed_by_a_contains_is_accepted(self):
+        rc, out = _run_audit(self._SOURCE, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "marker ok", at_least = 1 }]\n')})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+
+    def test_a_larger_at_least_is_still_refused(self):
+        rc, out = _run_audit(self._SOURCE, {"new.toml": self._toml(
+            'stdout_contains = ["marker ok"]\n'
+            'json_count = [{ path = "stdout", needle = "marker ok", at_least = 2 }]\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_an_exact_bound_is_still_refused(self):
+        rc, out = _run_audit(self._SOURCE, {"new.toml": self._toml(
+            'stdout_contains = ["marker ok"]\n'
+            'json_count = [{ path = "stdout", needle = "marker ok", exact = 1 }]\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_a_needle_the_source_never_contains_is_still_refused(self):
+        rc, out = _run_audit(self._SOURCE, {"new.toml": self._toml(
+            'stdout_contains = ["marker ok"]\n'
+            'json_count = [{ path = "stdout", needle = "INVENTED", at_least = 1 }]\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_stdout_count_is_not_relaxed(self):
+        # Scoped to `json_count` exactly as ruled. `stdout_contains` already
+        # expresses this claim against raw stdout at full strength, so there is
+        # nothing a `.contains`-backed `stdout_count` would buy, and widening
+        # the acceptance past what was ruled is how a measured relaxation turns
+        # into an unmeasured one.
+        source = (
+            '#[test]\n'
+            'fn plain_contains() {\n'
+            '    let stdout = String::from_utf8_lossy(&output.stdout);\n'
+            '    assert!(stdout.contains("marker ok"));\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'stdout_contains = ["marker ok"]\n'
+            'stdout_count = [{ needle = "marker ok", at_least = 1 }]\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_the_json_path_arm_still_bites(self):
+        # The acceptance is about the BOUND only. A `json_count` whose path
+        # names a key the source never indexed is still a failure, so the
+        # relaxation cannot be used to reach an arbitrary json path.
+        rc, out = _run_audit(self._SOURCE, {"new.toml": self._toml(
+            'json_count = [{ path = "neverIndexed", needle = "marker ok", '
+            'at_least = 1 }]\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("is not a JSON key the source ever indexed", out)
+
+
+# ---------------------------------------------------------------------------
 # Documented, accepted limitations -- pinned as CURRENT behavior, not as a
 # desired property. A future change that accidentally alters any of these
 # should show up here, not slip through silently.

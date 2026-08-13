@@ -119,7 +119,13 @@ direction as well -- every count claim a case file makes must correspond to a
 real `.matches("lit").count()` assertion in the old source, with the SAME
 needle and the SAME bound (`at_least = 2` against `count() >= 2`,
 `exact = 6` against `count() == 6` / `assert_eq!(...count(), 6)`), and a
-`json_count`'s `path` segments must be JSON keys the old source indexed. This
+`json_count`'s `path` segments must be JSON keys the old source indexed.
+ONE EXCEPTION, and its bound is the whole of it: a `json_count` whose bound is
+exactly `at_least = 1` may be justified by a source `.contains(needle)` instead
+of a counting site, because ruling 3's amended clause 4 makes that the mandated
+migration of a plain `.contains` against a json string leaf and `>= 1` carries
+no number to be unfaithful about. Every other bound still requires a real
+counting site. See the acceptance in `count_claim_correspondence`. This
 is the only direction that can see a count claim that was invented, mis-
 needled, or mis-bounded, and without it the keys are unauditable: a needle
 that appears nowhere in the source, carrying a bound the source never states,
@@ -1545,6 +1551,7 @@ def count_claim_correspondence(
     case_claims: list[dict],
     source_sites: list[tuple[str, frozenset[str], tuple[str, int] | None]],
     source_json_keys: set[str],
+    source_contains: dict[str, frozenset[str]] | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     """Check every count claim the NEW files make against the OLD source --
     the reverse of every other check in this script (see the module
@@ -1567,6 +1574,7 @@ def count_claim_correspondence(
     """
     failures: list[str] = []
     unauditable: list[str] = []
+    source_contains = source_contains or {}
 
     for claim in case_claims:
         where = f"case {claim['case']!r} {claim['key']}"
@@ -1602,6 +1610,41 @@ def count_claim_correspondence(
         matching = [bound for _canonical, variants, bound in source_sites
                     if _needle_correspondence(needle, variants)]
         if not matching:
+            # RULING 3'S AMENDED CLAUSE 4, WHICH THIS ARM USED TO MAKE
+            # UNIMPLEMENTABLE (controller ruling, Task 19 batch 2).
+            #
+            # The amendment binds every non-browser migration: a plain
+            # `.contains(x)` against a `json` string leaf becomes `json_count`
+            # with `at_least = 1`, because that IS the substring form of the
+            # claim -- `check_json_count` requires a string leaf and counts
+            # non-overlapping occurrences, so `>= 1` is exactly "contains". An
+            # exact `json.…` pin is forbidden for the same shape (it would
+            # strengthen a claim the source never made that strongly).
+            #
+            # This arm demanded a `.matches(...).count()` site as the only
+            # admissible evidence, so all three exits were closed at once: the
+            # exact pin by the amendment, `json_count` by this gate, and
+            # dropping the claim by rule 1. Two Task 19 batch-2 targets were
+            # withdrawn on it before the controller ruled.
+            #
+            # THE BOUND IS THE DISCRIMINATOR, and that is what keeps the arm's
+            # strength where it was actually protecting something. `at_least = 1`
+            # is the only bound a `.contains` can justify: it is a presence
+            # claim and carries no number. Every other bound -- `at_least = N`
+            # for N > 1, and every `exact` -- is a fidelity claim ABOUT A NUMBER,
+            # which is precisely what the module docstring says forward literal
+            # coverage cannot see, so those still require a genuine counting
+            # site in the source and are refused without one.
+            #
+            # Ruling 14's shape, and its two conditions were met before this
+            # shipped: no already-shipped pair's verdict moves (measured over
+            # all 250 pairs by `tools/migration/audit_corpus_sweep.py --compare`),
+            # and the accepted form is what the binary actually emits (the two
+            # pairs it admits are live-verified trials).
+            if claim["bound"] == ("at_least", 1) and claim["key"] == "json_count" \
+                    and any(_needle_correspondence(needle, variants)
+                            for variants in source_contains.values()):
+                continue
             failures.append(
                 f"{where}: needle {needle!r} corresponds to no "
                 "`.matches(...).count()` assertion in the source -- a count claim "
@@ -1740,7 +1783,8 @@ def main() -> int:
         for token, bound in count_claim_sites(old_source_combined)
     ]
     fabricated, unauditable, unmirrored = count_claim_correspondence(
-        case_claims, source_sites, set(old_claims["json keys"])
+        case_claims, source_sites, set(old_claims["json keys"]),
+        old_claims["contains literals"],
     )
 
     # Rule 11's OR shape: a group of `.contains` literals the source asserts

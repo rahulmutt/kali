@@ -49,7 +49,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(REPO, "tools/task-18-browser-pilot"))
 sys.path.insert(0, HERE)
 
-from case_emit import emit  # noqa: E402
+from case_emit import emit, source_text_at  # noqa: E402
 from comment_coverage import extract_comment_paragraphs, is_divider  # noqa: E402
 from lexer import find_string_literals  # noqa: E402
 import t19b2_captures as CAP  # noqa: E402
@@ -68,8 +68,29 @@ _TEXT = {}
 
 
 def rs(stem):
+    """The source this case file was migrated FROM -- not always the working tree.
+
+    Ruling 9: once a U4 trim-and-keep retention lands, the working tree holds
+    only the RETAINED half, so a fixture the migrated half owned is gone and a
+    generator that reads the working tree either crashes or, worse, emits a case
+    file built from what is left. The pre-trim blob is the right side, and the
+    ref comes from the retained file's OWN `PRE-TRIM REF:` line -- a ref carried
+    anywhere else is the moving figure ruling 11 forbids.
+
+    Delegated to `case_emit.source_text_at` rather than reimplemented: batch
+    8-inst-1 established seven live readers of that header line, and an eighth
+    that disagreed with the gate about which blob a pair means would look
+    locally correct in both places. That function also raises when a `//!`
+    header and a `PRE-TRIM REF:` disagree, which is the check this generator
+    wants and would not have written for itself.
+
+    Proven load-bearing rather than assumed: with `rs()` reading the working
+    tree, trimming `object_has_own_frozen_js_input.rs` made `check_captured`
+    raise `capture CAP_OBJECT_HAS_OWN__TEST is stale` -- the fixture builder the
+    migrated half used had been trimmed away.
+    """
     if stem not in _TEXT:
-        _TEXT[stem] = open(os.path.join(TESTS, stem + ".rs")).read()
+        _TEXT[stem] = source_text_at(os.path.join(TESTS, stem + ".rs"), quiet=True)
     return _TEXT[stem]
 
 
@@ -285,6 +306,39 @@ U8_RED = (
     "  python3 tools/task-18-browser-pilot/check_rationale_fn_names.py \\\n"
     "    crates/kali_cli/tests/{stem}.rs \\\n"
     "    crates/kali_cli/tests/cases/{family}/{toml}.toml")
+
+U4_TRIM = (
+    "U4 TRIM-AND-KEEP: THE FIFTH `#[test]` FN IS RETAINED HAND-WRITTEN, AND THE "
+    "SPLIT IS DERIVED RATHER THAN CHOSEN. `assert_frozen_object_has_own` "
+    "(`:79-131`, numbered against the pre-trim blob the retained file's own "
+    "`PRE-TRIM REF:` names) asserts nothing beyond `output.status.success()` "
+    "for any test in the file: its "
+    "`if json_output` block and its `else if command == \"run\"` block are both "
+    "UNREACHABLE, because its only caller passes `json_output = false` and "
+    "`command = \"check\"`. Eleven literals the audit extracts from those blocks "
+    "are therefore DEAD -- a value computed but never asserted, which rule 2 "
+    "forbids turning into a claim and rule 3 forbids shipping a red audit around. "
+    "Controller ruling R1 sends an unreachable-code claim to a §5.11 retention.\n"
+    "\n"
+    "WHICH TESTS REACH IT -- the enumerating command, run before this sentence "
+    "(ruling 13):\n"
+    "\n"
+    "  cd crates/kali_cli/tests && python3 - <<'EOF'\n"
+    "  import re\n"
+    "  t = open(\"object_has_own_frozen_js_input.rs\").read()\n"
+    "  for m in re.finditer(r\"#\\[test\\]\\s*\\nfn ([a-z_0-9]+)\\s*\\([^)]*\\)\\s*\\{(.*?)\\n\\}\", t, re.S):\n"
+    "      print(m.group(1), sorted(set(re.findall(\n"
+    "          r\"\\b(assert_frozen_object_has_own(?:_fails_closed)?)\\s*\\(\", m.group(2)))))\n"
+    "  EOF\n"
+    "\n"
+    "EXACTLY ONE of the five reaches it -- `check_accepts_frozen_object_has_own_"
+    "in_js_ts_jsx_tsx_input`. The other four route through "
+    "`assert_frozen_object_has_own_fails_closed`, a disjoint helper that shares "
+    "no assertion with it. So U4's trim applies and its whole-file clause does "
+    "NOT: whole-file retention is legitimate only when EVERY test reaches the "
+    "construct, and here four of five do not. One test retained, four migrated, "
+    "16 trials.")
+
 
 RULING6 = (
     "RULING 6 EXEMPTION, APPLIED TO A LOCAL HELPER DOC RATHER THAN A CROSS-CRATE "
@@ -508,10 +562,17 @@ def f_standalone_iter():
            "source's own assertion is not exact. The non-json branch's two "
            "`stderr.contains` claims stay `stderr_contains`.",
            ""]
-        + extra_ok([(msg, "not an invention: this is the E5506 diagnostic text the trial "
-                     "actually emits, and it is NOT pinned as a claim anywhere in this file -- "
-                     "it appears only in this declaration. Recorded so a reader can see the "
-                     "message the `literal array` needle is taken from")])
+        + ["THE E5506 MESSAGE THIS FILE DOES NOT PIN, recorded so a reader can see "
+           "where the `literal array` needle comes from. The trial emits: \"" + msg
+           + "\". Only the substring the source asserts is claimed.",
+           ""]
+        + extra_ok([("errors.0.message", "a `json_count` PATH, not an assertion needle. "
+                     "`check_extra_claims.py` treats every claim-bearing string as a claim, "
+                     "and a dotted jsonpath exists as no contiguous literal in the `.rs`; the "
+                     "source spells the same path as `errors[0][\"message\"]`. The path is "
+                     "gated elsewhere and more precisely: `audit-case-migration.py` requires "
+                     "every segment of a `json_count` path to be a JSON key the source "
+                     "actually indexed, and it is green on this pair")])
         + [""]
         + gates([CC_EMPTY], stem, "misc", "standalone_non_literal_iterator_sources"))
 
@@ -1213,11 +1274,14 @@ def f_object_has_own():
         head(stem, "The frozen `Object.hasOwn` alias surface: `check` accepts it in all "
                    "four input extensions, while `run` and `test` fail closed and loud "
                    "because the fixture's own self-check throws.")
-        + arithmetic("Five `#[test]` fns, each looping the same four input extensions, so "
-                     "5 fns x 4 extensions == 20 invocations and every case varies over the "
-                     "extension uniformly (rule 7, U1). The `[source]` keys carry the axis, "
-                     "so a `js` trial materialises only `main.js` and `main.test.js`.",
-                     20, 5, {"ext": ["js", "ts", "jsx", "tsx"]})
+        + arithmetic("FOUR of the source's five `#[test]` fns are migrated here; the fifth "
+                     "is a U4 trim-and-keep retention (see the paragraph below). Each of the "
+                     "four loops the same four input extensions, so 4 fns x 4 extensions == "
+                     "16 invocations and every case varies over the extension uniformly "
+                     "(rule 7, U1). The `[source]` keys carry the axis, so a `js` trial "
+                     "materialises only `main.js` and `main.test.js`.",
+                     16, 4, {"ext": ["js", "ts", "jsx", "tsx"]})
+        + [U4_TRIM, ""]
         + ["FIXTURE PROVENANCE (rules 8/9). Both programs are built by a `format!` whose "
            "placeholders are filled from FOUR `kali_common::` helpers. Neither text "
            "exists as a literal anywhere, so both were captured by EXECUTING the real "
@@ -1227,8 +1291,8 @@ def f_object_has_own():
         + ["RULE 13 -- CROSS-CRATE HELPER DOCS, CARRIED. All four helpers sit in the "
            "call chain of BOTH fixtures and the case reproduces their output, so ruling "
            "6's test comes out the carry way and every doc lands in every case's "
-           "rationale (all five cases are reached by one fixture or the other, and both "
-           "fixtures reach all four helpers).",
+           "rationale (each of the four cases is reached by one fixture or the other, "
+           "and both fixtures reach all four helpers).",
            ""]
         + [U2_INERT, ""]
         + ["RULE 11 -- AN OR-SHAPED ASSERTION WHOSE STREAM DEPENDS ON THE OUTPUT MODE. "
@@ -1242,22 +1306,12 @@ def f_object_has_own():
            "uniform across all four extensions. The source's disjunction sentence is "
            "carried into every affected rationale.",
            ""]
-        + ["THE `check` CASE MAKES ONE CLAIM. `assert_frozen_object_has_own` with "
-           "`json_output = false` and `command != \"run\"` asserts only "
-           "`output.status.success()`; its `Checked 1 file(s)` stdout is true and "
-           "unasserted, so it is not pinned (rule 2).",
-           ""]
-        + gates([CC_RED], stem, "misc", "object_has_own_frozen_js_input"))
+        + gates([], stem, "misc", "object_has_own_frozen_js_input"))
     note = para(stem, "Batch-local variant (PR #16 rev2, batch 7)")
     repin = para(stem, "Honest re-pin (PR #16 rev2)")
     rule13 = "Carried per rule 13 from the four kali_common helpers in this fixture's chain: " \
              + carried
     cases = [
-        dict(name="check_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input",
-             rationale=R(stem, "`kali check` does not execute the program, so the frozen "
-                               "`Object.hasOwn` alias surface is accepted statically. The "
-                               "source asserts success and nothing else. " + rule13),
-             steps=[dict(args=["check", "main.${ext}"], exit="success")]),
         dict(name="run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input",
              rationale=R(stem, note + "\n\n" + repin
                          + "\n\nText-mode `run`. Rule 11: the source accepts E4000 on EITHER "
@@ -1397,8 +1451,8 @@ def f_reflect_own_keys():
            "needed.",
            ""]
         + ["FIXTURE PROVENANCE (rules 8/9). The `run` program is built by a `format!` "
-           "whose placeholder is filled from `kali_common::"
-           "reflect_own_keys_frozen_callable_source`, so its text was captured by "
+           "whose placeholder is filled from kali_common's "
+           "reflect_own_keys_frozen_callable_source, so its text was captured by "
            "EXECUTING the real code rather than hand-substituted. The `test` program is "
            "a plain literal and was pulled from the `.rs` unchanged.",
            ""]
@@ -1468,28 +1522,13 @@ def build():
     f_exponentiation_operator()
     f_fasta_capstone()
     f_fasta_output()
-    # WITHDRAWN ON MEASUREMENT, NOT SKIPPED -- see the report's §4. Three targets
-    # this batch selected turned out to carry shapes the screen has no predicate
-    # for and that no correct case file can make the ABSOLUTE audit gate accept:
-    #
-    #   f_standalone_iter()   ruling 3's amended clause 4 mandates `json_count`
-    #   f_reflect_own_keys()  with `at_least = 1` for a plain `.contains` against
-    #                         a json string leaf; `audit-case-migration.py`
-    #                         hard-fails every `json_count` needle that has no
-    #                         `.matches(...).count()` site in the source. The
-    #                         ruling and the gate disagree, and rule 3 says
-    #                         escalate rather than ship around either.
-    #   f_object_has_own()    every assertion in `assert_frozen_object_has_own`
-    #                         beyond `status.success()` is UNREACHABLE: its only
-    #                         caller passes `json_output = false` and
-    #                         `command = "check"`, so 11 literals the audit
-    #                         demands are dead. Controller ruling R1 sends an
-    #                         unreachable-code claim to a §5.11 retention, which
-    #                         is a `.rs` edit this dispatch is not authorised to
-    #                         make.
-    #
-    # Their spec functions are kept below, unreferenced, so the adjudication has
-    # something to run against once the controller rules.
+    f_standalone_iter()
+    # WITHDRAWN ON MEASUREMENT, NOT SKIPPED -- see the report's §4/§16.
+    # `f_object_has_own()` is a U4 TRIM-AND-KEEP pair (controller ruling, batch 2
+    # fix round 1): the four migrated fns are emitted by `f_object_has_own()`
+    # below; the fifth stays hand-written because every assertion its helper
+    # makes beyond `status.success()` is unreachable, which is R1's
+    # unreachable-code shape.
     f_module_var_object_compound()
     f_closure_return_isolation()
     f_heap_grow()
@@ -1502,7 +1541,9 @@ def build():
     f_promise("promise_race_sequencing", "promise_race_sequencing", "race",
               "CAP_PROMISE_RACE__RUN", "CAP_PROMISE_RACE__TEST", False)
     f_monomorphize()
+    f_object_has_own()
     f_parse_int()
+    f_reflect_own_keys()
     return FILES
 
 
@@ -1575,6 +1616,24 @@ DECLARABLE = {
     "check_rationale_fn_names.py": ["tools/task-18-browser-pilot/check_rationale_fn_names.py"],
     "check_fixtures.py": ["tools/task-18-browser-pilot/check_fixtures.py"],
 }
+
+# WHICH `.rs` EACH GATE IS RUN AGAINST FOR A U4 TRIM PAIR, and the split is not
+# ruling 12's "always the complement" (rulings 9 and 12 together):
+#
+#   * a gate that compares the case file's CLAIMS with the source's claims
+#     (`check_fixtures.py` here; `audit-case-migration.py` and
+#     `check_extra_claims.py` outside this table) wants the MIGRATED COMPLEMENT
+#     -- ruling 12's own subject. Against the post-trim file the claims are
+#     compared with a source stripped of the half that makes them.
+#   * a gate whose subject is PROSE (`comment_coverage.py`,
+#     `check_rationale_fn_names.py`) wants the PRE-TRIM BLOB, which is ruling 9's
+#     original answer and is right for exactly the gates ruling 12 did not
+#     narrow. A rationale legitimately names fns on BOTH sides of the trim: the
+#     migrated fns it was built from and, in the trim paragraph, the retained one
+#     it explains. Neither the post-trim file nor the complement carries both,
+#     so each reports names the other explains -- measured, and both are red,
+#     with the pre-trim blob green.
+_TRIM_SIDE = {"check_fixtures.py": "complement"}
 _DECL = None
 
 
@@ -1599,6 +1658,46 @@ def _declared_reds(text):
     return found
 
 
+def _trim_sides(stem):
+    """`(pre_trim_path, complement_path)` for a trimmed stem, else `(None, None)`.
+
+    The ref is read from the retained file's OWN `PRE-TRIM REF:` line -- the one
+    place ruling 11 allows it to live -- and the complement is built by
+    `migrated_complement.py` rather than by a second implementation here.
+    """
+    import subprocess
+    import tempfile
+    path = os.path.join(TESTS, stem + ".rs")
+    text = open(path).read()
+    m = re.search(r"PRE-TRIM REF:\s*([0-9a-f]{40})", text)
+    if not (text.startswith("//!") and m):
+        return None, None
+    if stem not in _TRIM_CACHE:
+        blob = subprocess.run(
+            ["git", "show", f"{m.group(1)}:crates/kali_cli/tests/{stem}.rs"],
+            cwd=REPO, capture_output=True, text=True)
+        if blob.returncode:
+            raise AssertionError(f"{stem}: cannot read PRE-TRIM REF {m.group(1)}")
+        d = tempfile.mkdtemp(prefix="gen-trim-")
+        pre = os.path.join(d, "pre.rs")
+        with open(pre, "w") as fh:
+            fh.write(blob.stdout)
+        comp = subprocess.run(
+            [sys.executable,
+             os.path.join(REPO, "tools/task-18-browser-pilot/migrated_complement.py"),
+             pre, path], capture_output=True, text=True)
+        if comp.returncode:
+            raise AssertionError(f"{stem}: migrated_complement.py: {comp.stderr}")
+        cpath = os.path.join(d, "complement.rs")
+        with open(cpath, "w") as fh:
+            fh.write(comp.stdout)
+        _TRIM_CACHE[stem] = (pre, cpath)
+    return _TRIM_CACHE[stem]
+
+
+_TRIM_CACHE = {}
+
+
 def check_gate_declarations(files):
     import subprocess
     problems = []
@@ -1606,10 +1705,13 @@ def check_gate_declarations(files):
         spec = next(f for f in build()
                     if os.path.join(CASES, f["family"], f["toml"] + ".toml") == path)
         declared = _declared_reds(text)
+        pre_trim, complement = _trim_sides(spec["stem"])
         for gate, cmd in DECLARABLE.items():
+            source = os.path.join(TESTS, spec["stem"] + ".rs")
+            if pre_trim:
+                source = complement if _TRIM_SIDE.get(gate) == "complement" else pre_trim
             rc = subprocess.run(
-                [sys.executable, os.path.join(REPO, cmd[0]),
-                 os.path.join(TESTS, spec["stem"] + ".rs"), path],
+                [sys.executable, os.path.join(REPO, cmd[0]), source, path],
                 cwd=REPO, capture_output=True).returncode
             want = declared.get(gate)
             if rc == 0 and want is not None:

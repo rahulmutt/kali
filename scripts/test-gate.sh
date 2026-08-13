@@ -88,6 +88,17 @@ run_gates() {
         "bash    $PILOT/citation_sweep.sh"
         "python3 $PILOT/inst2_probes.py"
         "python3 $PILOT/source_ref_rehearsal.py"
+        # ADDED BY TASK 19 BATCH 2, on the controller's instruction, and for the
+        # reason this file's header gives: a generator whose fixed point nobody
+        # re-runs is a fixed point nobody checks -- ruling 15's own shape.
+        # Its default mode is the CHECK direction: it re-renders all 17 of that
+        # batch's case files from their spec and requires each to be
+        # byte-identical to what is shipped, so a hand-edit to a generated case
+        # file fails here instead of silently diverging from the mapping a
+        # reviewer reads. It also requires every `EXPECTED-RED (rc=N)` paragraph
+        # in those headers to AGREE with the gate it names (ruling 18 #3) --
+        # which caught three headers claiming a red that had gone green.
+        "python3 $REPO/tools/migration/gen_task19_batch2.py"
     )
     for g in "${gates[@]}"; do
         printf '\n=== MIGRATION GATE: %s ===\n' "$g"
