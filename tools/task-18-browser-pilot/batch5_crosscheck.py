@@ -1549,11 +1549,14 @@ def _gated_arm(stem, origin, body):
 # was worse than "does not run on another family": `_marker_arm` reports
 # "no resolvable `Migrated from`" for EVERY correct non-browser case file, so
 # the gate is loudly wrong rather than quietly absent -- and `_migrated_from`,
-# which resolves a U2 split's source, returns None for all of them. The name
-# shape is `[A-Za-z0-9_]+` with an optional `<dir>/<file>.rs` form for a U10
-# `#[path]` carrier's submodule, matching `families.MIGRATED_FROM` so the
-# project has one answer to "does this header name a source".
-MIGRATED_FROM = re.compile(r"Migrated from tests/([A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)*\.rs)")
+# which resolves a U2 split's source, returns None for all of them.
+#
+# IMPORTED, NOT RESTATED (fix round 1, minor). A second spelling here that a
+# comment merely CLAIMED matched `families.MIGRATED_FROM` is the marker-drift
+# hazard of ruling 18 applied to a regex; the two spellings did in fact differ.
+# There is one definition and this is a reference to it.
+import families as _families                                        # noqa: E402
+MIGRATED_FROM = _families.MIGRATED_FROM
 
 
 def _migrated_from(case_text):
@@ -2596,12 +2599,24 @@ def main(argv):
     argv = list(argv)
     family = None
     for i, arg in enumerate(argv):
-        if arg == "--family" and i + 1 < len(argv):
+        if arg == "--family":
+            # AN UNPARSED FLAG IS AN ERROR (ruling 18 #3, fix round 1 minor). A
+            # trailing `--family` used to fall through this loop, get filtered
+            # out of `stems` for starting with `--`, and leave `family` None --
+            # so `verify_pair.sh --family` with a lost argument would silently
+            # verify the pair against the BROWSER corpus and report a verdict
+            # about the wrong family.
+            if i + 1 >= len(argv):
+                print("error: --family needs a family name")
+                return 2
             family = argv[i + 1]
             del argv[i:i + 2]
             break
         if arg.startswith("--family="):
             family = arg.split("=", 1)[1]
+            if not family:
+                print("error: --family= needs a family name")
+                return 2
             del argv[i]
             break
     if family is not None:

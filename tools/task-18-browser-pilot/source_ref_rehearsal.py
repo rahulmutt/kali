@@ -96,14 +96,15 @@ def rs_rel(stem):
 
 
 def _migrated_re():
-    return re.compile(r"^#\s*Migrated from tests/([A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)*\.rs)",
-                      re.M)
+    # ANCHORED TO A `#` HEADER LINE, but the needle itself is `families`'
+    # ONE definition rather than a third spelling of it (fix round 1, minor).
+    # It was anchored on `browser_`, so it returned None for every correct
+    # non-browser case file and `check_sample` would have reported "no
+    # `Migrated from` line" for all of them.
+    import families
+    return re.compile(r"^#\s*" + families.MIGRATED_FROM_PATTERN, re.M)
 
 
-# NOT ANCHORED ON `browser_`: it was, so it returned None for every correct
-# non-browser case file and `check_sample` would have reported "no `Migrated
-# from` line" for all of them. Matches `families.MIGRATED_FROM`'s shape so the
-# project has one answer to "does this header name a source".
 MIGRATED = _migrated_re()
 # A citation with a backticked construct in front of it, in both the qualified
 # `(build.rs:N)` and the bare `(:N)` form. Deliberately narrower than
@@ -742,14 +743,28 @@ def main(argv=()):
     family = sample = None
     while argv:
         arg = argv.pop(0)
-        if arg == "--family":
-            family = argv.pop(0) if argv else None
-        elif arg.startswith("--family="):
-            family = arg.split("=", 1)[1]
-        elif arg == "--sample":
-            sample = argv.pop(0) if argv else None
-        elif arg.startswith("--sample="):
-            sample = arg.split("=", 1)[1]
+        # AN UNPARSED FLAG IS AN ERROR (ruling 18 #3, fix round 1 minor). A
+        # trailing `--family` used to set `family = None`, which is exactly the
+        # "no family was asked for" state -- so a lost argument silently
+        # rehearsed the BROWSER family and reported success about it.
+        if arg in ("--family", "--sample"):
+            if not argv:
+                print(f"error: {arg} needs a value")
+                return 2
+            value = argv.pop(0)
+            if arg == "--family":
+                family = value
+            else:
+                sample = value
+        elif arg.startswith("--family=") or arg.startswith("--sample="):
+            flag, _, value = arg.partition("=")
+            if not value:
+                print(f"error: {flag}= needs a value")
+                return 2
+            if flag == "--family":
+                family = value
+            else:
+                sample = value
         else:
             print(f"unrecognised argument {arg!r}\n"
                   "usage: source_ref_rehearsal.py [--family <name> "

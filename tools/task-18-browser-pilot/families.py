@@ -50,9 +50,18 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates", "kali_cli", "tests")
 CASES_ROOT = os.path.join(TESTS, "cases")
 
-# The same regex `citation_tiers.resolve_case_stem` and `batch5_crosscheck`'s
-# marker arm use, so "the header names a source" means one thing project-wide.
-MIGRATED_FROM = re.compile(r"Migrated from tests/([A-Za-z0-9_./]+\.rs)")
+# THE ONE DEFINITION of "this header names a source", and it is a definition
+# rather than a claim about other files. An earlier version of this comment said
+# "the same regex `citation_tiers` and `batch5_crosscheck` use" -- which was a
+# MARK, and false: all three spellings differed. In a module whose whole thesis
+# is that marks go stale, that is the wrong way round. So `batch5_crosscheck`
+# and `source_ref_rehearsal` now IMPORT this pattern instead of restating it,
+# and the sentence is true because nothing else can spell it.
+#
+# `MIGRATED_FROM_PATTERN` is exported separately because
+# `source_ref_rehearsal` needs to anchor it to a `#` comment line.
+MIGRATED_FROM_PATTERN = r"Migrated from tests/([A-Za-z0-9_./]+\.rs)"
+MIGRATED_FROM = re.compile(MIGRATED_FROM_PATTERN)
 
 
 class FamilyError(Exception):
@@ -144,16 +153,31 @@ def _selftest() -> int:
 
     # A KNOWN POSITIVE and a KNOWN NEGATIVE. An instrument validated in one
     # direction only passes trivially by answering that way always.
-    if "browser" in found and prefix("browser") != "browser_":
+    #
+    # THE ABSENCE OF EITHER FAMILY IS A FAILURE, not a reason to skip the
+    # assertion (review, minor). Guarding these with `if "browser" in found`
+    # meant the two checks that give this selftest its content would evaporate
+    # silently the day someone renamed or removed a directory -- leaving a green
+    # selftest that asserts nothing about any prefix at all.
+    if "browser" not in found:
+        problems.append("no `browser` family -- the known-positive prefix check "
+                        "cannot run, so this selftest would pass vacuously")
+    elif prefix("browser") != "browser_":
         problems.append("browser's prefix is not `browser_`")
-    if "misc" in found and prefix("misc") != "":
+    if "misc" not in found:
+        problems.append("no `misc` family -- the empty-prefix check cannot run, "
+                        "and it is the one that proves the prefix is DERIVED "
+                        "rather than assumed to be `<family>_`")
+    elif prefix("misc") != "":
         problems.append("misc's prefix is not empty -- misc/ sources carry no "
                         "family prefix, which is the whole reason the prefix is "
                         "derived rather than assumed to be `<family>_`")
 
     # THE NEGATIVE: a family that disagrees with itself must RAISE, not vote.
+    import shutil
     import tempfile
     real = CASES_ROOT
+    scratch = None
     try:
         scratch = tempfile.mkdtemp(prefix="families_selftest_")
         os.makedirs(os.path.join(scratch, "mixed"))
@@ -180,6 +204,8 @@ def _selftest() -> int:
             print("  poison -- family with no votes: raises")
     finally:
         CASES_ROOT = real
+        if scratch:
+            shutil.rmtree(scratch, ignore_errors=True)
 
     if problems:
         print("\nFAMILIES SELFTEST FAILED")

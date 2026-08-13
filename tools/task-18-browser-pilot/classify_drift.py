@@ -354,17 +354,30 @@ def _assert_restore_target_is_safe():
     Re-validated at every call rather than once at import, because the failure
     this guards against is an EDIT -- someone repointing `CASES_REL` at another
     family, or at a parent directory, and the tool then discarding work nobody
-    asked it to touch. Four conditions, each of which a mis-aimed path fails:
+    asked it to touch.
 
-      1. exactly `crates/kali_cli/tests/cases/<one component>` -- so
-         `cases`, `crates/kali_cli/tests`, `.` and an absolute path are all
-         rejected. This is the condition that matters: `git clean -fdq` on a
-         parent is unbounded;
-      2. the directory exists;
-      3. git tracks at least one `.toml` in it, so `git checkout --` has
+    THE COMPONENT COUNT IS NOT A BOUND ON ITS OWN, and the first version of this
+    function got that wrong (found in review). `crates/kali_cli/tests/cases/..`
+    has five components and the right first four, and RESOLVES TO
+    `crates/kali_cli/tests` -- the exact parent this docstring named as
+    rejected. A lexical shape check is not a containment check. So the shape
+    check is kept for its error message and a real containment check is added
+    beneath it: no `.`/`..`/empty component may appear at all, and the resolved
+    PARENT of the target must be the resolved `cases` root. Symlink games are
+    covered by the same `realpath` on both sides.
+
+    Five conditions, each of which a mis-aimed path fails:
+
+      1. exactly `crates/kali_cli/tests/cases/<one component>` -- so `cases`,
+         `crates/kali_cli/tests` and an absolute path are rejected;
+      2. no component is `.`, `..` or empty, and `realpath(dirname(target))`
+         is `realpath(<repo>/crates/kali_cli/tests/cases)`. This is the
+         condition that matters: `git clean -fdq` on a parent is unbounded;
+      3. the directory exists;
+      4. git tracks at least one `.toml` in it, so `git checkout --` has
          something to restore TO -- an untracked directory would be deleted
          outright by the clean with nothing to put back;
-      4. it is the directory this process baselined (`CASES`), so the snapshot
+      5. it is the directory this process baselined (`CASES`), so the snapshot
          and the restore cannot be about different trees.
     """
     parts = CASES_REL.split("/")
@@ -372,6 +385,19 @@ def _assert_restore_target_is_safe():
         raise RuntimeError(
             f"refusing to run `git clean -fdq` on {CASES_REL!r}: the destructive "
             f"path must be exactly crates/kali_cli/tests/cases/<family>")
+    if any(part in ("", ".", "..") for part in parts):
+        raise RuntimeError(
+            f"refusing: {CASES_REL!r} contains a `.`, `..` or empty component. "
+            f"Five components with the right first four is a SHAPE, not a "
+            f"containment bound -- `crates/kali_cli/tests/cases/..` satisfies it "
+            f"and resolves to the parent directory.")
+    target = os.path.realpath(os.path.join(REPO, CASES_REL))
+    cases_root = os.path.realpath(os.path.join(REPO, "crates/kali_cli/tests/cases"))
+    if os.path.dirname(target) != cases_root:
+        raise RuntimeError(
+            f"refusing: {CASES_REL!r} resolves to {target!r}, whose parent is not "
+            f"the cases root {cases_root!r}. The destructive path must be one "
+            f"directory directly inside cases/.")
     if not os.path.isdir(os.path.join(REPO, CASES_REL)):
         raise RuntimeError(f"refusing: {CASES_REL} is not a directory")
     tracked = subprocess.run(
@@ -554,8 +580,25 @@ def _run_one(gen, base, shipped, *, run=None, classify_fn=_classify_or_report):
 
 
 def census():
+    # THE ARMING IS SCOPED TO THIS RUN (fix round 1, minor). `_CLEAN_TREE_PROVEN`
+    # was set and never cleared, so once any census had run, every later
+    # `restore()` in the same process was armed on the strength of a
+    # precondition checked at a different time against a different tree. Cleared
+    # in a `finally` so it is scoped even when the census raises.
     if not require_clean_tree():
         return 2
+    try:
+        return _census_body()
+    finally:
+        _disarm()
+
+
+def _disarm():
+    global _CLEAN_TREE_PROVEN
+    _CLEAN_TREE_PROVEN = False
+
+
+def _census_body():
     base = snapshot()
     # ONE notion of "shipped": the working tree, just proved clean, read once.
     shipped = {name: open(os.path.join(CASES, name)).read() for name in base}
@@ -775,24 +818,46 @@ def probe_guards():
         print("probe needs a clean tree to start from")
         return 2
 
-    # ...and, now armed, still refuses a target that is not exactly one family
-    # directory. Each mis-aiming is tried separately: a parent, the cases root,
-    # and a family with no tracked case files.
+    # ...and the SHAPE CHECK refuses every mis-aimed target.
+    #
+    # THIS PROBE CALLS THE PURE PREDICATE, NOT `restore()` (review, I1). The
+    # first version demonstrated refusal by calling the real `restore()` and
+    # catching the exception -- so the moment the shape check regressed, the
+    # probe meant to catch that regression would itself have run
+    # `git clean -fdq .` at the repository root. A probe for a guard must not be
+    # armed with the thing the guard prevents.
     global CASES_REL, CASES
     real_rel, real_abs = CASES_REL, CASES
     for bad in ("crates/kali_cli/tests/cases", "crates/kali_cli/tests",
-                "crates/kali_cli/tests/cases/no_such_family", "."):
+                "crates/kali_cli/tests/cases/no_such_family", ".",
+                "crates/kali_cli/tests/cases/..",          # the I1 bypass
+                "crates/kali_cli/tests/cases/browser/..",
+                "crates/kali_cli/tests/cases/./browser",
+                "/workspace/crates/kali_cli/tests/cases/browser"):
         CASES_REL = bad
         CASES = os.path.join(REPO, bad)
         refused = False
         try:
-            restore()
+            _assert_restore_target_is_safe()
         except RuntimeError:
             refused = True
         ok.append(refused)
-        print(f"  {'ok  ' if refused else 'FAIL'} probe 0b: restore() aimed at "
+        print(f"  {'ok  ' if refused else 'FAIL'} probe 0b: the target check on "
               f"{bad!r} refuses: {refused} (want True)")
     CASES_REL, CASES = real_rel, real_abs
+
+    # THE KNOWN POSITIVE. Without it every line above passes on a predicate that
+    # refuses unconditionally -- which is exactly how a guard becomes a gate
+    # that gates nothing.
+    accepted = True
+    try:
+        _assert_restore_target_is_safe()
+    except RuntimeError as error:
+        accepted = False
+        print(f"      {error}")
+    ok.append(accepted)
+    print(f"  {'ok  ' if accepted else 'FAIL'} probe 0c: the target check ACCEPTS "
+          f"the real {CASES_REL!r}: {accepted} (want True)")
 
     victim = sorted(f for f in os.listdir(CASES) if f.endswith(".toml"))[0]
     path = os.path.join(CASES, victim)

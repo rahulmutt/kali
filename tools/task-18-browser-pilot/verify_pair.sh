@@ -225,13 +225,28 @@ note "FIDELITY (U14 -- raw string diff, BOTH directions, NOT truncated)"
 # disabled the gate that catches inventions". fidelity.py is a report and always
 # exits 0, so its status is recorded but the ENFORCING gate is
 # check_extra_claims.py above; this stays for the raw both-directions view.
-fidelity_out=$(python3 "$REPO/tools/task-18-browser-pilot/fidelity.py" "$RS" -- "$TOML")
+# THE WHOLE MIGRATED SET (fix round 1, I3). `fidelity.py` has always taken
+# `<rs>... -- <toml>...`; this arm handed it one half, so on a split pair its
+# MISSING side reported the companion's claims as dropped and its EXTRA side
+# could not see them at all.
+fidelity_out=$(python3 "$REPO/tools/task-18-browser-pilot/fidelity.py" "$RS" -- "${JOINT[@]}")
 fidelity_rc=$?
 echo "$fidelity_out" | grep -E "^(source claims|MISSING \(|EXTRA \()" || true
 echo "fidelity exit=$fidelity_rc (report only; enforcement is check_extra_claims)"
 (( fidelity_rc )) && fail=1
 
 note "CITATIONS (ruling 11 -- :N is exempt ONLY because it is mechanically gated)"
+# EVERY CASE FILE IN THE MIGRATION, NOT JUST THE NAMED HALF (fix round 1, I3).
+# This arm ran on `$STEM` alone, so a split pair's companion had its citations
+# read by NOTHING while the run reported `batch5_crosscheck exit=0`. Demonstrated
+# on the pilot's own U1 pair: per-pair verification said 0 while the family sweep
+# found 2 citation problems in the companion. A batch-2 loop that verifies per
+# pair must not be able to ship a half whose citations nobody resolved.
+#
+# Each companion gets the SAME `=PATH` override as the named stem, because they
+# share one source by definition -- that is what makes them companions.
+xcheck_stems=("$STEM")
+for c in ${COMPANIONS[@]+"${COMPANIONS[@]}"}; do xcheck_stems+=("$c"); done
 xcheck_spec="$STEM"
 # A --rs split pair has no browser_<case stem>.rs, so the citation gate is given
 # the real source through the same `=PATH` override --pretrim uses. A pair whose
@@ -258,8 +273,22 @@ if [[ -n "$PRETRIM" ]]; then
     echo "cannot read $PREFIX$pretrim_stem.rs at ref $PRETRIM"; rm -f "$pretrim_rs"; exit 2
   fi
 fi
+# A COMPANION ALWAYS NEEDS THE OVERRIDE, even when the named stem does not.
+# What makes a case file a companion is that it was migrated from the SAME
+# source under a DIFFERENT stem -- so there is no `<prefix><companion>.rs` by
+# construction, and a bare companion spec drops straight into
+# `batch5_crosscheck`'s no-source branch: gatedness arm only, citations
+# unresolved, and a green `exit=0` on the arms that matter. Measured on the
+# pilot's U1 pair: bare companion -> "gatedness arm only ... citation-resolution
+# arms SKIPPED"; with the override -> the resolving arms run and report.
+xcheck_named_override="${xcheck_spec#"$STEM"}"          # "" or "=<path>"
+xcheck_companion_override="${xcheck_named_override:-=$RS}"
+xcheck_specs=("$xcheck_spec")
+for st in "${xcheck_stems[@]:1}"; do
+  xcheck_specs+=("$st$xcheck_companion_override")
+done
 python3 "$REPO/tools/task-18-browser-pilot/batch5_crosscheck.py" \
-  "${XCHECK_FLAGS[@]+"${XCHECK_FLAGS[@]}"}" ${FAMILY_ARG[@]+"${FAMILY_ARG[@]}"} "$xcheck_spec"
+  "${XCHECK_FLAGS[@]+"${XCHECK_FLAGS[@]}"}" ${FAMILY_ARG[@]+"${FAMILY_ARG[@]}"} "${xcheck_specs[@]}"
 rc=$?; echo "batch5_crosscheck exit=$rc"; (( rc )) && fail=1
 [[ -n "${pretrim_rs:-}" ]] && rm -f "$pretrim_rs"
 
