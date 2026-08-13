@@ -12,7 +12,22 @@ import tomllib
 
 _LINE_COMMENT = re.compile(r'//[^\n]*')
 _BLOCK_COMMENT = re.compile(r'/\*.*?\*/', re.DOTALL)
-_RAW_STRING = re.compile(r'(?<![A-Za-z0-9_])r(#*)"(.*?)"\1', re.DOTALL)
+# RAW-STRING OPENER, PREFIX-CORRECT. One instance of a class enumerated
+# repo-wide by Task 19 batch 4 and gated by
+# `inst2_probes.probe_raw_string_recogniser_class`. The lookbehind sat directly
+# on the `r`, so for `br#"..."#` the preceding `b` IS an identifier character,
+# the guard fired, and the literal was not recognised as raw at all. It did not
+# merely miss it -- the `_PLAIN_STRING` branch below then INVENTED literals out
+# of the raw string's interior:
+#
+#   find_string_literals('let x = br#"json["stdout"].contains("X")"#;')
+#     -> ['json[', '].contains(', ')']        # three literals that do not exist
+#
+# The boundary now sits before the whole prefix, which preserves what it was
+# there for: in `xbr"` the `b` sees `x` and the `r` sees `b`, so both fail, and a
+# word ending in `r` still cannot open a raw string. A bare `b"`/`c"` is an
+# ESCAPED literal and still takes the `_PLAIN_STRING` path.
+_RAW_STRING = re.compile(r'(?<![A-Za-z0-9_])(?:br|cr|r)(#*)"(.*?)"\1', re.DOTALL)
 _PLAIN_STRING = re.compile(r'"((?:\\.|[^"\\])*)"', re.DOTALL)
 _ESCAPE_RE = re.compile(r'\\(x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]+\}|\n[ \t\r\n]*|.)', re.DOTALL)
 

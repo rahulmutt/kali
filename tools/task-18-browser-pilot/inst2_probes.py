@@ -935,7 +935,202 @@ def probe_lexer_raw_string_prefixes():
           f"{len(corpus)} file(s) scanned")
 
 
-PROBES_DECLARED = 10
+# ---------------------------------------------------------------------------
+# 11. THE RAW-STRING-OPENER RECOGNISER CLASS, ENUMERATED ONCE
+# ---------------------------------------------------------------------------
+# Nine instances of one guard were found ONE AT A TIME across three batches,
+# each rediscovering the same fact. Task 19 batch 4 enumerated the class across
+# the repo instead, closed the six that were still open, and gated it here so a
+# tenth cannot be added silently.
+#
+# THE CLASS: any code in this repo that decides where a Rust raw-string literal
+# begins. Two failure directions, both live before the enumeration:
+#
+#   UNDER-recognition -- keying on `r` alone does not admit the `b`/`c` of
+#     `br#"..."#` / `cr#"..."#`, so the literal is not recognised and its
+#     INTERIOR is scanned as live code. `fidelity.py` did not merely miss such a
+#     literal; it invented three others out of its interior.
+#   OVER-recognition -- no left word boundary opens a raw string on the trailing
+#     `r` of an ordinary word before a quote (`"operator"`), swallowing
+#     everything to the next quote. In `comment_coverage.py` that was a FALSE
+#     GREEN in the rule-12 gate: trailing comments inside the phantom span left
+#     the checked population entirely.
+#
+# THE SITES STAY INDEPENDENT IMPLEMENTATIONS. `fidelity.py`'s docstring says in
+# its first paragraph that it is deliberately independent of
+# `audit-case-migration.py`'s extraction, and the probe arms of every batch rely
+# on that independence -- routing them all through one scanner would close the
+# class by deleting the redundancy that makes the arms mean anything. So each
+# site keeps its own code and they are held to ONE CONTRACT here.
+DECLARED_RECOGNISER_FILES = {
+    "scripts/audit-case-migration.py",
+    "scripts/split_inline_rust_tests.py",
+    "tools/task-18-browser-pilot/comment_coverage.py",
+    "tools/task-18-browser-pilot/enumerate_invocations.py",
+    "tools/task-18-browser-pilot/fidelity.py",
+    "tools/task-18-browser-pilot/lexer.py",
+    "tools/task-18-browser-pilot/inst2_probes.py",   # this file's own arms
+}
+
+# The SPELLINGS a recogniser is allowed to be written in. A set, not a count:
+# ruling 11 forbids a figure an unrelated edit can move, and a new site that
+# copies a spelling already proven correct is not a new defect. A new site
+# written in a NEW spelling fails here and has to be added -- which is the
+# moment its author reads this block.
+DECLARED_RECOGNISER_SPELLINGS = {
+    '(?:br|cr|r)(#*)"',            # audit `_RAW_STRING`, fidelity `_RAW_STRING`
+    'r(#*)"',                      # comment_coverage, enumerate_invocations
+    '(?:br|cr)#*"',                # the U15 dormancy scans
+    "in 'brc'",                    # audit `_skip_string`'s prefix admission
+    "in '\"rbc'",                  # audit's four dispatch sets
+    'in "bc"',                     # comment_coverage, enumerate_invocations, split_inline
+    "in 'bc'",                     # lexer.py's own dispatch, single-quoted
+    'r?#*"',                       # audit `_STR_LITERAL` -- KNOWINGLY OPEN, see below
+}
+
+# THE ONE MEMBER OF THE CLASS THAT IS ENUMERATED AND DELIBERATELY NOT CLOSED.
+#
+# `audit-case-migration.py`'s `_STR_LITERAL` is `r?#*"(?:[^"\\]|\\.)*"#*` --
+# it admits an `r` prefix and some hashes but does not MATCH the closing hash
+# count, so for `r#"{ "a": 1 }"#` it stops at the first interior quote and the
+# extracted claim is the mangled prefix `'{ "a": 1'`. Same class, third failure
+# direction. Found by measurement, not by reading: batch 4's
+# `arena_reclamation_runtime` pair went AUDIT FAILED on a claim spelled `'{\n  '`.
+#
+# IT IS NOT DORMANT, and that is why it stays open. In the working tree alone,
+# 14 sources feed a raw string to `.contains(...)` and 26 to `assert_eq!`:
+#
+#   grep -rlE '\.contains\(\s*&?(br|cr|r)#*"' crates/kali_cli/tests --include=*.rs
+#
+# A raw-aware `_STR_LITERAL` was implemented and MEASURED against the corpus
+# differential rather than argued about:
+#
+#   python3 tools/migration/audit_corpus_sweep.py --compare 7f57e0ed87
+#   -> 268 pair(s): 185 return code(s) moved, 194 output(s) moved
+#
+# The condition every gate change in this project carries is "close only if no
+# verdict moves". 185 of 268 is the answer, so it is reverted, enumerated here,
+# and handed over. The arm below PINS THE KNOWN-BAD BEHAVIOUR on purpose: if
+# someone fixes it, this fires and they must re-run that differential first.
+
+_SHAPE = re.compile(
+    r'\(\?:br\|cr\|r\)\(#\*\)"|(?<!\|)r\(#\*\)"|\(\?:br\|cr\)#\*"'
+    r"|in 'brc'|in '\"rbc'|in \"bc\"|in 'bc'")
+
+
+def probe_raw_string_recogniser_class():
+    """11. Every raw-string-opener recogniser in the repo, against one contract.
+
+    Two arms. DISCOVERY: the set of tracked files carrying a recogniser-shaped
+    spelling must equal the declared set, and every distinct spelling found must
+    be declared. CONTRACT: each site must treat the interior of all three raw
+    prefixes as opaque, and must NOT open a raw string on a word ending in `r`.
+
+    Each contract arm is stated as a real call on the shipped function, not a
+    re-implementation, for the reason ruling 15 gives: a probe that re-derives
+    the answer proves nothing about the code that ships.
+    """
+    import importlib.util
+    import subprocess
+    import sys as _sys
+
+    tracked = subprocess.run(["git", "ls-files", "*.py"], cwd=REPO,
+                             capture_output=True, text=True).stdout.split()
+    found_files, found_spellings = set(), set()
+    for rel in tracked:
+        path = os.path.join(REPO, rel)
+        if not os.path.isfile(path):
+            continue
+        body = open(path, encoding="utf-8", errors="replace").read()
+        hits = _SHAPE.findall(body)
+        if hits:
+            found_files.add(rel)
+            found_spellings.update(hits)
+    check("every file carrying a raw-string-opener recogniser is declared",
+          found_files <= DECLARED_RECOGNISER_FILES,
+          f"undeclared: {sorted(found_files - DECLARED_RECOGNISER_FILES)}")
+    check("every declared recogniser file still carries one",
+          DECLARED_RECOGNISER_FILES <= found_files,
+          f"stale declaration(s): {sorted(DECLARED_RECOGNISER_FILES - found_files)}")
+    check("every recogniser SPELLING found is declared",
+          found_spellings <= DECLARED_RECOGNISER_SPELLINGS,
+          f"undeclared spelling(s): {sorted(found_spellings - DECLARED_RECOGNISER_SPELLINGS)}")
+
+    _sys.path.insert(0, HERE)
+    import fidelity
+    import comment_coverage as cc
+    import enumerate_invocations as ei
+    spec = importlib.util.spec_from_file_location(
+        "acm_probe", os.path.join(REPO, "scripts", "audit-case-migration.py"))
+    acm = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(acm)
+
+    for pfx in ("r", "br", "cr"):
+        # fidelity.py -- the site that INVENTED literals out of the interior
+        src = f'let x = {pfx}#"json["stdout"].contains("X")"#;'
+        check(f"fidelity: `{pfx}#\"...\"#` is ONE literal, interior opaque",
+              fidelity.find_string_literals(src) == ['json["stdout"].contains("X")'],
+              repr(fidelity.find_string_literals(src)))
+        # comment_coverage.py -- a `//` inside a raw string is program text
+        body = f'fn f() {{\n  let s = {pfx}#"\n// not prose\n"#;\n}}\n'
+        check(f"comment_coverage: `{pfx}#\"...\"#` interior is inside the span",
+              sorted(cc._raw_string_spans(body)) == [2, 3, 4],
+              repr(sorted(cc._raw_string_spans(body))))
+        # enumerate_invocations.py -- a `{` inside a raw string is not a block
+        masked = ei.strip_block_comments_and_strings(f'let s = {pfx}#"for (x) {{"#;\n')
+        check(f"enumerate_invocations: `{pfx}#\"...\"#` interior is blanked",
+              "for" not in masked and "{" not in masked, repr(masked))
+        # audit `_split_top_level_args` -- a `,` inside a raw string is not a
+        # top-level comma
+        got = acm._split_top_level_args(f'{pfx}#"say " and , here"#, x')
+        check(f"audit._split_top_level_args: `{pfx}#\"...\"#` is one argument",
+              got == [f'{pfx}#"say " and , here"#', "x"], repr(got))
+        # audit `_find_calls` -- a `)` inside a raw string is not the close
+        got = acm._find_calls(f'f({pfx}#"a " b ) c"#, y)', "f")
+        check(f"audit._find_calls: `{pfx}#\"...\"#` interior does not close the call",
+              got == [f'{pfx}#"a " b ) c"#, y'], repr(got))
+        # audit `_blank_raw_strings` -- the masker ahead of every literal scan
+        blanked = acm._blank_raw_strings(f'let s = {pfx}#"mod evil_phantom;"#;')
+        check(f"audit._blank_raw_strings: `{pfx}#\"...\"#` interior is blanked",
+              "evil_phantom" not in blanked, repr(blanked))
+
+    # THE OVER-RECOGNITION DIRECTION, which is the one that was a false green.
+    src = ('fn f() {\n    assert!(s.contains("operator"));\n'
+           '    let x = 1; // a genuine trailing comment\n}\n')
+    check("comment_coverage: a word ending in `r` does not open a raw string",
+          cc.extract_trailing_comments(src) == [(3, "a genuine trailing comment")],
+          repr(cc.extract_trailing_comments(src)))
+    check("fidelity: a word ending in `r` does not open a raw string",
+          fidelity.find_string_literals('assert!(s.contains("operator"));') == ["operator"])
+    check("enumerate_invocations: a word ending in `r` does not open a raw string",
+          "for x" in ei.strip_block_comments_and_strings('let a = "operator";\nfor x {}\n'))
+
+    # `b"`/`c"` WITHOUT the `r` are ESCAPED literals and must keep the plain
+    # path, which is what leaves the files already using `b"..."` unmoved.
+    check("fidelity: `b\"...\"` stays on the escaped path",
+          fidelity.find_string_literals(r'let x = b"a\nb";') == ["a\nb"],
+          repr(fidelity.find_string_literals(r'let x = b"a\nb";')))
+
+    # THE KNOWINGLY-OPEN MEMBER, pinned so a change to it cannot be silent.
+    check("audit `_STR_LITERAL` is STILL raw-blind (open by measurement, see the "
+          "block above the registry)",
+          acm.CONST.findall('const X: &str = r#"{ "a": 1 }"#;') == ['r#"{ "'],
+          repr(acm.CONST.findall('const X: &str = r#"{ "a": 1 }"#;')))
+
+    # DORMANCY, MEASURED RATHER THAN ASSUMED. U15 forbids introducing byte/C raw
+    # fixtures; this is what keeps the class harmless while it is being closed,
+    # and it fails loudly if the corpus ever grows one.
+    import glob
+    corpus = sorted(glob.glob(os.path.join(REPO, "crates/kali_cli/tests/**/*.rs"),
+                              recursive=True))
+    check("the migration corpus contains no byte/C raw string (U15)",
+          not any(re.search(r'(?<![A-Za-z0-9_])(?:br|cr)#*"',
+                            open(f, encoding="utf-8", errors="replace").read())
+                  for f in corpus),
+          f"{len(corpus)} file(s) scanned")
+
+
+PROBES_DECLARED = 11
 
 
 def main():
@@ -951,6 +1146,7 @@ def main():
         ("structure-arm disclosure", lambda: probe_structure_arm_disclosure(tmp)),
         ("env program texts", lambda: probe_env_program_texts(tmp)),
         ("lexer raw-string prefixes", probe_lexer_raw_string_prefixes),
+        ("raw-string recogniser class", probe_raw_string_recogniser_class),
     ]
     ran = 0
     try:

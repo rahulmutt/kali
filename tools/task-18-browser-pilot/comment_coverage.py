@@ -38,31 +38,76 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from submodules import submodule_paths  # noqa: E402
 
 
+GUARD_NOTE_TEXT = """RAW-STRING OPENER, PREFIX- AND BOUNDARY-CORRECT. This is one instance of a
+    class enumerated repo-wide by Task 19 batch 4 and gated by
+    `inst2_probes.probe_raw_string_recogniser_class`, which fails if a site is
+    added without being declared. Two failure directions, both live before that
+    enumeration: UNDER-recognition, when the recogniser keys on `r` and so does
+    not admit the `b`/`c` of a byte or C raw string (its interior is then read
+    as live code); and OVER-recognition, when it has no left word boundary and
+    so opens a raw string on the trailing `r` of an ordinary word before a quote
+    (`"operator"`). `b"`/`c"` without the `r` are ESCAPED literals and must keep
+    falling through to the plain-string path."""
+
+
 def _raw_string_spans(text):
-    """Line numbers (1-based) that lie inside an `r#"..."#` literal.
+    """Line numbers (1-based) that lie inside a raw-string literal.
 
     A JS/TS fixture body is written as a raw string precisely because its
     interior can hold anything, `//` included -- a `// kali-tree-shake:` marker,
     a JS comment, a URL. Those are program text, not source prose, and rule 12
     has nothing to say about them.
-    """
+
+    %s
+
+    OVER-recognition was the live defect HERE, and it is a FALSE GREEN in the
+    rule-12 gate: with no left boundary and no plain-string branch, the `r` of
+    `assert!(s.contains("operator"))` opened a raw string that ran to the next
+    quote, so every trailing comment inside that span vanished from the checked
+    population. Measured before the fix, on
+    `assert!(s.contains("operator"));` followed by `let x = 1; // a genuine
+    trailing comment`: `extract_trailing_comments` returned []; with the needle
+    spelled `"OPERATOR"` it returned the comment. That is U16's blind spot
+    re-opened by a different mechanism.
+    """ % GUARD_NOTE_TEXT
     inside = set()
     i, n, line = 0, len(text), 1
     while i < n:
-        if text[i] == "\n":
+        c = text[i]
+        if c == "\n":
             line += 1
             i += 1
             continue
-        m = re.match(r'r(#*)"', text[i:])
-        if m:
+        prefix = 1 if (c in "bc" and i + 1 < n and text[i + 1] == "r") else 0
+        head = i + prefix
+        m = re.match(r'r(#*)"', text[head:]) if head < n else None
+        if m and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] == "_")):
             close = '"' + m.group(1)
-            end = text.find(close, i + m.end())
+            end = text.find(close, head + m.end())
             end = n if end == -1 else end + len(close)
             for _ in range(text.count("\n", i, end)):
                 inside.add(line)
                 line += 1
             inside.add(line)
             i = end
+            continue
+        if c == '"':
+            # A PLAIN string, skipped as a unit. Without this branch the scan
+            # walks INTO the literal and meets any `r"` its interior spells --
+            # which is how `"operator"` came to open a raw string.
+            j = i + 1
+            while j < n:
+                if text[j] == "\\":
+                    j += 2
+                    continue
+                if text[j] == '"':
+                    j += 1
+                    break
+                if text[j] == "\n":
+                    break
+                j += 1
+            line += text.count("\n", i, j)
+            i = j
             continue
         i += 1
     return inside

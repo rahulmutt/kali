@@ -40,11 +40,20 @@ def strip_block_comments_and_strings(text):
             out.append(" " * (j - i))
             i = j
             continue
-        m = re.match(r'r(#*)"', text[i:])
-        if m:
-            hashes = m.group(1)
-            close = '"' + hashes
-            j = text.find(close, i + len(m.group(0)))
+    # RAW-STRING OPENER, PREFIX- AND BOUNDARY-CORRECT. One instance of a class
+    # enumerated repo-wide by Task 19 batch 4 and gated by
+    # `inst2_probes.probe_raw_string_recogniser_class`, which fails if a site is
+    # added without being declared. Two failure directions: UNDER-recognition
+    # (keying on `r` alone does not admit the `b`/`c` of a byte or C raw string,
+    # so its interior is scanned as live code) and OVER-recognition (no left word
+    # boundary opens a raw string on the trailing `r` of `"operator"`). A bare
+    # `b"`/`c"` is an ESCAPED literal and still falls through to the plain path.
+        prefix = 1 if (text[i] in "bc" and i + 1 < n and text[i + 1] == "r") else 0
+        head = i + prefix
+        m = re.match(r'r(#*)"', text[head:]) if head < n else None
+        if m and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] == "_")):
+            close = '"' + m.group(1)
+            j = text.find(close, head + len(m.group(0)))
             j = n if j == -1 else j + len(close)
             out.append(" " * (j - i))
             i = j

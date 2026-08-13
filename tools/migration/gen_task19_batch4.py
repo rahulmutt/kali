@@ -47,7 +47,14 @@ import t19b4_extract as EX  # noqa: E402
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases")
 
-SOURCE_REF_CMD = ["git", "rev-parse", "HEAD"]
+# The commit this batch's `SOURCE REF:` declarations name. A CONSTANT, not
+# `git rev-parse HEAD`: the ref names the revision at which every source in this
+# batch was read and verified, and `citation_sweep.sh` compares the declared
+# ref's blob against the working-tree source on every run. Deriving it from HEAD
+# instead makes the generator stop being a fixed point on the NEXT commit -- which
+# is exactly what happened here, one commit after the case files landed, and is
+# the reason this comment exists rather than a `rev-parse`.
+SOURCE_REF = "7f57e0ed87ac9eaa0d05de88816f1fb1fdf6ef15"
 
 # ---------------------------------------------------------------------------
 # FILE LAYOUT
@@ -876,7 +883,7 @@ GATE_RED_REASON = {
 
 def main(argv):
     write = "--write" in argv
-    source_ref = _run(SOURCE_REF_CMD).stdout.strip()
+    source_ref = SOURCE_REF
     specs = []
     for stem in EX.STEMS:
         specs.extend(build(stem))

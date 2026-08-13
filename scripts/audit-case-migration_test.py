@@ -2122,6 +2122,41 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
         self.assertEqual(mod._find_mod_declarations('let x = b"q"; mod real2;'),
                          [(None, "real2")])
 
+    def test_the_two_remaining_dispatch_sets_admit_a_byte_raw_string(self):
+        """THE CLASS, NOT THE INSTANCE. Four call sites in this module dispatch
+        into `_skip_string`, and the `b`/`c` prefix was added to only two of them
+        (fix round 5's `_mask_comments_outside_strings`, batch 3's
+        `_mask_strings`). `_split_top_level_args` and `_find_calls` kept
+        `c == '"' or c == 'r'`, so `_skip_string` was never offered the opening
+        `b` and the raw string's interior was parsed as live Rust. Measured
+        against the previous revision:
+
+            _split_top_level_args('br#"say " and , here"#, x')
+              -> ['br#"say " and', 'here"#, x']     # before -- split on an
+                                                    # interior comma
+            _find_calls('f(br#"a " b ) c"#, y)', 'f')
+              -> ['br#"a " b ']                     # before -- truncated at an
+                                                    # interior paren
+
+        Task 19 batch 4 enumerated the class across the repo rather than finding
+        a seventh instance the way the first six were found, one at a time; the
+        repo-wide registry and its discovery arm live in
+        `inst2_probes.probe_raw_string_recogniser_class`.
+        """
+        mod = _load_audit_module()
+        for prefix in ("r", "br", "cr"):
+            self.assertEqual(
+                mod._split_top_level_args(f'{prefix}#"say " and , here"#, x'),
+                [f'{prefix}#"say " and , here"#', "x"], prefix)
+            self.assertEqual(
+                mod._find_calls(f'f({prefix}#"a " b ) c"#, y)', "f"),
+                [f'{prefix}#"a " b ) c"#, y'], prefix)
+        # controls: a genuine top-level comma still splits, a genuine close
+        # still closes, and an ESCAPED byte literal still takes the plain path.
+        self.assertEqual(mod._split_top_level_args('a, b'), ["a", "b"])
+        self.assertEqual(mod._find_calls('f(a, b)', "f"), ["a, b"])
+        self.assertEqual(mod._split_top_level_args('b"x", y'), ['b"x"', "y"])
+
     def test_raw_string_prefixes_match_what_rustc_accepts(self):
         """`r`, `br`, `cr` open raw strings; `rb` is not a Rust prefix at all.
 

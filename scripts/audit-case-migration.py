@@ -1024,7 +1024,16 @@ def _split_top_level_args(arg_text: str) -> list[str]:
     n = len(arg_text)
     while i < n:
         c = arg_text[i]
-        if c == '"' or c == 'r' or c == "'":
+        # `b`/`c` are in the dispatch set for the same reason they are in
+        # `_blank_raw_strings`'s and `_mask_comments_outside_strings`'s: without
+        # them the scan never OFFERS a `br#"..."#` open to `_skip_string`, whose
+        # own guard then rejects the inner `r` because the preceding `b` is an
+        # identifier character -- so the raw string's interior is split on its
+        # own commas. Measured before the fix, on `br#"say " and , here"#, x`:
+        # `['br#"say " and', 'here"#, x']` instead of two arguments. Task 19
+        # batch 4 enumerated this class repo-wide rather than finding a seventh
+        # instance the way the first six were found, one at a time.
+        if c in '"rbc' or c == "'":
             end = _skip_string(arg_text, i)
             if end is not None:
                 i = end
@@ -1057,7 +1066,11 @@ def _find_calls(source: str, name: str) -> list[str]:
         i = m.end()
         while i < n and depth > 0:
             c = source[i]
-            if c == '"' or c == 'r' or c == "'":
+            # Same dispatch set, same reason, same class: without `b`/`c` a
+            # `br#"..."#` argument's interior parens are counted as the call's
+            # own. Measured on `f(br#"a " b ) c"#, y)`: the call text came back
+            # truncated at the raw string's interior `)`.
+            if c in '"rbc' or c == "'":
                 end = _skip_string(source, i)
                 if end is not None:
                     i = end
