@@ -230,6 +230,28 @@ THE_SHAPE = (
     "\n"
     "  python3 tools/migration/t19b3_extract.py {stem}")
 
+# The third bullet's population is DERIVED, because on two of this batch's seven
+# targets it is ZERO: `runtime_join.rs` and `runtime_string_arrays.rs` carry no
+# `//!` doc and no comment on `run_source`/`kali_bin`, so there is no file-wide
+# prose at all. Boilerplate that describes a population a file does not have is
+# the same defect as a header naming a gate red that has gone green -- it reads
+# as a carry a reader can go looking for and not find.
+FW_PRESENT = (
+    "  * FILE-WIDE prose -- the `//!` module doc and the comments attached to "
+    "`run_source`/`kali_bin` -- is carried in this `#` header, which is the one "
+    "place rule 12 puts prose that every case reaches equally. This source HAS "
+    "such prose; it is the FILE-WIDE SOURCE PROSE paragraph below.")
+
+FW_ABSENT = (
+    "  * FILE-WIDE prose would be carried in this `#` header, which is the one "
+    "place rule 12 puts prose that every case reaches equally. THIS SOURCE HAS "
+    "NONE: it carries no `//!` module doc and no comment on "
+    "`run_source`/`kali_bin`, so every comment in it belongs to a test or to a "
+    "section and there is no file-wide paragraph below. Stated rather than left "
+    "to silence -- *no prose* and *prose missed* are otherwise indistinguishable "
+    "to a later reader, which is the reason ruling 5 gave `comment_coverage.py` "
+    "a zero-line floor.")
+
 RULE_12_ATTRIBUTION = (
     "RULE 12 ATTRIBUTION, DERIVED FROM THE SOURCE'S OWN LAYOUT (U6). Every "
     "comment in the source is carried, and which rationale it lands in is decided "
@@ -249,9 +271,7 @@ RULE_12_ATTRIBUTION = (
     "12's own sentence for prose attached to a section, applied mechanically to "
     "the source's own delimiters instead of re-deciding per test which of the "
     "following fns a banner \"really\" means.\n"
-    "  * FILE-WIDE prose -- the `//!` module doc and the comments attached to "
-    "`run_source`/`kali_bin` -- is carried in this `#` header, which is the one "
-    "place rule 12 puts prose that every case reaches equally.\n"
+    "{file_wide_bullet}\n"
     "\n"
     "TRAILING comments (U16) are attributed by line to whichever `#[test]` body "
     "encloses them. `comment_coverage.py` was blind to that whole shape until "
@@ -555,6 +575,86 @@ def check_no_fixture_names_referenced(stem, keys, fixtures):
         raise AssertionError(f"{stem}: fixture body quotes a sibling key stem {bad!r}")
 
 
+HOIST_LINE_FLOOR = 5
+
+
+def u13_measure(fixtures):
+    """U13, BOTH halves, measured: byte-identical bodies AND long shared prefixes.
+
+    U13 hoists "any `[source]` value duplicated across entries, OR a long common
+    prefix shared by two or more entries", and the identity must be asserted
+    mechanically rather than eyeballed. The first half is easy to answer here and
+    was; the second half is the one a reader would otherwise have to take on
+    trust, so it is computed: the longest run of identical leading LINES over
+    every unordered pair of bodies in the file.
+
+    Returns `(duplicate_count, longest_shared_prefix_lines)`. The generator
+    writes both into the header and raises if the prefix reaches
+    `HOIST_LINE_FLOOR`, so a future source whose fixtures grow a hoistable prefix
+    breaks the generator instead of silently declining the hoist. That is ruling
+    15's answer 1: the figure IS the gate's own output, recorded from inside the
+    gate's own loop.
+    """
+    bodies = list(fixtures.values())
+    dup = sum(1 for i in range(len(bodies)) for j in range(i + 1, len(bodies))
+              if bodies[i] == bodies[j])
+    longest = 0
+    for i in range(len(bodies)):
+        for j in range(i + 1, len(bodies)):
+            a, b = bodies[i].split("\n"), bodies[j].split("\n")
+            n = 0
+            while n < min(len(a), len(b)) and a[n] == b[n] and a[n].strip():
+                n += 1
+            longest = max(longest, n)
+    return dup, longest
+
+
+U13_NOTE = (
+    "U13, BOTH HALVES, MEASURED RATHER THAN EYEBALLED. The rule hoists a "
+    "`[source]` value duplicated across entries **or** a long common prefix "
+    "shared by two or more entries, and requires the identity to be asserted "
+    "mechanically. Over this file's {n} bodies: **{dup} byte-identical pair(s)** "
+    "and a **longest shared leading-line prefix of {prefix} line(s)**. Nothing "
+    "to hoist on either half, so `[constants]` is declined -- and the figures "
+    "are this generator's own output, recorded from inside the loop that "
+    "produces them (ruling 15's answer 1), with gen_task19_batch3's u13_measure "
+    "raising if the prefix ever reaches " + str(HOIST_LINE_FLOOR) + " lines. The "
+    "second half is stated because batch 2 answered only the first, and an "
+    "unanswered half of a rule reads the same as a satisfied one.")
+
+
+_NO_STREAM_CLAIM = "makes no claim about either stream"
+_NO_STDOUT_CLAIM = "makes no claim about STDOUT"
+
+
+def check_rationales_match_their_claims(stem, cases):
+    """A rationale may not describe a claim set the case does not have.
+
+    U8: rationale prose is audited by NOTHING, and this batch shipped four
+    rationales saying "It makes no claim about either stream" two sentences
+    before rendering their own `stderr_contains` clause. The claims were correct
+    and the prose a reader of a failing trial sees was false. Both directions are
+    checked, against the STEP rather than against the intermediate claim set, so
+    the assertion cannot be satisfied by the same variable that produced the
+    error.
+    """
+    for case in cases:
+        step, r = case["steps"][0], case["rationale"]
+        streams = ("stdout" in step) or ("stderr_contains" in step)
+        if _NO_STREAM_CLAIM in r and streams:
+            raise AssertionError(
+                f"{stem}::{case['name']}: the rationale says {_NO_STREAM_CLAIM!r} "
+                f"but the case pins {sorted(k for k in step if k not in ('args', 'exit'))}")
+        if _NO_STDOUT_CLAIM in r and "stdout" in step:
+            raise AssertionError(
+                f"{stem}::{case['name']}: the rationale says {_NO_STDOUT_CLAIM!r} "
+                "but the case pins `stdout`")
+        if _NO_STDOUT_CLAIM in r and "stderr_contains" not in step:
+            raise AssertionError(
+                f"{stem}::{case['name']}: the rationale promises a stderr claim "
+                "below and the case carries none")
+
+
 def check_no_manifest_named_fixture(stem, keys):
     """`kali.json` IS auto-discovered as a manifest; nothing here may be named it."""
     bad = [k for k in keys if k.lower() in ("kali.json", "package.json", "tsconfig.json")]
@@ -606,11 +706,22 @@ def _claim_sentence(c):
     elif c["stdout_source"] == "is_empty":
         bits.append("It also asserts `out.stdout.is_empty()` -- an exact assertion "
                     "about the whole of stdout -- pinned as `stdout = \"\"`.")
-    else:
+    elif not c["stderr_contains"] and not c["disjunctions"]:
         bits.append("It makes no claim about either stream, so none is written: the "
                     "trial does emit a diagnostic, and pinning it would be rule 2's "
                     "exact prohibition against adding an assertion merely because "
                     "it is true.")
+    else:
+        # DERIVED FROM WHAT THE CASE ACTUALLY CARRIES, not from `stdout_source`
+        # alone. The first version chose the "no claim about either stream"
+        # sentence whenever there was no stdout pin, and then rendered the
+        # `stderr_contains` clause two sentences later -- four shipped
+        # rationales contradicted themselves, and a reader of a failing trial
+        # sees exactly that prose. The claims were right; the sentence was not,
+        # which is U8's whole subject (rationale prose is audited by nothing).
+        bits.append("It makes no claim about STDOUT, so none is written; its only "
+                    "stream claim is the stderr one below (rule 2: nothing is "
+                    "pinned merely because the trial happens to emit it).")
     for needle in c["stderr_contains"]:
         bits.append(f"Its `stderr.contains({needle!r})` is a plain `.contains` "
                     "against a field that HAS a substring form, so it stays a "
@@ -675,6 +786,13 @@ def build(family, toml, stem, subject):
 
     check_no_fixture_names_referenced(stem, keys, fixtures)
     check_no_manifest_named_fixture(stem, keys)
+    check_rationales_match_their_claims(stem, cases)
+    dup, prefix = u13_measure(fixtures)
+    if dup or prefix >= HOIST_LINE_FLOOR:
+        raise AssertionError(
+            f"{stem}: U13 has something to hoist -- {dup} byte-identical `[source]` "
+            f"pair(s), longest shared leading-line prefix {prefix}. Hoist it into "
+            "`[constants]` and assert the identity, or state why not.")
 
     file_wide = pr["file_wide"]
     fw = ""
@@ -707,8 +825,10 @@ def build(family, toml, stem, subject):
         + [THE_SHAPE.replace("{stem}", stem), ""]
         + [ASSERTION_POLICY, ""]
         + [u5(len(keys), stem), ""]
+        + [U13_NOTE.format(n=len(fixtures), dup=dup, prefix=prefix), ""]
         + [U2_INERT, ""]
-        + [RULE_12_ATTRIBUTION, ""]
+        + [RULE_12_ATTRIBUTION.replace("{file_wide_bullet}", FW_PRESENT if file_wide
+                                       else FW_ABSENT), ""]
         + ([fw, ""] if fw else [])
         + ([RULING6, ""] if fw else [])
         + extra_ok(extras)
@@ -756,16 +876,35 @@ def rendered(family, toml, stem, subject):
 # EXPECTED-RED agreement (ruling 18 #3)
 # --------------------------------------------------------------------------
 
+# ALL FIVE OF RULING 19's GATES, NOT THE THREE THIS BATCH HAPPENS TO NEED.
+#
+# Ruling 9 says every pair red-lists EVERY gate that is expected-red, and names
+# the failure it exists to catch: a fifth unnamed red. The first version of this
+# table listed only the three gates that are non-zero on this batch, which makes
+# the mechanism agree with the corpus rather than with the rule -- and the two it
+# omitted, `audit-case-migration.py` and `check_extra_claims.py`, are exactly the
+# two a future CLAIM change would move. Demonstrated before the fix: deleting one
+# `# EXTRA-OK:` line from `module_globals.toml` takes `check_extra_claims.py` to
+# rc=1 while `check_gate_declarations()` returned `[]`.
+#
+# `audit-case-migration.py` is run from `crates/kali_cli/tests` with paths
+# relative to it, which is the only calling convention it accepts.
 GATE_CMDS = {
-    "comment_coverage.py": lambda stem, toml_path: [
-        sys.executable, os.path.join(PILOT, "comment_coverage.py"),
-        os.path.join(TESTS, stem + ".rs"), toml_path],
-    "check_rationale_fn_names.py": lambda stem, toml_path: [
-        sys.executable, os.path.join(PILOT, "check_rationale_fn_names.py"),
-        os.path.join(TESTS, stem + ".rs"), toml_path],
-    "check_fixtures.py": lambda stem, toml_path: [
-        sys.executable, os.path.join(PILOT, "check_fixtures.py"),
-        os.path.join(TESTS, stem + ".rs"), toml_path],
+    "audit-case-migration.py": lambda stem, toml_path: (
+        [sys.executable, os.path.join(REPO, "scripts/audit-case-migration.py"),
+         stem + ".rs", os.path.relpath(toml_path, TESTS)], TESTS),
+    "check_fixtures.py": lambda stem, toml_path: (
+        [sys.executable, os.path.join(PILOT, "check_fixtures.py"),
+         os.path.join(TESTS, stem + ".rs"), toml_path], REPO),
+    "check_extra_claims.py": lambda stem, toml_path: (
+        [sys.executable, os.path.join(PILOT, "check_extra_claims.py"),
+         os.path.join(TESTS, stem + ".rs"), toml_path], REPO),
+    "comment_coverage.py": lambda stem, toml_path: (
+        [sys.executable, os.path.join(PILOT, "comment_coverage.py"),
+         os.path.join(TESTS, stem + ".rs"), toml_path], REPO),
+    "check_rationale_fn_names.py": lambda stem, toml_path: (
+        [sys.executable, os.path.join(PILOT, "check_rationale_fn_names.py"),
+         os.path.join(TESTS, stem + ".rs"), toml_path], REPO),
 }
 
 DECL = re.compile(r"`([a-z_0-9]+\.py)` (?:\(U8\) )?IS EXPECTED-RED \(rc=(\d+)\)")
@@ -774,30 +913,89 @@ DECL = re.compile(r"`([a-z_0-9]+\.py)` (?:\(U8\) )?IS EXPECTED-RED \(rc=(\d+)\)"
 def check_gate_declarations(verbose=True):
     """Every `EXPECTED-RED (rc=N)` paragraph must agree with the gate it names,
     and every non-zero gate must be declared. Both directions: a header that
-    claims a red that has gone green fails here too."""
-    bad = []
+    claims a red that has gone green fails here too.
+
+    RUN OVER ALL FIVE OF RULING 19's GATES (see `GATE_CMDS`), not over the three
+    that are non-zero on today's corpus. Its own known positive runs first:
+    a synthetic pair whose header declares nothing is required to be reported by
+    every gate that is red on it, so a table that silently stopped invoking a
+    gate cannot pass.
+    """
+    bad = _selftest_declaration_gate()
     for family, toml, stem, _subject in FILES:
         toml_path = os.path.join(CASES, family, toml + ".toml")
-        text = open(toml_path).read()
-        head_blob = " ".join(
-            l.lstrip("#").strip() for l in text.splitlines() if l.startswith("#"))
-        head_blob = re.sub(r"\s+", " ", head_blob)
-        declared = {g: int(rc) for g, rc in DECL.findall(head_blob)}
-        for gate, cmd in GATE_CMDS.items():
-            rc = _run(cmd(stem, toml_path)).returncode
-            if rc and gate not in declared:
-                bad.append(f"{family}/{toml}: {gate} exits {rc} and the header "
-                           f"declares no EXPECTED-RED for it (ruling 9: name EVERY "
-                           f"gate that is expected-red)")
-            elif not rc and gate in declared:
-                bad.append(f"{family}/{toml}: the header declares {gate} "
-                           f"EXPECTED-RED (rc={declared[gate]}) but it exits 0")
-            elif rc and declared.get(gate) != rc:
-                bad.append(f"{family}/{toml}: {gate} exits {rc}, header declares "
-                           f"rc={declared[gate]}")
-            elif verbose:
-                state = f"EXPECTED-RED rc={rc}" if rc else "green"
-                print(f"  ok  {family}/{toml:<22} {gate:<30} {state}")
+        bad += _evaluate_pair(family, toml, stem, toml_path, verbose=verbose)
+    return bad
+
+
+def _evaluate_pair(family, toml, stem, toml_path, *, verbose):
+    """One pair against all five gates. Split out so the selftest below can run
+    the SAME code over a deliberately-broken copy -- a known positive that
+    re-implemented the comparison would prove nothing about the shipped one."""
+    bad = []
+    text = open(toml_path).read()
+    head_blob = " ".join(
+        l.lstrip("#").strip() for l in text.splitlines() if l.startswith("#"))
+    head_blob = re.sub(r"\s+", " ", head_blob)
+    declared = {g: int(rc) for g, rc in DECL.findall(head_blob)}
+    for gate, cmd in GATE_CMDS.items():
+        argv, cwd = cmd(stem, toml_path)
+        rc = subprocess.run(argv, cwd=cwd, capture_output=True, text=True).returncode
+        if rc and gate not in declared:
+            bad.append(f"{family}/{toml}: {gate} exits {rc} and the header "
+                       f"declares no EXPECTED-RED for it (ruling 9: name EVERY "
+                       f"gate that is expected-red)")
+        elif not rc and gate in declared:
+            bad.append(f"{family}/{toml}: the header declares {gate} "
+                       f"EXPECTED-RED (rc={declared[gate]}) but it exits 0")
+        elif rc and declared.get(gate) != rc:
+            bad.append(f"{family}/{toml}: {gate} exits {rc}, header declares "
+                       f"rc={declared[gate]}")
+        elif verbose:
+            state = f"EXPECTED-RED rc={rc}" if rc else "green"
+            print(f"  ok  {family}/{toml:<22} {gate:<30} {state}")
+    return bad
+
+
+# The two arms the first version of `GATE_CMDS` omitted, each with a mutation
+# that makes it red, and each required to be REPORTED. A declaration gate whose
+# table silently stops invoking a gate is indistinguishable from one where that
+# gate is green -- which is ruling 9's "fifth unnamed red" in the mechanism
+# rather than in a header.
+_DECL_PROBES = [
+    ("check_extra_claims.py", "runtime", "module_globals", "runtime_module_globals",
+     lambda t: re.sub(r"^# EXTRA-OK: '0\.37[^\n]*\n", "", t, count=1, flags=re.M)),
+    ("audit-case-migration.py", "runtime", "join", "runtime_join",
+     lambda t: t.replace('stdout = "xyz\\nx-y-z\\nx,y,z\\n"',
+                         'stdout = "xyQ\\nx-y-z\\nx,y,z\\n"', 1)),
+]
+
+
+def _selftest_declaration_gate():
+    """Make the declaration gate go red on purpose, once per newly-added arm."""
+    bad = []
+    for gate, family, toml, stem, mutate in _DECL_PROBES:
+        real = os.path.join(CASES, family, toml + ".toml")
+        probe = os.path.join(CASES, family, toml + ".declprobe.toml")
+        original = open(real).read()
+        mutated = mutate(original)
+        if mutated == original:
+            bad.append(f"declaration-gate probe for {gate} is STALE: its mutation "
+                       f"no longer changes {family}/{toml}.toml")
+            continue
+        try:
+            with open(probe, "w") as fh:
+                fh.write(mutated)
+            found = _evaluate_pair(family, toml, stem, probe, verbose=False)
+        finally:
+            if os.path.exists(probe):
+                os.unlink(probe)
+        if not any(gate in f for f in found):
+            bad.append(f"declaration-gate probe FAILED: a {family}/{toml} whose "
+                       f"{gate} is red was not reported. That gate is not being "
+                       f"invoked, or its red is not being read.")
+        else:
+            print(f"  ok  declaration-gate probe: an undeclared {gate} red is caught")
     return bad
 
 

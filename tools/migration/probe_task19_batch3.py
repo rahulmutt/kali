@@ -98,6 +98,23 @@ MUTATIONS = [
     ("two run_source calls in one #[test]", "runtime_ternary",
      '    let out = run_source("let a = 2;\\nconsole.log(a == 1 ? 10 : a == 2 ? 20 : 30);\\n");',
      '    let out = run_source("a");\n    let _ = run_source("b");'),
+    # THE THREE SHAPES THAT CLOSE THE TABLE OVER CLAIMS RATHER THAN OVER MACROS.
+    # The six above all mutate an `assert*!`; a claim written as control flow, or
+    # carried by an `.expect()`, or made anywhere outside a macro, was invisible
+    # to `claims_of` and would have migrated silently short. `residual_claims`
+    # refuses them now, and these are what make that a measurement.
+    ("a claim written as control flow (`if !contains { panic! }`)", "runtime_join",
+     '    assert_eq!(String::from_utf8_lossy(&out.stdout), "xxx\\n");',
+     '    assert_eq!(String::from_utf8_lossy(&out.stdout), "xxx\\n");\n'
+     '    if !String::from_utf8_lossy(&out.stderr).contains("E1") { panic!("nope"); }'),
+    ("a claim carried by an `.expect()`", "runtime_join",
+     '    assert_eq!(String::from_utf8_lossy(&out.stdout), "xxx\\n");',
+     '    assert_eq!(String::from_utf8_lossy(&out.stdout), "xxx\\n");\n'
+     '    let _n = String::from_utf8_lossy(&out.stdout).find("x").expect("x present");'),
+    ("a claim on the output outside any `assert*!`", "runtime_join",
+     '    assert_eq!(String::from_utf8_lossy(&out.stdout), "xxx\\n");',
+     '    assert_eq!(String::from_utf8_lossy(&out.stdout), "xxx\\n");\n'
+     '    if out.status.code() != Some(0) { std::process::exit(3); }'),
 ]
 
 
@@ -117,6 +134,10 @@ def _extract_all(stem, text):
 def section1():
     print("SECTION 1 -- the derived extraction refuses what it does not model")
     bad = 0
+    problems = _selftest_priority()
+    for p in problems:
+        print(f"  PROBE SELFTEST FAILED: {p}")
+    bad += len(problems)
     for stem in X.STEMS:
         if _extract_all(stem, X.source(stem)):
             print(f"  CONTROL FAILED: unmutated {stem}.rs already raises")
@@ -297,31 +318,84 @@ def section3(rows):
 def _poisonable(text, name, s, e):
     """The claim this case is probed on, and how to poison it.
 
-    Priority is fixed rather than chosen per case: an exact `stdout` pin with a
-    poisonable character, then a `stderr_contains` needle, then the empty-stdout
-    pin, then the exit status. Every case in this family has at least one, which
-    is why section 4 can be exhaustive.
+    PRIORITY, and the order below IS the order this docstring states — checked
+    by `_selftest_priority`, not left to agree by inspection:
+
+      1. an exact `stdout` pin with an alphanumeric character to change;
+      2. a `stderr_contains` needle;
+      3. a whitespace-only `stdout` pin (`""` or `"\\n"`), which has no character
+         to change and is `BORING`-excluded from both literal extractors;
+      4. the exit status, flipped.
+
+    Every case in this family has at least one, which is why section 4 can be
+    exhaustive.
+
+    **THE FIRST VERSION OF THIS FUNCTION DID NOT IMPLEMENT ITS OWN DOCSTRING.**
+    It returned the whitespace-only `stdout` arm (3) before it looked for a
+    `stderr_contains` (2), so
+    `param_compound_assign::mixed_scalar_and_indirect_array_edges_reject_param_compound`
+    — which carries BOTH `stdout = ""` and `stderr_contains = ["E5506"]` — was
+    filed under "nothing to poison" instead of being probed on the claim it
+    actually makes. Probed properly it is a DECLINATION. The direction was
+    conservative (it under-credited the audit), but the reported figure did not
+    follow from the command that produced it, which is the defect class this
+    whole probe exists to catch. `_selftest_priority` now makes the ordering a
+    gate rather than a comment: it asserts that a case carrying both a
+    whitespace-only pin and a needle is probed on the needle.
     """
     block = text[s:e]
-    m = re.search(r'^stdout = (".*")$', block, re.M)
-    if m:
-        raw = m.group(1)
-        value = re.sub(r'\\n', '\n', raw[1:-1]).replace('\\"', '"').replace("\\\\", "\\")
-        if any(c.isalnum() for c in value):
-            return "stdout", value, _poison_value(value), m.start() + s, m.end() + s
-        return "stdout(empty)", value, "Q\n", m.start() + s, m.end() + s
+    out_m = re.search(r'^stdout = (".*")$', block, re.M)
+    out_value = None
+    if out_m:
+        raw = out_m.group(1)
+        out_value = (re.sub(r'\\n', '\n', raw[1:-1])
+                     .replace('\\"', '"').replace("\\\\", "\\"))
+        if any(c.isalnum() for c in out_value):
+            return ("stdout", out_value, _poison_value(out_value),
+                    out_m.start() + s, out_m.end() + s)
     m = re.search(r'^stderr_contains = \["([^"]+)"\]$', block, re.M)
     if m:
         v = m.group(1)
         return ("stderr_contains", v, _poison_value(v),
                 m.start() + s, m.end() + s)
+    if out_m:
+        return ("stdout(whitespace-only)", out_value, "Q\n",
+                out_m.start() + s, out_m.end() + s)
     m = re.search(r'^exit = "(\w+)"$', block, re.M)
     flip = {"success": "failure", "failure": "success"}[m.group(1)]
     return "exit", m.group(1), flip, m.start() + s, m.end() + s
 
 
+def _selftest_priority():
+    """The ordering in `_poisonable`'s docstring, asserted rather than described.
+
+    Ruling 18 #1: derive the property, do not mark it. A docstring that states a
+    priority its code does not implement is exactly the "sentence describing a
+    correct mechanism is where the defect lives" shape, and it shipped once here.
+    """
+    synth = ('[[case]]\nname = "c"\nargs = ["run", "x.ts"]\nexit = "failure"\n'
+             'stdout = ""\nstderr_contains = ["E5506"]\n')
+    key, value, _p, _lo, _hi = _poisonable(synth, "c", 0, len(synth))
+    if key != "stderr_contains" or value != "E5506":
+        return [f"_poisonable priority is not what its docstring says: a case with "
+                f"both a whitespace-only stdout pin and a needle was probed on "
+                f"{key!r}, not on the needle"]
+    empty = ('[[case]]\nname = "c"\nargs = ["run", "x.ts"]\nexit = "failure"\n'
+             'stdout = ""\n')
+    key, _v, _p, _lo, _hi = _poisonable(empty, "c", 0, len(empty))
+    if key != "stdout(whitespace-only)":
+        return [f"_poisonable: a whitespace-only pin with no needle was probed on "
+                f"{key!r}"]
+    exitonly = '[[case]]\nname = "c"\nargs = ["run", "x.ts"]\nexit = "failure"\n'
+    key, _v, _p, _lo, _hi = _poisonable(exitonly, "c", 0, len(exitonly))
+    if key != "exit":
+        return [f"_poisonable: an exit-only case was probed on {key!r}"]
+    print("  ok  _poisonable implements the priority its docstring states")
+    return []
+
+
 def _rewrite_claim(text, lo, hi, key, value):
-    key = {"stdout(empty)": "stdout"}.get(key, key)
+    key = {"stdout(whitespace-only)": "stdout"}.get(key, key)
     if key == "stderr_contains":
         return text[:lo] + f"stderr_contains = [{toml_string(value, multiline=False)}]" + text[hi:]
     return text[:lo] + f"{key} = {toml_string(value, multiline=False)}" + text[hi:]
@@ -334,7 +408,7 @@ def _arm_c_generic(doc_source, argv, key, poisoned):
             with open(os.path.join(d, fname), "w") as fh:
                 fh.write(body)
         p = subprocess.run([_kali()] + argv, cwd=d, capture_output=True, text=True)
-        if key in ("stdout", "stdout(empty)"):
+        if key in ("stdout", "stdout(whitespace-only)"):
             return p.stdout != poisoned
         if key == "stderr_contains":
             return poisoned not in p.stderr
@@ -417,7 +491,7 @@ def section5(arm_a_misses):
     for family, toml, stem, name, key, value in arm_a_misses:
         if key == "exit":
             klass = "exit: out of the audit's scope by design"
-        elif key == "stdout(empty)":
+        elif key == "stdout(whitespace-only)":
             klass = ("whitespace-only stdout pin (`\"\"` or `\"\\n\"`): no "
                      "alphanumeric character to poison, and the value is "
                      "BORING-excluded from both extractors")

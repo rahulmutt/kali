@@ -282,14 +282,83 @@ _STDOUT_EMPTY = re.compile(r"^out\.stdout\.is_empty\(\)$")
 _CONTAINS = re.compile(r"^" + _STDERR_EXPR + r"\.contains\((.+)\)$")
 
 
-def _macro_calls(masked_body: str, body: str) -> list[tuple[str, str]]:
-    """`(macro, argtext)` for every `assert!`/`assert_eq!`/`assert_ne!` call."""
+def _macro_calls(masked_body: str, body: str) -> list[tuple[str, str, int, int]]:
+    """`(macro, argtext, start, end)` for every `assert*!` call."""
     out = []
     for m in re.finditer(r"\b(assert_eq!|assert_ne!|assert!)\s*\(", masked_body):
         open_idx = m.end() - 1
         end = _balanced(body, open_idx)
-        out.append((m.group(1), body[open_idx + 1:end - 1]))
+        out.append((m.group(1), body[open_idx + 1:end - 1], m.start(), end))
     return out
+
+
+# Everything a `#[test]` body in this family is allowed to do OUTSIDE an
+# `assert*!`. Anything else is a claim this extractor cannot see.
+_PERMITTED = [
+    # the invocation itself
+    r"let\s+out\s*=\s*run_source\s*\(",
+    # a fixture or expectation bound to a literal, and the one Rust-computed
+    # expectation (a block that references no `out`)
+    r"let\s+(?:src|expected)\s*(?::\s*&str\s*)?=\s*",
+    # the stderr binding the `.contains` shapes read through
+    r"let\s+[a-z_][a-z0-9_]*\s*=\s*String::from_utf8_lossy\s*\(\s*&\s*out\.std(?:out|err)\s*\)",
+]
+
+# Tokens that mean "a claim is being made here". If one survives the blanking of
+# the assert macros and the permitted forms above, this extractor is not seeing
+# the whole claim set of the test.
+_CLAIM_TOKENS = [
+    (r"\bpanic!", "a bare `panic!` -- an assertion written as control flow"),
+    (r"\.contains\s*\(", "a `.contains` outside any `assert*!`"),
+    (r"\.expect\s*\(", "an `.expect(...)` -- a claim carried by an unwrap"),
+    (r"\.unwrap\s*\(", "an `.unwrap()` -- a claim carried by an unwrap"),
+    (r"\bdebug_assert", "a `debug_assert*!`"),
+    (r"\bmatches!", "a `matches!` predicate"),
+    (r"\bout\.", "a use of the command's output outside any `assert*!`"),
+]
+
+
+def residual_claims(stem: str, fn: dict, spans) -> list[str]:
+    """What this test body does that the shape table cannot see.
+
+    THE SHAPE TABLE IS CLOSED OVER `assert*!` MACROS; THIS CLOSES IT OVER CLAIMS.
+    `claims_of` enumerates assertion macros and raises on one it cannot model --
+    which says nothing at all about a claim written as `if !x.contains(y) {
+    panic!() }`, as an `.expect()` on the output, or as any predicate outside a
+    macro. A source using one of those would migrate silently short. Reviewers
+    found the gap by reading; it is a refusal now.
+
+    Everything an `assert*!` covers is blanked first, then the handful of
+    permitted non-asserting forms, then the residue is searched for constructs
+    that can only be claims. Reported, never skipped.
+    """
+    body = fn["masked_body"]
+    out = list(body)
+    for lo, hi in spans:
+        for k in range(lo, hi):
+            out[k] = " "
+    text = "".join(out)
+    # Blank each permitted `let` form up to its terminating `;` at depth 0.
+    for pat in _PERMITTED:
+        for m in list(re.finditer(pat, text)):
+            i, depth = m.start(), 0
+            while i < len(text):
+                ch = text[i]
+                if ch in "([{":
+                    depth += 1
+                elif ch in ")]}":
+                    depth -= 1
+                elif ch == ";" and depth <= 0:
+                    break
+                i += 1
+            text = text[:m.start()] + " " * (i + 1 - m.start()) + text[i + 1:]
+    found = []
+    for pat, why in _CLAIM_TOKENS:
+        for m in re.finditer(pat, text):
+            line = fn["start_line"] + body.count("\n", 0, m.start())
+            found.append(f"{stem}.rs:{line} ({fn['name']}): {why} -- "
+                         f"{_norm(text[max(0, m.start() - 30):m.start() + 40])!r}")
+    return found
 
 
 def claims_of(stem: str, fn: dict, *, computed_stdout=None) -> dict:
@@ -318,7 +387,13 @@ def claims_of(stem: str, fn: dict, *, computed_stdout=None) -> dict:
                 or re.fullmatch(r"String::from_utf8_lossy\(\s*&\s*out\.stderr\s*\)", recv)
                 is not None)
 
-    for macro, argtext in _macro_calls(masked, body):
+    calls = _macro_calls(masked, body)
+    residue = residual_claims(stem, fn, [(lo, hi) for _m, _a, lo, hi in calls])
+    if residue:
+        raise UnknownShape(
+            "a claim outside every `assert*!`, which the shape table cannot see:\n  "
+            + "\n  ".join(residue))
+    for macro, argtext, _lo, _hi in calls:
         args = _split_top_commas(argtext)
         cond = _norm(args[0])
         if macro == "assert_ne!":
