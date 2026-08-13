@@ -426,12 +426,9 @@ def _resolve_arg(rs_text, token, loopvars):
     m = re.fullmatch(r'"((?:[^"\\]|\\.)*)"', token, re.S)
     if m:
         return ("lit", m.group(1).encode().decode("unicode_escape"))
-    m = re.fullmatch(r'r#"(.*?)"#', token, re.S)
+    m = re.fullmatch(r'(?:br|cr|r)(#*)"([\s\S]*)"\1', token)
     if m:
-        return ("lit", m.group(1))
-    m = re.fullmatch(r'r"(.*?)"', token, re.S)
-    if m:
-        return ("lit", m.group(1))
+        return ("lit", m.group(2))
     m = re.fullmatch(r"([a-z0-9_]+)\(\)", token)
     if m:
         vals = literals(fn_body(rs_text, m.group(1))[0])
@@ -446,6 +443,41 @@ def _resolve_arg(rs_text, token, loopvars):
         return ("lit", [x.encode().decode("unicode_escape")
                         for x in re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))])
     raise AssertionError(f"cannot resolve call argument {token!r}")
+
+
+# RAW-STRING OPENER, HASH-COUNT- AND PREFIX-CORRECT. One member of the class
+# `inst2_probes.probe_raw_string_recogniser_class` enumerates; added to it in
+# Task 19 batch 4 fix round 1, having been missed by that batch's first
+# enumeration entirely.
+#
+# The four scanners in this module keyed on `text.startswith('r#"', i)` -- ONE
+# hash count, no `b`/`c` prefix, no left word boundary. `r##"` is not
+# hypothetical here:
+#
+#   grep -rlE '(^|[^A-Za-z0-9_])(b|c)?r##+"' crates/kali_cli/tests --include=*.rs
+#   -> 14 file(s), 37 occurrence(s)
+#
+# and the failure is byte-for-byte the one `audit-case-migration.py`'s
+# `_split_top_level_args` had:
+#
+#   _split_args('r##"say " and , here"##, x')
+#     -> ['r##"say " and', 'here"##, x']     # before
+#     -> ['r##"say " and , here"##', 'x']    # now
+#
+# Spelled once here rather than four times, so the four cannot drift apart.
+_RAW_OPEN = re.compile(r'(?:br|cr|r)(#*)"')
+
+
+def raw_open_at(text, i):
+    """`(opener_length, closing_delimiter)` if a raw string opens at `text[i]`,
+    else None. The left word boundary is part of the test: a word ending in `r`
+    before a quote must not open one."""
+    if i and (text[i - 1].isalnum() or text[i - 1] == "_"):
+        return None
+    m = _RAW_OPEN.match(text, i)
+    if not m:
+        return None
+    return m.end() - i, '"' + m.group(1)
 
 
 def _split_args(text):
@@ -466,10 +498,11 @@ def _split_args(text):
                 continue
             i += 1
             continue
-        if text.startswith('r#"', i):
-            instr = '"#'
-            cur += 'r#"'
-            i += 3
+        opened = raw_open_at(text, i)
+        if opened:
+            width, instr = opened
+            cur += text[i:i + width]
+            i += width
             continue
         if c == '"':
             instr = '"'
@@ -546,8 +579,10 @@ def _match_brace_paren(text, open_at):
                 continue
             i += 1
             continue
-        if text.startswith('r#"', i):
-            instr, i = '"#', i + 3
+        opened = raw_open_at(text, i)
+        if opened:
+            width, instr = opened
+            i += width
             continue
         if c == '"':
             instr, i = '"', i + 1
@@ -673,7 +708,7 @@ def fixture_of(rs_text, body, bind, resolve):
     expr = m.group(1).strip().rstrip(",")
     if expr in bind and isinstance(bind[expr], str):
         return bind[expr]
-    if re.fullmatch(r'r#"[\s\S]*"#|"[\s\S]*"', expr):
+    if re.fullmatch(r'(?:br|cr|r)(#*)"[\s\S]*"\1|"[\s\S]*"', expr):
         vals = literals(expr)
         if len(vals) == 1:
             return vals[0]

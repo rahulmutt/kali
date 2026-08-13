@@ -170,7 +170,36 @@ import sys
 import tomllib
 from pathlib import Path
 
-_STR_LITERAL = r'r?#*"(?:[^"\\]|\\.)*"#*'
+# RAW-STRING-AWARE, CAPTURE-GROUP-FREE, AND HASH-COUNT-MATCHED. One member of
+# the recogniser class `inst2_probes.probe_raw_string_recogniser_class`
+# enumerates; closed in Task 19 batch 4 fix round 1 together with `unquote` and
+# `raw_body` below, which is the pairing that makes it safe (see their comment).
+#
+# THE THREE THINGS THE OLD `r?#*"(?:[^"\\]|\\.)*"#*` GOT WRONG:
+#   * it never matched the CLOSING hash count, so `r#"{ "a": 1 }"#` stopped at
+#     the first interior quote and the extracted claim was `'r#"{ "'`;
+#   * it did not admit the `b`/`c` of a byte or C raw string;
+#   * it had no left word boundary, so the trailing `r` of an ordinary word
+#     could open one.
+#
+# CAPTURE-GROUP-FREE IS LOAD-BEARING, and it is why the hash counts are
+# ENUMERATED rather than backreferenced. Every caller wraps this in its own
+# group -- `CONTAINS`, `CONST`, `COUNT_NEEDLES` all spell `({_STR_LITERAL})` --
+# and `findall` returns TUPLES the moment a second group exists, which makes
+# `unquote()` die on `'tuple' object has no attribute 'strip'`. A first attempt
+# at this fix used `(?P<h>#*)…(?P=h)` and produced exactly that: 185 of 268
+# pairs "moved" in the corpus differential, every one of them the audit script
+# CRASHING rather than a verdict changing. The number was an artifact of the
+# patch, not a property of the corpus.
+#
+# `_MAX_RAW_HASHES` is a bound on an enumeration, not a claim about the corpus;
+# `inst2_probes` section 11 carries the arm that fails if the corpus ever
+# exceeds it, so the bound cannot go stale silently.
+_MAX_RAW_HASHES = 8
+_STR_LITERAL = "(?:" + "|".join(
+    [rf'(?<![A-Za-z0-9_])(?:br|cr|r)#{{{n}}}"(?:(?!"#{{{n}}}).)*"#{{{n}}}'
+     for n in range(_MAX_RAW_HASHES, -1, -1)]
+    + [r'"(?:[^"\\]|\\.)*"']) + ")"
 
 # FIXED (Minor 3, found during Task 17 review): `_STR_LITERAL`'s `\\.`
 # alternative matches an escaped character generically -- including the Rust
@@ -191,6 +220,10 @@ _STR_LITERAL = r'r?#*"(?:[^"\\]|\\.)*"#*'
 # is used directly via `re.fullmatch`, in `_assert_eq_literal_tokens` below)
 # closes this for all three literal-extraction paths, not just `CONST`.
 _STR_LITERAL_FLAGS = re.DOTALL
+
+# The opener `unquote`/`raw_body` decide raw-ness with. Spelled once so the two
+# cannot drift apart, and so it is greppable as a member of the recogniser class.
+_RAW_LITERAL_OPEN = re.compile(r'^(?:br|cr|r)(#*)"')
 
 # Literal arguments to .contains(...) — one of several dominant assertion forms.
 CONTAINS = re.compile(rf'\.contains\(\s*(?:&)?({_STR_LITERAL})', _STR_LITERAL_FLAGS)
@@ -1325,10 +1358,16 @@ def unquote(raw: str) -> str:
     must say which revision of it they ran.
     """
     raw = raw.strip()
-    if raw.startswith("r"):
-        raw = raw[1:]
-        hashes = len(raw) - len(raw.lstrip("#"))
-        return raw[hashes + 1 : len(raw) - hashes - 1]
+    # I1 (batch 4 fix round 1): `raw.startswith("r")` decided raw-ness, so
+    # `unquote('br#"a"#')` returned `'r#"a"'` -- the `b` was read as the opening
+    # quote character. This was DORMANT only because `_STR_LITERAL` above was
+    # raw-blind and therefore never handed this function a `b`/`c` token. The two
+    # are fixed in one commit for that reason: closing the recogniser alone would
+    # have taken a latent mangling function live.
+    m = _RAW_LITERAL_OPEN.match(raw)
+    if m:
+        hashes = len(m.group(1))
+        return raw[m.end() : len(raw) - hashes - 1]
     body = raw[1:-1]
     body = _LINE_CONTINUATION.sub('', body)
     body = body.replace('\\"', '"').replace("\\n", "\n").replace("\\t", "\t")
@@ -1344,7 +1383,7 @@ def raw_body(raw: str) -> str:
     collapses to unquote() for them.
     """
     raw = raw.strip()
-    if raw.startswith("r"):
+    if _RAW_LITERAL_OPEN.match(raw):        # I1: was `raw.startswith("r")`
         return unquote(raw)
     return raw[1:-1]
 

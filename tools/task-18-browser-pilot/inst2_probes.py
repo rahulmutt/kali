@@ -962,60 +962,179 @@ def probe_lexer_raw_string_prefixes():
 # on that independence -- routing them all through one scanner would close the
 # class by deleting the redundancy that makes the arms mean anything. So each
 # site keeps its own code and they are held to ONE CONTRACT here.
+# THE REGISTRY. Each entry says what the file IS, not merely that it exists:
+#
+#   "recogniser"  -- carries a live raw-string opener recogniser; the contract
+#                    arms below call its shipped functions.
+#   "data"        -- carries raw-string TEXT as test input, probe input or
+#                    documentation, and decides nothing. The detector is an
+#                    over-approximator by design (see below), so these are
+#                    declared rather than filtered: a filter tuned to exclude
+#                    them is one more thing that can quietly exclude a real site.
 DECLARED_RECOGNISER_FILES = {
-    "scripts/audit-case-migration.py",
-    "scripts/split_inline_rust_tests.py",
-    "tools/task-18-browser-pilot/comment_coverage.py",
-    "tools/task-18-browser-pilot/enumerate_invocations.py",
-    "tools/task-18-browser-pilot/fidelity.py",
-    "tools/task-18-browser-pilot/lexer.py",
-    "tools/task-18-browser-pilot/inst2_probes.py",   # this file's own arms
+    "scripts/audit-case-migration.py": "recogniser",
+    "scripts/split_inline_rust_tests.py": "recogniser",
+    "tools/task-18-browser-pilot/batch8b_extract.py": "recogniser",
+    "tools/task-18-browser-pilot/comment_coverage.py": "recogniser",
+    "tools/task-18-browser-pilot/enumerate_invocations.py": "recogniser",
+    "tools/task-18-browser-pilot/fidelity.py": "recogniser",
+    "tools/task-18-browser-pilot/lexer.py": "recogniser",
+    "scripts/audit-case-migration_test.py": "data",
+    "tools/migration/t19b3_extract.py": "data",
+    "tools/task-18-browser-pilot/inst2_probes.py": "data",
+    "tools/task-18-browser-pilot/batch8b_derive.py": "data",
 }
 
-# The SPELLINGS a recogniser is allowed to be written in. A set, not a count:
-# ruling 11 forbids a figure an unrelated edit can move, and a new site that
-# copies a spelling already proven correct is not a new defect. A new site
-# written in a NEW spelling fails here and has to be added -- which is the
-# moment its author reads this block.
-DECLARED_RECOGNISER_SPELLINGS = {
-    '(?:br|cr|r)(#*)"',            # audit `_RAW_STRING`, fidelity `_RAW_STRING`
-    'r(#*)"',                      # comment_coverage, enumerate_invocations
-    '(?:br|cr)#*"',                # the U15 dormancy scans
-    "in 'brc'",                    # audit `_skip_string`'s prefix admission
-    "in '\"rbc'",                  # audit's four dispatch sets
-    'in "bc"',                     # comment_coverage, enumerate_invocations, split_inline
-    "in 'bc'",                     # lexer.py's own dispatch, single-quoted
-    'r?#*"',                       # audit `_STR_LITERAL` -- KNOWINGLY OPEN, see below
-}
-
-# THE ONE MEMBER OF THE CLASS THAT IS ENUMERATED AND DELIBERATELY NOT CLOSED.
+# THE DETECTOR IS DERIVED FROM THE LANGUAGE, NOT FROM THE CORPUS OF FIXES.
 #
-# `audit-case-migration.py`'s `_STR_LITERAL` is `r?#*"(?:[^"\\]|\\.)*"#*` --
-# it admits an `r` prefix and some hashes but does not MATCH the closing hash
-# count, so for `r#"{ "a": 1 }"#` it stops at the first interior quote and the
-# extracted claim is the mangled prefix `'{ "a": 1'`. Same class, third failure
-# direction. Found by measurement, not by reading: batch 4's
-# `arena_reclamation_runtime` pair went AUDIT FAILED on a claim spelled `'{\n  '`.
+# Batch 4's first version matched the literal renderings of the spellings it had
+# already declared, which makes `found <= DECLARED` a TAUTOLOGY: it could not
+# fire on a new instance, and the report's claim that a new spelling "fails here"
+# was false. Tested against three real spellings -- the pre-fix spelling of a
+# file this batch fixed, the pre-fix `fidelity.py` regex, and one already shipped
+# in `batch8b_extract.py` -- all three were missed.
 #
-# IT IS NOT DORMANT, and that is why it stays open. In the working tree alone,
-# 14 sources feed a raw string to `.contains(...)` and 26 to `assert_eq!`:
+# What replaces it asks the QUESTION instead of listing the ANSWERS: walk every
+# tracked `.py` with `ast`, take every string constant, and ask whether it could
+# decide where a Rust raw string begins --
 #
-#   grep -rlE '\.contains\(\s*&?(br|cr|r)#*"' crates/kali_cli/tests --include=*.rs
+#   * as a REGEX: compile it and test it against the seven canonical raw
+#     literals; a match consuming two or more characters is a hit;
+#   * as a PREFIX LITERAL: it is a prefix of, or extends, one of the seven
+#     openers (`startswith`/`==` spellings);
+#   * as a DISPATCH SET: a short literal drawn from the `b`/`c`/`r`/quote
+#     alphabet, in a comparison or a `startswith`/`endswith` call.
 #
-# A raw-aware `_STR_LITERAL` was implemented and MEASURED against the corpus
-# differential rather than argued about:
+# It is a loud OVER-approximator: a false positive costs one line in the registry
+# above, a false negative is the failure the first version shipped. Measured
+# against eight spellings and three controls in `_selftest_detector` below.
+# THE MEMBER THAT WAS REPORTED OPEN AND IS NOW CLOSED, and the number that
+# wrongly kept it open. `audit-case-migration.py`'s `_STR_LITERAL` never matched
+# the CLOSING hash count, so `r#"{ "a": 1 }"#` stopped at the first interior
+# quote and the extracted claim was `'r#"{ "'`.
+#
+# Batch 4 reported it open on a corpus differential reading "185 of 268 verdicts
+# moved". **That figure was an artifact of the throwaway patch, not a property of
+# the corpus.** The trial fix used a named capture group for the hash count; an
+# inner group shifts `findall` to returning TUPLES, and `unquote()` then dies
+# with `'tuple' object has no attribute 'strip'`. All 185 were the audit script
+# CRASHING. Re-measured with a capture-group-free implementation that ENUMERATES
+# the hash counts instead:
 #
 #   python3 tools/migration/audit_corpus_sweep.py --compare 7f57e0ed87
-#   -> 268 pair(s): 185 return code(s) moved, 194 output(s) moved
+#   -> SWEEP OK -- 268 pair(s), 0 return code(s) moved, 0 output(s) moved
 #
-# The condition every gate change in this project carries is "close only if no
-# verdict moves". 185 of 268 is the answer, so it is reverted, enumerated here,
-# and handed over. The arm below PINS THE KNOWN-BAD BEHAVIOUR on purpose: if
-# someone fixes it, this fires and they must re-run that differential first.
+# The standing condition was MET, so it is closed. The lesson is one this project
+# keeps paying for in new disguises: a differential that counts CRASHES as moved
+# verdicts is a broken instrument reporting on a working one, and 185 of 268 was
+# extreme enough that it should have been read as a malfunction, not a result.
+#
+# IT COULD NOT BE CLOSED ALONE. `unquote()` and `raw_body()` decided raw-ness
+# with `raw.startswith("r")`, so `unquote('br#"a"#')` returned `'r#"a"'` -- the
+# `b` read as the opening quote. Both were dormant ONLY because `_STR_LITERAL`
+# was raw-blind and never handed them a `b`/`c` token. Closing the recogniser
+# alone would have taken two latent mangling functions live, so all three land in
+# one commit and all three are probed below.
+RAW_SAMPLES = ['r"x"', 'r#"x"#', 'r##"x"##', 'br"x"', 'br#"x"#', 'cr"x"', 'cr#"x"#']
+RAW_OPENERS = ['r"', 'r#"', 'r##"', 'br"', 'br#"', 'cr"', 'cr#"']
+_DISPATCH_ALPHABET = set('brc"\'')
 
-_SHAPE = re.compile(
-    r'\(\?:br\|cr\|r\)\(#\*\)"|(?<!\|)r\(#\*\)"|\(\?:br\|cr\)#\*"'
-    r"|in 'brc'|in '\"rbc'|in \"bc\"|in 'bc'")
+
+def _classify_literal(s):
+    """`'regex'` / `'prefix-literal'` / `'dispatch'` / None for one string."""
+    if len(s) >= 2 and any(o.startswith(s) or s.startswith(o) for o in RAW_OPENERS):
+        return "prefix-literal"
+    if 0 < len(s) <= 5 and set(s) <= _DISPATCH_ALPHABET and (set(s) & set("brc")):
+        return "dispatch"
+    if len(s) >= 2 and re.search(r"[r#]", s):
+        try:
+            rx = re.compile(s)
+        except re.error:
+            return None
+        for sample in RAW_SAMPLES:
+            m = rx.match(sample)
+            if m and m.end() >= 2:
+                return "regex"
+    return None
+
+
+def raw_recogniser_hits(path):
+    """Every string constant in `path` that could decide where a raw string
+    begins, as `{(kind, text)}`. Empty for a file that could not."""
+    import ast
+    import warnings
+    try:
+        tree = ast.parse(open(path, encoding="utf-8", errors="replace").read())
+    except SyntaxError:
+        return set()
+    out = set()
+
+    def consider(node, kinds):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            kind = _classify_literal(node.value)
+            if kind in kinds:
+                out.add((kind, node.value[:60]))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Compare):
+                for cmp in node.comparators:
+                    elts = (cmp.elts if isinstance(cmp, (ast.Tuple, ast.List, ast.Set))
+                            else [cmp])
+                    for v in elts:
+                        consider(v, ("regex", "prefix-literal", "dispatch"))
+            elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                  and node.func.attr in ("startswith", "endswith") and node.args):
+                a = node.args[0]
+                elts = a.elts if isinstance(a, (ast.Tuple, ast.List, ast.Set)) else [a]
+                for v in elts:
+                    consider(v, ("regex", "prefix-literal", "dispatch"))
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str) \
+                    and len(node.value) <= 400:
+                consider(node, ("regex", "prefix-literal"))
+    return out
+
+
+# Eight spellings the detector must find and three it must not, written as
+# SOURCE rather than as patterns -- including the three the reviewer used to
+# disprove the first version. A control that cannot fail is not a control.
+_DETECTOR_POSITIVES = [
+    ("the pre-fix comment_coverage spelling", "m = re.match(r'r(#*)\"', text[i:])\n"),
+    ("the pre-fix fidelity spelling",
+     "_R = re.compile(r'(?<![A-Za-z0-9_])r(#*)\"(.*?)\"\\1', re.DOTALL)\n"),
+    ("batch8b_extract's shipped startswith spelling",
+     "if text.startswith('r#\"', i):\n    pass\n"),
+    ("a novel `(?:b|c)?r(#+)\"` group spelling", "RX = re.compile(r'(?:b|c)?r(#+)\"')\n"),
+    ("a novel `in 'rbc'` dispatch set", "if ch in 'rbc':\n    pass\n"),
+    ("a novel explicit-alternatives literal", "P = 'r\"|r#\"|br\"'\n"),
+    ("a novel bounded-hash spelling", "P = re.compile(r'r#{0,4}\"')\n"),
+    ("the original `== 'r'` spelling", "if c == 'r':\n    pass\n"),
+]
+_DETECTOR_NEGATIVES = [
+    ("an ordinary regex", "P = re.compile(r'[0-9]+ files')\n"),
+    ("a file mode", "f = open(p, 'r')\n"),
+    ("a docstring mentioning raw strings",
+     "\"\"\"Handles Rust raw strings in migration fixtures.\"\"\"\n"),
+]
+
+
+def _selftest_detector():
+    import tempfile
+    for label, src in _DETECTOR_POSITIVES:
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, "probe_input.py")
+        open(p, "w", encoding="utf-8").write(src)
+        got = raw_recogniser_hits(p)
+        check(f"detector FINDS {label}", bool(got), repr(sorted(got)[:2]))
+        shutil.rmtree(d, ignore_errors=True)
+    for label, src in _DETECTOR_NEGATIVES:
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, "probe_input.py")
+        open(p, "w", encoding="utf-8").write(src)
+        got = raw_recogniser_hits(p)
+        check(f"detector is SILENT on {label}", not got, repr(sorted(got)[:2]))
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def probe_raw_string_recogniser_class():
@@ -1034,27 +1153,20 @@ def probe_raw_string_recogniser_class():
     import subprocess
     import sys as _sys
 
+    _selftest_detector()
+
     tracked = subprocess.run(["git", "ls-files", "*.py"], cwd=REPO,
                              capture_output=True, text=True).stdout.split()
-    found_files, found_spellings = set(), set()
+    found = set()
     for rel in tracked:
         path = os.path.join(REPO, rel)
-        if not os.path.isfile(path):
-            continue
-        body = open(path, encoding="utf-8", errors="replace").read()
-        hits = _SHAPE.findall(body)
-        if hits:
-            found_files.add(rel)
-            found_spellings.update(hits)
-    check("every file carrying a raw-string-opener recogniser is declared",
-          found_files <= DECLARED_RECOGNISER_FILES,
-          f"undeclared: {sorted(found_files - DECLARED_RECOGNISER_FILES)}")
-    check("every declared recogniser file still carries one",
-          DECLARED_RECOGNISER_FILES <= found_files,
-          f"stale declaration(s): {sorted(DECLARED_RECOGNISER_FILES - found_files)}")
-    check("every recogniser SPELLING found is declared",
-          found_spellings <= DECLARED_RECOGNISER_SPELLINGS,
-          f"undeclared spelling(s): {sorted(found_spellings - DECLARED_RECOGNISER_SPELLINGS)}")
+        if os.path.isfile(path) and raw_recogniser_hits(path):
+            found.add(rel)
+    declared = set(DECLARED_RECOGNISER_FILES)
+    check("every file that could decide where a raw string begins is declared",
+          found <= declared, f"undeclared: {sorted(found - declared)}")
+    check("every declared file still matches the detector",
+          declared <= found, f"stale declaration(s): {sorted(declared - found)}")
 
     _sys.path.insert(0, HERE)
     import fidelity
@@ -1111,11 +1223,57 @@ def probe_raw_string_recogniser_class():
           fidelity.find_string_literals(r'let x = b"a\nb";') == ["a\nb"],
           repr(fidelity.find_string_literals(r'let x = b"a\nb";')))
 
-    # THE KNOWINGLY-OPEN MEMBER, pinned so a change to it cannot be silent.
-    check("audit `_STR_LITERAL` is STILL raw-blind (open by measurement, see the "
-          "block above the registry)",
-          acm.CONST.findall('const X: &str = r#"{ "a": 1 }"#;') == ['r#"{ "'],
+    # `_STR_LITERAL`, CLOSED -- and its two dormant twins with it (I1).
+    check("audit `_STR_LITERAL` matches the CLOSING hash count",
+          acm.CONST.findall('const X: &str = r#"{ "a": 1 }"#;') == ['r#"{ "a": 1 }"#'],
           repr(acm.CONST.findall('const X: &str = r#"{ "a": 1 }"#;')))
+    check("audit `_STR_LITERAL` handles `r##\"` (37 live occurrences, 14 files)",
+          acm.CONST.findall('const X: &str = r##"say "#" here"##;')
+          == ['r##"say "#" here"##'],
+          repr(acm.CONST.findall('const X: &str = r##"say "#" here"##;')))
+    check("audit `_STR_LITERAL` admits a byte raw string",
+          acm.CONST.findall('const X: &str = br#"{ "a": 1 }"#;') == ['br#"{ "a": 1 }"#'])
+    check("audit `_STR_LITERAL` returns STRINGS, not tuples -- no capture group",
+          all(isinstance(x, str) for x in acm.CONST.findall('const X: &str = "a";')),
+          "an inner group makes findall return tuples and unquote() crash, which is "
+          "what produced the false `185 of 268 moved`")
+    check("audit `unquote` reads a byte raw string's body (I1)",
+          acm.unquote('br#"a"#') == "a", repr(acm.unquote('br#"a"#')))
+    check("audit `unquote` reads a two-hash raw string's body (I1)",
+          acm.unquote('r##"a"##') == "a", repr(acm.unquote('r##"a"##')))
+    check("audit `raw_body` leaves a byte raw string's escapes intact (I1)",
+          acm.raw_body('br#"a\\nb"#') == "a\\nb", repr(acm.raw_body('br#"a\\nb"#')))
+    check("audit `unquote` still decodes a PLAIN literal",
+          acm.unquote('"a\\nb"') == "a\nb", repr(acm.unquote('"a\\nb"')))
+
+    # `batch8b_extract.py`, the file batch 4's first enumeration missed entirely.
+    import batch8b_extract as B8
+    check("batch8b `_split_args` handles `r##\"`",
+          B8._split_args('r##"say " and , here"##, x')
+          == ['r##"say " and , here"##', "x"],
+          repr(B8._split_args('r##"say " and , here"##, x')))
+    check("batch8b `_split_args` handles a byte raw string",
+          B8._split_args('br#"a , b"#, x') == ['br#"a , b"#', "x"],
+          repr(B8._split_args('br#"a , b"#, x')))
+    check("batch8b `_split_args` control: an ordinary comma still splits",
+          B8._split_args("a, b") == ["a", "b"])
+    check("batch8b `_match_brace_paren` is not closed by an interior `)`",
+          B8._match_brace_paren('f(r##"a ) b"##, x)', 1) == len('f(r##"a ) b"##, x)') - 1,
+          repr(B8._match_brace_paren('f(r##"a ) b"##, x)', 1)))
+
+    # THE ENUMERATION BOUND, gated rather than assumed. `_STR_LITERAL` enumerates
+    # hash counts 0..`_MAX_RAW_HASHES` because a backreference would need a
+    # capture group; that is only sound while the corpus stays inside the bound.
+    import glob as _glob
+    worst = 0
+    for f in (_glob.glob(os.path.join(REPO, "crates/**/*.rs"), recursive=True)
+              + _glob.glob(os.path.join(REPO, "tools/**/*.py"), recursive=True)):
+        for m in re.finditer(r'(?<![A-Za-z0-9_])(?:br|cr|r)(#*)"',
+                             open(f, encoding="utf-8", errors="replace").read()):
+            worst = max(worst, len(m.group(1)))
+    check("the corpus stays inside `_STR_LITERAL`'s enumerated hash-count bound",
+          worst <= acm._MAX_RAW_HASHES,
+          f"worst observed {worst}, bound {acm._MAX_RAW_HASHES}")
 
     # DORMANCY, MEASURED RATHER THAN ASSUMED. U15 forbids introducing byte/C raw
     # fixtures; this is what keeps the class harmless while it is being closed,

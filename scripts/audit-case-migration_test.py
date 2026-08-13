@@ -2157,6 +2157,46 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
         self.assertEqual(mod._find_calls('f(a, b)', "f"), ["a, b"])
         self.assertEqual(mod._split_top_level_args('b"x", y'), ['b"x"', "y"])
 
+    def test_str_literal_matches_the_closing_hash_count_and_admits_b_and_c(self):
+        """The recogniser-class member batch 4 reported OPEN on a false number.
+
+        `_STR_LITERAL` was `r?#*"(?:[^"\\]|\\.)*"#*`: an `r` and some hashes, but
+        the CLOSING hash count was never matched, so `r#"{ "a": 1 }"#` stopped at
+        the first interior quote and the claim came out as `'r#"{ "'`. `r##"` is
+        not hypothetical -- 37 occurrences across 14 `.rs` files.
+
+        It is enumerated over hash counts rather than backreferenced BECAUSE a
+        capture group inside it makes every caller's `findall` return tuples and
+        `unquote()` die on `'tuple' object has no attribute 'strip'`. A trial fix
+        that did use a group produced a corpus differential reading "185 of 268
+        moved", every one of which was this crash rather than a moved verdict.
+
+        `unquote`/`raw_body` are in the same test on purpose: they decided
+        raw-ness with `raw.startswith("r")` and were dormant ONLY because this
+        pattern never handed them a `b`/`c` token.
+        """
+        mod = _load_audit_module()
+        for text, want in (
+            ('const X: &str = r#"{ "a": 1 }"#;', 'r#"{ "a": 1 }"#'),
+            ('const X: &str = r##"say "#" here"##;', 'r##"say "#" here"##'),
+            ('const X: &str = br#"{ "a": 1 }"#;', 'br#"{ "a": 1 }"#'),
+            ('const X: &str = cr"plain";', 'cr"plain"'),
+            ('const X: &str = "escaped";', '"escaped"'),
+        ):
+            got = mod.CONST.findall(text)
+            self.assertEqual(got, [want], text)
+            self.assertTrue(all(isinstance(x, str) for x in got),
+                            "a capture group inside _STR_LITERAL makes findall "
+                            "return tuples and unquote() crash")
+        self.assertEqual(mod.unquote('br#"a"#'), "a")
+        self.assertEqual(mod.unquote('cr##"a"##'), "a")
+        self.assertEqual(mod.unquote('r#"a"#'), "a")
+        self.assertEqual(mod.unquote(r'"a\nb"'), "a\nb")
+        self.assertEqual(mod.raw_body('br#"a\\nb"#'), "a\\nb")
+        self.assertEqual(mod.raw_body(r'"a\nb"'), r"a\nb")
+        # the boundary the class exists for, still held
+        self.assertEqual(mod.CONTAINS.findall('x.contains("operator")'), ['"operator"'])
+
     def test_raw_string_prefixes_match_what_rustc_accepts(self):
         """`r`, `br`, `cr` open raw strings; `rb` is not a Rust prefix at all.
 
