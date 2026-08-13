@@ -2059,6 +2059,60 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("corresponds to no", out)
 
+    def test_door7_a_contains_inside_a_BYTE_raw_string_permits_nothing(self):
+        # THE SEVENTH DOOR. `_RAW_STRING`'s lookbehind sat directly on `r`, so
+        # for `br"..."` / `br#"..."#` the preceding `b` counted as an identifier
+        # character, the guard fired, and the literal was never recognised as a
+        # raw string -- door 5's class through the byte spelling.
+        #
+        # PRE-EXISTING: `_RAW_STRING` is untouched by the rounds that closed
+        # doors 5 and 6. Dormant: zero `br"`/`br#"` in crates/kali_cli/tests.
+        # Closed anyway, because this batch produced the rule that a dormant
+        # permission is not safe to leave and declining the third instance
+        # would make that a preference rather than a rule.
+        source = (
+            'fn fixture() -> &\'static [u8] {\n'
+            '    br#"payload: json["stdout"].contains("PHANTOM_NEEDLE") as data"#\n'
+            '}\n'
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "PHANTOM_NEEDLE", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_raw_string_prefixes_match_what_rustc_accepts(self):
+        """`r`, `br`, `cr` open raw strings; `rb` is not a Rust prefix at all.
+
+        ASKED OF rustc RATHER THAN REMEMBERED (rustc 1.97.1):
+
+            r"x"  br"x"  br#"x"#  br##"x"##  cr"x"  c"x"  b"x"   all compile
+            rb"x"                                          error: prefix `rb` is unknown
+
+        so `rb` is deliberately absent from the pattern -- adding it would have
+        been a dead alternative that looked like thoroughness. `b"..."` and
+        `c"..."` are ESCAPED literals, not raw: they must fall through to the
+        plain-string path, which is what keeps the 24 files using `b"` unmoved.
+        """
+        mod = _load_audit_module()
+        for text, opens_raw in (('x = r#"ab"#;', True), ('x = br"ab";', True),
+                                ('x = br#"ab"#;', True), ('x = br##"ab"##;', True),
+                                ('x = cr#"ab"#;', True), ('x = cr"ab";', True),
+                                ('x = b"ab";', False), ('x = c"ab";', False)):
+            got = mod._skip_string(text, 4)
+            self.assertEqual(got is not None, opens_raw, text)
+        # the guard the lookbehind exists for, in both spellings
+        self.assertIn("operator", mod._blank_raw_strings('assert!(s.contains("operator"));'))
+        self.assertIsNone(mod._skip_string('let operator = 1;', 11))
+        # a byte raw string must survive comment masking intact
+        fixture = 'let f = br#"{ "exports": { "./*": "./src/*.js" } }"#;\nlet live = 1;\n'
+        self.assertEqual(mod._mask_comments_outside_strings(fixture), fixture)
+
     def test_the_two_masking_passes_commute_on_this_corpus(self):
         """`_blank_raw_strings` then `_mask_comments_outside_strings`, or the
         reverse, over every `.rs` under `crates/kali_cli/tests`.

@@ -412,7 +412,15 @@ def _mask_comments_outside_strings(source: str) -> str:
             out.append(''.join(ch if ch == '\n' else ' ' for ch in segment))
             i = end
             continue
-        if c == '"' or c == 'r' or c == "'":
+        if c in '"rbc\'':
+            # `b`/`c` join the dispatch set for door 7: without them the scan
+            # never OFFERS a `br#"..."#` open to `_skip_string`, so fixing that
+            # function alone would have left this caller reading a `/*` inside a
+            # byte raw string as a comment and blanking live code after it.
+            # Measured before the fix, on a byte-raw fixture carrying `"./*"`:
+            # the masker blanked from that `/*` to end of line. A bare `b"`/`c"`
+            # still returns `None` here and falls through to the plain-string
+            # branch on the next character, unchanged.
             end = _skip_string(source, i)
             if end is not None:
                 out.append(source[i:end])
@@ -621,7 +629,28 @@ def resolve_path_mods(old_path: Path, source: str) -> list[Path]:
 # this is a regex approximation, not a real Rust lexer. Not present
 # anywhere in the corpus at time of writing; acceptable for that reason,
 # not because it is impossible in principle.
-_RAW_STRING = re.compile(r'(?<![A-Za-z0-9_])r(#*)"(?:.*?)"\1', re.DOTALL)
+# DOOR 7: THE PREFIX SET IS `r`, `br`, `cr` -- ASKED OF rustc, NOT REMEMBERED.
+# The lookbehind used to sit directly on `r`, so for a BYTE raw string
+# (`br"..."`, `br#"..."#`) the preceding `b` counted as an identifier character,
+# the guard fired, and the literal was never recognised as a raw string at all.
+# A `.contains(...)` inside one was then read as live code -- door 5's exact
+# class through the byte spelling, demonstrated on a running gate.
+#
+# The lookbehind now sits before the whole prefix, which keeps the guard it was
+# there for: in `xbr"`, the attempt at `b` sees `x` and the attempt at `r` sees
+# `b`, so both fail; a word ending in `r` (`"...operator"`) still cannot open a
+# raw string.
+#
+# `rb"` IS NOT A RUST LITERAL and is deliberately absent. rustc 1.97.1:
+#
+#     $ printf 'fn main() { let _ = rb"x"; }\n' > p.rs && rustc ... p.rs
+#     error: prefix `rb` is unknown
+#
+# while `r"x"`, `br"x"`, `br#"x"#`, `br##"x"##`, `cr"x"`, `c"x"` and `b"x"` all
+# compile. `c"..."` and `b"..."` are NOT raw -- they are escaped literals and
+# the plain `"` path already handles them; only the `r`-carrying prefixes belong
+# here. U15's standing prohibition names `br"` and `cr"` for a reason.
+_RAW_STRING = re.compile(r'(?<![A-Za-z0-9_])(?:br|cr|r)(#*)"(?:.*?)"\1', re.DOTALL)
 
 
 _LET_BINDING = re.compile(
@@ -784,6 +813,11 @@ def _blank_raw_strings(source: str) -> str:
     of fabricating an assertion, because `[source]` is deliberately excluded
     from the new side's claim search (see this script's module docstring).
 
+    "Raw string" here means all three prefixes rustc accepts -- `r`, `br`, `cr`
+    -- not just the bare `r` this function keyed on until door 7. `b"..."` and
+    `c"..."` are escaped literals and are NOT raw, so they are deliberately
+    outside this masking and are covered by the paragraph below.
+
     Only raw strings need masking. A *plain* (non-raw) Rust string literal
     used for the same purpose must escape any embedded quote as `\\"` (two
     characters: backslash then quote) -- and `JSON_KEY`'s
@@ -902,8 +936,23 @@ def _skip_string(text: str, pos: int) -> int | None:
                 return j + 1
             j += 1
         return n
-    if c == 'r' and (pos == 0 or not (text[pos - 1].isalnum() or text[pos - 1] == '_')):
+    if c in 'brc' and (pos == 0 or not (text[pos - 1].isalnum() or text[pos - 1] == '_')):
+        # DOOR 7, the second half. This guard had the identical defect as
+        # `_RAW_STRING`'s and for the identical reason -- it keyed on `r` alone,
+        # so `br#"..."#` was not recognised as a string here either, and a `//`
+        # or `/*` inside a byte raw string would have been masked as a comment,
+        # swallowing live code after it. The two are fixed together because they
+        # are one rule spelled twice.
+        #
+        # `b`/`c` are accepted only as a prefix to `r`; a bare `b"..."` or
+        # `c"..."` is an ESCAPED literal, falls through to `None` here, and is
+        # handled by the plain `"` branch on the next character exactly as
+        # before. That is what keeps the 14 files using `b"..."` unmoved.
         k = pos + 1
+        if c != 'r':
+            if k >= n or text[k] != 'r':
+                return None
+            k += 1
         hashes = 0
         while k < n and text[k] == '#':
             hashes += 1
