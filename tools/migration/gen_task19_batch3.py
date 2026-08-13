@@ -21,11 +21,17 @@ the fn and the verbatim condition. A forward extractor that silently skips what
 it does not understand turns a dropped claim into a green run, which is the
 failure this project keeps finding; here it is a loud generator instead.
 
+CLOSED OVER CLAIMS, NOT MERELY OVER `assert*!` MACROS. Enumerating assertion
+macros says nothing about a claim written as `if !x.contains(y) { panic!() }`,
+carried by an `.expect()`, or made anywhere outside a macro -- a source using one
+would have migrated silently short. `residual_claims` blanks every assert span
+and the handful of permitted non-asserting forms, then refuses on what is left.
+
 Probed rather than trusted -- `probe_task19_batch3.py` section 1 mutates real
-sources six ways (an unmodelled `assert!`, an `assert_ne!`, a stdout
+sources nine ways (an unmodelled `assert!`, an `assert_ne!`, a stdout
 `.contains`, a removed exit assertion, a `format!`-built fixture, a second
-`run_source` call) and requires every one to raise, with the unmutated control
-clean.
+`run_source` call, and the three claim-level shapes above) and requires every one
+to raise, with the unmutated control clean.
 
 FIXTURE TEXT IS COPIED, NEVER TYPED (rules 8/9). `t19b3_extract.fixture_of`
 resolves the literal the test actually hands to `run_source` -- either the
@@ -225,8 +231,17 @@ THE_SHAPE = (
     "                                                 -> rule 11 / ruling 17\n"
     "\n"
     "An `assert!`'s second and later arguments are its PANIC MESSAGE, which the "
-    "program under test never sees; they are not claims and are not migrated. "
-    "Reproduce the derivation with:\n"
+    "program under test never sees; they are not claims and are not migrated.\n"
+    "\n"
+    "AND THE TABLE IS CLOSED OVER CLAIMS, NOT MERELY OVER `assert*!` MACROS. "
+    "Enumerating assertion macros says nothing about a claim written as `if "
+    "!x.contains(y) {{ panic!() }}`, carried by an `.expect()`, or made anywhere "
+    "outside a macro; a source using one would migrate silently short. "
+    "`t19b3_extract.residual_claims` blanks every assert span and the handful of "
+    "permitted non-asserting forms, then REFUSES on what is left. All nine "
+    "refusals -- six on assertion shapes, three on claim shapes -- are fired by "
+    "`probe_task19_batch3.py` section 1 against real sources, with the unmutated "
+    "sources as the control. Reproduce the derivation with:\n"
     "\n"
     "  python3 tools/migration/t19b3_extract.py {stem}")
 

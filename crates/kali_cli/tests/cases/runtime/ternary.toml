@@ -17,7 +17,9 @@
 #   assert!(<stderr>.contains(A) || <stderr>.contains(B), ..)
 #                                                  -> rule 11 / ruling 17
 #
-# An `assert!`'s second and later arguments are its PANIC MESSAGE, which the program under test never sees; they are not claims and are not migrated. Reproduce the derivation with:
+# An `assert!`'s second and later arguments are its PANIC MESSAGE, which the program under test never sees; they are not claims and are not migrated.
+#
+# AND THE TABLE IS CLOSED OVER CLAIMS, NOT MERELY OVER `assert*!` MACROS. Enumerating assertion macros says nothing about a claim written as `if !x.contains(y) {{ panic!() }}`, carried by an `.expect()`, or made anywhere outside a macro; a source using one would migrate silently short. `t19b3_extract.residual_claims` blanks every assert span and the handful of permitted non-asserting forms, then REFUSES on what is left. All nine refusals -- six on assertion shapes, three on claim shapes -- are fired by `probe_task19_batch3.py` section 1 against real sources, with the unmutated sources as the control. Reproduce the derivation with:
 #
 #   python3 tools/migration/t19b3_extract.py runtime_ternary
 #

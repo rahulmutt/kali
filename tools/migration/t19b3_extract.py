@@ -294,14 +294,28 @@ def _macro_calls(masked_body: str, body: str) -> list[tuple[str, str, int, int]]
 
 # Everything a `#[test]` body in this family is allowed to do OUTSIDE an
 # `assert*!`. Anything else is a claim this extractor cannot see.
-_PERMITTED = [
+#
+# TWO KINDS, AND THE DIFFERENCE IS LOAD-BEARING. A form whose right-hand side
+# touches the command's output is blanked ONLY as far as the closing paren of
+# that call, so anything chained onto it stays in the residue; a form whose
+# right-hand side cannot be a claim (a literal fixture, the one Rust-computed
+# expectation) is blanked to its `;`.
+#
+# Measured, not assumed: blanking the lossy binding to its `;` swallowed
+# `let _n = String::from_utf8_lossy(&out.stdout).find("x").expect("x present");`
+# whole, and the `.expect()`-carried-claim probe reported MISSED. Blanking only
+# the call leaves `.find(...).expect(...)` behind and it is CAUGHT.
+_PERMITTED_CALL = [
     # the invocation itself
     r"let\s+out\s*=\s*run_source\s*\(",
+    # the stream binding the `.contains` shapes read through
+    r"let\s+[a-z_][a-z0-9_]*\s*=\s*String::from_utf8_lossy\s*\(",
+]
+
+_PERMITTED_STMT = [
     # a fixture or expectation bound to a literal, and the one Rust-computed
     # expectation (a block that references no `out`)
     r"let\s+(?:src|expected)\s*(?::\s*&str\s*)?=\s*",
-    # the stderr binding the `.contains` shapes read through
-    r"let\s+[a-z_][a-z0-9_]*\s*=\s*String::from_utf8_lossy\s*\(\s*&\s*out\.std(?:out|err)\s*\)",
 ]
 
 # Tokens that mean "a claim is being made here". If one survives the blanking of
@@ -338,8 +352,11 @@ def residual_claims(stem: str, fn: dict, spans) -> list[str]:
         for k in range(lo, hi):
             out[k] = " "
     text = "".join(out)
-    # Blank each permitted `let` form up to its terminating `;` at depth 0.
-    for pat in _PERMITTED:
+    for pat in _PERMITTED_CALL:
+        for m in list(re.finditer(pat, text)):
+            end = _balanced(text, m.end() - 1)          # just past the call's `)`
+            text = text[:m.start()] + " " * (end - m.start()) + text[end:]
+    for pat in _PERMITTED_STMT:
         for m in list(re.finditer(pat, text)):
             i, depth = m.start(), 0
             while i < len(text):

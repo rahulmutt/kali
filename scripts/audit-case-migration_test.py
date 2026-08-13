@@ -2086,6 +2086,42 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("corresponds to no", out)
 
+    def test_a_byte_raw_string_cannot_mint_a_phantom_submodule(self):
+        """DOOR 8: `_mask_strings` was the THIRD place that shared the `r`-only
+        guard, and the one fix round 5 did not reach.
+
+        `_mask_comments_outside_strings` got `b`/`c` in its dispatch set then;
+        this masker did not, so `_skip_string` was never offered the opening `b`
+        and a byte raw string was not masked at all. Its interior was then read
+        as live code by `PLAIN_MOD`. Measured against the previous revision of
+        the gate:
+
+            _find_mod_declarations('br#"quote:" mod evil_phantom; end"#')
+            -> [(None, 'evil_phantom')]      # before
+            -> []                            # now
+
+        A phantom `mod` makes the audit try to resolve a file that does not
+        exist and exit 2 -- LOUD, which is why the controller parked this door
+        rather than closing it beside the permission-granting ones. Closed once
+        the condition attached to it could be measured.
+        """
+        mod = _load_audit_module()
+        for prefix in ("br", "cr"):
+            self.assertEqual(
+                mod._find_mod_declarations(f'{prefix}#"quote:" mod evil_phantom; end"#'),
+                [], prefix)
+            self.assertEqual(
+                mod._find_mod_declarations(f'{prefix}"quote: mod evil_phantom;"'),
+                [], prefix)
+        # controls: a real declaration still resolves, an ordinary raw string is
+        # still masked, and an ESCAPED byte literal (not raw) still takes the
+        # plain-string path without swallowing what follows it.
+        self.assertEqual(mod._find_mod_declarations("mod real_child;"),
+                         [(None, "real_child")])
+        self.assertEqual(mod._find_mod_declarations('r#"quote:" mod evil; end"#'), [])
+        self.assertEqual(mod._find_mod_declarations('let x = b"q"; mod real2;'),
+                         [(None, "real2")])
+
     def test_raw_string_prefixes_match_what_rustc_accepts(self):
         """`r`, `br`, `cr` open raw strings; `rb` is not a Rust prefix at all.
 

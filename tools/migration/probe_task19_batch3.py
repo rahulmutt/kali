@@ -10,8 +10,12 @@ and records WHICH fired rather than requiring a particular one.
 SECTION 1 -- THE DERIVED EXTRACTION REFUSES. Batch 3's whole fidelity argument
 is that `t19b3_extract` raises on an assertion shape it does not model rather
 than skipping it. A refusal nobody has made fire is a refusal nobody has
-measured, so six real mutations are applied to real sources and every one must
-raise, with the unmutated control clean.
+measured, so nine real mutations are applied to real sources and every one must
+raise, with the unmutated control clean. Six of them mutate an `assert*!`; the
+other three are the claim-level shapes -- control flow, an `.expect()`, a
+predicate outside any macro -- that close the table over CLAIMS rather than over
+macros. The `.expect()` one reported MISSED on its first run and found a real
+over-blank in `residual_claims`, which is what a probe is for.
 
 SECTION 2 -- THREE ARMS, ONE POISON PER PAIR.
 

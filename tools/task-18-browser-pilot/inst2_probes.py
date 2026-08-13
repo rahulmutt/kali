@@ -39,6 +39,15 @@ universal quantifier that used to close `main()` and was false (round 1, I1):
      "deleted", and that the disclosure vanishes when the line recording it is
      removed (added batch 8A fix round 3; this is the second limb of the defect
      fix round 1 closed for `--citations-only`)
+  9. `check_fixtures`'s env-program-text arm
+ 10. `lexer.find_string_literals`'s RAW-STRING PREFIX SET -- that `r`, `br` and
+     `cr` all open a raw string, that `rb`/an identifier ending in `r`/`b"`/`c"`
+     do not, that `start` names the literal's first byte prefix included, and
+     the control that the corpus this gate reads contains no byte/C raw string
+     at all. Added by Task 19 batch 3, closing the door batch 2 fix round 5
+     measured and parked; it is gated HERE because `lexer.py` is the extraction
+     path `check_fixtures.py`, `fidelity.py` and all sixteen browser generators
+     run through.
 
 WHAT IS NOT, named rather than left to be assumed: `verify_pair.sh`'s two
 resolver-failure branches (`cannot resolve a source`, `resolver returned a
@@ -855,7 +864,78 @@ def probe_env_program_texts(tmp):
 # this declaration -- the gate's own output against its own declaration
 # (ruling 15 answer 1), so deleting a call from the list below fails here
 # instead of quietly shrinking the suite.
-PROBES_DECLARED = 9
+def probe_lexer_raw_string_prefixes():
+    """10. `lexer.find_string_literals` on ALL THREE raw-string prefixes.
+
+    ADDED BY TASK 19 BATCH 3, closing the door batch 2 fix round 5 measured,
+    disclosed and parked (§41). `_find_string_starts`'s guard keyed on a bare
+    `r` with a word-boundary check on the character before it, so for
+    `br#"..."#` the preceding `b` was an identifier character, the guard fired,
+    and the literal was never recognised as raw. It did not merely miss it -- it
+    INVENTED three literals out of the raw string's interior:
+
+        find_string_literals('... br#"json["stdout"].contains("X")"# ...')
+        -> ['json[', '].contains(', ')']
+
+    This module is the extraction path `check_fixtures.py`, `fidelity.py` and all
+    sixteen browser generators run through, so it is gated HERE, one layer up,
+    rather than in a batch-local probe nothing re-runs.
+
+    Both directions, because a recogniser that accepts everything is not a
+    recogniser: the three prefixes rustc accepts must open a raw string, and the
+    shapes it does not (`rb"`, an identifier ending in `r`, `b"`/`c"` escaped
+    literals) must not.
+    """
+    from lexer import find_string_literals as fsl
+
+    def vals(s):
+        return [x["value"] for x in fsl(s)]
+
+    for prefix in ("r", "br", "cr"):
+        check(f"`{prefix}#\"...\"#` opens a raw string and its interior is one literal",
+              vals(f'let x = {prefix}#"json["stdout"].contains("X")"#;')
+              == ['json["stdout"].contains("X")'],
+              repr(vals(f'let x = {prefix}#"json["stdout"].contains("X")"#;')))
+        # A DISCRIMINATING interior, not a neutral one. `br"plain raw"` reads the
+        # same whether the scanner treats it as raw or falls through to the plain
+        # path, so that arm passed against the OLD lexer too and measured
+        # nothing. `\n` separates them: raw keeps the two characters, escaped
+        # decodes them to a newline.
+        check(f"`{prefix}\"...\"` (no hashes) opens a raw string, and the interior "
+              "is RAW",
+              vals(f'let x = {prefix}"a\\nb";') == ["a\\nb"],
+              repr(vals(f'let x = {prefix}"a\\nb";')))
+    # the boundary the guard exists for, in both spellings it has to survive
+    check("a word ending in `r` cannot open a raw string",
+          vals('assert!(s.contains("operator"));') == ["operator"])
+    check("`xbr\"` is an identifier followed by a PLAIN string, not a raw one",
+          vals('let y = xbr"nope";') == ["nope"])
+    # `b"`/`c"` are ESCAPED literals, not raw: they must take the plain path,
+    # where `\n` decodes. A raw-path reading would return the two characters.
+    check("`b\"...\"` stays on the escaped path",
+          vals(r'let x = b"a\nb";') == ["a\nb"], repr(vals(r'let x = b"a\nb";')))
+    check("`c\"...\"` stays on the escaped path",
+          vals(r'let x = c"a\nb";') == ["a\nb"])
+    # `start` must name the first byte of the LITERAL, prefix included -- it is
+    # what `string_literals_in_range` and every offset-based caller key on.
+    lit = fsl('let x = br#"AB"#;')[0]
+    check("`start` points at the `b` of a byte raw string, not at the `r`",
+          lit["start"] == 8 and lit["end"] == 16, repr(lit))
+    # AND THE CONTROL THAT MAKES THE ABOVE MEAN SOMETHING: over every `.rs` this
+    # tooling reads, the fixed scanner returns exactly what the old one did.
+    # Dormancy is measured, not assumed -- U15 prohibits introducing `br"`/`cr"`
+    # fixtures, and that is what keeps it dormant.
+    import glob
+    corpus = sorted(glob.glob(os.path.join(REPO, "crates/kali_cli/tests/**/*.rs"),
+                              recursive=True))
+    check("the corpus this gate reads contains no byte/C raw string at all",
+          not any(re.search(r'(?<![A-Za-z0-9_])(?:br|cr)#*"', open(f, encoding="utf-8",
+                                                                  errors="replace").read())
+                  for f in corpus),
+          f"{len(corpus)} file(s) scanned")
+
+
+PROBES_DECLARED = 10
 
 
 def main():
@@ -870,6 +950,7 @@ def main():
         ("supporting arms", lambda: probe_supporting_arms(tmp)),
         ("structure-arm disclosure", lambda: probe_structure_arm_disclosure(tmp)),
         ("env program texts", lambda: probe_env_program_texts(tmp)),
+        ("lexer raw-string prefixes", probe_lexer_raw_string_prefixes),
     ]
     ran = 0
     try:
@@ -902,7 +983,8 @@ def main():
     # sentence was a ruling-13 universal about this file's own completeness, and
     # it was false: several arms in the same diff were not probed. What is probed
     # is the list in the docstring, and what is not is named there too.
-    print("\nPROBES OK -- the nine sections above each fired on the defect they "
+    print(f"\nPROBES OK -- the {PROBES_DECLARED} sections above each fired on the "
+          f"defect they "
           "exist to catch and stayed silent on their control; see this file's "
           "docstring for what is probed and what is not")
     return 0

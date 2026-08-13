@@ -2,8 +2,13 @@ r"""Character-cursor Rust string-literal scanner for Task 18 pilot (browser/).
 
 Written fresh for this task. Handles plain "..." strings (escapes: \n \t \r
 \\ \" \' \0, \xHH, \u{HHHHH}, and the \<newline> continuation) and raw strings
-r#*"..."#*. Used as the generator's fixture-copy mechanism -- every fixture
-string embedded in a .toml is pulled through this, never hand-retyped.
+in ALL THREE prefixes rustc accepts -- r#*"..."#*, br#*"..."#*, cr#*"..."#*.
+Used as the generator's fixture-copy mechanism -- every fixture string embedded
+in a .toml is pulled through this, never hand-retyped.
+
+`b"..."` and `c"..."` are ESCAPED literals, not raw, and take the plain-string
+path. `rb"..."` is not a Rust prefix at all and is deliberately unhandled; see
+`_find_string_starts` for the rustc transcript this rests on.
 """
 import re
 
@@ -18,22 +23,62 @@ def _find_string_starts(text):
             j = text.find('\n', i)
             i = j if j != -1 else n
             continue
-        if c == 'r' and i + 1 < n and (text[i + 1] == '#' or text[i + 1] == '"') and (
+        # RAW-STRING PREFIXES, ASKED OF rustc RATHER THAN REMEMBERED. rustc
+        # 1.97.1 accepts `r"x"`, `br"x"`, `br#"x"#`, `cr"x"`; `rb"x"` is
+        # `error: prefix `rb` is unknown`, so it is deliberately absent. `b"x"`
+        # and `c"x"` are ESCAPED literals, not raw, and fall through to the
+        # plain-string branch below exactly as before.
+        #
+        # THE BUG THIS CLOSES (batch 2 fix round 5 §41, measured, disclosed, and
+        # parked there). The guard was `c == 'r'` with a word-boundary check on
+        # the character before it -- so for `br#"..."#` the preceding `b` IS an
+        # identifier character, the guard fired, and the literal was never
+        # recognised as a raw string. It did not merely miss it:
+        #
+        #   find_string_literals('... br#"json["stdout"].contains("X")"# ...')
+        #   -> ['json[', '].contains(', ')']     # THREE literals INVENTED from
+        #                                        # the raw string's interior
+        #
+        # The boundary check now sits before the whole prefix, which preserves
+        # what it was there for: in `xbr"` the attempt at `b` sees `x` and the
+        # attempt at `r` sees `b`, so both fail, and a word ending in `r`
+        # (`"...operator"`) still cannot open a raw string.
+        #
+        # Direction: this module's consumers -- `check_fixtures.py`,
+        # `fidelity.py`, every generator -- use it to DEMAND, so under-
+        # recognition here goes loudly red rather than quietly green. That, plus
+        # its blast radius over 161 irreplaceable browser case files, is why
+        # batch 2 disclosed it instead of taking it. Closed here under the
+        # controller's stated condition, with the condition measured: the full
+        # census still reproduces all 161 byte-for-byte with 16 of 16 generators
+        # at a fixed point, and the corpus differential moves no verdict.
+        prefix = 0
+        if c in 'bc' and i + 1 < n and text[i + 1] == 'r':
+            prefix = 1
+        head = i + prefix
+        if text[head] == 'r' and head + 1 < n and (
+            text[head + 1] == '#' or text[head + 1] == '"'
+        ) and (
             i == 0 or not (text[i - 1].isalnum() or text[i - 1] == '_')
         ):
-            k = i + 1
+            k = head + 1
             hashes = 0
             while k < n and text[k] == '#':
                 hashes += 1
                 k += 1
             if k < n and text[k] == '"':
-                out.append((k, True, hashes))
+                # `i`, not a recomputed `k - 1 - hashes`: with a `b`/`c` prefix
+                # the literal starts one byte earlier than the old arithmetic
+                # assumed, and `start` is what `string_literals_in_range` and
+                # every offset-based caller key on. Carried through rather than
+                # re-derived, so the two cannot disagree.
+                out.append((k, True, hashes, i))
                 close = '"' + ('#' * hashes)
                 end = text.find(close, k + 1)
                 i = (end + len(close)) if end != -1 else n
                 continue
         if c == '"':
-            out.append((i, False, 0))
+            out.append((i, False, 0, i))
             j = i + 1
             while j < n:
                 if text[j] == '\\':
@@ -97,7 +142,7 @@ def _decode_plain(body):
 
 def find_string_literals(text):
     results = []
-    for (qstart, is_raw, hashes) in _find_string_starts(text):
+    for (qstart, is_raw, hashes, lit_start) in _find_string_starts(text):
         if is_raw:
             close = '"' + ('#' * hashes)
             end = text.find(close, qstart + 1)
@@ -105,8 +150,7 @@ def find_string_literals(text):
                 raise ValueError("unterminated raw string")
             value = text[qstart + 1:end]
             full_end = end + len(close)
-            raw_start = qstart - 1 - hashes
-            results.append({'start': raw_start, 'end': full_end, 'value': value})
+            results.append({'start': lit_start, 'end': full_end, 'value': value})
         else:
             j = qstart + 1
             n = len(text)

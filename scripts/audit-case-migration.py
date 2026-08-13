@@ -443,7 +443,27 @@ def _mask_strings(source: str) -> str:
     n = len(source)
     while i < n:
         c = source[i]
-        if c == '"' or c == 'r' or c == "'":
+        # DOOR 8, THE THIRD PLACE THAT SHARED THE GUARD. Fix round 5 taught
+        # `_RAW_STRING` and `_skip_string` about `br#"..."#` / `cr#"..."#` and
+        # added `b`/`c` to `_mask_comments_outside_strings`'s DISPATCH set --
+        # but not to this one, so `_skip_string` was never offered the opening
+        # `b` and a byte raw string was not masked at all. Measured before the
+        # fix:
+        #
+        #   _find_mod_declarations('br#"quote:" mod evil_phantom; end"#')
+        #   -> [(None, 'evil_phantom')]        # a phantom submodule, minted
+        #                                      # from the interior of a literal
+        #   ... the same text as r#"..."#      -> []
+        #
+        # Direction: this arm feeds `_find_mod_declarations`, which creates a
+        # DEMAND (the audit then resolves a submodule that does not exist and
+        # exits 2), so the door fails LOUD -- which is why the controller parked
+        # it rather than closing it with the permission-granting doors. It is
+        # closed here because the condition attached to closing it is met and
+        # measured: no verdict moves anywhere in the corpus (this batch's report
+        # §17 carries the differential), and this batch changed no gate
+        # semantics, so the differential is readable.
+        if c in '"rbc' or c == "'":
             skip_end = _skip_string(source, i)
             if skip_end is not None:
                 segment = source[i:skip_end]
