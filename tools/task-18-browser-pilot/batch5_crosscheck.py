@@ -595,6 +595,50 @@ def _needles(snippet, source_items=None):
     return [tok] + sorted(set(methods))
 
 
+def _migrated_from_arm(stem, text):
+    """The `Migrated from tests/<file>.rs` marker, checked ALWAYS.
+
+    THIS IS THE INPUT TO THE RESOLVER EVERY POST-DELETION GATE DEPENDS ON, and
+    until batch 8C's fix round nothing ran on it. `SECTIONS[0]` looks for the
+    marker, but `SECTIONS` is consulted only when `citations_only` is False, and
+    `citation_sweep.sh` hardcodes `--citations-only`, `verify_pair.sh` defaults
+    to it, and `--structure` appears in no gate and no CI job. So the one arm
+    that could have caught a broken marker had never executed in this project.
+    8C found six broken markers by hand and only because deleting a source made
+    the sweep exit 2.
+
+    IT DERIVES, IT DOES NOT MARK (ruling 18 #1), AND THE DIFFERENCE IS MEASURED
+    RATHER THAN ASSERTED. `SECTIONS[0]` is `line.startswith("Migrated from
+    tests/browser_")`, and against the six markers 8C repaired it catches
+    FIVE. It misses `for_await_object_string_enumeration_sequence_wrappers_
+    js_input`, whose header wrapped MID-IDENTIFIER:
+
+        # Migrated from tests/browser_for_await_object_string_enumeration_
+        # sequence_wrappers_js_input.rs.
+
+    That line does start with the marker, so a presence check passes while the
+    resolver's regex -- which needs the whole `.rs` name -- does not. Hoisting
+    the marker check unchanged would therefore have left the worst of the six in
+    place. This arm runs `MIGRATED_FROM`, the regex `citation_tiers.
+    resolve_case_stem` itself uses, so the property checked is the property
+    consumed. Against all six it reports 6 of 6.
+
+    Scoped to the `#` header: all 161 shipped case files carry the marker there
+    (`sum(bool(MIGRATED_FROM.search("\\n".join(_header(open(t).read())))))` over
+    `cases/browser/*.toml` -> 161), so requiring the header rather than "anywhere
+    in the file" costs nothing today and keeps the marker where a reader looks.
+    """
+    if MIGRATED_FROM.search("\n".join(_header(text))):
+        return []
+    return [f"{stem}: no resolvable `Migrated from tests/<file>.rs` in the `#` "
+            "header. Every gate that runs after the sources are deleted names "
+            "this file's source through that line; without it "
+            "`citation_tiers.resolve_case_stem` cannot even say which blob the "
+            "citations mean, and exits 2. A hand re-wrap that splits the "
+            "sentence, or the `.rs` name, breaks it -- keep "
+            "`Migrated from tests/browser_<name>.rs` on ONE line."]
+
+
 def check(spec, citations_only=False):
     stem, _, override = spec.partition("=")
     toml_path = os.path.join(CASES, f"{stem}.toml")
@@ -628,7 +672,8 @@ def check(spec, citations_only=False):
         if not os.path.exists(toml_path):
             return [f"{stem}: no source at {rs_path} and no case file at {toml_path}"]
         text = open(toml_path).read()
-        problems = _gated_arm(stem, "case file", text)
+        problems = _migrated_from_arm(stem, text)
+        problems += _gated_arm(stem, "case file", text)
         # THE CARVE-OUT IS DECLARED, NOT SILENT (fix round 2, N3). Returning here
         # skips `_cite_arm`, so `_NO_NEEDLE[stem]` was never incremented and
         # `NO_NEEDLE_DECLARED.get(stem, 0)` returned 0 -- equal, pass. The tier's
@@ -679,9 +724,30 @@ def check(spec, citations_only=False):
                        "must be that ref's blob WITH the carrier's submodules materialised "
                        "beside it, which is what citation_sweep.sh does")
             else:
-                why = (f"no same-stem source; migrated from {named}, which IS in the "
-                       "tree and is not trimmed (U2 split or renamed target) -- pass "
-                       f"`{stem}=crates/kali_cli/tests/{named}` to resolve against it")
+                # THE FOLLOWABLE INSTRUCTION THAT USED TO BE HERE IS DELETED
+                # (ruling 15 answer 3). It read "pass `<stem>=crates/kali_cli/
+                # tests/<named>` to resolve against it" -- an instruction, in the
+                # branch whose own sibling comment says a hint that breaks when
+                # followed is worse than no hint. After 8C's family deletion its
+                # subject has ZERO corpus stems: every U2 split's source went
+                # with the family, and the only named source still in the tree is
+                # `browser_reflect_own_keys.rs`, which IS trimmed and takes the
+                # arm above. So no probe could reach it, and rewriting the
+                # emitted path to nonsense left `inst2_probes` and `--selftest`
+                # both at rc=0 -- an unverified instruction that nothing could
+                # ever falsify, which is exactly what ruling 15 says to delete
+                # rather than to keep and describe.
+                #
+                # The branch itself stays, because the SHAPE is legitimate and
+                # tasks 19-20 may recreate it; what it emits is now a statement
+                # of fact with no instruction to obey. Anyone who reaches it
+                # should derive the override the way the trimmed arm above
+                # describes, and add a probe with it.
+                why = (f"no same-stem source; migrated from {named}, which IS in "
+                       "the tree and is not trimmed. This shape has no stem in "
+                       "the browser corpus since the batch-8C family deletion, "
+                       "so no probe exercises it and this gate offers no "
+                       "override string it can promise is followable")
         else:
             why = "source deleted post-migration"
         _STRUCTURE_SKIPPED[stem] = why
@@ -729,6 +795,7 @@ def check(spec, citations_only=False):
         return problems
 
     text = open(toml_path).read()
+    problems += _migrated_from_arm(stem, text)
     rs_lines = open(rs_path).read().split("\n")
     header = _header(text)
     blob = "\n".join(header)
@@ -832,8 +899,8 @@ def check(spec, citations_only=False):
                      else os.path.join(TESTS, _named) if _named else None)
         if (os.path.dirname(os.path.abspath(rs_path)) != os.path.abspath(TESTS)
                 and tree_twin and os.path.exists(tree_twin)
-                and len(submodule_paths(rs_path, base=rs_path))
-                    > len(submodule_paths(tree_twin, base=tree_twin))):
+                and len(submodule_paths(rs_path, base=rs_path, allow_unresolved=True))
+                    > len(submodule_paths(tree_twin, base=tree_twin, allow_unresolved=True))):
             bases.append(rs_path)
         if os.path.exists(live_path):
             bases.append(live_path)        # a --pretrim blob of a live stem
@@ -863,7 +930,10 @@ def check(spec, citations_only=False):
         for base in bases:
             if not os.path.exists(base):
                 continue
-            found = submodule_paths(rs_path, base=base)
+            # THIS gate reports the none-resolved case itself, one loud problem, and
+            # `--selftest` proves that arm fires -- so it opts out of the raise
+            # `submodules._resolved` gives every caller that does not look.
+            found = submodule_paths(rs_path, base=base, allow_unresolved=True)
             if found:
                 submodules = {os.path.basename(f): f.read_text().split("\n")
                               for f in found}
@@ -2180,8 +2250,15 @@ fn helper_named_here(source: &str) {{
 # retention-header surface under test.
 _CHECK_SURFACE_TOML = """\
 # Selftest probe written and deleted by --selftest.
+# Migrated from tests/browser_selftest_check_surface_probe.rs.
 name = "selftest_check_surface_probe"
 """
+# The `Migrated from` line is REQUIRED, not decoration: `_migrated_from_arm`
+# runs unconditionally on every stem that has a case file, so a probe fixture
+# without it is red for a reason that has nothing to do with the poison under
+# test -- which is precisely the "the probe is red for a reason other than the
+# poison, so its kill power is not attributable" failure this selftest reports.
+# It stays backtick-free and citation-free, as the comment above requires.
 
 
 def _check_surface_selftest():

@@ -840,20 +840,58 @@ def probe_env_program_texts(tmp):
           f"rc={rc_old} {buf.getvalue()[:140]}")
 
 
+# EVERY PROBE THIS FILE PROMISES TO RUN, DECLARED SO THE COUNT IS GATED.
+#
+# 8C's first round fixed the INSTANCE (a `FileNotFoundError` reading a deleted
+# source) and not the CLASS it had just named: nine probes called in a row, no
+# per-probe guard, and a raise in any of them skips every probe after it AND the
+# `FAILURES` block, so the process dies with a traceback that -- from an exit
+# code alone -- is indistinguishable from "one arm reported a defect". Worse, a
+# raise in the LAST probe would have left `FAILURES` empty and printed nothing
+# at all.
+#
+# Each probe is now run behind its own guard, a crash is recorded as a failure
+# rather than ending the run, and the number that actually ran is compared with
+# this declaration -- the gate's own output against its own declaration
+# (ruling 15 answer 1), so deleting a call from the list below fails here
+# instead of quietly shrinking the suite.
+PROBES_DECLARED = 9
+
+
 def main():
     tmp = tempfile.mkdtemp(prefix="inst2-probes-")
+    probes = [
+        ("argv correspondence", lambda: probe_argv_correspondence(tmp)),
+        ("`.replace` arm", lambda: probe_replace_arm(tmp)),
+        ("ghost declarations", probe_ghost_declarations),
+        ("ref_carries", probe_ref_carries),
+        ("verify_pair delegation", lambda: probe_verify_pair_delegation(tmp)),
+        ("population banner", probe_population_banner),
+        ("supporting arms", lambda: probe_supporting_arms(tmp)),
+        ("structure-arm disclosure", lambda: probe_structure_arm_disclosure(tmp)),
+        ("env program texts", lambda: probe_env_program_texts(tmp)),
+    ]
+    ran = 0
     try:
-        probe_argv_correspondence(tmp)
-        probe_replace_arm(tmp)
-        probe_ghost_declarations()
-        probe_ref_carries()
-        probe_verify_pair_delegation(tmp)
-        probe_population_banner()
-        probe_supporting_arms(tmp)
-        probe_structure_arm_disclosure(tmp)
-        probe_env_program_texts(tmp)
+        for label, fn in probes:
+            try:
+                fn()
+                ran += 1
+            except BaseException as exc:                 # noqa: BLE001
+                # BaseException, not Exception: a probe that calls `sys.exit`
+                # raises SystemExit, which is exactly the "a raise skips the
+                # FAILURES block" class this guard exists to close, and it is
+                # NOT an Exception.
+                import traceback
+                check(f"probe {label!r} completed without raising", False,
+                      f"{type(exc).__name__}: {exc}")
+                traceback.print_exc()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+    check(f"all {PROBES_DECLARED} declared probe(s) ran", ran == PROBES_DECLARED,
+          f"{ran} completed, PROBES_DECLARED says {PROBES_DECLARED} -- a suite "
+          "that quietly runs fewer arms than it claims reports a green that "
+          "means less than the reader thinks it does")
     if FAILURES:
         print(f"\nPROBES FAILED -- {len(FAILURES)} arm(s) did not behave as "
               "declared")

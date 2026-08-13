@@ -48,7 +48,7 @@ def audit_module():
     return mod
 
 
-def submodule_paths(rs_path, mod=None, base=None):
+def submodule_paths(rs_path, mod=None, base=None, allow_unresolved=False):
     """Every `.rs` reachable from `rs_path` by `#[path]`/plain `mod`, in order.
 
     Missing files are dropped here rather than raised: this module's callers are
@@ -78,7 +78,7 @@ def submodule_paths(rs_path, mod=None, base=None):
     if path.is_file():
         text = path.read_text()
         paths = mod.resolve_path_mods(Path(base) if base else path, text)
-        return [p for p in paths if p.is_file()]
+        return _resolved(path, text, paths, allow_unresolved)
     # THE SIBLING DIRECTORY WENT WITH THE CARRIER (U10), so resolving the
     # carrier's bytes alone is not enough: `#[path = "browser_x/run.rs"]` would
     # resolve to a file that is also gone, `p.is_file()` would drop it, and the
@@ -88,8 +88,53 @@ def submodule_paths(rs_path, mod=None, base=None):
     from case_emit import materialise_source_tree  # noqa: E402 (late: cycle-free)
     root = Path(materialise_source_tree(path.name))
     here = root / path.name
-    paths = mod.resolve_path_mods(Path(base) if base else here, here.read_text())
-    return [p for p in paths if p.is_file()]
+    text = here.read_text()
+    paths = mod.resolve_path_mods(Path(base) if base else here, text)
+    return _resolved(path, text, paths, allow_unresolved)
+
+
+def _resolved(path, text, paths, allow_unresolved=False):
+    """Keep the submodules that exist -- but a TOTAL miss is an ERROR.
+
+    `allow_unresolved=True` is for the ONE caller that already reports this
+    condition itself. `batch5_crosscheck.check` emits "declares `#[path]`
+    submodule(s) but none could be resolved" as exactly one loud problem, and
+    its `--selftest` builds a carrier with its sibling directory deliberately
+    removed to prove that arm fires. Raising underneath it would replace a
+    reported problem with a crash and break the probe that guards it. Every
+    other caller gets the raise, because none of them looks.
+
+    THE DROP RULE WAS ONLY EVER MEANT FOR A MISSING INDIVIDUAL FILE. "Declares
+    submodules and resolved NONE" is a different fact, and returning `[]` for it
+    is byte-for-byte indistinguishable, to every caller, from "declares no
+    submodules at all" -- so a caller that meant to inspect a `#[path]` carrier
+    silently inspects nothing and reports clean. `declares_submodules` exists
+    precisely because the two questions are different; this makes the gap it
+    documents impossible to fall into rather than merely describable.
+
+    8C's fix round 1 found this still live on the CARRIER-PRESENT path after the
+    carrier-ABSENT path was fixed: with the carrier in the tree and its sibling
+    directory deleted, `declares_submodules` is True, this returned `[]`, and
+    nothing raised. It is not live today only because `browser_reflect_own_keys/`
+    survived the family deletion -- one more deleted directory and it would be.
+
+    A PARTIAL miss still drops silently, deliberately: that is the documented
+    behaviour above, `audit-case-migration.py` already hard-fails on a `mod`
+    naming a missing file, and turning it into an error here would fire on the
+    trimmed-carrier comparisons in `batch5_crosscheck` that legitimately expect
+    one side to resolve fewer.
+    """
+    found = [p for p in paths if p.is_file()]
+    if paths and not found and not allow_unresolved and declares_submodules(text):
+        raise AssertionError(
+            f"{path} declares submodule(s) and NONE of them resolve to a file: "
+            f"{[str(p) for p in paths]}. Returning an empty list here would be "
+            "indistinguishable from a carrier that declares no submodules, so "
+            "every gate reading this source would silently check only the "
+            "carrier. If the sibling directory was deleted, resolve the source "
+            "through `case_emit.materialise_source_tree` so the siblings come "
+            "with it (U10: the directory is part of the unit).")
+    return found
 
 
 def declares_submodules(source_text, mod=None):
