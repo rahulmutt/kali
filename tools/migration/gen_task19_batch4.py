@@ -273,6 +273,7 @@ def build(stem: str) -> list[dict]:
         target_stem = SPLIT_STEM[(stem, part)] if part else stem
         spec_entries = entries
         out.append({
+            "siblings": None,          # filled in below, once every half is known
             "entries": spec_entries,
             "constants": constants,
             "source_stem": stem, "stem": target_stem, "part": part,
@@ -281,6 +282,8 @@ def build(stem: str) -> list[dict]:
             "extract": got, "invocations": len(entries),
             "tests": sorted({t["name"] for t, _, _ in entries}),
         })
+    for spec in out:
+        spec["siblings"] = [s["stem"] for s in out]
     return out
 
 
@@ -504,6 +507,112 @@ def check_cross_stream_resolution(spec):
                                f"model it")
 
 
+def printed_commands(text: str) -> list[list[str]]:
+    """Every shell command a rendered header prints, de-continued."""
+    out, cur = [], None
+    for line in text.splitlines():
+        if not line.startswith("#"):
+            continue
+        body = line[1:].strip()
+        if cur is not None:
+            cur += " " + body.rstrip("\\").strip()
+            if not body.endswith("\\"):
+                out.append(cur.split())
+                cur = None
+            continue
+        if body.startswith("python3 ") or body.startswith("bash "):
+            cur = body.rstrip("\\").strip()
+            if not body.endswith("\\"):
+                out.append(cur.split())
+                cur = None
+    return out
+
+
+def check_reproduction_commands(spec, text):
+    """A printed reproduction command is RUN, not merely printed.
+
+    Ruling 18 #1 -- derive the property, do not mark it. A command in a header is
+    prose that claims to be executable, and nothing read it: the U2 split's first
+    draft printed a command naming only its own half, which exits 1 because
+    `audit-case-migration.py` reports the sibling's claims as dropped. Every
+    printed command's path arguments must exist, and the audit command must exit
+    0, so a header cannot ship a reproduction that does not reproduce.
+    """
+    for cmd in printed_commands(text):
+        for arg in cmd[1:]:
+            if arg.startswith("-") or arg.endswith(".py") or arg.endswith(".sh"):
+                continue
+            if "/" in arg and not os.path.exists(os.path.join(REPO, arg)):
+                raise GenError(f"{spec['stem']}: printed command names a path that "
+                               f"does not exist: {arg}")
+        if cmd[1].endswith("audit-case-migration.py"):
+            p = _run([sys.executable] + cmd[1:])
+            if p.returncode != 0:
+                raise GenError(
+                    f"{spec['stem']}: the printed audit reproduction command EXITS "
+                    f"{p.returncode}. A U2 split must name every half -- auditing one "
+                    f"alone reports the other's claims as dropped.\n"
+                    f"{(p.stdout + p.stderr)[-500:]}")
+
+
+DENY_EVERYTHING_POLICY = """{
+  "schemaVersion": 1,
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": null },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": null, "maxActiveTimers": null },
+    "eval": false,
+    "random": false,
+    "console": false
+  },
+  "resources": {
+    "maxMemoryMB": 8, "maxCpuTimeMs": 600000, "maxOpenFiles": null,
+    "maxSpawnedProcesses": 0, "maxThreads": 0
+  }
+}"""
+
+
+def check_u2_policy_control(spec):
+    """THE POSITIVE CONTROL BEHIND THE U2 SPLIT'S INERTNESS CLAIM.
+
+    "A policy file present but not passed changes nothing" is worth nothing if
+    the policy would change nothing when it IS passed. This runs the control on
+    every generator run: the deny-everything policy must BITE through
+    `--sandbox`, and the same policy present-but-unpassed must not. The full
+    66-trial sweep is this batch's measurement and is recorded in the header; the
+    two cheap arms are what keep that claim from going stale silently.
+    """
+    if not spec["part"]:
+        return
+    kali = (os.environ.get("CARGO_BIN_EXE_kali") or os.environ.get("KALI_BIN")
+            or os.path.join(REPO, ".cache/cargo-target/debug/kali"))
+    if not os.path.exists(kali):
+        raise GenError("the U2 policy control cannot run: no kali binary")
+
+    def run(files, args):
+        with tempfile.TemporaryDirectory() as d:
+            for n, b in files.items():
+                open(os.path.join(d, n), "w").write(b)
+            r = subprocess.run([kali] + args, cwd=d, capture_output=True)
+        return r.returncode, r.stdout.decode("utf-8", "replace")
+
+    prog = "console.log(1);\n"
+    bites = run({"m.ts": prog, "p.json": DENY_EVERYTHING_POLICY},
+                ["run", "--sandbox", "p.json", "m.ts"])
+    plain = run({"m.ts": prog}, ["run", "m.ts"])
+    if bites == plain or bites[0] == 0:
+        raise GenError("the U2 positive control does not bite: a deny-everything "
+                       "policy passed via --sandbox produced the same result as no "
+                       "policy, so the inertness measurement proves nothing")
+    for name in ("policy.json", "kali.policy.json"):
+        present = run({"m.ts": prog, name: DENY_EVERYTHING_POLICY}, ["run", "m.ts"])
+        if present != plain:
+            raise GenError(f"a policy named {name!r} and NOT passed on argv changed "
+                           f"the outcome -- the U2 merge hazard is live and this "
+                           f"split's header understates it")
+
+
 def check_rationales_match_their_claims(spec, rendered_cases):
     """Both directions, against the RENDERED step -- never against the
     intermediate claim set that produced the prose, so the assertion cannot be
@@ -661,8 +770,17 @@ def render(spec, gate_reds, cc_classes, u8_names, source_ref) -> str:
         A(f"# CONSEQUENCE FOR THE GATES -- `{gate}` IS EXPECTED-RED (rc={rc}) ON THIS "
           f"PAIR{cls}. {reason}")
         A("#")
+    # A U2 SPLIT'S REPRODUCTION COMMAND NAMES BOTH HALVES. `audit-case-migration.py`
+    # checks every source claim against the case files it is GIVEN, so auditing one
+    # half alone reports the other half's claims as dropped -- the command printed
+    # here exits 1 unless both are passed, which is exactly what
+    # `audit_corpus_sweep.py` does when it audits case files sharing one source
+    # together. The first draft of this header printed only its own `.toml` and the
+    # command failed as written.
     A(f"#   python3 scripts/audit-case-migration.py crates/kali_cli/tests/{stem}.rs \\")
-    A(f"#     crates/kali_cli/tests/cases/{FAMILY}/{spec['stem']}.toml")
+    for i, sib in enumerate(sorted(spec["siblings"])):
+        cont = " \\" if i < len(spec["siblings"]) - 1 else ""
+        A(f"#     crates/kali_cli/tests/cases/{FAMILY}/{sib}.toml{cont}")
     A("#")
     A("")
     hoist_refs = {"${%s}" % n for n in (spec.get("constants") or {})}
@@ -723,26 +841,38 @@ def render(spec, gate_reds, cc_classes, u8_names, source_ref) -> str:
         A(text)
         A("")
     check_rationales_match_their_claims(spec, rendered)
-    return "\n".join(L).rstrip("\n") + "\n"
+    out = "\n".join(L).rstrip("\n") + "\n"
+    check_reproduction_commands(spec, out)
+    return out
 
 
 U2_SPLIT_REASON = (
     "The source writes its sandbox policy with write_temp_policy_json, which builds "
     "its OWN uniquely-named directory (std::env::temp_dir, joined with a unique slug) "
-    "-- so the policy is NOT a sibling of the program under test; the two "
-    "live in different directories and the policy reaches the command only as an "
-    "explicit `--sandbox <path>` argument. MEASURED, not assumed: with the policy "
-    "present in the trial directory and NOT passed, all eleven unsandboxed cases are "
-    "byte-for-byte identical -- rc, stdout and stderr -- to the same runs without it, "
-    "under the name `policy.json` and under `kali.policy.json`, so `kali run` performs "
-    "no policy auto-discovery today and merging the two halves would be inert. The "
-    "split is taken ANYWAY, and the reason is what the measurement does not cover: "
-    "`[source]` is FILE-WIDE, so merging would put a file in every trial directory "
-    "that the source's own run directory never held, and its inertness is then a "
-    "property of today's binary rather than of this case file. U2's disposition is a "
-    "separate case FILE, and the tooling is built for it -- audit_corpus_sweep.py "
-    "audits case files sharing one source together, and families.py skips a U2 split "
-    "when deriving a family's prefix.")
+    "-- so the policy is NOT a sibling of the program under test; the two live in "
+    "different directories and the policy reaches the command only as an explicit "
+    "`--sandbox <path>` argument. "
+    "MEASURED, WITH A POSITIVE CONTROL, because an inertness result taken with a "
+    "policy that does nothing proves nothing. THE CONTROL FIRST: the deny-everything "
+    "policy used here BITES when it is passed -- `kali run --sandbox p.json m.ts` on "
+    "`console.log(1)` gives rc=5 and `error[E9007]: inferred effect 'Console.Write' "
+    "is not permitted by the active policy`, against rc=0 printing `1` without it. "
+    "THEN THE MEASUREMENT: with a policy present in the trial directory and NOT named "
+    "on argv, all eleven unsandboxed cases are byte-for-byte identical -- rc, stdout "
+    "and stderr -- to the same runs without it, over 66 trials (11 cases x 3 "
+    "filenames, `policy.json` / `kali.policy.json` / `tiny.policy.json`, x 2 policy "
+    "bodies, the 8MB one this source ships and the deny-everything one). 0 "
+    "differences. `kali run` performs no policy auto-discovery, and merging the two "
+    "halves would be inert TODAY. "
+    "The split is taken ANYWAY, and the reason is what the measurement does not "
+    "cover: `[source]` is FILE-WIDE, so merging would put a file in every trial "
+    "directory that the source's own run directory never held, and its inertness is "
+    "then a property of today's binary rather than of this case file. U2's "
+    "disposition is a separate case FILE, and the tooling is built for it -- "
+    "audit_corpus_sweep.py audits case files sharing one source together, and "
+    "families.py skips a U2 split when deriving a family's prefix. The positive "
+    "control is re-run by gen_task19_batch4's u2 policy check on every generator "
+    "run, so an inertness claim resting on a policy that stopped biting fails loudly.")
 
 AXIS_REASON = (
     "The axis is DERIVED, not chosen: gen_task19_batch4.axis_for admits one only when "
@@ -910,8 +1040,46 @@ GATE_RED_REASON = {
 }
 
 
+def _selftest_generator_checks():
+    """KNOWN POSITIVES FOR THIS GENERATOR'S OWN REFUSALS, committed and run.
+
+    Fix round 1's minor: `_selftest_declaration_gate` shipped with a known
+    positive and these two did not, so their green was "the check did not fire"
+    -- indistinguishable from "the check cannot fire". Both call the SHIPPED
+    function; a re-implemented comparison would prove nothing about it.
+    """
+    spec = build("arena_reclamation_runtime")[0]
+
+    poisoned = dict(spec)
+    poisoned["sources"] = dict(spec["sources"])
+    victim = sorted(poisoned["sources"])[0]
+    poisoned["sources"][victim] = poisoned["sources"][victim] + "// poison\n"
+    try:
+        check_duplication_is_the_sources_own(poisoned, poisoned["entries"])
+    except GenError:
+        pass
+    else:
+        raise GenError("selftest: check_duplication_is_the_sources_own did not fire "
+                       "on a body that is not one of the source's own")
+
+    one_half = ("# Migrated from tests/arena_reclamation_runtime.rs.\n#\n"
+                "#   python3 scripts/audit-case-migration.py "
+                "crates/kali_cli/tests/arena_reclamation_runtime.rs \\\n"
+                "#     crates/kali_cli/tests/cases/misc/arena_reclamation_runtime.toml\n#\n")
+    try:
+        check_reproduction_commands(spec, one_half)
+    except GenError:
+        pass
+    else:
+        raise GenError("selftest: check_reproduction_commands accepted a U2 split "
+                       "command naming only one half")
+    print("  ok  selftest: the duplication check fires on a foreign body")
+    print("  ok  selftest: the reproduction-command check fires on a one-half U2 command")
+
+
 def main(argv):
     write = "--write" in argv
+    _selftest_generator_checks()
     source_ref = SOURCE_REF
     specs = []
     for stem in EX.STEMS:
@@ -931,6 +1099,7 @@ def main(argv):
             check_no_fixture_names_referenced(s)
             check_no_manifest_named_fixture(s)
             check_cross_stream_resolution(s)
+            check_u2_policy_control(s)
         tomls = [s["path"] for s in group]
         # Fixed point: two header paragraphs are derived from gates that read the
         # RENDERED file, so rendering changes the input to the measurement that
