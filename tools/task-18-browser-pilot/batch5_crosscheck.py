@@ -2047,20 +2047,29 @@ def _declares_mods_selftest():
         ("no submodules (browser_math_pow_optional_chain_harness.rs)",
          "browser_math_pow_optional_chain_harness.rs", False),
     ]
+    # TWO OF THESE THREE FIXTURES ARE RETAINED FILES AND ONE IS NOT:
+    # `browser_non_literal_iterator_sources.rs` is a U2 split that 8C's family
+    # deletion removed, and this probe then reported `missing fixture` and
+    # SKIPPED it -- turning the only `#[path]` arm of a three-arm predicate test
+    # into a no-op while the selftest still failed for a reason that reads like
+    # a missing file rather than a disarmed probe. The bytes come from the
+    # family-deletion ref through the one resolver, so the arm keeps running
+    # against exactly the source it was written for.
+    from case_emit import source_bytes  # noqa: E402  (late: cycle-free)
+
     for label, name, want in probes:
-        path = os.path.join(TESTS, name)
-        if not os.path.exists(path):
-            out.append(f"declares-mods selftest: missing fixture {name}")
+        try:
+            text = source_bytes(name)
+        except AssertionError as exc:
+            out.append(f"declares-mods selftest: cannot read fixture {name}: {exc}")
             continue
-        with open(path) as fh:
-            got = declares_submodules(fh.read())
+        got = declares_submodules(text)
         print(f"  declares-mods -- {label}: {got}")
         if got != want:
             out.append(f"declares-mods: {label} returned {got}, expected {want}")
         # The superseded predicate, run beside it so the regression stays
         # visible: it is what returns the WRONG answer for the plain-`mod` case.
-        with open(path) as fh:
-            old = "#[path" in fh.read()
+        old = "#[path" in text
         if want and not old and got:
             print(f"    (superseded `'#[path' in source` predicate: {old} "
                   "-- this is the case it got wrong)")

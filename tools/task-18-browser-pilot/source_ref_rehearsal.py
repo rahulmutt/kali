@@ -527,14 +527,17 @@ def kill_power(scratch, sha, srcs):
 
 
 def restore_sources(scratch, srcs):
-    for src in srcs:
-        live = os.path.join(REPO, TESTS_REL, src)
-        shutil.copy2(live, os.path.join(scratch, TESTS_REL, src))
-        for sub in submodule_paths(live):
-            rel = os.path.relpath(str(sub), os.path.join(REPO, TESTS_REL))
-            dst = os.path.join(scratch, TESTS_REL, rel)
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
-            shutil.copy2(str(sub), dst)
+    """Put the sample's sources back into the scratch, from their refs.
+
+    THE REAL TREE IS NOT A SOURCE OF SOURCES ANY MORE. This copied from
+    `crates/kali_cli/tests/`, which after 8C's family deletion holds none of
+    them -- it raised `FileNotFoundError` on the first one. `materialise_source`
+    is the same operation the with-source side already uses, so there is one way
+    to put a deleted source somewhere rather than two that agree only while the
+    file happens to still exist.
+    """
+    for stem, src in zip(SAMPLE, srcs):
+        materialise_source(scratch, src, sample_ref(stem))
 
 
 # ---------------------------------------------------------------------------
@@ -542,6 +545,16 @@ def restore_sources(scratch, srcs):
 # ---------------------------------------------------------------------------
 def failure_modes(scratch, sha):
     stem = SAMPLE[0]
+    # THE REF THIS CASE FILE ACTUALLY DECLARES, not HEAD. Every mutation below
+    # is a string edit against the declaration, so if `sha` is not the sha in
+    # the file, `.replace` matches nothing, the case file goes into the sweep
+    # UNCHANGED, and all seven modes report `expected exit 2 ... got rc=0`. That
+    # is a rehearsal reporting the absence of its own poison as a gate failure:
+    # loud, but pointing at the wrong thing. Before 8C the two were the same
+    # value because the rehearsal itself had just written HEAD in; now the file
+    # carries the family-deletion ref and `sample_ref` is the only honest source
+    # of it.
+    sha = sample_ref(stem)
     path = toml_path(scratch, stem)
     pristine = open(path).read()
     # A commit that exists and does NOT contain the cited source: the parent of

@@ -89,6 +89,83 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 sys.path.insert(0, HERE)
 
+# EVERY PROBE BELOW THAT NAMES A `browser_*.rs` NAMES ONE 8C DELETED.
+#
+# These probes hand a source PATH to `check_fixtures.py`, so they need the file
+# on disk, and after the family deletion `os.path.join(TESTS, name)` is a path
+# to nothing. That did not make one probe go red -- it raised
+# `FileNotFoundError` out of `main()` and took every probe after it down with
+# it, which is the failure mode ruling 15 warns about wearing its worst face: a
+# suite that stops running looks, from the exit code alone, exactly like a suite
+# that found one problem.
+#
+# `case_emit.source_bytes` reads the working tree first and the declared
+# family-deletion ref otherwise, so this is the same one resolver the generators
+# and the sweep use, and the probes keep running against the exact bytes they
+# were written against.
+_SRC_DIR = [None]
+
+
+def source_path(name):
+    """`<a real file holding browser_<...>.rs>`, from the tree or from history.
+
+    THE `#[path]` SIBLINGS COME TOO, and leaving them out is not a smaller
+    version of the same thing. `browser_runtime_summary_fallback_ts_input.rs` is
+    a U10 carrier whose `env`-carried program lives in `run.rs`/`test.rs`; a
+    carrier materialised alone has `#[path]` declarations resolving to nothing,
+    so `check_fixtures` finds no fixture, reports its vacuity floor, and the
+    probe that corrupts one byte of that program sees no change. The arm did not
+    go red and did not go green -- it stopped having a subject, which is the
+    silent-arm failure ruling 18 is about.
+    """
+    from case_emit import source_bytes  # noqa: E402  (late: cycle-free)
+
+    live = os.path.join(TESTS, name)
+    if os.path.exists(live):
+        return live
+    if _SRC_DIR[0] is None:
+        _SRC_DIR[0] = tempfile.mkdtemp(prefix="inst2-probe-sources-")
+    out = os.path.join(_SRC_DIR[0], name)
+    if not os.path.exists(out):
+        text = source_bytes(name)
+        with open(out, "w") as fh:
+            fh.write(text)
+        for sub in re.findall(r'#\[path = "([^"]+)"\]', text):
+            dst = os.path.join(_SRC_DIR[0], sub)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            with open(dst, "w") as fh:
+                fh.write(source_bytes(sub))
+    return out
+
+
+_SPEC_DIR = [None]
+
+
+def spec(stem):
+    """`<stem>`, or `<stem>=<path>` once the source is out of the tree.
+
+    THE SAME OVERRIDE `verify_pair.sh` PASSES, for the reason its own comment
+    gives: a bare stem with no `browser_<stem>.rs` falls into
+    `batch5_crosscheck`'s no-source branch and runs the GATEDNESS arm alone --
+    green, and reading none of the pair's citations. A probe whose CONTROL takes
+    that branch is asserting something about a code path it did not mean to
+    exercise, which after 8C's family deletion was every migrated stem.
+
+    Resolution goes through `citation_tiers.resolve_source`, so the probes ask
+    the same resolver the sweep does rather than becoming a second opinion about
+    which blob a stem's citations mean.
+    """
+    import citation_tiers as C
+
+    if os.path.exists(os.path.join(TESTS, f"browser_{stem}.rs")):
+        return stem
+    if _SPEC_DIR[0] is None:
+        _SPEC_DIR[0] = tempfile.mkdtemp(prefix="inst2-probe-specs-")
+        C.ARTIFACT_DIR[0] = _SPEC_DIR[0]
+    path, _prov, _ref, _name = C.resolve_source(stem)
+    return f"{stem}={path}"
+
+
 FAILURES = []
 
 
@@ -156,7 +233,14 @@ def probe_argv_correspondence(tmp):
 def probe_replace_arm(tmp):
     print("\n2. `.replace`-built fixtures (check_fixtures.py, batch 7A's "
           "disclosed hole)")
-    rs = os.path.join(TESTS, "browser_object_from_entries_harness.rs")
+    # THE SOURCE IS GONE FROM THE TREE (8C's family deletion) and every arm
+    # below needs it as a FILE on disk to hand to `check_fixtures.py`. Reading
+    # it out of the tree raised `FileNotFoundError` and took the whole probe
+    # suite down with it -- including the arms after this one, which is worse
+    # than the arm merely going red. Materialise it once, from the same
+    # family-deletion ref the case file declares, and let the arms run against
+    # exactly the bytes they were written for.
+    rs = source_path("browser_object_from_entries_harness.rs")
     toml = os.path.join(TESTS, "cases/browser/object_from_entries_harness.toml")
     cf = os.path.join(HERE, "check_fixtures.py")
 
@@ -201,7 +285,10 @@ def probe_ghost_declarations():
         X._NO_NEEDLE.clear()
         X._PINNED.clear()
         X._REDLIST_HIT.clear()
-        return X.main(["batch5_crosscheck.py", "--citations-only", stem])
+        # `spec()`, not the bare stem: this stem's source left the tree with the
+        # family, and a bare stem now resolves nothing, so the "green again"
+        # control would compare one no-source run against another.
+        return X.main(["batch5_crosscheck.py", "--citations-only", spec(stem)])
 
     check("CONTROL: no declaration names a stem the corpus lacks today",
           X.ghost_declarations() == [],
@@ -449,7 +536,7 @@ def probe_supporting_arms(tmp):
     # `check_fixtures.main`'s chained `return argv_main(...)` -- the whole reason
     # it was chained. A pair that is GREEN on fixtures and RED on argv must exit
     # non-zero; before the chain it returned 0 at the fixture arm.
-    rs = os.path.join(TESTS, "browser_object_from_entries_harness.rs")
+    rs = source_path("browser_object_from_entries_harness.rs")
     src = os.path.join(TESTS, "cases/browser/object_from_entries_harness.toml")
     chained = os.path.join(tmp, "chained.toml")
     open(chained, "w").write(
@@ -531,15 +618,36 @@ def probe_structure_arm_disclosure(tmp):
               "expected exactly one `_STRUCTURE_SKIPPED[stem] = why`")
         return
 
-    sourced = "promise_all_bundle"          # has browser_<stem>.rs
+    # RE-BASED BY 8C ONTO THE SUB-BRANCHES THAT STILL EXIST.
+    #
+    # This branch has three outcomes: a resolvable source (normal arms run), a
+    # named source in the tree that is a U4 TRIM (hint, warned against), and a
+    # named source that is gone (no hint, because there is no override to
+    # offer). The family deletion moved two of the three subjects:
+    #
+    #   * `promise_all_bundle` was the "sourced" control BECAUSE
+    #     `browser_promise_all_bundle.rs` was in the tree. It is not any more, so
+    #     the control took the very branch it exists to contrast with. It is
+    #     still the right control -- through `spec()`, which is how the sweep
+    #     passes it -- because a resolved override is what "sourced" means now.
+    #   * `non_literal_iterator_sources_explicit_api` was the "U2 split whose
+    #     source is in the tree and is NOT trimmed" case, and NO stem in the
+    #     shipped corpus has that shape any more: every U2 split's source went
+    #     with the family, and the only named source left in the tree is
+    #     `browser_reflect_own_keys.rs`, which IS trimmed. Rather than delete the
+    #     arm (a probe that stops firing is the thing this file exists to
+    #     prevent), it is re-based onto what that stem now legitimately IS -- the
+    #     source-deleted case -- and asserts the property that case must have:
+    #     it offers NO override string, because there is no file to point at.
+    sourced = "promise_all_bundle"           # resolved through spec()
     split = "reflect_own_keys_explicit_api"  # U2 split of a U4-TRIMMED carrier
-    no_trim_split = "non_literal_iterator_sources_explicit_api"   # U2 split, no trim
+    deleted_split = "non_literal_iterator_sources_explicit_api"  # source now gone
 
     def banner(stem):
         _rc, out = run(path, stem)
         return out
 
-    control = banner(sourced)
+    control = banner(spec(sourced))
     check("CONTROL: a sourced stem still claims structure was checked",
           "header structure consistent" in control,
           control[-200:])
@@ -569,28 +677,34 @@ def probe_structure_arm_disclosure(tmp):
     # against that class. Hoisting the check makes a non-match LOUD for every
     # arm, present and future, rather than for the one that remembered to ask.
     import re as _re
-    for stem, must_work in ((no_trim_split, True), (split, False)):
+    # `want_override` is asserted in BOTH directions, so a hint that grows an
+    # override string it cannot honour is as loud as one that loses the string
+    # it should have. That two-sided form is what keeps the re-based arm a probe
+    # rather than a description of today's output.
+    for stem, want_override in ((deleted_split, False), (split, True)):
         text = banner(stem)
         m = _re.search(r"`([a-z0-9_]+=crates/kali_cli/tests/[^`]+)`", text)
-        check(f"OVERRIDE STRING EXTRACTED from {stem}'s hint (a miss here would "
-              "silently skip the limbs below)", m is not None, text[:220])
+        check(f"OVERRIDE STRING {'EXTRACTED from' if want_override else 'ABSENT from'}"
+              f" {stem}'s hint (a miss here would silently skip the limbs below)",
+              (m is not None) == want_override, text[:220])
+        if not want_override:
+            # The source-deleted case: there is no file to point at, so the
+            # branch must say so plainly and offer nothing to obey.
+            check(f"DELETED SOURCE: {stem} is named as deleted, not as a split "
+                  "with a followable override",
+                  "source deleted post-migration" in text, text[:220])
+            continue
         if m is None:
             continue
-        if must_work:
-            _rc, out = run(path, m.group(1))
-            check(f"HINT IS FOLLOWABLE: obeying `{m.group(1)[:52]}...` "
-                  "produces no past-end failure",
-                  "past end of the source" not in out, out[-200:])
-        else:
-            # The trimmed carrier: the same form must be WARNED AGAINST, and the
-            # warning must be true -- so obey it anyway and require it to fail.
-            check(f"HINT WARNS: {stem} says that override would resolve against "
-                  "the TRIMMED file",
-                  "would resolve against the TRIMMED file" in text, text[:200])
-            _rc, out = run(path, m.group(1))
-            check("HINT WARNS: and the warning is true -- obeying it does "
-                  "produce a past-end failure",
-                  "past end of the source" in out, out[-200:])
+        # The trimmed carrier: the same form must be WARNED AGAINST, and the
+        # warning must be true -- so obey it anyway and require it to fail.
+        check(f"HINT WARNS: {stem} says that override would resolve against "
+              "the TRIMMED file",
+              "would resolve against the TRIMMED file" in text, text[:200])
+        _rc, out = run(path, m.group(1))
+        check("HINT WARNS: and the warning is true -- obeying it does "
+              "produce a past-end failure",
+              "past end of the source" in out, out[-200:])
 
     try:
         open(path, "w").write(pristine.replace(guarded, "        pass\n"))
@@ -626,7 +740,7 @@ def probe_env_program_texts(tmp):
     this probe corrupts one, and requires red.
     """
     print("\n9. check_fixtures reads a program carried in a step's `env` (batch 8B)")
-    rs = os.path.join(TESTS, "browser_runtime_summary_fallback_ts_input.rs")
+    rs = source_path("browser_runtime_summary_fallback_ts_input.rs")
     src = os.path.join(TESTS, "cases/browser/runtime_summary_fallback_ts_input.toml")
 
     rc, out = run(os.path.join(HERE, "check_fixtures.py"), rs, src)
@@ -690,7 +804,7 @@ def probe_env_program_texts(tmp):
     # entire program under test is `let value = 1 + 2; value;` and matched none
     # of the older alternatives -- so the arm found NO fixture and returned its
     # vacuity floor, i.e. it checked nothing for that whole target.
-    ws_rs = os.path.join(TESTS, "browser_wasm_threads_browser_surface.rs")
+    ws_rs = source_path("browser_wasm_threads_browser_surface.rs")
     ws_toml = os.path.join(TESTS, "cases/browser/wasm_threads_browser_surface_explicit_api.toml")
     rc, out = run(os.path.join(HERE, "check_fixtures.py"), ws_rs, ws_toml)
     check("CONTROL: the `let ...` program is now FOUND and matched (not vacuous)",
