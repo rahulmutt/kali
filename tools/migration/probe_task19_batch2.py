@@ -12,6 +12,14 @@ Arm C must fire for every pair. Arms A and B are recorded rather than required,
 because the audit is a coverage tool by construction: it asks whether a source
 literal appears SOMEWHERE in the case file, so poisoning one of two identical
 claims leaves it green and is right to.
+
+ONE POISON PER PAIR, SO ARM A's COUNT IS A LOWER BOUND ON THE AUDIT'S COVERAGE
+AND NOT A MEASUREMENT OF IT. To tell a correct declination from a real blind
+spot, poison EVERY occurrence instead and re-run the audit: if it fires, the
+single-site miss was the coverage tool behaving correctly; if it still does
+not, the audit has no claim for that value at all. Run over this batch, that
+splits arm A's nine misses into 4 declinations, 4 blind spots and 1 row that
+was untestable as poisoned -- see the report's declination table.
 """
 import os, subprocess, sys
 
@@ -37,8 +45,13 @@ PAIRS = [
      'stdout = "bump\\n0\\nafter\\n"', 'stdout = "bump\\n1\\nafter\\n"'),
     ("heap_grow_runtime", "misc/heap_grow_runtime",
      'stdout = "393216\\n"', 'stdout = "393217\\n"'),
+    # A REPLACING poison, not an appending one. `"...exhaustedX"` still CONTAINS
+    # the source literal, so the audit's substring coverage arm is satisfied by
+    # the poisoned file and arm A cannot fire -- the row was untestable as
+    # written and proved nothing about this pair. Every poison for a
+    # substring-checked claim must change a character rather than add one.
     ("trap_diagnostics_runtime", "misc/trap_diagnostics_runtime",
-     '"CPU fuel budget exhausted"', '"CPU fuel budget exhaustedX"'),
+     '"CPU fuel budget exhausted"', '"CPU fuel budget exhaustZd"'),
     ("float_console_runtime", "misc/float_console_runtime",
      'stdout = "1e-7\\n"', 'stdout = "1e-8\\n"'),
     ("number_predicates_runtime", "misc/number_predicates_runtime",
