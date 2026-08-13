@@ -130,20 +130,76 @@ def toml_path(scratch, stem):
 
 
 def declare(scratch, stem, sha):
-    """Insert `SOURCE REF: <sha>` under the case file's `Migrated from` line."""
+    """Ensure the case file declares `SOURCE REF: <sha>`, exactly once.
+
+    IDEMPOTENT SINCE BATCH 8C, AND IT HAD TO BECOME SO. This always INSERTED,
+    on the assumption -- true when it was written, false the moment 8C declared
+    the family -- that no case file carried a declaration yet. 126 of them do
+    now, so inserting produced a SECOND line and the sweep stopped with
+    `declares 2 SOURCE REF lines`. That is a red baseline, and `rehearse`
+    reports a red baseline by saying the rehearsal "cannot mean anything",
+    which is the correct thing to say and gives no hint that the rehearsal's
+    own fixture is what broke it.
+    """
     path = toml_path(scratch, stem)
     text = open(path).read()
     m = MIGRATED.search(text)
     assert m, path
-    at = text.index("\n", m.start()) + 1
-    open(path, "w").write(text[:at] + f"#   SOURCE REF: {sha}\n" + text[at:])
+    if re.search(r"SOURCE REF:\s*\S+", text):
+        text = re.sub(r"(SOURCE REF:\s*)\S+", r"\g<1>" + sha, text, count=1)
+    else:
+        at = text.index("\n", m.start()) + 1
+        text = text[:at] + f"#   SOURCE REF: {sha}\n" + text[at:]
+    open(path, "w").write(text)
     return m.group(1)
+
+
+def materialise_source(scratch, src, ref):
+    """Put `crates/kali_cli/tests/<src>` and its `#[path]` siblings into the
+    scratch tree, from `<ref>`.
+
+    AFTER THE FAMILY DELETION THIS IS THE ONLY WAY TO BUILD THE WITH-SOURCE
+    SIDE. The equivalence claim compares a tree that HAS the source against one
+    that does not; once 8C deleted the family the real tree can only supply the
+    second, `check_sample` could find no eligible stem at all, and a rehearsal
+    that can build only one side of its own comparison proves nothing. The bytes
+    come from the ref the case file itself declares, which is also exactly what
+    makes the two sides comparable rather than merely similar.
+
+    A no-op in effect while the sources are still present: the declaration was
+    content-validated against the working tree, so ref and tree agree byte for
+    byte, and this rewrites the file with what is already in it.
+    """
+    written = []
+    todo = [src]
+    while todo:
+        rel = todo.pop()
+        got = subprocess.run(
+            ["git", "-C", REPO, "cat-file", "blob", f"{ref}:{TESTS_REL}/{rel}"],
+            capture_output=True, text=True)
+        if got.returncode:
+            fail(f"cannot read {rel} at {ref}: {got.stderr.strip()}")
+            continue
+        dst = os.path.join(scratch, TESTS_REL, rel)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(dst, "w") as fh:
+            fh.write(got.stdout)
+        written.append(rel)
+        for sub in re.findall(r'#\[path = "([^"]+)"\]', got.stdout):
+            if sub not in written:
+                todo.append(sub)
+    return written
 
 
 def delete_source(scratch, src):
     """Remove `src` and, if it is a `#[path]` carrier, its sibling files --
     U10's unit, and what the family-deletion commit removes."""
-    live = os.path.join(REPO, TESTS_REL, src)
+    # The SCRATCH copy, not the real tree: after the family deletion the real
+    # tree has no `browser_<stem>.rs` to read `#[path]` declarations out of,
+    # and `submodule_paths` would silently report none -- leaving the sibling
+    # directory in place on the "deleted" side and quietly weakening the U10
+    # half of the rehearsal.
+    live = os.path.join(scratch, TESTS_REL, src)
     removed = []
     for sub in submodule_paths(live):
         rel = os.path.relpath(str(sub), os.path.join(REPO, TESTS_REL))
@@ -162,40 +218,68 @@ def delete_source(scratch, src):
 # ---------------------------------------------------------------------------
 # 0. Preconditions on the sample, derived rather than assumed.
 # ---------------------------------------------------------------------------
+def sample_ref(stem):
+    """The ref the rehearsal uses for one sample stem.
+
+    THE CASE FILE'S OWN DECLARATION WINS. Before 8C nothing declared one and
+    HEAD was the only available answer; after 8C the source is not in the tree
+    at all, so HEAD does not carry it and the only ref that does is the one the
+    case file names. Reading it here keeps the rehearsal pointed at the same
+    blob the gate it is rehearsing would read -- rather than at a ref this
+    module picked, which is a second opinion about which bytes the source is.
+    """
+    toml = os.path.join(REPO, TESTS_REL, "cases/browser", f"{stem}.toml")
+    m = re.search(r"SOURCE REF:\s*([0-9a-f]{40})", open(toml).read())
+    return m.group(1) if m else head_sha()
+
+
 def check_sample():
     carriers = 0
     for stem in SAMPLE:
         rs = os.path.join(REPO, TESTS_REL, f"browser_{stem}.rs")
         toml = os.path.join(REPO, TESTS_REL, "cases/browser", f"{stem}.toml")
-        if not os.path.exists(rs) or not os.path.exists(toml):
-            fail(f"sample stem {stem}: {rs} or {toml} is missing")
+        if not os.path.exists(toml):
+            fail(f"sample stem {stem}: {toml} is missing")
             continue
-        text = open(rs).read()
-        if any(l.startswith("//!") for l in text.split("\n")):
-            fail(f"sample stem {stem}: its `.rs` carries a `//!` retention "
-                 "header, which the deletion removes along with the file -- the "
-                 "two sides cannot be byte-identical, so this stem cannot "
-                 "measure equivalence")
         if not MIGRATED.search(open(toml).read()):
             fail(f"sample stem {stem}: no `Migrated from tests/<file>.rs` line, "
                  "so the sweep cannot name its source once the file is gone")
-        if "SOURCE REF:" in open(toml).read():
-            fail(f"sample stem {stem}: already declares a SOURCE REF -- this "
-                 "rehearsal adds one and would double it")
-        subs = submodule_paths(rs)
+            continue
+        ref = sample_ref(stem)
+        # THE SOURCE IS READ FROM THE REF, NOT FROM THE TREE, and the tree is
+        # only consulted to confirm the two agree. After 8C's family deletion
+        # the tree has no copy at all, so a precondition phrased against the
+        # tree could not be met by any stem and the sample would be empty.
+        got = subprocess.run(
+            ["git", "-C", REPO, "cat-file", "blob",
+             f"{ref}:{TESTS_REL}/browser_{stem}.rs"],
+            capture_output=True, text=True)
+        if got.returncode:
+            fail(f"sample stem {stem}: {ref} does not carry "
+                 f"browser_{stem}.rs, so the with-source side cannot be built")
+            continue
+        if got.stdout.startswith("//!"):
+            fail(f"sample stem {stem}: its `.rs` carries a `//!` retention "
+                 "header at the ref, which the deletion removes along with the "
+                 "file -- the two sides cannot be byte-identical, so this stem "
+                 "cannot measure equivalence")
+        subs = re.findall(r'#\[path = "([^"]+)"\]', got.stdout)
         carriers += bool(subs)
-        # The declared ref is HEAD, so the working tree copy of the source (and
-        # of its submodules) has to BE HEAD's, or the two sides differ for a
-        # reason that has nothing to do with the mechanism.
-        paths = [f"{TESTS_REL}/browser_{stem}.rs"] + [
-            f"{TESTS_REL}/{os.path.relpath(str(p), os.path.join(REPO, TESTS_REL))}"
-            for p in subs]
-        dirty = git("diff", "--quiet", "HEAD", "--", *paths)
-        if dirty.returncode:
-            fail(f"sample stem {stem}: {paths} differ from HEAD. The rehearsal "
-                 "declares HEAD as the SOURCE REF, so commit the sources first.")
+        if os.path.exists(rs):
+            paths = [f"{TESTS_REL}/browser_{stem}.rs"] + [
+                f"{TESTS_REL}/{os.path.relpath(str(p), os.path.join(REPO, TESTS_REL))}"
+                for p in submodule_paths(rs)]
+            dirty = git("diff", "--quiet", ref, "--", *paths)
+            if dirty.returncode:
+                fail(f"sample stem {stem}: {paths} differ from the declared ref "
+                     f"{ref[:10]}. The rehearsal builds the with-source side "
+                     "from that ref, so the two sides would differ for a reason "
+                     "that has nothing to do with the mechanism.")
+            where = "in the tree and matching its ref"
+        else:
+            where = "absent from the tree (deleted), read from its ref"
         print(f"  sample {stem}: no retention header, "
-              f"{len(subs)} submodule file(s), matches HEAD")
+              f"{len(subs)} submodule file(s), {where} {ref[:10]}")
     if not carriers:
         fail("the sample contains no `#[path]` submodule carrier, so it does "
              "not rehearse the U10 shape at all -- which is the shape §2.4 says "
@@ -225,7 +309,12 @@ def wrong_ref_while_source_present(scratch, srcs):
     history whose blob differs from the working-tree copy."""
     for stem, src in zip(SAMPLE, srcs):
         path = f"{TESTS_REL}/{src}"
-        with open(os.path.join(REPO, TESTS_REL, src), "rb") as fh:
+        # THE SCRATCH's copy, which `materialise_source` has just written from
+        # the declared ref. Reading the real tree here worked only while the
+        # source was still in it; after the family deletion it raises, and the
+        # probe that raises is the one whose whole job is to fire on the last
+        # day a wrong sha is still detectable.
+        with open(os.path.join(scratch, TESTS_REL, src), "rb") as fh:
             current = fh.read()
         older = None
         for candidate in git("log", "--format=%H", "--", path).stdout.split():
@@ -262,20 +351,30 @@ def wrong_ref_while_source_present(scratch, srcs):
 
 
 def rehearse(scratch, sha):
-    srcs = [declare(scratch, stem, sha) for stem in SAMPLE]
+    srcs = []
+    for stem in SAMPLE:
+        ref = sample_ref(stem)
+        src = declare(scratch, stem, ref)
+        # Build the WITH-SOURCE side explicitly instead of assuming the tree is
+        # it. Pre-deletion this rewrites bytes that are already there;
+        # post-deletion it is the only thing that puts them there at all.
+        wrote = materialise_source(scratch, src, ref)
+        print(f"  {stem}: declared SOURCE REF {ref[:10]}, "
+              f"with-source side materialised from it ({len(wrote)} file(s))")
+        srcs.append(src)
     rc_with, out_with = sweep(scratch)
     if rc_with != 0:
         fail(f"the WITH-SOURCE baseline did not exit 0 (rc={rc_with}); the "
              f"rehearsal cannot mean anything against a red baseline:\n"
              f"{out_with[-2000:]}")
         return None, None, srcs
-    got = validated_count(scratch)
+    got_with = validated_count(scratch)
     print(f"  declarations checked by content while the sources are present: "
-          f"{got} (expected {len(SAMPLE)})")
-    if got != len(SAMPLE):
+          f"{got_with} (must be at least the {len(SAMPLE)} sample stems)")
+    if got_with is None or got_with < len(SAMPLE):
         fail(f"with all {len(SAMPLE)} sample sources present and declared, the "
-             f"content-validation arm ran on {got} of them -- an arm that does "
-             "not run is not an arm")
+             f"content-validation arm ran on {got_with} of them -- an arm that "
+             "does not run is not an arm")
     print("\n6. wrong-content declaration, caught while the source is still here")
     wrong_ref_while_source_present(scratch, srcs)
     print()
@@ -288,13 +387,33 @@ def rehearse(scratch, sha):
     if rc_del != 0:
         fail(f"the DELETED-state sweep did not exit 0 (rc={rc_del}):\n"
              f"{out_del[-3000:]}")
-    got = validated_count(scratch)
-    print(f"  declarations checkable by content once the sources are gone: {got} "
-          "(expected 0 -- there is nothing left to compare against, which is why "
-          "the check has to happen before deletion day)")
-    if got != 0:
-        fail(f"the deleted state reported {got} content-validated declaration(s); "
-             "with the sources gone there is nothing to validate against")
+    got_del = validated_count(scratch)
+    # A DELTA, NOT AN ABSOLUTE, AND THAT IS THE POINT OF THE ARM.
+    #
+    # This required `got == 0`, which was right while the sample stems were the
+    # only case files declaring a ref: delete their sources and nothing in the
+    # family could be content-validated. 8C declared the whole family, so 126
+    # declarations validate before this step and the other 123 still validate
+    # after it -- the absolute zero now measures how much of the FAMILY is
+    # undeclared, which is not what this arm is about.
+    #
+    # What the arm is about survives exactly, as a difference: removing N
+    # sources must remove N declarations from the content-validated set, and no
+    # more. That is strictly stronger than the old form -- it fails if deleting
+    # one source silently stops validating another, which `got == 0` could not
+    # see -- and it does not change meaning when the family's declaration count
+    # changes again.
+    print(f"  declarations checkable by content once the {len(SAMPLE)} sample "
+          f"sources are gone: {got_del} (was {got_with}; the difference must be "
+          f"exactly the {len(SAMPLE)} deleted, because there is nothing left to "
+          "compare THEM against -- which is why the check has to happen before "
+          "deletion day)")
+    if got_del is None or got_with - got_del != len(SAMPLE):
+        fail(f"deleting {len(SAMPLE)} source(s) moved the content-validated "
+             f"count from {got_with} to {got_del}, a difference of "
+             f"{None if got_del is None else got_with - got_del} rather than "
+             f"{len(SAMPLE)}. With a source gone there is nothing to validate "
+             "its declaration against, and nothing else should have changed.")
     diff = list(difflib.unified_diff(
         out_with.split("\n"), out_del.split("\n"),
         "with-source", "source-deleted", lineterm="", n=1))

@@ -99,8 +99,17 @@ def _pretrim_lines(stem, toml_text):
         named = X._migrated_from(toml_text)
         if not named:
             return None
-        rs = os.path.join(TESTS, named)
-        return open(rs).read().split("\n") if os.path.exists(rs) else None
+        # BATCH 8C. This used to return None the moment the named source was
+        # absent, and `rework_text` turns None into "no resolvable source" and
+        # emits the case file WITHOUT its reworded citations. That is silent
+        # content drift, not a crash: the family deletion would have made 108
+        # generated files regenerate as `(:N)` while the tree carries
+        # `` `snippet` (:N) ``, which `classify_drift.py` reports as
+        # CONTENT_DRIFT with no hint that a deleted source is the cause.
+        # `source_bytes` reads the working tree first and the declared
+        # `SOURCE REF:` (or the family-deletion ref) only when it must, so the
+        # answer is the same bytes before and after the deletion.
+        return case_emit.source_bytes(named, toml_text=toml_text).split("\n")
     return case_emit.source_text_at(rs, quiet=True).split("\n")
 
 

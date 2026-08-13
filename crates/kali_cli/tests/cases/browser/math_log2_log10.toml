@@ -1,4 +1,5 @@
 # Migrated from tests/browser_math_log2_log10.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment): the source has NO Rust comments. Checked
 # with `grep -n '//'`, whose single hit is line 11's `// kali-tree-shake:

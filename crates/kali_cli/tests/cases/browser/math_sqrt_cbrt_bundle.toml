@@ -4,6 +4,7 @@
 # a genuinely new one will not be on this list and will fail the gate.
 # EXTRA-OK: '0' -- the source's `.contains('0')` CHAR literal, carried per rule 1; `check_extra_claims.py` accepts it because the character does occur in the .rs, but the audit's own extractor never saw it
 # Migrated from tests/browser_math_sqrt_cbrt_bundle.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_sqrt_cbrt_bundle.rs returns NOTHING -- the file has no Rust comments

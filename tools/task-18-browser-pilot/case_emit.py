@@ -29,6 +29,113 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 
+# THE COMMIT BATCH 8C's FAMILY DELETION REMOVED THE SOURCES FROM.
+#
+# `citation_sweep.sh` gave a case file a `SOURCE REF:` so its `:N` citations
+# still resolve once the `.rs` is gone. The GENERATORS need the same thing and
+# for a stronger reason: `source_text` raises rather than guessing when a source
+# is missing, so without this every generator that reads a deleted source would
+# crash, and `classify_drift.py` counts a crashing generator as a gate failure,
+# not a skip. Six of the sixteen read at least one source 8C deletes.
+#
+# This names the deletion commit's PARENT -- the last commit where all 139
+# `browser_*.rs` are still present -- which is the same rule `_ref_carries`
+# enforces for a case file's own declaration.
+FAMILY_DELETION_REF = "28df9ba02962143a1fc1735e418b2f67caee8fc6"
+
+_BLOB_CACHE = {}
+
+
+def _blob_at(ref, name, *, missing_ok=False):
+    """`crates/kali_cli/tests/<name>` at `<ref>`, or a hard stop.
+
+    A hard stop rather than an empty string on purpose: `citation_tiers`
+    learned this the expensive way (its N5 fix round), where an unreadable ref
+    was written into the blob unchecked and the instrument carried on printing
+    silently wrong figures. A generator that cannot read its source must not
+    emit a case file built from nothing.
+
+    THE TWO FAILURES HAVE DIFFERENT REMEDIES AND MUST NOT SHARE A MESSAGE --
+    the same split `citation_tiers._ref_carries` records. An UNREACHABLE ref is
+    a shallow clone and the fix is to fetch history; a ref that resolves but
+    does not carry the path means the file was already gone at that commit,
+    which for this family means an EARLIER batch deleted it, and telling that
+    caller to re-fetch sends it to re-derive a ref that was right all along.
+    `missing_ok` returns None for the second case so callers can act on it.
+    """
+    import subprocess
+    key = (ref, name)
+    if key not in _BLOB_CACHE:
+        if subprocess.run(["git", "rev-parse", "-q", "--verify", f"{ref}^{{commit}}"],
+                          cwd=REPO, capture_output=True).returncode:
+            raise AssertionError(
+                f"`{ref}` is not reachable in this repository. This instrument "
+                "needs FULL history: in CI, actions/checkout must be given "
+                "`fetch-depth: 0` (a default checkout is shallow and cannot "
+                "resolve it); locally, git fetch --unshallow.")
+        got = subprocess.run(
+            ["git", "cat-file", "blob", f"{ref}:crates/kali_cli/tests/{name}"],
+            cwd=REPO, capture_output=True, text=True)
+        _BLOB_CACHE[key] = got.stdout if got.returncode == 0 else None
+    blob = _BLOB_CACHE[key]
+    if blob is None and not missing_ok:
+        raise AssertionError(
+            f"{ref} resolves but does not contain crates/kali_cli/tests/{name}. "
+            "The ref must name a commit where the source still EXISTS -- a "
+            "deletion commit's PARENT, not the deletion commit.")
+    return blob
+
+
+def source_bytes(name, *, toml_text=None):
+    """`crates/kali_cli/tests/<name>`, from the working tree or from history.
+
+    ONE resolver for "which bytes is this `.rs`", reachable from both the
+    generation path (`source_text`) and the reword path
+    (`reword_ungated_citations._pretrim_lines`). Those two already had a
+    near-miss of exactly this kind -- see `source_text_at`'s docstring, where
+    two resolvers keyed on different lines and each looked locally correct --
+    so the second one delegates here rather than growing its own git call.
+
+    A case file's OWN `SOURCE REF:` wins when it has one, because sources
+    deleted by earlier batches carry different refs (two distinct shas are in
+    the tree already) and the constant would be the wrong answer for them.
+    """
+    p = os.path.join(TESTS, name)
+    if os.path.exists(p):
+        return open(p).read()
+    declared = None
+    if toml_text is not None:
+        m = re.search(r"SOURCE REF:\s*([0-9a-f]{40})", toml_text)
+        declared = m.group(1) if m else None
+    return _blob_at(declared or FAMILY_DELETION_REF, name)
+
+
+def deleted_by_family_deletion(name):
+    """Was `browser_<...>.rs` removed by batch 8C's family deletion?
+
+    DERIVED, NOT LISTED (ruling 18 #1). At `FAMILY_DELETION_REF` every retained
+    target carries a `//!` header -- U3 requires one of every retention, and 8C's
+    first commit added the last missing one to
+    `browser_harness_failing_test_propagates_failure.rs` -- while every migrated
+    target has none. So "headerless at the ref" IS the delete set, and it stays
+    the delete set forever because the ref is immutable. No manifest to fall out
+    of date, and the answer does not change when the working tree does.
+
+    8C verified this against the independent three-fact classifier (`//!`
+    header x same-stem case file x `Migrated from` claimant) over all 139
+    sources at that commit: both sides returned the same 118 names, with an
+    empty symmetric difference.
+
+    A source ABSENT at the ref was deleted by an EARLIER batch (the pilot and
+    batch 2 removed 23 such sources, whose case files carry their own, different
+    refs). That is not 8C's deletion, so the answer is False and their
+    declarations are left exactly as they are.
+    """
+    blob = _blob_at(FAMILY_DELETION_REF, name, missing_ok=True)
+    if blob is None:
+        return False
+    return not blob.startswith("//!")
+
 
 def source_text(name, *, quiet=False):
     """The source a case file is generated FROM -- not always the working tree.
@@ -71,10 +178,22 @@ def source_text(name, *, quiet=False):
     """
     path = os.path.join(TESTS, f"browser_{name}.rs")
     if not os.path.exists(path):
-        raise AssertionError(
-            f"browser_{name}.rs does not exist. If its source was deleted, this "
-            f"generator must be pointed at the historical blob (SOURCE REF) "
-            f"explicitly; it will not guess.")
+        # BATCH 8C: the family deletion is what makes this arm reachable, and
+        # it is now told where to look instead of refusing. The guard below is
+        # the "it will not guess" half, kept: a source absent from the tree AND
+        # carrying a `//!` header at the ref was a RETENTION, so its absence is
+        # not the family deletion and this function has no business inventing a
+        # source for it.
+        if not deleted_by_family_deletion(f"browser_{name}.rs"):
+            raise AssertionError(
+                f"browser_{name}.rs is absent from the tree but carries a `//!` "
+                f"header at {FAMILY_DELETION_REF}, so it was RETAINED there and "
+                "the family deletion is not why it is missing. Refusing to "
+                "guess which blob this generator meant.")
+        if not quiet:
+            print(f"    reading browser_{name}.rs at the family-deletion ref "
+                  f"{FAMILY_DELETION_REF}")
+        return _blob_at(FAMILY_DELETION_REF, f"browser_{name}.rs")
     return source_text_at(path, quiet=quiet)
 
 
@@ -370,6 +489,74 @@ def emit(header_lines, matrix, source, cases):
     return "\n".join(out).rstrip() + "\n"
 
 
+MIGRATED_FROM_LINE = re.compile(
+    r"^# Migrated from tests/(browser_[A-Za-z0-9_]+\.rs)")
+
+
+def declare_source_ref(text):
+    """Fold the `SOURCE REF:` declaration into a rendered case file's header.
+
+    WHY THIS IS IN `write` AND NOT IN SIXTEEN GENERATORS: the same reason the
+    citation reword is (see `write`). Every generator writes through here, so
+    one edit gives all 108 generated case files whose source the family deletion
+    removes a declaration that `citation_sweep.sh` can resolve afterwards --
+    and none of the 12 whose source is RETAINED gets one, which matters, because
+    a retained U4 carrier's citations are numbered against its `PRE-TRIM REF:`
+    blob and an 8C ref would be content-checked against the wrong side.
+
+    IDEMPOTENT, and a disagreement is an ERROR rather than a silent overwrite
+    (ruling 18 #3): re-rendering a file that already carries the right ref is a
+    no-op, and one carrying a DIFFERENT ref raises instead of being rewritten,
+    because that is either an earlier batch's deletion (a different, correct
+    sha) or a mistake, and this function cannot tell which.
+
+    The declaration goes after the whole `Migrated from` PARAGRAPH, not after
+    its first line. Three of these sentences wrap onto continuation lines
+    (`runtime_summary_fallback_*` names its two `#[path]` submodules), and
+    splitting a sentence around the ref would leave prose the next reader has to
+    reassemble. `_declared_ref` only requires it to be somewhere in the leading
+    `#` block.
+    """
+    lines = text.split("\n")
+    idx = next((i for i, l in enumerate(lines) if MIGRATED_FROM_LINE.match(l)),
+               None)
+    if idx is None:
+        return text
+    name = MIGRATED_FROM_LINE.match(lines[idx]).group(1)
+
+    header_end = next((i for i, l in enumerate(lines)
+                       if l.strip() and not l.startswith("#")), len(lines))
+    header = "\n".join(lines[:header_end])
+    present = re.findall(r"SOURCE REF:\s*(\S+)", header)
+    if len(present) > 1:
+        raise AssertionError(
+            f"{name}: {len(present)} `SOURCE REF:` lines in one header "
+            f"({', '.join(present)}); keep one.")
+
+    if not deleted_by_family_deletion(name):
+        if present and present[0] == FAMILY_DELETION_REF:
+            raise AssertionError(
+                f"{name} is RETAINED at {FAMILY_DELETION_REF} (it carries a "
+                "`//!` header there), so its case file must not declare the "
+                "family-deletion ref. Its citations resolve against the "
+                "working tree, or against its own `PRE-TRIM REF:`.")
+        return text
+    if present:
+        if present[0] != FAMILY_DELETION_REF:
+            raise AssertionError(
+                f"{name}: header declares SOURCE REF {present[0]} but the "
+                f"family deletion ref is {FAMILY_DELETION_REF}. Refusing to "
+                "overwrite -- one of the two is wrong and this cannot tell "
+                "which.")
+        return text
+
+    end = idx + 1
+    while end < len(lines) and lines[end].startswith("#") and lines[end].lstrip("#").strip():
+        end += 1
+    lines.insert(end, f"#   SOURCE REF: {FAMILY_DELETION_REF}")
+    return "\n".join(lines)
+
+
 def write(path, text):
     """Render-to-disk, WITH the citation reword folded in.
 
@@ -420,6 +607,10 @@ def write(path, text):
     stem = os.path.basename(path)
     if stem.endswith(".toml"):
         stem = stem[:-5]
+    # BEFORE the reword, not after: `_pretrim_lines` resolves a deleted source
+    # through the case file's own declaration, so the declaration has to be in
+    # the text by the time it reads it.
+    text = declare_source_ref(text)
     text, done, failed = rework_text(stem, text)
     stale = [f for f in failed if "STALE" in f]
     if stale:

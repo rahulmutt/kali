@@ -19,6 +19,7 @@
 # EXTRA-OK: 'smoke_frozen.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
 # EXTRA-OK: 'smoke_frozen.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
 # Migrated from tests/browser_object_entries_harness.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment verbatim): this source carries exactly ONE
 # Rust comment block (:160), attached to the single assert helper. Every

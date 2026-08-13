@@ -32,6 +32,7 @@
 # EXTRA-OK: 'object_keys_break_continue_iteration.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
 # EXTRA-OK: '' -- the EXACT-EMPTINESS claim mirrored from the source's own `(&output.stdout).is_empty()` on the break/continue harness. `check_extra_claims.py` accepts an extra claim that appears verbatim in the `.rs`, but guards that arm with `e and ...`, so the empty string can never take it and must be declared instead. Its sibling object_keys_integer_like_iteration.toml needs no such declaration only because THAT source also spells `assert_eq!(json["stderr"], "")`, which puts the empty string among the audit's extracted claims; this source makes no stderr claim at all
 # Migrated from tests/browser_object_keys_iteration.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # U10 -- THIS SOURCE IS A `#[path]` SUBMODULE CARRIER, AND ITS INVENTORY IS THE WHOLE
 # POINT OF THE RULE. The carrier declares two submodules

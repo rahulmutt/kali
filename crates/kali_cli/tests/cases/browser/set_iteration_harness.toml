@@ -1,4 +1,5 @@
 # Migrated from tests/browser_set_iteration_harness.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
 # tests/browser_set_iteration_harness.rs has 2 Rust comment blocks, listed with their

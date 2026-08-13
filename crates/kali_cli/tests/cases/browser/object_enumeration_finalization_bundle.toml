@@ -1,4 +1,5 @@
 # Migrated from tests/browser_object_enumeration_finalization_bundle.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment verbatim): this source carries exactly ONE
 # Rust comment block (:319), attached to its single assert helper, which

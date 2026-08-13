@@ -7,6 +7,7 @@
 # EXTRA-OK: 'main_test_entry.js' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
 # EXTRA-OK: 'main_test_entry.ts' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
 # Migrated from tests/browser_math_hypot_frozen_aliases.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment): `browser_math_hypot_frozen_aliases.rs` contains NO Rust
 # comments. Checked with `grep -nE '//'`: the single hit is the

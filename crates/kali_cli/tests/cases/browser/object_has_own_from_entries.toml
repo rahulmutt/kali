@@ -18,6 +18,7 @@
 # EXTRA-OK: 'app_frozen/app_frozen.meta.json' -- the U5-renamed bundle output path; `kali build --bundle` names its output directory after the input STEM, so the renamed entry moves the emitted meta file with it (U5's own requirement that the `file_json` path tracks the rename)
 # EXTRA-OK: 'app_frozen' -- the U5-renamed bundle directory, passed as the `browser_bundle_harness` step's `entry` -- same reason as the meta path above
 # Migrated from tests/browser_object_has_own_from_entries.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_object_has_own_from_entries.rs returns NOTHING -- the file has no Rust comment lines at

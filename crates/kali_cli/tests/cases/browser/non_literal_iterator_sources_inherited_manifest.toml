@@ -28,6 +28,7 @@
 # EXTRA-OK: 'set_constructor.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
 # EXTRA-OK: 'set_constructor.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
 # Migrated from tests/browser_non_literal_iterator_sources.rs -- the MANIFEST-INHERITED half.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # U10 -- SUBMODULE CARRIER, and the trap it exists for.
 # `grep -c '#\[test\]'` on tests/browser_non_literal_iterator_sources.rs returns 0 and would

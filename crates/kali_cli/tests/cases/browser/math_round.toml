@@ -14,6 +14,7 @@
 # (The exact `json.stdout` pin needs no EXTRA-OK: the source spells that same string
 # literally, as `.contains("2\n")`, so it is already one of the source's own extracted
 # claims.)
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_round.rs returns NOTHING -- the file has no Rust comments

@@ -1,6 +1,7 @@
 # Migrated from tests/browser_runtime_summary_fallback_js_input.rs AND its two `#[path]` submodules
 # (tests/browser_runtime_summary_fallback_js_input/run.rs, tests/browser_runtime_summary_fallback_js_input/test.rs). U10: the sibling directory is part of
 # the unit, so all of it lands in this one file.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 / U6 -- SOURCE COMMENT PROSE, LISTED BEFORE ANY TOML WAS WRITTEN.
 # tests/browser_runtime_summary_fallback_js_input.rs carries 1 `///` doc comment block(s) and NO bare

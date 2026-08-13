@@ -6,6 +6,7 @@
 # same live-captured pin.
 # EXTRA-OK: '3\n1\n3\n-1\n-2\n31\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 # Migrated from tests/browser_math_fully_bracketed_root_core_suite.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment verbatim): `browser_math_fully_bracketed_root_core_suite.rs` has NO Rust
 # comments. Verified with `grep -nE '//' browser_math_fully_bracketed_root_core_suite.rs`, whose single hit is

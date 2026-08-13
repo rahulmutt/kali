@@ -3,6 +3,7 @@
 # '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
 # shake:` markers, which are program text, not Rust comments), so there is no
 # prose to move verbatim into `rationale` here (rule 12).
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # MATRIX ARITHMETIC (rule 7): 8 bundle fns
 # (`assert_browser_bundle_bracketed_global_this_math_core_suite`, ext(4) x

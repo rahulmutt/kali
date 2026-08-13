@@ -8,6 +8,7 @@
 # EXTRA-OK: 'program.ts' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
 # Migrated from tests/browser_math_hypot_global_this_root.rs -- all 14 #[test]
 # fns, nothing retained.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_hypot_global_this_root.rs returns NOTHING -- the file has no Rust comments

@@ -15,6 +15,7 @@
 # EXTRA-OK: 'app_global.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
 # EXTRA-OK: 'app_global.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
 # Migrated from tests/browser_object_entries_iteration.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
 # RULE 12 (carry every source comment verbatim): this source carries THREE Rust
 # comment blocks (:175, :258,
