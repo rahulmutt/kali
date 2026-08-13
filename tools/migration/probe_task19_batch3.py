@@ -407,8 +407,9 @@ def section5(arm_a_misses):
         literal-coverage tool, so it can never fire on one. Not a blind spot: a
         gate that says what it does not cover is not blind, and `exit` is what
         covers it.
-      * an empty-`stdout` poison -- the empty string is not a literal and
-        `fidelity.BORING` excludes it by name.
+      * a whitespace-only `stdout` poison -- `""` (12 cases) and `"\n"` (one)
+        have no alphanumeric character to change, and both are in
+        `fidelity.BORING`, so neither literal extractor has anything to find.
     """
     print("\nSECTION 5 -- every arm-A miss classified")
     classes = {}
@@ -417,7 +418,9 @@ def section5(arm_a_misses):
         if key == "exit":
             klass = "exit: out of the audit's scope by design"
         elif key == "stdout(empty)":
-            klass = "empty stdout: not a literal, BORING-excluded"
+            klass = ("whitespace-only stdout pin (`\"\"` or `\"\\n\"`): no "
+                     "alphanumeric character to poison, and the value is "
+                     "BORING-excluded from both extractors")
         else:
             toml_path = os.path.join(CASES, family, toml + ".toml")
             original = open(toml_path).read()
