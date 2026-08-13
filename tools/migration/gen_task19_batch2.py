@@ -157,6 +157,24 @@ def _crate_items(crate):
     if crate not in _CRATE_ITEMS:
         items = {}
         root = os.path.join(REPO, crate)
+        # FLATNESS IS ASSERTED, NOT ASSUMED. This scan is one directory deep, so
+        # a helper in a submodule directory would be invisible to it -- and an
+        # invisible helper is an UNCARRIED doc that `doc_chain` would report as
+        # a complete chain, which is the exact failure this gate exists to make
+        # impossible. True of `kali_common/src` today for non-test code; the day
+        # it stops being true, this raises instead of quietly under-carrying.
+        nested = [os.path.join(d, f)
+                  for d, _subdirs, files in os.walk(root) if d != root
+                  for f in files
+                  if f.endswith(".rs") and not f.endswith("_tests.rs")
+                  and "_tests" not in os.path.relpath(d, root)]
+        if nested:
+            raise AssertionError(
+                f"{crate} is no longer flat for non-test code: "
+                f"{[os.path.relpath(p, root) for p in sorted(nested)]}. `doc_chain` "
+                "scans one directory deep, so a documented helper in there would be "
+                "walked past and reported as a complete chain. Make the scan recursive "
+                "before relying on it again.")
         for name in sorted(os.listdir(root)):
             if not name.endswith(".rs") or name.endswith("_tests.rs"):
                 continue

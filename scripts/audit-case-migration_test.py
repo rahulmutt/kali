@@ -2008,6 +2008,51 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("corresponds to no", out)
 
+    def test_door5_a_contains_inside_a_block_comment_permits_nothing(self):
+        # THE FIFTH DOOR, found in re-review. The first fix wrote a
+        # `//`-only masker beside the file's existing string-aware
+        # `_mask_comments_outside_strings`, which handles `/* */` too; the
+        # narrower one was deleted and the existing one reused.
+        #
+        # DORMANT IS NOT SAFE HERE, and that is the point of pinning it: there
+        # is no genuine block comment in `crates/kali_cli/tests/*.rs` today, so
+        # ruling 14's corpus differential stays green whether this is open or
+        # shut. A differential cannot see a permission nobody has exploited.
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    /* assert!(json["stdout"].as_str().expect("s").contains("marker ok")); */\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "marker ok", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_a_block_comment_open_inside_a_fixture_does_not_swallow_the_source(self):
+        # The order this arm masks in is load-bearing: raw strings first, then
+        # comments. This corpus really does contain `"./*": "./src/*.js"` inside
+        # a raw string (`package_corpus.rs`), and masking comments first would
+        # blank from that `/*` to the next `*/` -- taking the real `.contains`
+        # with it and turning a legitimate pin into a refusal.
+        source = (
+            'fn fixture() -> &\'static str {\n'
+            '    r#"{ "exports": { "./*": "./src/*.js" } }"#\n'
+            '}\n'
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    assert!(json["stdout"].as_str().expect("s").contains("marker ok"));\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "marker ok", at_least = 1 }]\n')})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+
     def test_the_two_shipped_shapes_still_resolve(self):
         # The known positive for the RECEIVER resolver, in both spellings the
         # shipped pairs use: a direct `json["k"].as_str().contains(..)` chain

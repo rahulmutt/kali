@@ -600,43 +600,6 @@ def resolve_path_mods(old_path: Path, source: str) -> list[Path]:
 _RAW_STRING = re.compile(r'(?<![A-Za-z0-9_])r(#*)"(?:.*?)"\1', re.DOTALL)
 
 
-def _blank_line_comments(source: str) -> str:
-    """`source` with every `//` line comment's text replaced by spaces.
-
-    Needed only on the ACCEPTANCE side of the count-claim arm, and the
-    asymmetry is ruling 14's own lesson on a different arm: in the FORWARD
-    direction a loose extraction creates a DEMAND (an extra literal the case
-    file must carry), which is safe; in the reverse direction it creates a
-    PERMISSION, and a commented-out `.contains` must not permit anything. The
-    scan is quote-aware so a `//` inside a string literal -- a URL, a JS
-    comment in a fixture -- is not mistaken for a comment.
-    """
-    out = list(source)
-    i, n = 0, len(source)
-    while i < n:
-        c = source[i]
-        if c == '"':
-            i += 1
-            while i < n:
-                if source[i] == "\\":
-                    i += 2
-                    continue
-                if source[i] == '"':
-                    break
-                i += 1
-            i += 1
-            continue
-        if c == "/" and i + 1 < n and source[i + 1] == "/":
-            j = source.find("\n", i)
-            j = n if j == -1 else j
-            for k in range(i, j):
-                out[k] = " "
-            i = j
-            continue
-        i += 1
-    return "".join(out)
-
-
 _LET_BINDING = re.compile(
     r"\blet\s+(?:mut\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?::[^=;]*)?=\s*([^;]+);", re.S)
 _LEADING_INDEX = re.compile(r'\A\s*\[\s*(?:"([^"]*)"|\'([^\']*)\'|(\d+))\s*\]')
@@ -723,15 +686,33 @@ def json_leaf_contains_sites(source: str) -> set:
     clause 4 reads "plain `.contains(x)` against a JSON STRING LEAF", and its
     entire content is the correspondence between the source's json leaf and the
     path the case file pins. Accepting any `.contains` anywhere in the file
-    instead let four things through that the reviewer demonstrated and that the
-    tests below now pin: a commented-out `.contains`, a `.contains(` inside a
-    JS fixture raw string, a `.contains` on RAW STDOUT pinned as a `json_count`
-    at some json path, and a `.contains` against json `stdout` pinned at
-    `errors.0.message`. The last two are refused by construction here, because
-    the path has to match; the first two by blanking comments and raw strings
-    before the scan.
+    instead let FIVE things through, each demonstrated on a running gate rather
+    than argued, and each pinned as a refusal test below:
+
+      1. a `.contains` inside a `//` line comment;
+      2. a `.contains(` inside a JS fixture raw string;
+      3. a `.contains` on RAW STDOUT, pinned as a `json_count` at a json path;
+      4. a `.contains` on ONE json leaf, pinned at ANOTHER path;
+      5. a `.contains` inside a `/* ... */` BLOCK comment.
+
+    3 and 4 are refused by construction, because the path has to match. 1, 2 and
+    5 are refused by what this line reads: raw strings blanked, then comments
+    masked -- and the masker is `_mask_comments_outside_strings`, the one this
+    file already had, which is string-aware and handles BOTH comment forms.
+
+    THE FIRST FIX HERE WROTE A NARROWER MASKER BESIDE IT, handling only `//`,
+    and its docstring said the job was done. That left door 5 open in the very
+    round that existed to close this class. Door 5 is dormant -- there is no
+    genuine block comment in `crates/kali_cli/tests/*.rs` today -- and dormancy
+    is exactly why it had to be closed on sight: ruling 14's corpus differential
+    cannot see a permission nobody has exploited yet, so a green sweep is not
+    evidence about this arm.
+
+    Order is load-bearing: raw strings first, so a `/*` inside a fixture body
+    (`"./*": "./src/*.js"` in this corpus) is already blank when the masker
+    runs and cannot swallow the file from there to the next `*/`.
     """
-    text = _blank_line_comments(_blank_raw_strings(source))
+    text = _mask_comments_outside_strings(_blank_raw_strings(source))
     env: dict[str, str] = {}
     for m in _LET_BINDING.finditer(text):
         path = _json_path_of(m.group(2), env)
