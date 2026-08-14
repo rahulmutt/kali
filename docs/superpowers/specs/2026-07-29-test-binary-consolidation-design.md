@@ -637,3 +637,142 @@ lines, not disk.
 | Loss of per-target `cargo test --test X` granularity | Test ids are path-prefixed (§5.1), so `cargo test -- switch/` replaces `--test switch_fail_closed` |
 | Misjudging which tests must stay fat, by counting `kali_runtime::` references instead of distinct symbols | §1.1 enumerates the three files by the specific symbol each needs; the moved set is fixed by §4.1. This error was made and corrected once while drafting this spec — `runtime_smoke` looks like the worst offender at 200 references and is in fact fully migratable |
 | `[matrix]` pressure to express non-uniform variation | Axes substitute uniformly only; output-shape and other assertion-changing variation uses sibling `[[case]]` blocks (§5.6) |
+
+## 9) Outcome as built
+
+Every figure below was measured in Task 20 from the command shown, on a cold
+target dir (`cargo clean`, then `cargo test -p kali_cli --no-run`, 2m37s wall on
+24 cores). The raw output of each is in
+`.superpowers/sdd/2026-07-29-test-binary-consolidation/task-20-report.md`.
+
+| | predicted | actual | command |
+| --- | --- | ---: | --- |
+| `debug/deps` | ~5.9 GB (§7) | **5.2 GB** | `du -sh .cache/cargo-target/debug/deps` |
+| whole tree | ~8 GB (§7) | **7.2 GB** | `du -sh .cache/cargo-target` |
+| `kali_cli` test targets | ~9 (§7) | **68** hand-written `tests/*.rs` (incl. `cases`) + 2 unit-test binaries | `ls crates/kali_cli/tests/*.rs \| wc -l` |
+| case files | — | **287** | `find crates/kali_cli/tests/cases -name '*.toml' \| wc -l` |
+| expanded trials | — | **5,587** (5,585 run, 2 `ignore = true`) | `cargo test -p kali_cli --test cases -- --list \| grep -c ': test$'` |
+| test lines deleted | ~200k | **85,409** deleted / 3,823 added in `.rs`, 112,347 added in `.toml` | `git diff --numstat --no-renames main -- crates/kali_cli/tests` |
+
+Targets over 100 MB in `debug/deps`, all four of them:
+
+```
+545 MB  kali-09e739f15cd9e23d          the `kali` binary itself
+539 MB  inprocess-ccaa0ce7a6d76999     the one consolidated in-process target (§4.4)
+532 MB  kali_cli-4c03baab1f9515dc      unittests src/lib.rs
+504 MB  kali-e863de0af5af1a1b          unittests src/bin/kali.rs
+```
+
+`debug/deps` accounts fully as: those four at 2.07 GB, the other 67 integration
+test binaries at 0.87 GB (mean 13.3 MB, max 86.6 MB `runtime_smoke`, min 6.7 MB,
+`cases` itself 35.0 MB), 11 proc-macro `.so` at 0.10 GB, 297 rlibs at 1.81 GB,
+297 rmetas at 0.33 GB. The remaining ~2.0 GB of the tree is `debug/build`,
+`debug/incremental` and the top-level artifacts.
+
+### Where the predictions held, and where they did not
+
+**Disk held.** 5.2 GB against §7's ~5.9 GB and 7.2 GB against ~8 GB are both
+inside 12%. *(Note for anyone re-reading the plan: the plan's Task 20 quotes the
+deps prediction as "~3.9 GB". That is a misquote of this section, which says
+~5.9 GB. Measured against the plan's figure the miss would look like +33%;
+against the spec's own figure it is −12%.)*
+
+**"~9 test targets" missed by 7×, and the reason is a scoping error in §7, not a
+shortfall in the migration.** 68 `tests/*.rs` remain. §5.11 named ~8 targets that
+would stay hand-written and §7 turned that into the total; but §5.11's list only
+ever covered the targets that stay *because of what they do*. It never accounted
+for the browser family (**21** `browser_*` targets, mostly retained by the
+batch-8C classification), the six `clbg_*` benchmark-runtime targets, the five
+`late_compat_*` targets, or the U4 trim-and-keep sources whose migratable
+`#[test]` fns moved out while the rest stayed. The 42 sources Task 19 deleted are
+exactly the sources that were *fully* migrated and carried no retention; the
+other 51 on-disk sources were never claimed by a case file at all. Both facts are
+reproducible: `python3 tools/migration/t19_deletion_classify.py --ref 8ba0b64593`
+prints `delete=42 retain=17 not_migrated=51 total=110`.
+
+**"~200k lines deleted" missed by 2.4×, and the ~200k figure was never the
+deletable population.** `crates/kali_cli/tests` held 203,638 lines of `.rs`
+across 387 files at `main`; it holds 122,052 across 110 files now. So 200k was
+the *size of the directory*, not the size of what could be deleted. What actually
+happened: 85,409 `.rs` lines deleted, 3,823 added, and 112,347 lines of `.toml`
+added — the corpus grew by 30,761 lines net. Case files are more verbose per
+assertion than the Rust they replace, because they carry the `Migrated from`
+provenance headers, the `rationale` fields §5.5 asked for, and inline `[source]`
+fixtures that the Rust sources shared through helpers. **Phase 2's win is
+authoring cost and blast radius, not line count**: 5,587 trials now compile
+nothing, and `runtime_smoke` alone — a §5.11 retention — is 73,815 of the 122,052
+lines that remain.
+
+### Deviations from the design
+
+1. **Families.** §5.1 predicted `string/ array/ math/ object/ soundness/ switch/
+   browser/ package/`. Built: `array/ browser/ math/ misc/ nullish/ object/
+   runtime/ soundness/ string/ switch/`. No `package/` family exists (the package
+   corpus stayed hand-written per §5.11); `misc/`, `nullish/` and `runtime/` were
+   added during migration.
+2. **`cases` is 35 MB, not ~10 MB** (§5.8's estimate). It links `kali_case_runner`,
+   `kali_runtime_contract`, `tungstenite`, `tar`, `flate2` and `base64` through
+   `kali_cli`'s dev-dependencies. That makes it the second-largest of the 67
+   non-fat test binaries, behind `runtime_smoke` at 86.6 MB; nothing here
+   depends on the estimate.
+3. **`inprocess` is 539 MB, not ~450 MB** (§5.11). The floor moved up ~20%; §7's
+   conclusion that it is the floor is unchanged.
+4. **The `Case` / `deny_unknown_fields` rough edge was resolved differently than
+   the plan's fallback.** `model.rs` routes the inline-step shorthand through a
+   `toml::Table` residual and a hand-written `finalize_step`, because
+   `#[serde(flatten)]` silently ignores `deny_unknown_fields` on the *flattened*
+   type as well (serde#1600), not merely on the container. `finalize_step` also
+   grew a rule the design did not anticipate: `kind` defaults to `cli` only when
+   no kind-specific field is set, so a forgotten `kind =
+   "browser_bundle_harness"` is an error rather than a silently-ignored
+   `entry`/`body`.
+5. **Twelve assertion keys, not the eight of an earlier draft.** §5.4 already says
+   twelve; `stdout_count`, `stderr`, `json_null` and `json_count` were each added
+   during migration because a real source assertion had no expressible form
+   without them. Their doc comments in `model.rs` record which one.
+
+### What the audit gate (§6.2) does and does not guarantee
+
+Stated here because it is the control the whole migration leaned on, and it is
+weaker than "the migration is faithful". `scripts/audit-case-migration.py`
+extracts six claim kinds from the `.rs` source and requires each literal to
+appear as a **substring** of the case files' *assertion-bearing strings* — the
+whitelisted step keys plus `[constants]` values that expansion actually reaches.
+Prose does not satisfy a claim: a literal present only in a `rationale`, a `#`
+comment, a case `name` or a `[source]` body fails the audit, and so does an
+unreferenced `[constants]` entry.
+
+But the check is one-directional and surface-blind. Measured in Task 20 against
+the shipped script, with a source asserting `assert_eq!(stdout, "1\n")`:
+
+| the case file wrote | audit |
+| --- | --- |
+| `stderr_contains = ["1\n"]` | **OK** — the surface is not checked |
+| `stdout_contains = ["1\n"]` | **OK** — the strength is not checked |
+| `stdout_contains = ["1\n2\n3\n"]` | **OK** — the literal is *contained*, not *demanded* |
+| the literal only in `rationale` | **FAILED** |
+
+The only reverse-direction check is on `stdout_count`/`json_count`, where a case
+file's claim must correspond to a real `.matches(...).count()` in the source,
+needle and bound. Task 19 batch 5 measured this hole mechanically on its own
+family and left it open; a green audit is a floor on fidelity, not a proof of it.
+
+### Verification at the end of Task 20
+
+```
+bash scripts/test-gate.sh                                 GATE OK: 0 failing tests
+bash scripts/test-gate.sh --gates-only                    14/14, MIGRATION GATES OK
+bash scripts/check-determinism.sh                         exit 0 (but see below)
+cargo test -p kali_cli --test cases                       5585 passed; 0 failed; 2 ignored
+cargo test -p kali_cli --test browser_cdp_smoke -- --ignored   5 passed; 0 failed
+```
+
+`scripts/check-determinism.sh` exits 0 while running **zero** tests: each of its
+20 `--exact` filters names an unqualified fn (`build_artifacts_are_deterministic_
+across_repeated_invocations`), but every one of those fns lives in a
+`runtime_smoke/` submodule and libtest names it `build::build_artifacts_...`, so
+each invocation reports `0 passed; 1829 filtered out`. This is **pre-existing on
+`main`** — `runtime_smoke.rs`'s eight `#[path]` submodules predate this branch
+and the script is byte-identical to `main`'s — and is recorded rather than fixed
+because `scripts/check-determinism.sh` is under this project's do-not-modify
+constraint. It should be fixed by whoever owns that constraint.

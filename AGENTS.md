@@ -96,6 +96,10 @@ Active evidence hardening (see `plan/03-evidence-and-release-gates.md`) requires
 - determinism checks for CLI outputs and generated artifacts
 - proof CI appropriate to the published boundary
 - Rust unit tests in sibling `*tests.rs` files, not inline `#[cfg(test)]` modules
+- Black-box CLI tests are `.toml` case files under `crates/kali_cli/tests/cases/`,
+  run by the single `cases` target — not new `tests/*.rs` integration targets.
+  See `crates/kali_cli/tests/cases/README.md`. Add a hand-written target only
+  when a test genuinely needs in-process runtime access or drives a real browser.
 - release workflows that publish multi-platform CLI binaries with SLSA3 provenance; keep `.github/workflows/release.yml` tag-triggered and provenance-bearing
 - current release matrix includes Linux x86_64, Linux arm64, and macOS arm64; macOS releases are arm64-only
 
