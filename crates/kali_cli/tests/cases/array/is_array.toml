@@ -14,8 +14,8 @@
 #     statically-known array, object, or primitive literal in the current
 #     phase")` on `json["errors"][0]["message"]` is strengthened here to the
 #     full, exact `json.errors.0.message` equality, confirmed by running the
-#     built `kali` binary against the fixture (`/workspace/.cache/cargo-
-#     target/debug/kali --output json check dynamic.js`). Equality is
+#     built `kali` binary against the fixture (`cargo run -q --bin kali --
+#     --output json check dynamic.js`, from the repository root). Equality is
 #     strictly stronger than the substring check it replaces.
 #
 # [source]: both old tests wrote to a file named `main.js`, but with

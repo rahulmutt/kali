@@ -176,8 +176,8 @@
 //! the ref declared above. The citations in THIS header are post-trim numbers,
 //! against this file as shipped.
 //!
-//! Full reasoning: .superpowers/sdd/2026-07-29-test-binary-consolidation/
-//! task-18-batch8a-report.md.
+//! Full reasoning: the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path.
 //!
 use std::{fs, process::Command};
 

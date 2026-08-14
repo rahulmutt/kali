@@ -110,8 +110,8 @@
 //! without adding the gate it was itself introducing.
 //!
 //! This file must NOT be deleted by the family-wide sweep after batch 8. See
-//! `.superpowers/sdd/2026-07-29-test-binary-consolidation/
-//! task-18-batch4-report.md` for the full account.
+//! the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path.
 use std::sync::OnceLock;
 
 fn math_floor_trunc_ceil_frozen_callable_invocations() -> String {

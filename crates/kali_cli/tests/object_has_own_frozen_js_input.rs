@@ -72,7 +72,7 @@
 //!
 //! Reproduce the column that decides the pair:
 //!
-//!   cd /workspace
+//!   cd "$(git rev-parse --show-toplevel)"
 //!   git show 8bb67edb9d0632fe42f3f41b7ff9050264409b4f:crates/kali_cli/tests/object_has_own_frozen_js_input.rs \
 //!     > /tmp/pre.rs
 //!   python3 tools/task-18-browser-pilot/migrated_complement.py /tmp/pre.rs \
@@ -80,8 +80,10 @@
 //!   python3 scripts/audit-case-migration.py /tmp/complement.rs \
 //!     crates/kali_cli/tests/cases/misc/object_has_own_frozen_js_input.toml
 //!
-//! Full reasoning: .superpowers/sdd/2026-07-29-test-binary-consolidation/
-//! task-19-batch2-report.md §16.
+//! The full reasoning is this header plus the reproduction above, both of
+//! which ship. The batch's working report lived in git-ignored scratch and
+//! is deliberately not cited: a citation that cannot resolve from a clean
+//! checkout is worse than no citation.
 
 use std::{fs, process::Command};
 

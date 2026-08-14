@@ -92,8 +92,8 @@
 //!
 //! Escalated per rule 3/4 rather than shipped with a false green or a
 //! fabricated claim. This file must NOT be deleted by the family-wide sweep
-//! after batch 8. See `.superpowers/sdd/2026-07-29-test-binary-consolidation/
-//! task-18-batch3-report.md` for the full account.
+//! after batch 8. See the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path.
 //!
 //! CONSEQUENCE FOR THE GATES (ruling 9), added retroactively by Task 18 batch 5:
 //! THIS FILE HAS NO RED-LIST, and that is the finding, not an omission. Ruling 9

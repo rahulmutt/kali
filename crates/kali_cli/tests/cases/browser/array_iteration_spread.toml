@@ -41,9 +41,10 @@
 # test, and audit-case-migration.py structurally cannot represent it (no CLI
 # invocation, no JSON file read). Kept hand-written, trimmed, in
 # `crates/kali_cli/tests/browser_array_iteration_spread.rs`; the other 20
-# #[test] fns (all of which DO invoke `kali`) migrate here. See
-# `/workspace/.superpowers/sdd/2026-07-29-test-binary-consolidation/task-18-pilot-report.md`
-# ("Finding 1"/"File 6") for the precedent this disposition follows.
+# #[test] fns (all of which DO invoke `kali`) migrate here. The precedent
+# this disposition follows is the Task 18 pilot's "Finding 1"/"File 6"; that
+# pilot report lived in git-ignored scratch and does not ship, so it is
+# described here rather than cited to a path a clean checkout cannot resolve.
 #
 # FILENAME RENAMING (rule 8): source reuses the bare filename `app.<ext>`
 # across all four fixture bodies (for_of / for_await / array_from /

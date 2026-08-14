@@ -33,7 +33,7 @@
 # below were captured by running a throwaway program linked against
 # `kali_common` that calls the same functions the original test calls, and
 # the exact expected stdout was verified for real by running the built
-# `kali` binary (`/workspace/.cache/cargo-target/debug/kali`) against the
+# `kali` binary (`cargo run -q --bin kali --`, from the repository root) against the
 # captured fixture -- not guessed. The `test_plain` case's original
 # assertions were `stdout.contains(&expected_stdout)` followed by a
 # separate `stdout.contains("ok 1")`; running the binary confirmed the

@@ -18,8 +18,8 @@
 #     parsed field. Both are strengthened here to real, verified equality
 #     on the parsed JSON envelope -- `json.errors.0.code = "E5506"` and the
 #     full `json.errors.0.message` text, confirmed by running the built
-#     `kali` binary against the fixture (`/workspace/.cache/cargo-
-#     target/debug/kali --output json check array-to-string-args.js`).
+#     `kali` binary against the fixture (`cargo run -q --bin kali --
+#     --output json check array-to-string-args.js`, from the repository root).
 #     Equality is strictly stronger than the substring checks it replaces.
 #     The raw-text substring `"code":"E5506"` (quotes included, exactly as
 #     the old test spelled it) is additionally kept as a literal

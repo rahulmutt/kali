@@ -20,8 +20,8 @@
 //! construction: that body is a byte-for-byte copy of this file's own
 //! `browser_harness_array_from_set_map_run_source()`). This is the same
 //! shape as the Task 18 pilot's `browser_math_pow_exponent_one.rs` finding
-//! (see `/workspace/.superpowers/sdd/2026-07-29-test-binary-consolidation/
-//! task-18-pilot-report.md`), except here EVERY `#[test]` fn (not a
+//! (see that pilot's own working report -- git-ignored scratch that does
+//! not ship, so it is not cited by path), except here EVERY `#[test]` fn (not a
 //! subset) reaches the flagged helper unconditionally, so the pilot's
 //! §5.11 "trim-and-keep" disposition degenerates to whole-file retention --
 //! there is no complementary migratable subset to split off. No case file

@@ -6,7 +6,7 @@
 //! PRE-TRIM REF: 47e9b083c61e32c972727189a580d1e9cacb856c
 //!
 //! THE BLOCKING CONSTRUCT, BY NAME AND LINE. The retained
-//! `browser_harness_test_wrapper_reuses_the_shared_array_from_inventory_in_both_loop_sections` (defined at line 127 of this file)
+//! `browser_harness_test_wrapper_reuses_the_shared_array_from_inventory_in_both_loop_sections` (defined at line 131 of this file)
 //! asserts against the FIXTURE'S OWN TEXT and never against a process: it binds
 //! `browser_harness_array_from_source("test")` and then makes twenty-three
 //! `assert_eq!(source.matches(alias).count(), 2, ..)` claims about that string.
@@ -61,12 +61,16 @@
 //!
 //! Reproduce the column that decides the pair:
 //!
-//!   cd /workspace
+//!   cd "$(git rev-parse --show-toplevel)"
 //!   git show 47e9b083c61e32c972727189a580d1e9cacb856c:crates/kali_cli/tests/for_of_array_iteration_spread.rs > /tmp/pre.rs
 //!   python3 tools/task-18-browser-pilot/migrated_complement.py /tmp/pre.rs crates/kali_cli/tests/for_of_array_iteration_spread.rs > /tmp/complement.rs
 //!   python3 scripts/audit-case-migration.py /tmp/complement.rs crates/kali_cli/tests/cases/misc/for_of_array_iteration_spread.toml
 //!
-//! Report: `.superpowers/sdd/2026-07-29-test-binary-consolidation/task-19-batch5-report.md`.
+//! The full derivation is this header plus the reproduction above and the
+//! generator that fills the table, tools/migration/gen_task19_batch5.py --
+//! all of which ship. The batch's working report lived in git-ignored
+//! scratch and is deliberately not cited: a citation that cannot resolve
+//! from a clean checkout is worse than no citation.
 
 use kali_common::{array_from_alias_inventory_source, array_from_loop_lines};
 

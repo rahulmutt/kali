@@ -80,8 +80,10 @@
 # directly above `browser_for_await_object_string_enumeration_source`, block
 # (2) sits inside `assert_browser_for_await_..._sequence_wrappers_support`;
 # neither text appears near or applies to the other helper). This means
-# `python3 tools/task-18-browser-pilot/comment_coverage.py <this .rs> <this
-# .toml>` reports both blocks MISSING from the other group's 4 cases (17
+# `python3 tools/task-18-browser-pilot/comment_coverage.py
+# crates/kali_cli/tests/browser_for_await_object_string_enumeration_browser_smoke.rs
+# crates/kali_cli/tests/cases/browser/for_await_object_string_enumeration_browser_smoke.toml`
+# reports both blocks MISSING from the other group's 4 cases (17
 # lines x 4/8 cases each) -- a KNOWN, VERIFIED false positive: the checker
 # does not attempt per-helper attribution (its own docstring says so), and
 # an earlier draft of this file worked around it by copying both blocks into

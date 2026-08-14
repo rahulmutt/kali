@@ -58,8 +58,8 @@
 //!
 //! Escalated per rule 3/4 rather than shipped with a false green or a fabricated
 //! claim. This file must NOT be deleted by the family-wide sweep after batch 8.
-//! See `.superpowers/sdd/2026-07-29-test-binary-consolidation/
-//! task-18-batch5-report.md` for the full account.
+//! See the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path.
 use std::{fs, process::Command};
 
 use serde_json::Value;

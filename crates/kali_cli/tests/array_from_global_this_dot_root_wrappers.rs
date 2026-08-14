@@ -19,9 +19,9 @@
 //! block nothing, and reporting one would be a retention with no ground.
 //!
 //!   `assert_browser_requested`
-//!       `if json_output {` at line 274, 16 dead claim(s) in 2 guarded block(s)
+//!       `if json_output {` at line 279, 16 dead claim(s) in 2 guarded block(s)
 //!   `assert_browser_bundle`
-//!       `if json_output {` at line 332, 7 dead claim(s) in 2 guarded block(s)
+//!       `if json_output {` at line 337, 7 dead claim(s) in 2 guarded block(s)
 //!
 //! Every call site passes `false`, so each `if json_output { … }` block is
 //! UNREACHABLE and every literal inside it is DEAD: a value written in the
@@ -36,7 +36,8 @@
 //!
 //! The enumerating command, run before this sentence was written (ruling 13):
 //!
-//!   cd /workspace && python3 tools/migration/t19b5_extract.py --declined
+//!   cd "$(git rev-parse --show-toplevel)"
+//!   python3 tools/migration/t19b5_extract.py --declined
 //!
 //! It is re-run on every generator invocation (`t19b5_extract.check_declined`),
 //! and it RAISES if any of these branches ever becomes reachable -- so this
@@ -79,7 +80,11 @@
 //! `S27_self_documented` instead of CLEAN, which is precisely the U3 mechanism
 //! that was missing.
 //!
-//! Report: `.superpowers/sdd/2026-07-29-test-binary-consolidation/task-19-batch5-report.md`.
+//! The full derivation is this header plus the generator that renders it,
+//! tools/migration/gen_task19_batch5.py -- both of which ship. The batch's
+//! working report lived in git-ignored scratch and is deliberately NOT cited
+//! here: a citation that cannot resolve from a clean checkout is worse than
+//! no citation.
 
 use std::{fs, process::Command};
 

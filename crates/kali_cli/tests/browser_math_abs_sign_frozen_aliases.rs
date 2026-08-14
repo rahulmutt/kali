@@ -159,8 +159,8 @@
 //! the same change (ruling 9).
 //!
 //! This file must NOT be deleted by the family-wide sweep after batch 8. See
-//! `.superpowers/sdd/2026-07-29-test-binary-consolidation/
-//! task-18-batch3-report.md` for the full account.
+//! the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path.
 use std::sync::OnceLock;
 
 fn browser_bundle_global_this_math_abs_sign_frozen_source() -> &'static str {

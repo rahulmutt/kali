@@ -25,7 +25,11 @@
 # The `.rs` has since been TRIMMED to exactly that one test and the fixture
 # builder it reads (batch 3, controller ruling on concern 5), so the 18 fns
 # migrated here no longer exist there -- audit this pair against the PRE-TRIM
-# source (`git show <batch commit>:...`), not the working tree.
+# source, not the working tree. The trim is commit 1db95b469f, so the
+# pre-trim blob is its parent 50061950a4:
+#   git show 50061950a4:crates/kali_cli/tests/browser_math_atan2_global_this_root.rs
+# (the same revision the `.rs`'s own retention header declares as
+# `PRE-TRIM REF: 1db95b469f^`).
 #
 # INVOCATION ARITHMETIC (rule 7), over the migrated 18. Every fn except
 # `build_emits_global_this_math_atan2_zero_slice_in_js_input` loops

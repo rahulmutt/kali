@@ -37,8 +37,8 @@
 //! list already carries it, which ruling 10 requires so the selftest cannot
 //! silently weaken as the corpus grows.
 //!
-//! Full reasoning: .superpowers/sdd/2026-07-29-test-binary-consolidation/
-//! task-18-batch8a-report.md. No case file exists for this target.//!
+//! Full reasoning: the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path. No case file exists for this target.//!
 //! CONSEQUENCE FOR THE GATES (ruling 9). THIS FILE HAS NO RED-LIST, and that is
 //! the finding, not an omission. Ruling 9 addresses a U4 TRIM-and-keep retention,
 //! where the on-disk `.rs` is shorter than the source its case file was migrated

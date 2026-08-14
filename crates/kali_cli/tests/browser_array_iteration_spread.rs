@@ -24,7 +24,7 @@
 //! does not even match the audit script's `CONTAINS` regex.
 //!
 //! See
-//! `/workspace/.superpowers/sdd/2026-07-29-test-binary-consolidation/task-18-pilot-report.md`
+//! the Task 18 pilot's own working report, git-ignored scratch that does not ship
 //! ("Finding 1" / "File 6", the `browser_math_pow_exponent_one.rs` §5.11
 //! trim-and-keep precedent) for the general shape this disposition follows.
 //!

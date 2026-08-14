@@ -92,6 +92,30 @@ its steps in order; the first failing step ends the trial. `[source]` keys are
 paths relative to the trial dir — an absolute path, or any `..` component, is
 rejected *after* substitution, so `"${dir}/main.js"` cannot expand its way out.
 
+**`[source]` is file-wide, not per-case.** `expand()` builds the source map once
+per matrix cell and `source.clone()`s it into *every* trial of that cell, so a
+`[[case]]` cannot opt out of a fixture, cannot get a different body for a
+filename a sibling case also writes, and cannot depend on a file being *absent*
+that a sibling needs present. Merging two tests that both write `main.js` with
+different programs into one file does not fail — the last body written wins for
+every trial, and the cases quietly stop discriminating. Nothing catches it: no
+literal is dropped, so the migration audit stays green, and the trials still
+pass. Two ways out, and the corpus uses both:
+
+- **Separate case files.** Only a separate file has its own `[source]` table.
+  This is the only option when a case's whole point is that some file is missing.
+- **Distinct filenames.** Give each variant its own key and track the rename
+  everywhere the name is *read* — argv, a `file_json` `path`, a
+  `browser_bundle_harness` `entry` (which names the bundle output directory after
+  the input stem). `cases/nullish/assignment_wrapped_local_binding.toml` does
+  this the way the migration rules prescribe (`U5`): every key is the source
+  `#[test]` fn's own name plus the original suffix chain, so `main.test.js`
+  becomes `json_test_supports_..._js_input.test.js`. Keep the *whole* suffix
+  chain — `kali test` dispatches on the `.test.` infix, and a filename whose
+  shape the tool reads is not free to rename. Nor is one the program itself
+  references by string: renaming an `import()` or `require()` specifier changes
+  the program under test.
+
 ### Steps
 
 A case is either a single **inline** step (fields written directly on `[[case]]`,
@@ -171,6 +195,39 @@ no conditionals, no expressions, no defaults. An unresolved `${...}` surviving
 substitution is a hard failure, precisely because a placeholder left inside a
 needle would match nothing and let the case pass having asserted nothing.
 
+That hard failure is also why a fixture containing a **real JS template
+literal** needs an escape: `substitute()` (`crates/kali_case_runner/src/expand.rs`)
+finds every `${`, demands a `}`, and errors on any name it cannot bind, so
+`${7 / 2}` in a `[source]` body would abort the trial. There is no special form
+for this. The escape is an ordinary `[constants]` entry — `dollar = "$"` — put
+through the generic substituter, so `${dollar}{` expands to a literal `${` and
+the program written to disk is byte-for-byte what the test means to run.
+`cases/browser/bundle_template_literal_interpolation.toml` is the live example:
+line 8 defines it under `[constants]`,
+
+```toml
+[constants]
+dollar = "$"
+```
+
+and line 11 spends it in the fixture,
+
+```toml
+[source]
+"app.ts" = "console.log(`v: ${dollar}{7 / 2}`);\n"
+```
+
+The program that lands in the trial dir is the interpolating one the test means
+to compile:
+
+```js
+console.log(`v: ${7 / 2}`);
+```
+
+39 case files carry a `dollar` constant. Escape a genuine `${`; never delete or
+reword one to get past the substituter, because that ships a different program
+than the one the test claims to cover.
+
 A matrix cannot vary the *shape* of an assertion — text output vs JSON output is
 two sibling `[[case]]` blocks, not an axis.
 
@@ -197,6 +254,110 @@ a weakened `.toml`. See spec §5.11 for what stays Rust and why; today that is
 `node_api_surface`, `browser_cdp_smoke`,
 `browser_harness_failing_test_propagates_failure`, and the browser targets batch
 8C retained.
+
+---
+
+## The `#` header: vocabulary and provenance
+
+### The rule numbers headers cite
+
+Case-file headers argue from a numbered vocabulary — `rule 6`, `ruling 12`,
+`U5`, and sometimes `batch N`. Those numbers are defined in
+[`docs/superpowers/2026-07-29-test-binary-consolidation-migration-rules.md`](../../../../docs/superpowers/2026-07-29-test-binary-consolidation-migration-rules.md),
+and nowhere else. They are cited widely enough that reading a header without it
+is guesswork:
+
+```bash
+$ cd "$(git rev-parse --show-toplevel)"
+$ grep -rlEi '\brule [0-9]+'   --include='*.toml' crates/kali_cli/tests/cases/ | wc -l   # 221
+$ grep -rlEi '\bruling [0-9]+' --include='*.toml' crates/kali_cli/tests/cases/ | wc -l   # 167
+$ grep -rlE  '\bU[0-9]+\b'     --include='*.toml' crates/kali_cli/tests/cases/ | wc -l   # 179
+```
+
+`rule N` is one of the thirteen migration rules, `ruling N` one of the nineteen
+controller rulings that amend them, `U<N>` one of the unnumbered governing
+rules. `batch N` is the one term that is *not* a single namespace — it counts
+whichever task's batches the surrounding sentence is about — so read it against
+the family the file sits in; the glossary explains how.
+
+### `Migrated from` and `SOURCE REF:`
+
+Two header lines are machine-read, by
+`tools/task-18-browser-pilot/citation_sweep.sh`, which works out which Rust
+source each case file's `:N` citations should resolve against and hands the pair
+to `batch5_crosscheck.py`. They are conventions with a gate behind them, not
+decoration — though note how far that gate reaches: the sweep covers one family
+per invocation, and the bare call `--gates-only` makes sweeps `browser/`. The
+other families need `--family <name>`, which nothing in `test-gate.sh` or CI
+passes today.
+
+```toml
+# Migrated from tests/browser_bundle_template_literal_interpolation.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+```
+
+- **`Migrated from tests/<X>.rs`** names the source. It is **mandatory whenever
+  no same-named `.rs` exists** beside the case file — after a U2 split, whose
+  case-file stem differs from its source's, and after the source is deleted. The
+  sweep reads the name out of the file rather than deriving it from the stem, so
+  nothing is hardcoded; with no `.rs` and no `Migrated from` line it fails,
+  because the source the citations resolve against cannot even be named. All 287
+  case files carry the line today.
+- **`SOURCE REF: <sha>`** names the commit whose copy of that source the
+  citations were written against. Rules the sweep enforces:
+  - **At most one per file.** Two make it ambiguous which blob the citations
+    were written against, so the sweep fails rather than taking the first.
+  - **A full 40-character lowercase sha.** A branch name or an abbreviation
+    names a different commit as the branch moves or the repository grows.
+  - **It must name a commit where the source still EXISTS** — the deletion
+    commit's *parent*, not the deletion commit. Derive it with
+    `git log --diff-filter=D -1 --format=%H -- crates/kali_cli/tests/<X>.rs`
+    and then `git rev-parse <that>^`.
+  - **While the source is still in the tree, the declared blob is compared byte
+    for byte against it.** Existence alone would let a ref naming an older
+    revision of the same file pass every check and then shift every `:N` on the
+    day the source went away. The workflow is declare-first-delete-later
+    precisely so this window exists; once the source is gone, only existence can
+    be checked.
+
+195 case files carry a `SOURCE REF:` line — 149 in `browser/`, 33 in `misc/`,
+11 in `runtime/`, 2 in `nullish/`:
+
+```bash
+$ grep -rl 'SOURCE REF:' --include='*.toml' crates/kali_cli/tests/cases/ | wc -l   # 195
+```
+
+The sweep needs **full git history**. It materialises
+`crates/kali_cli/tests` at each declared ref, which a shallow clone cannot do —
+so CI needs `fetch-depth: 0` on its checkout step, and a local shallow clone
+needs `git fetch --unshallow`. The script says so in its own preconditions.
+
+### Those 195 refs name branch-only commits
+
+**A squash merge or a rebase merge destroys this provenance mechanism.** Both
+replace the branch's commits with new objects carrying new shas, so a clone of
+the merged history does not contain the commits those 195 refs name.
+`citation_sweep.sh` fails by name on exactly that — "`SOURCE REF: <sha>` is not
+reachable in this repository" — for the 149 `browser/` files it gates today, and
+for the other 46 the moment it is pointed at their families. The declared blobs
+are then unrecoverable by any route, so the citations in those files can never be
+verified again; the header lines survive as prose naming shas that resolve to
+nothing. That is the mechanical consequence. Which merge strategy to use is a
+decision for a human, and this README does not make it.
+
+### Some case files are generated and byte-pinned
+
+Four generators under `tools/migration/` own **40 case files** between them —
+`gen_task19_batch2.py` (17), `gen_task19_batch3.py` (7), `gen_task19_batch4.py`
+(9), `gen_task19_batch5.py` (7). Each generated file carries a
+`# GENERATED by tools/migration/gen_task19_batch<N>.py` banner on its first
+line.
+
+Their default mode is the *check* direction: re-render every file they own and
+fail on any byte difference. All four are wired into
+`scripts/test-gate.sh --gates-only`, so **hand-editing a generated case file
+fails CI** — the file would silently diverge from the spec a reviewer actually
+reads. To change one, edit the generator and re-run it with `--write`.
 
 ---
 
