@@ -914,8 +914,23 @@ def rendered(family, toml, stem, subject):
 # `# EXTRA-OK:` line from `module_globals.toml` takes `check_extra_claims.py` to
 # rc=1 while `check_gate_declarations()` returned `[]`.
 #
-# `audit-case-migration.py` is run from `crates/kali_cli/tests` with paths
-# relative to it, which is the only calling convention it accepts.
+# `audit-case-migration.py` is run with `crates/kali_cli/tests` as its cwd and
+# the case file named relative to it. The claim this replaces -- "which is the
+# only calling convention it accepts" -- was never true and is now visibly not
+# true: `_rs(stem)` below hands it an ABSOLUTE path (the working-tree file while
+# it exists, otherwise the pinned blob materialised under /tmp), and the audit
+# takes it. Measured rather than reasoned:
+#
+#   $ cd crates/kali_cli/tests
+#   $ git show cc76f5a918:crates/kali_cli/tests/runtime_forin.rs > /tmp/p.rs
+#   $ python3 ../../../scripts/audit-case-migration.py /tmp/p.rs \
+#         cases/runtime/forin.toml            -> AUDIT OK, EXIT=0
+#   ... and with an absolute case-file path too                -> AUDIT OK, EXIT=0
+#
+# The cwd IS load-bearing, for the OTHER argument: a `#[path]` submodule is
+# resolved relative to its carrier and the shipped `[[case]]` paths are written
+# relative to this directory. That is why the cwd is pinned here; it is not a
+# constraint on where the source lives.
 GATE_CMDS = {
     "audit-case-migration.py": lambda stem, toml_path: (
         [sys.executable, os.path.join(REPO, "scripts/audit-case-migration.py"),

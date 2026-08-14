@@ -137,6 +137,10 @@ def trailing(stem, anchor):
     `.rs` like every other carry. Added after review found
     `heap_grow_runtime.rs:199` uncarried and the rule-12 gate blind to the whole
     shape -- `comment_coverage.py` matched `^\\s*//` and could not see it.
+
+    That source was migrated to `tests/cases/misc/heap_grow_runtime.toml` and
+    deleted by Task 19; the line citation above is against
+    `git show cc76f5a918:crates/kali_cli/tests/heap_grow_runtime.rs`.
     """
     hits = [c for _, c in extract_trailing_comments(rs(stem)) if anchor in c]
     if len(hits) != 1:
@@ -1026,6 +1030,14 @@ def f_heap_grow():
         + arithmetic("Each `#[test]` fn runs a different program.", 4, 4)
         + [u5("the fourth program, which the source wrote to `main.ts`,"), ""]
         + [U2_INERT, ""]
+        # THIS CITATION IS EMITTED VERBATIM INTO `cases/misc/heap_grow_runtime.
+        # toml:30`. Task 19 deleted the source it names, so the line reference
+        # now resolves only at `cc76f5a918` -- but editing it here rewrites a
+        # SHIPPED case file, which is a corpus change and not a tooling one.
+        # That regeneration is deferred with the other 43 stale case-file
+        # citations (Task 19 deletion report §6.4/§6.5, recommended for Task
+        # 20). Do not "fix" it in isolation: this generator asserts its output
+        # byte-for-byte against the shipped file and would go red.
         + ["HELPER DOC CARRIED FROM THE SOURCE (rule 12). `unique_fixture_slug` "
            "(`heap_grow_runtime.rs:13-21`) carries:", ""]
         + ["  " + l for l in para(stem, "Build a process-wide-unique directory name").split("\n")]
@@ -1125,6 +1137,8 @@ def f_trap_diagnostics():
            "`tools/migration/gen_task19_batch2.py`, which raises if the two literals "
            "ever stop being byte-identical, rather than being eyeballed.",
            ""]
+        # Emitted verbatim into `cases/misc/trap_diagnostics_runtime.toml:41`;
+        # same deferral as the `heap_grow_runtime` citation above.
         + ["HELPER DOC CARRIED FROM THE SOURCE (rule 12). `unique_fixture_slug` "
            "(`trap_diagnostics_runtime.rs:12-19`) carries:", ""]
         + ["  " + l for l in para(stem, "Build a process-wide-unique directory name").split("\n")]

@@ -122,7 +122,10 @@ def extract_trailing_comments(text):
     dangerous direction: a source comment could be dropped in migration and this
     checker would say nothing. Found by review on
     `heap_grow_runtime.rs:199`'s `// 4*19999 + (0+1+2+3)`, which was genuinely
-    uncarried and which no gate flagged.
+    uncarried and which no gate flagged. That source was migrated to
+    `crates/kali_cli/tests/cases/misc/heap_grow_runtime.toml` and deleted by
+    Task 19; the line citation resolves against
+    `git show cc76f5a918:crates/kali_cli/tests/heap_grow_runtime.rs`.
 
     Quote-aware and raw-string-aware, because the naive predicate misfires on
     both: a `"http://..."` inside a plain string, and any `//` inside a fixture
