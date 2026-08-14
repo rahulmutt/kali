@@ -49,6 +49,11 @@ Usage:
   screen_candidates.py                       # full report
   screen_candidates.py --selftest            # gate: ground truth + cross-check
   screen_candidates.py --list-clean          # the work list, one stem per line
+  screen_candidates.py --list-clean --include-deleted
+                                             # ... over the tree UNION what Task
+                                             # 19's deletion removed, at the
+                                             # pinned ref. For the ruling-13
+                                             # work-list predicates ONLY.
   screen_candidates.py --retention-crosscheck  # that arm alone
 """
 
@@ -479,7 +484,26 @@ def main(argv: list[str]) -> int:
         return 0
 
     if "--list-clean" in argv:
-        for r in rows:
+        # `--include-deleted` widens the corpus to the tree UNION what Task 19's
+        # deletion removed, read at the pinned ref. It exists for exactly one
+        # kind of caller: a ruling-13 work-list predicate that must answer the
+        # SAME list before and after the deletion. `t19b4_extract.select` and
+        # `t19b5_extract.select` re-derive their `STEMS` from this list and
+        # refuse if it disagrees; with a tree-only corpus their own (deleted)
+        # targets vanish from the answer and the control can never pass again --
+        # measured, not predicted: at `785ed25a8e` batch 4's predicate answered 2
+        # of 8 and batch 5's answered 1 of 7, both exiting 1.
+        #
+        # The DEFAULT stays tree-only, and that split is the same one
+        # `_corpus_names` documents: "what is left to migrate" is a question
+        # about the working tree, and answering it from history would inflate
+        # every count Task 20 reports.
+        listing = rows
+        if "--include-deleted" in argv:
+            listing = [screen_one_anywhere(s) for s in sorted(
+                set(all_stems()) | {s for s in T19S.deleted_stems()
+                                    if not s.startswith("browser_") and s != "cases"})]
+        for r in listing:
             if r["verdict"] == "CLEAN":
                 print(r["stem"])
         return 0

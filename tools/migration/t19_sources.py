@@ -251,16 +251,45 @@ def selftest() -> int:
               "missing-path one")
 
     # `source_path` produces a real file for a source that is NOT in the tree.
-    # Driven through the ref explicitly so the arm is exercised while the
-    # sources are still present -- a fallback first tested on the day it is
-    # needed is not a tested fallback.
-    ancient = _blob_at(T19_DELETION_REF, f"{TESTS_REL}/runtime_forin.rs")
-    d = tempfile.mkdtemp(prefix="t19-source-selftest-")
-    probe = os.path.join(d, "runtime_forin.rs")
-    with open(probe, "w", encoding="utf-8") as fh:
-        fh.write(ancient or "")
-    check(os.path.isfile(probe) and open(probe).read() == ancient,
-          "materialising a ref blob to a path round-trips byte-for-byte")
+    #
+    # THIS PROBE MUST CALL `source_path`. The version it replaces wrote a temp
+    # file with `open()` and read it back with `open()`, under the label
+    # "materialising a ref blob to a path round-trips byte-for-byte" -- it
+    # exercised the standard library and not one line of the branch four
+    # `--gates-only` generators now depend on. A probe that cannot fail when the
+    # thing it names is broken is not a probe; it is the sentence above it,
+    # retyped as code.
+    #
+    # The stem is DERIVED from `deleted_stems()` rather than named, so this arm
+    # keeps selecting a source that is genuinely absent from the tree and the
+    # materialisation branch is the one actually taken -- and if nothing is
+    # absent, that is reported as a failure rather than passed over, because
+    # then the branch has no input at all.
+    gone = deleted_stems()
+    stem = "runtime_forin" if "runtime_forin" in gone else (gone[0] if gone else None)
+    if stem is None:
+        check(False, "no source is absent from the working tree, so "
+                     "`source_path`'s materialisation branch cannot be exercised")
+    else:
+        ancient = _blob_at(T19_DELETION_REF, f"{TESTS_REL}/{stem}.rs")
+        got = source_path(stem, quiet=True)
+        check(got != os.path.join(TESTS, stem + ".rs") and os.path.isfile(got),
+              f"source_path({stem!r}) takes the MATERIALISATION branch and "
+              f"returns a path that EXISTS", got)
+        # Read defensively: if the arm above already failed because the branch
+        # handed back a path that does not exist, this must report a FAIL and
+        # not a traceback. A crash is not a verdict -- the same rule
+        # `audit_corpus_sweep._require_a_verdict` exists to enforce.
+        materialised = None
+        if os.path.isfile(got):
+            with open(got, encoding="utf-8") as fh:
+                materialised = fh.read()
+        check(materialised is not None and materialised == ancient,
+              "the file source_path materialised holds the REF's bytes, "
+              "byte-for-byte")
+        check(source_path(stem, quiet=True) == got,
+              "a second call reuses the same materialised file rather than "
+              "writing a second one")
 
     # `resolve_repro` leaves a live path alone, and says so when it does not.
     live_cmd = f"python3 x.py crates/kali_cli/tests/{live}.rs a.toml"

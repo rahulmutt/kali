@@ -427,7 +427,11 @@ class Source:
             brace = m.end() - 1
             # `masked`, not `text`: a `{` inside a LINE COMMENT is not a block,
             # and `template_literal_interpolation_runtime.rs:67` carries exactly
-            # one (`// \`\${\` would silently interpolate`) with no `}` to pair it.
+            # one (`// \`\${\` would silently interpolate`) with no `}` to pair
+            # it. That source was deleted by Task 19; the line citation is
+            # against `git show cc76f5a918:crates/kali_cli/tests/
+            # template_literal_interpolation_runtime.rs`, which is also the blob
+            # `_source_text` hands this extractor at runtime.
             end = _matching(self.masked, brace, "{", "}")
             params = [p.strip() for p in m.group(2).split(",") if p.strip()]
             self.fns[m.group(1)] = {
@@ -1208,9 +1212,17 @@ def select() -> list[str]:
     for p in glob.glob(os.path.join(TESTS, "cases/*/*.toml")):
         migrated |= set(pat.findall(open(p, encoding="utf-8").read()))
     migrated -= set(STEMS)
+    # `--include-deleted` PINS this predicate's corpus at the Task 19 deletion
+    # ref. Without it the screen's corpus is the working tree, and every one of
+    # this batch's own targets is a source Task 19 deleted -- so the predicate
+    # answered 2 of 8 and this check exited 1 forever. Ruling 13's control is
+    # "the work list is the predicate's OWN answer", and a control that can only
+    # fail is worth no more than one that cannot: it gets ignored, then deleted.
+    # The screen's default corpus is untouched and stays tree-only.
     clean = subprocess.run(
         [sys.executable, os.path.join(REPO, "tools/migration/screen_candidates.py"),
-         "--list-clean"], capture_output=True, text=True, check=True).stdout.split()
+         "--list-clean", "--include-deleted"],
+        capture_output=True, text=True, check=True).stdout.split()
     out = []
     for s in sorted(set(clean) | ADJUDICATED):
         if s in migrated:

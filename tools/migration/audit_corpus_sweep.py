@@ -236,14 +236,37 @@ def _selftest() -> int:
         #    than on the whole corpus (which costs minutes). The negative is
         #    the false-green this instrument was written to measure: an
         #    unreferenced `[constants]` entry carrying a deleted claim's text.
+        #
+        # THE PROBE SOURCE IS RESOLVED THROUGH `pairs()`, NOT OFF THE TREE.
+        # Task 19's deletion removed `nullish_assign_reject.rs`, and this
+        # selftest read it from the working tree -- so from `7438a5c523` onward
+        # it appended "the probe pair is gone" and "the differential cannot see
+        # an edited audit script" on every run and exited 1, permanently. A
+        # control that can only fail is worth no more than one that cannot fail;
+        # both get ignored and then deleted. `pairs()` is the sweep's OWN
+        # resolution (tree, then the case file's `SOURCE REF:`, then the
+        # deletion commit's parent), so the probe now reads exactly the bytes
+        # the sweep itself audits this pair against, and it keeps working
+        # through any future deletion without another edit here.
         probe_dir = os.path.join(workdir, "probe")
         os.makedirs(probe_dir)
-        rs = os.path.join(TESTS, "nullish_assign_reject.rs")
+        rs_name = "nullish_assign_reject.rs"
         toml = os.path.join(CASES, "nullish", "assign_reject.toml")
-        if not (os.path.exists(rs) and os.path.exists(toml)):
-            problems.append("the nullish_assign_reject probe pair is gone; "
-                            "re-point this selftest at a live pair")
+        resolved = [(name, ref) for name, ref, _t in found if name == rs_name]
+        if not resolved:
+            rs = os.path.join(TESTS, rs_name)
+        elif resolved[0][1] is None:
+            rs = os.path.join(TESTS, rs_name)
         else:
+            rs = os.path.join(_tree_at(resolved[0][1], cache, workdir), rs_name)
+        if not (os.path.exists(rs) and os.path.exists(toml)):
+            problems.append(f"the {rs_name[:-3]} probe pair is gone from the tree "
+                            f"AND unresolvable from history; re-point this "
+                            f"selftest at a live pair")
+        else:
+            if resolved and resolved[0][1] is not None:
+                print(f"  probe source   -- {rs_name} is deleted; resolved at "
+                      f"{resolved[0][1][:10]}")
             control = os.path.join(probe_dir, "control.toml")
             shutil.copyfile(toml, control)
             body = open(toml).read()

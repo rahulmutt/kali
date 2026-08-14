@@ -1427,9 +1427,15 @@ def select() -> list[str]:
     # answers the same list before and after its own commit. Batch 4 shipped the
     # other version first: it returns the right list ONCE and `[]` forever after.
     migrated -= set(STEMS)
+    # `--include-deleted` PINS this predicate's corpus at the Task 19 deletion
+    # ref, for the same reason batch 4's does: six of this batch's seven targets
+    # are sources Task 19 deleted, so a tree-only screen answered 1 of 7 and the
+    # `WORK LIST MOVED` refusal below could never come back green. The screen's
+    # default corpus is untouched and stays tree-only.
     clean = subprocess.run(
         [sys.executable, os.path.join(REPO, "tools/migration/screen_candidates.py"),
-         "--list-clean"], capture_output=True, text=True, check=True).stdout.split()
+         "--list-clean", "--include-deleted"],
+        capture_output=True, text=True, check=True).stdout.split()
     # A stem this batch TRIMS is added back for the same reason its own case
     # files are excluded from `migrated`: the trim is this batch's own act, and
     # after it lands the screen correctly BLOCKS the stem as `S27_self_documented`
