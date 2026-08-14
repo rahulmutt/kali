@@ -207,18 +207,75 @@ fn listing_with_a_filter_that_matches_nothing_is_not_refused() {
     .expect("--list is not a test run");
 }
 
+/// Does `dir` sit on a case-sensitive filesystem? Answered by observation --
+/// write one file, then ask whether it is reachable under a different-cased
+/// name -- never by `cfg!(target_os = ...)`: case sensitivity is a property of
+/// the mount, not the OS (macOS can be formatted case-sensitive, and Linux can
+/// mount case-insensitive volumes), so the probe must run in the very
+/// directory the caller is about to write into.
+fn filesystem_is_case_sensitive(dir: &std::path::Path) -> bool {
+    let probe = dir.join("CaseProbe.marker");
+    std::fs::write(&probe, "probe").expect("probe write");
+    assert!(probe.exists(), "the case-sensitivity probe wrote nothing");
+    let sensitive = !dir.join("caseprobe.marker").exists();
+    std::fs::remove_file(&probe).expect("probe cleanup");
+    sensitive
+}
+
 // `file_stem` (Minor 1) and case-insensitive extension matching (Minor 2)
 // are each correct alone, but together they reopen the exact collision
 // Minor 1 closed, by a different route: `pad.toml` and `pad.TOML` both stem
 // to `pad`. Must be a hard error naming both paths, not a silent duplicate
 // trial id.
+//
+// Staging that collision needs a case-sensitive filesystem. On a
+// case-insensitive one the second write reopens the first file instead of
+// creating a second, so only one file ever exists and there is nothing to
+// collide -- which is why this test read as a product failure on macOS CI
+// when it was written as a single unconditional branch. Both branches below
+// assert something real, so neither reports `ok` having checked nothing:
+// where the collision can be staged, `discover` must hard-error naming both
+// paths; where it cannot, the two writes must be shown to have collapsed to
+// exactly one file. A reader of macOS CI output should take this test as
+// evidence of the collapse, not of the refusal -- the refusal is verified on
+// every case-sensitive lane, Linux CI included.
 #[test]
 fn a_case_insensitive_extension_collision_is_a_hard_error_naming_both_paths() {
     let root = tempfile::tempdir().expect("tempdir");
+    let case_sensitive = filesystem_is_case_sensitive(root.path());
     write(root.path(), "string/pad.toml", MINIMAL);
     write(root.path(), "string/pad.TOML", MINIMAL);
-    let err = discover(root.path()).expect_err("must reject the duplicate stem");
-    assert!(err.contains("string/pad"), "{err}");
-    assert!(err.contains("pad.toml"), "{err}");
-    assert!(err.contains("pad.TOML"), "{err}");
+
+    if case_sensitive {
+        let err = discover(root.path()).expect_err("must reject the duplicate stem");
+        assert!(err.contains("string/pad"), "{err}");
+        assert!(err.contains("pad.toml"), "{err}");
+        assert!(err.contains("pad.TOML"), "{err}");
+        return;
+    }
+
+    // Case-insensitive filesystem: assert the precondition that actually
+    // held, so this branch fails loudly if the filesystem ever stops
+    // collapsing the two names (at which point the branch above is the one
+    // that should run, and this assertion says so).
+    let mut names: Vec<String> = std::fs::read_dir(root.path().join("string"))
+        .expect("read string/")
+        .map(|entry| {
+            entry
+                .expect("entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    names.sort();
+    assert_eq!(
+        names.len(),
+        1,
+        "a case-insensitive filesystem must have collapsed `pad.toml` and `pad.TOML` into one \
+         file, leaving the collision unstageable; found {names:?}"
+    );
+    let found = discover(root.path()).expect("the single surviving file must discover cleanly");
+    let stems: Vec<&str> = found.iter().map(|(stem, _)| stem.as_str()).collect();
+    assert_eq!(stems, vec!["string/pad"]);
 }
