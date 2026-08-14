@@ -329,8 +329,10 @@ $ grep -rl 'SOURCE REF:' --include='*.toml' crates/kali_cli/tests/cases/ | wc -l
 
 The sweep needs **full git history**. It materialises
 `crates/kali_cli/tests` at each declared ref, which a shallow clone cannot do —
-so CI needs `fetch-depth: 0` on its checkout step, and a local shallow clone
-needs `git fetch --unshallow`. The script says so in its own preconditions.
+so a shallow clone needs `git fetch --unshallow` first, and any CI job that ran
+the sweep would need `fetch-depth: 0` on its checkout step. No CI job runs it
+today; see *The migration gates are a developer command, not a CI gate* below.
+The script says so in its own preconditions.
 
 ### Those 195 refs name branch-only commits
 
@@ -356,8 +358,19 @@ line.
 Their default mode is the *check* direction: re-render every file they own and
 fail on any byte difference. All four are wired into
 `scripts/test-gate.sh --gates-only`, so **hand-editing a generated case file
-fails CI** — the file would silently diverge from the spec a reviewer actually
-reads. To change one, edit the generator and re-run it with `--write`.
+fails that command** — the file would silently diverge from the spec a reviewer
+actually reads. It does **not** fail CI: nothing in `.github/` runs
+`--gates-only` (see *Where the gates live* below). To change one, edit the
+generator and re-run it with `--write`.
+
+Two of them re-run the compiled `kali` binary — `gen_task19_batch4.py` for its
+cross-stream resolutions and the U2 policy control, `gen_task19_batch5.py` for
+its eighteen rule-11 disjunctions — and **fail rather than skip** when it is
+absent. They locate it through `tools/migration/kali_bin.py`:
+`$CARGO_BIN_EXE_kali`, then `$KALI_BIN`, then `$CARGO_TARGET_DIR/debug/kali`,
+then `cargo metadata --format-version 1 --no-deps`'s own `.target_directory`,
+then `<repo>/target/debug/kali`; the failure names every candidate it tried.
+Build with `cargo build -p kali_cli --bin kali` or set `KALI_BIN`.
 
 ---
 
@@ -370,7 +383,33 @@ reads. To change one, edit the generator and re-run it with `--write`.
   would be reported as a test that does not exist.
 - `bash scripts/test-gate.sh --gates-only` — the 14 migration gates (case-corpus
   generators, fixture and citation sweeps, the audit's own regression suite). A
-  bare invocation does not run them; CI's `migration-gates` job passes the flag.
+  bare invocation does not run them.
+
+### The migration gates are a developer command, not a CI gate
+
+**Nothing in `.github/` runs `--gates-only`.** A `migration-gates` job was added
+to `.github/workflows/ci.yml` during this branch and removed again before merge,
+because it could not pass on a runner: it installed no Rust toolchain and ran no
+`cargo build`, while two of the 14 gates run the compiled `kali` binary and fail
+rather than skip when it is absent — and the target directory they searched,
+`.cache/cargo-target`, comes from a machine-local `~/.cargo/config.toml` in one
+dev container and is in no checkout of this repository, so a runner's cargo would
+have built to `./target` and the path would have been wrong even with a build
+step. (That second defect is fixed: the two generators now derive the target
+directory, see *Some case files are generated and byte-pinned* above.)
+
+It was removed rather than repaired because **the migration is finished and
+frozen at merge**: the corpus these gates guard — the case files, their
+`SOURCE REF:` lines, the generators' fixed points — does not change again, so
+there is no drift for a per-PR run to catch. `scripts/test-gate.sh`'s own header
+argues that "a check nobody re-runs is indistinguishable from a check that was
+deleted", and that argument is now load-bearing *against* these gates rather than
+for them: this section exists so nobody reads that header and concludes CI is
+re-running anything. Anyone who does reopen the corpus — a new batch, an edit to
+a generated case file, a re-derived citation — must run `--gates-only` by hand,
+with a built `kali` binary, and is on the hook for its result. The
+`fetch-depth: 0` requirement above applies to whoever does: full history, or a
+`git fetch --unshallow` first.
 - `python3 scripts/audit-case-migration.py <old.rs> <new.toml>...` — the
   migration audit, run when a hand-written target is replaced by case files.
 

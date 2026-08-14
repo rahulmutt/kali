@@ -615,15 +615,20 @@ The test surface itself is unchanged in shape: `cargo test -p kali_cli` runs
 everything, `mise run browser-smoke` still points at `--test browser_cdp_smoke`,
 and `mise run determinism` is untouched.
 
-One job was added, so this section's original "unchanged in shape" is no longer
-true of the workflow as a whole. `.github/workflows/ci.yml` gained a
-`migration-gates` job that checks out with `fetch-depth: 0` and runs
-`bash scripts/test-gate.sh --gates-only`, the opt-in flag that runs the 14
-migration gates listed in that script. The job has no build step and declares no
-`needs:`; two of the 14 gates — `tools/migration/gen_task19_batch4.py` and
-`gen_task19_batch5.py` — run the compiled `kali` binary and fail loudly when it
-is absent, `gen_task19_batch4.py` by raising `GenError("the U2 policy control
-cannot run: no kali binary")`. See §9, deviation 7.
+**The workflow ships unchanged in shape after all.** A `migration-gates` job was
+added to `.github/workflows/ci.yml` during this branch and removed again before
+merge; `git diff main -- .github/workflows/ci.yml` is a comment block and nothing
+else. The comment stands where the job stood and says why there is no job.
+
+The 14 migration gates behind `bash scripts/test-gate.sh --gates-only` are
+therefore a **developer command, not a CI gate** — nothing under `.github/` runs
+them. The job could not have passed: it installed no Rust toolchain and ran no
+`cargo build`, while two of the 14 gates (`tools/migration/gen_task19_batch4.py`
+and `gen_task19_batch5.py`) run the compiled `kali` binary and fail rather than
+skip when it is absent. It was removed rather than repaired because the migration
+is finished and frozen at merge and the corpus those gates guard does not change
+again. See §9, deviation 7. A bare `bash scripts/test-gate.sh` is unchanged from
+base either way.
 
 ## 7) Expected outcome
 
@@ -777,16 +782,52 @@ lines that remain.
    lived in git-ignored scratch and does not ship; it is restated here in full
    rather than cited to a path a clean checkout cannot resolve. §4.4 has been
    corrected.
-7. **CI gained a job; §6.3's "unchanged in shape" no longer holds.**
-   `.github/workflows/ci.yml` has a `migration-gates` job — checkout with
-   `fetch-depth: 0` (needed because `citation_sweep.sh` resolves a deleted
-   source's citations against a historical blob), then
-   `bash scripts/test-gate.sh --gates-only`. A bare `scripts/test-gate.sh` is
-   unchanged from base; the 14 gates are reachable only through the flag. The
-   job runs no build and declares no `needs:`, while two of the 14 gates,
-   `tools/migration/gen_task19_batch4.py` and `gen_task19_batch5.py`, invoke the
-   compiled `kali` binary and fail rather than skip when it is absent. §6.3 has
-   been corrected to describe the job as it stands.
+7. **A `migration-gates` CI job was added and then removed before merge; CI
+   ships with no job added.** The job was a `fetch-depth: 0` checkout (needed
+   because `citation_sweep.sh` resolves a deleted source's citations against a
+   historical blob) followed by `bash scripts/test-gate.sh --gates-only`. It
+   **never ran and could not have passed**, for three compounding reasons:
+   it installed no Rust toolchain and had no `cargo build` step; two of the 14
+   gates, `tools/migration/gen_task19_batch4.py` and `gen_task19_batch5.py`,
+   invoke the compiled `kali` binary and fail rather than skip when it is absent
+   (batch 4 raised `GenError("the U2 policy control cannot run: no kali
+   binary")`; batch 5 had no existence check at all and died with a bare
+   `FileNotFoundError`); and the path both resolved,
+   `$REPO/.cache/cargo-target/debug/kali`, comes from a machine-local
+   `~/.cargo/config.toml` in the dev container — there is no `.cargo/` directory
+   in this repository, so a runner's cargo builds to `./target` and that path is
+   wrong regardless of any build step. Reproduced against the pre-removal
+   generators, both arms: with `CARGO_BIN_EXE_kali` unset and
+   `KALI_BIN=/nonexistent`, `gen_task19_batch4.py` exited 1 on
+   `GenError: the U2 policy control cannot run: no kali binary`; with the
+   container's binary moved aside, `gen_task19_batch5.py` exited 1 on
+   `FileNotFoundError: [Errno 2] No such file or directory:
+   '/workspace/.cache/cargo-target/debug/kali'`, a raw traceback. `run_gates`
+   sets `fail=1` on any non-zero rc (`scripts/test-gate.sh`, the `(( rc )) &&
+   fail=1` line), so either one takes the whole job to exit 1.
+
+   The human's decision was to **remove the job**, not to add a toolchain and a
+   build: the migration is finished and frozen at merge, so the corpus those
+   gates guard does not change again and there is nothing for a per-PR run to
+   catch. `--gates-only` stays as a documented developer command; the gate set
+   in `scripts/test-gate.sh` is unmodified, and a bare `scripts/test-gate.sh` is
+   still exactly what it was at base. Two follow-through changes went with the
+   removal, because a developer command that only works on one machine is not a
+   command anybody else can run:
+   - **The binary is now resolved, not hardcoded.** `tools/migration/kali_bin.py`
+     walks `$CARGO_BIN_EXE_kali`, `$KALI_BIN`, `$CARGO_TARGET_DIR/debug/kali`,
+     `cargo metadata --format-version 1 --no-deps`'s `.target_directory`, then
+     `<repo>/target/debug/kali`, and raises naming **every** candidate it tried
+     and why each failed. Both generators use it; `gen_task19_batch5.py`'s
+     silent hardcoded path and its missing existence check are gone.
+   - **It is documented as not-CI.** `crates/kali_cli/tests/cases/README.md` and
+     `tools/task-18-browser-pilot/README.md` say the gates are run by hand, and
+     why. `scripts/test-gate.sh`'s own header still says the `migration-gates`
+     job invokes `--gates-only`; that sentence is now **stale and wrong**, and it
+     was left alone only because that file is under the branch's do-not-modify
+     constraint. Whoever owns that constraint should correct it.
+
+   §6.3 has been corrected to describe the shipped state.
 
 ### What the audit gate (§6.2) does and does not guarantee
 

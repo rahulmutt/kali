@@ -101,13 +101,19 @@ runnable core** — no hardcoded paths, no uncommitted inputs:
   for the CI-equivalent control, which is the condition an earlier version failed
   under.
 
-The gate set is run by `scripts/test-gate.sh --gates-only`, which is also what
-`.github/workflows/ci.yml`'s `migration-gates` job invokes — the only checkout in
-that file given `fetch-depth: 0`, because the sweep resolves a deleted source's
-citations against a historical blob. **A bare `bash scripts/test-gate.sh` runs
-the cargo suites and nothing else, exactly as it did before**: the plan's Global
-Constraints name that file as one that must not be modified, and the migration
-gates are opt-in for that reason.
+The gate set is run by `scripts/test-gate.sh --gates-only`, **by hand — no CI job
+runs it**. A `migration-gates` job in `.github/workflows/ci.yml` did, briefly, and
+was removed before merge: it had no Rust toolchain and no build step, while two
+of the 14 gates run the compiled `kali` binary and fail rather than skip when it
+is absent. The migration is frozen at merge and the corpus these gates guard does
+not change again, so they stayed a developer command rather than being repaired
+into CI; `crates/kali_cli/tests/cases/README.md` records the decision. Whoever
+runs the set by hand needs full history (`git fetch --unshallow` in a shallow
+clone), because the sweep resolves a deleted source's citations against a
+historical blob. **A bare `bash scripts/test-gate.sh` runs the cargo suites and
+nothing else, exactly as it did before**: the plan's Global Constraints name that
+file as one that must not be modified, and the migration gates are opt-in for
+that reason.
 
 Full narrative (what each file's shape was, why matrix was or wasn't used,
 the audit findings, the scaling measurement, and the five review-round-1
