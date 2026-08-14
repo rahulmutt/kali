@@ -151,6 +151,12 @@ KNOWN = {
     # unmigrated batch 6-8 targets carrying the shape
     "browser_promise_any_bundle.rs",
     "browser_promise_any_harness.rs",
+    # Task 19 batch 5's U4 trim, and the instance that proved the predicate had a
+    # third blind spot: its self-inspection is `assert_eq!(source.matches(alias)
+    # .count(), 2, ..)` with no `.contains` anywhere, which both existing arms
+    # required. Ruling 10 says every newly adjudicated instance goes in here or
+    # the selftest silently weakens as the corpus grows.
+    "for_of_array_iteration_spread.rs",
 }
 
 
@@ -340,6 +346,20 @@ def analyse(path):
     # literal-fed parameter and the `.contains` further down is about stderr.
     sites = []
     CHAIN = r"lines\s*\(\s*\)|matches\s*\([^)]*\)|starts_with\s*\([^)]*\)"
+    # THE THIRD SHAPE, added in Task 19 batch 5, and it was a LIVE FALSE
+    # NEGATIVE rather than a hardening. Both arms below require a `.contains`
+    # somewhere, so a self-inspection that counts instead of testing membership
+    # -- `assert_eq!(source.matches(alias).count(), 2, ..)` -- returned nothing.
+    # `for_of_array_iteration_spread.rs` spells it exactly that way, and this
+    # tool reported 0 hits on it while its browser twin
+    # (`browser_array_iteration_spread.rs`, which spells the same shape with
+    # `.lines().filter(|l| l.contains(..))`) was found and adjudicated. The gap
+    # let a dispatch list that target as migratable-whole. The receiver gate is
+    # unchanged and is what keeps this off process output: `stdout.matches(x)
+    # .count()` cannot match, because `stdout` is not a fixture builder's value.
+    TERMINAL_COUNT = re.compile(
+        r"([A-Za-z_][\w:]*)\s*(?:\(\s*\))?\s*\.\s*matches\s*\([^)]*\)"
+        r"\s*\.\s*count\s*\(\s*\)")
     direct = re.compile(r"([A-Za-z_][\w:]*)\s*(?:\(\s*\))?\s*\.contains\s*\(")
     via_chain = re.compile(
         r"([A-Za-z_][\w:]*)\s*(?:\(\s*\))?\s*((?:\.\s*(?:" + CHAIN + r")\s*)+)")
@@ -365,6 +385,17 @@ def analyse(path):
             continue
         sites.append((raw[:m.start()].count("\n") + 1, host,
                       recv + " (via " + m.group(2).strip().split("(")[0].lstrip(". ") + ")"))
+
+    for m in TERMINAL_COUNT.finditer(masked):
+        recv = m.group(1).split("::")[-1]
+        host = owner(m.start())
+        if host is None or host not in reach or m.start() in seen_offsets:
+            continue
+        if not (recv in builders or recv in fixture_vals.get(host, ())):
+            continue
+        seen_offsets.add(m.start())
+        sites.append((raw[:m.start()].count("\n") + 1, host,
+                      recv + " (via matches().count())"))
 
     if not sites:
         return None
@@ -442,6 +473,13 @@ def main(argv):
     paths = ([os.path.join(TESTS, f) for f in sorted(os.listdir(TESTS))
               if f.startswith("browser_") and f.endswith(".rs")]
              if not argv else [os.path.abspath(a) for a in argv])
+    if selftest:
+        # KNOWN is no longer a subset of `browser_*.rs`: batch 5's instance is a
+        # non-browser target. A selftest that scans only the browser glob would
+        # report it "gone" and pass by exclusion, which is the ground-truth
+        # failure this whole module exists to avoid.
+        paths = sorted(set(paths) | {os.path.join(TESTS, n) for n in KNOWN
+                                     if os.path.exists(os.path.join(TESTS, n))})
     found, paths_by_name = {}, {}
     for p in paths:
         r = analyse(p)

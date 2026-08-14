@@ -818,7 +818,7 @@ def header_for(stem, ex, pr, source_map, cases, used, dollar=False) -> list[str]
             "`${` is spelled `${dollar}{`. The program text the trial writes to "
             "disk is byte-identical to the source's -- this is an encoding of "
             "rule 9, not an exception to it. The escape is applied only to the "
-            "surfaces expand substitutes; `rationale` is cloned unsubstituted, "
+            "surfaces expand substitutes; rationale is cloned unsubstituted, "
             "so a carried source comment mentioning `${` is left exactly as the "
             "source wrote it (rule 12).")
     reds = redlist(stem)
@@ -851,7 +851,7 @@ def header_for(stem, ex, pr, source_map, cases, used, dollar=False) -> list[str]
     lines.append("")
     for path in sorted(dotted_count_paths(stem, ex, cases)):
         lines.append(
-            f"EXTRA-OK: {path!r} -- the dotted ADDRESS of a `json_count` claim, "
+            f"EXTRA-OK: {path!r} -- the dotted ADDRESS of a json_count claim, "
             f"not an asserted string. The source spells the same address as an "
             f"index chain (`json[\"errors\"][0][\"message\"]`), so the joined "
             f"form occurs nowhere in it; every segment does, and the generator "
