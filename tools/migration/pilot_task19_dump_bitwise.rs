@@ -1,7 +1,10 @@
 // Rule 8: resolve `bitwise_operators_runtime.rs`'s `format!` fixtures by
 // EXECUTING the real code, never by hand-applying substitution. PACK is copied
 // verbatim from bitwise_operators_runtime.rs:50; the format! calls are copied
-// verbatim from its eight #[test] fns.
+// verbatim from its eight #[test] fns. That source was migrated to
+// tests/cases/misc/bitwise_operators_runtime.toml and deleted by Task 19; both
+// line citations above are against
+// `git show cc76f5a918:crates/kali_cli/tests/bitwise_operators_runtime.rs`.
 const PACK: &str = "let byte = 0;\nfor (let i = 0; i < 8; i = i + 1) { byte = (byte << 1) | 1; }\n";
 
 fn emit(label: &str, s: &str) {
