@@ -28,6 +28,35 @@
 # asserts a diagnostic code or stderr text, so no `stderr_contains`/`json`
 # fields beyond `exit = "failure"` are added here -- adding one would
 # assert something the original test never claimed.
+#
+# CONSEQUENCE FOR THE GATES -- `audit-case-migration.py` IS EXPECTED-RED
+# (rc=3) ON THIS PAIR. rc=3 is AUDIT INAPPLICABLE, not a dropped claim: the
+# audit ran to completion over this pair and demanded ZERO claims of it, so
+# it decided nothing either way. Measured, not assumed -- 16 #[test] fns
+# found, 0 claims demanded in either direction.
+#
+# WHY IT DEMANDS NOTHING. Every one of the 16 fns routes through
+# `assert_object_string_enumeration`, whose only assertion is
+# `assert!(!output.status.success(), ...)` -- an exit-status claim carrying
+# no output literal. The four argv tokens the extractor does find (`run`,
+# `test`, `json`, `--output`) are every one of them in the audit's BORING
+# set, which exists precisely because those tokens discriminate nothing.
+# Everything else in the source is fixture program text, which the audit
+# excludes from its search by construction. So the source genuinely makes
+# no literal claim this tool can see; this is not broken claim extraction.
+#
+# Stated here because AUDIT OK over zero demanded claims and AUDIT OK over
+# a covered pair are otherwise indistinguishable, and only one of them is
+# evidence. What DOES cover this pair is the case runner itself: all 16
+# trials pin `exit = "failure"`, which is exactly the claim the source
+# made, and `check_fixtures.py` pins the argv and fixture correspondence.
+#
+# Reproduce (the source was deleted by b5d7ef8129; its last content is the
+# blob at that commit's parent):
+#
+#   git show 239a4b0fffc9febad7eb8e8adbb0d2de5009c584:crates/kali_cli/tests/object_string_enumeration_js_input.rs > /tmp/src.rs
+#   python3 scripts/audit-case-migration.py /tmp/src.rs \
+#     crates/kali_cli/tests/cases/object/string_enumeration_js_input.toml
 
 [matrix]
 extension = ["js", "ts", "jsx", "tsx"]

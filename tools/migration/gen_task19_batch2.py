@@ -390,6 +390,24 @@ CC_RED_FILE_WIDE = (
     "not read as coverage. Every such line is prose that IS carried, in the "
     "one place the rule says it belongs.")
 
+AUDIT_INAPPLICABLE = (
+    "CONSEQUENCE FOR THE GATES -- `audit-case-migration.py` IS EXPECTED-RED "
+    "(rc=3) ON THIS PAIR. rc=3 is AUDIT INAPPLICABLE, not a dropped claim: the "
+    "audit ran to completion over this pair and demanded ZERO claims of it, so "
+    "it decided nothing either way. The source's ONLY assertion is "
+    "`assert!(!output.status.success(), ...)` -- an exit-status claim carrying "
+    "no output literal -- and everything else in the `.rs` is fixture program "
+    "text, which the audit excludes from its search by construction, so there "
+    "is nothing for a literal-coverage tool to find. Stated here because AUDIT "
+    "OK over zero demanded claims and AUDIT OK over a covered pair are "
+    "otherwise indistinguishable, and only one of them is evidence. What DOES "
+    "cover this pair is the case runner itself: every trial below pins "
+    "`exit = \"failure\"`, which is exactly the claim the source made, and "
+    "`check_fixtures.py` pins the argv and fixture correspondence. THE "
+    "DECLARATION IS GATED, not asserted: this generator's `--check` re-runs "
+    "the audit over the pinned source and fails unless the rc it returns is "
+    "the rc declared here.")
+
 CC_RED = (
     "CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=1) "
     "ON THIS PAIR [classes: {classes}]. The checker asks whether every source "
@@ -1440,7 +1458,7 @@ def f_promise(stem, toml, what, cap_run, cap_test, e4000):
             "trap text these trials do emit is true and unasserted, and pinning it "
             "would be a rule-2 invention.",
             ""])
-        + gates([], stem, "misc", toml))
+        + gates([] if e4000 else [AUDIT_INAPPLICABLE], stem, "misc", toml))
     note = para(stem, "Honest re-pin (PR #16 rev2)")
     cases = []
     for kind, key, cmd in (("run", "main.${ext}", "run"), ("test", "smoke.test.${ext}", "test")):
@@ -1920,14 +1938,24 @@ DECLARABLE = {
     "comment_coverage.py": ["tools/task-18-browser-pilot/comment_coverage.py"],
     "check_rationale_fn_names.py": ["tools/task-18-browser-pilot/check_rationale_fn_names.py"],
     "check_fixtures.py": ["tools/task-18-browser-pilot/check_fixtures.py"],
+    # `audit-case-migration.py` IS DECLARABLE TOO, as of the final cleanup pass.
+    # It was left out while its only outcomes were 0 and 1: rule 3 calls it
+    # absolute, so a non-zero was a defect to fix rather than a state to declare.
+    # rc=3 (AUDIT INAPPLICABLE) broke that -- it is neither a pass nor a defect,
+    # it is a pair the audit cannot decide, and the audit's own message asks for
+    # a written reason. A reason nothing re-runs is the "figure in disguise" this
+    # project already refuses elsewhere, so the reason is gated by the same table
+    # that gates every other EXPECTED-RED paragraph in this generator.
+    "audit-case-migration.py": ["scripts/audit-case-migration.py"],
 }
 
 # WHICH `.rs` EACH GATE IS RUN AGAINST FOR A U4 TRIM PAIR, and the split is not
 # ruling 12's "always the complement" (rulings 9 and 12 together):
 #
 #   * a gate that compares the case file's CLAIMS with the source's claims
-#     (`check_fixtures.py` here; `audit-case-migration.py` and
-#     `check_extra_claims.py` outside this table) wants the MIGRATED COMPLEMENT
+#     (`check_fixtures.py` and, since the final cleanup pass wired it in,
+#     `audit-case-migration.py`; `check_extra_claims.py` is still outside this
+#     table) wants the MIGRATED COMPLEMENT
 #     -- ruling 12's own subject. Against the post-trim file the claims are
 #     compared with a source stripped of the half that makes them.
 #   * a gate whose subject is PROSE (`comment_coverage.py`,
@@ -1938,7 +1966,8 @@ DECLARABLE = {
 #     it explains. Neither the post-trim file nor the complement carries both,
 #     so each reports names the other explains -- measured, and both are red,
 #     with the pre-trim blob green.
-_TRIM_SIDE = {"check_fixtures.py": "complement"}
+_TRIM_SIDE = {"check_fixtures.py": "complement",
+              "audit-case-migration.py": "complement"}
 _DECL = None
 
 
@@ -1951,7 +1980,12 @@ def _declared_reds(text):
     one-armed."""
     global _DECL
     if _DECL is None:
-        _DECL = re.compile(r"`([a-z_]+\.py)`[^`]{0,24}?IS EXPECTED-RED \(rc=(\d)\)")
+        # The hyphen in the class is not cosmetic: `audit-case-migration.py` is
+        # the only declarable gate whose name is not all-underscore, and with
+        # `[a-z_]+` the pattern silently matched nothing on it -- a declaration
+        # present in the header, read as absent, i.e. the one-armed gate ruling
+        # 18 warns about. `_selftest_declared_reds` below is the known positive.
+        _DECL = re.compile(r"`([a-z_-]+\.py)`[^`]{0,24}?IS EXPECTED-RED \(rc=(\d)\)")
     header = " ".join(l.lstrip("#").strip() for l in text.split("\n")
                       if l.startswith("#"))
     header = re.sub(r"\s+", " ", header)
@@ -2019,8 +2053,34 @@ def _trim_sides(stem):
 _TRIM_CACHE = {}
 
 
+def _selftest_declared_reds():
+    """Known positive for `_declared_reds`, run before it is trusted.
+
+    `check_gate_declarations` only ever OBSERVES that a header declares what a
+    gate returns. If the reader silently matched nothing, every header would
+    read as "declares nothing" and the arm would report only the gates that
+    exit 0 -- which is green. So the reader is proved able to see BOTH a
+    hyphenated and an underscored gate name, and proved to return the rc it
+    read rather than a constant, before any header is judged by it.
+    """
+    probe = ("# CONSEQUENCE FOR THE GATES -- `audit-case-migration.py` IS\n"
+             "# EXPECTED-RED (rc=3) ON THIS PAIR.\n"
+             "# CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS\n"
+             "# EXPECTED-RED (rc=1) ON THIS PAIR.\n"
+             "# `check_fixtures.py` pins the argv and fixture correspondence.\n")
+    got = _declared_reds(probe)
+    want = {"audit-case-migration.py": 3, "comment_coverage.py": 1}
+    if got != want:
+        raise AssertionError(
+            f"_declared_reds is broken: read {got}, expected {want}. A reader "
+            f"that sees nothing makes every header look compliant.")
+    if _declared_reds("# nothing is declared here\n"):
+        raise AssertionError("_declared_reds invents declarations")
+
+
 def check_gate_declarations(files):
     import subprocess
+    _selftest_declared_reds()
     problems = []
     for path, text in sorted(files.items()):
         spec = next(f for f in build()

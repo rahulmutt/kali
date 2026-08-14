@@ -24,6 +24,36 @@
 # untrimmed capture (unlike the pilot's `run_ok`, this file's helper never
 # trims). Independently re-run against the real built kali binary for every
 # case as a realism cross-check (see the task report); 0 discrepancies.
+#
+# CONSEQUENCE FOR THE GATES -- `audit-case-migration.py` IS EXPECTED-RED
+# (rc=3) ON THIS PAIR. rc=3 is AUDIT INAPPLICABLE, not a dropped claim: the
+# audit ran to completion over this pair and demanded ZERO claims of it, so
+# it decided nothing either way. Measured, not assumed -- 17 #[test] fns
+# found, 0 claims demanded in either direction.
+#
+# WHY IT DEMANDS NOTHING, AND THE REASON IS NOT THE USUAL ONE. Unlike the
+# exit-status-only pairs elsewhere in this family, this source DOES pin
+# exact output: all 17 fns pass an expected-stdout string literal to
+# `assert_stdout(src, expected)`. But the `assert_eq!` the audit reads is
+# inside that helper and its operand there is the PARAMETER `expected`, not
+# a literal, and the extractor does not follow a value from a call site into
+# a helper. So the 17 literals are real claims that this tool structurally
+# cannot see -- rc=3 here means "undecidable by this gate", NOT "the source
+# asserted nothing" and NOT "claim extraction is broken". The one argv token
+# (`run`) is in the audit's BORING set and discriminates nothing.
+#
+# Stated here because AUDIT OK over zero demanded claims and AUDIT OK over a
+# covered pair are otherwise indistinguishable, and only one of them is
+# evidence. What DOES cover this pair is the case runner: all 17 of those
+# literals are carried below as the 17 `stdout` pins, one per `[[case]]`,
+# 17/17 -- so what the audit cannot check, the trials do.
+#
+# Reproduce (the source was deleted by 17c5c0a19a; its last content is the
+# blob at that commit's parent):
+#
+#   git show b668a4ffa1170699915b3441365cad146cb248aa:crates/kali_cli/tests/soundness_const_binding.rs > /tmp/src.rs
+#   python3 scripts/audit-case-migration.py /tmp/src.rs \
+#     crates/kali_cli/tests/cases/soundness/const_binding.toml
 
 [source]
 "swap_idiom_in_function_captures_value_at_declaration.ts" = """function f() {

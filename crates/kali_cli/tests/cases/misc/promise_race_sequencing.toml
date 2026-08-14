@@ -35,6 +35,20 @@
 # claim is written, because the source makes none -- the trap text these trials do emit is
 # true and unasserted, and pinning it would be a rule-2 invention.
 #
+# CONSEQUENCE FOR THE GATES -- `audit-case-migration.py` IS EXPECTED-RED (rc=3) ON THIS
+# PAIR. rc=3 is AUDIT INAPPLICABLE, not a dropped claim: the audit ran to completion over
+# this pair and demanded ZERO claims of it, so it decided nothing either way. The source's
+# ONLY assertion is `assert!(!output.status.success(), ...)` -- an exit-status claim
+# carrying no output literal -- and everything else in the `.rs` is fixture program text,
+# which the audit excludes from its search by construction, so there is nothing for a
+# literal-coverage tool to find. Stated here because AUDIT OK over zero demanded claims
+# and AUDIT OK over a covered pair are otherwise indistinguishable, and only one of them
+# is evidence. What DOES cover this pair is the case runner itself: every trial below pins
+# `exit = "failure"`, which is exactly the claim the source made, and `check_fixtures.py`
+# pins the argv and fixture correspondence. THE DECLARATION IS GATED, not asserted: this
+# generator's `--check` re-runs the audit over the pinned source and fails unless the rc
+# it returns is the rc declared here.
+#
 
 [matrix]
 ext = ["js", "ts"]

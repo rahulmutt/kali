@@ -18,6 +18,33 @@
 # stdout or stderr substring assertion at all -- so only `exit = "failure"`
 # is pinned per case; pinning a stdout/stderr value the source never
 # checked would be an assertion the source did not make (rule 2).
+#
+# CONSEQUENCE FOR THE GATES -- `audit-case-migration.py` IS EXPECTED-RED
+# (rc=3) ON THIS PAIR. rc=3 is AUDIT INAPPLICABLE, not a dropped claim: the
+# audit ran to completion over this pair and demanded ZERO claims of it, so
+# it decided nothing either way. Measured, not assumed -- 3 #[test] fns
+# found, 0 claims demanded in either direction.
+#
+# WHY IT DEMANDS NOTHING, and it is the paragraph directly above restated
+# in the audit's own terms: all three bodies assert only
+# `assert!(!out.status.success(), ...)`, an exit-status claim carrying no
+# output literal. The single argv token in the source (`run`) is in the
+# audit's BORING set, which exists because that token discriminates
+# nothing. The rest of the source is fixture program text, which the audit
+# excludes from its search by construction. The source genuinely makes no
+# literal claim this tool can see; claim extraction is not broken here.
+#
+# Stated here because AUDIT OK over zero demanded claims and AUDIT OK over
+# a covered pair are otherwise indistinguishable, and only one of them is
+# evidence. What DOES cover this pair is the case runner itself: all three
+# cases pin `exit = "failure"`, which is exactly the claim the source made.
+#
+# Reproduce (the source was deleted by dbb9bae7c2; its last content is the
+# blob at that commit's parent):
+#
+#   git show c558031b35f33de6e02956adde93965e307e5a42:crates/kali_cli/tests/soundness_object_taint.rs > /tmp/src.rs
+#   python3 scripts/audit-case-migration.py /tmp/src.rs \
+#     crates/kali_cli/tests/cases/soundness/object_taint.toml
 
 [source]
 "declarator_object_compound_rejects.ts" = """var o = { x: 1 };
