@@ -294,12 +294,34 @@ def docblock(text: str) -> str:
     retention evidence quoted for a source could come from text that is not its
     module docstring at all.
 
-    Blank lines BEFORE the docblock are allowed (a file may open with one);
-    anything else before the first `//!` ends the scan with "".
+    BUT THE HARDENING'S FIRST VERSION LEANED THE WRONG WAY. It returned "" on
+    ANY non-blank non-`//!` line before the block -- including the two shapes
+    Rust legally allows to precede a module docstring: an inner attribute
+    (`#![allow(dead_code)]`, one line or several) and an ordinary `//` comment
+    (a license banner, a `// Migrated from ...` note). For those files the
+    classifier would have seen NO docblock, hence NO retention marker, hence
+    class 1 (DELETE) if claimed and AUDIT OK. The old bug erred toward
+    RETENTION; that one erred toward DELETE, which is the wrong direction for a
+    deletion classifier -- a wrongly retained file costs a review comment, a
+    wrongly deleted one costs coverage. 0 of the 110 sources carry either shape
+    today (nothing regressed), and this permits both so it stays that way.
+
+    So, before the block: blank lines, `//`-comment lines, and inner attributes
+    (tracked across line breaks by bracket depth, so a multi-line `#![allow(`
+    ... `)]` is consumed whole) are skipped; anything else ends the scan with
+    "". Once the block HAS started, the first non-blank non-`//!` line ends it,
+    exactly as before -- that is what keeps a later `//!` in a raw-string
+    fixture out.
     """
     lines: list[str] = []
+    attr_depth = 0
     for line in text.splitlines():
         stripped = line.strip()
+        if attr_depth and not lines:
+            # Inside a multi-line inner attribute that opened before the block.
+            attr_depth = max(0, attr_depth + stripped.count("[")
+                             - stripped.count("]"))
+            continue
         if stripped.startswith("//!"):
             lines.append(stripped[3:].strip())
         elif not stripped:
@@ -307,10 +329,18 @@ def docblock(text: str) -> str:
             continue
         elif lines:
             break
+        elif stripped.startswith("#!"):
+            # A legal inner attribute ahead of the module docstring.
+            attr_depth = max(0, attr_depth + stripped.count("[")
+                             - stripped.count("]"))
+            continue
+        elif stripped.startswith("//"):
+            # An ordinary comment ahead of the module docstring. Skipped, never
+            # collected: only `//!` text can carry a retention marker.
+            continue
         else:
-            # A non-blank, non-`//!` line before any `//!` has been seen: this
-            # file has no LEADING docblock, and whatever `//!` may appear later
-            # is not one.
+            # Real code before any `//!` has been seen: this file has no
+            # LEADING docblock, and whatever `//!` may appear later is not one.
             return ""
     return "\n".join(lines)
 
@@ -373,12 +403,24 @@ def audit(old: str, new: list[str]) -> tuple[str, str]:
 # together -- which is exactly the counting overclaim the deletion report's
 # first draft made when it called three derivations "independent".
 #
-# This one does not read prose at all. It asks an arithmetic question of data
-# the classifier already has in hand: the source's `#[test]` count (printed by
-# the audit script itself, after it resolves `#[path]` submodules) against the
-# number of TRIALS the claiming case files expand to. A fully migrated source's
-# coverage has to have landed somewhere, and a case corpus carrying fewer trials
-# than the source carried tests cannot have absorbed all of it.
+# This one reads NO prose to produce EITHER of the two numbers it compares. It
+# asks an arithmetic question of data the classifier already has in hand: the
+# source's `#[test]` count (printed by the audit script itself, after it resolves
+# `#[path]` submodules) against the number of TRIALS the claiming case files
+# expand to. A fully migrated source's coverage has to have landed somewhere, and
+# a case corpus carrying fewer trials than the source carried tests cannot have
+# absorbed all of it.
+#
+# BE EXACT ABOUT WHAT IT IS INDEPENDENT OF -- this comment's first version was
+# not. The gate is independent of the AUDIT'S LITERAL-COVERAGE CLAIMS (nothing a
+# human wrote into a case file feeds either number) and of U3 HEADER DISCIPLINE
+# (it never reads the `//!` block). It is NOT independent of the `Migrated from`
+# marker: the set of case files it counts trials over is `claims()`'s answer,
+# i.e. the `Migrated from` scan itself, and class 1 membership additionally
+# depends on the absence of a U3 retention header. So a wrong claim line can
+# still move this gate's POPULATION. What it closes -- and what it was added for
+# -- is the case where the population is right and the coverage still did not
+# arrive: no amount of correct prose can make 44 trials cover 47 `#[test]` fns.
 #
 # TRIALS, NOT `[[case]]` ENTRIES. `crates/kali_case_runner/src/expand.rs`
 # expands one trial per (matrix cell x case): `matrix_cells` takes the cartesian
@@ -644,6 +686,33 @@ def selftest() -> int:
     check(docblock("//! A.\n\n//! B.\nfn f() {}\n") == "A.\nB.",
           "a blank line INSIDE the docblock does not end it")
 
+    # M5b -- the two shapes Rust legally allows AHEAD of a module docstring. The
+    # first version of the leading-hardening rejected both, which turned a real
+    # retention header into "no docblock" -> "no retention marker" -> DELETE.
+    # One probe per permitted shape, each with a retention marker in the block
+    # so the probe fails if the shape is rejected.
+    check(docblock("#![allow(dead_code)]\n//! U4 TRIMMED.\nfn f() {}\n")
+          == "U4 TRIMMED.",
+          "a one-line inner attribute before the docblock is skipped, not "
+          "treated as code")
+    check(retention_header("#![allow(dead_code)]\n//! U4 TRIMMED.\n") != [],
+          "... so its retention marker still fires")
+    check(docblock("#![allow(\n    dead_code,\n)]\n//! U4 TRIMMED.\nfn f() {}\n")
+          == "U4 TRIMMED.",
+          "a MULTI-LINE inner attribute is consumed whole by bracket depth")
+    check(retention_header("#![allow(\n    dead_code,\n)]\n//! U4 TRIMMED.\n") != [],
+          "... so its retention marker still fires too")
+    check(docblock("// SPDX-License-Identifier: MIT\n//! U4 TRIMMED.\nfn f() {}\n")
+          == "U4 TRIMMED.",
+          "an ordinary `//` comment before the docblock is skipped")
+    check(retention_header("// banner\n//! U4 TRIMMED.\n") != [],
+          "... so its retention marker still fires too")
+    # And the permission does not reopen the hole it replaced: a `//` banner
+    # ahead of REAL CODE still leaves the file with no leading docblock.
+    check(docblock("// banner\nfn f() {}\n//! U4 TRIMMED.\n") == "",
+          "permitting leading `//` lines does NOT let a `//!` below real code "
+          "be adopted")
+
     # M6 -- the basename-keying dependency, driven with a synthetic collision so
     # its green in this corpus is a measurement and not an empty set.
     check(basename_collisions({"inprocess/schema_validation.rs"},
@@ -763,8 +832,10 @@ def main() -> int:
 
     tot_fns = sum(r["tests"] or 0 for r in result["delete"])
     tot_trials = sum(r["trials"] or 0 for r in result["delete"])
-    print(f"\nARITHMETIC GATE (non-prose, independent of the `Migrated from` "
-          f"marker and of U3 header discipline) — over class 1: "
+    print(f"\nARITHMETIC GATE (neither number is read from prose; independent "
+          f"of the audit's literal-coverage claims and of U3 header discipline. "
+          f"NOT independent of the `Migrated from` marker — that scan is what "
+          f"selects the case files counted here) — over class 1: "
           f"{tot_fns} `#[test]` fn(s) vs {tot_trials} expanded trial(s); "
           f"{len(result['short'])} source(s) short")
 
