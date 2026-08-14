@@ -151,8 +151,53 @@ def sweep(audit: str, workdir: str, cache: dict[str, str]) -> dict[str, tuple[in
                      f"{ref} either; nothing to audit against")
         done = _run(sys.executable, audit, source, *tomls, cwd=tree)
         key = f"{name}@{'tree' if ref is None else ref[:10]}"
-        out[key] = (done.returncode, _normalise(done.stdout + done.stderr))
+        text = _normalise(done.stdout + done.stderr)
+        _require_a_verdict(key, done.returncode, done.stdout, done.stderr)
+        out[key] = (done.returncode, text)
     return out
+
+
+def _require_a_verdict(key: str, rc: int, stdout: str, stderr: str) -> None:
+    """A CRASH IS NOT A VERDICT, and this differential could not tell them apart.
+
+    THE HOLE, AND WHAT IT COST. `sweep` recorded `(returncode, output bytes)`
+    and `--compare` called any difference in either a "moved verdict". A Python
+    traceback is a difference in both -- so a patch that made the audit script
+    DIE on every pair read as "185 of 268 verdicts moved", and that figure
+    survived a whole batch and was defended in a report as a finding about the
+    corpus. It was a finding about the patch. Batch 4's own fix round records
+    it: "my differential counted a non-zero exit as a moved verdict and could
+    not tell a changed answer from no answer at all -- the same failure this
+    project keeps naming in other people's instruments, in mine, and this time
+    in the one instrument whose whole job is to notice."
+
+    THE CHECK IS INDEPENDENT OF THE DIFFERENTIAL, which is the point: it does
+    not compare two runs, it asks whether THIS run produced an answer at all.
+    Two conditions, taken from the audit script's own contract:
+
+      * no traceback text on either stream -- an audit that raised did not
+        decide anything;
+      * a non-zero exit must be accompanied by an `AUDIT `-prefixed verdict
+        line. rc=1 means "AUDIT FAILED", rc=2 means a usage/resolution error
+        the script prints in its own words; a bare non-zero with no verdict is
+        the script falling over.
+
+    It runs on BOTH sides of a `--compare`, because `sweep` is what both sides
+    call, so the pre-change revision is held to it too. That matters: the
+    crash in the 185 case was on the CHANGED side, but the symmetric mistake --
+    a historical ref that no longer runs under today's Python -- is the same
+    defect read backwards.
+    """
+    both = stdout + stderr
+    if "Traceback (most recent call last)" in both:
+        sys.exit(
+            f"SWEEP FAILED — {key}: the audit script RAISED. That is not a "
+            f"verdict, and comparing it as one is how a crash gets reported as "
+            f"a moved verdict:\n{both[-2000:]}")
+    if rc != 0 and not re.search(r"^AUDIT ", both, re.M):
+        sys.exit(
+            f"SWEEP FAILED — {key}: exit {rc} with no `AUDIT ...` verdict line. "
+            f"The script did not decide; it stopped.\n{both[-2000:]}")
 
 
 def _audit_at(ref: str, workdir: str) -> str:
@@ -240,6 +285,34 @@ def _selftest() -> int:
                   f"{differs}")
             if not differs:
                 problems.append("the differential cannot see an edited audit script")
+
+            # THE CRASH ARM'S OWN KNOWN POSITIVE. `_require_a_verdict` exists
+            # because a traceback used to be read as a moved verdict; a check
+            # whose green is indistinguishable from "it cannot fire" would
+            # reproduce that failure one level up. Both of its conditions are
+            # driven here, against synthetic output, and both must exit.
+            for label, rc, text in (
+                    ("a traceback", 1,
+                     "Traceback (most recent call last)\n  File \"x\"\nBoom"),
+                    ("a bare non-zero with no verdict", 1, "some noise\n")):
+                caught = False
+                try:
+                    _require_a_verdict("selftest", rc, text, "")
+                except SystemExit:
+                    caught = True
+                print(f"  crash arm      -- {label} is refused: {caught}")
+                if not caught:
+                    problems.append(
+                        f"_require_a_verdict does not fire on {label}")
+            # and it must NOT fire on a real verdict, either direction
+            for rc, text in ((0, "AUDIT OK — fine\n"),
+                             (1, "AUDIT FAILED — 1 claim(s) absent\n")):
+                try:
+                    _require_a_verdict("selftest", rc, text, "")
+                except SystemExit:
+                    problems.append(
+                        f"_require_a_verdict fires on a real rc={rc} verdict")
+            print("  crash arm      -- a real AUDIT verdict passes: True")
         del cache
     finally:
         shutil.rmtree(workdir, ignore_errors=True)

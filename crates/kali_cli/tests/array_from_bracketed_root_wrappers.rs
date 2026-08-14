@@ -1,3 +1,70 @@
+//! SPEC §5.11 RETENTION -- CONTROLLER RULING R1, CLASS A (UNREACHABLE-CODE
+//! CLAIM). This file stays hand-written per spec §5.11. Adjudicated in Task 15
+//! and upheld on re-review; this header was added in Task 19 batch 5, and its
+//! absence until now is the whole reason a dispatch listed this file as a
+//! migratable CLEAN target.
+//!
+//! THE PHRASE "hand-written per spec" ABOVE IS LOAD-BEARING, and that is worth
+//! knowing before anyone rewords this paragraph. `screen_candidates.py`'s S27
+//! arm decides "is this an adjudicated retention?" by matching one of six
+//! marker phrases against the `//!` header -- ruling 18's fragile shape, where
+//! the gate's input is the prose it is policing. Its `--selftest` DOES fail
+//! loudly when the marker stops matching while `citation_sweep.sh` still adopts
+//! the file as a retention, which is how this was caught rather than shipped.
+//!
+//! THE BLOCKING CONSTRUCT, BY NAME AND LINE, RE-MEASURED RATHER THAN CITED.
+//! The `json_output: bool` parameters of `assert_browser_requested` and `assert_browser_bundle` are never passed `true` at any call site.
+//! Every call site passes `false`, so each `if json_output { … }` block is
+//! UNREACHABLE and every literal inside it is DEAD: a value written in the
+//! source and asserted by no reachable path.
+//!
+//! The enumerating command, run before this sentence was written (ruling 13):
+//!
+//!   cd /workspace && python3 tools/migration/t19b5_extract.py --declined
+//!
+//! It is re-run on every generator invocation (`t19b5_extract.check_declined`),
+//! and it RAISES if any of these branches ever becomes reachable -- so this
+//! retention is re-derived rather than inherited, and a source that grew a
+//! `json_output = true` call site would fail the gate instead of staying
+//! silently declined.
+//!
+//! WHY NEITHER THE AUDIT NOR THE FORMAT CAN CARRY IT. Those literals are dead.
+//! `audit-case-migration.py` is a literal-coverage tool and cannot see
+//! reachability, so it demands all of them of a case file; rule 2 forbids
+//! inventing a claim to satisfy it, a value computed but never asserted not
+//! being a claim; and rule 3 forbids shipping the resulting red. Controller
+//! ruling R1 settles exactly this shape and rules BOTH alternatives out
+//! permanently -- a per-file audit exception, and teaching the audit Rust
+//! reachability analysis.
+//!
+//! ONLY SOME TESTS REACH IT, AND THE TRIM WAS QUANTIFIED AND DECLINED. This is
+//! NOT a case where U4's whole-file clause applies on its own terms: 2 of
+//! this file's 8 test fns never reach a dead-branch helper, so a
+//! trim-and-keep IS structurally available. (The attribute is spelled "test
+//! fns" and not in full here on purpose: `screen_candidates.py` counts test
+//! functions by matching the attribute over the whole file, so writing it in
+//! this header would add to the number the screen reports about the file --
+//! ruling 11's self-referential trap, in miniature.) It was measured across all four
+//! Class A files -- 10 migratable of 36, against 26 retained across four new
+//! retention pairs -- and DECLINED by the controller, with the human partner's
+//! agreement, on this ground: **U4 exists to stop OVER-retention, and a trim
+//! that retains 26 of 36 barely reduces retention** while adding four instances
+//! of the apparatus rulings 9, 11, 12 and 19 record as this project's densest
+//! defect source. The sibling precedent runs the other way and is what makes
+//! the distinction rather than contradicting it: Task 19 batch 2 trimmed
+//! `object_has_own_frozen_js_input.rs`, the FIFTH Class A file from the same
+//! Task 15 ruling, migrating 4 of its 5. The yield is inverted here.
+//!
+//! CONSEQUENCE FOR THE GATES. There is no case file for this stem and no trim,
+//! so no per-pair gate runs against it at all and there is no red-list to
+//! carry: rulings 9, 12 and 19's three-column apparatus is for a retention
+//! PAIR, and this is a whole-file retention with no pair. What this header does
+//! change is the SCREEN: `screen_candidates.py` now classifies this file
+//! `S27_self_documented` instead of CLEAN, which is precisely the U3 mechanism
+//! that was missing.
+//!
+//! Report: `.superpowers/sdd/2026-07-29-test-binary-consolidation/task-19-batch5-report.md`.
+
 use std::{fs, process::Command};
 
 use serde_json::Value;

@@ -710,7 +710,27 @@ _LET_BINDING = re.compile(
     r"\blet\s+(?:mut\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?::[^=;]*)?=\s*([^;]+);", re.S)
 _LEADING_INDEX = re.compile(r'\A\s*\[\s*(?:"([^"]*)"|\'([^\']*)\'|(\d+))\s*\]')
 _HEAD_IDENT = re.compile(r"\A\s*&?\s*([A-Za-z_][A-Za-z0-9_]*)")
-_CONTAINS_CALL = re.compile(r"\.\s*contains\s*\(\s*(\"(?:[^\"\\\\]|\\\\.)*\")\s*\)")
+# ESCAPE HANDLING, CORRECTED IN TASK 19 BATCH 5. This was
+# `(\"(?:[^\"\\\\]|\\\\.)*\")`, whose alternation spells FOUR backslashes and
+# therefore required TWO literal backslashes before the escaped character. A
+# Rust `.contains("7\\n7\\n")` -- one backslash, the overwhelmingly common
+# spelling in this corpus -- matched nothing at all, so every json-leaf
+# `.contains` whose needle carries an escape was invisible to
+# `json_leaf_contains_sites`.
+#
+# WHICH DIRECTION THAT FAILED IN, because it decides what evidence is needed.
+# This regex feeds ONE arm, the acceptance at the count-claim check, which
+# GRANTS permission for a `json_count { at_least = 1 }` pinned at the leaf the
+# source's `.contains` was taken on (ruling 3's amended clause 4). Missing a
+# site therefore made the gate REFUSE a compliant claim -- a false red, the safe
+# direction -- and the corrected pattern matches a strict superset of what the
+# old one did, so no already-passing pair can be flipped by it. That is why a
+# corpus differential is necessary and NOT sufficient here: it cannot see a
+# permission nobody has exploited. The evidence for the grant is the refusal
+# suite enumerated against the language in `audit-case-migration_test.py` --
+# every one of the five doors this function's docstring names, plus the two
+# escape-specific ones this correction opens the door for.
+_CONTAINS_CALL = re.compile(r'\.\s*contains\s*\(\s*("(?:[^"\\]|\\.)*")\s*\)')
 
 
 def _json_path_of(expr: str, env: dict) -> str | None:

@@ -152,6 +152,35 @@ run_gates() {
         # and is stated in batch 4's report; the count moves by construction
         # whenever a batch wires its generator in, which is what batch 3 flagged.
         "python3 $REPO/tools/migration/gen_task19_batch4.py"
+        # ADDED BY TASK 19 BATCH 5, the last migration batch, for the same
+        # reason and with three additions of its own.
+        # `gen_task19_batch5.py`'s default mode is the CHECK direction: it
+        # re-derives all seven of its case files from `t19b5_extract.py` and
+        # requires the shipped bytes to match, so a source that grows a
+        # construct outside the extractor's closed CLAIM language fails HERE
+        # rather than migrating short. It re-runs all five of ruling 19's gates
+        # and requires every EXPECTED-RED declaration to agree with the gate it
+        # names, in BOTH directions -- including the THREE-COLUMN red-list in
+        # the one U4 trim's retained `.rs` header, every cell of which is a live
+        # run rather than a prediction.
+        #
+        # The three additions:
+        #   * it RE-RUNS the real binary for all eighteen of this batch's
+        #     rule-11 disjunction resolutions and raises if a cell moves branch,
+        #     or if BOTH disjuncts ever hold (ruling 17's tie, which it refuses
+        #     to break silently). Like batch 4's, this needs a built `kali` and
+        #     degrades to a loud failure, never to a skip;
+        #   * it RE-MEASURES the ground for declining the four `array_from_*`
+        #     spec §5.11 retentions -- every `json_output` branch still
+        #     unreachable -- so a source that grew a reachable call site fails
+        #     here instead of staying silently declined;
+        #   * it runs ruling 10's `find_fixture_self_inspection.py` over all
+        #     seven targets and requires zero UNADJUDICATED instances.
+        #
+        # This takes the gate set from 13 to 14. The arithmetic is 13 + 1 = 14
+        # and is stated in batch 5's report; the count moves by construction
+        # whenever a batch wires its generator in.
+        "python3 $REPO/tools/migration/gen_task19_batch5.py"
     )
     for g in "${gates[@]}"; do
         printf '\n=== MIGRATION GATE: %s ===\n' "$g"

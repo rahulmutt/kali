@@ -1,0 +1,91 @@
+# Migrated from tests/wrapped_call_targets_wrappers.rs.
+#   SOURCE REF: 47e9b083c61e32c972727189a580d1e9cacb856c
+#
+# MATRIX DECLINED. 4 source helper invocation(s) == 4 case(s) x 1. Named siblings, one `[[case]]` per real invocation (rule 5), so a failing trial names the source `#[test]` fn it came from. A `[matrix]` axis is not declared: `[matrix]` is FILE-WIDE (U1) and these files' cases do not all vary over one axis uniformly, so an axis would fan cases the source never ran (rule 2) and the arithmetic would not close (rule 7).
+#
+# U5 -- EVERY `[source]` KEY IS RENAMED, AND THE RENAME IS FORCED. `[source]` is one flat file-wide namespace and expand.rs clones the whole map into every trial (U2), but these sources write MANY DIFFERENT programs to the same filename. A bare `main.ts` reused across cases would give every trial the last body written and silently destroy the cases' discriminating power. Each key is therefore the source `#[test]` fn's own name plus the original suffix chain, so the fn name survives the source's deletion. The WHOLE suffix chain is kept (`.test.js`, not `.js`) because kali test dispatches on the `.test.` infix: U5 permits renaming an argv filename, not renaming one whose shape the tool reads.
+#
+# U13 -- THE HOIST IS DECLINED (ruling 7), and the duplication is asserted rather than eyeballed. check_fixtures.py's toml_program_texts reads `[source]` values verbatim and never resolves a `${NAME}` reference, so hoisting a shared body into `[constants]` makes the rule-9 fixture gate report UNMATCHED on a correct file. The property is the TOOL's, not the family's, which is what makes ruling 7 apply here as well as in `browser/`. check_duplication_is_the_sources_own requires the set of distinct rendered `[source]` bodies to equal the set of distinct fixture texts the extractor produced, so every byte-identical pair below is the SOURCE's own duplication and not the generator's.
+#
+# EVERY GATE THAT IS RED ON THIS PAIR, NAMED HERE WITH A REPRODUCTION THAT RUNS (ruling 9). All five of ruling 19's gates are run on every generator invocation and the list below is the generator's OWN output, not a second computation of the same thing -- so a gate that went green would fail this file rather than leave a stale claim, and a NEW red raises instead of shipping undeclared. The gates not listed are green.
+#
+#   EXPECTED-RED  comment_coverage.py  rc=2
+#     reproduce: python3 tools/task-18-browser-pilot/comment_coverage.py crates/kali_cli/tests/wrapped_call_targets_wrappers.rs crates/kali_cli/tests/cases/misc/wrapped_call_targets_wrappers.toml
+#     reason: ruling 5's ZERO-LINE FLOOR, not a coverage failure: this source carries no non-divider Rust comment at all, and the checker refuses to report a vacuous green over zero checked lines. Confirmed by reading the source, not inferred from the exit code.
+#
+# EXTRA-OK: 'json_run_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input.tsx' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `main.tsx`), not a claim about behaviour
+# EXTRA-OK: 'json_test_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input.test.tsx' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `smoke.test.tsx`), not a claim about behaviour
+# EXTRA-OK: 'run_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `main.ts`), not a claim about behaviour
+# EXTRA-OK: 'test_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input.test.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `smoke.test.ts`), not a claim about behaviour
+
+[source]
+"run_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input.ts" = """function constant() { console.log(7); }
+(constant as unknown)();
+(constant satisfies unknown)();
+"""
+"test_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input.test.ts" = """Kali.test('wrapped call targets', () => {
+  function constant() { console.log(7); }
+  (constant as unknown)();
+  (constant satisfies unknown)();
+});
+"""
+"json_run_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input.tsx" = """function constant() { console.log(7); }
+(constant as unknown)();
+(constant satisfies unknown)();
+"""
+"json_test_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input.test.tsx" = """Kali.test('wrapped call targets', () => {
+  function constant() { console.log(7); }
+  (constant as unknown)();
+  (constant satisfies unknown)();
+});
+"""
+
+[[case]]
+name = "run_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input"
+rationale = """Migrated from `wrapped_call_targets_wrappers.rs::run_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input`."""
+args = ["run", "run_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input.ts"]
+exit = "success"
+stdout_contains = ["7\n7\n"]
+
+[[case]]
+name = "test_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input"
+rationale = """Migrated from `wrapped_call_targets_wrappers.rs::test_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input`."""
+args = ["test", "test_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input.test.ts"]
+exit = "success"
+stdout_contains = ["7\n7\n", "ok 1"]
+
+[[case]]
+name = "json_run_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from `wrapped_call_targets_wrappers.rs::json_run_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input`."""
+args = ["run", "--api", "browser", "--output", "json", "json_run_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.exitCode = 0
+json.payload.exitCode = 0
+json.stderr = ""
+json.errors = []
+json_count = [{ path = "stdout", needle = "7\n7\n", at_least = 1 }]
+
+[[case]]
+name = "json_test_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from `wrapped_call_targets_wrappers.rs::json_test_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input`."""
+args = ["test", "--api", "browser", "--output", "json", "json_test_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.skipped = 0
+json.stderr = ""
+json.errors = []
+json_count = [{ path = "stdout", needle = "7\n7\n", at_least = 1 }]

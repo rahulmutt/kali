@@ -2304,6 +2304,137 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
             mod.json_leaf_contains_sites(source),
             {("errors.0.message", "literal array"), ("stdout", "reflect ownKeys ok")})
 
+    # -----------------------------------------------------------------
+    # THE ESCAPE-SEQUENCE CORRECTION (Task 19 batch 5), and its refusal suite.
+    #
+    # `_CONTAINS_CALL` required TWO literal backslashes before an escaped
+    # character, so `.contains("7\\n7\\n")` -- one backslash, the common
+    # spelling -- matched nothing and the amended-clause-4 acceptance refused a
+    # compliant claim. Corrected to one. The arm GRANTS permission, so a green
+    # corpus differential is not evidence about it (it cannot see a permission
+    # nobody has exploited): these probes are the evidence, and they re-run
+    # every one of the five doors WITH AN ESCAPED NEEDLE, which is precisely the
+    # input class the old pattern could not reach and therefore the class whose
+    # refusals were never actually tested.
+    # -----------------------------------------------------------------
+
+    def test_escaped_needle_on_the_json_leaf_is_now_SEEN(self):
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    let stdout = json["stdout"].as_str().expect("s");\n'
+            '    assert!(stdout.contains("7\\n7\\n"), "json: {json}");\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        self.assertIn(("stdout", "7\n7\n"),
+                      _load_audit_module().json_leaf_contains_sites(source))
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "7\\n7\\n", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 0, out)
+
+    def test_escaped_needle_door1_commented_out_permits_nothing(self):
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    // assert!(json["stdout"].as_str().expect("s").contains("7\\n7\\n"));\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "7\\n7\\n", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_escaped_needle_door2_inside_a_fixture_raw_string_permits_nothing(self):
+        source = (
+            'fn fixture() -> &\'static str {\n'
+            '    r#"const s = "abc"; if (s.contains("7\\n7\\n")) { console.log(1); }"#\n'
+            '}\n'
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "7\\n7\\n", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_escaped_needle_door3_on_raw_stdout_cannot_justify_a_json_count(self):
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let stdout = String::from_utf8_lossy(&output.stdout);\n'
+            '    assert!(stdout.contains("7\\n7\\n"));\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'stdout_contains = ["7\\n7\\n"]\n'
+            'json_count = [{ path = "stdout", needle = "7\\n7\\n", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_escaped_needle_door4_one_leaf_cannot_justify_another_path(self):
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    let stderr = json["stderr"].as_str().expect("s");\n'
+            '    assert!(stderr.contains("7\\n7\\n"));\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "7\\n7\\n", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_escaped_needle_door5_inside_a_block_comment_permits_nothing(self):
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    /* assert!(json["stdout"].as_str().expect("s").contains("7\\n7\\n")); */\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        rc, out = _run_audit(source, {"new.toml": self._toml(
+            'json_count = [{ path = "stdout", needle = "7\\n7\\n", at_least = 1 }]\n'
+            'json.schemaVersion = 1\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("corresponds to no", out)
+
+    def test_escaped_needle_a_stronger_bound_is_still_refused(self):
+        # The BOUND is the discriminator and the correction does not touch it:
+        # a `.contains` is a presence claim and carries no number, so it can
+        # justify `at_least = 1` and nothing else, escaped needle or not.
+        source = (
+            '#[test]\n'
+            'fn t() {\n'
+            '    let json: Value = serde_json::from_slice(&output.stdout).expect("j");\n'
+            '    let stdout = json["stdout"].as_str().expect("s");\n'
+            '    assert!(stdout.contains("7\\n7\\n"));\n'
+            '    assert_eq!(json["schemaVersion"], 1);\n'
+            '}\n'
+        )
+        for bound in ('at_least = 2', 'exact = 2'):
+            rc, out = _run_audit(source, {"new.toml": self._toml(
+                'json_count = [{ path = "stdout", needle = "7\\n7\\n", '
+                + bound + ' }]\n'
+                'json.schemaVersion = 1\n')})
+            self.assertEqual(rc, 1, out)
+
     def test_the_json_path_arm_still_bites(self):
         # The acceptance is about the BOUND only. A `json_count` whose path
         # names a key the source never indexed is still a failure, so the

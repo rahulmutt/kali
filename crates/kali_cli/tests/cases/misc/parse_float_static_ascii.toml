@@ -1,0 +1,213 @@
+# Migrated from tests/parse_float_static_ascii.rs.
+#   SOURCE REF: 47e9b083c61e32c972727189a580d1e9cacb856c
+#
+# MATRIX DECLINED. 12 source helper invocation(s) == 12 case(s) x 1. Named siblings, one `[[case]]` per real invocation (rule 5), so a failing trial names the source `#[test]` fn it came from. A `[matrix]` axis is not declared: `[matrix]` is FILE-WIDE (U1) and these files' cases do not all vary over one axis uniformly, so an axis would fan cases the source never ran (rule 2) and the arithmetic would not close (rule 7).
+#
+# U5 -- EVERY `[source]` KEY IS RENAMED, AND THE RENAME IS FORCED. `[source]` is one flat file-wide namespace and expand.rs clones the whole map into every trial (U2), but these sources write MANY DIFFERENT programs to the same filename. A bare `main.ts` reused across cases would give every trial the last body written and silently destroy the cases' discriminating power. Each key is therefore the source `#[test]` fn's own name plus the original suffix chain, so the fn name survives the source's deletion. The WHOLE suffix chain is kept (`.test.js`, not `.js`) because kali test dispatches on the `.test.` infix: U5 permits renaming an argv filename, not renaming one whose shape the tool reads.
+#
+# U13 -- THE HOIST IS DECLINED (ruling 7), and the duplication is asserted rather than eyeballed. check_fixtures.py's toml_program_texts reads `[source]` values verbatim and never resolves a `${NAME}` reference, so hoisting a shared body into `[constants]` makes the rule-9 fixture gate report UNMATCHED on a correct file. The property is the TOOL's, not the family's, which is what makes ruling 7 apply here as well as in `browser/`. check_duplication_is_the_sources_own requires the set of distinct rendered `[source]` bodies to equal the set of distinct fixture texts the extractor produced, so every byte-identical pair below is the SOURCE's own duplication and not the generator's.
+#
+# EVERY GATE THAT IS RED ON THIS PAIR, NAMED HERE WITH A REPRODUCTION THAT RUNS (ruling 9). All five of ruling 19's gates are run on every generator invocation and the list below is the generator's OWN output, not a second computation of the same thing -- so a gate that went green would fail this file rather than leave a stale claim, and a NEW red raises instead of shipping undeclared. The gates not listed are green.
+#
+#   EXPECTED-RED  comment_coverage.py  rc=2
+#     reproduce: python3 tools/task-18-browser-pilot/comment_coverage.py crates/kali_cli/tests/parse_float_static_ascii.rs crates/kali_cli/tests/cases/misc/parse_float_static_ascii.toml
+#     reason: ruling 5's ZERO-LINE FLOOR, not a coverage failure: this source carries no non-divider Rust comment at all, and the checker refuses to report a vacuous green over zero checked lines. Confirmed by reading the source, not inferred from the exit code.
+#
+# EXTRA-OK: 'errors.0.message' -- the dotted ADDRESS of a `json_count` claim, not an asserted string. The source spells the same address as an index chain (`json["errors"][0]["message"]`), so the joined form occurs nowhere in it; every segment does, and the generator raises if one does not.
+# EXTRA-OK: 'browser_bundle_accepts_static_ascii_parse_float_across_source_classes__1.js' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `parse-float.js`), not a claim about behaviour
+# EXTRA-OK: 'browser_bundle_accepts_static_ascii_parse_float_across_source_classes__2.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `parse-float.ts`), not a claim about behaviour
+# EXTRA-OK: 'browser_bundle_accepts_static_ascii_parse_float_across_source_classes__3.jsx' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `parse-float.jsx`), not a claim about behaviour
+# EXTRA-OK: 'browser_bundle_accepts_static_ascii_parse_float_across_source_classes__4.tsx' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `parse-float.tsx`), not a claim about behaviour
+# EXTRA-OK: 'check_gates_parse_float_additional_arguments.js' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `main.js`), not a claim about behaviour
+# EXTRA-OK: 'check_gates_parse_float_dynamic_input.js' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `main.js`), not a claim about behaviour
+# EXTRA-OK: 'check_gates_parse_float_fractional_result.js' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `main.js`), not a claim about behaviour
+# EXTRA-OK: 'check_gates_parse_float_nan_result.js' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `main.js`), not a claim about behaviour
+# EXTRA-OK: 'check_gates_parse_float_non_ascii_input.js' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `main.js`), not a claim about behaviour
+# EXTRA-OK: 'json_browser_bundle_accepts_static_ascii_parse_float_in_tsx_input.tsx' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `parse-float.tsx`), not a claim about behaviour
+# EXTRA-OK: 'json_check_accepts_static_ascii_parse_float_integer_slice.ts' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `main.ts`), not a claim about behaviour
+# EXTRA-OK: 'run_supports_static_ascii_parse_float_integer_slice.js' -- a U5 variant-suffixed `[source]` key surfaced as an argv token; it is a fixture FILENAME named after the source `#[test]` fn that wrote the program (renamed from `main.js`), not a claim about behaviour
+
+[source]
+"run_supports_static_ascii_parse_float_integer_slice.js" = """console.log(parseFloat('42.0px'));
+console.log(globalThis.parseFloat('-1.2e1tail'));
+console.log(globalThis["parseFloat"]('10e1'));
+console.log(Number.parseFloat('7.000'));
+console.log(globalThis["Number"]["parseFloat"]('6.02e2'));
+console.log(globalThis.Number['parseFloat'](Object.freeze('9.0')));
+const parse = Object.freeze(parseFloat);
+const numberParse = Object.freeze(globalThis["Number"]["parseFloat"]);
+console.log(parse(Object.freeze('77.0')));
+console.log(numberParse('8e1'));
+"""
+"json_check_accepts_static_ascii_parse_float_integer_slice.ts" = """console.log(parseFloat('42.0px'));
+console.log(globalThis.parseFloat('-1.2e1tail'));
+console.log(globalThis["parseFloat"]('10e1'));
+console.log(Number.parseFloat('7.000'));
+console.log(globalThis["Number"]["parseFloat"]('6.02e2'));
+console.log(globalThis.Number['parseFloat'](Object.freeze('9.0')));
+const parse = Object.freeze(parseFloat);
+const numberParse = Object.freeze(globalThis["Number"]["parseFloat"]);
+console.log(parse(Object.freeze('77.0')));
+console.log(numberParse('8e1'));
+"""
+"browser_bundle_accepts_static_ascii_parse_float_across_source_classes__1.js" = """console.log(parseFloat('42.0px'));
+console.log(globalThis.parseFloat('-1.2e1tail'));
+console.log(globalThis["parseFloat"]('10e1'));
+console.log(Number.parseFloat('7.000'));
+console.log(globalThis["Number"]["parseFloat"]('6.02e2'));
+console.log(globalThis.Number['parseFloat'](Object.freeze('9.0')));
+const parse = Object.freeze(parseFloat);
+const numberParse = Object.freeze(globalThis["Number"]["parseFloat"]);
+console.log(parse(Object.freeze('77.0')));
+console.log(numberParse('8e1'));
+"""
+"browser_bundle_accepts_static_ascii_parse_float_across_source_classes__2.ts" = """console.log(parseFloat('42.0px'));
+console.log(globalThis.parseFloat('-1.2e1tail'));
+console.log(globalThis["parseFloat"]('10e1'));
+console.log(Number.parseFloat('7.000'));
+console.log(globalThis["Number"]["parseFloat"]('6.02e2'));
+console.log(globalThis.Number['parseFloat'](Object.freeze('9.0')));
+const parse = Object.freeze(parseFloat);
+const numberParse = Object.freeze(globalThis["Number"]["parseFloat"]);
+console.log(parse(Object.freeze('77.0')));
+console.log(numberParse('8e1'));
+"""
+"browser_bundle_accepts_static_ascii_parse_float_across_source_classes__3.jsx" = """console.log(parseFloat('42.0px'));
+console.log(globalThis.parseFloat('-1.2e1tail'));
+console.log(globalThis["parseFloat"]('10e1'));
+console.log(Number.parseFloat('7.000'));
+console.log(globalThis["Number"]["parseFloat"]('6.02e2'));
+console.log(globalThis.Number['parseFloat'](Object.freeze('9.0')));
+const parse = Object.freeze(parseFloat);
+const numberParse = Object.freeze(globalThis["Number"]["parseFloat"]);
+console.log(parse(Object.freeze('77.0')));
+console.log(numberParse('8e1'));
+"""
+"browser_bundle_accepts_static_ascii_parse_float_across_source_classes__4.tsx" = """console.log(parseFloat('42.0px'));
+console.log(globalThis.parseFloat('-1.2e1tail'));
+console.log(globalThis["parseFloat"]('10e1'));
+console.log(Number.parseFloat('7.000'));
+console.log(globalThis["Number"]["parseFloat"]('6.02e2'));
+console.log(globalThis.Number['parseFloat'](Object.freeze('9.0')));
+const parse = Object.freeze(parseFloat);
+const numberParse = Object.freeze(globalThis["Number"]["parseFloat"]);
+console.log(parse(Object.freeze('77.0')));
+console.log(numberParse('8e1'));
+"""
+"json_browser_bundle_accepts_static_ascii_parse_float_in_tsx_input.tsx" = """console.log(parseFloat('42.0px'));
+console.log(globalThis.parseFloat('-1.2e1tail'));
+console.log(globalThis["parseFloat"]('10e1'));
+console.log(Number.parseFloat('7.000'));
+console.log(globalThis["Number"]["parseFloat"]('6.02e2'));
+console.log(globalThis.Number['parseFloat'](Object.freeze('9.0')));
+const parse = Object.freeze(parseFloat);
+const numberParse = Object.freeze(globalThis["Number"]["parseFloat"]);
+console.log(parse(Object.freeze('77.0')));
+console.log(numberParse('8e1'));
+"""
+"check_gates_parse_float_dynamic_input.js" = """function parse(value) { return parseFloat(value); }
+"""
+"check_gates_parse_float_non_ascii_input.js" = """console.log(parseFloat('é'));
+"""
+"check_gates_parse_float_fractional_result.js" = """console.log(parseFloat('1.5'));
+"""
+"check_gates_parse_float_additional_arguments.js" = """console.log(parseFloat('10', 10));
+"""
+"check_gates_parse_float_nan_result.js" = """console.log(parseFloat('nope'));
+"""
+
+[[case]]
+name = "run_supports_static_ascii_parse_float_integer_slice"
+rationale = """Migrated from `parse_float_static_ascii.rs::run_supports_static_ascii_parse_float_integer_slice`."""
+args = ["run", "run_supports_static_ascii_parse_float_integer_slice.js"]
+exit = "success"
+stdout = "42\n-12\n100\n7\n602\n9\n77\n80\n"
+
+[[case]]
+name = "json_check_accepts_static_ascii_parse_float_integer_slice"
+rationale = """Migrated from `parse_float_static_ascii.rs::json_check_accepts_static_ascii_parse_float_integer_slice`."""
+args = ["--output", "json", "check", "json_check_accepts_static_ascii_parse_float_integer_slice.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_accepts_static_ascii_parse_float_across_source_classes__1"
+rationale = """Migrated from `parse_float_static_ascii.rs::browser_bundle_accepts_static_ascii_parse_float_across_source_classes`, invocation 1 of 4."""
+args = ["build", "--api", "browser", "--bundle", "browser_bundle_accepts_static_ascii_parse_float_across_source_classes__1.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_accepts_static_ascii_parse_float_across_source_classes__2"
+rationale = """Migrated from `parse_float_static_ascii.rs::browser_bundle_accepts_static_ascii_parse_float_across_source_classes`, invocation 2 of 4."""
+args = ["build", "--api", "browser", "--bundle", "browser_bundle_accepts_static_ascii_parse_float_across_source_classes__2.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_accepts_static_ascii_parse_float_across_source_classes__3"
+rationale = """Migrated from `parse_float_static_ascii.rs::browser_bundle_accepts_static_ascii_parse_float_across_source_classes`, invocation 3 of 4."""
+args = ["build", "--api", "browser", "--bundle", "browser_bundle_accepts_static_ascii_parse_float_across_source_classes__3.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_accepts_static_ascii_parse_float_across_source_classes__4"
+rationale = """Migrated from `parse_float_static_ascii.rs::browser_bundle_accepts_static_ascii_parse_float_across_source_classes`, invocation 4 of 4."""
+args = ["build", "--api", "browser", "--bundle", "browser_bundle_accepts_static_ascii_parse_float_across_source_classes__4.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_browser_bundle_accepts_static_ascii_parse_float_in_tsx_input"
+rationale = """Migrated from `parse_float_static_ascii.rs::json_browser_bundle_accepts_static_ascii_parse_float_in_tsx_input`."""
+args = ["--output", "json", "build", "--api", "browser", "--bundle", "json_browser_bundle_accepts_static_ascii_parse_float_in_tsx_input.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "check_gates_parse_float_dynamic_input"
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_dynamic_input`."""
+args = ["--output", "json", "check", "check_gates_parse_float_dynamic_input.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json_count = [{ path = "errors.0.message", needle = "parseFloat", at_least = 1 }]
+
+[[case]]
+name = "check_gates_parse_float_non_ascii_input"
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_non_ascii_input`."""
+args = ["--output", "json", "check", "check_gates_parse_float_non_ascii_input.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json_count = [{ path = "errors.0.message", needle = "parseFloat", at_least = 1 }]
+
+[[case]]
+name = "check_gates_parse_float_fractional_result"
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_fractional_result`."""
+args = ["--output", "json", "check", "check_gates_parse_float_fractional_result.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json_count = [{ path = "errors.0.message", needle = "parseFloat", at_least = 1 }]
+
+[[case]]
+name = "check_gates_parse_float_additional_arguments"
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_additional_arguments`."""
+args = ["--output", "json", "check", "check_gates_parse_float_additional_arguments.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json_count = [{ path = "errors.0.message", needle = "parseFloat", at_least = 1 }]
+
+[[case]]
+name = "check_gates_parse_float_nan_result"
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_nan_result`."""
+args = ["--output", "json", "check", "check_gates_parse_float_nan_result.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json_count = [{ path = "errors.0.message", needle = "parseFloat", at_least = 1 }]
