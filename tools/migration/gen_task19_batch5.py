@@ -79,6 +79,7 @@ from comment_coverage import is_divider  # noqa: E402
 import t19b5_captures as CAP  # noqa: E402
 import t19b5_extract as EX  # noqa: E402
 import t19_sources as T19S  # noqa: E402
+import kali_bin  # noqa: E402
 from t19b5_extract import PathVal, UnknownShape  # noqa: E402
 
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
@@ -89,7 +90,15 @@ CASES = os.path.join(TESTS, "cases")
 # pre-trim blob is therefore exactly this commit's copy.
 SOURCE_REF = "47e9b083c61e32c972727189a580d1e9cacb856c"
 
-KALI = os.path.join(REPO, ".cache/cargo-target/debug/kali")
+# THE BINARY IS RESOLVED, NOT HARDCODED. This was
+# `os.path.join(REPO, ".cache/cargo-target/debug/kali")` with no existence check
+# behind it: on any machine whose cargo target directory differs -- which is
+# every machine but one dev container, since no `.cargo/config.toml` ships in
+# this repository -- the eighteen rule-11 re-runs died with a bare
+# `FileNotFoundError` naming a directory the reader has no reason to recognise.
+# `kali_bin.require` walks $CARGO_BIN_EXE_kali, $KALI_BIN, $CARGO_TARGET_DIR and
+# `cargo metadata --format-version 1 --no-deps`'s own `.target_directory` before
+# cargo's default, and raises naming every candidate it looked at.
 
 # family -> file stem, derived from `families.py`'s own rule (a case file is
 # `cases/<family>/<stem>.toml` and its source is `tests/<prefix><stem>.rs`).
@@ -118,13 +127,19 @@ class Refuse(AssertionError):
 # ---------------------------------------------------------------------------
 
 def run_real(fixtures: dict, argv: list, env: dict) -> tuple:
+    # Resolved on first use and cached by `kali_bin`, so a missing binary stops
+    # the run with a message naming every location that was searched -- never a
+    # skip, because these eighteen resolutions are what keep the rule-11 pins
+    # from going stale.
+    kali = kali_bin.require(
+        REPO, "the rule-11 disjunction resolutions cannot be re-run")
     with tempfile.TemporaryDirectory() as d:
         for name, body in fixtures.items():
             with open(os.path.join(d, name), "w", encoding="utf-8") as f:
                 f.write(body)
         e = dict(os.environ)
         e.update(env)
-        r = subprocess.run([KALI] + argv, cwd=d, capture_output=True, env=e)
+        r = subprocess.run([kali] + argv, cwd=d, capture_output=True, env=e)
     return (r.returncode,
             r.stdout.decode("utf-8", "replace"),
             r.stderr.decode("utf-8", "replace"))
@@ -1345,4 +1360,10 @@ def main(argv) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    # A missing binary is a LOUD, one-line-diagnosable failure rather than a
+    # traceback: the message names every candidate location that was tried.
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except kali_bin.KaliBinMissing as e:
+        print(f"gen_task19_batch5.py: {e}", file=sys.stderr)
+        sys.exit(1)

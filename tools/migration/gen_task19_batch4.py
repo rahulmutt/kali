@@ -44,6 +44,7 @@ sys.path.insert(0, PILOT)
 
 import t19b4_extract as EX  # noqa: E402
 import t19_sources as T19S  # noqa: E402
+import kali_bin  # noqa: E402
 
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases")
@@ -480,15 +481,19 @@ def check_cross_stream_resolution(spec):
     """Re-run the real binary for every cross-stream claim and require the
     recorded resolution. A control that cannot fail is not a control: this one
     fires if the binary ever moves the needle to the other stream."""
-    kali = (os.environ.get("CARGO_BIN_EXE_kali") or os.environ.get("KALI_BIN")
-            or os.path.join(REPO, ".cache/cargo-target/debug/kali"))
+    # RESOLVED, NOT HARDCODED. `kali_bin.require` walks $CARGO_BIN_EXE_kali,
+    # $KALI_BIN, $CARGO_TARGET_DIR and `cargo metadata`'s own target directory
+    # before cargo's default, and raises naming every one it looked at. The old
+    # fallback here was `$REPO/.cache/cargo-target/debug/kali`, a path that
+    # exists only in one dev container.
+    kali = None
     for case in spec["cases"]:
         xs = [c for c in case.claims if c.get("shape") in ("C10", "C11")]
         if not xs:
             continue
-        if not os.path.exists(kali):
-            raise GenError("cross-stream resolution cannot be re-verified: no kali "
-                           "binary; build it or set KALI_BIN")
+        if kali is None:
+            kali = kali_bin.require(
+                REPO, "cross-stream resolution cannot be re-verified")
         with tempfile.TemporaryDirectory() as d:
             for k, body in spec["sources"].items():
                 if k in case.args:
@@ -609,10 +614,7 @@ def check_u2_policy_control(spec):
     """
     if not spec["part"]:
         return
-    kali = (os.environ.get("CARGO_BIN_EXE_kali") or os.environ.get("KALI_BIN")
-            or os.path.join(REPO, ".cache/cargo-target/debug/kali"))
-    if not os.path.exists(kali):
-        raise GenError("the U2 policy control cannot run: no kali binary")
+    kali = kali_bin.require(REPO, "the U2 policy control cannot run")
 
     def run(files, args):
         with tempfile.TemporaryDirectory() as d:
@@ -1231,4 +1233,10 @@ class _staged:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    # A missing binary is a LOUD, one-line-diagnosable failure rather than a
+    # traceback: the message names every candidate location that was tried.
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except kali_bin.KaliBinMissing as e:
+        print(f"gen_task19_batch4.py: {e}", file=sys.stderr)
+        sys.exit(1)
