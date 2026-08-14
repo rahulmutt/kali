@@ -412,15 +412,20 @@ def audit(old: str, new: list[str]) -> tuple[str, str]:
 # absorbed all of it.
 #
 # BE EXACT ABOUT WHAT IT IS INDEPENDENT OF -- this comment's first version was
-# not. The gate is independent of the AUDIT'S LITERAL-COVERAGE CLAIMS (nothing a
-# human wrote into a case file feeds either number) and of U3 HEADER DISCIPLINE
-# (it never reads the `//!` block). It is NOT independent of the `Migrated from`
-# marker: the set of case files it counts trials over is `claims()`'s answer,
-# i.e. the `Migrated from` scan itself, and class 1 membership additionally
-# depends on the absence of a U3 retention header. So a wrong claim line can
-# still move this gate's POPULATION. What it closes -- and what it was added for
-# -- is the case where the population is right and the coverage still did not
-# arrive: no amount of correct prose can make 44 trials cover 47 `#[test]` fns.
+# not, and this is the THIRD time that overclaim has needed correcting in this
+# file. It is not the case that "nothing a human wrote into a case file feeds
+# either number": the trial count is computed from the `[matrix]` axes and the
+# `[[case]]` entries a human wrote, same as the audit's own population. What is
+# true, and independent, is narrower: no *literal-coverage claim* -- a needle, a
+# `rationale`, a comment, the specific strings the audit checks -- feeds either
+# number, and neither reads U3 HEADER DISCIPLINE (the `//!` block). It is NOT
+# independent of the `Migrated from` marker: the set of case files it counts
+# trials over is `claims()`'s answer, i.e. the `Migrated from` scan itself, and
+# class 1 membership additionally depends on the absence of a U3 retention
+# header. So a wrong claim line can still move this gate's POPULATION. What it
+# closes -- and what it was added for -- is the case where the population is
+# right and the coverage still did not arrive: no amount of correct prose can
+# make 44 trials cover 47 `#[test]` fns.
 #
 # TRIALS, NOT `[[case]]` ENTRIES. `crates/kali_case_runner/src/expand.rs`
 # expands one trial per (matrix cell x case): `matrix_cells` takes the cartesian

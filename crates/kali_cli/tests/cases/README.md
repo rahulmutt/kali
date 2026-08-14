@@ -53,8 +53,9 @@ Discovery refuses rather than degrades. Each of these fails the whole target:
 - the `cases` directory is missing, or is a file;
 - **zero** case files found — "0 tests, ok" is a green CI run that tested
   nothing, so it is an error instead;
-- two case files with the same stem (`pad.toml` and `pad.TOML`), which would
-  collide as trial ids;
+- two case files with the same directory-prefixed stem (`switch/pad.toml` and
+  `switch/pad.TOML`), which would collide as trial ids — a bare stem repeating
+  across directories, like `array/join.toml` and `runtime/join.toml`, does not;
 - any `.toml` in the tree that does not parse as a case file. (Non-`.toml`
   files — this README, for instance — are simply not collected.)
 
@@ -179,8 +180,11 @@ two sibling `[[case]]` blocks, not an axis.
 
 - **Put the reason in `rationale`, not a `#` comment.** The runner prints
   `rationale` (indented under `  | `) when the case fails, alongside the step
-  index, the argv, the env, and the full captured stdout/stderr. A comment
-  explaining why a test exists is invisible exactly when someone needs it.
+  index. For a `cli` or `browser_bundle_harness` step that also means the argv,
+  the env, and the full captured stdout/stderr; a `file_json` step runs no
+  process, so its failure detail is `check_json`'s own message instead — there
+  is no captured output to print. A comment explaining why a test exists is
+  invisible exactly when someone needs it.
 - **Pin diagnostic text through `[constants]`.** A hand-copied message prefix
   goes insensitive the moment the diagnostic widens. That has happened here
   before. A `[constants]` entry no `${NAME}` reaches fails

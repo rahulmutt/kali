@@ -654,7 +654,10 @@ target dir (`cargo clean`, then `cargo test -p kali_cli --no-run`, 2m37s wall on
 | expanded trials | — | **5,587** (5,585 run, 2 `ignore = true`) | `cargo test -p kali_cli --test cases -- --list \| grep -c ': test$'` |
 | test lines deleted | ~200k | **85,409** deleted / 3,823 added in `.rs`, 112,347 added in `.toml` | `git diff --numstat --no-renames main -- crates/kali_cli/tests` |
 
-Targets over 100 MB in `debug/deps`, all four of them:
+Targets over 100 MB in `debug/deps` of those this command builds, all four of
+them (the target dir is shared workspace-wide, not scoped to `kali_cli`; a
+`cargo test --workspace --no-run` sweep finds four more, `kali_codegen`'s,
+`kali_embed`'s, `kali_runtime`'s and `kali_types`' unit-test binaries):
 
 ```
 545 MB  kali-09e739f15cd9e23d          the `kali` binary itself
@@ -775,4 +778,5 @@ each invocation reports `0 passed; 1829 filtered out`. This is **pre-existing on
 `main`** — `runtime_smoke.rs`'s eight `#[path]` submodules predate this branch
 and the script is byte-identical to `main`'s — and is recorded rather than fixed
 because `scripts/check-determinism.sh` is under this project's do-not-modify
-constraint. It should be fixed by whoever owns that constraint.
+constraint. It should be fixed by whoever owns that constraint. Tracked at
+`docs/superpowers/followups/test-binary-consolidation-determinism-lane.md`.
