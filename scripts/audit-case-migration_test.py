@@ -2927,6 +2927,73 @@ class Bug9_UnreferencedConstantFalseGreen(unittest.TestCase):
         self.assertEqual(dead, [])
 
 
+# ---------------------------------------------------------------------------
+# Bug 9, second wave: rc=3 returned BEFORE the dead-constants check, so the
+# milder verdict hid the harder one.
+# ---------------------------------------------------------------------------
+class Bug9_DeadConstantOutranksInapplicable(unittest.TestCase):
+    """AUDIT INAPPLICABLE (rc=3) used to be returned ahead of the AUDIT FAILED
+    arm. `dead_constants` is computed from the case files alone and needs no
+    demanded claim to be non-empty, so a pair whose source makes no literal
+    claim AND whose case file carries a `[constants]` entry expansion can never
+    reach reported "the audit decided nothing" -- about a file it had in fact
+    decided something about. The Bug 9 channel stayed open on exactly the pairs
+    that demand nothing, which are the pairs whose headers now carry a blanket
+    "the audit is red here, and here is why" declaration: precisely the
+    combination the EXIT CODES note says must not happen.
+
+    In practice the shape is also refused by the parse-time dead-constant guard
+    added on this branch, so this was an ordering defect rather than a live
+    escape. It is fixed at the ordering, not at the parser: two independent
+    refusals of the same shape is the point, and a gate whose correctness rests
+    on another gate running first is not a gate.
+
+    The three arms are the reproduction in order: the PRECONDITION (a source
+    demanding nothing, clean case file -> rc=3, the verdict that must survive),
+    the POISON (the same pair plus one dead constant -> must be rc=1, naming
+    the constant), and the CONTROL that the reordering did not cost rc=3 its
+    own reach on the shapes that legitimately earn it.
+    """
+
+    # Asserts an exit status only: no literal for any extractor to see, which
+    # is the real shape of `soundness/object_taint.toml` and the four other
+    # pairs whose headers declare rc=3.
+    _NO_CLAIM_SOURCE = (
+        '#[test]\nfn a() {\n'
+        '    assert!(!output.status.success(), "must fail closed");\n'
+        '}\n'
+    )
+
+    def test_precondition_no_claims_and_no_dead_constant_is_inapplicable(self):
+        rc, out = _run_audit(self._NO_CLAIM_SOURCE, {"new.toml": (
+            '[[case]]\nname = "c"\nkind = "cli"\n')})
+        self.assertEqual(rc, 3, out)
+        self.assertIn("AUDIT INAPPLICABLE", out)
+
+    def test_a_dead_constant_on_such_a_pair_is_AUDIT_FAILED_not_inapplicable(self):
+        rc, out = _run_audit(self._NO_CLAIM_SOURCE, {"new.toml": (
+            '[constants]\nDEAD = "nothing substitutes me"\n\n'
+            '[[case]]\nname = "c"\nkind = "cli"\n')})
+        self.assertEqual(rc, 1, out)
+        self.assertIn("AUDIT FAILED", out)
+        self.assertIn("[unreferenced constant]", out)
+        self.assertIn("DEAD", out)
+        # The milder verdict must be GONE, not merely outranked in the return
+        # code: a reader who greps the output for the word decides too.
+        self.assertNotIn("AUDIT INAPPLICABLE", out)
+
+    def test_a_live_constant_on_such_a_pair_is_still_inapplicable(self):
+        # The control in the other direction. Without it the arm above would
+        # pass on a "fix" that simply stopped returning 3 whenever a
+        # `[constants]` table exists at all.
+        rc, out = _run_audit(self._NO_CLAIM_SOURCE, {"new.toml": (
+            '[constants]\nLIVE = "body"\n\n'
+            '[source]\n"main.js" = "${LIVE}"\n\n'
+            '[[case]]\nname = "c"\nkind = "cli"\n')})
+        self.assertEqual(rc, 3, out)
+        self.assertIn("AUDIT INAPPLICABLE", out)
+
+
 class DocumentedLimitations(unittest.TestCase):
     def test_rprefix_inside_a_line_comment_is_still_read_as_a_raw_string_open(self):
         # `_RAW_STRING`'s own doc comment names this residual directly: the

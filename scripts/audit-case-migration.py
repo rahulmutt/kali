@@ -2223,7 +2223,8 @@ def main() -> int:
     # nothing, so it decided nothing). 3 is separate from 1 on purpose: a
     # blanket "the audit is red here, and here is why" declaration written
     # for an inapplicable pair must not also excuse a genuinely dropped
-    # claim on that pair.
+    # claim on that pair. For the same reason 1 OUTRANKS 3 where both apply
+    # -- see the precedence note at the AUDIT FAILED arm below.
     if not old_tests:
         print(
             "\nAUDIT FAILED — 0 #[test] fns found (after resolving every "
@@ -2250,19 +2251,19 @@ def main() -> int:
     # DID verify something real, and calling that "inapplicable" would
     # overstate the guard. Only a run that checked nothing in EITHER direction
     # is refused.
-    if not demanded and not case_claims:
-        print(
-            f"\nAUDIT INAPPLICABLE — {len(old_tests)} #[test] fn(s) found but "
-            "0 claims demanded of the case files in either direction; refusing "
-            "to report success having asserted nothing. Either the source genuinely makes no "
-            "literal claim this tool can see (its assertions are exit-status "
-            "or shape claims, or every literal it does carry is excluded as "
-            "BORING), or claim extraction is broken. Read the pair and say "
-            "which, in the case file's header, alongside whatever gate does "
-            "cover it."
-        )
-        return 3
-
+    #
+    # A REAL DEFECT OUTRANKS "THIS PAIR IS UNDECIDABLE", so the AUDIT FAILED
+    # arm is tested FIRST and the rc=3 guard follows it. The two are not
+    # mutually exclusive: `dead_constants` is computed from the case files
+    # alone and does not need a single demanded claim to be non-empty, so a
+    # pair that demands nothing AND ships a `[constants]` entry expansion can
+    # never reach used to return 3 -- reporting "the audit decided nothing"
+    # about a file it had in fact decided something about, and hiding the Bug 9
+    # free-text channel behind the milder verdict. (`missing` and `fabricated`
+    # cannot be non-empty on that path -- `missing` needs a demanded claim and
+    # `fabricated` needs a `case_claims` entry -- so moving the whole block up
+    # changes the verdict on exactly the dead-constant shape and on nothing
+    # else. `Bug9_DeadConstantOutranksInapplicable` is the known positive.)
     if missing or fabricated or dead_constants:
         if dead_constants:
             print(
@@ -2287,6 +2288,19 @@ def main() -> int:
             for note in fabricated:
                 print(f"  [count claim] {note}")
         return 1
+
+    if not demanded and not case_claims:
+        print(
+            f"\nAUDIT INAPPLICABLE — {len(old_tests)} #[test] fn(s) found but "
+            "0 claims demanded of the case files in either direction; refusing "
+            "to report success having asserted nothing. Either the source genuinely makes no "
+            "literal claim this tool can see (its assertions are exit-status "
+            "or shape claims, or every literal it does carry is excluded as "
+            "BORING), or claim extraction is broken. Read the pair and say "
+            "which, in the case file's header, alongside whatever gate does "
+            "cover it."
+        )
+        return 3
 
     print("\nAUDIT OK — every literal claim is present in the case files.")
     return 0
