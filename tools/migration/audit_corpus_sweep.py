@@ -304,15 +304,36 @@ def _selftest() -> int:
                 if not caught:
                     problems.append(
                         f"_require_a_verdict does not fire on {label}")
-            # and it must NOT fire on a real verdict, either direction
+            # and it must NOT fire on a real verdict, either direction. THE
+            # RESULT IS COMPUTED AND THEN PRINTED, never printed as a constant:
+            # this line used to print "True" unconditionally, so a transcript
+            # asserted a pass that had not happened even while the arm above it
+            # was appending to `problems` -- the exact reporting failure this
+            # function exists to stop, one level up.
+            passes = True
             for rc, text in ((0, "AUDIT OK — fine\n"),
                              (1, "AUDIT FAILED — 1 claim(s) absent\n")):
                 try:
                     _require_a_verdict("selftest", rc, text, "")
                 except SystemExit:
+                    passes = False
                     problems.append(
                         f"_require_a_verdict fires on a real rc={rc} verdict")
-            print("  crash arm      -- a real AUDIT verdict passes: True")
+            print(f"  crash arm      -- a real AUDIT verdict passes: {passes}")
+            # THE PRINTED BOOLEAN'S OWN KNOWN POSITIVE. A line that prints a
+            # computed True is only worth more than a line that prints a
+            # constant True if the same expression can come out False, so it is
+            # driven once with output that is NOT a verdict and required to.
+            falsifiable = True
+            try:
+                _require_a_verdict("selftest", 1, "no verdict at all\n", "")
+            except SystemExit:
+                falsifiable = False
+            print(f"  crash arm      -- the same expression over a non-verdict "
+                  f"comes out: {falsifiable}")
+            if falsifiable:
+                problems.append("the 'a real AUDIT verdict passes' line cannot "
+                                "come out False -- it is a constant, not a check")
         del cache
     finally:
         shutil.rmtree(workdir, ignore_errors=True)

@@ -163,10 +163,15 @@ def section1():
         path = os.path.join(TESTS, stem + ".rs")
         with open(path, encoding="utf-8") as f:
             original = f.read()
-        # `runtime_forin` and `for_of_array_iteration_spread` are read at a
-        # PINNED REF by the extractor when they are trims, so a mutation to the
-        # working tree would not reach it. Only non-trim stems are mutated here,
-        # and the anchor check below is what proves the mutation landed.
+        # ONE stem in this batch is read at a PINNED REF by the extractor:
+        # `for_of_array_iteration_spread`, the U4 trim, is the sole member of
+        # `EX.PRE_TRIM`, so a working-tree mutation to THAT file would not reach
+        # the extractor and no mutation below targets it. `runtime_forin` is
+        # NOT pinned -- it is read from the working tree like every other stem,
+        # which is why the three mutations that target it are live. (The earlier
+        # spelling of this comment named both files as pinned, which would have
+        # told a reader those three mutations were inert.) The anchor check
+        # below is what proves each mutation landed either way.
         if old not in original:
             check(f"MUTATION ANCHOR present: {label}", False,
                   f"{stem}.rs does not contain {old[:60]!r}")
@@ -473,8 +478,21 @@ def _real_binary(case, kind, value) -> bool:
 def run_poisons(label, per_pair):
     corpus = pairs()
     fired = {"A": 0, "B": 0, "C": 0}
+    # Arm C's total is TWO populations and printing one number for both reads as
+    # 178 measurements when it is not. `C_measured` is a real observation of the
+    # binary (the poisoned value is not in its output); `C_construction` is the
+    # exit/empty population, which fires unconditionally because such a poison is
+    # not expressible as a rewrite at all -- the TRIAL still covers it, but this
+    # probe did not measure it here.
+    fired_c = {"measured": 0, "construction": 0}
     total = 0
     misses = []
+    # M8: the SINGLE-SITE poison's rewrite was unasserted, while the all-sites
+    # arm asserted its own. A single-site poison that rewrote nothing lands in
+    # `misses` and is then classified by the all-sites re-poison as a
+    # declination or a blind spot -- a finding manufactured out of a no-op,
+    # which is the same defect class as probe defect #2. Both arms assert now.
+    no_rewrite = []
     for stem, tomls in corpus.items():
         base_a = _audit(stem, tomls)
         base_b = _fidelity_missing(stem, tomls)
@@ -490,14 +508,18 @@ def run_poisons(label, per_pair):
             for case in cases:
                 kind, key, value, poisoned = _poisonable(case)
                 total += 1
+                rewrote = None
                 try:
                     if poisoned is not None:
-                        _write_poisoned(path, case["name"], value, poisoned, False)
+                        rewrote = _write_poisoned(path, case["name"], value,
+                                                  poisoned, False)
                     a = _audit(stem, tomls)
                     b = _fidelity_missing(stem, tomls)
                 finally:
                     with open(path, "w", encoding="utf-8") as f:
                         f.write(original)
+                if poisoned is not None and not rewrote:
+                    no_rewrite.append(f"{stem}::{case['name']} ({kind} {key})")
                 c = not _real_binary(case, kind, poisoned or value)
                 if a != base_a:
                     fired["A"] += 1
@@ -505,14 +527,25 @@ def run_poisons(label, per_pair):
                     misses.append((stem, path, case, kind, key, value, poisoned))
                 if b != base_b:
                     fired["B"] += 1
-                if c or kind in ("exit", "empty"):
+                if c:
+                    fired["C"] += 1
+                    fired_c["measured"] += 1
+                elif kind in ("exit", "empty"):
                     # an exit or exactly-empty poison is not expressible as a
                     # rewrite; the TRIAL still covers it, which is why the case
                     # carries `exit`/`stdout = ""` at all
                     fired["C"] += 1
+                    fired_c["construction"] += 1
     print(f"  {total} case(s) poisoned {label}")
-    for arm in "ABC":
+    for arm in "AB":
         print(f"  arm {arm} fired on {fired[arm]:4d}/{total}")
+    print(f"  arm C fired on {fired['C']:4d}/{total}"
+          f"   ({fired_c['measured']} MEASURED against the real binary, "
+          f"{fired_c['construction']} BY CONSTRUCTION -- exit/exactly-empty "
+          f"poisons are not expressible as a rewrite and fire unconditionally)")
+    check("every single-site poison actually rewrote something",
+          not no_rewrite,
+          f"{len(no_rewrite)} rewrote nothing: {no_rewrite[:5]}")
     return total, misses
 
 
@@ -520,6 +553,12 @@ def section3(misses):
     print("\nSECTION 3 -- declination or blind spot: poison EVERY occurrence")
     verdicts = collections.Counter()
     rewrote_nothing = 0
+    # THE BLIND SPOTS ARE BROKEN DOWN MECHANICALLY, not by hand. Batch 5's
+    # report classified them into three groups by stem and needle and named that
+    # split a measurement, but the split appeared nowhere in this tooling -- a
+    # hand reading presented as an output. It is computed here, keyed on the
+    # pair and the claim kind, so the report can quote the probe instead.
+    blind: dict = collections.defaultdict(list)
     for stem, path, case, kind, key, value, poisoned in misses:
         if poisoned is None:
             verdicts["not expressible as a rewrite (exit / exactly-empty pin)"] += 1
@@ -529,6 +568,14 @@ def section3(misses):
         try:
             changed = _write_poisoned(path, case["name"], value, poisoned, True)
             rc = _audit(stem, [path])
+            # WHY it is a blind spot, measured on the poisoned bytes rather than
+            # reasoned about afterwards: does the literal STILL OCCUR in the
+            # file once every rendered claim carrying it has been rewritten? If
+            # it does, the audit is looking at a surviving copy -- aliasing. If
+            # it does not, the audit never demanded that literal at all, which
+            # is a different mechanism and a different fix.
+            with open(path, encoding="utf-8") as f:
+                after = f.read()
         finally:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(original)
@@ -536,10 +583,38 @@ def section3(misses):
             rewrote_nothing += 1
             continue
         verdicts["declination" if rc != 0 else "BLIND SPOT"] += 1
+        if rc == 0:
+            mech = ("ALIASED: the literal survives elsewhere in the case file"
+                    if value in after else
+                    "NOT DEMANDED: the literal is gone from the case file and "
+                    "the audit still passes")
+            blind[(stem, kind, key, mech)].append(value)
     for k, v in verdicts.most_common():
         print(f"  {v:6d}  {k}")
     check("every all-sites poison actually rewrote something",
           rewrote_nothing == 0, f"{rewrote_nothing} rewrote nothing")
+    if blind:
+        print("\n  THE BLIND SPOTS, BROKEN DOWN -- pair, claim kind, mechanism, "
+              "and the distinct needles:")
+        tot = 0
+        by_mech: collections.Counter = collections.Counter()
+        for (stem, kind, key, mech), values in sorted(
+                blind.items(), key=lambda kv: -len(kv[1])):
+            distinct = sorted(set(values))
+            shown = ", ".join(repr(v) for v in distinct[:6])
+            if len(distinct) > 6:
+                shown += f", ... ({len(distinct)} distinct)"
+            longest = max(len(v) for v in distinct)
+            tot += len(values)
+            by_mech[mech.split(":")[0]] += len(values)
+            print(f"  {len(values):6d}  {stem}  {kind} ({key})")
+            print(f"          mechanism: {mech}")
+            print(f"          needles: {shown}")
+            print(f"          longest needle: {longest} char(s)")
+        print(f"  {tot:6d}  TOTAL blind spots, over {len(blind)} "
+              f"(pair, claim kind, mechanism) group(s)")
+        for mech, n in by_mech.most_common():
+            print(f"  {n:6d}  BY MECHANISM: {mech}")
 
 
 def section5(misses):

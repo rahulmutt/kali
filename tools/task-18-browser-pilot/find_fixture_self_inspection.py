@@ -487,7 +487,12 @@ def main(argv):
             found[os.path.basename(p)] = r
             paths_by_name[os.path.basename(p)] = p
 
-    print(f"{len(found)} of {len(paths)} browser_*.rs carry the fixture-self-inspection shape\n")
+    # "browser_*.rs" was true while `paths` was only the browser glob. `KNOWN`
+    # is no longer a subset of it (batch 5 adjudicated a non-browser instance)
+    # and `--selftest` unions `KNOWN` in, so the count is over FILES SCANNED --
+    # which is also what it always was when the tool is given paths on argv.
+    print(f"{len(found)} of {len(paths)} file(s) scanned carry the "
+          f"fixture-self-inspection shape\n")
     todo = []
     for name in sorted(found):
         r = found[name]

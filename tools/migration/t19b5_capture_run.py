@@ -24,9 +24,21 @@ TWO MECHANISMS, because the two sources hide their `format!` in different places
      BUILDER. Its fixtures come from `String`-returning builders that call
      `kali_common::array_from_alias_inventory_source` /
      `::array_from_loop_lines`. The builders are private, so the dump lives in a
-     module that `include!`s the shipped file -- batch 2's mechanism, and
-     `include!` rather than a copy so the executed code is literally the code
-     under migration.
+     module that `include!`s the file -- batch 2's mechanism, and `include!`
+     rather than a copy so the executed code is literally the code under
+     migration.
+
+     AND IT IS THE PRE-TRIM BLOB, NOT THE WORKING TREE. That stem is a U4 TRIM
+     made in the same commit as these captures: the trim deleted
+     `array_from_set_map_break_continue_body` and
+     `browser_harness_array_from_set_map_break_continue_source`, which `DUMP`
+     still calls, so a dump `include!`ing the working-tree file does not
+     COMPILE at HEAD. Reading the working tree left this script unable to
+     re-derive five of its own captures the moment the trim landed -- which
+     silently retires the U12 claim in this docstring, that the constants can
+     be re-derived rather than trusted. The blob is materialised from
+     `t19b5_extract.PRE_TRIM`, the same pin `trim_three_columns` and the
+     extractor read, so there is one ref and not three.
 
   Usage:  t19b5_capture_run.py <out-dir>
           then t19b5_write_captures.py <out-dir>   # writes t19b5_captures.py
@@ -44,6 +56,11 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
+
+sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(REPO, "tools/task-18-browser-pilot"))
+
+from t19b5_extract import PRE_TRIM  # noqa: E402
 
 # The `runtime_forin` tests whose fixture is built by a `format!`: the callers of
 # the two wrapper helpers. Derived from the source rather than listed, so a new
@@ -123,15 +140,28 @@ fn zz_dump() {
 '''
 
 
+STEM = "for_of_array_iteration_spread"
+
+
 def capture_spread(outdir: str) -> None:
-    """`include!` the source through `#[path]` and call its builders.
+    """`include!` the PRE-TRIM source and call its builders.
 
     The builders are private to the file, so the dump must live in a module that
-    carries them; `#[path]` is `include!` with a module boundary, which is what
-    lets `under_test::` name them. The temporary target is removed in the same
-    run.
+    carries them, which is what lets `under_test::` name them. The temporary
+    target is removed in the same run.
+
+    THE BYTES COME FROM `PRE_TRIM`, NOT FROM THE WORKING TREE, and that is the
+    whole difference between a re-derivable capture and a trusted one: the U4
+    trim in the same commit deleted two of the builders `DUMP` calls, so the
+    working-tree file does not compile as a dump target at HEAD. Same mechanism
+    as `gen_task19_batch5.trim_three_columns`, same pin.
     """
-    src = os.path.join(TESTS, "for_of_array_iteration_spread.rs")
+    tmp = tempfile.mkdtemp(prefix="t19b5-pretrim-")
+    src = os.path.join(tmp, STEM + ".rs")
+    with open(src, "wb") as f:
+        f.write(subprocess.run(
+            ["git", "show", f"{PRE_TRIM[STEM]}:crates/kali_cli/tests/{STEM}.rs"],
+            cwd=REPO, capture_output=True, check=True).stdout)
     dump = os.path.join(TESTS, "zz_t19b5_dump.rs")
     with open(dump, "w", encoding="utf-8") as f:
         f.write(DUMP % {"src": src})
@@ -146,6 +176,7 @@ def capture_spread(outdir: str) -> None:
             raise SystemExit("the dump target failed to build or run")
     finally:
         os.remove(dump)
+        shutil.rmtree(tmp, ignore_errors=True)
     n = len([f for f in os.listdir(outdir) if f.startswith("spread__")])
     print(f"for_of_array_iteration_spread: {n} builder output(s)")
 
