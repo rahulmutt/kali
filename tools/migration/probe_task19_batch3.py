@@ -211,9 +211,48 @@ def _rewrite(text, lo, hi, key, value):
 
 
 def _audit(stem, toml_path):
-    return subprocess.run(
+    """The audit's VERDICT return code, or raise.
+
+    `section2` reads arm A as `_audit(...) != 0`, so ANY non-zero exit read as
+    "the poison was caught". After Task 19's deletion removed all six of this
+    probe's sources, every pair would have reported `A=Y` whether the audit
+    fired or not; the probe survived only because `_fidelity_missing` opens the
+    same missing path and raises first -- an accident, not a design.
+
+    THE RETURN CODE ALONE IS NOT ENOUGH, AND MEASURING IT IS HOW THAT WAS
+    FOUND. The obvious guard is `rc not in (0, 1)`, on the reading that a
+    missing source exits 2 (`audit-case-migration.py` does return 2 for a usage
+    error and for an unresolvable `mod` path). It does not: `main` reads the
+    source with `Path.read_text()` outside any try, so a missing source is an
+    uncaught `FileNotFoundError` and Python exits **1** -- the same code as
+    `AUDIT FAILED`. Measured, at this tree:
+
+        $ cd crates/kali_cli/tests
+        $ python3 ../../../scripts/audit-case-migration.py zz_no_such.rs \
+              cases/runtime/forin.toml
+        FileNotFoundError: ... 'zz_no_such.rs'          EXIT=1
+
+    So the split is the one this project already uses in
+    `t19_deletion_classify.audit` and `audit_corpus_sweep._require_a_verdict`:
+    a verdict is accepted only when the return code AND the printed verdict
+    line agree, and everything else raises. Same defect class as the
+    `audit_corpus_sweep` C1 finding in the ledger, second instrument; two
+    instances is a pattern, so it is fixed here rather than deferred again.
+    """
+    done = subprocess.run(
         [sys.executable, AUDIT, stem + ".rs", os.path.relpath(toml_path, TESTS)],
-        cwd=TESTS, capture_output=True, text=True).returncode
+        cwd=TESTS, capture_output=True, text=True)
+    if done.returncode == 0 and "AUDIT OK" in done.stdout:
+        return 0
+    if done.returncode == 1 and "AUDIT FAILED" in done.stdout:
+        return 1
+    raise AssertionError(
+        f"audit-case-migration.py exited {done.returncode} on {stem}.rs without "
+        f"a matching verdict line. That is a crash, not a verdict (0 = AUDIT "
+        f"OK, 1 = AUDIT FAILED), and arm A must not count it as one. Most "
+        f"likely the source is not in the working tree: this probe MUTATES the "
+        f"real `.rs` in place, so it cannot be pointed at a blob resolved from "
+        f"history.\n--- stdout ---\n{done.stdout}\n--- stderr ---\n{done.stderr}")
 
 
 def _fidelity_missing(stem, toml_path):
@@ -523,6 +562,39 @@ def section5(arm_a_misses):
     return classes, detail
 
 
+def _audit_guard_probe() -> int:
+    """KNOWN POSITIVE for `_audit`'s verdict/crash split.
+
+    `section2` reads arm A as `_audit(...) != 0`. Without the split in `_audit`,
+    a source missing from the working tree makes the audit script die with an
+    uncaught `FileNotFoundError` and exit **1** -- byte-identical, as a return
+    code, to "AUDIT FAILED" -- so every pair reports `A=Y` whether the audit
+    fired or not. This drives that exact input and requires the raise, so arm
+    A's `Y` is an answer and not a traceback wearing one.
+
+    It runs BEFORE section 1, deliberately: this probe's own sources were
+    deleted by Task 19 and section 1 cannot start, so a known positive placed
+    any later would never run again.
+    """
+    print("\nSECTION 0 -- arm A's verdict channel is separate from its crash channel")
+    for label, stem, toml in (
+            ("a source that is not in the working tree", "zz_no_such_source_t19b3",
+             os.path.join(CASES, "runtime", "forin.toml")),
+    ):
+        try:
+            rc = _audit(stem, toml)
+        except AssertionError as exc:
+            ok = "crash, not a verdict" in str(exc)
+            print(f"  {'ok ' if ok else 'FAIL'} {label}: refused")
+            if ok:
+                continue
+            return 1
+        print(f"  FAIL {label}: returned rc={rc} as if it were a verdict "
+              f"-- arm A would report Y for it")
+        return 1
+    return 0
+
+
 def main():
     dirty = subprocess.run(["git", "status", "--porcelain", "--", "crates/kali_cli/tests/cases"],
                            cwd=REPO, capture_output=True, text=True).stdout
@@ -531,6 +603,9 @@ def main():
               "and restores them, and it will not do that over uncommitted work.\n"
               + dirty)
         return 2
+    if _audit_guard_probe():
+        print("\nPROBE FAILED -- arm A cannot tell a crash from a caught poison")
+        return 1
     bad = section1()
     bad2, rows = section2()
     section3(rows)

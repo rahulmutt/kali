@@ -220,9 +220,34 @@ def capture_spread(outdir: str) -> None:
     print(f"for_of_array_iteration_spread: {n} builder output(s)")
 
 
+def _refuse_on_a_stray_target() -> None:
+    """A leftover `zz_*.rs` in the tests tree is a real cargo test target.
+
+    This runner writes `zz_t19b5_forin.rs` INTO `crates/kali_cli/tests` -- cargo
+    discovers integration targets there and nowhere else -- and removes it in a
+    `finally`. A SIGKILL between those two points leaves a target `cargo test`
+    will compile and `scripts/test-gate.sh` will count, and a concurrent gate
+    run sees an extra target it cannot explain. `.gitignore` now covers the
+    whole `zz_*` class so a stray can never be COMMITTED; this refusal is the
+    other half, so a stray can never be silently INHERITED either -- including
+    one this run would otherwise overwrite and then delete, destroying the
+    evidence of the crash that left it.
+    """
+    strays = sorted(n for n in os.listdir(TESTS)
+                    if n.startswith("zz_") and n.endswith(".rs"))
+    if strays:
+        raise SystemExit(
+            "REFUSING TO RUN: " + ", ".join(strays) + " already exist(s) in "
+            f"{TESTS}. These are temporary `cargo test` targets a capture "
+            "runner writes and removes in a `finally`; one left behind means a "
+            "previous run was killed. `cargo test` compiles it and the gate "
+            "counts it. Delete it deliberately, then re-run.")
+
+
 def main(argv):
     if not argv:
         raise SystemExit(__doc__)
+    _refuse_on_a_stray_target()
     outdir = os.path.abspath(argv[0])
     os.makedirs(outdir, exist_ok=True)
     capture_spread(outdir)

@@ -2264,6 +2264,7 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
         say so the day one does.
         """
         import glob
+        import subprocess
         mod = _load_audit_module()
         checked = 0
         for path in sorted(glob.glob(
@@ -2273,7 +2274,36 @@ class Ruling3Clause4JsonCountFromContains(unittest.TestCase):
             reverse = mod._blank_raw_strings(mod._mask_comments_outside_strings(src))
             self.assertEqual(forward, reverse, f"{path}: the two masking orders disagree")
             checked += 1
-        self.assertGreater(checked, 100, "corpus scan found almost nothing -- vacuous")
+
+        # THE VACUITY FLOOR IS DERIVED, NOT TYPED. It used to be
+        # `assertGreater(checked, 100)`, written when this corpus held 152
+        # sources. Task 19's deletion took it to 110, so the margin was four
+        # deletions from firing on a healthy tree -- a floor that goes red for
+        # the wrong reason gets raised by whoever is unblocked that day, and
+        # then it bounds nothing. A number chosen against a corpus is a number
+        # that expires with the corpus.
+        #
+        # `git ls-files` is an INDEPENDENT census of the same population: it
+        # comes from the index rather than from the glob this loop just ran, so
+        # the assertion is "the scan visited every tracked source", which is the
+        # property the floor was reaching for and catches a silently-narrowing
+        # glob as well as an empty one.
+        listed = subprocess.run(
+            ["git", "ls-files", "--", "crates/kali_cli/tests/*.rs",
+             "crates/kali_cli/tests/**/*.rs"],
+            cwd=str(_REPO_ROOT), capture_output=True, text=True)
+        if listed.returncode != 0:
+            # A skip is LOUD. Silently degrading to "well, some files were
+            # scanned" is how a vacuity check stops being one.
+            self.skipTest("git ls-files is unavailable; the corpus census that "
+                          "bounds this scan cannot be derived")
+        tracked = len([n for n in listed.stdout.split() if n.endswith(".rs")])
+        self.assertGreater(tracked, 0,
+                           "git lists no `.rs` under crates/kali_cli/tests -- "
+                           "the census itself is vacuous")
+        self.assertEqual(checked, tracked,
+                         f"scanned {checked} `.rs` but git tracks {tracked} "
+                         f"under crates/kali_cli/tests")
 
     def test_the_two_shipped_shapes_still_resolve(self):
         # The known positive for the RECEIVER resolver, in both spellings the
