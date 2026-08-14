@@ -66,10 +66,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(REPO, "tools/task-18-browser-pilot"))
+sys.path.insert(0, HERE)
 
 from comment_coverage import (extract_comment_paragraphs,  # noqa: E402
                               extract_trailing_comments, is_divider)
 from lexer import find_string_literals  # noqa: E402
+# The working tree while the `.rs` is there, a pinned immutable ref once Task
+# 19's deletion has removed it. See `t19_sources`.
+from t19_sources import source_text as _source_text  # noqa: E402
 
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 
@@ -599,7 +603,13 @@ def prose(stem: str, text: str) -> dict:
 # --------------------------------------------------------------------------
 
 def source(stem: str) -> str:
-    return open(os.path.join(TESTS, stem + ".rs"), encoding="utf-8").read()
+    """This batch's `.rs`, from the working tree or from the deletion ref.
+
+    Task 19's deletion removes all seven of `STEMS`. Before this delegated to
+    `t19_sources`, that made this generator's gate raise `FileNotFoundError` --
+    observed, in a rehearsal of the deletion, not predicted.
+    """
+    return _source_text(stem)
 
 
 COMPUTED = {

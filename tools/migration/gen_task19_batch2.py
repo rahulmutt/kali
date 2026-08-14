@@ -50,6 +50,7 @@ sys.path.insert(0, os.path.join(REPO, "tools/task-18-browser-pilot"))
 sys.path.insert(0, HERE)
 
 from case_emit import emit, source_text_at  # noqa: E402
+import t19_sources as T19S  # noqa: E402
 from comment_coverage import (extract_comment_paragraphs,  # noqa: E402
                               extract_trailing_comments, is_divider)
 from lexer import find_string_literals  # noqa: E402
@@ -1954,7 +1955,11 @@ def _gate_source(stem, gate):
     """
     pre_trim, complement = _trim_sides(stem)
     if not pre_trim:
-        return os.path.join(TESTS, stem + ".rs")
+        # `source_path`, not `os.path.join`: this path is handed to a gate as
+        # argv, and Task 19's deletion removes most of this batch's sources. A
+        # deleted source is materialised from the pinned ref so the gate runs
+        # over the same bytes it always did.
+        return T19S.source_path(stem, quiet=True)
     return complement if _TRIM_SIDE.get(gate) == "complement" else pre_trim
 
 
@@ -1967,8 +1972,8 @@ def _trim_sides(stem):
     """
     import subprocess
     import tempfile
-    path = os.path.join(TESTS, stem + ".rs")
-    text = open(path).read()
+    path = T19S.source_path(stem, quiet=True)
+    text = T19S.source_text(stem, quiet=True)
     m = re.search(r"PRE-TRIM REF:\s*([0-9a-f]{40})", text)
     if not (text.startswith("//!") and m):
         return None, None

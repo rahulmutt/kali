@@ -78,6 +78,7 @@ from toml_emit import toml_string as _toml_str  # noqa: E402
 from comment_coverage import is_divider  # noqa: E402
 import t19b5_captures as CAP  # noqa: E402
 import t19b5_extract as EX  # noqa: E402
+import t19_sources as T19S  # noqa: E402
 from t19b5_extract import PathVal, UnknownShape  # noqa: E402
 
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
@@ -355,7 +356,7 @@ def check_self_inspection(stems) -> None:
     """
     args = [sys.executable,
             os.path.join(PILOT, "find_fixture_self_inspection.py")]
-    args += [os.path.join(TESTS, s + ".rs") for s in stems]
+    args += [T19S.source_path(s, quiet=True) for s in stems]
     r = subprocess.run(args, capture_output=True, text=True)
     if r.returncode != 0:
         raise Refuse("find_fixture_self_inspection.py failed:\n" + r.stdout + r.stderr)
@@ -507,6 +508,16 @@ def check_reproduction_commands(commands) -> None:
     """
     cwd = REPO
     for cmd, declared in commands:
+        # TASK 19 DELETION. Six of this batch's seven sources are in the delete
+        # set, so a printed command naming one exists only in history now.
+        # `resolve_repro` substitutes the blob at the pinned deletion ref and
+        # returns a note per substitution, printed here -- so the command below
+        # is still RUN and its rc still compared, over exactly the bytes the
+        # case file was generated from, and never silently. It does NOT make the
+        # printed prose true again; see `t19_sources.resolve_repro`.
+        cmd, notes = T19S.resolve_repro(cmd)
+        for note in notes:
+            print(f"    reproduction command: {note}")
         only_cd = re.fullmatch(r"cd\s+(\S+)", cmd.strip())
         if only_cd:
             d = only_cd.group(1)
@@ -811,7 +822,7 @@ def redlist(stem: str) -> list[tuple]:
     instead of shipping undeclared (ruling 9).
     """
     family, filestem = PLACEMENT[stem]
-    rs = os.path.join(TESTS, stem + ".rs")
+    rs = T19S.source_path(stem, quiet=True)
     toml = os.path.join(CASES, family, filestem + ".toml")
     if not os.path.exists(toml):
         return []

@@ -43,6 +43,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, PILOT)
 
 import t19b4_extract as EX  # noqa: E402
+import t19_sources as T19S  # noqa: E402
 
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 CASES = os.path.join(TESTS, "cases")
@@ -538,7 +539,18 @@ def check_reproduction_commands(spec, text):
     printed command's path arguments must exist, and the audit command must exit
     0, so a header cannot ship a reproduction that does not reproduce.
     """
-    for cmd in printed_commands(text):
+    for printed in printed_commands(text):
+        # TASK 19 DELETION. This batch's eight sources are all in the delete
+        # set, so every printed command names a path that is gone. `resolve_
+        # repro` substitutes the blob at the pinned deletion ref and RETURNS A
+        # NOTE for each substitution, printed below -- the check still runs, and
+        # it still runs over the exact bytes the case file was generated from,
+        # but it never does so silently. See `t19_sources.resolve_repro` for why
+        # this does not make the printed text true again.
+        resolved, notes = T19S.resolve_repro(" ".join(printed))
+        for note in notes:
+            print(f"    reproduction command: {note}")
+        cmd = resolved.split()
         for arg in cmd[1:]:
             if arg.startswith("-") or arg.endswith(".py") or arg.endswith(".sh"):
                 continue
@@ -1091,8 +1103,8 @@ def main(argv):
     n_cases = n_files = 0
     mismatched = []
     for stem, group in by_source.items():
-        rs = os.path.join(TESTS, stem + ".rs")
-        src_text = open(rs, encoding="utf-8").read()
+        rs = T19S.source_path(stem, quiet=True)
+        src_text = T19S.source_text(stem, quiet=True)
         for s in group:
             arithmetic(s)
             check_duplication_is_the_sources_own(s, s["entries"])

@@ -72,6 +72,18 @@ sys.path.insert(0, HERE)
 
 from case_emit import emit  # noqa: E402
 import t19b3_extract as X  # noqa: E402
+import t19_sources as T19S  # noqa: E402
+
+
+# THE `.rs` A GATE IS RUN AGAINST, once Task 19's deletion has removed it.
+# All seven of this batch's sources are in the delete set, and every gate
+# below takes the source as argv -- so a bare `os.path.join(TESTS, ...)` here
+# made the whole generator gate red the moment the deletion landed (observed
+# in a rehearsal, not predicted). `source_path` materialises the pinned blob,
+# so a gate runs over exactly the bytes the case file was generated from.
+def _rs(stem):
+    return T19S.source_path(stem, quiet=True)
+
 
 # WHY THIS GENERATOR WRITES WITH `open()` AND NOT `case_emit.write`, AND THE
 # MEASUREMENT THAT SETTLED IT.
@@ -480,7 +492,7 @@ def _measure(toml_path):
 def u8_reason(stem, toml_path):
     """The U8 paragraph for this pair, with its names and remedy DERIVED."""
     out = _run([sys.executable, os.path.join(PILOT, "check_rationale_fn_names.py"),
-                os.path.join(TESTS, stem + ".rs"), _measure(toml_path)])
+                _rs(stem), _measure(toml_path)])
     names = re.findall(r"UNEXPLAINED: `([^`]+)`", out.stdout)
     if not names:
         return None
@@ -535,7 +547,7 @@ def cc_classes_of(stem, toml_path):
     rendering is a fixed point.
     """
     p = _run([sys.executable, os.path.join(PILOT, "comment_coverage.py"),
-              os.path.join(TESTS, stem + ".rs"), _measure(toml_path)])
+              _rs(stem), _measure(toml_path)])
     found = []
     if re.search(r"from \d+/\d+ cases", p.stdout):
         found.append("per-case")
@@ -907,19 +919,19 @@ def rendered(family, toml, stem, subject):
 GATE_CMDS = {
     "audit-case-migration.py": lambda stem, toml_path: (
         [sys.executable, os.path.join(REPO, "scripts/audit-case-migration.py"),
-         stem + ".rs", os.path.relpath(toml_path, TESTS)], TESTS),
+         _rs(stem), os.path.relpath(toml_path, TESTS)], TESTS),
     "check_fixtures.py": lambda stem, toml_path: (
         [sys.executable, os.path.join(PILOT, "check_fixtures.py"),
-         os.path.join(TESTS, stem + ".rs"), toml_path], REPO),
+         _rs(stem), toml_path], REPO),
     "check_extra_claims.py": lambda stem, toml_path: (
         [sys.executable, os.path.join(PILOT, "check_extra_claims.py"),
-         os.path.join(TESTS, stem + ".rs"), toml_path], REPO),
+         _rs(stem), toml_path], REPO),
     "comment_coverage.py": lambda stem, toml_path: (
         [sys.executable, os.path.join(PILOT, "comment_coverage.py"),
-         os.path.join(TESTS, stem + ".rs"), toml_path], REPO),
+         _rs(stem), toml_path], REPO),
     "check_rationale_fn_names.py": lambda stem, toml_path: (
         [sys.executable, os.path.join(PILOT, "check_rationale_fn_names.py"),
-         os.path.join(TESTS, stem + ".rs"), toml_path], REPO),
+         _rs(stem), toml_path], REPO),
 }
 
 DECL = re.compile(r"`([a-z_0-9]+\.py)` (?:\(U8\) )?IS EXPECTED-RED \(rc=(\d+)\)")

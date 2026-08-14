@@ -63,6 +63,9 @@ TESTS = os.path.join(
     "crates/kali_cli/tests",
 )
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import t19_sources as T19S  # noqa: E402
+
 # --- ground truth -----------------------------------------------------------
 # Targets whose own `//!` header states they cannot be migrated. The screen must
 # never score one of these CLEAN. Sourced by reading the headers, not inferred.
@@ -253,14 +256,38 @@ def header_says_retained(text: str) -> bool:
 def screen_one(stem: str) -> dict:
     files = unit_files(stem)
     blobs = []
-    tests = 0
     for f in files:
         try:
-            t = open(f, encoding="utf-8", errors="replace").read()
+            blobs.append(open(f, encoding="utf-8", errors="replace").read())
         except OSError:
             continue
-        blobs.append(t)
-        tests += len(TEST_FN.findall(t))
+    return _verdict(stem, blobs, len(files))
+
+
+def screen_one_anywhere(stem: str) -> dict:
+    """`screen_one`, but readable after Task 19's deletion.
+
+    THE SELFTEST'S ARMS USE THIS; `main`'s census does not, and the split is
+    deliberate. `KNOWN_CLEAN` bounds this screen's OVER-BLOCKING against four
+    targets known to be migratable -- and all four were deleted by Task 19, so
+    a tree-only control simply stopped running (it reported "in KNOWN_CLEAN but
+    not in the corpus", which is a failure, but the shape one round of "just
+    drop them from the list" would have turned into a silent hole). Reading them
+    at the pinned deletion ref keeps the control running against exactly the
+    same four files, forever.
+
+    The PRODUCTION corpus stays tree-only: "what is left to migrate" is a
+    question about the working tree, and answering it from history would inflate
+    every count Task 20 reports.
+    """
+    path = os.path.join(TESTS, stem + ".rs")
+    if os.path.exists(path):
+        return screen_one(stem)
+    return _verdict(stem, [T19S.source_text(stem, quiet=True)], 1)
+
+
+def _verdict(stem: str, blobs: list[str], n_files: int) -> dict:
+    tests = sum(len(TEST_FN.findall(t)) for t in blobs)
     blob = "\n".join(blobs)
 
     blocked = [(sid, why) for sid, rx, why in BLOCKING if re.search(rx, blob)]
@@ -270,7 +297,7 @@ def screen_one(stem: str) -> dict:
                            "the file's own `//!` header states it could not be migrated"))
 
     verdict = "BLOCKED" if blocked else ("ADJUDICATE" if adjud else "CLEAN")
-    return {"stem": stem, "tests": tests, "files": len(files),
+    return {"stem": stem, "tests": tests, "files": n_files,
             "blocked": blocked, "adjudicate": adjud, "verdict": verdict}
 
 
@@ -304,7 +331,8 @@ def _family_prefixes() -> dict:
     return {f: families.prefix(f) for f in families.families()}
 
 
-def retention_adoptions(pretend_missing=frozenset()) -> list:
+def retention_adoptions(pretend_missing=frozenset(), *,
+                        include_deleted: bool = False) -> list:
     """What `citation_sweep.sh`'s whole-file-retention arm would adopt.
 
     Reproduces that arm's own predicate -- for a family with a NON-EMPTY prefix,
@@ -330,7 +358,7 @@ def retention_adoptions(pretend_missing=frozenset()) -> list:
     for family, prefix in sorted(_family_prefixes().items()):
         if not prefix or family == "browser":
             continue
-        for name in sorted(os.listdir(TESTS)):
+        for name in _corpus_names(include_deleted):
             if not name.endswith(".rs") or not name.startswith(prefix):
                 continue
             stem = name[len(prefix):-3]
@@ -338,9 +366,8 @@ def retention_adoptions(pretend_missing=frozenset()) -> list:
                     os.path.isfile(os.path.join(CASES, family, stem + ".toml")):
                 continue
             try:
-                text = open(os.path.join(TESTS, name), encoding="utf-8",
-                            errors="replace").read()
-            except OSError:
+                text = T19S.source_text(name[:-3], quiet=True)
+            except Exception:                       # noqa: BLE001
                 continue
             if not text.startswith("//!"):
                 continue
@@ -348,11 +375,35 @@ def retention_adoptions(pretend_missing=frozenset()) -> list:
     return out
 
 
-def retention_crosscheck(pretend_missing=frozenset(), *, quiet=False) -> list:
+def _corpus_names(include_deleted: bool) -> list[str]:
+    """The `.rs` names this arm scans: the tree, and optionally what Task 19
+    deleted (derived from the pinned ref, never listed).
+
+    `include_deleted` is FALSE for the production arm -- it reproduces
+    `citation_sweep.sh`'s tree-scanning predicate and must keep scanning the
+    same set that arm does. It is TRUE only for `_crosscheck_probe`, whose known
+    positive has to be a migrated, `//!`-carrying, non-BLOCKED, prefixed target,
+    and where every such target on disk is one Task 19 deleted. Without this the
+    probe reported "no known positive available" -- a control with nothing to
+    seed it is not a control, and it is exactly the state the deletion put it
+    in.
+    """
+    names = sorted(os.listdir(TESTS))
+    if include_deleted:
+        names = sorted(set(names) | {s + ".rs" for s in T19S.deleted_stems()})
+    return names
+
+
+def retention_crosscheck(pretend_missing=frozenset(), *, quiet=False,
+                         include_deleted: bool = False) -> list:
     """Adopted retentions that this screen says are migratable. Empty == good."""
-    by = {r["stem"]: r for r in [screen_one(s) for s in all_stems()]}
+    stems = all_stems()
+    if include_deleted:
+        stems = sorted(set(stems) | set(T19S.deleted_stems()))
+    by = {r["stem"]: r for r in [screen_one_anywhere(s) for s in stems]}
     bad = []
-    for family, rs_name, target in retention_adoptions(pretend_missing):
+    for family, rs_name, target in retention_adoptions(
+            pretend_missing, include_deleted=include_deleted):
         row = by.get(target)
         verdict = row["verdict"] if row else "NOT-IN-CORPUS"
         if verdict != "BLOCKED":
@@ -368,11 +419,12 @@ def _crosscheck_probe() -> list:
     cross-check to go red. Without this, every green above is compatible with a
     predicate that adopts nothing at all."""
     candidates = []
-    verdicts = {r["stem"]: r["verdict"] for r in [screen_one(s) for s in all_stems()]}
+    stems = sorted(set(all_stems()) | set(T19S.deleted_stems()))
+    verdicts = {r["stem"]: r["verdict"] for r in [screen_one_anywhere(s) for s in stems]}
     for family, prefix in sorted(_family_prefixes().items()):
         if not prefix or family == "browser":
             continue
-        for name in sorted(os.listdir(TESTS)):
+        for name in _corpus_names(True):
             if not name.endswith(".rs") or not name.startswith(prefix):
                 continue
             stem = name[len(prefix):-3]
@@ -385,9 +437,8 @@ def _crosscheck_probe() -> list:
             if verdicts.get(name[:-3]) == "BLOCKED":
                 continue
             try:
-                text = open(os.path.join(TESTS, name), encoding="utf-8",
-                            errors="replace").read()
-            except OSError:
+                text = T19S.source_text(name[:-3], quiet=True)
+            except Exception:                       # noqa: BLE001
                 continue
             if text.startswith("//!"):
                 candidates.append((family, stem, name))
@@ -396,7 +447,8 @@ def _crosscheck_probe() -> list:
                 "migrated, non-BLOCKED, `//!`-carrying, prefixed target exists to "
                 "seed it with"]
     family, stem, name = candidates[0]
-    bad = retention_crosscheck({(family, stem)}, quiet=True)
+    bad = retention_crosscheck({(family, stem)}, quiet=True,
+                               include_deleted=True)
     if not any(b[1] == name for b in bad):
         return [f"retention cross-check PROBE FAILED: with {family}/{stem}.toml treated "
                 f"as absent, {name} must be reported as an unmigrated target "
@@ -454,9 +506,17 @@ def main(argv: list[str]) -> int:
             else:
                 print(f"  ok  {stem:<42} {r['verdict']} via {r['blocked'][0][0]}")
         for stem in sorted(KNOWN_CLEAN):
-            r = by.get(stem)
+            # `screen_one_anywhere`, not `by`: all four of these were deleted by
+            # Task 19, and this control has to keep running against the same
+            # four files. See `screen_one_anywhere`.
+            try:
+                r = screen_one_anywhere(stem)
+            except Exception as exc:                # noqa: BLE001
+                r = None
+                failures.append(f"{stem}: in KNOWN_CLEAN but unreadable in the "
+                                f"tree and at the pinned ref: {exc}")
             if r is None:
-                failures.append(f"{stem}: in KNOWN_CLEAN but not in the corpus")
+                pass
             elif r["verdict"] != "CLEAN":
                 failures.append(
                     f"{stem}: already migrated, but the screen calls it {r['verdict']} "

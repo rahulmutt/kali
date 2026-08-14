@@ -77,8 +77,16 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(REPO, "tools/task-18-browser-pilot"))
+sys.path.insert(0, HERE)
 
 from lexer import find_string_literals  # noqa: E402
+# ONE resolver for "what are this `.rs`'s bytes" -- the working tree while the
+# file is there, a pinned immutable ref once Task 19's deletion has removed it.
+# `t19b5_extract` imports `Source` from this module, so both batches are served
+# by this single import (see `t19_sources` for why it raises rather than
+# returning empty).
+from t19_sources import available as _source_available  # noqa: E402
+from t19_sources import source_text as _source_text  # noqa: E402
 
 TESTS = os.path.join(REPO, "crates/kali_cli/tests")
 
@@ -398,7 +406,7 @@ class Source:
     def __init__(self, stem: str):
         self.stem = stem
         self.path = os.path.join(TESTS, stem + ".rs")
-        self.text = open(self.path, encoding="utf-8").read()
+        self.text = _source_text(stem)
         self.masked = blank_line_comments(self.text)
         self.skeleton = blank_strings(self.masked)
         self.fns: dict[str, dict] = {}
@@ -1207,7 +1215,14 @@ def select() -> list[str]:
     for s in sorted(set(clean) | ADJUDICATED):
         if s in migrated:
             continue
-        t = open(os.path.join(TESTS, s + ".rs"), encoding="utf-8").read()
+        # A candidate whose source Task 19's deletion removed is still readable
+        # -- `_source_text` falls back to the pinned ref. `_source_available`
+        # is here for the OTHER case: a name in the candidate list that exists
+        # in neither the tree nor the ref, which would otherwise raise out of a
+        # re-derivation that is not about that name at all.
+        if not _source_available(s):
+            continue
+        t = _source_text(s)
         if BATCH3_RUNNER in t:
             continue
         if any(re.search(rx, t) for rx in DISQUALIFY.values()):

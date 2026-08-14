@@ -61,6 +61,17 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(REPO, "tools/task-18-browser-pilot"))
 
 from t19b5_extract import PRE_TRIM  # noqa: E402
+import t19_sources as T19S  # noqa: E402
+
+# THE `runtime_forin` HALF IS PINNED TOO, AS OF TASK 19'S DELETION. Only
+# `capture_spread` was pinned before, because only the U4 trim had removed the
+# builders it needs. Task 19's deletion removes `runtime_forin.rs` outright, so
+# BOTH the fn list this file derives and the cargo target it runs had to stop
+# depending on the working tree. `t19_sources.source_text` answers the first;
+# `_FORIN_TARGET` -- a temporary test target holding the pinned bytes, removed
+# in the same run -- answers the second, the same mechanism `capture_spread`
+# already used for the dump.
+_FORIN_TARGET = "zz_t19b5_forin"
 
 # The `runtime_forin` tests whose fixture is built by a `format!`: the callers of
 # the two wrapper helpers. Derived from the source rather than listed, so a new
@@ -69,7 +80,7 @@ FORMAT_HELPERS = ("forin_ternary_case", "forin_leak_case")
 
 
 def forin_format_tests() -> list[str]:
-    text = open(os.path.join(TESTS, "runtime_forin.rs"), encoding="utf-8").read()
+    text = T19S.source_text("runtime_forin", quiet=True)
     out = []
     for m in re.finditer(r"#\[test\]\s*\nfn\s+(\w+)\s*\(\s*\)\s*\{", text):
         end = text.find("\n}\n", m.end())
@@ -82,11 +93,39 @@ def forin_format_tests() -> list[str]:
 def capture_forin(outdir: str) -> None:
     tests = forin_format_tests()
     print(f"runtime_forin: {len(tests)} format!-built fixture(s)")
+    target = _materialise_forin_target()
+    try:
+        _capture_forin_into(outdir, tests, target)
+    finally:
+        if target != "runtime_forin":
+            os.remove(os.path.join(TESTS, target + ".rs"))
+
+
+def _materialise_forin_target() -> str:
+    """The cargo test target to run: `runtime_forin` if it is still in the tree,
+    else a temporary one holding the pinned bytes.
+
+    Written into `tests/` rather than a temp dir because cargo discovers test
+    targets there and nowhere else. Removed by the caller's `finally`, so a
+    failing capture cannot leave a stray target behind -- the same discipline
+    `capture_spread` applies to its dump.
+    """
+    if os.path.exists(os.path.join(TESTS, "runtime_forin.rs")):
+        return "runtime_forin"
+    with open(os.path.join(TESTS, _FORIN_TARGET + ".rs"), "w",
+              encoding="utf-8") as f:
+        f.write(T19S.source_text("runtime_forin", quiet=True))
+    print(f"  runtime_forin.rs is deleted; captured through the temporary "
+          f"target {_FORIN_TARGET} at {T19S.T19_DELETION_REF[:10]}")
+    return _FORIN_TARGET
+
+
+def _capture_forin_into(outdir: str, tests: list[str], target: str) -> None:
     for name in tests:
         tmp = tempfile.mkdtemp(prefix="t19b5-forin-")
         env = dict(os.environ, TMPDIR=tmp)
         subprocess.run(
-            ["cargo", "test", "-p", "kali_cli", "--test", "runtime_forin",
+            ["cargo", "test", "-p", "kali_cli", "--test", target,
              "--", name, "--exact", "--test-threads=1"],
             cwd=REPO, env=env, capture_output=True, text=True)
         found = []
