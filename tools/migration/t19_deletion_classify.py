@@ -90,6 +90,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import tomllib
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TESTS_REL = "crates/kali_cli/tests"
@@ -128,8 +129,22 @@ RUNNER = {"cases"}
 #   Migrated from `tests/soundness_url.rs`, the fn ...
 #
 # The optional single leading directory component is a `#[path]` submodule
-# carrier's sibling directory; the basename is what identifies the top-level
-# target either way.
+# carrier's sibling directory.
+#
+# CLAIMS ARE KEYED ON THE BASENAME, AND THAT IS A PROPERTY OF THIS CORPUS, NOT A
+# GENERAL TRUTH. A case file claiming `foo/bar.rs` registers against a top-level
+# `bar.rs`, so in a corpus where both a submodule `foo/bar.rs` and an unrelated
+# top-level `bar.rs` exist, the submodule's claim would be read as a claim on the
+# top-level file -- and that file could then be classified DELETE on evidence
+# that belongs to someone else. The comment this replaces asserted that "the
+# basename is what identifies the top-level target either way", which is true
+# HERE and false in general.
+#
+# So the dependency is MEASURED rather than asserted: `basename_collisions`
+# below is a hard stop that fires the moment a directory-qualified claim's
+# basename names a different top-level source. It is empty in this corpus (0 of
+# 2 qualified claims collide) and it is probed in the selftest against a
+# synthetic collision, so its green is a measurement and not a vacuum.
 CLAIM = re.compile(
     r"Migrated from\s+`?(?:tests/)?((?:[A-Za-z0-9_]+/)?[A-Za-z0-9_]+\.rs)`?")
 CLAIM_MARKER = re.compile(r"Migrated from")
@@ -213,15 +228,21 @@ def case_files(tests: str) -> list[str]:
     return sorted(out)
 
 
-def claims(tests: str) -> tuple[dict[str, list[str]], int, int]:
-    """`{source basename: [case files that name it]}`, plus the parse tally.
+def claims(tests: str) -> tuple[dict[str, list[str]], int, int, set[str]]:
+    """`{source basename: [case files that name it]}`, the parse tally, and
+    every claim path AS WRITTEN.
 
     The tally is returned rather than checked here so the caller can report it:
     a `Migrated from` this regex cannot read is a source that would be
     misclassified NOT MIGRATED, which is the one error in this tool that
     produces no symptom at all.
+
+    The fourth value is the set of claim paths BEFORE `os.path.basename` throws
+    the directory away, so `basename_collisions` can check that throwing it away
+    was safe in this corpus instead of the docstring promising that it was.
     """
     found: dict[str, list[str]] = {}
+    written: set[str] = set()
     seen = parsed = 0
     for path in case_files(tests):
         with open(path, encoding="utf-8") as fh:
@@ -230,11 +251,30 @@ def claims(tests: str) -> tuple[dict[str, list[str]], int, int]:
         seen += len(CLAIM_MARKER.findall(text))
         for m in CLAIM.finditer(text):
             parsed += 1
+            written.add(m.group(1))
             found.setdefault(os.path.basename(m.group(1)), []).append(rel)
             sub = CLAIM_SUBMODULE.match(text[m.end():m.end() + 200])
             if sub:
+                written.add(sub.group(1))
                 found.setdefault(os.path.basename(sub.group(1)), []).append(rel)
-    return ({k: sorted(set(v)) for k, v in found.items()}, seen, parsed)
+    return ({k: sorted(set(v)) for k, v in found.items()}, seen, parsed, written)
+
+
+def basename_collisions(written: set[str], top_level: set[str]) -> list[str]:
+    """Directory-qualified claims whose basename names a DIFFERENT top-level
+    source. Empty means keying claims on the basename is safe here.
+
+    Kept as a function taking both populations, rather than reading the tree,
+    so the selftest can drive it with a synthetic collision -- a guard that has
+    never been made to fire is a sentence, not a guard.
+    """
+    return sorted(
+        f"`{claim}` is a `#[path]` submodule claim whose basename also names the "
+        f"top-level source `{os.path.basename(claim)}`. Keying claims on the "
+        f"basename would credit the top-level file with the submodule's "
+        f"migration."
+        for claim in written
+        if "/" in claim and os.path.basename(claim) in top_level)
 
 
 # --------------------------------------------------------------------------
@@ -242,16 +282,36 @@ def claims(tests: str) -> tuple[dict[str, list[str]], int, int]:
 # --------------------------------------------------------------------------
 
 def docblock(text: str) -> str:
-    """The leading `//!` module docstring, or "" when there is none."""
-    lines = []
+    """The LEADING `//!` module docstring, or "" when there is none.
+
+    LEADING IS ENFORCED, NOT ASSUMED. The version this replaces broke out of the
+    scan only once it had already collected a `//!` line -- so a file with NO
+    leading docblock kept scanning to the end and adopted the first `//!` it
+    found ANYWHERE, including one sitting inside a raw-string JS fixture or
+    inside a `#[test]` fn. That errs toward RETENTION, which is the safe
+    direction and is why it did not bite (0 of the 42 deleted sources were
+    affected), but "wrong in the safe direction" is still wrong: it means the
+    retention evidence quoted for a source could come from text that is not its
+    module docstring at all.
+
+    Blank lines BEFORE the docblock are allowed (a file may open with one);
+    anything else before the first `//!` ends the scan with "".
+    """
+    lines: list[str] = []
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith("//!"):
             lines.append(stripped[3:].strip())
-        elif lines and not stripped:
+        elif not stripped:
+            # A blank line is permitted both before the docblock and inside it.
             continue
         elif lines:
             break
+        else:
+            # A non-blank, non-`//!` line before any `//!` has been seen: this
+            # file has no LEADING docblock, and whatever `//!` may appear later
+            # is not one.
+            return ""
     return "\n".join(lines)
 
 
@@ -301,11 +361,62 @@ def audit(old: str, new: list[str]) -> tuple[str, str]:
 
 
 # --------------------------------------------------------------------------
+# Fact 4: does the case corpus carry at least as many TRIALS as the source
+#         carried `#[test]` fns
+# --------------------------------------------------------------------------
+#
+# WHY THIS EXISTS, AND WHY IT IS NOT A FOURTH OPINION ON THE SAME EVIDENCE.
+# Facts 1-3 all pass through PROSE. Fact 1 reads the `Migrated from` line, fact
+# 2 reads the `//!` header, and the audit (fact 3) is a literal-coverage check
+# whose population is the set of claims a human wrote into the case file. A
+# single wrong `CLAIM` regex, or a single missing U3 marker, moves all three
+# together -- which is exactly the counting overclaim the deletion report's
+# first draft made when it called three derivations "independent".
+#
+# This one does not read prose at all. It asks an arithmetic question of data
+# the classifier already has in hand: the source's `#[test]` count (printed by
+# the audit script itself, after it resolves `#[path]` submodules) against the
+# number of TRIALS the claiming case files expand to. A fully migrated source's
+# coverage has to have landed somewhere, and a case corpus carrying fewer trials
+# than the source carried tests cannot have absorbed all of it.
+#
+# TRIALS, NOT `[[case]]` ENTRIES. `crates/kali_case_runner/src/expand.rs`
+# expands one trial per (matrix cell x case): `matrix_cells` takes the cartesian
+# product of the `[matrix]` axes and `expand` loops the case list inside it. Two
+# of the 42 make the difference load-bearing -- `promise_any_sequencing` and
+# `promise_race_sequencing` are 4 `#[test]` fns migrated to 2 `[[case]]` entries
+# each, and it is `[matrix] ext = ["js","ts"]` that makes them 4 trials. Counting
+# raw cases would have failed both, and "the gate is noisy, ignore it" is how a
+# control dies.
+#
+# IT IS A BOUND, NOT AN EQUALITY. A rule-7 matrix fold legitimately produces MORE
+# trials than the source had fns (16 for 5, in one browser case file), and a
+# U1/U2 split legitimately has several case files claiming one source. So the
+# check is `>=` over the sum, and it bounds exactly the failure the marker-prose
+# dependency leaves open: coverage that quietly did not arrive.
+
+def trial_count(path: str) -> int:
+    """`[[case]]` entries x the cartesian product of the `[matrix]` axes.
+
+    The runner's own arithmetic, restated: `expand.rs::matrix_cells` builds the
+    product of the axes and `expand.rs::expand` loops `file.case` inside it, so
+    the trial total is |cells| * |cases|. A file with no `[matrix]` has one
+    (empty) cell and therefore one trial per case.
+    """
+    with open(path, "rb") as fh:
+        doc = tomllib.load(fh)
+    cells = 1
+    for values in (doc.get("matrix") or {}).values():
+        cells *= len(values)
+    return cells * len(doc.get("case") or [])
+
+
+# --------------------------------------------------------------------------
 # The partition
 # --------------------------------------------------------------------------
 
 def classify(tests: str) -> dict:
-    claimed_by, seen, parsed = claims(tests)
+    claimed_by, seen, parsed, written = claims(tests)
     sources = sorted(n for n in os.listdir(tests) if n.endswith(".rs"))
 
     rows = []
@@ -323,6 +434,8 @@ def classify(tests: str) -> dict:
         rows.append({"name": name, "stem": stem, "cases": cases,
                      "retention": marker, "spec": spec,
                      "audit": verdict, "audit_output": out,
+                     "trials": sum(trial_count(os.path.join(tests, c))
+                                   for c in cases) if cases else None,
                      "tests": int(re.search(r": (\d+) #\[test\] fns", out).group(1))
                               if out else None})
 
@@ -332,6 +445,7 @@ def classify(tests: str) -> dict:
             f"{seen - parsed} of {seen} `Migrated from` occurrences were not "
             "parsed by CLAIM. An unreadable claim silently demotes its source "
             "to NOT MIGRATED; refusing to publish a partition built on one.")
+    hard += basename_collisions(written, set(sources))
 
     delete, retain, unmigrated = [], [], []
     for row in rows:
@@ -360,13 +474,85 @@ def classify(tests: str) -> dict:
             retain.append(row)
         else:
             row["why"] = (f"claimed by {len(row['cases'])} case file(s); "
-                          f"AUDIT OK over all of them; no retention header; "
-                          f"not §5.11")
+                          f"AUDIT OK over all of them; {row['trials']} expanded "
+                          f"trial(s) >= {row['tests']} `#[test]` fn(s); no "
+                          f"retention header; not §5.11")
             delete.append(row)
 
+    # THE NON-PROSE GATE ON CLASS 1, applied AFTER the partition so it reports
+    # against exactly the set about to be deleted. A shortfall is a hard stop
+    # and not a demotion to RETAIN: a source whose coverage did not all arrive
+    # needs a human, the same way a partial migration with no U3 marker does.
+    short = [row for row in delete
+             if row["trials"] is None or row["tests"] is None
+             or row["trials"] < row["tests"]]
+    for row in short:
+        hard.append(
+            f"{row['name']}: {row['tests']} `#[test]` fn(s) but the case file(s) "
+            f"that claim it expand to only {row['trials']} trial(s). The audit is "
+            f"a LITERAL-coverage check over the claims a human wrote down; this "
+            f"is the arithmetic, and it does not close. Deleting the source "
+            f"would drop coverage.")
+
     return {"rows": rows, "delete": delete, "retain": retain,
-            "unmigrated": unmigrated, "hard": hard,
+            "unmigrated": unmigrated, "hard": hard, "short": short,
             "seen": seen, "parsed": parsed, "tests_dir": tests}
+
+
+# --------------------------------------------------------------------------
+# The precondition loop -- `ALL AUDITS OK` before anything is deleted
+# --------------------------------------------------------------------------
+
+def audit_loop(tests: str, seeds: list[str]) -> int:
+    """`ALL AUDITS OK` over class 1, with a counter that can go non-zero.
+
+    COMMITTED BECAUSE A TRANSCRIPT THAT CANNOT BE RE-DERIVED IS NOT EVIDENCE.
+    The deletion report's §5.1 quoted this loop's output -- `42 audited, 0
+    failed, 0 crashed` / `ALL AUDITS OK`, plus two known positives -- and the
+    loop itself was a scratch script, so `grep -rn "ALL AUDITS OK"` over the
+    tree returned nothing and a reader could not reproduce the figure they were
+    asked to trust. This project has repeatedly insisted that quoted gate
+    evidence be re-derivable; that rule applies to its own reports.
+
+    `--seed STEM` is the known positive: name a source OUTSIDE class 1 (a
+    retention, or a name that does not exist at all) and the loop must not come
+    back green. Passing a retention exercises the FAILED channel; passing a
+    nonexistent stem exercises the CRASH channel, which `audit()` raises on
+    rather than counting either way.
+
+        python3 tools/migration/t19_deletion_classify.py --audit-loop \\
+            --ref 8ba0b64593
+        python3 tools/migration/t19_deletion_classify.py --audit-loop \\
+            --ref 8ba0b64593 --seed soundness_url
+    """
+    result = classify(tests)
+    claimed_by = claims(tests)[0]
+    names = [row["name"] for row in result["delete"]]
+    for stem in seeds:
+        if f"{stem}.rs" not in names:
+            names.append(f"{stem}.rs")
+
+    audited = failed = crashed = 0
+    for name in names:
+        cases = claimed_by.get(name, [])
+        try:
+            verdict, _out = audit(os.path.join(tests, name),
+                                  [os.path.join(tests, c) for c in cases])
+        except AuditAmbiguous as exc:
+            crashed += 1
+            audited += 1
+            print(f"AUDIT CRASHED: {name}\n  {exc}")
+            continue
+        audited += 1
+        if verdict != "OK":
+            failed += 1
+            print(f"AUDIT FAILED: {name}")
+    print(f"{audited} audited, {failed} failed, {crashed} crashed")
+    if failed or crashed:
+        print("AUDITS INCOMPLETE — do not delete")
+        return 1
+    print("ALL AUDITS OK")
+    return 0
 
 
 # --------------------------------------------------------------------------
@@ -437,6 +623,62 @@ def selftest() -> int:
     check(retention_header("//! Ordinary.\n\nfn f() { /* TRIMMED */ }\n") == [],
           "a marker outside the `//!` docblock does not fire")
 
+    # M5 -- LEADING. The probe above only covers a file that ALREADY HAS a
+    # leading docblock. The bug was in the other case: with no leading docblock
+    # the scan ran to the end of the file and adopted the first `//!` anywhere,
+    # including one inside a raw-string JS fixture.
+    fixture = ('use std::process::Command;\n\n'
+               'fn src() -> &\'static str {\n'
+               '    r#"\n'
+               '//! U4 TRIMMED — this is JavaScript, not a module docstring\n'
+               '"#\n'
+               '}\n')
+    check(docblock(fixture) == "",
+          "a `//!` inside a raw-string fixture is NOT adopted as the docblock")
+    check(retention_header(fixture) == [],
+          "... and therefore does not make the file read as a retention")
+    check(docblock("fn f() {}\n//! stray\n") == "",
+          "a `//!` below real code is not a leading docblock")
+    check(docblock("\n//! Real.\n//! Header.\nfn f() {}\n") == "Real.\nHeader.",
+          "a leading docblock after a blank line IS read")
+    check(docblock("//! A.\n\n//! B.\nfn f() {}\n") == "A.\nB.",
+          "a blank line INSIDE the docblock does not end it")
+
+    # M6 -- the basename-keying dependency, driven with a synthetic collision so
+    # its green in this corpus is a measurement and not an empty set.
+    check(basename_collisions({"inprocess/schema_validation.rs"},
+                              {"schema_validation.rs", "inprocess.rs"}) != [],
+          "basename_collisions FIRES when a submodule claim shadows a "
+          "top-level source")
+    check(basename_collisions({"inprocess/schema_validation.rs"},
+                              {"inprocess.rs"}) == [],
+          "... and stays quiet when no top-level source carries that basename")
+
+    # M13 -- the trial arithmetic. `promise_any_sequencing`'s real shape is the
+    # probe: 2 `[[case]]` entries under `[matrix] ext = ["js","ts"]` is FOUR
+    # trials, and a counter that returned 2 would have failed two of the 42.
+    with tempfile.TemporaryDirectory() as d:
+        def _toml(body: str) -> str:
+            p = os.path.join(d, f"probe{len(os.listdir(d))}.toml")
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(body)
+            return p
+        matrixed = _toml('[matrix]\next = ["js", "ts"]\n\n'
+                         '[[case]]\nname = "a"\n[[case]]\nname = "b"\n')
+        plain = _toml('[[case]]\nname = "a"\n[[case]]\nname = "b"\n'
+                      '[[case]]\nname = "c"\n')
+        two_axes = _toml('[matrix]\next = ["js", "ts"]\nmode = ["a", "b", "c"]\n\n'
+                         '[[case]]\nname = "a"\n')
+        empty = _toml('[matrix]\next = ["js"]\n')
+        check(trial_count(matrixed) == 4,
+              "trial_count expands 2 cases x ext(2) to 4 trials, not 2 "
+              "(the promise_*_sequencing shape)")
+        check(trial_count(plain) == 3, "no `[matrix]` is one trial per case")
+        check(trial_count(two_axes) == 6,
+              "two axes multiply, matching expand.rs::matrix_cells")
+        check(trial_count(empty) == 0,
+              "a case file with no `[[case]]` expands to no trials")
+
     # The claim regex, on each shape the corpus uses.
     for text, want in [
         ('rationale = """Migrated from tests/runtime_join.rs. x"""', "runtime_join.rs"),
@@ -461,12 +703,28 @@ def main() -> int:
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--list", choices=["delete", "retain", "unmigrated"],
                     help="print only that class's stems, one per line")
+    ap.add_argument("--audit-loop", action="store_true",
+                    help="the deletion precondition: audit every class-1 member "
+                         "and print ALL AUDITS OK / AUDITS INCOMPLETE")
+    ap.add_argument("--seed", action="append", default=[], metavar="STEM",
+                    help="known positive for --audit-loop: add a stem that must "
+                         "NOT audit clean (a retention, or a name that does not "
+                         "exist) and require the loop to go red")
     args = ap.parse_args()
 
     if args.selftest:
         return selftest()
 
     tests = materialise(args.ref) if args.ref else os.path.join(REPO, TESTS_REL)
+
+    if args.audit_loop:
+        try:
+            return audit_loop(tests, args.seed)
+        except AuditAmbiguous as exc:
+            print(f"AUDIT CRASHED during classification\n  {exc}")
+            print("AUDITS INCOMPLETE — do not delete")
+            return 1
+
     try:
         result = classify(tests)
     except AuditAmbiguous as exc:
@@ -502,6 +760,13 @@ def main() -> int:
             print(f"  {row['name']}: {fns}{row['why']}")
             if key == "delete":
                 print(f"      case files: {', '.join(row['cases'])}")
+
+    tot_fns = sum(r["tests"] or 0 for r in result["delete"])
+    tot_trials = sum(r["trials"] or 0 for r in result["delete"])
+    print(f"\nARITHMETIC GATE (non-prose, independent of the `Migrated from` "
+          f"marker and of U3 header discipline) — over class 1: "
+          f"{tot_fns} `#[test]` fn(s) vs {tot_trials} expanded trial(s); "
+          f"{len(result['short'])} source(s) short")
 
     print(f"\nSUMMARY delete={len(result['delete'])} "
           f"retain={len(result['retain'])} "
