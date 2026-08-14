@@ -218,42 +218,21 @@ jobs:
       - name: Run package corpus suite
         run: cargo test -p kali_cli --test package_corpus --verbose
 
-  # The Task 18 migration gates -- the citation sweep, the crosscheck selftest,
-  # the argv/[source] correspondence gate, the drift classifier's selftest, the
-  # inst2 injection probes and the source-deletion rehearsal. Until batch
-  # 8-inst-2 nothing under .github/ or scripts/ ran any of them, so eight
-  # batches of gates were run by hand or not at all.
-  #
-  # THE GATE SET IS NOT LISTED HERE. It lives in scripts/test-gate.sh, which is
-  # also what a developer runs; two copies would drift, and a workflow that runs
-  # a stale subset is exactly the "green by vacuity" failure this job exists to
-  # prevent.
-  #
-  # fetch-depth: 0 IS A CORRECTNESS PRECONDITION, NOT TIDYING, AND THIS IS THE
-  # ONLY CHECKOUT IN THIS FILE THAT GETS IT.
-  #   * why this one: a migrated case file whose .rs has been deleted resolves
-  #     its `:N` citations against the historical blob its own `SOURCE REF:`
-  #     line names, and citation_sweep.sh materialises the whole
-  #     crates/kali_cli/tests tree at that ref. 23 case files are already in
-  #     that state and batch 8C puts the rest of the family there.
-  #     actions/checkout is shallow by default, which has neither the commits
-  #     nor the trees; the gate then hard-stops (exit 2) naming this line as the
-  #     remedy. source_ref_rehearsal.py additionally clones the repository and
-  #     walks each sample source's own history.
-  #   * why not the other eight: build, clippy, fmt, phase1-evidence,
-  #     determinism, browser-cdp-smoke, package-corpus and proof-check run
-  #     cargo, Lean and shell scripts over the WORKING TREE only. None reads a
-  #     historical blob, so a full fetch would cost every one of them clone time
-  #     for nothing. release.yml:38-40 sets the same flag for its own reason.
-  migration-gates:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Run the Task 18 migration gates
-        run: bash scripts/test-gate.sh --gates-only
+  # NO `migration-gates` JOB. The Task 18/19 migration gates
+  # (`bash scripts/test-gate.sh --gates-only`) are a DEVELOPER command, not a CI
+  # gate. A job running them was added and then removed before merge: it could
+  # not pass on a runner. It installed no Rust toolchain and ran no `cargo
+  # build`, while two of the 14 gates -- tools/migration/gen_task19_batch4.py
+  # and gen_task19_batch5.py -- invoke the compiled `kali` binary and fail
+  # rather than skip when it is absent; and the target directory they resolved
+  # was `.cache/cargo-target`, which comes from a machine-local
+  # ~/.cargo/config.toml in the dev container and is not in this repository, so
+  # a runner's cargo would build to ./target and the path would be wrong even
+  # with a build step. The migration is finished and frozen at merge, and the
+  # corpus those gates guard does not change again, so the gates are run by hand
+  # rather than repaired into CI. See
+  # docs/superpowers/specs/2026-07-29-test-binary-consolidation-design.md
+  # section 9, deviation 7, and crates/kali_cli/tests/cases/README.md.
 
   proof-check:
     runs-on: ubuntu-latest
