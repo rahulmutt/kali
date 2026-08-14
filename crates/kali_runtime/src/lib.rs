@@ -6,7 +6,14 @@ pub(crate) use ctx::*;
 mod outcome;
 pub use outcome::RuntimeOutcome;
 mod state;
-pub(crate) use kali_runtime_contract::*;
+// Explicit, like every other re-export in this crate. A glob here hid which
+// of `kali_runtime_contract`'s names this crate actually depends on, and
+// silently absorbed anything the contract crate later added -- including a
+// name that would shadow a local one.
+pub(crate) use kali_runtime_contract::{
+    browser_harness_uses_html_entrypoint, parse_optional_runtime_backend_label,
+    parse_optional_runtime_host_contract_label, BROWSER_HARNESS_SUMMARY_FILE_ENV,
+};
 pub use kali_runtime_contract::{normalize_runtime_profiles, RuntimeBackend, RuntimeHostContract};
 pub use state::{KaliHostState, ScheduledTimer};
 mod host;

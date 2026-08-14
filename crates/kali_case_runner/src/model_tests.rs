@@ -383,10 +383,12 @@ fn a_case_mixing_step_list_and_inline_fields_is_a_hard_error() {
 [[case]]
 name = "mixed"
 args = ["run", "main.js"]
+exit = "success"
 
   [[case.step]]
   kind = "cli"
   args = ["build"]
+  exit = "success"
 "#;
     let err = parse_case_file(text).expect_err("must reject mixing step forms");
     assert!(err.contains("mixed"), "error must name the case: {err}");
@@ -693,4 +695,300 @@ body = "await mod.f();"
     );
     assert_eq!(step.entry.as_deref(), Some("app"));
     assert_eq!(step.body.as_deref(), Some("await mod.f();"));
+}
+
+// A step that runs a process and declares no assertion parses clean and
+// passes unconditionally -- `kali` could segfault and the trial would still
+// report green. The corpus holds zero such steps, so these tests pin a
+// discipline that already holds rather than fixing a live break. Delete the
+// `asserts` guard in `finalize_step` and the first two go green (the file
+// parses), which is what makes them known positives.
+
+#[test]
+fn a_cli_step_with_no_assertion_key_is_a_hard_error() {
+    let text = r#"
+[[case]]
+name = "asserts_nothing"
+args = ["run", "main.js"]
+"#;
+    let err = parse_case_file(text).expect_err("must reject a step that asserts nothing");
+    assert!(err.contains("asserts_nothing"), "must name the case: {err}");
+    assert!(err.contains("declares no assertion"), "{err}");
+    assert!(
+        err.contains("pass unconditionally"),
+        "must say why it matters: {err}"
+    );
+}
+
+#[test]
+fn a_browser_bundle_harness_step_with_no_assertion_key_is_a_hard_error() {
+    let text = r#"
+[[case]]
+name = "asserts_nothing"
+
+  [[case.step]]
+  kind = "browser_bundle_harness"
+  entry = "app"
+  body = "await mod.f();"
+"#;
+    let err = parse_case_file(text).expect_err("must reject a step that asserts nothing");
+    assert!(err.contains("declares no assertion"), "{err}");
+    assert!(
+        err.contains("browser_bundle_harness"),
+        "must name the kind: {err}"
+    );
+}
+
+// A guard that can only fail is worth as little as one that cannot: each of
+// the eleven assertion keys must be enough on its own, or the guard is
+// quietly demanding a *particular* key rather than any claim at all.
+#[test]
+fn any_single_assertion_key_satisfies_the_guard() {
+    for key in [
+        r#"exit = "success""#,
+        r#"stdout = "x""#,
+        r#"stdout_contains = ["x"]"#,
+        r#"stdout_absent = ["x"]"#,
+        r#"stdout_count = [{ needle = "x", at_least = 1 }]"#,
+        r#"stderr = "x""#,
+        r#"stderr_contains = ["x"]"#,
+        r#"stderr_absent = ["x"]"#,
+        r#"json = { schemaVersion = 2 }"#,
+        r#"json_null = ["stderr"]"#,
+        r#"json_count = [{ path = "stdout", needle = "x", at_least = 1 }]"#,
+    ] {
+        let text = format!("[[case]]\nname = \"c\"\nargs = [\"run\"]\n{key}\n");
+        parse_case_file(&text).unwrap_or_else(|error| panic!("`{key}` must suffice: {error}"));
+    }
+}
+
+// `file_json` is deliberately outside the guard: `fields` is its only
+// assertion key and `run_file_json` already refuses a step without it, so the
+// step can never reach a passing outcome having asserted nothing. Pinned so a
+// later widening of the guard to all kinds has to confront this on purpose.
+#[test]
+fn a_file_json_step_is_not_subject_to_the_assertion_guard() {
+    let text = r#"
+[[case]]
+name = "c"
+
+  [[case.step]]
+  kind = "file_json"
+  path = "app/app.meta.json"
+  fields = { apiSurface = "browser" }
+"#;
+    parse_case_file(text).expect("file_json's `fields` is its assertion");
+}
+
+// `check_bindings_are_referenced`. The corpus has zero violations of any of
+// these, so every test below is a constructed known positive; delete the
+// guard and each of the first four goes green.
+
+#[test]
+fn an_unreferenced_constant_is_a_hard_error() {
+    let text = r#"
+[constants]
+UNUSED_NOTE = "E5506"
+
+[[case]]
+name = "c"
+args = ["run"]
+exit = "success"
+"#;
+    let err = parse_case_file(text).expect_err("must reject a dead constant");
+    assert!(err.contains("UNUSED_NOTE"), "must name it: {err}");
+    assert!(err.contains("never referenced"), "{err}");
+}
+
+#[test]
+fn an_unreferenced_matrix_axis_is_a_hard_error() {
+    let text = r#"
+[matrix]
+ext = ["js", "ts"]
+
+[[case]]
+name = "c"
+args = ["run", "main.js"]
+exit = "success"
+"#;
+    let err = parse_case_file(text).expect_err("must reject a dead axis");
+    assert!(err.contains("ext"), "must name it: {err}");
+    assert!(err.contains("byte-identical trials"), "{err}");
+}
+
+// `expand` inserts axis values over the constants, so the axis always wins.
+// The constant looks referenced -- `${ext}` is right there -- but is not.
+#[test]
+fn a_constant_shadowed_by_a_matrix_axis_is_a_hard_error_that_says_so() {
+    let text = r#"
+[constants]
+ext = "E5506"
+
+[matrix]
+ext = ["js", "ts"]
+
+[[case]]
+name = "c"
+args = ["main.${ext}"]
+exit = "success"
+"#;
+    let err = parse_case_file(text).expect_err("must reject an unreachable constant");
+    assert!(
+        err.contains("shadowed"),
+        "must say why, not just 'unused': {err}"
+    );
+    assert!(!err.contains("never referenced"), "{err}");
+}
+
+// `substitute` is single-pass over `file.constants`, so `B = "${A}"` leaves a
+// literal `${A}` in the expanded text -- `A` is genuinely dead, and counting
+// B's mention of it would reopen the audit channel through one indirection.
+#[test]
+fn a_reference_from_another_constants_value_does_not_count() {
+    let text = r#"
+[constants]
+A = "E5506"
+B = "${A}"
+
+[source]
+"main.js" = "${B}"
+
+[[case]]
+name = "c"
+args = ["run"]
+exit = "success"
+"#;
+    let err = parse_case_file(text).expect_err("must reject the dead constant");
+    assert!(err.contains("`A`"), "must name A: {err}");
+}
+
+// `expand` never substitutes `rationale` or a case `name`, so a `${X}` there
+// is prose. If it counted, the dead-constant channel would be one sentence
+// from working again.
+#[test]
+fn a_reference_from_a_rationale_does_not_count() {
+    let text = r#"
+[constants]
+UNUSED_NOTE = "E5506"
+
+[[case]]
+name = "c"
+rationale = "see ${UNUSED_NOTE}"
+args = ["run"]
+exit = "success"
+"#;
+    let err = parse_case_file(text).expect_err("must reject the dead constant");
+    assert!(err.contains("UNUSED_NOTE"), "{err}");
+}
+
+// `matrix_cells` uses axis values raw -- they are never substituted.
+#[test]
+fn a_reference_from_a_matrix_axis_value_does_not_count() {
+    let text = r#"
+[constants]
+UNUSED_NOTE = "E5506"
+
+[matrix]
+ext = ["${UNUSED_NOTE}"]
+
+[[case]]
+name = "c"
+args = ["main.${ext}"]
+exit = "success"
+"#;
+    let err = parse_case_file(text).expect_err("must reject the dead constant");
+    assert!(err.contains("UNUSED_NOTE"), "{err}");
+}
+
+// The control in the other direction, and the reason the guard is
+// reference-based rather than a blanket ban on `[constants]`: every field
+// `expand::substitute_step` touches is a real reference site. Driven per
+// field so a field dropped from `collect_step_placeholders` fails here rather
+// than silently turning a live constant into a false "dead" one.
+#[test]
+fn a_reference_from_any_substituted_field_counts() {
+    for (field, snippet) in [
+        ("args", "args = [\"${P}\"]\nexit = \"success\""),
+        (
+            "env",
+            "args = [\"run\"]\nexit = \"success\"\nenv = { K = \"${P}\" }",
+        ),
+        ("stdout", r#"stdout = "${P}""#),
+        ("stdout_contains", r#"stdout_contains = ["${P}"]"#),
+        ("stdout_absent", r#"stdout_absent = ["${P}"]"#),
+        (
+            "stdout_count",
+            r#"stdout_count = [{ needle = "${P}", at_least = 1 }]"#,
+        ),
+        ("stderr", r#"stderr = "${P}""#),
+        ("stderr_contains", r#"stderr_contains = ["${P}"]"#),
+        ("stderr_absent", r#"stderr_absent = ["${P}"]"#),
+        ("json", r#"json = { k = "${P}" }"#),
+        ("json-key", r#"json = { "${P}" = "v" }"#),
+        ("json_null", r#"json_null = ["${P}"]"#),
+        (
+            "json_count",
+            r#"json_count = [{ path = "a", needle = "${P}", at_least = 1 }]"#,
+        ),
+    ] {
+        let text = format!("[constants]\nP = \"v\"\n\n[[case]]\nname = \"c\"\n{snippet}\n");
+        parse_case_file(&text)
+            .unwrap_or_else(|error| panic!("a `${{P}}` in {field} is a real reference: {error}"));
+    }
+    // The `file_json`- and `browser_bundle_harness`-only fields, which cannot
+    // share the `cli` shape above.
+    for (field, snippet) in [
+        (
+            "path",
+            "  kind = \"file_json\"\n  path = \"${P}\"\n  fields = { k = \"v\" }",
+        ),
+        (
+            "fields",
+            "  kind = \"file_json\"\n  path = \"a.json\"\n  fields = { k = \"${P}\" }",
+        ),
+        (
+            "entry",
+            "  kind = \"browser_bundle_harness\"\n  entry = \"${P}\"\n  body = \"x\"\n  exit = \"success\"",
+        ),
+        (
+            "body",
+            "  kind = \"browser_bundle_harness\"\n  entry = \"a\"\n  body = \"${P}\"\n  exit = \"success\"",
+        ),
+    ] {
+        let text =
+            format!("[constants]\nP = \"v\"\n\n[[case]]\nname = \"c\"\n\n  [[case.step]]\n{snippet}\n");
+        parse_case_file(&text)
+            .unwrap_or_else(|error| panic!("a `${{P}}` in {field} is a real reference: {error}"));
+    }
+    // `[source]` keys and values.
+    for (field, snippet) in [
+        ("source-value", "[source]\n\"main.js\" = \"${P}\""),
+        ("source-key", "[source]\n\"${P}.js\" = \"x\""),
+    ] {
+        let text = format!(
+            "[constants]\nP = \"v\"\n\n{snippet}\n\n[[case]]\nname = \"c\"\nargs = [\"run\"]\nexit = \"success\"\n"
+        );
+        parse_case_file(&text)
+            .unwrap_or_else(|error| panic!("a `${{P}}` in {field} is a real reference: {error}"));
+    }
+}
+
+// The `${dollar}` escape (`dollar = "$"`, written `${dollar}{expr}` to emit a
+// literal `${` into fixture text) is the corpus's one idiomatic constant. It
+// must read as referenced, or every file using it stops parsing.
+#[test]
+fn the_dollar_escape_idiom_counts_as_a_reference() {
+    let text = r#"
+[constants]
+dollar = "$"
+
+[source]
+"app.ts" = "console.log(`v: ${dollar}{7 / 2}`);\n"
+
+[[case]]
+name = "c"
+args = ["run", "app.ts"]
+exit = "success"
+"#;
+    parse_case_file(text).expect("`${dollar}` is a reference");
 }

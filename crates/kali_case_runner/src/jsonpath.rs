@@ -32,9 +32,15 @@ pub fn flatten_expected(table: &toml::Value) -> Vec<(String, toml::Value)> {
 ///
 /// Kept as its own type (rather than folding straight into `Option`) so
 /// `lookup` and `describe_absence` can never drift apart: both walk the path
-/// through this single `step` function, so a failure mode `lookup` treats as
-/// absent is guaranteed to be one `describe_absence` knows how to name.
-enum Step<'a> {
+/// through this single `resolve` function, so a failure mode `lookup` treats
+/// as absent is guaranteed to be one `describe_absence` knows how to name.
+///
+/// Named `Segment` (and its resolver `resolve`) rather than `Step`/`step`:
+/// this module is compiled alongside `model::Step` -- a case file's step --
+/// and a `steps` module that runs them. Two unrelated `Step` types and a
+/// `step` function shadowing the `steps` module is a reader trap, not a
+/// namespacing win.
+enum Segment<'a> {
     Found(&'a serde_json::Value),
     /// An object (or a scalar) has no such key.
     Absent,
@@ -58,18 +64,18 @@ enum Step<'a> {
 /// what you're indexing into, not of how the path was spelled -- and it is
 /// what makes an object with a numeric-looking key behave exactly like any
 /// other object, addressable the same way as `{"zero": "x"}` would be.
-fn step<'a>(current: &'a serde_json::Value, segment: &str) -> Step<'a> {
+fn resolve<'a>(current: &'a serde_json::Value, segment: &str) -> Segment<'a> {
     match current {
         serde_json::Value::Array(items) => match segment.parse::<usize>() {
             Ok(index) => match items.get(index) {
-                Some(next) => Step::Found(next),
-                None => Step::OutOfRange { len: items.len() },
+                Some(next) => Segment::Found(next),
+                None => Segment::OutOfRange { len: items.len() },
             },
-            Err(_) => Step::NotAnIndex,
+            Err(_) => Segment::NotAnIndex,
         },
         _ => match current.get(segment) {
-            Some(next) => Step::Found(next),
-            None => Step::Absent,
+            Some(next) => Segment::Found(next),
+            None => Segment::Absent,
         },
     }
 }
@@ -83,7 +89,7 @@ fn step<'a>(current: &'a serde_json::Value, segment: &str) -> Step<'a> {
 /// A numeric segment indexes into a JSON array (`errors.0.code`); against
 /// anything else (an object, or a scalar with more path left to walk) a
 /// segment is always a plain key/field lookup, numeric-looking or not -- see
-/// `step`'s doc comment. This is closed dotted-path indexing, not an
+/// `resolve`'s doc comment. This is closed dotted-path indexing, not an
 /// expression language: no slices, no wildcards, no negative-from-end
 /// indexing, no filters.
 pub fn lookup<'a>(value: &'a serde_json::Value, path: &str) -> Option<&'a serde_json::Value> {
@@ -92,31 +98,31 @@ pub fn lookup<'a>(value: &'a serde_json::Value, path: &str) -> Option<&'a serde_
     }
     let mut current = value;
     for segment in path.split('.') {
-        match step(current, segment) {
-            Step::Found(next) => current = next,
-            Step::Absent | Step::NotAnIndex | Step::OutOfRange { .. } => return None,
+        match resolve(current, segment) {
+            Segment::Found(next) => current = next,
+            Segment::Absent | Segment::NotAnIndex | Segment::OutOfRange { .. } => return None,
         }
     }
     Some(current)
 }
 
 /// Describe *why* `lookup(value, path)` returned `None`, for a diagnosable
-/// failure message. Walks the same `step` transitions a second time to find
+/// failure message. Walks the same `resolve` transitions a second time to find
 /// which segment broke and how -- only meaningful to call after `lookup`
 /// itself has already returned `None`.
 pub(crate) fn describe_absence(value: &serde_json::Value, path: &str) -> String {
     let mut current = value;
     for segment in path.split('.') {
-        match step(current, segment) {
-            Step::Found(next) => current = next,
-            Step::Absent => return "is absent".to_string(),
-            Step::NotAnIndex => {
+        match resolve(current, segment) {
+            Segment::Found(next) => current = next,
+            Segment::Absent => return "is absent".to_string(),
+            Segment::NotAnIndex => {
                 return format!(
                     "is absent (`.{segment}` is not a valid array index -- array elements are \
                      addressed by a non-negative integer segment that fits a `usize`, e.g. `.0`)"
                 );
             }
-            Step::OutOfRange { len } => {
+            Segment::OutOfRange { len } => {
                 return format!(
                     "is absent (index {segment} is out of range for an array of length {len})"
                 );

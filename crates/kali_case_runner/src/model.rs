@@ -527,6 +527,40 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
         ));
     }
 
+    // A step that runs a process but declares no assertion parses clean and
+    // passes unconditionally -- it spawns `kali`, throws the output away, and
+    // reports green whatever happened, including a crash. That is the exact
+    // degradation `deny_unknown_fields` exists to prevent one typo at a time,
+    // reached instead by omission; a single dropped `exit = "success"` line is
+    // enough. The corpus contains zero instances today, so this enforces a
+    // discipline that already holds rather than changing any case's meaning.
+    //
+    // `file_json` is not checked here: it has exactly one assertion key
+    // (`fields`), and `run_file_json` already refuses a step without it -- the
+    // step cannot reach a passing outcome with nothing to assert.
+    if matches!(kind, StepKind::Cli | StepKind::BrowserBundleHarness) {
+        let asserts = raw.exit.is_some()
+            || raw.stdout.is_some()
+            || !raw.stdout_contains.is_empty()
+            || !raw.stdout_absent.is_empty()
+            || !raw.stdout_count.is_empty()
+            || raw.stderr.is_some()
+            || !raw.stderr_contains.is_empty()
+            || !raw.stderr_absent.is_empty()
+            || raw.json.is_some()
+            || !raw.json_null.is_empty()
+            || !raw.json_count.is_empty();
+        if !asserts {
+            return Err(format!(
+                "case `{case_name}`: step (kind = \"{}\") declares no assertion -- it would run \
+                 the command, discard the result, and pass unconditionally. Set at least one of \
+                 `exit`, `stdout`, `stdout_contains`, `stdout_absent`, `stdout_count`, `stderr`, \
+                 `stderr_contains`, `stderr_absent`, `json`, `json_null`, `json_count`.",
+                kind.as_str()
+            ));
+        }
+    }
+
     let stdout_count = raw
         .stdout_count
         .into_iter()
@@ -569,6 +603,180 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
         entry: raw.entry,
         body: raw.body,
     })
+}
+
+/// Append every `${name}` in `text` to `out`, using exactly the scan
+/// `expand::substitute` uses -- `${`, then the first `}` -- so a name this
+/// reports and a name the runner will actually look up are the same set by
+/// construction. An unterminated `${` contributes nothing here; `substitute`
+/// is what reports it, at expansion time, with the full offending text.
+fn collect_placeholders(text: &str, out: &mut std::collections::BTreeSet<String>) {
+    let mut rest = text;
+    while let Some(start) = rest.find("${") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find('}') else { return };
+        out.insert(after[..end].to_string());
+        rest = &after[end + 1..];
+    }
+}
+
+/// Mirrors `expand::substitute_value`: string leaves *and* table keys are
+/// substituted, arrays are walked, non-string leaves have no text.
+fn collect_value_placeholders(value: &toml::Value, out: &mut std::collections::BTreeSet<String>) {
+    match value {
+        toml::Value::String(text) => collect_placeholders(text, out),
+        toml::Value::Array(items) => {
+            for item in items {
+                collect_value_placeholders(item, out);
+            }
+        }
+        toml::Value::Table(table) => {
+            for (key, child) in table {
+                collect_placeholders(key, out);
+                collect_value_placeholders(child, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Mirrors `expand::substitute_step`, field for field. A field dropped from
+/// this walk turns a live binding into a falsely-reported dead one, so the
+/// two must be read together; `model_tests.rs` drives every field
+/// individually for exactly that reason.
+fn collect_step_placeholders(step: &Step, out: &mut std::collections::BTreeSet<String>) {
+    for value in &step.args {
+        collect_placeholders(value, out);
+    }
+    for (key, value) in &step.env {
+        collect_placeholders(key, out);
+        collect_placeholders(value, out);
+    }
+    for value in [
+        &step.stdout,
+        &step.stderr,
+        &step.path,
+        &step.entry,
+        &step.body,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        collect_placeholders(value, out);
+    }
+    for list in [
+        &step.stdout_contains,
+        &step.stdout_absent,
+        &step.stderr_contains,
+        &step.stderr_absent,
+        &step.json_null,
+    ] {
+        for value in list {
+            collect_placeholders(value, out);
+        }
+    }
+    for claim in &step.stdout_count {
+        collect_placeholders(&claim.needle, out);
+    }
+    for claim in &step.json_count {
+        collect_placeholders(&claim.path, out);
+        collect_placeholders(&claim.needle, out);
+    }
+    for value in [&step.json, &step.fields].into_iter().flatten() {
+        collect_value_placeholders(value, out);
+    }
+}
+
+/// Every `${name}` the runner will actually resolve for this file.
+///
+/// Deliberately excludes `rationale` and a case `name`: `expand` never
+/// substitutes either, so a `${X}` written there is inert prose, not a
+/// reference. It also excludes `[matrix]` axis *values* (`matrix_cells` uses
+/// them raw) and other `[constants]` values (`substitute` is single-pass over
+/// `file.constants`, so `A = "x"` / `B = "${A}"` leaves a literal `${A}` in
+/// the output and `A` is genuinely dead).
+fn referenced_placeholders(
+    source: &BTreeMap<String, String>,
+    cases: &[Case],
+) -> std::collections::BTreeSet<String> {
+    let mut out = std::collections::BTreeSet::new();
+    for (name, body) in source {
+        collect_placeholders(name, &mut out);
+        collect_placeholders(body, &mut out);
+    }
+    for case in cases {
+        let steps: Vec<&Step> = if case.step.is_empty() {
+            case.inline.iter().collect()
+        } else {
+            case.step.iter().collect()
+        };
+        for step in steps {
+            collect_step_placeholders(step, &mut out);
+        }
+    }
+    out
+}
+
+/// Refuse a `[constants]` entry or `[matrix]` axis nothing references.
+///
+/// Two distinct harms, one guard:
+///
+/// - A dead `[constants]` entry is a free-text channel into the migration
+///   audit. `assertion_strings()` reads every constant's value whether or not
+///   the runner does, and the audit searches that haystack by substring, so a
+///   constant carrying a dropped assertion's literal could return a genuinely
+///   weakened case file to `AUDIT OK`. That was found live (Task 19 pilot
+///   §12) and is guarded on the Python side; the parser is where it becomes
+///   unavailable rather than merely detected.
+/// - A dead `[matrix]` axis is worse than useless: it multiplies the trial
+///   count by its length while every generated trial is byte-identical. The
+///   suite reports N times the tests it actually has, and nothing says so.
+///
+/// A constant shadowed by a same-named axis gets its own message: `expand`
+/// builds `bindings` from the constants and then inserts each axis over the
+/// top, so the axis always wins and the constant is unreachable even though a
+/// `${name}` referencing it is present. Reporting that as "nothing references
+/// it" would send an author looking for a missing reference that is right
+/// there.
+///
+/// The shipped corpus has zero of any of these, so this enforces a discipline
+/// that already holds; it cannot move the trial count.
+fn check_bindings_are_referenced(
+    constants: &BTreeMap<String, String>,
+    matrix: &BTreeMap<String, Vec<String>>,
+    source: &BTreeMap<String, String>,
+    cases: &[Case],
+) -> Result<(), String> {
+    if constants.is_empty() && matrix.is_empty() {
+        return Ok(());
+    }
+    let referenced = referenced_placeholders(source, cases);
+    for axis in matrix.keys() {
+        if !referenced.contains(axis) {
+            return Err(format!(
+                "matrix axis `{axis}` is never referenced as `${{{axis}}}` -- it multiplies every \
+                 case by its length into byte-identical trials, so the suite would report more \
+                 tests than it has"
+            ));
+        }
+    }
+    for name in constants.keys() {
+        if matrix.contains_key(name) {
+            return Err(format!(
+                "constant `{name}` is shadowed by the `[matrix]` axis of the same name -- \
+                 `expand` inserts axis values over the constants, so this constant can never be \
+                 read. Rename one of them."
+            ));
+        }
+        if !referenced.contains(name) {
+            return Err(format!(
+                "constant `{name}` is never referenced as `${{{name}}}` -- an unread constant is \
+                 still read by the migration audit's assertion haystack, so it is a channel for \
+                 satisfying a claim the runner never checks. Delete it, or reference it."
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub fn parse_case_file(text: &str) -> Result<CaseFile, String> {
@@ -623,6 +831,8 @@ pub fn parse_case_file(text: &str) -> Result<CaseFile, String> {
             inline,
         });
     }
+
+    check_bindings_are_referenced(&raw.constants, &raw.matrix, &raw.source, &cases)?;
 
     Ok(CaseFile {
         constants: raw.constants,

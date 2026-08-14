@@ -12,10 +12,12 @@ fn a_case_file_with_no_matrix_yields_one_trial_per_case() {
 [[case]]
 name = "run"
 args = ["run", "main.js"]
+exit = "success"
 
 [[case]]
 name = "check"
 args = ["check", "main.js"]
+exit = "success"
 "#,
     )
     .expect("parse");
@@ -37,6 +39,7 @@ ext = ["js", "ts"]
 [[case]]
 name = "build"
 args = ["build", "app.${ext}"]
+exit = "success"
 "#,
     )
     .expect("parse");
@@ -61,6 +64,7 @@ api = ["browser", "node"]
 [[case]]
 name = "build"
 args = ["build", "--api", "${api}", "app.${ext}"]
+exit = "success"
 "#,
     )
     .expect("parse");
@@ -133,6 +137,7 @@ name = "harness"
   kind = "cli"
   args = ["run", "main.${ext}"]
   env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "${CMD}" }
+  exit = "success"
 "#,
     )
     .expect("parse");
@@ -156,6 +161,7 @@ name = "c"
 rationale = "why this exists"
 ignore = true
 args = ["run", "main.${ext}"]
+exit = "success"
 "#,
     )
     .expect("parse");
@@ -251,6 +257,7 @@ name = "c"
   kind = "cli"
   args = ["run", "main.js"]
   env = { "KALI_${ext}_FLAG" = "on" }
+  exit = "success"
 "#,
     )
     .expect("parse");
@@ -299,6 +306,7 @@ name = "c"
   kind = "browser_bundle_harness"
   entry = "app_${ext}"
   body = "await mod.${CALL}();"
+  exit = "success"
 "#,
     )
     .expect("parse");

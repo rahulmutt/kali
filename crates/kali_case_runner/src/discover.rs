@@ -25,6 +25,20 @@ fn collect(dir: &Path, prefix: &str, out: &mut Vec<(String, PathBuf)>) -> Result
                 format!("{prefix}/{name}")
             };
             collect(&path, &nested, out)?;
+        } else if name.eq_ignore_ascii_case(".toml") {
+            // `Path::extension()` reports `None` for a leading-dot name with
+            // no other dot, so `.toml` matches neither the `.toml` arm below
+            // nor any author's expectation: it is a case file that is never
+            // discovered, never run, and never mentioned. Everything else
+            // this module does is about refusing exactly that outcome, so
+            // refuse it here too rather than letting `extension()`'s
+            // dotfile rule decide by accident.
+            return Err(format!(
+                "{}: a file named exactly `.toml` has no stem to name its trials with -- \
+                 `Path::extension()` treats it as a dotfile, so it would be skipped in silence. \
+                 Give it a name.",
+                path.display()
+            ));
         } else if path
             .extension()
             .is_some_and(|ext| ext.eq_ignore_ascii_case("toml"))
@@ -107,6 +121,48 @@ pub fn discover(cases_dir: &Path) -> Result<Vec<(String, CaseFile)>, String> {
     Ok(files)
 }
 
+/// Refuse a run whose filter selects nothing.
+///
+/// `discover` already refuses a zero-*file* run, because "0 tests, ok" from a
+/// mispointed case directory is a green run over nothing. A filter that
+/// matches zero trials is the same failure with a different cause and the same
+/// exit code: `cargo test -p kali_cli --test cases -- nonexistent_family/`
+/// printed `0 passed; 0 failed; 5587 filtered out` and exited 0. That is not
+/// hypothetical -- `cases/README.md` teaches filtering, and a CI lane pinned
+/// to a family whose name later changes is exactly how a lane comes to test
+/// nothing while staying green.
+///
+/// Only a *selector* triggers this. An absent (or empty) filter with no
+/// `--skip` is the run-everything path and is never refused; `--list` is not
+/// a test run at all and is left alone. `--ignored` on its own is likewise not
+/// a selector -- asking for the ignored set and finding it empty is an answer,
+/// not a mistake.
+fn refuse_empty_selection(args: &Arguments, trials: &[MimicTrial]) -> Result<(), String> {
+    if args.list {
+        return Ok(());
+    }
+    let filter = args.filter.as_deref().unwrap_or("");
+    if filter.is_empty() && args.skip.is_empty() {
+        return Ok(());
+    }
+    if trials.iter().any(|trial| !args.is_filtered_out(trial)) {
+        return Ok(());
+    }
+    let mut selector = Vec::new();
+    if !filter.is_empty() {
+        selector.push(format!("filter `{filter}`"));
+    }
+    for skip in &args.skip {
+        selector.push(format!("--skip `{skip}`"));
+    }
+    Err(format!(
+        "{} matched 0 of {} trials -- refusing to report a green run over zero tests. Check the \
+         spelling (trial ids are `<family>/<file>::<case>`; `--list` prints them all).",
+        selector.join(" with "),
+        trials.len()
+    ))
+}
+
 pub fn main_with(config: RunnerConfig) -> ExitCode {
     let args = Arguments::from_args();
 
@@ -137,6 +193,11 @@ pub fn main_with(config: RunnerConfig) -> ExitCode {
                     .with_ignored_flag(ignore),
             );
         }
+    }
+
+    if let Err(error) = refuse_empty_selection(&args, &trials) {
+        eprintln!("case selection failed: {error}");
+        return ExitCode::FAILURE;
     }
 
     libtest_mimic::run(&args, trials).exit_code()

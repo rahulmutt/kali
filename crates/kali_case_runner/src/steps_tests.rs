@@ -146,6 +146,7 @@ name = "c"
   [[case.step]]
   kind = "browser_bundle_harness"
   entry = "app"
+  exit = "success"
 "#,
     )
     .expect("parse");
@@ -229,6 +230,7 @@ fn an_absolute_source_key_fails_the_trial_without_writing_through() {
 [[case]]
 name = "run"
 args = ["run"]
+exit = "success"
 "#
     ))
     .expect("parse");
@@ -257,6 +259,7 @@ fn a_relative_source_key_with_a_dotdot_component_fails_the_trial() {
 [[case]]
 name = "run"
 args = ["run"]
+exit = "success"
 "#,
     )
     .expect("parse");
@@ -287,6 +290,7 @@ dir = ".."
 [[case]]
 name = "run"
 args = ["run"]
+exit = "success"
 "#,
     )
     .expect("parse");
@@ -318,6 +322,82 @@ stdout = "hello\n"
     let trials = expand("x/y", &file).expect("expand");
     run_trial(&config_for(bin), &trials[0])
         .expect("trial should pass -- nested subdirectories are legitimate");
+}
+
+// `file_json`'s `path` is joined onto the trial dir exactly as a `[source]`
+// key is, and is substitution-eligible in the same way, so it has to clear the
+// same check. These two are the known positives for that: each points a
+// `file_json` step at a file that (a) sits outside the trial directory, (b)
+// really exists, and (c) contains exactly what the step's `fields` demand.
+// Delete `validate_source_key(rel)?` from `run_file_json` and both trials go
+// GREEN -- passing on an assertion satisfied entirely outside their sandbox --
+// which is the failure this guard exists to make impossible.
+
+#[test]
+fn a_file_json_step_with_an_absolute_path_is_refused() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let outside = tempfile::tempdir().expect("tempdir");
+    let victim = outside.path().join("app.meta.json");
+    std::fs::write(&victim, r#"{"apiSurface":"browser"}"#).expect("seed victim");
+    let victim_display = victim.display().to_string();
+    let bin = stub_bin(home.path(), "true\n");
+    let file = parse_case_file(&format!(
+        r#"
+[[case]]
+name = "c"
+
+  [[case.step]]
+  kind = "file_json"
+  path = "{victim_display}"
+  fields = {{ apiSurface = "browser" }}
+"#
+    ))
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let err = run_trial(&config_for(bin), &trials[0]).expect_err("must fail");
+    assert!(
+        err.contains(&victim_display) && err.contains("absolute path"),
+        "must refuse the absolute path by name: {err}"
+    );
+}
+
+#[test]
+fn a_file_json_step_with_a_dotdot_path_is_refused() {
+    let home = tempfile::tempdir().expect("tempdir");
+    // Created in `env::temp_dir()`, which is also where `tempfile::tempdir()`
+    // puts the trial directory -- so `../<name>` really does resolve to this
+    // file from inside the trial. `NamedTempFile` unlinks it on drop.
+    let victim = tempfile::Builder::new()
+        .prefix("kali-case-runner-escape-probe")
+        .suffix(".json")
+        .tempfile()
+        .expect("victim tempfile");
+    std::fs::write(victim.path(), r#"{"apiSurface":"browser"}"#).expect("seed victim");
+    let victim_name = victim
+        .path()
+        .file_name()
+        .expect("file name")
+        .to_string_lossy()
+        .into_owned();
+    let bin = stub_bin(home.path(), "true\n");
+    let file = parse_case_file(&format!(
+        r#"
+[[case]]
+name = "c"
+
+  [[case.step]]
+  kind = "file_json"
+  path = "../{victim_name}"
+  fields = {{ apiSurface = "browser" }}
+"#
+    ))
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    let err = run_trial(&config_for(bin), &trials[0]).expect_err("must fail");
+    assert!(
+        err.contains(&victim_name) && err.contains(".."),
+        "must refuse the escaping path by name: {err}"
+    );
 }
 
 // `retry_on_etxtbsy` (I3). The race it closes cannot be forced deterministically
@@ -368,5 +448,129 @@ fn a_persistent_etxtbsy_still_surfaces_as_itself() {
         attempts,
         ETXTBSY_RETRIES as usize + 1,
         "the budget must be spent exactly once, then the last error returned"
+    );
+}
+
+// `render_rationale` (F18). The stored prose is never altered -- only what a
+// failure prints -- and the elision must always be audible and always name
+// the file holding the rest.
+
+#[test]
+fn a_short_rationale_prints_whole_and_unmarked() {
+    let out = render_rationale("one line\ntwo lines", "cases/x/y.toml");
+    assert_eq!(out, "  rationale:\n  | one line\n  | two lines\n");
+}
+
+#[test]
+fn a_rationale_over_the_line_budget_is_capped_and_says_so() {
+    let long: String = (0..40)
+        .map(|n| format!("line {n}\n"))
+        .collect::<Vec<_>>()
+        .concat();
+    let out = render_rationale(&long, "cases/x/y.toml");
+    let body = out.lines().filter(|l| l.starts_with("  | ")).count();
+    assert_eq!(
+        body,
+        RATIONALE_PRINT_LINES + 1,
+        "15 kept plus the marker: {out}"
+    );
+    assert!(out.contains("truncated for display"), "{out}");
+    assert!(out.contains("cases/x/y.toml"), "must name the file: {out}");
+    assert!(out.contains("line 14"), "{out}");
+    assert!(!out.contains("line 20"), "the tail must not print: {out}");
+}
+
+// The corpus's median rationale is ONE line of ~1,014 characters, so a line
+// cap alone would not fire on the shape that actually buries the diff. This
+// is the character bound doing the work a line bound cannot.
+#[test]
+fn a_single_very_long_line_is_capped_by_the_character_budget() {
+    let long = "word ".repeat(1400);
+    let out = render_rationale(&long, "cases/x/y.toml");
+    assert!(
+        out.len() < long.len() / 2,
+        "must be much shorter: {}",
+        out.len()
+    );
+    assert!(out.contains("truncated for display"), "{out}");
+    // Cut at a word boundary, not mid-token.
+    let printed = out
+        .lines()
+        .find(|l| l.starts_with("  | word"))
+        .expect("body line");
+    assert!(
+        printed.ends_with("word"),
+        "must cut between words: {printed:?}"
+    );
+}
+
+// Truncation is of the printed form only. The trial still holds every byte.
+#[test]
+fn truncating_the_printed_rationale_does_not_touch_the_stored_prose() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let bin = stub_bin(home.path(), "echo wrong\n");
+    let long = "sentence ".repeat(400);
+    let file = parse_case_file(&format!(
+        r#"
+[[case]]
+name = "run"
+rationale = "{long}"
+args = ["run", "main.js"]
+stdout = "right\n"
+"#
+    ))
+    .expect("parse");
+    let trials = expand("x/y", &file).expect("expand");
+    assert_eq!(
+        trials[0].rationale.as_deref().map(str::len),
+        Some(long.len()),
+        "the stored rationale must be intact"
+    );
+    let err = run_trial(&config_for(bin), &trials[0]).expect_err("must fail");
+    assert!(err.contains("truncated for display"), "{err}");
+    assert!(err.len() < long.len(), "the printed form must be shorter");
+}
+
+// The composed message still has to clear test-gate.sh's `^    [A-Za-z_]`
+// failed-test-name regex, including the new elision line.
+#[test]
+fn the_truncation_marker_never_uses_the_four_space_name_indent() {
+    let out = render_rationale(&"x".repeat(9000), "cases/x/y.toml");
+    for line in out.lines() {
+        assert!(
+            !(line.starts_with("    ")
+                && line
+                    .chars()
+                    .nth(4)
+                    .is_some_and(|c| c.is_alphabetic() || c == '_')),
+            "line would be misparsed by test-gate.sh: {line:?}"
+        );
+    }
+}
+
+#[test]
+fn the_case_file_hint_strips_a_matrix_suffix_from_the_trial_id() {
+    let home = tempfile::tempdir().expect("tempdir");
+    let config = RunnerConfig {
+        kali_bin: home.path().join("kali"),
+        cases_dir: std::path::PathBuf::from("crates/kali_cli/tests/cases"),
+    };
+    let file = parse_case_file(
+        r#"
+[matrix]
+ext = ["js", "ts"]
+
+[[case]]
+name = "c"
+args = ["run", "main.${ext}"]
+exit = "success"
+"#,
+    )
+    .expect("parse");
+    let trials = expand("browser/y", &file).expect("expand");
+    assert_eq!(trials[0].id, "browser/y[ext=js]::c");
+    assert_eq!(
+        case_file_of(&config, &trials[0]),
+        "crates/kali_cli/tests/cases/browser/y.toml"
     );
 }
