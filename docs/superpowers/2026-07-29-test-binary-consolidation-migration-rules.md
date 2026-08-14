@@ -5,7 +5,7 @@ their `#` headers — `rule 6`, `ruling 12`, `U5`. This document is where those 
 defined. Measured over the shipped corpus (287 case files):
 
 ```bash
-$ cd /workspace
+$ cd "$(git rev-parse --show-toplevel)"
 $ grep -rlEi '\brule [0-9]+'    --include='*.toml' crates/kali_cli/tests/cases/ | wc -l   # 221
 $ grep -rlEi '\bruling [0-9]+'  --include='*.toml' crates/kali_cli/tests/cases/ | wc -l   # 167
 $ grep -rlE  '\bU[0-9]+\b'      --include='*.toml' crates/kali_cli/tests/cases/ | wc -l   # 179

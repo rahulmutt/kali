@@ -11,6 +11,22 @@ cargo test -p kali_cli --test cases -- --exact 'switch/runtime::a_single_case_sw
 cargo test -p kali_cli --test cases -- --list           # every trial id, no execution
 ```
 
+**A filter that matches nothing is a hard error, not a green run.** `-- switch/`
+with the family misspelled used to print `0 passed; 0 failed; 5587 filtered out`
+and exit 0; `refuse_empty_selection` (`discover.rs:140`) now fails the run
+instead:
+
+```
+filter `swtich/` matched 0 of 5587 trials -- refusing to report a green run over
+zero tests. Check the spelling (trial ids are `<family>/<file>::<case>`;
+`--list` prints them all).
+```
+
+Only a *selector* triggers it — a filter or a `--skip`. Running everything is
+never refused, `--list` is not a test run, and `--ignored` alone finding nothing
+is an answer rather than a mistake. See *Four ways a case file is refused*
+below for the three refusals that fire earlier still, while the file is parsed.
+
 As of Task 20 this tree is **287 case files expanding to 5,587 trials** (5,585
 run, 2 `ignore = true`), against **68** hand-written `tests/*.rs` targets
 including the runner itself.
@@ -224,12 +240,107 @@ to compile:
 console.log(`v: ${7 / 2}`);
 ```
 
-39 case files carry a `dollar` constant. Escape a genuine `${`; never delete or
-reword one to get past the substituter, because that ships a different program
-than the one the test claims to cover.
+**15** case files carry a `dollar` constant — the number of files whose parsed
+`[constants]` table actually has the key, which is the only count that means
+anything here:
+
+```bash
+$ cd "$(git rev-parse --show-toplevel)"
+$ python3 -c 'import tomllib,glob; print(sum("dollar" in (tomllib.load(open(f,"rb")).get("constants") or {}) for f in glob.glob("crates/kali_cli/tests/cases/*/*.toml")))'
+15
+$ grep -rlF '${dollar}' --include='*.toml' crates/kali_cli/tests/cases/ | wc -l   # 39
+```
+
+The second figure is **39**, and this paragraph used to quote it as if it were
+the first. It is not: it counts every file that *mentions* `${dollar}`
+anywhere, and the extra 24 mention it only in `#` header prose — almost all of
+them saying they need no such entry. Grep the header and you count the
+discussion; parse the file and you count the constant.
+
+Escape a genuine `${`; never delete or reword one to get past the substituter,
+because that ships a different program than the one the test claims to cover.
 
 A matrix cannot vary the *shape* of an assertion — text output vs JSON output is
 two sibling `[[case]]` blocks, not an axis.
+
+---
+
+## Four ways a case file is refused
+
+Three of these fire while the file is parsed, before a single trial runs; the
+fourth fires at discovery. All four exist for one reason: each shape used to
+produce a **green run that checked nothing**, which is the failure this whole
+format was built to make unrepresentable. None of them is a lint you can
+override.
+
+**1. A step that asserts nothing.** A `cli` or `browser_bundle_harness` step
+with none of the eleven assertion keys set would spawn `kali`, discard the
+result, and pass unconditionally — including when the binary crashed:
+
+```
+case `c`: step (kind = "cli") declares no assertion -- it would run the command,
+discard the result, and pass unconditionally. Set at least one of `exit`,
+`stdout`, `stdout_contains`, `stdout_absent`, `stdout_count`, `stderr`,
+`stderr_contains`, `stderr_absent`, `json`, `json_null`, `json_count`.
+```
+
+You reach it by deleting the last assertion while editing a case, or by writing
+`args = [...]` and forgetting `exit = "success"`. `file_json` is exempt: its one
+assertion key is `fields`, and a `file_json` step without it is refused where it
+runs instead. `finalize_step`, `model.rs:409`.
+
+**2. A dead `[matrix]` axis.** An axis nothing substitutes multiplies every case
+by its length into byte-identical trials — the suite reports more tests than it
+has:
+
+```
+matrix axis `ext` is never referenced as `${ext}` -- it multiplies every case by
+its length into byte-identical trials, so the suite would report more tests than
+it has
+```
+
+Renaming `${ext}` to `${extension}` in the cases and leaving the old axis behind
+is the way this happens.
+
+**3. A dead `[constants]` entry** — see *Pin diagnostic text through
+`[constants]`* below for why this one is not merely tidiness:
+
+```
+constant `UNUSED_NOTE` is never referenced as `${UNUSED_NOTE}` -- an unread
+constant is still read by the migration audit's assertion haystack, so it is a
+channel for satisfying a claim the runner never checks. Delete it, or reference
+it.
+```
+
+A constant with the same name as a matrix axis gets its own message (`shadowed
+by the [matrix] axis of the same name`), because `expand` inserts axis values
+over the constants and the constant can never be read — a different mistake with
+a different fix.
+
+Both 2 and 3 live in `check_bindings_are_referenced`, `model.rs:744`, and both
+count references the same narrow way: only `[source]` keys and bodies and
+substituted step fields. A `${NAME}` in a `rationale`, inside another constant's
+*value*, or in a matrix axis *value* is **not** a reference — `expand.rs` never
+substitutes those, so counting them would reopen the channel one sentence of
+prose away.
+
+**4. A file named exactly `.toml`.** `Path::extension()` reports `None` for a
+leading-dot name with no other dot, so such a file would be discovered by
+nothing and reported by nothing:
+
+```
+cases/x/.toml: a file named exactly `.toml` has no stem to name its trials with
+-- `Path::extension()` treats it as a dotfile, so it would be skipped in
+silence. Give it a name.
+```
+
+`collect`, `discover.rs:28`. Ordinary hidden files (`.gitkeep`, editor
+swapfiles) stay quietly ignored; only the exact name `.toml` is refused.
+
+Alongside these, a count claim that spells both or neither of
+`at_least`/`exact`, one that spells `at_least = 0`, an empty `needle`, an axis
+with an empty value list, and an unresolved `${...}` surviving substitution are
+all parse errors too, each for the same reason: a claim nothing can fail.
 
 ---
 
@@ -244,9 +355,15 @@ two sibling `[[case]]` blocks, not an axis.
   invisible exactly when someone needs it.
 - **Pin diagnostic text through `[constants]`.** A hand-copied message prefix
   goes insensitive the moment the diagnostic widens. That has happened here
-  before. A `[constants]` entry no `${NAME}` reaches fails
-  `scripts/audit-case-migration.py` by name, so a hoisted constant cannot rot
-  into free text silently either.
+  before. A `[constants]` entry no `${NAME}` reaches is now a **parse error** —
+  the file does not load at all, so a hoisted constant cannot rot into free text
+  silently. That is where you will meet it; see *Four ways a case file is
+  refused* above. `scripts/audit-case-migration.py` refuses the same shape by
+  name, and that second refusal is not redundant: it is the arm that explains
+  *why* a dead constant matters — its value still lands in the audit's
+  substring haystack, so a dead constant can satisfy a claim the runner never
+  checks. Two independent refusals of one shape is the point; a gate whose
+  correctness rests on another gate running first is not a gate.
 
 A case the format cannot express belongs in its own hand-written target, not in
 a weakened `.toml`. See spec §5.11 for what stays Rust and why; today that is
