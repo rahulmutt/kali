@@ -29,12 +29,28 @@
 # figure with no command beside it: a check nobody re-runs is indistinguishable
 # from a check that was deleted (ruling 15).
 #
-# `.github/workflows/ci.yml`'s `migration-gates` job invokes exactly
-# `--gates-only`, so the gate SET lives here, in one place, rather than being
-# listed a second time in YAML where the two copies would drift. That job is
-# also the only checkout in `ci.yml` given `fetch-depth: 0`, because
-# `citation_sweep.sh` resolves a deleted source's citations against a historical
-# blob and `actions/checkout` is shallow by default.
+# `--gates-only` IS A DEVELOPER COMMAND, RUN BY HAND. NOTHING IN CI INVOKES IT.
+#
+# This paragraph used to say `.github/workflows/ci.yml`'s `migration-gates` job
+# invoked exactly `--gates-only`, and that the job was "the only checkout in
+# `ci.yml` given `fetch-depth: 0`". Both claims are now false and are corrected
+# here rather than left to rot:
+#
+#   * there is no `migration-gates` job. It was added on this branch and removed
+#     again before merge because it could not pass on a runner -- it installed no
+#     Rust toolchain, while two of the 14 gates run the compiled `kali` binary
+#     and fail rather than skip when it is absent. `ci.yml` now carries a `NO
+#     `migration-gates` JOB` comment recording that, and no job at all;
+#   * `ci.yml` has no `fetch-depth: 0` anywhere. `release.yml:40` is the only
+#     `fetch-depth: 0` in the repository.
+#
+# The depth requirement itself is unchanged and still real: `citation_sweep.sh`
+# resolves a deleted source's citations against a historical blob, so it cannot
+# run against a shallow clone. That is now a precondition on the human running
+# the flag (a normal `git clone` satisfies it), not something a workflow
+# arranges. The gate SET still lives here, in one place, which is why it is
+# worth keeping the flag even with no CI caller: a set listed a second time in
+# YAML would be a second copy to drift.
 #
 # WHAT IS DELIBERATELY NOT IN THE SET. `classify_drift.py` with no arguments
 # (the census: run all 14 generators and require each to be a fixed point) needs
