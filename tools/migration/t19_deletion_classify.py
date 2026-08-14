@@ -367,7 +367,7 @@ class AuditAmbiguous(RuntimeError):
 
 
 def audit(old: str, new: list[str]) -> tuple[str, str]:
-    """`("OK"|"FAILED", output)`, or raise.
+    """`("OK"|"FAILED"|"INAPPLICABLE", output)`, or raise.
 
     THE VERDICT CHANNEL AND THE CRASH CHANNEL ARE DIFFERENT CHANNELS. A
     traceback out of `audit-case-migration.py` exits 1 with nothing on stdout,
@@ -384,6 +384,13 @@ def audit(old: str, new: list[str]) -> tuple[str, str]:
         return "OK", r.stdout
     if r.returncode == 1 and "AUDIT FAILED" in r.stdout:
         return "FAILED", r.stdout
+    # rc=3: the audit ran to completion and demanded zero claims in either
+    # direction, so it decided nothing. Its own third verdict, kept distinct
+    # from both "OK" and "FAILED" here for the same reason it is distinct
+    # there: a pair this tool cannot decide must not be counted as one it
+    # decided in favour, and it is not evidence of a dropped claim either.
+    if r.returncode == 3 and "AUDIT INAPPLICABLE" in r.stdout:
+        return "INAPPLICABLE", r.stdout
     raise AuditAmbiguous(
         f"{old}: audit exited {r.returncode} without a matching verdict line. "
         f"This is a crash, not a verdict, and must not be read as either.\n"

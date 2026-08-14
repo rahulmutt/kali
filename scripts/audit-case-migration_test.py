@@ -723,10 +723,14 @@ class Bug8_PathModResolution(unittest.TestCase):
             "#[test]\nfn t() { assert!(true); }\n",
             {"new.toml": '[[case]]\nname = "t"\nargs = ["run"]\n'},
         )
-        self.assertEqual(rc, 1, out)
-        self.assertIn("AUDIT FAILED", out)
+        # rc=3, not rc=1: "this pair decided nothing" and "this pair has a
+        # dropped claim" are different verdicts, and a header declaration
+        # written to excuse the first must not silently excuse the second.
+        self.assertEqual(rc, 3, out)
+        self.assertIn("AUDIT INAPPLICABLE", out)
         self.assertIn("0 claims demanded", out)
         self.assertNotIn("AUDIT OK", out)
+        self.assertNotIn("AUDIT FAILED", out)
         # The two guards must stay distinguishable: this one fired because
         # there were no claims, NOT because there were no tests.
         self.assertNotIn("0 #[test] fns found", out)

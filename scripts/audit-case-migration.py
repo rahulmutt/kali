@@ -2216,6 +2216,14 @@ def main() -> int:
     # examining 1 of its real 15, since the guard below only ever fires at
     # exactly zero. Both must become impossible to ship, not merely
     # discouraged).
+    # EXIT CODES. 0 = AUDIT OK, 1 = AUDIT FAILED (a claim this tool CAN see
+    # is missing or fabricated -- a real migration defect), 2 = a structural
+    # error that stops the audit before it has a verdict (an unresolvable
+    # `#[path]`), 3 = AUDIT INAPPLICABLE (the run completed but demanded
+    # nothing, so it decided nothing). 3 is separate from 1 on purpose: a
+    # blanket "the audit is red here, and here is why" declaration written
+    # for an inapplicable pair must not also excuse a genuinely dropped
+    # claim on that pair.
     if not old_tests:
         print(
             "\nAUDIT FAILED — 0 #[test] fns found (after resolving every "
@@ -2236,16 +2244,24 @@ def main() -> int:
     # `case_claims` is the reverse direction and cannot substitute: it is
     # checked source-ward, so it is non-empty only when the case files
     # happen to use the count keys.
-    if not demanded:
+    # `case_claims` is the reverse direction -- every count claim the case
+    # files make, checked back against a real source assertion. It is included
+    # deliberately: a run with 0 forward claims but a non-empty reverse arm
+    # DID verify something real, and calling that "inapplicable" would
+    # overstate the guard. Only a run that checked nothing in EITHER direction
+    # is refused.
+    if not demanded and not case_claims:
         print(
-            f"\nAUDIT FAILED — {len(old_tests)} #[test] fn(s) found but 0 "
-            "claims demanded of the case files; refusing to report success "
-            "having asserted nothing. Either the source genuinely makes no "
-            "auditable claim (in which case this migration cannot be "
-            "audited and must not be reported as if it were), or claim "
-            "extraction is broken."
+            f"\nAUDIT INAPPLICABLE — {len(old_tests)} #[test] fn(s) found but "
+            "0 claims demanded of the case files in either direction; refusing "
+            "to report success having asserted nothing. Either the source genuinely makes no "
+            "literal claim this tool can see (its assertions are exit-status "
+            "or shape claims, or every literal it does carry is excluded as "
+            "BORING), or claim extraction is broken. Read the pair and say "
+            "which, in the case file's header, alongside whatever gate does "
+            "cover it."
         )
-        return 1
+        return 3
 
     if missing or fabricated or dead_constants:
         if dead_constants:
