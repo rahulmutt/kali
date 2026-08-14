@@ -1099,13 +1099,17 @@ class Evaluator:
             "return", "as_ref", "to_string", "trim_end_matches", "split",
             "matches", "count", "lines", "filter", "collect",
         }
+        # ONE PREDICATE, SPELLED AS ONE. This loop used to re-`search` `body` for
+        # the very token `finditer` had just produced from `body` -- a condition
+        # that is true by construction, so the branch could not fail and read as
+        # a check that was doing work. It reduces to exactly this, and saying so
+        # is the point: a module whose argument is that its predicates BITE
+        # cannot carry a predicate that cannot.
         for m in re.finditer(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\(", body):
             tok = m.group(1)
-            if tok in known:
+            if tok in known or tok in self.src.consts:
                 continue
-            if re.search(r"\b" + re.escape(tok) + r"\s*\(", body) and \
-                    tok not in self.src.consts:
-                return True
+            return True
         return False
 
     def render_arg(self, a: str, env: dict, where: str) -> str:
@@ -1440,45 +1444,93 @@ def select() -> list[str]:
     return out
 
 
+def dead_bool_branches(text: str) -> list[dict]:
+    """Every `bool` parameter that is dead AND guards claims, with its line.
+
+    BOTH HALVES ARE MEASURED, and the second half is the one that was missing.
+    A parameter qualifies iff:
+
+      1. every call site passes it the same literal `false` -- so the `true`
+         branch is UNREACHABLE; AND
+      2. at least one `if <param> { … }` block inside that fn CARRIES CLAIMS
+         (an `assert*!`) -- so something is actually dead in there.
+
+    Half 1 alone is not the ground controller ruling R1 settles. An
+    always-`false` bool guarding an EMPTY block blocks nothing: the audit has no
+    dead literal to demand and the target would be migratable. Measuring only
+    half 1 is what this function did for a round, while its docstring claimed
+    both -- so the gate four retention headers cite as their re-derivation was
+    weaker than the sentence they cite.
+
+    Returns `[{"helper", "param", "line", "blocks", "claims"}]`, `line` being the
+    line of the first claim-carrying `if <param> {` -- ruling 9's "BY NAME AND
+    LINE" is answered from here rather than promised in prose.
+    """
+    # TWO VIEWS AT THE SAME OFFSETS. Structure is found in the fully blanked
+    # text (a `{` inside a JS fixture is not a block); argument CONTENT is
+    # read from the comment-blanked text, where literals are still there.
+    # Reading arguments off the blanked view drops every string argument to
+    # the empty string, and a positional split then shifts the bool's index
+    # -- which silently reported one dead branch per file instead of two.
+    masked = blank_strings(blank_line_comments(text))
+    live = blank_line_comments(text)
+    dead = []
+    for m in re.finditer(r"(?:^|\n)fn\s+([a-z_][a-z0-9_]*)\s*\(", masked):
+        name = m.group(1)
+        sig_end = _matching(masked, m.end() - 1, "(", ")")
+        sig = masked[m.end():sig_end - 1]
+        order = [p.split(":")[0].strip() for p in split_top_commas(sig)]
+        bools = [p.split(":")[0].strip()
+                 for p in split_top_commas(sig) if ": bool" in p]
+        body_open = masked.find("{", sig_end)
+        body_end = (_matching(masked, body_open, "{", "}")
+                    if body_open >= 0 else len(masked))
+        for b in bools:
+            idx = order.index(b)
+            seen = set()
+            for c in re.finditer(r"\b" + re.escape(name) + r"\s*\(", masked):
+                if m.start() <= c.start() < sig_end:
+                    continue
+                cend = _matching(masked, c.end() - 1, "(", ")")
+                args = split_top_commas(live[c.end():cend - 1])
+                if idx < len(args):
+                    seen.add(args[idx].strip())
+            if not (seen and seen <= {"false"}):
+                continue
+            # HALF 2: the guarded block must carry a claim.
+            blocks, claims, first = 0, 0, None
+            for g in re.finditer(r"\bif\s+" + re.escape(b) + r"\s*\{",
+                                 masked[body_open:body_end]):
+                blocks += 1
+                start = body_open + g.end() - 1
+                end = _matching(masked, start, "{", "}")
+                n = len(re.findall(r"\bassert(?:_eq|_ne)?!\s*\(",
+                                   masked[start:end]))
+                claims += n
+                if n and first is None:
+                    first = body_open + g.start()
+            if not claims:
+                continue
+            dead.append({"helper": name, "param": b,
+                         "line": masked[:first].count("\n") + 1,
+                         "blocks": blocks, "claims": claims})
+    return dead
+
+
 def check_declined() -> dict:
     """Re-measure the ground for declining the four, rather than citing it.
 
     For each: every `bool` parameter of every helper, against the literal passed
-    at EVERY call site. The target is correctly declined iff some parameter is
-    passed only `false` while its `if <param> {…}` block carries claims -- dead
-    literals, controller ruling R1's shape.
+    at EVERY call site, AND against the contents of the block that parameter
+    guards. The target is correctly declined iff some parameter is passed only
+    `false` while its `if <param> {…}` block carries claims -- dead literals,
+    controller ruling R1's shape. Both halves are in `dead_bool_branches`, which
+    carries its own known positives (`--selftest`).
     """
     out = {}
     for stem in sorted(DECLINED):
         text = open(os.path.join(TESTS, stem + ".rs"), encoding="utf-8").read()
-        # TWO VIEWS AT THE SAME OFFSETS. Structure is found in the fully blanked
-        # text (a `{` inside a JS fixture is not a block); argument CONTENT is
-        # read from the comment-blanked text, where literals are still there.
-        # Reading arguments off the blanked view drops every string argument to
-        # the empty string, and a positional split then shifts the bool's index
-        # -- which silently reported one dead branch per file instead of two.
-        masked = blank_strings(blank_line_comments(text))
-        live = blank_line_comments(text)
-        dead = []
-        for m in re.finditer(r"(?:^|\n)fn\s+([a-z_][a-z0-9_]*)\s*\(", masked):
-            name = m.group(1)
-            sig_end = _matching(masked, m.end() - 1, "(", ")")
-            sig = masked[m.end():sig_end - 1]
-            order = [p.split(":")[0].strip() for p in split_top_commas(sig)]
-            bools = [p.split(":")[0].strip()
-                     for p in split_top_commas(sig) if ": bool" in p]
-            for b in bools:
-                idx = order.index(b)
-                seen = set()
-                for c in re.finditer(r"\b" + re.escape(name) + r"\s*\(", masked):
-                    if m.start() <= c.start() < sig_end:
-                        continue
-                    cend = _matching(masked, c.end() - 1, "(", ")")
-                    args = split_top_commas(live[c.end():cend - 1])
-                    if idx < len(args):
-                        seen.add(args[idx].strip())
-                if seen and seen <= {"false"}:
-                    dead.append(f"{name}({b})")
+        dead = dead_bool_branches(text)
         if not dead:
             raise UnknownShape(
                 f"{stem}.rs: DECLINED, but no dead bool branch found -- the "
@@ -1486,6 +1538,68 @@ def check_declined() -> dict:
                 f"must be re-adjudicated, not inherited")
         out[stem] = dead
     return out
+
+
+def format_dead(d: dict) -> str:
+    return f"{d['helper']}({d['param']}) line {d['line']}"
+
+
+_SELFTEST_LIVE = """
+fn helper(source: &str, json_output: bool) {
+    if json_output {
+        assert_eq!(json["schemaVersion"], 1);
+    }
+    assert!(out.status.success());
+}
+
+#[test]
+fn t() {
+    helper("x", false);
+}
+"""
+
+_SELFTEST_EMPTY_BLOCK = _SELFTEST_LIVE.replace(
+    'assert_eq!(json["schemaVersion"], 1);', 'let _unused = source.len();')
+
+_SELFTEST_REACHABLE = _SELFTEST_LIVE.replace('helper("x", false);',
+                                             'helper("x", false);\n    helper("y", true);')
+
+
+def _selftests() -> int:
+    """Known positives for BOTH halves of `dead_bool_branches`.
+
+    A gate four retention headers cite as their re-derivation has to be
+    falsifiable, and until this round its second half was a sentence rather than
+    a measurement. Each arm below is an input that must make the predicate say
+    NO; the first is the input that must make it say YES, so a predicate stuck
+    on either answer fails here.
+    """
+    ok = 0
+    live = dead_bool_branches(_SELFTEST_LIVE)
+    if [ (d["helper"], d["param"]) for d in live ] != [("helper", "json_output")]:
+        raise UnknownShape(f"the control shape is not measured dead: {live}")
+    if live[0]["line"] != 3:
+        raise UnknownShape(f"the guarded block's line is wrong: {live}")
+    ok += 1
+    print("  ok  selftest: an always-false bool guarding a claim IS reported, "
+          "with the guard's line")
+    if dead_bool_branches(_SELFTEST_EMPTY_BLOCK):
+        raise UnknownShape(
+            "an always-false bool guarding a block with NO claim is reported "
+            "dead -- half 2 of the predicate is not measuring anything")
+    ok += 1
+    print("  ok  selftest: an always-false bool guarding NO claim is not "
+          "reported (half 2 fires)")
+    if dead_bool_branches(_SELFTEST_REACHABLE):
+        raise UnknownShape(
+            "a bool reached with `true` is reported dead -- half 1 of the "
+            "predicate is not measuring anything")
+    ok += 1
+    print("  ok  selftest: a bool reached with `true` is not reported "
+          "(half 1 fires)")
+    if ok != 3:
+        raise UnknownShape("a selftest did not run")
+    return ok
 
 
 def census() -> int:
@@ -1522,7 +1636,7 @@ def census() -> int:
           f"{tot_inv} invocation(s), {tot_claims} claim(s)")
     print(f"{len(declined)} target(s) DECLINED, each re-measured:")
     for stem, dead in sorted(declined.items()):
-        print(f"  {stem:52s} dead: {', '.join(dead)}")
+        print(f"  {stem:52s} dead: {', '.join(format_dead(d) for d in dead)}")
     print("EXTRACTOR CENSUS OK")
     return 0
 
@@ -1534,7 +1648,11 @@ def main(argv: list[str]) -> int:
         return 0
     if argv and argv[0] == "--declined":
         for stem, dead in sorted(check_declined().items()):
-            print(f"{stem}\t{','.join(dead)}")
+            print(f"{stem}\t{','.join(format_dead(d) for d in dead)}")
+        return 0
+    if argv and argv[0] == "--selftest":
+        _selftests()
+        print("EXTRACTOR SELFTEST OK")
         return 0
     return census()
 

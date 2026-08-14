@@ -13,10 +13,28 @@
 //! the file as a retention, which is how this was caught rather than shipped.
 //!
 //! THE BLOCKING CONSTRUCT, BY NAME AND LINE, RE-MEASURED RATHER THAN CITED.
-//! The `json_output: bool` parameters of `assert_browser_requested_array_from_dot_root`, `assert_browser_bundle_array_from_dot_root` and `assert_browser_requested_mixed_bracket_global_this_array_from_wrappers` are never passed `true` at any call site.
+//! The `json_output: bool` parameter of each helper below is never passed
+//! `true` at any call site, and each guards a block that carries claims. Both
+//! halves are measured: an always-`false` bool guarding an EMPTY block would
+//! block nothing, and reporting one would be a retention with no ground.
+//!
+//!   `assert_browser_requested_array_from_dot_root`
+//!       `if json_output {` at line 390, 16 dead claim(s) in 2 guarded block(s)
+//!   `assert_browser_bundle_array_from_dot_root`
+//!       `if json_output {` at line 454, 7 dead claim(s) in 2 guarded block(s)
+//!   `assert_browser_requested_mixed_bracket_global_this_array_from_wrappers`
+//!       `if json_output {` at line 636, 16 dead claim(s) in 2 guarded block(s)
+//!
 //! Every call site passes `false`, so each `if json_output { … }` block is
 //! UNREACHABLE and every literal inside it is DEAD: a value written in the
 //! source and asserted by no reachable path.
+//!
+//! (The line numbers above are ruling 11's self-referential trap in miniature,
+//! for the second time in this header: they are lines of THIS file, so the
+//! length of this header is an input to them. `declined_headers` therefore
+//! renders this header to a FIXED POINT -- render, write, re-measure against
+//! the file it just wrote, repeat until two rounds agree -- rather than
+//! measuring once against the previous revision.)
 //!
 //! The enumerating command, run before this sentence was written (ruling 13):
 //!

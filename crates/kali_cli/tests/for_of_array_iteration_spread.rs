@@ -6,7 +6,7 @@
 //! PRE-TRIM REF: 47e9b083c61e32c972727189a580d1e9cacb856c
 //!
 //! THE BLOCKING CONSTRUCT, BY NAME AND LINE. The retained
-//! `browser_harness_test_wrapper_reuses_the_shared_array_from_inventory_in_both_loop_sections`
+//! `browser_harness_test_wrapper_reuses_the_shared_array_from_inventory_in_both_loop_sections` (defined at line 127 of this file)
 //! asserts against the FIXTURE'S OWN TEXT and never against a process: it binds
 //! `browser_harness_array_from_source("test")` and then makes twenty-three
 //! `assert_eq!(source.matches(alias).count(), 2, ..)` claims about that string.

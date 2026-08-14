@@ -37,10 +37,18 @@ so a file that would violate one cannot be written at all:
                                      four `array_from_*` targets
   * `check_self_inspection`          ruling 10's tool, over all seven targets
   * `check_rationales_match_their_claims`
-                                     both directions, against the RENDERED step
-  * `check_reproduction_commands`    every command a header prints is parsed,
-                                     its paths required to exist, and the audit
-                                     one RUN with rc=0 required
+                                     both directions, against the RENDERED step:
+                                     a fails-closed rationale needs a failing
+                                     exit, and a step pinning a failing exit
+                                     BESIDE json claims must disclose the pairing
+  * `check_reproduction_commands`    every command every header prints is parsed
+                                     out of the header's own bytes, its paths
+                                     required to exist, and the command RUN and
+                                     required to exit EXACTLY the rc the header
+                                     declares -- 0 where nothing is declared, and
+                                     the `rc=N` of an `EXPECTED-RED` line where
+                                     one is. Called from `header_for`,
+                                     `trim_header` and `declined_headers`
   * `_selftest_*`                    a committed known positive per refusal, so
                                      a green check is distinguishable from a
                                      check that cannot fire (batch 4's M1)
@@ -327,8 +335,6 @@ def check_no_fixture_names_referenced(stem, source_map) -> None:
     not -- renaming that is a rule-9 violation even when the file is otherwise
     byte-identical.
     """
-    original = {orig for _k, orig in ()}          # placeholder, filled by caller
-    del original
     for key, body in source_map.items():
         for other in source_map:
             if other == key:
@@ -361,20 +367,48 @@ def check_self_inspection(stems) -> None:
                      "batch's targets:\n" + r.stdout)
 
 
+# The disclosure a step pinning BOTH a failing exit and json claims must carry,
+# and the substring the check below looks for. One constant, used to BUILD the
+# sentence and to CHECK it, so the two cannot drift into ruling 18's shape where
+# a gate matches a marker phrase somebody else is free to reword.
+JSON_ON_FAILURE_MARKER = "a failing run still emits a JSON envelope"
+
+JSON_ON_FAILURE_PROSE = (
+    "RULE 2 -- THIS STEP PINS BOTH A FAILING EXIT AND JSON CLAIMS, AND THE "
+    "PAIRING IS THE SOURCE'S OWN: " + JSON_ON_FAILURE_MARKER + " under "
+    "--output json, so the source asserts the failure and then reads the "
+    "envelope's diagnostics out of the same stdout. Disclosed here because a "
+    "reader meeting a failing exit beside json claims should not have to "
+    "reconstruct why both are legal.")
+
+
 def check_rationales_match_their_claims(case, step) -> None:
     """Both directions, against the RENDERED step.
 
     Checked against what will actually be written, never against the variable
     that produced the prose -- otherwise the assertion is satisfied by the same
     value twice and proves nothing.
+
+    FORWARD: a rationale that says the run fails closed must be attached to a
+    step that pins a failing exit.
+
+    REVERSE: a step that pins a failing exit AND json claims must SAY SO. That
+    pairing is legal -- a failing run still emits a JSON envelope under
+    `--output json` -- but it reads as a contradiction, and an undisclosed
+    legal-looking contradiction is how a reader stops trusting the rest of the
+    file. This direction shipped as a bare `pass` in batch 5's first round: half
+    of a check whose docstring said "both directions" asserted nothing at all,
+    which is a green that cannot go red.
     """
     r = case["rationale"]
     if "fails closed" in r and step.get("exit") not in ("failure", 1):
         raise Refuse(f"{case['name']}: rationale says fails-closed, step does not")
-    if step.get("exit") == "failure" and "json_paths" in step:
-        # a failing run still emits a JSON envelope under `--output json`; the
-        # pairing is legal, but it must not be silent
-        pass
+    if step.get("exit") in ("failure", 1) and "json_paths" in step \
+            and JSON_ON_FAILURE_MARKER not in r:
+        raise Refuse(
+            f"{case['name']}: the step pins a failing exit AND json claims, and "
+            f"the rationale does not disclose the pairing (it must carry "
+            f"{JSON_ON_FAILURE_MARKER!r})")
 
 
 # ---------------------------------------------------------------------------
@@ -382,15 +416,9 @@ def check_rationales_match_their_claims(case, step) -> None:
 # ---------------------------------------------------------------------------
 
 def _selftests() -> None:
-    class FakeSrc:
-        fns = {}
-        tests = []
     ok = 0
 
     # the duplication check fires on a body the extractor never produced
-    class E1:
-        pass
-    ex = {"tests": [type("T", (), {"__getitem__": lambda s, k: []})()]}
     try:
         check_duplication_is_the_sources_own(
             "selftest", {"a.js": "BODY"}, {"tests": []})
@@ -411,40 +439,137 @@ def _selftests() -> None:
     # the reproduction-command check fires on a path that does not exist
     try:
         check_reproduction_commands(
-            ["python3 scripts/audit-case-migration.py tests/nope.rs "
-             "tests/cases/misc/nope.toml"])
+            [("python3 scripts/audit-case-migration.py tests/nope.rs "
+              "tests/cases/misc/nope.toml", 0)])
         raise AssertionError("the reproduction-command check did not fire")
     except Refuse:
         ok += 1
         print("  ok  selftest: the reproduction check fires on a missing path")
-    if ok != 3:
+
+    # ...and on a command that RUNS but does not exit the rc the header declares.
+    # This is the arm the first version could not have: it demanded rc=0 of every
+    # `audit-case-migration.py` command, so a header declaring `rc=1` -- which is
+    # what every EXPECTED-RED line declares -- could not be handed to it at all.
+    try:
+        check_reproduction_commands(
+            [("python3 tools/migration/t19b5_extract.py --declined", 1)])
+        raise AssertionError("the declared-rc check did not fire")
+    except Refuse:
+        ok += 1
+        print("  ok  selftest: the reproduction check fires when the observed rc "
+              "is not the declared one")
+
+    # the reverse direction of the rationale check fires on an undisclosed
+    # failing-exit-plus-json step. It shipped as a bare `pass`, so its green was
+    # unfalsifiable; this is the input that must make it red.
+    try:
+        check_rationales_match_their_claims(
+            {"name": "selftest", "rationale": "Migrated from `x.rs::y`."},
+            {"exit": "failure", "json_paths": {"success": False}})
+        raise AssertionError("the failing-exit-with-json check did not fire")
+    except Refuse:
+        ok += 1
+        print("  ok  selftest: the rationale check fires on an undisclosed "
+              "failing-exit-plus-json step")
+    if ok != 5:
         raise AssertionError("a selftest did not run")
 
 
-def check_reproduction_commands(commands: list[str]) -> None:
+def check_reproduction_commands(commands) -> None:
     """Every command a rendered header prints must actually reproduce.
 
-    Each path argument must exist, and an `audit-case-migration.py` command is
-    RUN and required to exit 0. Batch 4 shipped two headers whose reproduction
-    command exited 1; a header can no longer do that, because the property is
-    derived here rather than proof-read.
+    `commands` is `[(command, declared_rc)]` IN THE ORDER THE HEADER PRINTS
+    THEM, because a reproduction BLOCK's later command reads a file its earlier
+    one wrote; checking it out of order would demand a path that does not exist
+    yet. A `cd <dir>` entry sets the working directory for the rest of the block
+    rather than being skipped, so the block is RUN the way it is READ.
+
+    Three things are required of every other entry:
+
+      * every path argument it names EXISTS by the time it runs -- including the
+        `<ref>:<path>` argument of a `git show`, checked with `git cat-file -e`
+        against that ref rather than against the working tree, since the whole
+        point of that argument is that the working tree no longer carries it;
+      * it is RUN, through `bash -c`, so a redirection the header prints is the
+        redirection that happens;
+      * its return code is EXACTLY the one the header DECLARES -- `declared_rc`,
+        which is 0 where a header declares nothing and the `rc=N` of an
+        `EXPECTED-RED` line where it does.
+
+    THE DECLARED RC IS WHY THIS CHECK WAS DEAD. Its first version demanded rc=0
+    of any command naming `audit-case-migration.py`, and every `EXPECTED-RED
+    audit-case-migration.py` reproduction this generator prints exits 1 BY
+    DESIGN. So it could not be applied to the headers whose reproductions it
+    claimed to police, and it was called from nothing but its own selftest: a
+    docstring's worth of control with no call site. It is now called from
+    `header_for`, `trim_header` and `declined_headers` before any of them
+    returns its text.
     """
-    for cmd in commands:
+    cwd = REPO
+    for cmd, declared in commands:
+        only_cd = re.fullmatch(r"cd\s+(\S+)", cmd.strip())
+        if only_cd:
+            d = only_cd.group(1)
+            d = d if os.path.isabs(d) else os.path.join(cwd, d)
+            if not os.path.isdir(d):
+                raise Refuse(f"reproduction block cds to a directory that does "
+                             f"not exist: {cmd}")
+            cwd = d
+            continue
         parts = cmd.split()
-        for p in parts:
-            if p.startswith("-") or "/" not in p:
+        redirected = set()
+        for i, p in enumerate(parts):
+            if p in (">", ">>"):
+                redirected.add(i + 1)
+            elif p.startswith(">"):
+                redirected.add(i)
+        for i, p in enumerate(parts):
+            if i in redirected or p.startswith("-") or p.startswith("$") \
+                    or p.startswith("<"):
                 continue
-            if p.startswith("$") or p.startswith("<"):
+            if re.fullmatch(r"[0-9a-f]{7,40}:.+", p):
+                blob = subprocess.run(["git", "cat-file", "-e", p], cwd=REPO,
+                                      capture_output=True)
+                if blob.returncode != 0:
+                    raise Refuse(f"reproduction command names a blob that does "
+                                 f"not exist: {p} (in `{cmd}`)")
                 continue
-            path = p if os.path.isabs(p) else os.path.join(REPO, p)
+            if "/" not in p:
+                continue
+            path = p if os.path.isabs(p) else os.path.join(cwd, p)
             if not os.path.exists(path):
                 raise Refuse(f"reproduction command names a path that does not "
                              f"exist: {p} (in `{cmd}`)")
-        if "audit-case-migration.py" in cmd:
-            r = subprocess.run(parts, cwd=REPO, capture_output=True, text=True)
-            if r.returncode != 0:
-                raise Refuse(f"reproduction command exits {r.returncode}: {cmd}\n"
-                             + r.stdout[-2000:] + r.stderr[-2000:])
+        want = 0 if declared is None else declared
+        r = subprocess.run(["bash", "-c", cmd], cwd=cwd, capture_output=True,
+                           text=True)
+        if r.returncode != want:
+            raise Refuse(f"reproduction command exits {r.returncode}, but the "
+                         f"header declares rc={want}: {cmd}\n"
+                         + r.stdout[-2000:] + r.stderr[-2000:])
+
+
+def reproduction_block(text: str, marker: str) -> list[tuple]:
+    """The indented command lines a rendered `//!` header prints under `marker`.
+
+    Parsed out of the header's own bytes rather than kept beside it in a list,
+    so the commands that are CHECKED are literally the commands that are
+    PRINTED. A block that has lost its commands raises here rather than passing
+    vacuously.
+    """
+    i = text.index(marker) + len(marker)
+    out = []
+    for raw in text[i:].split("\n"):
+        if raw.strip() == "//!":
+            if out:
+                break
+            continue
+        if not raw.startswith("//!   "):
+            break
+        out.append((raw[len("//!   "):].strip(), None))
+    if not out:
+        raise Refuse(f"the header prints no command under {marker.strip()!r}")
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -496,6 +621,8 @@ def build(stem: str) -> dict:
                     "the narrowing is a verified strengthening; the other "
                     "disjunct is disclosed here rather than asserted, because "
                     "the source never claimed it unconditionally (rule 2).")
+            if step.get("exit") in ("failure", 1) and "json_paths" in step:
+                bits.append(JSON_ON_FAILURE_PROSE)
             rationale = " ".join([lead] + bits).strip()
             case = {"name": name, "rationale": rationale, "steps": [step]}
             check_rationales_match_their_claims(case, step)
@@ -835,12 +962,18 @@ def header_for(stem, ex, pr, source_map, cases, used, dollar=False) -> list[str]
             "went green would fail this file rather than leave a stale claim, and "
             "a NEW red raises instead of shipping undeclared. The gates not "
             "listed are green.")
+        repro = []
         for name, rc, reason in reds:
             script = dict((n, p) for n, p, _d in GATES)[name]
             lines.append("")
             lines.append(f"  EXPECTED-RED  {name}  rc={rc}")
             lines.append(f"    reproduce: python3 {script} {rs_rel} {toml_rel}")
             lines.append(f"    reason: {reason}")
+            repro.append((f"python3 {script} {rs_rel} {toml_rel}", rc))
+        # RUN, with the DECLARED rc, before the text is returned. Ruling 9's
+        # "with a reproduction that runs" is this call and not the sentence
+        # above it; the check existed for a whole round with no call site.
+        check_reproduction_commands(repro)
     else:
         lines.append(
             "ALL FIVE of ruling 19's gates are GREEN on this pair "
@@ -884,10 +1017,23 @@ DECLINED_HEADER = '''//! SPEC §5.11 RETENTION -- CONTROLLER RULING R1, CLASS A 
 //! the file as a retention, which is how this was caught rather than shipped.
 //!
 //! THE BLOCKING CONSTRUCT, BY NAME AND LINE, RE-MEASURED RATHER THAN CITED.
-//! %(dead_prose)s
+//! The `json_output: bool` parameter of each helper below is never passed
+//! `true` at any call site, and each guards a block that carries claims. Both
+//! halves are measured: an always-`false` bool guarding an EMPTY block would
+//! block nothing, and reporting one would be a retention with no ground.
+//!
+%(dead_prose)s
+//!
 //! Every call site passes `false`, so each `if json_output { … }` block is
 //! UNREACHABLE and every literal inside it is DEAD: a value written in the
 //! source and asserted by no reachable path.
+//!
+//! (The line numbers above are ruling 11's self-referential trap in miniature,
+//! for the second time in this header: they are lines of THIS file, so the
+//! length of this header is an input to them. `declined_headers` therefore
+//! renders this header to a FIXED POINT -- render, write, re-measure against
+//! the file it just wrote, repeat until two rounds agree -- rather than
+//! measuring once against the previous revision.)
 //!
 //! The enumerating command, run before this sentence was written (ruling 13):
 //!
@@ -964,6 +1110,28 @@ def trim_header(write: bool) -> None:
     i = text.index(marker_a) + len(marker_a)
     j = text.index("//!\n", i)
     new = text[:i] + "\n".join(table) + "\n" + text[j:]
+
+    # "BY NAME AND LINE" -- and the LINE is measured here rather than promised.
+    # The retained fn's own line is found in the file this header sits in, and
+    # the replacement occupies exactly one line, so the number it prints cannot
+    # be moved by printing it.
+    (retained,) = sorted(EX.RETAINED[TRIM_HEADER_PATH])
+    m = re.search(r"(?m)^fn\s+" + re.escape(retained) + r"\s*\(", new)
+    if not m:
+        raise Refuse(f"{TRIM_HEADER_PATH}.rs: the retained fn `{retained}` is "
+                     f"not in the file its own retention header describes")
+    fn_line = new[:m.start()].count("\n") + 1
+    named = f"//! `{retained}` (defined at line {fn_line} of this file)\n"
+    lines_ = new.split("\n")
+    for k, raw in enumerate(lines_):
+        if raw.startswith("//! `" + retained + "`"):
+            lines_[k] = named.rstrip("\n")
+            break
+    else:
+        raise Refuse(f"{TRIM_HEADER_PATH}.rs: the header does not name the "
+                     f"retained fn on a line of its own, so its line number "
+                     f"cannot be filled in (ruling 9's 'BY NAME AND LINE')")
+    new = "\n".join(lines_)
     # WHAT IS ASSERTED, AND IT IS NOT "every correct side is green". Two
     # different things are red on this pair and conflating them would be the
     # ruling-12 overreach in miniature:
@@ -988,12 +1156,48 @@ def trim_header(write: bool) -> None:
         if (name, correct) not in RED_REASONS:
             raise Refuse(f"{TRIM_HEADER_PATH}: {name} is {correct} on its "
                          f"correct side and no reason is declared (ruling 9)")
+    # THE REPRODUCTION IS RUN, in the order the header prints it, and the
+    # decisive command -- the audit against the migrated complement -- is
+    # required to exit 0. The block declares no rc, so 0 is what is required of
+    # every line of it.
+    check_reproduction_commands(
+        reproduction_block(new, "//! Reproduce the column that decides the pair:\n"))
     if write:
         with open(path, "w", encoding="utf-8") as f:
             f.write(new)
     elif new != text:
         raise Refuse(f"{TRIM_HEADER_PATH}.rs: the three-column red-list has "
                      f"drifted from what the gates now report")
+
+
+def render_declined(text: str) -> str:
+    """One retention header, as a PURE function of the file's current bytes.
+
+    Pure on purpose: the header prints LINE NUMBERS of the file it sits in, so
+    its own length is an input to its own content and "the fixed point" is only
+    well-defined if rendering depends on nothing but the bytes being rendered.
+    """
+    body = text
+    if body.startswith("//!"):
+        i = body.index("\n\n")
+        body = body[i + 2:]
+    helpers = EX.dead_bool_branches(text)
+    if not helpers:
+        raise Refuse("a DECLINED file with no dead bool branch -- the ground "
+                     "for declining it no longer holds")
+    prose = "\n".join(
+        f"//!   `{d['helper']}`"
+        f"\n//!       `if {d['param']} {{` at line {d['line']}, "
+        f"{d['claims']} dead claim(s) in {d['blocks']} guarded block(s)"
+        for d in helpers)
+    tot = len(re.findall(r"#\[test\]", body))
+    blocking = {d["helper"] for d in helpers}
+    mig = 0
+    for m in re.finditer(r"#\[test\]\s*\nfn\s+(\w+)\s*\(\s*\)\s*\{", body):
+        end = body.find("\n}\n", m.end())
+        if not any(b + "(" in body[m.end():end] for b in blocking):
+            mig += 1
+    return DECLINED_HEADER % {"dead_prose": prose, "tot": tot, "mig": mig} + body
 
 
 def declined_headers(write: bool) -> list[str]:
@@ -1005,43 +1209,35 @@ def declined_headers(write: bool) -> list[str]:
     had none, and this batch is the first measured consequence -- its dispatch
     listed all four as migratable.
 
-    The prose is DERIVED from `check_declined`'s own measurement rather than
-    transcribed, so the header cannot state a dead branch nobody measured.
+    The prose is DERIVED from `dead_bool_branches`'s own measurement rather than
+    transcribed, so the header cannot state a dead branch nobody measured -- and
+    since the measurement now includes the LINE of each guarded block, and the
+    header sits above those lines, the rendering is ITERATED here rather than
+    performed once against the previous revision (ruling 11).
     """
-    dead = EX.check_declined()
     out = []
     for stem in sorted(EX.DECLINED):
         path = os.path.join(TESTS, stem + ".rs")
-        with open(path, encoding="utf-8") as f:
-            text = f.read()
-        body = text
-        if body.startswith("//!"):
-            i = body.index("\n\n")
-            body = body[i + 2:]
-        helpers = dead[stem]
-        names = ["`" + h.split("(")[0] + "`" for h in helpers]
-        joined = (names[0] if len(names) == 1
-                  else ", ".join(names[:-1]) + " and " + names[-1])
-        prose = (("The `json_output: bool` parameter of " + joined + " is"
-                  if len(names) == 1 else
-                  "The `json_output: bool` parameters of " + joined + " are")
-                 + " never passed `true` at any call site.")
-        tot = len(re.findall(r"#\[test\]", body))
-        blocking = {h.split("(")[0] for h in helpers}
-        mig = 0
-        for m in re.finditer(r"#\[test\]\s*\nfn\s+(\w+)\s*\(\s*\)\s*\{", body):
-            end = body.find("\n}\n", m.end())
-            if not any(b + "(" in body[m.end():end] for b in blocking):
-                mig += 1
-        head = DECLINED_HEADER % {"dead_prose": prose, "tot": tot, "mig": mig}
-        new = head + body
-        out.append(path)
-        if write:
+        for _round in range(6):
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+            new = render_declined(text)
+            if new == text:
+                break
+            if not write:
+                raise Refuse(f"{stem}.rs: retention header has drifted from "
+                             f"what this generator renders")
             with open(path, "w", encoding="utf-8") as f:
                 f.write(new)
-        elif new != text:
-            raise Refuse(f"{stem}.rs: retention header has drifted from what "
-                         f"this generator renders")
+        else:
+            raise Refuse(f"{stem}.rs: the retention header did not reach a "
+                         f"fixed point in 6 rounds")
+        # The enumerating command this header prints is RUN, from the header's
+        # own bytes, and required to exit 0 (ruling 9).
+        check_reproduction_commands(reproduction_block(
+            new, "//! The enumerating command, run before this sentence was "
+                 "written (ruling 13):\n"))
+        out.append(path)
     return out
 
 

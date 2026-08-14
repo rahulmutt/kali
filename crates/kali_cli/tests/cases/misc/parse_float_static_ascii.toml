@@ -169,7 +169,7 @@ json.errors = []
 
 [[case]]
 name = "check_gates_parse_float_dynamic_input"
-rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_dynamic_input`."""
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_dynamic_input`. RULE 2 -- THIS STEP PINS BOTH A FAILING EXIT AND JSON CLAIMS, AND THE PAIRING IS THE SOURCE'S OWN: a failing run still emits a JSON envelope under --output json, so the source asserts the failure and then reads the envelope's diagnostics out of the same stdout. Disclosed here because a reader meeting a failing exit beside json claims should not have to reconstruct why both are legal."""
 args = ["--output", "json", "check", "check_gates_parse_float_dynamic_input.js"]
 exit = "failure"
 json.success = false
@@ -178,7 +178,7 @@ json_count = [{ path = "errors.0.message", needle = "parseFloat", at_least = 1 }
 
 [[case]]
 name = "check_gates_parse_float_non_ascii_input"
-rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_non_ascii_input`."""
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_non_ascii_input`. RULE 2 -- THIS STEP PINS BOTH A FAILING EXIT AND JSON CLAIMS, AND THE PAIRING IS THE SOURCE'S OWN: a failing run still emits a JSON envelope under --output json, so the source asserts the failure and then reads the envelope's diagnostics out of the same stdout. Disclosed here because a reader meeting a failing exit beside json claims should not have to reconstruct why both are legal."""
 args = ["--output", "json", "check", "check_gates_parse_float_non_ascii_input.js"]
 exit = "failure"
 json.success = false
@@ -187,7 +187,7 @@ json_count = [{ path = "errors.0.message", needle = "parseFloat", at_least = 1 }
 
 [[case]]
 name = "check_gates_parse_float_fractional_result"
-rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_fractional_result`."""
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_fractional_result`. RULE 2 -- THIS STEP PINS BOTH A FAILING EXIT AND JSON CLAIMS, AND THE PAIRING IS THE SOURCE'S OWN: a failing run still emits a JSON envelope under --output json, so the source asserts the failure and then reads the envelope's diagnostics out of the same stdout. Disclosed here because a reader meeting a failing exit beside json claims should not have to reconstruct why both are legal."""
 args = ["--output", "json", "check", "check_gates_parse_float_fractional_result.js"]
 exit = "failure"
 json.success = false
@@ -196,7 +196,7 @@ json_count = [{ path = "errors.0.message", needle = "parseFloat", at_least = 1 }
 
 [[case]]
 name = "check_gates_parse_float_additional_arguments"
-rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_additional_arguments`."""
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_additional_arguments`. RULE 2 -- THIS STEP PINS BOTH A FAILING EXIT AND JSON CLAIMS, AND THE PAIRING IS THE SOURCE'S OWN: a failing run still emits a JSON envelope under --output json, so the source asserts the failure and then reads the envelope's diagnostics out of the same stdout. Disclosed here because a reader meeting a failing exit beside json claims should not have to reconstruct why both are legal."""
 args = ["--output", "json", "check", "check_gates_parse_float_additional_arguments.js"]
 exit = "failure"
 json.success = false
@@ -205,7 +205,7 @@ json_count = [{ path = "errors.0.message", needle = "parseFloat", at_least = 1 }
 
 [[case]]
 name = "check_gates_parse_float_nan_result"
-rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_nan_result`."""
+rationale = """Migrated from `parse_float_static_ascii.rs::check_gates_parse_float_nan_result`. RULE 2 -- THIS STEP PINS BOTH A FAILING EXIT AND JSON CLAIMS, AND THE PAIRING IS THE SOURCE'S OWN: a failing run still emits a JSON envelope under --output json, so the source asserts the failure and then reads the envelope's diagnostics out of the same stdout. Disclosed here because a reader meeting a failing exit beside json claims should not have to reconstruct why both are legal."""
 args = ["--output", "json", "check", "check_gates_parse_float_nan_result.js"]
 exit = "failure"
 json.success = false
