@@ -191,4 +191,3 @@ fn check_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
         assert_frozen_object_has_own("check", filename, frozen_object_has_own_source(), false);
     }
 }
-
