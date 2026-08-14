@@ -396,7 +396,7 @@ fn test_supports_promise_all_settled_in_browser_api_surface_with_harness_js_inpu
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -423,7 +423,7 @@ fn test_supports_promise_all_settled_in_browser_api_surface_with_harness_js_inpu
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")

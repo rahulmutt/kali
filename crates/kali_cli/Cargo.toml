@@ -9,6 +9,15 @@ autobins = false
 name = "kali"
 path = "src/bin/kali.rs"
 
+[[test]]
+name = "inprocess"
+path = "tests/inprocess.rs"
+
+[[test]]
+name = "cases"
+path = "tests/cases.rs"
+harness = false
+
 [dependencies]
 clap = { workspace = true }
 kali_common = { workspace = true }
@@ -42,6 +51,8 @@ kali_capi = { workspace = true }
 [dev-dependencies]
 base64 = { workspace = true }
 flate2 = { workspace = true }
+kali_case_runner = { workspace = true }
+kali_runtime_contract = { workspace = true }
 tar = { workspace = true }
-tempfile = "3.10"
+tempfile = { workspace = true }
 tungstenite = { workspace = true, features = ["handshake"] }

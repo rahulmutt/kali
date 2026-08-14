@@ -1,0 +1,361 @@
+# Migrated from tests/soundness_core_operators.rs -- all 11 #[test]
+# functions, 1:1 to a case (no fn bundles multiple independent
+# assertions; no [matrix] -- each case runs a distinct one-off TS
+# program via `kali run <file>.ts`).
+#
+# The file's opening `//!` doc is prepended verbatim to every case's
+# rationale. Two `// ---...---` section banners ("Defect 1: `&&` / `||`
+# short-circuit", 6 cases; "Defect 2: boolean rendering in string
+# position", 5 cases -- both well under the ~15-case threshold, so
+# neither needs an additional `#` divider on its own, but one is
+# rendered anyway per this batch's rule 12) bracket the file's two
+# halves and are prepended to every case in their range. Every fn also
+# carries its own direct `///` doc (0 uncommented cases).
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!`
+# call site builds a temp-directory path, never fixture text).
+#
+# `assert_stdout` compares RAW (untrimmed) stdout via `assert_eq!`
+# directly -- no `.trim()` -- so `stdout` below is a direct copy of the
+# literal. This file is one of two flagged for a `\`+newline` string
+# continuation escape (61 occurrences, confirmed via grep) -- some
+# continuation lines use `\x20` (a literal space) specifically to defeat
+# the continuation whitespace-swallow rule; verified byte-for-byte
+# against the real built kali binary for all 11 fixtures before pinning.
+#
+# CONSEQUENCE FOR THE GATES -- `audit-case-migration.py` IS EXPECTED-RED
+# (rc=3) ON THIS PAIR. rc=3 is AUDIT INAPPLICABLE, not a dropped claim:
+# the audit ran to completion over this pair and demanded ZERO claims of
+# it, so it decided nothing either way. Measured, not assumed -- 11
+# #[test] fns found, 0 claims demanded in either direction.
+#
+# WHY IT DEMANDS NOTHING, AND THE REASON IS NOT THE USUAL ONE. Unlike the
+# exit-status-only pairs elsewhere in this family, this source DOES pin
+# exact output: all 11 fns pass an expected-stdout string literal to
+# `assert_stdout(src, expected)`. But the `assert_eq!` the audit reads is
+# inside that helper and its operand there is the PARAMETER `expected`,
+# not a literal, and the extractor does not follow a value from a call
+# site into a helper. So the 11 literals are real claims this tool
+# structurally cannot see -- rc=3 here means "undecidable by this gate",
+# NOT "the source asserted nothing" and NOT "claim extraction is broken".
+# The one argv token (`run`) is in the audit's BORING set and
+# discriminates nothing. Same shape as the sibling `const_binding.toml`,
+# which shares this file's `assert_stdout` idiom.
+#
+# Stated here because AUDIT OK over zero demanded claims and AUDIT OK
+# over a covered pair are otherwise indistinguishable, and only one of
+# them is evidence. What DOES cover this pair is the case runner: all 11
+# of those literals are carried below as the 11 `stdout` pins, one per
+# `[[case]]`, 11/11 -- so what the audit cannot check, the trials do.
+#
+# Reproduce (the source was deleted by dbb9bae7c2; its last content is
+# the blob at that commit's parent):
+#
+#   git show c558031b35f33de6e02956adde93965e307e5a42:crates/kali_cli/tests/soundness_core_operators.rs > /tmp/src.rs
+#   python3 scripts/audit-case-migration.py /tmp/src.rs \
+#     crates/kali_cli/tests/cases/soundness/core_operators.toml
+
+[source]
+"short_circuit_skips_right_operand_in_condition_position.ts" = """let calls = 0;
+function boom() { calls = calls + 1; return true; }
+function f() {
+  let trace = "";
+  if (false && boom()) { trace = trace + "and-branch;"; }
+  if (true || boom()) { trace = trace + "or-taken;"; }
+  return "trace=" + trace + " calls=" + calls;
+}
+console.log(f());
+"""
+"short_circuit_in_function_body_with_taken_branch.ts" = """let n = 0;
+function side() { n = n + 1; return 5; }
+function f() {
+  if (false && side()) { return "bad"; }
+  let ok = true;
+  if (ok && (1 === 1)) { return "ok n=" + n; }
+  return "no";
+}
+console.log(f());
+"""
+"short_circuit_value_position_evaluates_right_operand_exactly_once.ts" = """let n = 0;
+function bump() { n = n + 1; return 7; }
+let a = false || bump();
+let b = true && bump();
+console.log(a);
+console.log(b);
+console.log(n);
+"""
+"short_circuit_const_binding_yields_right_operand_value.ts" = """function seven() { return 7; }
+const a = false || seven();
+const b = true && seven();
+console.log(a);
+console.log(b);
+"""
+"chained_logicals_short_circuit_after_first_decisive_operand.ts" = """let n = 0;
+function t() { n = n + 1; return true; }
+function ff() { n = n + 100; return false; }
+function f() {
+  let r = "";
+  if (ff() && t() && t()) { r = r + "and;"; }
+  if (t() || ff() || ff()) { r = r + "or;"; }
+  return r + "n=" + n;
+}
+console.log(f());
+"""
+"nested_logicals_short_circuit.ts" = """let n = 0;
+function hit(k) { n = n + k; return true; }
+function f() {
+  if (false && (hit(1) || hit(2))) { return "a"; }
+  if (true || (hit(4) && hit(8))) { return "b n=" + n; }
+  return "c";
+}
+console.log(f());
+"""
+"booleans_render_as_true_false_in_string_concatenation.ts" = """console.log(true);
+console.log(false);
+console.log("concat=" + false);
+console.log(true + "=concat");
+function f() { const t = true; return "in-fn=" + t; }
+console.log(f());
+"""
+"comparison_results_render_as_true_false_in_concatenation.ts" = """console.log("eq=" + (1 === 1));
+console.log("ne=" + (1 === 2));
+console.log("lt=" + (1 < 2));
+console.log("not=" + (!true));
+"""
+"booleans_render_as_true_false_in_string_compound_assignment.ts" = """function f() {
+  let s = "";
+  s = s + true;
+  s = s + false;
+  return s;
+}
+console.log(f());
+"""
+"dynamic_console_boolean_rendering_is_a_known_residual.ts" = """console.log(1 === 1);
+console.log(1 === 2);
+console.log(true && false);
+console.log(false || true);
+"""
+"boolean_rendering_does_not_leak_into_numeric_lane.ts" = """console.log("sum=" + ((1 === 1) + (1 === 1)));
+console.log("num=" + 1);
+console.log("zero=" + 0);
+"""
+
+# --- Defect 1: `&&` / `||` short-circuit ---
+
+[[case]]
+name = "short_circuit_skips_right_operand_in_condition_position"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 1: `&&` / `||` short-circuit ----
+
+The minimal reported repro: a false `&&` LHS and a true `||` LHS must both skip their right-hand operand entirely, so `boom()` never runs. Pre-fix this printed `calls=2` — the branch outcomes were already right, only the side effects leaked."""
+args = ["run", "short_circuit_skips_right_operand_in_condition_position.ts"]
+exit = "success"
+stdout = "trace=or-taken; calls=0\n"
+
+[[case]]
+name = "short_circuit_in_function_body_with_taken_branch"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 1: `&&` / `||` short-circuit ----
+
+Same short-circuit, but entirely inside a function body and mixing a short-circuited `&&` with a genuinely-taken branch, so the fix is pinned in a local-slot context as well as at module scope."""
+args = ["run", "short_circuit_in_function_body_with_taken_branch.ts"]
+exit = "success"
+stdout = "ok n=0\n"
+
+[[case]]
+name = "short_circuit_value_position_evaluates_right_operand_exactly_once"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 1: `&&` / `||` short-circuit ----
+
+Value position: JS `&&`/`||` yield an OPERAND, not a normalized boolean, and the skipped operand's side effect never happens. `false || bump()` and `true && bump()` each run `bump` exactly once and evaluate to its `7`. Pre-fix: `n` was `4` here (both operands of both logicals evaluated)."""
+args = ["run", "short_circuit_value_position_evaluates_right_operand_exactly_once.ts"]
+exit = "success"
+stdout = "7\n7\n2\n"
+
+[[case]]
+name = "short_circuit_const_binding_yields_right_operand_value"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 1: `&&` / `||` short-circuit ----
+
+The `const x = a || b` value-position form from the brief. This asserts the VALUES only, deliberately not the call count: a `const` bound to a call-valued init is re-emitted at every read by the `const` fold-alias lane, which double-evaluates the call. That is a separate PRE-EXISTING defect — it reproduces on a clean tree with no logical operator in sight (`const a = bump(); console.log(a); console.log(n)` prints `7` then `2`) — and is out of scope here. The values themselves are correct."""
+args = ["run", "short_circuit_const_binding_yields_right_operand_value.ts"]
+exit = "success"
+stdout = "7\n7\n"
+
+[[case]]
+name = "chained_logicals_short_circuit_after_first_decisive_operand"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 1: `&&` / `||` short-circuit ----
+
+Chained logicals: `ff() && t() && t()` must call `ff` once and stop; `t() || ff() || ff()` must call `t` once and stop. The `n` total (`101`) proves exactly one call landed on each chain, and the branch outcomes prove the chains still evaluate to the right truthiness. Pre-fix `n` was `303`."""
+args = ["run", "chained_logicals_short_circuit_after_first_decisive_operand.ts"]
+exit = "success"
+stdout = "or;n=101\n"
+
+[[case]]
+name = "nested_logicals_short_circuit"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 1: `&&` / `||` short-circuit ----
+
+Nested/mixed logicals in condition position: the `||` inside a short-circuited `&&` must not run at all, and a nested `&&` inside a taken `||` arm must."""
+args = ["run", "nested_logicals_short_circuit.ts"]
+exit = "success"
+stdout = "b n=0\n"
+
+
+# --- Defect 2: boolean rendering in string position ---
+
+[[case]]
+name = "booleans_render_as_true_false_in_string_concatenation"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 2: boolean rendering in string position ----
+
+The minimal reported repro. `console.log(true)` on a bare literal was already correct (static render path); concatenation in EITHER direction, and a function-local `const` boolean, all rendered `0`/`1` pre-fix."""
+args = ["run", "booleans_render_as_true_false_in_string_concatenation.ts"]
+exit = "success"
+stdout = "true\nfalse\nconcat=false\ntrue=concat\nin-fn=true\n"
+
+[[case]]
+name = "comparison_results_render_as_true_false_in_concatenation"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 2: boolean rendering in string position ----
+
+Comparison and negation results are booleans and must stringify as such. Pre-fix these were `eq=1 / ne=0 / lt=1 / not=0`."""
+args = ["run", "comparison_results_render_as_true_false_in_concatenation.ts"]
+exit = "success"
+stdout = "eq=true\nne=false\nlt=true\nnot=false\n"
+
+[[case]]
+name = "booleans_render_as_true_false_in_string_compound_assignment"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 2: boolean rendering in string position ----
+
+String `+=` is a second stringify site with the same coercion helper, so it carries the same defect and needs the same pin. Pre-fix: `10`."""
+args = ["run", "booleans_render_as_true_false_in_string_compound_assignment.ts"]
+exit = "success"
+stdout = "truefalse\n"
+
+[[case]]
+name = "dynamic_console_boolean_rendering_is_a_known_residual"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 2: boolean rendering in string position ----
+
+Documents the CURRENT (still-wrong) behavior of the sibling stringify choke point that this change deliberately does NOT touch, so the residual is pinned and visible rather than forgotten.
+
+`emit_console_argument` has the same missing boolean arm as `emit_as_string`, so a boolean reaching `console.log` DYNAMICALLY still prints `1`/`0` where node prints `true`/`false`. (A bare `console.log(true)` looks correct only because `render_static_value` folds the literal text upstream.) Adding the arm is a two-line change and was verified to work — but it invalidates ~130 existing assertions across the suite that pin the `1`/`0` rendering, which is a mass re-pin wave, not part of this contained fix.
+
+It is also a RATIFIED CONVENTION, not merely an accident: see the comment on `aborted_flag_reads_zero_then_one` in `soundness_abort.rs` — "Dynamic booleans render 1/0 (ratified P2 convention; node prints true/false — documented divergence, never used in byte-for-byte acceptance fixtures)". Changing it therefore needs maintainer ratification, not just a re-pin wave. This commit narrows that convention to `console.log` only: booleans in string CONCATENATION are now node-correct, per the explicit scope exception. When the console.log wave lands, this test flips to `true/false`."""
+args = ["run", "dynamic_console_boolean_rendering_is_a_known_residual.ts"]
+exit = "success"
+stdout = "1\n0\n0\n1\n"
+
+[[case]]
+name = "boolean_rendering_does_not_leak_into_numeric_lane"
+rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
+
+1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
+
+2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
+
+Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+
+Every golden in this file was verified against node v26.
+
+---- Defect 2: boolean rendering in string position ----
+
+A boolean must NOT poison the numeric lane: arithmetic on comparison results still coerces to 0/1 the way JS does, and non-boolean scalars must keep rendering as numbers. Guards the fix against over-applying the boolean arm."""
+args = ["run", "boolean_rendering_does_not_leak_into_numeric_lane.ts"]
+exit = "success"
+stdout = "sum=2\nnum=1\nzero=0\n"

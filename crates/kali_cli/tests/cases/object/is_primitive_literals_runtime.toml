@@ -1,0 +1,128 @@
+# Migrated from tests/object_is_primitive_literals_runtime.rs -- all 4
+# #[test] functions, as 4 case blocks, 1:1 (each old test called a shared
+# `assert_..._in_js_input(json_output: bool)` helper with a fixed `false`/
+# `true` literal, never a loop -- no axis to fan out, so no [matrix]).
+#
+# Two distinct fixture bodies, each used exactly once by filename (plain and
+# json variants of the same command reuse the *same* tempdir filename, since
+# both write the identical fixture text and only the CLI flags differ) --
+# `main.js` for `run`, `smoke.test.js` for `test`. Not factored into
+# [constants]: `main.js` and `smoke.test.js` are not the same text (the test
+# fixture wraps the body in `Kali.test(...)` and adds an unused
+# `objectAlias` binding), so this is the "merely similar" case the house
+# style says to leave as separate [source] entries, not force into a shared
+# constant.
+#
+# Judgment call, flagged per the migration instructions' "stop and report"
+# clause: the plain (non-JSON) `run` case's original assertion was
+# `assert_eq!(stdout.trim(), "<19-line block>")`, not a bare `assert_eq!
+# (stdout, ...)` like every other exact-stdout case in this family (see
+# `char_at_static_ascii.toml`, `repeat_static_ascii.toml`) -- a `.trim()`
+# call this migration hasn't had to handle before. `kali_case_runner`'s
+# `stdout` key is exact-equality against *untrimmed* captured stdout (see
+# `assertions.rs`'s `check`), so `stdout.trim() == X` cannot be expressed
+# directly. Rather than weaken to `stdout_contains`, the real untrimmed
+# stdout was captured from the built binary (`--output json run main.js`,
+# reading the JSON envelope's own `stdout` field, which is the exact raw
+# text) and used verbatim below -- verified equal to the 19-line block plus
+# exactly one trailing newline, which is what `.trim()` would have accepted
+# too (trimming only removes the trailing newline, nothing else was ever at
+# stake). This is not weaker than the original claim; it pins one more byte
+# (the trailing newline shape) than `.trim()` cared about, verified real,
+# not guessed.
+
+[source]
+"main.js" = '''
+async function main() {
+  const zero = 0;
+  const zeroAlias = zero;
+  const object = { a: 1 };
+  console.log(Object.is(zeroAlias, -0));
+  console.log(Object.is(-0, +0));
+  console.log(Object.is(+1, 1));
+  console.log(Object.is(true, true));
+  console.log(Object.is("hello", "hello"));
+  console.log(Object.is(`hello`, `hello`));
+  console.log(Object.is(1n, 1n));
+  console.log(Object.is(-1n, -1n));
+  console.log(Object.is(null, null));
+  console.log(Object.is(Infinity, Infinity));
+  console.log(Object.is(NaN, NaN));
+  console.log(Object.is(-Infinity, -Infinity));
+  console.log(Object.is(Object.freeze(+1), Object.freeze(1)));
+  console.log(Object.is(await globalThis.Object, await globalThis.Object));
+  console.log(globalThis["Object"]["is"](+1, 1));
+  console.log(globalThis.Object["is"](+1, 1));
+  console.log(globalThis["Object"].is(+1, 1));
+  console.log(globalThis.Object.is(+1, 1));
+  console.log(Object["is"](+1, 1));
+}
+main();
+'''
+"smoke.test.js" = '''
+Kali.test('object is primitive literals', () => {
+  async function main() {
+    const zero = 0;
+    const zeroAlias = zero;
+    const object = { a: 1 };
+    const objectAlias = object;
+    console.log(Object.is(zeroAlias, -0));
+    console.log(Object.is(-0, +0));
+    console.log(Object.is(+1, 1));
+    console.log(Object.is(true, true));
+    console.log(Object.is("hello", "hello"));
+    console.log(Object.is(`hello`, `hello`));
+    console.log(Object.is(1n, 1n));
+    console.log(Object.is(-1n, -1n));
+    console.log(Object.is(null, null));
+    console.log(Object.is(Infinity, Infinity));
+    console.log(Object.is(NaN, NaN));
+    console.log(Object.is(-Infinity, -Infinity));
+    console.log(Object.is(Object.freeze(+1), Object.freeze(1)));
+    console.log(Object.is(await globalThis.Object, await globalThis.Object));
+    console.log(globalThis["Object"]["is"](+1, 1));
+    console.log(globalThis.Object["is"](+1, 1));
+    console.log(globalThis["Object"].is(+1, 1));
+    console.log(globalThis.Object.is(+1, 1));
+    console.log(Object["is"](+1, 1));
+  }
+  return main();
+});
+'''
+
+[[case]]
+name = "run_supports_object_is_primitive_literals_in_js_input"
+rationale = "Object.is over static primitive literals (signed zero, NaN, BigInt, freeze, await, and every bracket/dot spelling of the Object.is call itself) must fold/execute to the exact ECMA-262 SameValue results at runtime."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n"
+
+[[case]]
+name = "json_run_supports_object_is_primitive_literals_in_js_input"
+rationale = "Same Object.is primitive-literal fold, asserting the JSON output envelope from `--output json run` rather than raw stdout."
+args = ["--output", "json", "run", "main.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n"
+json.errors = []
+
+[[case]]
+name = "test_supports_object_is_primitive_literals_in_js_input"
+rationale = "Same Object.is primitive-literal fold, run through `Kali.test(...)` via the `test` command instead of `run`."
+args = ["test", "smoke.test.js"]
+exit = "success"
+stdout_contains = ["0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1", "ok 1"]
+
+[[case]]
+name = "json_test_supports_object_is_primitive_literals_in_js_input"
+rationale = "Same Kali.test fold, asserting the JSON output envelope from `--output json test` rather than raw stdout."
+args = ["--output", "json", "test", "smoke.test.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.passed = 1
+json.payload.failed = 0
+json.errors = []

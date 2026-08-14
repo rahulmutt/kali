@@ -36,7 +36,10 @@ fn fixture(name: &str) -> PathBuf {
 /// with a coarse `SystemTime` clock (e.g. macOS) two concurrent calls can
 /// observe the same `as_nanos()` value and collide on the same temp dir. A
 /// process-wide monotonic counter guarantees uniqueness independently of the
-/// wall-clock's resolution (mirrors `arena_reclamation_runtime.rs`).
+/// wall-clock's resolution (mirrors `arena_reclamation_runtime.rs`, migrated to
+/// `tests/cases/misc/arena_reclamation_runtime.toml` and deleted by Task 19 --
+/// read it with `git show
+/// cc76f5a918:crates/kali_cli/tests/arena_reclamation_runtime.rs`).
 fn unique_fixture_slug(label: &str) -> String {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let seq = COUNTER.fetch_add(1, Ordering::Relaxed);

@@ -1,0 +1,90 @@
+# Migrated from tests/browser_array_iteration_spread_const_bound_harness.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# Matrix arithmetic: all 4 #[test] fns loop `for command in ["run", "test"]
+# { for json_output in [false, true] { ... } }` around a single shared
+# helper, `assert_browser_requested_spread` -- 4 fns x 4 loop iterations each
+# = 16 invocations total. Each of the 4 #[test] fns is exactly one
+# (variant, ext) pair (for_of/jsx, for_of/tsx, for_await/jsx, for_await/tsx),
+# so `ext` (jsx/tsx -- js/ts are never exercised by this file) is hoisted to
+# a file-level [matrix] axis. `command`/`json_output` are NOT folded into the
+# matrix: each combination changes the ASSERTION SHAPE, not just a
+# substituted value (test-mode asserts payload.total/passed/failed;
+# run-mode asserts stdout contains '1'/'2'), so per rule 7 each
+# (command, json_output) pair is its own named [[case]] instead. 4 named
+# cases (run/non-json, run/json, test/non-json, test/json) x 2 variant name
+# prefixes (for_of, for_await) = 8 [[case]] entries, each matrix-fanned by
+# ext(2) -> 16 trials, matching the 16 real invocations exactly.
+
+[matrix]
+ext = ["jsx", "tsx"]
+
+[source]
+"main.${ext}" = "const values = [1, 2]; for (const item of [...(values)]) { console.log(item); }\n"
+"smoke.test.${ext}" = "const values = [1, 2]; for (const item of [...(values)]) { console.log(item); }\n"
+"main_await.${ext}" = "const values = [1, 2]; for await (const item of [...(values)]) { console.log(item); }\n"
+"smoke_await.test.${ext}" = "const values = [1, 2]; for await (const item of [...(values)]) { console.log(item); }\n"
+
+[[case]]
+name = "for_of_spread_of_const_bound_literal_arrays_run_non_json"
+rationale = """Migrated from browser_array_iteration_spread_const_bound_harness.rs."""
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "for_of_spread_of_const_bound_literal_arrays_run_json"
+rationale = """Migrated from browser_array_iteration_spread_const_bound_harness.rs."""
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, errors = [], stdout = "1\n2\n" }
+
+[[case]]
+name = "for_of_spread_of_const_bound_literal_arrays_test_non_json"
+rationale = """Migrated from browser_array_iteration_spread_const_bound_harness.rs."""
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "for_of_spread_of_const_bound_literal_arrays_test_json"
+rationale = """Migrated from browser_array_iteration_spread_const_bound_harness.rs."""
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, errors = [] }
+
+[[case]]
+name = "for_await_spread_of_const_bound_literal_arrays_run_non_json"
+rationale = """Migrated from browser_array_iteration_spread_const_bound_harness.rs."""
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await.${ext}"]
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "for_await_spread_of_const_bound_literal_arrays_run_json"
+rationale = """Migrated from browser_array_iteration_spread_const_bound_harness.rs."""
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_await.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, errors = [], stdout = "1\n2\n" }
+
+[[case]]
+name = "for_await_spread_of_const_bound_literal_arrays_test_non_json"
+rationale = """Migrated from browser_array_iteration_spread_const_bound_harness.rs."""
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await.test.${ext}"]
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "for_await_spread_of_const_bound_literal_arrays_test_json"
+rationale = """Migrated from browser_array_iteration_spread_const_bound_harness.rs."""
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_await.test.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, errors = [] }

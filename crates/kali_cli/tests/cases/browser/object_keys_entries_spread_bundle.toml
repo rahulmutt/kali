@@ -1,0 +1,225 @@
+# Migrated from tests/browser_object_keys_entries_spread_bundle.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale` that its producing helper reaches, not
+# just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_keys_entries_spread_bundle.rs returns 2 Rust comment line(s)
+# in 1 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Every block sits inside `assert_browser_bundle_object_keys_entries_spread`, which
+# every `[[case]]` below reaches, so U6's bottom-up attribution puts all of it in every
+# rationale: the attribution is per helper and this helper is universal in this file,
+# which is NOT the over-attribution U6 forbids (that is copying a block into cases its
+# producing helper does not reach).
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 6 `#[test]` fns, 8 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_object_keys_entries_spread` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), a complete cross product. Six `#[test]` fns cover it because two of them -- one per output mode -- loop over `["app.jsx", "app.tsx"]` rather than being written out separately; the single fixture builder is parameterless, so `ext` is uniform.
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 2 `[[case]]` entries x ext(4) = 8 trials = 8 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 3 source `#[test]` fns -- one per ext cell, except that the jsx and tsx cells come from the two loop iterations of a single `..._in_jsx_tsx_input` fn; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_object_keys_entries_spread_source`,
+#   `assert_browser_bundle_object_keys_entries_spread` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * build: `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#            pair is appended AFTER the subcommand and its flags.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# THE `browser_bundle_harness` STEP is the migrated form of the source's own harness run.
+# The source writes `kali_runtime_contract::browser_bundle_harness_script("app", false,
+# <body>)` next to the emitted bundle directory and executes it under
+# `browser_harness_command_parts_for`; the case runner does exactly that from the step's
+# `entry` and `body` (crates/kali_case_runner/src/steps.rs). The prelude resolves the
+# bundle relative to the harness script's own URL rather than to the process working
+# directory, so the runner's cwd (the trial root) and the source's cwd (the bundle dir)
+# produce the same resolution -- which is why every previously shipped `browser/` bundle
+# case file spells it this way.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+#   * `exit = "success"` on the build `output.status.success(),` (:97).
+#   * In json mode, the envelope's schemaVersion/command/success/exitCode
+#     `assert_eq!(envelope["exitCode"], 0)` (:108) and an empty `errors` array `assert!(envelope["errors"]` (:109). THERE IS NO
+#     payload artifactKind/bundleFormat CLAIM HERE: this source reads the emitted
+#     metadata file for those instead, and rule 2 forbids adding an envelope claim it
+#     never made.
+#   * `app/app.meta.json`'s apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:120), asserted in BOTH modes,
+#     because the source reads that file outside the `if json_output` block.
+#   * The browser-bundle harness FAILS CLOSED `assert!(!output.status.success()` (:151) -- `exit = "failure"`, not
+#     `"success"`. This is the one file in this batch where the build succeeds and the
+#     harness does not.
+#
+# RULE 11 -- THE SOURCE MAKES AN OR-SHAPED CLAIM, AND IT WAS RESOLVED AGAINST THE REAL
+# BINARY RATHER THAN REPRODUCED OR DROPPED. The case format has no disjunction.
+#   `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable"), "stderr: {stderr}")`
+#   -- whose cited construct is `stderr.contains("Uncaught Error") || stderr.contains("unreachable")` (:154).
+# Every cell was run against the real built `kali`, and the carrying STREAM is
+# unambiguous in each output mode:
+#   * the browser-bundle harness, both output modes -> stderr
+# The generator refuses to emit if a cell shows the needle on both streams or neither,
+# or if the cells disagree -- a disjunction that does not resolve to exactly one stream
+# is not narrowable.
+# THE NEEDLE TIE IS BROKEN BY SOURCE ORDER, and what was observed is disclosed rather
+# than implied away: on the carrying stream the real binary emits "Uncaught Error" and
+# "unreachable", so more than one disjunct is true. Pinning all of them would turn the
+# source's OR into an AND, which is a strengthening the source never asked for; picking
+# one at random is not a derivation. The generator therefore pins the FIRST disjunct the
+# source spells that holds on EVERY cell -- "Uncaught Error" -- and raises if no
+# disjunct is universal.
+# This is a PRESENCE claim, so narrowing it is a verified strengthening (every run
+# satisfying the new assertion satisfies the old); rule 2's asymmetry forbids the same
+# narrowing for an ABSENCE claim, and none is made here. The source's full disjunction
+# sentence is carried into every affected rationale, so the narrowing is recorded rather
+# than silent.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserObjectKeysEntriesSpread
+function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys spread iteration semantics');
+  }
+}
+
+function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 3 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2
+  ) {
+    throw new Error('unexpected Object.entries spread iteration semantics');
+  }
+}
+
+function browserObjectKeysEntriesSpread() {
+  const fromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+  const collectedKeys = [...Object.keys(fromEntries)];
+  const globalKeys = [...globalThis.Object.keys(fromEntries)];
+  const mixedKeys = [...globalThis.Object["keys"](fromEntries)];
+  const mixedBracketedKeys = [...globalThis["Object"].keys(fromEntries)];
+  const bracketedKeys = [...globalThis["Object"]["keys"](fromEntries)];
+  const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
+  const parenthesizedReceiverBracketedKeys = [...Object.freeze((globalThis["Object"])["keys"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedKeys = [...Object.freeze((globalThis['Object'])['keys'])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [...Object.freeze((globalThis['Object']).keys)(fromEntries)];
+  const parenthesizedBracketedKeys = [...Object.freeze((globalThis["Object"]).keys)(fromEntries)];
+  const collectedEntries = [...Object.entries(fromEntries)];
+  const globalEntries = [...globalThis.Object.entries(fromEntries)];
+  const mixedEntries = [...globalThis.Object["entries"](fromEntries)];
+  const mixedBracketedEntries = [...globalThis["Object"].entries(fromEntries)];
+  const bracketedEntries = [...globalThis["Object"]["entries"](fromEntries)];
+  const singleBracketedEntries = [...globalThis['Object']['entries'](fromEntries)];
+  const parenthesizedReceiverBracketedEntries = [...Object.freeze((globalThis["Object"])["entries"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedEntries = [...Object.freeze((globalThis['Object'])['entries'])(fromEntries)];
+  const parenthesizedBracketedEntries = [...Object.freeze((globalThis["Object"]).entries)(fromEntries)];
+
+  assertObjectKeysIteration(collectedKeys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(mixedBracketedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(parenthesizedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
+  assertObjectKeysIteration(parenthesizedBracketedKeys);
+  assertObjectEntriesIteration(collectedEntries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedBracketedEntries);
+}
+"""
+
+[[case]]
+name = "build_emits_object_keys_entries_spread_semantics"
+rationale = """Migrated from browser_object_keys_entries_spread_bundle.rs, the three `build_emits_object_keys_entries_spread_semantics_in_*_input` fns -- one for js, one for ts, and one that loops `["app.jsx", "app.tsx"]` and so supplies the jsx and tsx cells of this matrix. `assert_browser_bundle_object_keys_entries_spread` writes the keys/entries spread fixture, builds it with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program spreads Object.keys and Object.entries over a frozen Object.fromEntries result through ten and nine root spellings respectively -- dotted, mixed, bracketed, single-quoted, and frozen parenthesized-receiver -- and checks every collected array. The build succeeds `output.status.success(),` (:97) and the metadata pins apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:120), but the emitted bundle does not run: the harness FAILS CLOSED `assert!(!output.status.success()` (:151). The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable"), "stderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error") || stderr.contains("unreachable")` (:154). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserObjectKeysEntriesSpread();
+"""
+exit = "failure"
+stderr_contains = ["Uncaught Error"]
+
+[[case]]
+name = "json_build_emits_object_keys_entries_spread_semantics"
+rationale = """Migrated from browser_object_keys_entries_spread_bundle.rs, the three `json_build_emits_object_keys_entries_spread_semantics_in_*_input` fns -- one for js, one for ts, and one that loops `["app.jsx", "app.tsx"]` and so supplies the jsx and tsx cells of this matrix. `assert_browser_bundle_object_keys_entries_spread` writes the keys/entries spread fixture, builds it with `kali build --bundle --api browser` with `--output json`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program spreads Object.keys and Object.entries over a frozen Object.fromEntries result through ten and nine root spellings respectively -- dotted, mixed, bracketed, single-quoted, and frozen parenthesized-receiver -- and checks every collected array. The build succeeds `output.status.success(),` (:97) and the metadata pins apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:120), but the emitted bundle does not run: the harness FAILS CLOSED `assert!(!output.status.success()` (:151). The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable"), "stderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error") || stderr.contains("unreachable")` (:154). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. This sibling additionally asserts the build JSON envelope -- schemaVersion/command/success/exitCode `assert_eq!(envelope["exitCode"], 0)` (:108) and an empty `errors` array `assert!(envelope["errors"]` (:109) -- rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case. Note the source makes no payload artifactKind/bundleFormat claim on the envelope, so none is asserted here (rule 2). RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserObjectKeysEntriesSpread();
+"""
+exit = "failure"
+stderr_contains = ["Uncaught Error"]

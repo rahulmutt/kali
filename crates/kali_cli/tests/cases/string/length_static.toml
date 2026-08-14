@@ -1,0 +1,79 @@
+# Migrated from tests/string_length_static.rs -- all 3 #[test] functions,
+# as 6 case blocks:
+#
+#   - `run`, `json_check`: 1:1 with their source tests.
+#   - `browser_bundle_js`/`ts`/`jsx`/`tsx`: sibling [[case]] blocks (not a
+#     [matrix] axis -- see repeat_static_ascii.toml's header) for
+#     `browser_bundle_accepts_..._across_source_classes`'s 4-extension loop.
+#
+# No gate tests exist in this file -- `.length` never takes an argument, so
+# there is no unsupported-arguments shape to gate on.
+#
+# The browser-loop argv order here is `build --bundle --api browser <path>`
+# (note: `--bundle` precedes `--api`), unlike every other file in this
+# family (`build --api browser --bundle <path>`) -- preserved verbatim from
+# the source .rs rather than normalized, since it is a real (if immaterial
+# to the CLI parser) difference in what the original test exercised.
+
+[source]
+"main.js" = '''
+console.log("hello".length);
+console.log("hé".length);
+console.log(Object.freeze("world").length);
+'''
+"main.ts" = '''
+console.log("hello".length);
+console.log("hé".length);
+console.log(Object.freeze("world").length);
+'''
+"main.jsx" = '''
+console.log("hello".length);
+console.log("hé".length);
+console.log(Object.freeze("world").length);
+'''
+"main.tsx" = '''
+console.log("hello".length);
+console.log("hé".length);
+console.log(Object.freeze("world").length);
+'''
+
+[[case]]
+name = "run"
+rationale = "`.length` on a static string literal folds at compile time, including a non-ASCII literal ('hé') and a frozen receiver."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "5\n2\n5\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_js"
+rationale = "The static string-length fold holds across every supported source class, not just plain JS -- js source."
+args = ["build", "--bundle", "--api", "browser", "main.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_ts"
+rationale = "The static string-length fold holds across every supported source class, not just plain JS -- ts source."
+args = ["build", "--bundle", "--api", "browser", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_jsx"
+rationale = "The static string-length fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["build", "--bundle", "--api", "browser", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_tsx"
+rationale = "The static string-length fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["build", "--bundle", "--api", "browser", "main.tsx"]
+exit = "success"

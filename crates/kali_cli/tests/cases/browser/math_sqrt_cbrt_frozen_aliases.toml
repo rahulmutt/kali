@@ -1,0 +1,803 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# Migrated from tests/browser_math_sqrt_cbrt_frozen_aliases.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_sqrt_cbrt_frozen_aliases.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 1 other `//` occurrence(s) in the file (:11) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded.
+# The two helpers in this file cover DIFFERENT extension sets. The bundle helper
+# `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases` runs over js/ts/jsx/tsx;
+# the harness helper `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` runs over js/ts ONLY
+# -- there is no jsx or tsx harness test here at all.
+# So no single file-wide `ext` axis closes: a 4-value axis fans the 8 harness
+# invocations into 16 and invents the jsx/tsx harness runs the source never made
+# (rule 2), and a 2-value axis drops the bundle's jsx and tsx runs outright (rule 1).
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 16 invocations -> 16 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.js`, `app.ts`, `app.jsx`, `app.tsx`, `main.js`, `main.ts`, `smoke.test.js`, `smoke.test.ts`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULING 7 -- DUPLICATE `[source]` BODIES ARE NOT HOISTED. Several entries below hold
+# byte-identical program text. U13 would hoist them into `[constants]`; controller ruling 7
+# declines that for `browser/` (a hoisted body makes `check_fixtures.py` go red on a correct
+# file, and hoisting moves program text onto the surface `assertion_strings()` searches).
+# The mandatory half of that ruling is honoured instead: the duplication is asserted
+# MECHANICALLY in this file's generator, not eyeballed -- the generator compares the
+# extracted fixture strings and raises if they are not byte-identical.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_math_sqrt_cbrt_frozen_aliases_source`,
+#   `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases`,
+#   `browser_harness_math_sqrt_cbrt_frozen_aliases_run_source`,
+#   `browser_harness_math_sqrt_cbrt_frozen_aliases_test_source`,
+#   `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# BUNDLE helper: `exit = "success"` on the `kali build` process
+# (`output.status.success()` :104) and on the browser-bundle harness process
+# (`output.status.success()` :160); in json mode the envelope's
+# schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat
+# (`envelope["payload"].as_object().expect("payload object")` :112-118) plus the empty `errors` array
+# (`envelope["errors"]` :119); the emitted app/app.meta.json apiSurface/artifactKind
+# (`metadata["apiSurface"]` :130-131) in BOTH modes, because the source reads that file
+# outside the `if json_output`; then the harness step's single long
+# `.contains(...)` claim (:167), which stays `stdout_contains`.
+# HARNESS helper: `exit = "success"` (:333); the environment carries
+# KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node, spelled as a string literal in this source rather than
+# through the `kali_runtime_contract` constant; it passes no --max-threads /
+# --max-spawned-processes arguments, so neither appears on argv.
+# json mode carries schemaVersion/command/success/payload(hostContract,
+# runtimeBackend) (`json["command"]` :341-345), plus `exitCode` at both levels
+# for `run` (:347) or payload total/passed/failed/skipped for `test`
+# (`json["payload"]["skipped"]` :353 is the last of the four), then the exact `json.stdout` pin
+# standing for the `.contains(...)` claim at :357, `stderr = ""`
+# (`json["stderr"]` :360) and the empty `errors` array (:361).
+# Text mode carries the same long needle against raw stdout (`stdout.contains(...)` :365) and,
+# for `test` only, `.contains("ok 1")` (:369).
+# This file uses no count key: the source makes no `.matches(...).count()` claim.
+
+[source]
+"app.js" = """// kali-tree-shake: mathSqrtCbrtFrozenAliasSlice
+function mathSqrtCbrtFrozenAliasSlice() {
+  const four = 4;
+  const minusTwentySeven = -27;
+  const frozenMathSqrt = Object.freeze(Math.sqrt);
+  const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+  const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+  const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+  const frozenSingleQuotedBracketedMathSqrtCall = Object.freeze((globalThis['Math'])["sqrt"]);
+  const frozenSingleQuotedBracketedMathSqrtSingle = Object.freeze((globalThis['Math'])['sqrt']);
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrt = Object.freeze((globalThis['Math']))["sqrt"];
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle = Object.freeze((globalThis['Math']))['sqrt'];
+  const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
+  const frozenParenthesizedDotRootMathSqrtSingle = Object.freeze((globalThis.Math))['sqrt'];
+  const frozenMathCbrt = Object.freeze(Math.cbrt);
+  const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+  const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+  const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+  const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+  const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+  console.log(Math.sqrt(four));
+  console.log(frozenMathSqrt(four));
+  console.log(frozenGlobalThisMathSqrt(four));
+  console.log(frozenBracketedMathSqrt(four));
+  console.log(frozenParenthesizedBracketRootMathSqrt(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtCall(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtSingle(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrt(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four));
+  console.log(frozenParenthesizedDotRootMathSqrt(four));
+  console.log(frozenParenthesizedDotRootMathSqrtSingle(four));
+  console.log(Math.cbrt(minusTwentySeven));
+  console.log(frozenMathCbrt(minusTwentySeven));
+  console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+  console.log(frozenBracketedMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+  return [
+    Math.sqrt(four),
+    frozenMathSqrt(four),
+    frozenGlobalThisMathSqrt(four),
+    frozenBracketedMathSqrt(four),
+    frozenParenthesizedBracketRootMathSqrt(four),
+    frozenSingleQuotedBracketedMathSqrtCall(four),
+    frozenSingleQuotedBracketedMathSqrtSingle(four),
+    frozenParenthesizedSingleQuotedBracketRootMathSqrt(four),
+    frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four),
+    frozenParenthesizedDotRootMathSqrt(four),
+    frozenParenthesizedDotRootMathSqrtSingle(four),
+    Math.cbrt(minusTwentySeven),
+    frozenMathCbrt(minusTwentySeven),
+    frozenGlobalThisMathCbrt(minusTwentySeven),
+    frozenBracketedMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven),
+    frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven),
+    frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven),
+  ];
+}
+"""
+"app.ts" = """// kali-tree-shake: mathSqrtCbrtFrozenAliasSlice
+function mathSqrtCbrtFrozenAliasSlice() {
+  const four = 4;
+  const minusTwentySeven = -27;
+  const frozenMathSqrt = Object.freeze(Math.sqrt);
+  const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+  const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+  const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+  const frozenSingleQuotedBracketedMathSqrtCall = Object.freeze((globalThis['Math'])["sqrt"]);
+  const frozenSingleQuotedBracketedMathSqrtSingle = Object.freeze((globalThis['Math'])['sqrt']);
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrt = Object.freeze((globalThis['Math']))["sqrt"];
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle = Object.freeze((globalThis['Math']))['sqrt'];
+  const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
+  const frozenParenthesizedDotRootMathSqrtSingle = Object.freeze((globalThis.Math))['sqrt'];
+  const frozenMathCbrt = Object.freeze(Math.cbrt);
+  const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+  const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+  const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+  const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+  const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+  console.log(Math.sqrt(four));
+  console.log(frozenMathSqrt(four));
+  console.log(frozenGlobalThisMathSqrt(four));
+  console.log(frozenBracketedMathSqrt(four));
+  console.log(frozenParenthesizedBracketRootMathSqrt(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtCall(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtSingle(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrt(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four));
+  console.log(frozenParenthesizedDotRootMathSqrt(four));
+  console.log(frozenParenthesizedDotRootMathSqrtSingle(four));
+  console.log(Math.cbrt(minusTwentySeven));
+  console.log(frozenMathCbrt(minusTwentySeven));
+  console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+  console.log(frozenBracketedMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+  return [
+    Math.sqrt(four),
+    frozenMathSqrt(four),
+    frozenGlobalThisMathSqrt(four),
+    frozenBracketedMathSqrt(four),
+    frozenParenthesizedBracketRootMathSqrt(four),
+    frozenSingleQuotedBracketedMathSqrtCall(four),
+    frozenSingleQuotedBracketedMathSqrtSingle(four),
+    frozenParenthesizedSingleQuotedBracketRootMathSqrt(four),
+    frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four),
+    frozenParenthesizedDotRootMathSqrt(four),
+    frozenParenthesizedDotRootMathSqrtSingle(four),
+    Math.cbrt(minusTwentySeven),
+    frozenMathCbrt(minusTwentySeven),
+    frozenGlobalThisMathCbrt(minusTwentySeven),
+    frozenBracketedMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven),
+    frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven),
+    frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven),
+  ];
+}
+"""
+"app.jsx" = """// kali-tree-shake: mathSqrtCbrtFrozenAliasSlice
+function mathSqrtCbrtFrozenAliasSlice() {
+  const four = 4;
+  const minusTwentySeven = -27;
+  const frozenMathSqrt = Object.freeze(Math.sqrt);
+  const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+  const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+  const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+  const frozenSingleQuotedBracketedMathSqrtCall = Object.freeze((globalThis['Math'])["sqrt"]);
+  const frozenSingleQuotedBracketedMathSqrtSingle = Object.freeze((globalThis['Math'])['sqrt']);
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrt = Object.freeze((globalThis['Math']))["sqrt"];
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle = Object.freeze((globalThis['Math']))['sqrt'];
+  const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
+  const frozenParenthesizedDotRootMathSqrtSingle = Object.freeze((globalThis.Math))['sqrt'];
+  const frozenMathCbrt = Object.freeze(Math.cbrt);
+  const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+  const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+  const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+  const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+  const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+  console.log(Math.sqrt(four));
+  console.log(frozenMathSqrt(four));
+  console.log(frozenGlobalThisMathSqrt(four));
+  console.log(frozenBracketedMathSqrt(four));
+  console.log(frozenParenthesizedBracketRootMathSqrt(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtCall(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtSingle(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrt(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four));
+  console.log(frozenParenthesizedDotRootMathSqrt(four));
+  console.log(frozenParenthesizedDotRootMathSqrtSingle(four));
+  console.log(Math.cbrt(minusTwentySeven));
+  console.log(frozenMathCbrt(minusTwentySeven));
+  console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+  console.log(frozenBracketedMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+  return [
+    Math.sqrt(four),
+    frozenMathSqrt(four),
+    frozenGlobalThisMathSqrt(four),
+    frozenBracketedMathSqrt(four),
+    frozenParenthesizedBracketRootMathSqrt(four),
+    frozenSingleQuotedBracketedMathSqrtCall(four),
+    frozenSingleQuotedBracketedMathSqrtSingle(four),
+    frozenParenthesizedSingleQuotedBracketRootMathSqrt(four),
+    frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four),
+    frozenParenthesizedDotRootMathSqrt(four),
+    frozenParenthesizedDotRootMathSqrtSingle(four),
+    Math.cbrt(minusTwentySeven),
+    frozenMathCbrt(minusTwentySeven),
+    frozenGlobalThisMathCbrt(minusTwentySeven),
+    frozenBracketedMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven),
+    frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven),
+    frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven),
+  ];
+}
+"""
+"app.tsx" = """// kali-tree-shake: mathSqrtCbrtFrozenAliasSlice
+function mathSqrtCbrtFrozenAliasSlice() {
+  const four = 4;
+  const minusTwentySeven = -27;
+  const frozenMathSqrt = Object.freeze(Math.sqrt);
+  const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+  const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+  const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+  const frozenSingleQuotedBracketedMathSqrtCall = Object.freeze((globalThis['Math'])["sqrt"]);
+  const frozenSingleQuotedBracketedMathSqrtSingle = Object.freeze((globalThis['Math'])['sqrt']);
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrt = Object.freeze((globalThis['Math']))["sqrt"];
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle = Object.freeze((globalThis['Math']))['sqrt'];
+  const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
+  const frozenParenthesizedDotRootMathSqrtSingle = Object.freeze((globalThis.Math))['sqrt'];
+  const frozenMathCbrt = Object.freeze(Math.cbrt);
+  const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+  const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+  const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+  const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+  const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+  console.log(Math.sqrt(four));
+  console.log(frozenMathSqrt(four));
+  console.log(frozenGlobalThisMathSqrt(four));
+  console.log(frozenBracketedMathSqrt(four));
+  console.log(frozenParenthesizedBracketRootMathSqrt(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtCall(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtSingle(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrt(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four));
+  console.log(frozenParenthesizedDotRootMathSqrt(four));
+  console.log(frozenParenthesizedDotRootMathSqrtSingle(four));
+  console.log(Math.cbrt(minusTwentySeven));
+  console.log(frozenMathCbrt(minusTwentySeven));
+  console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+  console.log(frozenBracketedMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+  return [
+    Math.sqrt(four),
+    frozenMathSqrt(four),
+    frozenGlobalThisMathSqrt(four),
+    frozenBracketedMathSqrt(four),
+    frozenParenthesizedBracketRootMathSqrt(four),
+    frozenSingleQuotedBracketedMathSqrtCall(four),
+    frozenSingleQuotedBracketedMathSqrtSingle(four),
+    frozenParenthesizedSingleQuotedBracketRootMathSqrt(four),
+    frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four),
+    frozenParenthesizedDotRootMathSqrt(four),
+    frozenParenthesizedDotRootMathSqrtSingle(four),
+    Math.cbrt(minusTwentySeven),
+    frozenMathCbrt(minusTwentySeven),
+    frozenGlobalThisMathCbrt(minusTwentySeven),
+    frozenBracketedMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven),
+    frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven),
+    frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven),
+  ];
+}
+"""
+"main.js" = """const four = 4;
+const minusTwentySeven = -27;
+const frozenMathSqrt = Object.freeze(Math.sqrt);
+const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+const frozenSingleQuotedBracketedMathSqrt = Object.freeze((globalThis['Math']).sqrt);
+const frozenSingleQuotedBracketedMathSqrtCall = Object.freeze((globalThis['Math'])["sqrt"]);
+const frozenSingleQuotedBracketedMathSqrtSingle = Object.freeze((globalThis['Math'])['sqrt']);
+const frozenParenthesizedSingleQuotedBracketRootMathSqrt = Object.freeze((globalThis['Math']))["sqrt"];
+const frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle = Object.freeze((globalThis['Math']))['sqrt'];
+const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
+const frozenParenthesizedDotRootMathSqrtSingle = Object.freeze((globalThis.Math))['sqrt'];
+const frozenMathCbrt = Object.freeze(Math.cbrt);
+const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
+const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+console.log(Math.sqrt(four));
+console.log(frozenMathSqrt(four));
+console.log(frozenGlobalThisMathSqrt(four));
+console.log(frozenBracketedMathSqrt(four));
+console.log(frozenParenthesizedBracketRootMathSqrt(four));
+console.log(frozenSingleQuotedBracketedMathSqrtCall(four));
+console.log(frozenSingleQuotedBracketedMathSqrtSingle(four));
+console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrt(four));
+console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four));
+console.log(frozenParenthesizedDotRootMathSqrt(four));
+console.log(frozenParenthesizedDotRootMathSqrtSingle(four));
+console.log(Math.cbrt(minusTwentySeven));
+console.log(frozenMathCbrt(minusTwentySeven));
+console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+console.log(frozenBracketedMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+"""
+"main.ts" = """const four = 4;
+const minusTwentySeven = -27;
+const frozenMathSqrt = Object.freeze(Math.sqrt);
+const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+const frozenSingleQuotedBracketedMathSqrt = Object.freeze((globalThis['Math']).sqrt);
+const frozenSingleQuotedBracketedMathSqrtCall = Object.freeze((globalThis['Math'])["sqrt"]);
+const frozenSingleQuotedBracketedMathSqrtSingle = Object.freeze((globalThis['Math'])['sqrt']);
+const frozenParenthesizedSingleQuotedBracketRootMathSqrt = Object.freeze((globalThis['Math']))["sqrt"];
+const frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle = Object.freeze((globalThis['Math']))['sqrt'];
+const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
+const frozenParenthesizedDotRootMathSqrtSingle = Object.freeze((globalThis.Math))['sqrt'];
+const frozenMathCbrt = Object.freeze(Math.cbrt);
+const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
+const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+console.log(Math.sqrt(four));
+console.log(frozenMathSqrt(four));
+console.log(frozenGlobalThisMathSqrt(four));
+console.log(frozenBracketedMathSqrt(four));
+console.log(frozenParenthesizedBracketRootMathSqrt(four));
+console.log(frozenSingleQuotedBracketedMathSqrtCall(four));
+console.log(frozenSingleQuotedBracketedMathSqrtSingle(four));
+console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrt(four));
+console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four));
+console.log(frozenParenthesizedDotRootMathSqrt(four));
+console.log(frozenParenthesizedDotRootMathSqrtSingle(four));
+console.log(Math.cbrt(minusTwentySeven));
+console.log(frozenMathCbrt(minusTwentySeven));
+console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+console.log(frozenBracketedMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+"""
+"smoke.test.js" = """Kali.test('math sqrt/cbrt frozen aliases', () => {
+  const four = 4;
+  const minusTwentySeven = -27;
+  const frozenMathSqrt = Object.freeze(Math.sqrt);
+  const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+  const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+  const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+  const frozenSingleQuotedBracketedMathSqrtCall = Object.freeze((globalThis['Math'])["sqrt"]);
+  const frozenSingleQuotedBracketedMathSqrtSingle = Object.freeze((globalThis['Math'])['sqrt']);
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrt = Object.freeze((globalThis['Math']))["sqrt"];
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle = Object.freeze((globalThis['Math']))['sqrt'];
+  const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
+  const frozenParenthesizedDotRootMathSqrtSingle = Object.freeze((globalThis.Math))['sqrt'];
+  const frozenMathCbrt = Object.freeze(Math.cbrt);
+  const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+  const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+  const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+  const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+  const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+  console.log(Math.sqrt(four));
+  console.log(frozenMathSqrt(four));
+  console.log(frozenGlobalThisMathSqrt(four));
+  console.log(frozenBracketedMathSqrt(four));
+  console.log(frozenParenthesizedBracketRootMathSqrt(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtCall(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtSingle(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrt(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four));
+  console.log(frozenParenthesizedDotRootMathSqrt(four));
+  console.log(frozenParenthesizedDotRootMathSqrtSingle(four));
+  console.log(Math.cbrt(minusTwentySeven));
+  console.log(frozenMathCbrt(minusTwentySeven));
+  console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+  console.log(frozenBracketedMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+});
+"""
+"smoke.test.ts" = """Kali.test('math sqrt/cbrt frozen aliases', () => {
+  const four = 4;
+  const minusTwentySeven = -27;
+  const frozenMathSqrt = Object.freeze(Math.sqrt);
+  const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+  const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+  const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+  const frozenSingleQuotedBracketedMathSqrtCall = Object.freeze((globalThis['Math'])["sqrt"]);
+  const frozenSingleQuotedBracketedMathSqrtSingle = Object.freeze((globalThis['Math'])['sqrt']);
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrt = Object.freeze((globalThis['Math']))["sqrt"];
+  const frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle = Object.freeze((globalThis['Math']))['sqrt'];
+  const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
+  const frozenParenthesizedDotRootMathSqrtSingle = Object.freeze((globalThis.Math))['sqrt'];
+  const frozenMathCbrt = Object.freeze(Math.cbrt);
+  const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+  const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+  const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+  const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+  const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+  console.log(Math.sqrt(four));
+  console.log(frozenMathSqrt(four));
+  console.log(frozenGlobalThisMathSqrt(four));
+  console.log(frozenBracketedMathSqrt(four));
+  console.log(frozenParenthesizedBracketRootMathSqrt(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtCall(four));
+  console.log(frozenSingleQuotedBracketedMathSqrtSingle(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrt(four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathSqrtSingle(four));
+  console.log(frozenParenthesizedDotRootMathSqrt(four));
+  console.log(frozenParenthesizedDotRootMathSqrtSingle(four));
+  console.log(Math.cbrt(minusTwentySeven));
+  console.log(frozenMathCbrt(minusTwentySeven));
+  console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+  console.log(frozenBracketedMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+});
+"""
+
+[[case]]
+name = "build_emits_math_sqrt_and_cbrt_frozen_aliases_in_js_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `build_emits_math_sqrt_and_cbrt_frozen_aliases_in_js_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; see the header). `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that calls Math.sqrt(4) through eleven frozen/bracketed/parenthesized alias forms and Math.cbrt(-27) through ten, so stdout is eleven 2s followed by ten -3s. Its single stdout claim is the long `.contains(...)` needle at :167. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathSqrtCbrtFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_js_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_js_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; see the header). `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that calls Math.sqrt(4) through eleven frozen/bracketed/parenthesized alias forms and Math.cbrt(-27) through ten, so stdout is eleven 2s followed by ten -3s. Its single stdout claim is the long `.contains(...)` needle at :167. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathSqrtCbrtFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "build_emits_math_sqrt_and_cbrt_frozen_aliases_in_ts_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `build_emits_math_sqrt_and_cbrt_frozen_aliases_in_ts_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; see the header). `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that calls Math.sqrt(4) through eleven frozen/bracketed/parenthesized alias forms and Math.cbrt(-27) through ten, so stdout is eleven 2s followed by ten -3s. Its single stdout claim is the long `.contains(...)` needle at :167. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathSqrtCbrtFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_ts_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_ts_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; see the header). `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that calls Math.sqrt(4) through eleven frozen/bracketed/parenthesized alias forms and Math.cbrt(-27) through ten, so stdout is eleven 2s followed by ten -3s. Its single stdout claim is the long `.contains(...)` needle at :167. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathSqrtCbrtFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "build_emits_math_sqrt_and_cbrt_frozen_aliases_in_jsx_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `build_emits_math_sqrt_and_cbrt_frozen_aliases_in_jsx_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; see the header). `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that calls Math.sqrt(4) through eleven frozen/bracketed/parenthesized alias forms and Math.cbrt(-27) through ten, so stdout is eleven 2s followed by ten -3s. Its single stdout claim is the long `.contains(...)` needle at :167. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathSqrtCbrtFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_jsx_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_jsx_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; see the header). `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that calls Math.sqrt(4) through eleven frozen/bracketed/parenthesized alias forms and Math.cbrt(-27) through ten, so stdout is eleven 2s followed by ten -3s. Its single stdout claim is the long `.contains(...)` needle at :167. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathSqrtCbrtFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "build_emits_math_sqrt_and_cbrt_frozen_aliases_in_tsx_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `build_emits_math_sqrt_and_cbrt_frozen_aliases_in_tsx_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; see the header). `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that calls Math.sqrt(4) through eleven frozen/bracketed/parenthesized alias forms and Math.cbrt(-27) through ten, so stdout is eleven 2s followed by ten -3s. Its single stdout claim is the long `.contains(...)` needle at :167. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathSqrtCbrtFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_tsx_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_tsx_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; see the header). `assert_browser_bundle_math_sqrt_cbrt_frozen_aliases` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that calls Math.sqrt(4) through eleven frozen/bracketed/parenthesized alias forms and Math.cbrt(-27) through ten, so stdout is eleven 2s followed by ten -3s. Its single stdout claim is the long `.contains(...)` needle at :167. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.mathSqrtCbrtFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input` -- one source `#[test]` fn, one case. `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` writes the same alias slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node. Its stdout claim is the long `.contains(...)` needle at :365. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "json_run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `json_run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input` -- one source `#[test]` fn, one case. `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` writes the same alias slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "run", "--api", "browser", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n", stderr = "", errors = [] }
+
+[[case]]
+name = "run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input` -- one source `#[test]` fn, one case. `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` writes the same alias slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node. Its stdout claim is the long `.contains(...)` needle at :365. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"]
+
+[[case]]
+name = "json_run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `json_run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input` -- one source `#[test]` fn, one case. `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` writes the same alias slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "run", "--api", "browser", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n", stderr = "", errors = [] }
+
+[[case]]
+name = "test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input` -- one source `#[test]` fn, one case. `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` writes the same alias slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node. Its stdout claim is the long `.contains(...)` needle at :365. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. For `test` the source also asserts `.contains("ok 1")` (:369), which the json branch does not make."""
+args = ["test", "--api", "browser", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3", "ok 1"]
+
+[[case]]
+name = "json_test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `json_test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input` -- one source `#[test]` fn, one case. `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` writes the same alias slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0, skipped = 0 }, stdout = "2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n", stderr = "", errors = [] }
+
+[[case]]
+name = "test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input` -- one source `#[test]` fn, one case. `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` writes the same alias slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node. Its stdout claim is the long `.contains(...)` needle at :365. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. For `test` the source also asserts `.contains("ok 1")` (:369), which the json branch does not make."""
+args = ["test", "--api", "browser", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3", "ok 1"]
+
+[[case]]
+name = "json_test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_sqrt_cbrt_frozen_aliases.rs, `json_test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input` -- one source `#[test]` fn, one case. `assert_browser_harness_math_sqrt_cbrt_frozen_aliases` writes the same alias slice as a plain program and runs `kali run` (or a Kali.test wrapper under `kali test`) with the browser harness backed by node. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0, skipped = 0 }, stdout = "2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n", stderr = "", errors = [] }

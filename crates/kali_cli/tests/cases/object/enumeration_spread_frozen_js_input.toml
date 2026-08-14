@@ -1,0 +1,161 @@
+# Migrated from tests/object_enumeration_spread_frozen_js_input.rs -- all
+# 8 #[test] functions, as 8 case blocks, 1:1 with their source tests. None
+# of the 8 loop over anything internally (each picks one fixed
+# command/extension combination), so no [matrix]/sibling-fanout question
+# arises here.
+#
+# `[constants]` factors the two fixture bodies
+# (`frozen_object_enumeration_spread_source()` and
+# `frozen_object_enumeration_spread_test_source()`) out once each, since
+# both are reused byte-for-byte across their js/ts pair of `[source]`
+# entries (run_js and json_run_js share the plain source; run_ts and
+# json_run_ts share it too; the same holds for the `test`-flavored source
+# across the four `test`/`json_test` cases) -- no filename collisions
+# arise since each pair uses the same content under the same filename.
+#
+# All 8 tests carry the identical explanatory comment from the source
+# `.rs` ("Honest re-pin (PR #16 rev2): kali fails closed/loud here; see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md."), duplicated
+# verbatim at every assertion site in the original (once inside the
+# `assert_frozen_object_enumeration_spread` helper used by 4 tests, and
+# again inline in each of the other 4 `json_*` tests) -- carried into
+# every case's `rationale` below rather than dropped.
+#
+# The 4 `json_*` cases pin `json.errors.0.code = "E5506"` via dotted-path
+# array indexing, per this task's instructions: the source's
+# `json["errors"].as_array()...iter().any(|e| e["code"] == "E5506")` is a
+# claim reached through a closure parameter, not a `let`-bound path, but
+# it is still the real claim being made.
+
+[constants]
+run_source = '''
+const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+const frozenFromEntries = Object.freeze(fromEntries);
+const frozenKeys = [...Object.keys(frozenFromEntries)];
+const frozenValues = [...Object.values(frozenFromEntries)];
+const frozenFromEntriesValues = [...Object.freeze(Object.values(fromEntries))];
+const frozenEntries = [...Object.entries(frozenFromEntries)];
+if (
+  frozenKeys.length !== 2 ||
+  frozenKeys[0] !== 'b' ||
+  frozenKeys[1] !== 'a' ||
+  frozenValues.length !== 2 ||
+  frozenValues[0] !== 3 ||
+  frozenValues[1] !== 2 ||
+  frozenFromEntriesValues.length !== 2 ||
+  frozenFromEntriesValues[0] !== 3 ||
+  frozenFromEntriesValues[1] !== 2 ||
+  frozenEntries.length !== 2 ||
+  frozenEntries[0][0] !== 'b' ||
+  frozenEntries[0][1] !== 3 ||
+  frozenEntries[1][0] !== 'a' ||
+  frozenEntries[1][1] !== 2
+) {
+  throw new Error('unexpected frozen object enumeration spread semantics');
+}
+for (const value of frozenValues) {
+  console.log(value);
+}
+for (const key of frozenKeys) {
+  console.log(key);
+}
+for (const entry of frozenEntries) {
+  console.log(entry[0]);
+  console.log(entry[1]);
+}
+console.log('frozen object enumeration spread ok');
+'''
+test_source = '''
+Kali.test('frozen object enumeration spread', () => {
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const frozenFromEntries = Object.freeze(fromEntries);
+  const frozenKeys = [...Object.keys(frozenFromEntries)];
+  const frozenValues = [...Object.values(frozenFromEntries)];
+  const frozenFromEntriesValues = [...Object.freeze(Object.values(fromEntries))];
+  const frozenEntries = [...Object.entries(frozenFromEntries)];
+  if (
+    frozenKeys.length !== 2 ||
+    frozenKeys[0] !== 'b' ||
+    frozenKeys[1] !== 'a' ||
+    frozenValues.length !== 2 ||
+    frozenValues[0] !== 3 ||
+    frozenValues[1] !== 2 ||
+    frozenFromEntriesValues.length !== 2 ||
+    frozenFromEntriesValues[0] !== 3 ||
+    frozenFromEntriesValues[1] !== 2 ||
+    frozenEntries.length !== 2 ||
+    frozenEntries[0][0] !== 'b' ||
+    frozenEntries[0][1] !== 3 ||
+    frozenEntries[1][0] !== 'a' ||
+    frozenEntries[1][1] !== 2
+  ) {
+    throw new Error('unexpected frozen object enumeration spread semantics');
+  }
+});
+'''
+
+[source]
+"main.js" = "${run_source}"
+"main.ts" = "${run_source}"
+"main.test.js" = "${test_source}"
+"main.test.ts" = "${test_source}"
+
+[[case]]
+name = "run_accepts_frozen_object_enumeration_spread_in_js_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["run", "main.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "run_accepts_frozen_object_enumeration_spread_in_ts_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["run", "main.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_run_accepts_frozen_object_enumeration_spread_in_js_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["--output", "json", "run", "main.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "json_run_accepts_frozen_object_enumeration_spread_in_ts_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["--output", "json", "run", "main.ts"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "test_accepts_frozen_object_enumeration_spread_in_js_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["test", "main.test.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "test_accepts_frozen_object_enumeration_spread_in_ts_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["test", "main.test.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_test_accepts_frozen_object_enumeration_spread_in_js_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["--output", "json", "test", "main.test.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "json_test_accepts_frozen_object_enumeration_spread_in_ts_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["--output", "json", "test", "main.test.ts"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"

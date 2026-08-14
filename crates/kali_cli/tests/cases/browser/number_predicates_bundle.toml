@@ -1,0 +1,581 @@
+# Migrated from tests/browser_number_predicates_bundle.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_number_predicates_bundle.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The file contains no `//` of any kind -- it declares no bundle fixture,
+# so there is not even a `// kali-tree-shake:` marker in it.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 8 `#[test]` fns, 8 real helper invocations with every loop
+# expanded.
+# THE FIXTURE BODY DIFFERS BY EXTENSION, so no `[matrix]` can carry this file.
+# `app.js` and `app.jsx` are built from
+# kali_common::number_predicates_browser_bundle_source("1") (`kali_common::number_predicates_browser_bundle_source("1")` :11);
+# `app.ts` and `app.tsx` from the same builder with "1 as const" (`kali_common::number_predicates_browser_bundle_source("1 as const")` :15),
+# which emits a TypeScript `as const` assertion the JS inputs must not carry.
+# A `[matrix] ext` axis substitutes into the `[source]` KEY `app.${ext}`, and one key
+# can hold exactly one body, so the axis cannot express two programs.
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 8 invocations -> 8 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.js`, `app.ts`, `app.jsx`, `app.tsx`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+# All four share the stem `app`, so `kali build --bundle` emits `app/` for every one
+# and the harness `entry` and the `app/app.meta.json` path hold unchanged; no U5
+# rename is needed or made.
+#
+# RULING 7 -- DUPLICATE `[source]` BODIES ARE NOT HOISTED. Several entries below hold
+# byte-identical program text. U13 would hoist them into `[constants]`; controller ruling 7
+# declines that for `browser/` (a hoisted body makes `check_fixtures.py` go red on a correct
+# file, and hoisting moves program text onto the surface `assertion_strings()` searches).
+# The mandatory half of that ruling is honoured instead: the duplication is asserted
+# MECHANICALLY in this file's generator, not eyeballed -- the generator compares the
+# extracted fixture strings and raises if they are not byte-identical.
+#
+# RULE 8 / RULE 9 -- the [source] programs are built one level removed, inside
+# kali_common, by a `format!` over a `concat!` template, so neither appears as a
+# string literal in this `.rs` at all. Both bodies below are the byte-exact OUTPUT
+# of executing the real builder, captured by a temporary test target that
+# `include!`d this `.rs` and dumped the two fixture builders' return values; the
+# procedure is recorded in `tools/task-18-browser-pilot/batch6a_captures.py`. The
+# generator re-checks each capture against crates/kali_common/src/number.rs's own
+# template segments before emitting it, so a capture taken before a source edit
+# fails the generator rather than shipping a program that is no longer the program
+# under test.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_number_predicates_js_source`,
+#   `browser_bundle_number_predicates_ts_source`,
+#   `assert_browser_bundle_number_predicates` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+# The documented helper is kali_common::number_predicates_browser_bundle_source,
+# in crates/kali_common/src/number.rs. Its `///` doc is extracted from that file
+# by this generator, not retyped, and carried verbatim into the rationale of
+# every case whose [source] body it produced (U6).
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# `exit = "success"` on the `kali build` process (:36) and on the
+# browser-bundle harness process (`output.status.success()` :92).
+# In json mode, the build envelope's schemaVersion/command/success/exitCode and the
+# payload's artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :44-50), plus
+# the empty `errors` array (:51).
+# The emitted app/app.meta.json apiSurface/artifactKind (`metadata["apiSurface"]` :62-63)
+# is asserted in BOTH modes, because the source reads that file outside the
+# `if json_output` block.
+# The harness step carries this file's ONE stdout claim,
+# `.contains("browser number predicates ok")` (:99) -- the fixture itself does
+# all the predicate checking and throws on any mismatch, so that single line is the
+# whole output contract.
+# There is no count claim, no stderr claim on either process, and the build
+# envelope's stdout leaf is never read, so no `json.stdout` pin.
+# The source passes no --max-threads / --max-spawned-processes arguments, so neither
+# appears on argv.
+
+[source]
+"app.js" = """// kali-tree-shake: browserNumberPredicates
+async function browserNumberPredicates() {
+  const alias = 1;
+  const finite = Number.isFinite;
+  const integer = Number.isInteger;
+  const safeInteger = Number.isSafeInteger;
+  const frozenFinite = Object.freeze(Number.isFinite);
+  const frozenNaN = Object.freeze(Number.isNaN);
+  const frozenInteger = Object.freeze(Number.isInteger);
+  const frozenSafeInteger = Object.freeze(Number.isSafeInteger);
+  const frozenBracketedFinite = Object.freeze(Number["isFinite"]);
+  const frozenBracketedNaN = Object.freeze(Number["isNaN"]);
+  const frozenBracketedInteger = Object.freeze(Number["isInteger"]);
+  const frozenBracketedSafeInteger = Object.freeze(Number["isSafeInteger"]);
+  const frozenParenthesizedBracketedFinite = Object.freeze((globalThis["Number"])["isFinite"]);
+  const frozenParenthesizedBracketedNaN = Object.freeze((globalThis["Number"])["isNaN"]);
+  const frozenParenthesizedBracketedInteger = Object.freeze((globalThis["Number"])["isInteger"]);
+  const frozenParenthesizedBracketedSafeInteger = Object.freeze((globalThis["Number"])["isSafeInteger"]);
+  const frozenParenthesizedPropertyFinite = Object.freeze((globalThis["Number"]).isFinite);
+  const frozenParenthesizedPropertyNaN = Object.freeze((globalThis["Number"]).isNaN);
+  const frozenParenthesizedPropertyInteger = Object.freeze((globalThis["Number"]).isInteger);
+  const frozenParenthesizedPropertySafeInteger = Object.freeze((globalThis["Number"]).isSafeInteger);
+  if (
+    Number.isFinite(alias) !== true ||
+    Number.isSafeInteger(await alias) !== true ||
+    integer(alias) !== true ||
+    Number.isSafeInteger(alias) !== true ||
+    integer(1.5) !== false ||
+    Number.isFinite("hello") !== false ||
+    Number.isSafeInteger(1.5) !== false ||
+    globalThis["Number"]["isNaN"](NaN) !== true ||
+    globalThis.Number.isNaN(1) !== false ||
+    globalThis["Number"].isNaN(1) !== false ||
+    globalThis["Number"]["isFinite"](alias) !== true ||
+    globalThis["Number"]["isInteger"](alias) !== true ||
+    globalThis["Number"]["isSafeInteger"](alias) !== true ||
+    globalThis.Number["isNaN"](1) !== false ||
+    globalThis["Number"].isFinite(alias) !== true ||
+    globalThis.Number["isInteger"](alias) !== true ||
+    globalThis["Number"].isSafeInteger(alias) !== true ||
+    Number["isFinite"](alias) !== true ||
+    Number["isInteger"](alias) !== true ||
+    Number["isSafeInteger"](alias) !== true ||
+    Number["isNaN"](1) !== false ||
+    frozenFinite(alias) !== true ||
+    frozenNaN(NaN) !== true ||
+    frozenNaN(1) !== false ||
+    frozenInteger(alias) !== true ||
+    frozenSafeInteger(alias) !== true ||
+    frozenBracketedFinite(alias) !== true ||
+    frozenBracketedNaN(NaN) !== true ||
+    frozenBracketedNaN(1) !== false ||
+    frozenBracketedInteger(alias) !== true ||
+    frozenBracketedSafeInteger(alias) !== true ||
+    frozenParenthesizedBracketedFinite(alias) !== true ||
+    frozenParenthesizedBracketedNaN(NaN) !== true ||
+    frozenParenthesizedBracketedNaN(1) !== false ||
+    frozenParenthesizedBracketedInteger(alias) !== true ||
+    frozenParenthesizedBracketedSafeInteger(alias) !== true ||
+    frozenParenthesizedPropertyFinite(alias) !== true ||
+    frozenParenthesizedPropertyNaN(NaN) !== true ||
+    frozenParenthesizedPropertyNaN(1) !== false ||
+    frozenParenthesizedPropertyInteger(alias) !== true ||
+    frozenParenthesizedPropertySafeInteger(alias) !== true ||
+    safeInteger(alias) !== true ||
+    finite(alias) !== true
+  ) {
+    throw new Error('unexpected browser Number predicate result');
+  }
+  console.log('browser number predicates ok');
+}
+"""
+"app.ts" = """// kali-tree-shake: browserNumberPredicates
+async function browserNumberPredicates() {
+  const alias = 1 as const;
+  const finite = Number.isFinite;
+  const integer = Number.isInteger;
+  const safeInteger = Number.isSafeInteger;
+  const frozenFinite = Object.freeze(Number.isFinite);
+  const frozenNaN = Object.freeze(Number.isNaN);
+  const frozenInteger = Object.freeze(Number.isInteger);
+  const frozenSafeInteger = Object.freeze(Number.isSafeInteger);
+  const frozenBracketedFinite = Object.freeze(Number["isFinite"]);
+  const frozenBracketedNaN = Object.freeze(Number["isNaN"]);
+  const frozenBracketedInteger = Object.freeze(Number["isInteger"]);
+  const frozenBracketedSafeInteger = Object.freeze(Number["isSafeInteger"]);
+  const frozenParenthesizedBracketedFinite = Object.freeze((globalThis["Number"])["isFinite"]);
+  const frozenParenthesizedBracketedNaN = Object.freeze((globalThis["Number"])["isNaN"]);
+  const frozenParenthesizedBracketedInteger = Object.freeze((globalThis["Number"])["isInteger"]);
+  const frozenParenthesizedBracketedSafeInteger = Object.freeze((globalThis["Number"])["isSafeInteger"]);
+  const frozenParenthesizedPropertyFinite = Object.freeze((globalThis["Number"]).isFinite);
+  const frozenParenthesizedPropertyNaN = Object.freeze((globalThis["Number"]).isNaN);
+  const frozenParenthesizedPropertyInteger = Object.freeze((globalThis["Number"]).isInteger);
+  const frozenParenthesizedPropertySafeInteger = Object.freeze((globalThis["Number"]).isSafeInteger);
+  if (
+    Number.isFinite(alias) !== true ||
+    Number.isSafeInteger(await alias) !== true ||
+    integer(alias) !== true ||
+    Number.isSafeInteger(alias) !== true ||
+    integer(1.5) !== false ||
+    Number.isFinite("hello") !== false ||
+    Number.isSafeInteger(1.5) !== false ||
+    globalThis["Number"]["isNaN"](NaN) !== true ||
+    globalThis.Number.isNaN(1) !== false ||
+    globalThis["Number"].isNaN(1) !== false ||
+    globalThis["Number"]["isFinite"](alias) !== true ||
+    globalThis["Number"]["isInteger"](alias) !== true ||
+    globalThis["Number"]["isSafeInteger"](alias) !== true ||
+    globalThis.Number["isNaN"](1) !== false ||
+    globalThis["Number"].isFinite(alias) !== true ||
+    globalThis.Number["isInteger"](alias) !== true ||
+    globalThis["Number"].isSafeInteger(alias) !== true ||
+    Number["isFinite"](alias) !== true ||
+    Number["isInteger"](alias) !== true ||
+    Number["isSafeInteger"](alias) !== true ||
+    Number["isNaN"](1) !== false ||
+    frozenFinite(alias) !== true ||
+    frozenNaN(NaN) !== true ||
+    frozenNaN(1) !== false ||
+    frozenInteger(alias) !== true ||
+    frozenSafeInteger(alias) !== true ||
+    frozenBracketedFinite(alias) !== true ||
+    frozenBracketedNaN(NaN) !== true ||
+    frozenBracketedNaN(1) !== false ||
+    frozenBracketedInteger(alias) !== true ||
+    frozenBracketedSafeInteger(alias) !== true ||
+    frozenParenthesizedBracketedFinite(alias) !== true ||
+    frozenParenthesizedBracketedNaN(NaN) !== true ||
+    frozenParenthesizedBracketedNaN(1) !== false ||
+    frozenParenthesizedBracketedInteger(alias) !== true ||
+    frozenParenthesizedBracketedSafeInteger(alias) !== true ||
+    frozenParenthesizedPropertyFinite(alias) !== true ||
+    frozenParenthesizedPropertyNaN(NaN) !== true ||
+    frozenParenthesizedPropertyNaN(1) !== false ||
+    frozenParenthesizedPropertyInteger(alias) !== true ||
+    frozenParenthesizedPropertySafeInteger(alias) !== true ||
+    safeInteger(alias) !== true ||
+    finite(alias) !== true
+  ) {
+    throw new Error('unexpected browser Number predicate result');
+  }
+  console.log('browser number predicates ok');
+}
+"""
+"app.jsx" = """// kali-tree-shake: browserNumberPredicates
+async function browserNumberPredicates() {
+  const alias = 1;
+  const finite = Number.isFinite;
+  const integer = Number.isInteger;
+  const safeInteger = Number.isSafeInteger;
+  const frozenFinite = Object.freeze(Number.isFinite);
+  const frozenNaN = Object.freeze(Number.isNaN);
+  const frozenInteger = Object.freeze(Number.isInteger);
+  const frozenSafeInteger = Object.freeze(Number.isSafeInteger);
+  const frozenBracketedFinite = Object.freeze(Number["isFinite"]);
+  const frozenBracketedNaN = Object.freeze(Number["isNaN"]);
+  const frozenBracketedInteger = Object.freeze(Number["isInteger"]);
+  const frozenBracketedSafeInteger = Object.freeze(Number["isSafeInteger"]);
+  const frozenParenthesizedBracketedFinite = Object.freeze((globalThis["Number"])["isFinite"]);
+  const frozenParenthesizedBracketedNaN = Object.freeze((globalThis["Number"])["isNaN"]);
+  const frozenParenthesizedBracketedInteger = Object.freeze((globalThis["Number"])["isInteger"]);
+  const frozenParenthesizedBracketedSafeInteger = Object.freeze((globalThis["Number"])["isSafeInteger"]);
+  const frozenParenthesizedPropertyFinite = Object.freeze((globalThis["Number"]).isFinite);
+  const frozenParenthesizedPropertyNaN = Object.freeze((globalThis["Number"]).isNaN);
+  const frozenParenthesizedPropertyInteger = Object.freeze((globalThis["Number"]).isInteger);
+  const frozenParenthesizedPropertySafeInteger = Object.freeze((globalThis["Number"]).isSafeInteger);
+  if (
+    Number.isFinite(alias) !== true ||
+    Number.isSafeInteger(await alias) !== true ||
+    integer(alias) !== true ||
+    Number.isSafeInteger(alias) !== true ||
+    integer(1.5) !== false ||
+    Number.isFinite("hello") !== false ||
+    Number.isSafeInteger(1.5) !== false ||
+    globalThis["Number"]["isNaN"](NaN) !== true ||
+    globalThis.Number.isNaN(1) !== false ||
+    globalThis["Number"].isNaN(1) !== false ||
+    globalThis["Number"]["isFinite"](alias) !== true ||
+    globalThis["Number"]["isInteger"](alias) !== true ||
+    globalThis["Number"]["isSafeInteger"](alias) !== true ||
+    globalThis.Number["isNaN"](1) !== false ||
+    globalThis["Number"].isFinite(alias) !== true ||
+    globalThis.Number["isInteger"](alias) !== true ||
+    globalThis["Number"].isSafeInteger(alias) !== true ||
+    Number["isFinite"](alias) !== true ||
+    Number["isInteger"](alias) !== true ||
+    Number["isSafeInteger"](alias) !== true ||
+    Number["isNaN"](1) !== false ||
+    frozenFinite(alias) !== true ||
+    frozenNaN(NaN) !== true ||
+    frozenNaN(1) !== false ||
+    frozenInteger(alias) !== true ||
+    frozenSafeInteger(alias) !== true ||
+    frozenBracketedFinite(alias) !== true ||
+    frozenBracketedNaN(NaN) !== true ||
+    frozenBracketedNaN(1) !== false ||
+    frozenBracketedInteger(alias) !== true ||
+    frozenBracketedSafeInteger(alias) !== true ||
+    frozenParenthesizedBracketedFinite(alias) !== true ||
+    frozenParenthesizedBracketedNaN(NaN) !== true ||
+    frozenParenthesizedBracketedNaN(1) !== false ||
+    frozenParenthesizedBracketedInteger(alias) !== true ||
+    frozenParenthesizedBracketedSafeInteger(alias) !== true ||
+    frozenParenthesizedPropertyFinite(alias) !== true ||
+    frozenParenthesizedPropertyNaN(NaN) !== true ||
+    frozenParenthesizedPropertyNaN(1) !== false ||
+    frozenParenthesizedPropertyInteger(alias) !== true ||
+    frozenParenthesizedPropertySafeInteger(alias) !== true ||
+    safeInteger(alias) !== true ||
+    finite(alias) !== true
+  ) {
+    throw new Error('unexpected browser Number predicate result');
+  }
+  console.log('browser number predicates ok');
+}
+"""
+"app.tsx" = """// kali-tree-shake: browserNumberPredicates
+async function browserNumberPredicates() {
+  const alias = 1 as const;
+  const finite = Number.isFinite;
+  const integer = Number.isInteger;
+  const safeInteger = Number.isSafeInteger;
+  const frozenFinite = Object.freeze(Number.isFinite);
+  const frozenNaN = Object.freeze(Number.isNaN);
+  const frozenInteger = Object.freeze(Number.isInteger);
+  const frozenSafeInteger = Object.freeze(Number.isSafeInteger);
+  const frozenBracketedFinite = Object.freeze(Number["isFinite"]);
+  const frozenBracketedNaN = Object.freeze(Number["isNaN"]);
+  const frozenBracketedInteger = Object.freeze(Number["isInteger"]);
+  const frozenBracketedSafeInteger = Object.freeze(Number["isSafeInteger"]);
+  const frozenParenthesizedBracketedFinite = Object.freeze((globalThis["Number"])["isFinite"]);
+  const frozenParenthesizedBracketedNaN = Object.freeze((globalThis["Number"])["isNaN"]);
+  const frozenParenthesizedBracketedInteger = Object.freeze((globalThis["Number"])["isInteger"]);
+  const frozenParenthesizedBracketedSafeInteger = Object.freeze((globalThis["Number"])["isSafeInteger"]);
+  const frozenParenthesizedPropertyFinite = Object.freeze((globalThis["Number"]).isFinite);
+  const frozenParenthesizedPropertyNaN = Object.freeze((globalThis["Number"]).isNaN);
+  const frozenParenthesizedPropertyInteger = Object.freeze((globalThis["Number"]).isInteger);
+  const frozenParenthesizedPropertySafeInteger = Object.freeze((globalThis["Number"]).isSafeInteger);
+  if (
+    Number.isFinite(alias) !== true ||
+    Number.isSafeInteger(await alias) !== true ||
+    integer(alias) !== true ||
+    Number.isSafeInteger(alias) !== true ||
+    integer(1.5) !== false ||
+    Number.isFinite("hello") !== false ||
+    Number.isSafeInteger(1.5) !== false ||
+    globalThis["Number"]["isNaN"](NaN) !== true ||
+    globalThis.Number.isNaN(1) !== false ||
+    globalThis["Number"].isNaN(1) !== false ||
+    globalThis["Number"]["isFinite"](alias) !== true ||
+    globalThis["Number"]["isInteger"](alias) !== true ||
+    globalThis["Number"]["isSafeInteger"](alias) !== true ||
+    globalThis.Number["isNaN"](1) !== false ||
+    globalThis["Number"].isFinite(alias) !== true ||
+    globalThis.Number["isInteger"](alias) !== true ||
+    globalThis["Number"].isSafeInteger(alias) !== true ||
+    Number["isFinite"](alias) !== true ||
+    Number["isInteger"](alias) !== true ||
+    Number["isSafeInteger"](alias) !== true ||
+    Number["isNaN"](1) !== false ||
+    frozenFinite(alias) !== true ||
+    frozenNaN(NaN) !== true ||
+    frozenNaN(1) !== false ||
+    frozenInteger(alias) !== true ||
+    frozenSafeInteger(alias) !== true ||
+    frozenBracketedFinite(alias) !== true ||
+    frozenBracketedNaN(NaN) !== true ||
+    frozenBracketedNaN(1) !== false ||
+    frozenBracketedInteger(alias) !== true ||
+    frozenBracketedSafeInteger(alias) !== true ||
+    frozenParenthesizedBracketedFinite(alias) !== true ||
+    frozenParenthesizedBracketedNaN(NaN) !== true ||
+    frozenParenthesizedBracketedNaN(1) !== false ||
+    frozenParenthesizedBracketedInteger(alias) !== true ||
+    frozenParenthesizedBracketedSafeInteger(alias) !== true ||
+    frozenParenthesizedPropertyFinite(alias) !== true ||
+    frozenParenthesizedPropertyNaN(NaN) !== true ||
+    frozenParenthesizedPropertyNaN(1) !== false ||
+    frozenParenthesizedPropertyInteger(alias) !== true ||
+    frozenParenthesizedPropertySafeInteger(alias) !== true ||
+    safeInteger(alias) !== true ||
+    finite(alias) !== true
+  ) {
+    throw new Error('unexpected browser Number predicate result');
+  }
+  console.log('browser number predicates ok');
+}
+"""
+
+[[case]]
+name = "build_emits_browser_number_predicates_in_js_input"
+rationale = """Migrated from browser_number_predicates_bundle.rs, `build_emits_browser_number_predicates_in_js_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; the fixture body differs by extension, see the header). `assert_browser_bundle_number_predicates` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that exercises the whole supported Number-predicate slice through direct, aliased, frozen, bracketed and parenthesized access forms and throws unless every one returns the expected boolean. This case's `app.js` body is the js form of the shared builder, whose alias binding is a plain 1. Its single stdout claim is `.contains("browser number predicates ok")` (:99). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported Number predicate slice.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserNumberPredicates();
+"""
+exit = "success"
+stdout_contains = ["browser number predicates ok"]
+
+[[case]]
+name = "json_build_emits_browser_number_predicates_in_js_input"
+rationale = """Migrated from browser_number_predicates_bundle.rs, `json_build_emits_browser_number_predicates_in_js_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; the fixture body differs by extension, see the header). `assert_browser_bundle_number_predicates` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that exercises the whole supported Number-predicate slice through direct, aliased, frozen, bracketed and parenthesized access forms and throws unless every one returns the expected boolean. This case's `app.js` body is the js form of the shared builder, whose alias binding is a plain 1. Its single stdout claim is `.contains("browser number predicates ok")` (:99). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported Number predicate slice." This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserNumberPredicates();
+"""
+exit = "success"
+stdout_contains = ["browser number predicates ok"]
+
+[[case]]
+name = "build_emits_browser_number_predicates_in_ts_input"
+rationale = """Migrated from browser_number_predicates_bundle.rs, `build_emits_browser_number_predicates_in_ts_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; the fixture body differs by extension, see the header). `assert_browser_bundle_number_predicates` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that exercises the whole supported Number-predicate slice through direct, aliased, frozen, bracketed and parenthesized access forms and throws unless every one returns the expected boolean. This case's `app.ts` body is the ts form of the shared builder, whose alias binding carries the TypeScript `as const` assertion. Its single stdout claim is `.contains("browser number predicates ok")` (:99). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported Number predicate slice.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserNumberPredicates();
+"""
+exit = "success"
+stdout_contains = ["browser number predicates ok"]
+
+[[case]]
+name = "json_build_emits_browser_number_predicates_in_ts_input"
+rationale = """Migrated from browser_number_predicates_bundle.rs, `json_build_emits_browser_number_predicates_in_ts_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; the fixture body differs by extension, see the header). `assert_browser_bundle_number_predicates` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that exercises the whole supported Number-predicate slice through direct, aliased, frozen, bracketed and parenthesized access forms and throws unless every one returns the expected boolean. This case's `app.ts` body is the ts form of the shared builder, whose alias binding carries the TypeScript `as const` assertion. Its single stdout claim is `.contains("browser number predicates ok")` (:99). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported Number predicate slice." This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserNumberPredicates();
+"""
+exit = "success"
+stdout_contains = ["browser number predicates ok"]
+
+[[case]]
+name = "build_emits_browser_number_predicates_in_jsx_input"
+rationale = """Migrated from browser_number_predicates_bundle.rs, `build_emits_browser_number_predicates_in_jsx_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; the fixture body differs by extension, see the header). `assert_browser_bundle_number_predicates` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that exercises the whole supported Number-predicate slice through direct, aliased, frozen, bracketed and parenthesized access forms and throws unless every one returns the expected boolean. This case's `app.jsx` body is the js form of the shared builder, whose alias binding is a plain 1. Its single stdout claim is `.contains("browser number predicates ok")` (:99). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported Number predicate slice.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserNumberPredicates();
+"""
+exit = "success"
+stdout_contains = ["browser number predicates ok"]
+
+[[case]]
+name = "json_build_emits_browser_number_predicates_in_jsx_input"
+rationale = """Migrated from browser_number_predicates_bundle.rs, `json_build_emits_browser_number_predicates_in_jsx_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; the fixture body differs by extension, see the header). `assert_browser_bundle_number_predicates` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that exercises the whole supported Number-predicate slice through direct, aliased, frozen, bracketed and parenthesized access forms and throws unless every one returns the expected boolean. This case's `app.jsx` body is the js form of the shared builder, whose alias binding is a plain 1. Its single stdout claim is `.contains("browser number predicates ok")` (:99). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported Number predicate slice." This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserNumberPredicates();
+"""
+exit = "success"
+stdout_contains = ["browser number predicates ok"]
+
+[[case]]
+name = "build_emits_browser_number_predicates_in_tsx_input"
+rationale = """Migrated from browser_number_predicates_bundle.rs, `build_emits_browser_number_predicates_in_tsx_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; the fixture body differs by extension, see the header). `assert_browser_bundle_number_predicates` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that exercises the whole supported Number-predicate slice through direct, aliased, frozen, bracketed and parenthesized access forms and throws unless every one returns the expected boolean. This case's `app.tsx` body is the ts form of the shared builder, whose alias binding carries the TypeScript `as const` assertion. Its single stdout claim is `.contains("browser number predicates ok")` (:99). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported Number predicate slice.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserNumberPredicates();
+"""
+exit = "success"
+stdout_contains = ["browser number predicates ok"]
+
+[[case]]
+name = "json_build_emits_browser_number_predicates_in_tsx_input"
+rationale = """Migrated from browser_number_predicates_bundle.rs, `json_build_emits_browser_number_predicates_in_tsx_input` -- one source `#[test]` fn, one case (no `[matrix]` in this file; the fixture body differs by extension, see the header). `assert_browser_bundle_number_predicates` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program that exercises the whole supported Number-predicate slice through direct, aliased, frozen, bracketed and parenthesized access forms and throws unless every one returns the expected boolean. This case's `app.tsx` body is the ts form of the shared builder, whose alias binding carries the TypeScript `as const` assertion. Its single stdout claim is `.contains("browser number predicates ok")` (:99). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported Number predicate slice." This sibling additionally asserts the build JSON envelope rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserNumberPredicates();
+"""
+exit = "success"
+stdout_contains = ["browser number predicates ok"]

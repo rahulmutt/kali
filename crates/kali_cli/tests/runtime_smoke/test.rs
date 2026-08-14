@@ -2687,7 +2687,7 @@ fn json_test_supports_array_from_iteration_semantics_when_browser_api_surface_is
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -2739,7 +2739,7 @@ fn test_supports_try_catch_and_finally_sequencing_when_browser_harness_is_config
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .arg("--output")
         .arg("json")
         .arg("test")
@@ -2770,7 +2770,7 @@ fn test_supports_try_catch_and_finally_sequencing_when_browser_harness_is_config
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .arg("--output")
         .arg("json")
         .arg("test")
@@ -3687,7 +3687,7 @@ if (false || false) {
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .arg("--output")
         .arg("json")
         .arg("test")
@@ -4459,7 +4459,7 @@ fn json_test_supports_object_enumeration_semantics_when_browser_api_surface_is_i
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -4503,7 +4503,7 @@ fn json_test_supports_object_enumeration_semantics_when_browser_api_surface_is_i
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -5267,7 +5267,7 @@ fn json_test_supports_math_ceil_semantics_when_browser_harness_is_configured_wit
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .arg("--output")
         .arg("json")
         .arg("test")
@@ -9425,7 +9425,7 @@ fn test_supports_object_from_entries_enumeration_semantics_with_satisfies_wrappe
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .arg("test")
         .arg("--api")
         .arg("browser")
@@ -11247,7 +11247,7 @@ fn test_supports_nullish_assignment_in_browser_api_surface_with_harness_js_input
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -11274,7 +11274,7 @@ fn json_test_supports_nullish_assignment_in_browser_api_surface_with_harness_js_
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -11307,7 +11307,7 @@ fn test_supports_nullish_assignment_in_browser_api_surface_with_harness_ts_input
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -11334,7 +11334,7 @@ fn json_test_supports_nullish_assignment_in_browser_api_surface_with_harness_ts_
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -11364,7 +11364,7 @@ fn test_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12167,7 +12167,7 @@ fn test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_i
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12225,7 +12225,7 @@ fn test_supports_math_sqrt_member_calls_in_inherited_browser_api_surface_with_ha
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg(&source_path)
@@ -12267,7 +12267,7 @@ fn test_supports_math_sqrt_member_calls_in_inherited_browser_api_surface_with_ha
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12314,7 +12314,7 @@ fn test_supports_nullish_coalescing_in_browser_api_surface_with_harness_js_input
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12339,7 +12339,7 @@ fn json_test_supports_nullish_coalescing_in_browser_api_surface_with_harness_js_
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12371,7 +12371,7 @@ fn test_supports_nullish_coalescing_with_void_and_undefined_fallbacks_in_browser
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12397,7 +12397,7 @@ fn json_test_supports_nullish_coalescing_with_void_and_undefined_fallbacks_in_br
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12428,7 +12428,7 @@ fn test_supports_for_of_array_iteration_in_browser_api_surface_with_harness_ts_i
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12454,7 +12454,7 @@ fn test_supports_for_of_array_iteration_in_browser_api_surface_with_harness_ts_i
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12487,7 +12487,7 @@ fn test_supports_for_of_array_iteration_with_spread_of_const_bound_literal_array
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12514,7 +12514,7 @@ fn test_supports_for_of_array_iteration_with_spread_of_const_bound_literal_array
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12550,7 +12550,7 @@ fn test_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_i
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12576,7 +12576,7 @@ fn test_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_i
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12604,7 +12604,7 @@ fn test_supports_set_and_map_constructor_iteration_in_browser_api_surface_with_h
     fs::write(&source_path, set_and_map_iteration_test_source()).expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12632,7 +12632,7 @@ fn json_test_supports_set_and_map_constructor_iteration_in_browser_api_surface_w
     fs::write(&source_path, set_and_map_iteration_test_source()).expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12667,7 +12667,7 @@ fn test_supports_for_await_array_iteration_with_spread_of_const_bound_literal_ar
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12704,7 +12704,7 @@ fn test_supports_for_await_array_iteration_with_spread_of_const_bound_literal_ar
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12730,7 +12730,7 @@ fn test_supports_for_await_array_iteration_in_browser_api_surface_with_harness_j
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12765,7 +12765,7 @@ fn test_supports_for_await_array_iteration_in_browser_api_surface_with_harness_t
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12802,7 +12802,7 @@ fn test_supports_for_await_array_iteration_with_await_wrapper_in_browser_api_sur
         .expect("write source");
 
         let output = Command::new(kali_bin())
-            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path())
             .arg("--output")
             .arg("json")
@@ -12893,7 +12893,7 @@ fn test_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_br
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12924,7 +12924,7 @@ fn json_test_supports_spread_of_object_enumeration_in_for_await_array_iteration_
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -12960,7 +12960,7 @@ fn test_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_br
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -12991,7 +12991,7 @@ fn json_test_supports_spread_of_object_enumeration_in_for_await_array_iteration_
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -13027,7 +13027,7 @@ fn test_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_br
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -13058,7 +13058,7 @@ fn json_test_supports_spread_of_object_enumeration_in_for_await_array_iteration_
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -13746,7 +13746,7 @@ Kali.test('node', () => {
 #[test]
 fn test_rejects_browser_api_surface_in_phase_one() {
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .arg("test")
         .arg("--api")
         .arg("browser")
@@ -13778,7 +13778,7 @@ fn test_rejects_inherited_browser_api_surface_in_phase_one() {
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("test")
         .arg(&source_path)
@@ -13803,7 +13803,7 @@ fn test_accepts_browser_api_surface_when_a_browser_harness_command_is_configured
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -13844,7 +13844,7 @@ fn test_accepts_inherited_browser_api_surface_when_a_browser_harness_command_is_
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg(&source_path)
@@ -13904,7 +13904,7 @@ fn test_accepts_supported_array_callback_slices_when_a_browser_harness_command_i
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -13935,7 +13935,7 @@ fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_c
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -13987,7 +13987,7 @@ fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_c
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -14039,7 +14039,7 @@ fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_c
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -14091,7 +14091,7 @@ fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_c
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -14157,7 +14157,7 @@ fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_c
         fs::write(&source_path, source).expect("write source");
 
         let output = Command::new(kali_bin())
-            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path())
             .arg("test")
             .arg("--api")
@@ -14208,7 +14208,7 @@ fn test_accepts_positive_thread_budget_override_when_browser_harness_is_configur
         fs::write(&source_path, source).expect("write source");
 
         let output = Command::new(kali_bin())
-            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
             .current_dir(dir.path())
             .arg("--output")
             .arg("json")
@@ -14260,7 +14260,7 @@ fn test_accepts_browser_api_surface_with_object_enumeration_in_js_input_when_a_b
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -14303,7 +14303,7 @@ fn test_accepts_inherited_browser_api_surface_with_object_enumeration_in_js_inpu
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg(&source_path)
@@ -14334,7 +14334,7 @@ fn test_accepts_browser_api_surface_with_object_enumeration_in_ts_input_when_a_b
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -14377,7 +14377,7 @@ fn test_accepts_inherited_browser_api_surface_with_object_enumeration_in_ts_inpu
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg(&source_path)
@@ -14408,7 +14408,7 @@ fn test_accepts_browser_api_surface_with_integer_like_object_enumeration_in_js_i
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -14451,7 +14451,7 @@ fn test_accepts_inherited_browser_api_surface_with_integer_like_object_enumerati
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg(&source_path)
@@ -14482,7 +14482,7 @@ fn test_accepts_browser_api_surface_with_integer_like_object_enumeration_in_ts_i
     .expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -14525,7 +14525,7 @@ fn test_accepts_inherited_browser_api_surface_with_integer_like_object_enumerati
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg(&source_path)
@@ -14547,7 +14547,7 @@ fn test_accepts_inherited_browser_api_surface_with_integer_like_object_enumerati
 #[test]
 fn json_test_rejects_browser_api_surface_in_phase_one() {
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .arg("--output")
         .arg("json")
         .arg("test")
@@ -14599,7 +14599,7 @@ fn json_test_rejects_inherited_browser_api_surface_in_phase_one() {
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -14645,7 +14645,7 @@ fn test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -14672,7 +14672,7 @@ fn json_test_rejects_browser_api_surface_with_missing_sandbox_policy_before_poli
     fs::write(&source_path, "test('browser', () => {});").expect("write source");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -14715,7 +14715,7 @@ fn json_test_rejects_browser_api_surface_with_sandbox_in_phase_one() {
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -14758,7 +14758,7 @@ fn test_rejects_browser_api_surface_with_sandbox_when_browser_harness_is_configu
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--api")
@@ -14785,7 +14785,7 @@ fn json_test_rejects_browser_api_surface_with_sandbox_when_browser_harness_is_co
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -14839,7 +14839,7 @@ fn json_test_rejects_inherited_browser_api_surface_with_sandbox_when_browser_har
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -14890,7 +14890,7 @@ fn test_rejects_inherited_browser_api_surface_with_sandbox_when_browser_harness_
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("test")
         .arg("--sandbox")
@@ -14925,7 +14925,7 @@ fn json_test_rejects_inherited_browser_api_surface_with_sandbox_in_phase_one() {
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -14983,7 +14983,7 @@ fn test_rejects_inherited_browser_api_surface_with_sandbox_in_phase_one() {
     write_valid_policy(&policy_path);
 
     let output = Command::new(kali_bin())
-        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .env_remove(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV)
         .current_dir(dir.path())
         .arg("test")
         .arg("--sandbox")

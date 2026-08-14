@@ -1,0 +1,53 @@
+# Migrated from tests/object_delete_gate.rs -- all 3 #[test] functions, as 3
+# case blocks, 1:1.
+#
+# Every test in this file shares one shape: write a `main.ts` fixture, run
+# `kali run <path>`, and assert the process fails closed with `E5506` in
+# stderr (`run_expect_reject`'s `assert_ne!(code, 0)` + `stderr.contains
+# ("E5506")`). The first test additionally asserts `stderr.contains
+# ("delete")`. No axis loops over anything (extension, command, or
+# otherwise), so no [matrix] -- 3 independent siblings.
+#
+# The original `.rs` gave every fixture the same in-tempdir filename
+# ("main.ts"), because each test got its own fresh `std::env::temp_dir()`
+# subdirectory. This file's [source] table is shared by every case (see
+# repeat_static_ascii.toml's header for why), so the 3 fixture bodies can't
+# all be called "main.ts" here -- that would be 3 different values for one
+# [source] key. Renamed to `delete_inside_branch.ts` /
+# `delete_then_member_read.ts` / `delete_of_aliased_object.ts`, one per
+# test, to avoid the collision; the filename itself carries no claim (see
+# migration house style).
+#
+# The `//` comments above each old `#[test]` (node's actual runtime
+# behavior, and why kali must reject) are moved into `rationale`, not
+# dropped and not left as stripped `#` comments.
+#
+# Verified directly against the built binary: all three fixtures fail
+# closed with `E5506` in stderr; the first ("inside a branch") additionally
+# emits the literal word "delete" in its diagnostic text.
+
+[source]
+"delete_inside_branch.ts" = "const r = { a: 1, b: 2 };\nif (r.a) { delete r.b; }\nconsole.log('c=' + Object.keys(r).length);"
+"delete_then_member_read.ts" = "const r = { a: 1, b: 2 };\ndelete r.b;\nconsole.log(r.b);"
+"delete_of_aliased_object.ts" = "const r = { a: 1, b: 2 };\nconst s = r;\ndelete r.b;\nconsole.log(Object.keys(s).length);"
+
+[[case]]
+name = "delete_inside_a_branch_rejects_e5506"
+rationale = "node: prints c=2. kali: must NOT run -- conditional delete is outside the static timeline."
+args = ["run", "delete_inside_branch.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "delete"]
+
+[[case]]
+name = "delete_then_member_read_rejects_e5506"
+rationale = "node: prints undefined. kali: a runtime member read of a deleted-not-reinserted key is untested surface -- fail closed (the read disqualifies the binding from the timeline, so the delete reaches codegen)."
+args = ["run", "delete_then_member_read.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "delete_of_aliased_object_rejects_e5506"
+rationale = "Aliasing + mutation: both names must see the mutation (node semantics) -- outside the timeline, fail closed."
+args = ["run", "delete_of_aliased_object.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]

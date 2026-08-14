@@ -1,0 +1,1303 @@
+# Migrated from tests/browser_template_literal_dynamic_import_harness.rs.
+#   SOURCE REF: fd75de19cad9c174165048a565468ce99064c87f
+#
+# Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()`
+# is now a real runtime coercion (String de-denylisted + routed through the
+# `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY:
+# every fixture routed through this helper does `console.log(String(value))`
+# (the freeze variant does three such lines) where `value` is the
+# imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node
+# v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct
+# stdout. Derive the expected program stdout FROM the fixture — one `0\n`
+# per `console.log(String(` site, then `main loaded\n` — so the assertion
+# is exact and a wrong-reason pass on a stray substring (e.g. a surviving
+# deny that happens to print "0") is not available. In `--output json` mode
+# the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1`
+# test summary stays out of it); for a non-json `test` run the TAP summary
+# trails the program output.
+#
+# 35 `{{` occurrences in source (the densest brace-collapse trap in this
+# family, per the pilot task brief): fixture bodies are built by `format!`
+# with real doubling around JS code blocks AND the genuine `${name}`
+# template-literal interpolation. Every resolved fixture text below was
+# captured by actually EXECUTING the real `format!` calls via a temporary
+# Rust test dump, never hand-derived (rule 8).
+#
+# NOT used as a [matrix] file despite superficially looking like one: the
+# "sequence" variant is asymmetric on the `ext` axis -- its `js` extension
+# is exercised ONLY in non-json mode in source (no json_run_seq_js /
+# json_test_seq_js fn exists), while `ts`/`jsx`/`tsx` get both json states
+# via a loop, and the "default"/"freeze" variants ARE fully uniform across
+# ext x json_output. Since [matrix] is file-level and fans EVERY case
+# uniformly, mixing a non-uniform variant into the same file's matrix would
+# either invent an untested (sequence, js, json) case (rule 2 violation) or
+# require excluding one case from an axis the format cannot express. All 46
+# cases are therefore named siblings (rule 5), not matrix-fanned -- a
+# concrete instance of "matrix eligibility must be checked file-wide, not
+# case-by-case" for the batch-2-8 cost estimate.
+#
+# ENTRY filenames are disambiguated with a `_<variant>` stem tag
+# (main_default.js / main_sequence.js / main_freeze.js, smoke.test_default.js
+# / ...) for the same reason as files 1/2/5 in this pilot: [source] is one
+# flat file-wide table, but source reuses the bare entry filename (main.js,
+# smoke.test.js) across variants that each get their own private tempdir in
+# the .rs world. No assertion ever pins the literal entry filename, so this
+# changes no claim.
+#
+# Review fix (pilot round 1, finding 2): the imported CHUNK filename
+# (lazy.js/.ts/.jsx/.tsx) is NOT renamed, unlike the entry filename above --
+# rule 9 says never rewrite the program under test, and an earlier draft of
+# this file did exactly that (`const name = "lazy.js"` in source became
+# `"lazy_default.js"` here), which is a real, avoidable violation: the
+# dynamic-import specifier is baked INTO the fixture body's own text, so
+# renaming it changes what program actually runs, unlike an entry filename
+# (never referenced inside any program). Fixed by leaving every fixture body
+# exactly as source wrote it and collapsing to ONE shared [source] key per
+# extension (`lazy.js`, `lazy.ts`, `lazy.jsx`, `lazy.tsx`) serving all three
+# variants -- safe because all three variants' companion chunk file is
+# byte-identical (`export function lazyValue() { return 0n; }`) regardless
+# of which variant imports it. The general rule for batches 2-8: rename
+# [source] keys freely for disambiguation, but never rename one whose text
+# is read back INSIDE a fixture body.
+
+
+[constants]
+dollar = "$"
+
+[source]
+"main_default.js" = """async function main() {
+  const name = "lazy.js";
+  const chunk = await import(`./${dollar}{name}`);
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import', () => {});
+"""
+"lazy.js" = """export function lazyValue() { return 0n; }"""
+"smoke.test_default.js" = """async function main() {
+  const name = "lazy.js";
+  const chunk = await import(`./${dollar}{name}`);
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import', () => {});
+"""
+"main_default.ts" = """async function main() {
+  const name = "lazy.ts";
+  const chunk = await import(`./${dollar}{name}`);
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import', () => {});
+"""
+"lazy.ts" = """export function lazyValue() { return 0n; }"""
+"smoke.test_default.ts" = """async function main() {
+  const name = "lazy.ts";
+  const chunk = await import(`./${dollar}{name}`);
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import', () => {});
+"""
+"main_default.jsx" = """async function main() {
+  const name = "lazy.jsx";
+  const chunk = await import(`./${dollar}{name}`);
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import', () => {});
+"""
+"lazy.jsx" = """export function lazyValue() { return 0n; }"""
+"smoke.test_default.jsx" = """async function main() {
+  const name = "lazy.jsx";
+  const chunk = await import(`./${dollar}{name}`);
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import', () => {});
+"""
+"main_default.tsx" = """async function main() {
+  const name = "lazy.tsx";
+  const chunk = await import(`./${dollar}{name}`);
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import', () => {});
+"""
+"lazy.tsx" = """export function lazyValue() { return 0n; }"""
+"smoke.test_default.tsx" = """async function main() {
+  const name = "lazy.tsx";
+  const chunk = await import(`./${dollar}{name}`);
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import', () => {});
+"""
+"main_sequence.js" = """async function main() {
+  const name = "lazy.js";
+  const chunk = await import((0, `./${dollar}{name}`));
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import sequence', () => {});
+"""
+"smoke.test_sequence.js" = """async function main() {
+  const name = "lazy.js";
+  const chunk = await import((0, `./${dollar}{name}`));
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import sequence', () => {});
+"""
+"main_sequence.ts" = """async function main() {
+  const name = "lazy.ts";
+  const chunk = await import((0, `./${dollar}{name}`));
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import sequence', () => {});
+"""
+"smoke.test_sequence.ts" = """async function main() {
+  const name = "lazy.ts";
+  const chunk = await import((0, `./${dollar}{name}`));
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import sequence', () => {});
+"""
+"main_sequence.jsx" = """async function main() {
+  const name = "lazy.jsx";
+  const chunk = await import((0, `./${dollar}{name}`));
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import sequence', () => {});
+"""
+"smoke.test_sequence.jsx" = """async function main() {
+  const name = "lazy.jsx";
+  const chunk = await import((0, `./${dollar}{name}`));
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import sequence', () => {});
+"""
+"main_sequence.tsx" = """async function main() {
+  const name = "lazy.tsx";
+  const chunk = await import((0, `./${dollar}{name}`));
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import sequence', () => {});
+"""
+"smoke.test_sequence.tsx" = """async function main() {
+  const name = "lazy.tsx";
+  const chunk = await import((0, `./${dollar}{name}`));
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${dollar}{value}`);
+  }
+  console.log(String(value));
+  console.log('main loaded');
+}
+main();
+Kali.test('template literal dynamic import sequence', () => {});
+"""
+"main_freeze.js" = """async function main() {
+  const nullishChunk = await import(Object.freeze((null ?? "./lazy.js")));
+  if (typeof nullishChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const nullishValue = await nullishChunk.lazyValue();
+  if (nullishValue !== 0n) {
+    throw new Error(`unexpected nullish chunk result ${dollar}{nullishValue}`);
+  }
+  console.log(String(nullishValue));
+  const andChunk = await import(Object.freeze((true && "./lazy.js")));
+  if (typeof andChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const andValue = await andChunk.lazyValue();
+  if (andValue !== 0n) {
+    throw new Error(`unexpected and chunk result ${dollar}{andValue}`);
+  }
+  console.log(String(andValue));
+  const orChunk = await import(Object.freeze((false || "./lazy.js")));
+  if (typeof orChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const orValue = await orChunk.lazyValue();
+  if (orValue !== 0n) {
+    throw new Error(`unexpected or chunk result ${dollar}{orValue}`);
+  }
+  console.log(String(orValue));
+  console.log('main loaded');
+}
+main();
+Kali.test('object.freeze logical literal dynamic import', () => {});
+"""
+"smoke.test_freeze.js" = """async function main() {
+  const nullishChunk = await import(Object.freeze((null ?? "./lazy.js")));
+  if (typeof nullishChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const nullishValue = await nullishChunk.lazyValue();
+  if (nullishValue !== 0n) {
+    throw new Error(`unexpected nullish chunk result ${dollar}{nullishValue}`);
+  }
+  console.log(String(nullishValue));
+  const andChunk = await import(Object.freeze((true && "./lazy.js")));
+  if (typeof andChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const andValue = await andChunk.lazyValue();
+  if (andValue !== 0n) {
+    throw new Error(`unexpected and chunk result ${dollar}{andValue}`);
+  }
+  console.log(String(andValue));
+  const orChunk = await import(Object.freeze((false || "./lazy.js")));
+  if (typeof orChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const orValue = await orChunk.lazyValue();
+  if (orValue !== 0n) {
+    throw new Error(`unexpected or chunk result ${dollar}{orValue}`);
+  }
+  console.log(String(orValue));
+  console.log('main loaded');
+}
+main();
+Kali.test('object.freeze logical literal dynamic import', () => {});
+"""
+"main_freeze.ts" = """async function main() {
+  const nullishChunk = await import(Object.freeze((null ?? "./lazy.ts")));
+  if (typeof nullishChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const nullishValue = await nullishChunk.lazyValue();
+  if (nullishValue !== 0n) {
+    throw new Error(`unexpected nullish chunk result ${dollar}{nullishValue}`);
+  }
+  console.log(String(nullishValue));
+  const andChunk = await import(Object.freeze((true && "./lazy.ts")));
+  if (typeof andChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const andValue = await andChunk.lazyValue();
+  if (andValue !== 0n) {
+    throw new Error(`unexpected and chunk result ${dollar}{andValue}`);
+  }
+  console.log(String(andValue));
+  const orChunk = await import(Object.freeze((false || "./lazy.ts")));
+  if (typeof orChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const orValue = await orChunk.lazyValue();
+  if (orValue !== 0n) {
+    throw new Error(`unexpected or chunk result ${dollar}{orValue}`);
+  }
+  console.log(String(orValue));
+  console.log('main loaded');
+}
+main();
+Kali.test('object.freeze logical literal dynamic import', () => {});
+"""
+"smoke.test_freeze.ts" = """async function main() {
+  const nullishChunk = await import(Object.freeze((null ?? "./lazy.ts")));
+  if (typeof nullishChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const nullishValue = await nullishChunk.lazyValue();
+  if (nullishValue !== 0n) {
+    throw new Error(`unexpected nullish chunk result ${dollar}{nullishValue}`);
+  }
+  console.log(String(nullishValue));
+  const andChunk = await import(Object.freeze((true && "./lazy.ts")));
+  if (typeof andChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const andValue = await andChunk.lazyValue();
+  if (andValue !== 0n) {
+    throw new Error(`unexpected and chunk result ${dollar}{andValue}`);
+  }
+  console.log(String(andValue));
+  const orChunk = await import(Object.freeze((false || "./lazy.ts")));
+  if (typeof orChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const orValue = await orChunk.lazyValue();
+  if (orValue !== 0n) {
+    throw new Error(`unexpected or chunk result ${dollar}{orValue}`);
+  }
+  console.log(String(orValue));
+  console.log('main loaded');
+}
+main();
+Kali.test('object.freeze logical literal dynamic import', () => {});
+"""
+"main_freeze.jsx" = """async function main() {
+  const nullishChunk = await import(Object.freeze((null ?? "./lazy.jsx")));
+  if (typeof nullishChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const nullishValue = await nullishChunk.lazyValue();
+  if (nullishValue !== 0n) {
+    throw new Error(`unexpected nullish chunk result ${dollar}{nullishValue}`);
+  }
+  console.log(String(nullishValue));
+  const andChunk = await import(Object.freeze((true && "./lazy.jsx")));
+  if (typeof andChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const andValue = await andChunk.lazyValue();
+  if (andValue !== 0n) {
+    throw new Error(`unexpected and chunk result ${dollar}{andValue}`);
+  }
+  console.log(String(andValue));
+  const orChunk = await import(Object.freeze((false || "./lazy.jsx")));
+  if (typeof orChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const orValue = await orChunk.lazyValue();
+  if (orValue !== 0n) {
+    throw new Error(`unexpected or chunk result ${dollar}{orValue}`);
+  }
+  console.log(String(orValue));
+  console.log('main loaded');
+}
+main();
+Kali.test('object.freeze logical literal dynamic import', () => {});
+"""
+"smoke.test_freeze.jsx" = """async function main() {
+  const nullishChunk = await import(Object.freeze((null ?? "./lazy.jsx")));
+  if (typeof nullishChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const nullishValue = await nullishChunk.lazyValue();
+  if (nullishValue !== 0n) {
+    throw new Error(`unexpected nullish chunk result ${dollar}{nullishValue}`);
+  }
+  console.log(String(nullishValue));
+  const andChunk = await import(Object.freeze((true && "./lazy.jsx")));
+  if (typeof andChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const andValue = await andChunk.lazyValue();
+  if (andValue !== 0n) {
+    throw new Error(`unexpected and chunk result ${dollar}{andValue}`);
+  }
+  console.log(String(andValue));
+  const orChunk = await import(Object.freeze((false || "./lazy.jsx")));
+  if (typeof orChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const orValue = await orChunk.lazyValue();
+  if (orValue !== 0n) {
+    throw new Error(`unexpected or chunk result ${dollar}{orValue}`);
+  }
+  console.log(String(orValue));
+  console.log('main loaded');
+}
+main();
+Kali.test('object.freeze logical literal dynamic import', () => {});
+"""
+"main_freeze.tsx" = """async function main() {
+  const nullishChunk = await import(Object.freeze((null ?? "./lazy.tsx")));
+  if (typeof nullishChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const nullishValue = await nullishChunk.lazyValue();
+  if (nullishValue !== 0n) {
+    throw new Error(`unexpected nullish chunk result ${dollar}{nullishValue}`);
+  }
+  console.log(String(nullishValue));
+  const andChunk = await import(Object.freeze((true && "./lazy.tsx")));
+  if (typeof andChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const andValue = await andChunk.lazyValue();
+  if (andValue !== 0n) {
+    throw new Error(`unexpected and chunk result ${dollar}{andValue}`);
+  }
+  console.log(String(andValue));
+  const orChunk = await import(Object.freeze((false || "./lazy.tsx")));
+  if (typeof orChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const orValue = await orChunk.lazyValue();
+  if (orValue !== 0n) {
+    throw new Error(`unexpected or chunk result ${dollar}{orValue}`);
+  }
+  console.log(String(orValue));
+  console.log('main loaded');
+}
+main();
+Kali.test('object.freeze logical literal dynamic import', () => {});
+"""
+"smoke.test_freeze.tsx" = """async function main() {
+  const nullishChunk = await import(Object.freeze((null ?? "./lazy.tsx")));
+  if (typeof nullishChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const nullishValue = await nullishChunk.lazyValue();
+  if (nullishValue !== 0n) {
+    throw new Error(`unexpected nullish chunk result ${dollar}{nullishValue}`);
+  }
+  console.log(String(nullishValue));
+  const andChunk = await import(Object.freeze((true && "./lazy.tsx")));
+  if (typeof andChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const andValue = await andChunk.lazyValue();
+  if (andValue !== 0n) {
+    throw new Error(`unexpected and chunk result ${dollar}{andValue}`);
+  }
+  console.log(String(andValue));
+  const orChunk = await import(Object.freeze((false || "./lazy.tsx")));
+  if (typeof orChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const orValue = await orChunk.lazyValue();
+  if (orValue !== 0n) {
+    throw new Error(`unexpected or chunk result ${dollar}{orValue}`);
+  }
+  console.log(String(orValue));
+  console.log('main loaded');
+}
+main();
+Kali.test('object.freeze logical literal dynamic import', () => {});
+"""
+
+[[case]]
+name = "run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_default.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_default.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_default.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_default.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_default.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_default.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_default.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_default.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_default.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_default.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_default.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_default.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_default.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_default.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_default.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_default.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sequence.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+"""
+
+[[case]]
+name = "test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_sequence.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sequence.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sequence.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_sequence.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_sequence.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sequence.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sequence.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_sequence.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_sequence.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sequence.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_sequence.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_sequence.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_sequence.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_freeze.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+0
+0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_freeze.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+0
+0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_freeze.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+0
+0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_freeze.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+0
+0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_freeze.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+0
+0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_freeze.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+0
+0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_freeze.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+0
+0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_freeze.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+0
+0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_freeze.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+0
+0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_freeze.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+0
+0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_freeze.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+0
+0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_jsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_freeze.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+0
+0
+main loaded
+""" }
+
+[[case]]
+name = "run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_freeze.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+0
+0
+main loaded
+"""
+
+[[case]]
+name = "json_run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_freeze.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness" }, stdout = """0
+0
+0
+main loaded
+""" }
+
+[[case]]
+name = "test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_freeze.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout = """0
+0
+0
+main loaded
+ok 1
+"""
+stdout_contains = ["ok 1"]
+stdout_absent = ["not ok"]
+
+[[case]]
+name = "json_test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_tsx_input"
+rationale = """Migrated from browser_template_literal_dynamic_import_harness.rs. Every case funnels through `assert_browser_requested_template_literal_dynamic_import`.
+
+Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is now a real runtime coercion (String de-denylisted + routed through the `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY: every fixture routed through this helper does `console.log(String(value))` (the freeze variant does three such lines) where `value` is the imported `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the expected program stdout FROM the fixture — one `0\\n` per `console.log(String(` site, then `main loaded\\n` — so the assertion is exact and a wrong-reason pass on a stray substring (e.g. a surviving deny that happens to print "0") is not available. In `--output json` mode the program's own stdout is the clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it); for a non-json `test` run the TAP summary trails the program output.
+
+The fixture bodies are built by `format!` with real `{{`/`}}` doubling around JS code blocks and the genuine `${name}` template-literal interpolation (35 `{{` occurrences total in source, the family's densest brace-collapse trap) -- every resolved fixture text below was captured by actually EXECUTING the real `format!` calls via a temporary Rust test (not hand-derived), matching rule 8. `exit = "success"` for every case: this file's whole premise, per the reconciliation note above, is that these dynamic imports now succeed. For a `test`-command, non-json case, source asserts `stdout.starts_with(&expected_stdout)` -- per the standing rule, this is NOT weakened to `contains`; the exact full `stdout` was captured from the real binary and pinned exactly instead, strictly stronger than the source's own prefix check. `--output json` mode already used exact `assert_eq!` in source (`json["stdout"]` against the full computed `expected_stdout`), so no strengthening was needed there -- copied as-is."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_freeze.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", passed = 1, failed = 0 }, stdout = """0
+0
+0
+main loaded
+""" }

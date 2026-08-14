@@ -1,0 +1,335 @@
+# Migrated from tests/browser_set_map_iteration_bundle.rs.
+#   SOURCE REF: fd75de19cad9c174165048a565468ce99064c87f
+#
+# Honest re-pin (PR #16 rev2): kali fails closed/loud here; see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md.
+#
+# All 4 #[test] fns loop `for extension in ["js", "ts", "jsx", "tsx"]` around
+# an identical fail-closed assertion (`stderr.contains("E5506") ||
+# stdout.contains("E5506")`) -- the pilot's designated extension-loop /
+# [matrix] candidate (task brief). Hoisted to a file-level [matrix] axis: 4
+# #[test] fns -> 4 [[case]] entries, matrix-fanned to 16 trials, matching the
+# 16 real per-extension assertions in source exactly.
+#
+# STREAM NOTE: source's assertion is an OR across STREAMS (stderr.contains
+# OR stdout.contains the SAME code), not an OR of two different codes --
+# rule 11's shape, applied to stream selection rather than code selection.
+# Verified directly against the real binary for both fixtures: in text mode
+# E5506 is written to stderr only; in `--output json` mode it is JSON-encoded
+# on stdout as `errors[0].code` and stderr is empty. Each mode is pinned to
+# the stream/field that actually carries it -- a verified strengthening,
+# with the disjunction sentence carried into every case's rationale per rule
+# 11, not silently narrowed.
+
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app_map.${ext}" = """// kali-tree-shake: browserMapIteration
+export async function browserMapIteration() {
+  function assertMapIteration(values) {
+    if (values.length !== 2 || values[0] !== '[1,3]' || values[1] !== '[4,5]') {
+      throw new Error('unexpected Map constructor iteration semantics');
+    }
+  }
+
+  const values = [[1, 2], [1, 3], [4, 5]];
+  const mapAlias = Map;
+  const wrappedMapAlias = (mapAlias);
+  const aliasValues = (values);
+  const direct = [];
+  for (const entry of new Map(values)) {
+    direct.push(JSON.stringify(entry));
+  }
+  const alias = [];
+  for (const entry of new mapAlias(aliasValues)) {
+    alias.push(JSON.stringify(entry));
+  }
+  const wrappedAlias = [];
+  for (const entry of new (wrappedMapAlias)(aliasValues)) {
+    wrappedAlias.push(JSON.stringify(entry));
+  }
+  const globalDirect = [];
+  for (const entry of new globalThis.Map(values)) {
+    globalDirect.push(JSON.stringify(entry));
+  }
+  const bracketed = [];
+  for (const entry of new globalThis["Map"](values)) {
+    bracketed.push(JSON.stringify(entry));
+  }
+  const singleBracketed = [];
+  for (const entry of new globalThis['Map'](values)) {
+    singleBracketed.push(JSON.stringify(entry));
+  }
+  const nullishEntries = [];
+  for (const entry of new (null ?? Map)(values)) {
+    nullishEntries.push(JSON.stringify(entry));
+  }
+  const logicalOrEntries = [];
+  for (const entry of new (false || Map)(values)) {
+    logicalOrEntries.push(JSON.stringify(entry));
+  }
+  assertMapIteration(nullishEntries);
+  assertMapIteration(logicalOrEntries);
+  const frozenMapValues = Object.freeze(aliasValues);
+  const frozenMap = Object.freeze(Map);
+  const frozenGlobalThisMap = Object.freeze(globalThis.Map);
+  const frozenGlobalThisBracketedMap = Object.freeze(globalThis["Map"]);
+  const wrappedFrozenMap = Object.freeze((Map));
+  const wrappedFrozenGlobalThisMap = Object.freeze((globalThis.Map));
+  const wrappedFrozenGlobalThisBracketedMap = Object.freeze((globalThis["Map"]));
+  const frozenDirect = [];
+  for (const entry of new Map(frozenMapValues)) {
+    frozenDirect.push(JSON.stringify(entry));
+  }
+  const frozenAlias = [];
+  for (const entry of new (frozenMap)(values)) {
+    frozenAlias.push(JSON.stringify(entry));
+  }
+  const frozenGlobalDirect = [];
+  for (const entry of new (frozenGlobalThisMap)(values)) {
+    frozenGlobalDirect.push(JSON.stringify(entry));
+  }
+  const frozenGlobalBracketed = [];
+  for (const entry of new (frozenGlobalThisBracketedMap)(values)) {
+    frozenGlobalBracketed.push(JSON.stringify(entry));
+  }
+  const wrappedFrozenDirect = [];
+  for (const entry of new (wrappedFrozenMap)(values)) {
+    wrappedFrozenDirect.push(JSON.stringify(entry));
+  }
+  const wrappedFrozenGlobalDirect = [];
+  for (const entry of new (wrappedFrozenGlobalThisMap)(values)) {
+    wrappedFrozenGlobalDirect.push(JSON.stringify(entry));
+  }
+  const wrappedFrozenGlobalBracketed = [];
+  for (const entry of new (wrappedFrozenGlobalThisBracketedMap)(values)) {
+    wrappedFrozenGlobalBracketed.push(JSON.stringify(entry));
+  }
+
+  let mapReturnFinally = false;
+  function mapReturnProbe() {
+    try {
+      let returnEntry = null;
+      for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) {
+        returnEntry = entry;
+        break;
+      }
+      if (returnEntry === null) {
+        throw new Error('unexpected empty Map constructor iteration');
+      }
+      return returnEntry;
+    } finally {
+      mapReturnFinally = true;
+    }
+  }
+  const mapReturnEntry = mapReturnProbe();
+  if (mapReturnEntry[0] !== 1 || mapReturnEntry[1] !== 2 || !mapReturnFinally) {
+    throw new Error('unexpected Map constructor return/finally semantics');
+  }
+
+  let mapThrowFinally = false;
+  function mapThrowProbe() {
+    try {
+      for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) {
+        if (entry[0] === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Map constructor iteration');
+    } finally {
+      mapThrowFinally = true;
+    }
+  }
+  let mapThrew = false;
+  try {
+    mapThrowProbe();
+  } catch {
+    mapThrew = true;
+  }
+  if (!mapThrew || !mapThrowFinally) {
+    throw new Error('unexpected Map constructor throw/finally semantics');
+  }
+
+  assertMapIteration(direct);
+  assertMapIteration(alias);
+  assertMapIteration(wrappedAlias);
+  assertMapIteration(globalDirect);
+  assertMapIteration(bracketed);
+  assertMapIteration(singleBracketed);
+  assertMapIteration(frozenDirect);
+  assertMapIteration(frozenAlias);
+  assertMapIteration(frozenGlobalDirect);
+  assertMapIteration(frozenGlobalBracketed);
+  assertMapIteration(wrappedFrozenDirect);
+  assertMapIteration(wrappedFrozenGlobalDirect);
+  assertMapIteration(wrappedFrozenGlobalBracketed);
+  console.log('browser map constructor iteration ok');
+}
+"""
+"app_set.${ext}" = """// kali-tree-shake: browserSetIteration
+export async function browserSetIteration() {
+  function assertSetIteration(values) {
+    if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+      throw new Error('unexpected Set constructor iteration semantics');
+    }
+  }
+
+  const values = [1, 2, 1];
+  const setAlias = Set;
+  const wrappedSetAlias = (setAlias);
+  const aliasValues = (values);
+  const direct = [];
+  for (const value of new Set(values)) {
+    direct.push(value);
+  }
+  const alias = [];
+  for (const value of new setAlias(aliasValues)) {
+    alias.push(value);
+  }
+  const wrappedAlias = [];
+  for (const value of new (wrappedSetAlias)(aliasValues)) {
+    wrappedAlias.push(value);
+  }
+  const globalDirect = [];
+  for (const value of new globalThis.Set(values)) {
+    globalDirect.push(value);
+  }
+  const parenthesizedBracketed = [];
+  for (const value of new (globalThis["Set"])(values)) {
+    parenthesizedBracketed.push(value);
+  }
+  const parenthesizedSingleBracketed = [];
+  for (const value of new (globalThis['Set'])(values)) {
+    parenthesizedSingleBracketed.push(value);
+  }
+  const bracketed = [];
+  for (const value of new globalThis["Set"](values)) {
+    bracketed.push(value);
+  }
+  const singleBracketed = [];
+  for (const value of new globalThis['Set'](values)) {
+    singleBracketed.push(value);
+  }
+  const frozenValues = Object.freeze(aliasValues);
+  const frozenSet = Object.freeze(Set);
+  const frozenGlobalThisSet = Object.freeze(globalThis.Set);
+  const frozenGlobalThisBracketedSet = Object.freeze(globalThis["Set"]);
+  const wrappedFrozenSet = Object.freeze((Set));
+  const wrappedFrozenGlobalThisSet = Object.freeze((globalThis.Set));
+  const wrappedFrozenGlobalThisBracketedSet = Object.freeze((globalThis["Set"]));
+  const frozenDirect = [];
+  for (const value of new Set(frozenValues)) {
+    frozenDirect.push(value);
+  }
+  const frozenAlias = [];
+  for (const value of new (frozenSet)(values)) {
+    frozenAlias.push(value);
+  }
+  const frozenGlobalDirect = [];
+  for (const value of new (frozenGlobalThisSet)(values)) {
+    frozenGlobalDirect.push(value);
+  }
+  const frozenGlobalBracketed = [];
+  for (const value of new (frozenGlobalThisBracketedSet)(values)) {
+    frozenGlobalBracketed.push(value);
+  }
+  const wrappedFrozenDirect = [];
+  for (const value of new (wrappedFrozenSet)(values)) {
+    wrappedFrozenDirect.push(value);
+  }
+  const wrappedFrozenGlobalDirect = [];
+  for (const value of new (wrappedFrozenGlobalThisSet)(values)) {
+    wrappedFrozenGlobalDirect.push(value);
+  }
+  const wrappedFrozenGlobalBracketed = [];
+  for (const value of new (wrappedFrozenGlobalThisBracketedSet)(values)) {
+    wrappedFrozenGlobalBracketed.push(value);
+  }
+
+  let setReturnFinally = false;
+  function setReturnProbe() {
+    try {
+      for (const value of new Set(values)) {
+        return value;
+      }
+      throw new Error('unexpected empty Set constructor iteration');
+    } finally {
+      setReturnFinally = true;
+    }
+  }
+  const setReturnValue = setReturnProbe();
+  if (setReturnValue !== 1 || !setReturnFinally) {
+    throw new Error('unexpected Set constructor return/finally semantics');
+  }
+
+  let setThrowFinally = false;
+  function setThrowProbe() {
+    try {
+      for (const value of new Set(values)) {
+        if (value === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Set constructor iteration');
+    } finally {
+      setThrowFinally = true;
+    }
+  }
+  let setThrew = false;
+  try {
+    setThrowProbe();
+  } catch {
+    setThrew = true;
+  }
+  if (!setThrew || !setThrowFinally) {
+    throw new Error('unexpected Set constructor throw/finally semantics');
+  }
+
+  assertSetIteration(direct);
+  assertSetIteration(alias);
+  assertSetIteration(wrappedAlias);
+  assertSetIteration(globalDirect);
+  assertSetIteration(parenthesizedBracketed);
+  assertSetIteration(parenthesizedSingleBracketed);
+  assertSetIteration(bracketed);
+  assertSetIteration(singleBracketed);
+  assertSetIteration(frozenDirect);
+  assertSetIteration(frozenAlias);
+  assertSetIteration(frozenGlobalDirect);
+  assertSetIteration(frozenGlobalBracketed);
+  assertSetIteration(wrappedFrozenDirect);
+  assertSetIteration(wrappedFrozenGlobalDirect);
+  assertSetIteration(wrappedFrozenGlobalBracketed);
+  console.log('browser set constructor iteration ok');
+}
+"""
+
+[[case]]
+name = "build_emits_set_constructor_iteration_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_set_map_iteration_bundle.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Source asserts `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams, not two codes (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only (never stdout); in `--output json` mode the diagnostic is JSON-encoded on stdout as `errors[0].code` and stderr is empty. Pinned to the stream/field that actually carries it in each mode -- a verified strengthening of the source's OR, carrying the disjunction sentence here per rule 11 -- rather than reproducing the OR as `stdout_absent`+`stderr_contains`. This is the pilot's designated extension-loop / [matrix] candidate (task brief): all 4 #[test] fns loop `for extension in ["js","ts","jsx","tsx"]` with an identical fail-closed assertion, so `ext` is hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["build", "--bundle", "--api", "browser", "app_set.${ext}"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_set_constructor_iteration_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_set_map_iteration_bundle.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Source asserts `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams, not two codes (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only (never stdout); in `--output json` mode the diagnostic is JSON-encoded on stdout as `errors[0].code` and stderr is empty. Pinned to the stream/field that actually carries it in each mode -- a verified strengthening of the source's OR, carrying the disjunction sentence here per rule 11 -- rather than reproducing the OR as `stdout_absent`+`stderr_contains`. This is the pilot's designated extension-loop / [matrix] candidate (task brief): all 4 #[test] fns loop `for extension in ["js","ts","jsx","tsx"]` with an identical fail-closed assertion, so `ext` is hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_set.${ext}"]
+exit = "failure"
+json = { errors = { "0" = { code = "E5506" } } }
+
+[[case]]
+name = "build_emits_map_constructor_iteration_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_set_map_iteration_bundle.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Source asserts `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams, not two codes (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only (never stdout); in `--output json` mode the diagnostic is JSON-encoded on stdout as `errors[0].code` and stderr is empty. Pinned to the stream/field that actually carries it in each mode -- a verified strengthening of the source's OR, carrying the disjunction sentence here per rule 11 -- rather than reproducing the OR as `stdout_absent`+`stderr_contains`. This is the pilot's designated extension-loop / [matrix] candidate (task brief): all 4 #[test] fns loop `for extension in ["js","ts","jsx","tsx"]` with an identical fail-closed assertion, so `ext` is hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["build", "--bundle", "--api", "browser", "app_map.${ext}"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_map_constructor_iteration_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_set_map_iteration_bundle.rs. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Source asserts `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams, not two codes (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only (never stdout); in `--output json` mode the diagnostic is JSON-encoded on stdout as `errors[0].code` and stderr is empty. Pinned to the stream/field that actually carries it in each mode -- a verified strengthening of the source's OR, carrying the disjunction sentence here per rule 11 -- rather than reproducing the OR as `stdout_absent`+`stderr_contains`. This is the pilot's designated extension-loop / [matrix] candidate (task brief): all 4 #[test] fns loop `for extension in ["js","ts","jsx","tsx"]` with an identical fail-closed assertion, so `ext` is hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_map.${ext}"]
+exit = "failure"
+json = { errors = { "0" = { code = "E5506" } } }

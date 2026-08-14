@@ -1,0 +1,255 @@
+# Migrated from tests/soundness_block_arrows.rs -- all 12 #[test]
+# functions, 1:1 to a case (11 real + 1 kept `#[ignore]`d, matching the
+# source's own `#[ignore]`; no fn bundles multiple independent
+# assertions; no [matrix] -- each case runs a distinct one-off JS program
+# via `kali run <file>.js`, except the two `Kali.test` cases which run
+# `kali test <file>.js`).
+#
+# `run_kali_test`'s own `///` doc is claim prose, appended to the
+# rationale of the two cases that helper produced. Every fn also carries
+# its own direct `///` doc immediately above `#[test]` (0 uncommented
+# cases).
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (this file's helpers build no
+# fixture text via `format!` at all -- `tempdir()` handles the temp
+# directory).
+#
+# `a_block_arrow_callback_body_does_not_run_inline` asserts
+# `stdout.starts_with("sync ran=0")` in source -- flagged as a possible
+# rule-1 `starts_with` weakening risk. Verified against the real built
+# kali binary: this fixture's callback never calls `console.log`, so the
+# program's TOTAL raw stdout is exactly `"sync ran=0\n"`, nothing more --
+# pinning the exact full `stdout` is therefore strictly stronger than the
+# source's `starts_with` (which would also accept trailing content this
+# program never produces), never weaker.
+# `a_block_arrow_kali_test_registers_a_real_test` locates three markers
+# via `.find()` and asserts their relative ORDER, plus `stdout.contains
+# ("ok 1")` -- verified against the real built kali binary: the total raw
+# stdout is the exact fixed string `"A-module-start\nC-module-end\n
+# B-inside-test-body\nok 1\n"`, so pinning it exactly is strictly
+# stronger than both the order check and the substring check combined
+# (an exact string trivially fixes both the order its markers occur in
+# and contains every substring the source checked).
+# `kali_test_member_expression_callback_fails_closed` asserts a stderr
+# substring plus `!stdout.contains("WRONG FUNCTION RAN")` -- verified
+# against the real built kali binary: stdout is the exact fixed string
+# `"FAILED 1\n"` (the harness's own failure summary line, not the wrong
+# function's output), so pinning it exactly is strictly stronger than the
+# negative-contains check.
+# `class_method_bodies_return_their_value` is `#[ignore]`d in source
+# (documented pre-existing, root-caused-elsewhere bug -- see its
+# rationale) -- per rule 1, NOT run against the real binary; `stdout` is
+# pinned to the literal the source asserts ("42\n"), faithful to what
+# the test is supposed to prove once un-ignored, matching `ignore = true`.
+# `anonymous_export_default_function_compiles_and_runs` asserts
+# `stderr.is_empty()` in source ("expected no diagnostics") -- exact
+# stderr equality, which had no expressible form until this review round
+# added `Step::stderr` to kali_case_runner (symmetric with `stdout`;
+# `stderr_contains`/`stderr_absent` are both substring claims and neither
+# can express "stderr is exactly empty" -- a stray unrelated diagnostic
+# would satisfy every `stderr_absent` needle while still not being what
+# the source asserted). Verified against the real built kali binary:
+# stderr is empty, so `stderr = ""` is pinned, the exact claim the source
+# made.
+# Every other case compares RAW (untrimmed) stdout via `assert_eq!`
+# directly -- no `.trim()` -- so `stdout` is a direct copy of the
+# literal.
+
+[source]
+"a_block_arrow_callback_body_does_not_run_inline.js" = """let ran = 0;
+queueMicrotask(() => {
+  ran = 1;
+});
+console.log("sync ran=" + ran);
+"""
+"a_queued_microtask_callback_actually_runs_during_the_drain.js" = """let ran = 0;
+queueMicrotask(() => {
+  ran = 1;
+  console.log("callback ran=" + ran);
+});
+console.log("sync ran=" + ran);
+"""
+"an_anonymous_callback_to_an_uninvocable_callee_fails_closed.js" = """function takesCallback(cb) { return 1; }
+takesCallback(() => {
+  console.log("never");
+});
+"""
+"anonymous_functions_get_distinct_stable_names.js" = """const a = () => 1;
+const b = () => 2;
+console.log(a() + b());
+"""
+"a_function_expression_body_supports_compound_and_typeof_and_new.js" = """function Box(v) { this.v = v; }
+const f = function () {
+  let n = 1;
+  n += 2;
+  n++;
+  let m = 0;
+  m ||= 5;
+  console.log(n + " " + m);
+  let t = typeof true;
+  console.log(t);
+  let b = new Box(9);
+};
+f();
+"""
+"anonymous_export_default_function_compiles_and_runs.js" = """export default function () {
+  return 1;
+};
+console.log("ok");
+"""
+"class_method_bodies_return_their_value.js" = """class C {
+  run() {
+    return 42;
+  }
+}
+console.log(new C().run());
+"""
+"a_feature_rich_block_arrow_callback_defers_with_correct_ordering.js" = """class Box { constructor() { this.n = 4; } }
+let acc = 0;
+queueMicrotask(() => {
+  let value = 1;
+  value += 2;
+  value *= 5;
+  let b = new Box();
+  let probe = b.n + value;
+  acc = value;
+  console.log("INSIDE-CALLBACK");
+  console.log(acc);
+});
+console.log("MODULE-END-acc");
+console.log(acc);
+"""
+"a_block_arrow_kali_test_registers_a_real_test.js" = """console.log("A-module-start");
+Kali.test('real-test', () => { console.log("B-inside-test-body"); });
+console.log("C-module-end");
+"""
+"kali_test_member_expression_callback_fails_closed.js" = """const obj = { m: 1 };
+function m(){ console.log("WRONG FUNCTION RAN"); }
+Kali.test("member cb", obj.m);
+"""
+"deferred_queue_microtask_capturing_block_arrow_runs_with_env.js" = """function owner() {
+  let base = 5;
+  queueMicrotask(() => {
+    base += 1;
+    console.log("mt=" + base);
+  });
+  console.log("sync=" + base);
+}
+owner();
+"""
+"deferred_set_timeout_capturing_block_arrow_runs_with_env.js" = """function owner() {
+  let base = 5;
+  setTimeout(() => {
+    base += 1;
+    console.log("mt=" + base);
+  }, 0);
+  console.log("sync=" + base);
+}
+owner();
+"""
+
+[[case]]
+name = "a_block_arrow_callback_body_does_not_run_inline"
+rationale = """The bug, end to end: the arrow's body must NOT execute inline. Pre-stage kali prints `1` (body flattened into module scope and run).
+
+The callback is deferred to the microtask FIFO, so `ran` is still 0 here. (It runs during the post-_start drain; node agrees.)"""
+args = ["run", "a_block_arrow_callback_body_does_not_run_inline.js"]
+exit = "success"
+stdout = "sync ran=0\n"
+
+[[case]]
+name = "a_queued_microtask_callback_actually_runs_during_the_drain"
+rationale = """Step 6 probe requirement: `a_block_arrow_callback_body_does_not_run_inline` alone CANNOT distinguish "deferred" from "dropped" — `sync ran=0` prints identically whether the callback runs later or never runs at all. This test closes that gap with a SECOND print, emitted from INSIDE the callback body, on a line the sync `console.log` above it can never reach. If the `queueMicrotask` emit arm silently drops the callback (a no-op), this is the assertion that goes red — proven by the Step 6 re-mask probe."""
+args = ["run", "a_queued_microtask_callback_actually_runs_during_the_drain.js"]
+exit = "success"
+stdout = "sync ran=0\ncallback ran=1\n"
+
+[[case]]
+name = "an_anonymous_callback_to_an_uninvocable_callee_fails_closed"
+rationale = """An anonymous callback handed to a consumer that CANNOT invoke it must fail closed — never compile to a function nobody calls."""
+args = ["run", "an_anonymous_callback_to_an_uninvocable_callee_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "anonymous_functions_get_distinct_stable_names"
+rationale = """A named function expression keeps its own name; two anonymous arrows in the same module get DISTINCT names. If the pre-pass reused one name, the second body would overwrite the first and this prints the wrong value."""
+args = ["run", "anonymous_functions_get_distinct_stable_names.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "a_function_expression_body_supports_compound_and_typeof_and_new"
+rationale = """The shape of the predicted regressions: a callback body doing compound assignment, an update expression, and a logical (`||=`) assignment on locals, plus `typeof` and `new`. Today these are MASKED because the flattened body sits in module scope. Once bodies are real function scopes, they must still compile and run — that is what repr-tracking buys.
+
+Deviations from the task brief's verbatim snippet, each verified against a freshly built binary to confirm it reproduces IDENTICALLY at bare module scope (i.e. is unrelated to function-scope repr-tracking, the thing this task actually changes) before being substituted:
+
+- `n ??= ...` / `s ??= "x"` (nullish-assignment on a plain scalar) is rejected with E5506 ("null and 0 are indistinguishable for a scalar value; only a for-in-key alias with a null sentinel supports `??=`") at EVERY scope, always — a separate, deliberate, pre-existing restriction (`resolve/expression.rs` near `for_in_key_shape`) with no connection to this task. Replaced with `m ||= 5;` (logical-OR assignment), which exercises the same "compound/logical-assign on a local inside a real function scope" resolver path this task fixes, without that unrelated restriction: confirmed RED (E5506) pre-fix / GREEN post-fix inside a function-expression body. - `typeof n` on a plain integer local (after `n += 2`) always prints `0`, never `"number"` — `kali_codegen`'s `typeof_static_text` only classifies a proven-FLOAT or literal operand as `"number"`; a plain I64 local is deliberately left unclassified (an I64 may be an internal handle) and falls through to a placeholder. Reproduces identically at module scope. Replaced with `typeof true` ("boolean" — statically classified), read with a solo `console.log(t)` (see next point). - The original single concatenated `console.log(n + " " + s + " " + t)` is split: numeric locals (`n`, `m`) are joined with literal-rooted `+` concatenation (works — codegen unconditionally number-to-string-coerces an I64 operand), but a STRING VALUE COMPUTED INSIDE a function-expression/arrow/class-method body (e.g. `typeof true`, or any local reassigned to a string via `??`) must NOT be fed into further `+` concatenation: `kali_types::repr_infer::infer_reprs` — a SEPARATE analysis pass from the one this task changes, run once up front (`resolve/mod.rs:350`) — has no `FunctionExpression` / `Arrow-FunctionExpression` / `ClassBody` / `MethodDefinition` arms at all (grep confirms zero hits), so it never seeds a String repr for any binding declared inside such a body. `+`-concatenating such a value either fails closed with E3200 (safe — confirmed for a `+` node whose operand is DIRECTLY the unproven identifier) or, when chained behind an already-proven-string `+` (`... + t` at the tail of a left-associative chain), silently prints the raw i64 handle bits instead of the string (confirmed: `"s=" + s` prints garbage after `s = s ?? "x"` inside a callback, reproducing IDENTICALLY on the pre-Task-3 binary and even at bare module scope) — a genuine, pre-existing, OUT-OF-SCOPE silent-miscompile class this task does not touch (see the task-3 report's "concerns" section). A solo `console.log(t)` sidesteps this entirely: `console.log` tag-detects a string handle at RUNTIME and does not need the static repr proof. (Multi-argument `console.log(n, m, t)` was also tried as an alternative to a second concatenation and was independently found to print only its first argument, everywhere, including bare module scope with no function involved — yet another unrelated pre-existing gap, avoided by keeping every `console.log` call single-argument.) - `new Box(9)` is kept exactly as the brief has it, but (like the brief) its result is never read back: `this.v = v` inside a constructor does not actually land the field (`b.v` prints `0`, not `9`, reproducing identically at module scope) — another pre-existing, unrelated gap. The assertion here is only that constructing it compiles and runs without trapping inside a real function scope."""
+args = ["run", "a_function_expression_body_supports_compound_and_typeof_and_new.js"]
+exit = "success"
+stdout = "4 5\nboolean\n"
+
+[[case]]
+name = "anonymous_export_default_function_compiles_and_runs"
+rationale = """Task 3 (B): an anonymous `export default function () {}` must compile and run cleanly — no panic, no spurious diagnostic — now that the pre-pass (`name_anon_functions.rs`) fills its empty `name` the same way `kali_hir`'s fallback already does, closing the naming divergence between the two crates (`kali_types::resolve_export_default` binds the function's scope directly under `func.name`, with no fallback of its own — before this fix it would bind under the literal empty string). This body is intentionally simple (no compound-assign/typeof/new): `resolve_export_default` does not push onto `current_function` (see the doc comment on `TypeContext::current_function_scopes`, which explicitly defers that to a later task), so it stays outside Task 3's repr-tracking scope — this test is only about the NAME agreeing, not about repr-tracking this body too."""
+args = ["run", "anonymous_export_default_function_compiles_and_runs.js"]
+exit = "success"
+stdout = "ok\n"
+stderr = ""
+
+[[case]]
+name = "class_method_bodies_return_their_value"
+rationale = """Stage 5 recorded `class C { run(){ return 42; } } new C().run()` → 0. Class-method bodies are one of the untracked function-shaped scopes (kali_types/src/context.rs:48-54), so Task 3 is the HYPOTHESISED root cause. This test decides it either way.
+
+VERDICT (Task 4, fresh binary at this commit): the hypothesis is FALSIFIED. Task 3's repr-tracking did not touch this path — kali still prints `0` where node prints `42`. Root cause is a SEPARATE lowering gap (class-method `return` value is dropped, not a repr-tracking problem); see docs/superpowers/followups/throw-fallout-stage6-triage.md section 9. Left `#[ignore]`d with assertions intact per the task brief — do not widen this stage to chase it."""
+ignore = true
+args = ["run", "class_method_bodies_return_their_value.js"]
+exit = "success"
+stdout = "42\n"
+
+[[case]]
+name = "a_feature_rich_block_arrow_callback_defers_with_correct_ordering"
+rationale = """Stage-6 probe 3a pinned: a feature-rich block-arrow callback body must run DEFERRED with correct ordering, not inline — the module lines print FIRST (`MODULE-END-acc`, then `console.log(acc)` reads the still-`0` pre-drain binding), the microtask drains after (`INSIDE-CALLBACK`, then the mutated value). node v26.5.0: "MODULE-END-acc\\n0\\nINSIDE-CALLBACK\\n15\\n". Re-verify with node before asserting. Pre-D3 kali inverted the order and leaked the mutated `acc`.
+
+DEVIATION from the task-7 brief's verbatim snippet, verified ORTHOGONAL to the arrow un-flatten this task lands: the brief wrote the callback's module write as `acc = value + b.n` (module binding `=` an expression CONTAINING a member access). That specific shape — `<module-scope-let> = <expr with a `.field` member read>` written from inside ANY function body — pre-existingly mis-parses (emits `E8001 unsupported unary operator 'n'` + `E8001 binary operator '='`, then misclassifies the WRITE as a module-binding READ → `E5506`). Confirmed to reproduce IDENTICALLY with a plain SYNCHRONOUS NAMED function (`function cb(){ let b=new Box(); acc = b.n; } cb();`) — i.e. it is wholly unrelated to arrows / deferral / the un-flatten, and un-fixed by this task. (A sibling pre-existing bug: a `.field` read inside a function lowers to `0`, so `b.n` would not read `4` anyway.) The RHS member access is moved into an unobserved local `probe` (still exercising `new` + `.field` read in the body — feature-rich), and the module write becomes `acc = value` (no member in the RHS → the working lane). The load-bearing property — a feature-rich block-arrow body running DEFERRED in correct order, not inline — is unchanged and node+kali agree byte-for-byte."""
+args = ["run", "a_feature_rich_block_arrow_callback_defers_with_correct_ordering.js"]
+exit = "success"
+stdout = "MODULE-END-acc\n0\nINSIDE-CALLBACK\n15\n"
+
+[[case]]
+name = "a_block_arrow_kali_test_registers_a_real_test"
+rationale = """Same shape as `run_kali` but drives the `kali test` harness (registers and runs `Kali.test(...)` bodies) instead of `kali run`.
+
+Stage-6 probe 4 pinned: a block-arrow `Kali.test` callback registers a REAL test (total: 1), and its body does NOT run inline at module scope. Pre-D3: the body ran between the module lines and the harness printed a vacuous `ok 1` with zero registered tests.
+
+The body line must come AFTER module end (deferred to the test run), and the run must report a registered, passing test."""
+args = ["test", "a_block_arrow_kali_test_registers_a_real_test.js"]
+exit = "success"
+stdout = "A-module-start\nC-module-end\nB-inside-test-body\nok 1\n"
+
+[[case]]
+name = "kali_test_member_expression_callback_fails_closed"
+rationale = """Same shape as `run_kali` but drives the `kali test` harness (registers and runs `Kali.test(...)` bodies) instead of `kali run`.
+
+I-4 pin: a `Kali.test` callback that is a MEMBER expression (`obj.m`) must NOT resolve by the member's PROPERTY text to an unrelated module function. Pre-fix, `kali_test_callback_index` looked up the callback node's text (`m`) with no bare-identifier structure check, ran the module function `m`, and printed a false `ok 1` (the member value was never the test body). The bare-identifier gate now routes a member-expression callback to the unregisterable-value deny lane (E5506), so the wrong function is never run."""
+args = ["test", "kali_test_member_expression_callback_fails_closed.js"]
+exit = "failure"
+stdout = "FAILED 1\n"
+stderr_contains = ["E5506"]
+stdout_absent = ["WRONG FUNCTION RAN"]
+
+[[case]]
+name = "deferred_queue_microtask_capturing_block_arrow_runs_with_env"
+rationale = """Arrow spelling of deferred_queue_microtask_capturing_callback_runs_with_env — the un-flatten routes `() => {…}` through the same FunctionExpression lane. node v26.5.0: "sync=5\\nmt=6\\n"."""
+args = ["run", "deferred_queue_microtask_capturing_block_arrow_runs_with_env.js"]
+exit = "success"
+stdout = "sync=5\nmt=6\n"
+
+[[case]]
+name = "deferred_set_timeout_capturing_block_arrow_runs_with_env"
+rationale = """Arrow spelling of the setTimeout capturing fixture — `() => {…}` routes through the same FunctionExpression lane, deferred and env-threaded. node v26.5.0: "sync=5\\nmt=6\\n"."""
+args = ["run", "deferred_set_timeout_capturing_block_arrow_runs_with_env.js"]
+exit = "success"
+stdout = "sync=5\nmt=6\n"

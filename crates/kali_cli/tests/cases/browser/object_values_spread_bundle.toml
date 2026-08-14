@@ -1,0 +1,187 @@
+# Migrated from tests/browser_object_values_spread_bundle.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale` that its producing helper reaches, not
+# just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_values_spread_bundle.rs returns 2 Rust comment line(s)
+# in 1 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Every block sits inside `assert_browser_bundle_object_values_spread`, which every
+# `[[case]]` below reaches, so U6's bottom-up attribution puts all of it in every
+# rationale: the attribution is per helper and this helper is universal in this file,
+# which is NOT the over-attribution U6 forbids (that is copying a block into cases its
+# producing helper does not reach).
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 8 `#[test]` fns, 8 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_object_values_spread` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), eight unlooped `#[test]` fns; the single fixture builder is parameterless, so `ext` is uniform
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 2 `[[case]]` entries x ext(4) = 8 trials = 8 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_object_values_spread_source`,
+#   `assert_browser_bundle_object_values_spread` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * build: `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#            pair is appended AFTER the subcommand and its flags.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# THE `browser_bundle_harness` STEP is the migrated form of the source's own harness run.
+# The source writes `kali_runtime_contract::browser_bundle_harness_script("app", false,
+# <body>)` next to the emitted bundle directory and executes it under
+# `browser_harness_command_parts_for`; the case runner does exactly that from the step's
+# `entry` and `body` (crates/kali_case_runner/src/steps.rs). The prelude resolves the
+# bundle relative to the harness script's own URL rather than to the process working
+# directory, so the runner's cwd (the trial root) and the source's cwd (the bundle dir)
+# produce the same resolution -- which is why every previously shipped `browser/` bundle
+# case file spells it this way.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+#   * `exit = "success"` on the build `output.status.success(),` (:81).
+#   * In json mode, the envelope's schemaVersion/command/success/exitCode, the payload's
+#     artifactKind/bundleFormat `assert_eq!(payload["bundleFormat"], "esm")` (:95), and an empty `errors` array `assert!(envelope["errors"]` (:96).
+#   * `app/app.meta.json`'s apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:107), asserted in BOTH modes,
+#     because the source reads that file outside the `if json_output` block.
+#   * The browser-bundle harness FAILS CLOSED `assert!(!output.status.success()` (:138), and that is the source's ONLY
+#     claim about it -- no stdout or stderr needle at all, unlike this batch's other
+#     succeed-then-fail bundle target. `exit = "failure"` is exactly as strong as the
+#     assertion it replaces, and adding a needle the source never wrote would be a
+#     rule-2 invention.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserObjectValuesSpreadIteration
+function assertObjectValuesSpreadIteration(values) {
+  if (values.length !== 2 || values[0] !== 3 || values[1] !== 2) {
+    throw new Error('unexpected Object.values spread iteration semantics');
+  }
+}
+
+function browserObjectValuesSpreadIteration() {
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
+  const mixedBracketedFromEntries = globalThis["Object"]['fromEntries']([["b", 1], ["a", 2], ["b", 3]]);
+  const mixedSingleQuotedFromEntries = globalThis['Object']["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+  const collected = [...Object.values(fromEntries)];
+  const globalCollected = [...globalThis.Object.values(fromEntries)];
+  const bracketedCollected = [...Object.values(bracketedFromEntries)];
+  const mixedBracketedValuesCollected = [...Object.values(mixedBracketedFromEntries)];
+  const mixedSingleQuotedValuesCollected = [...Object.values(mixedSingleQuotedFromEntries)];
+  const frozenCollected = [...Object.values(frozenFromEntries)];
+  const frozenFromEntriesCollected = [...Object.freeze(Object.values(fromEntries))];
+  const mixedCollected = [...globalThis.Object["values"](fromEntries)];
+  const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
+  const doubleQuotedSingleQuotedCollected = [...globalThis["Object"]['values'](fromEntries)];
+  const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
+  const singleBracketedPropertyCollected = [...globalThis['Object'].values(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedCollected = [...Object.freeze((globalThis['Object'])['values'])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedPropertyCollected = [...Object.freeze((globalThis['Object']).values)(fromEntries)];
+  const bracketedAliasCollected = [...globalThis["Object"]["values"](fromEntries)];
+  const bracketedAliasFromEntriesCollected = [...globalThis["Object"]["values"](bracketedFromEntries)];
+  const bracketedAliasFrozenCollected = [...globalThis["Object"]["values"](frozenFromEntries)];
+  assertObjectValuesSpreadIteration(collected);
+  assertObjectValuesSpreadIteration(globalCollected);
+  assertObjectValuesSpreadIteration(bracketedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedValuesCollected);
+  assertObjectValuesSpreadIteration(mixedSingleQuotedValuesCollected);
+  assertObjectValuesSpreadIteration(frozenCollected);
+  assertObjectValuesSpreadIteration(frozenFromEntriesCollected);
+  assertObjectValuesSpreadIteration(mixedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedValuesCollected);
+  assertObjectValuesSpreadIteration(doubleQuotedSingleQuotedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedPropertyCollected);
+  assertObjectValuesSpreadIteration(parenthesizedSingleQuotedReceiverBracketedCollected);
+  assertObjectValuesSpreadIteration(parenthesizedSingleQuotedReceiverBracketedPropertyCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasFromEntriesCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasFrozenCollected);
+  console.log('browser object values spread iteration ok');
+}
+"""
+
+[[case]]
+name = "build_emits_object_values_spread_iteration"
+rationale = """Migrated from browser_object_values_spread_bundle.rs, the four `build_emits_object_values_spread_iteration_in_*_input` fns (one per extension). `assert_browser_bundle_object_values_spread` writes the Object.values spread fixture, builds it with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program spreads Object.values over three differently-spelled Object.fromEntries results through seventeen root spellings -- dotted, mixed, bracketed, single-quoted, frozen bracket-root and frozen parenthesized-receiver -- and checks every collected array. The build succeeds `output.status.success(),` (:81) and the metadata pins apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:107), but the emitted bundle does not run: the harness FAILS CLOSED `assert!(!output.status.success()` (:138), which is the source's only claim about it. RULE 12 -- the Rust comment prose of browser_object_values_spread_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserObjectValuesSpreadIteration();
+"""
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_object_values_spread_iteration"
+rationale = """Migrated from browser_object_values_spread_bundle.rs, the four `json_build_emits_object_values_spread_iteration_in_*_input` fns (one per extension). `assert_browser_bundle_object_values_spread` writes the Object.values spread fixture, builds it with `kali build --bundle --api browser` with `--output json`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program spreads Object.values over three differently-spelled Object.fromEntries results through seventeen root spellings -- dotted, mixed, bracketed, single-quoted, frozen bracket-root and frozen parenthesized-receiver -- and checks every collected array. The build succeeds `output.status.success(),` (:81) and the metadata pins apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:107), but the emitted bundle does not run: the harness FAILS CLOSED `assert!(!output.status.success()` (:138), which is the source's only claim about it. This sibling additionally asserts the build JSON envelope -- schemaVersion/command/success/exitCode, payload artifactKind/bundleFormat `assert_eq!(payload["bundleFormat"], "esm")` (:95) and an empty `errors` array `assert!(envelope["errors"]` (:96) -- rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case. RULE 12 -- the Rust comment prose of browser_object_values_spread_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserObjectValuesSpreadIteration();
+"""
+exit = "failure"

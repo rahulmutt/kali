@@ -1,0 +1,216 @@
+# Migrated from tests/browser_for_of_array_iteration_break_continue_harness.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# MATRIX ARITHMETIC (rule 7): all 32 #[test] fns are individual (no loops
+# anywhere in this file) and funnel through the single helper
+# `assert_browser_harness_break_continue(command, filename, source,
+# json_output)`. Two fixture variants (`for_of` / `for_await`), each with its
+# own
+# run-mode and test-mode body, across command(run/test) x json_output(2) x
+# ext(js/ts/jsx/tsx): 2 x 2 x 2 x 4 = 32 invocations = 32 #[test] fns, uniform
+# over `ext`, so `ext` is hoisted to a file-level [matrix] axis: 32 #[test]
+# fns
+# collapse to 8 [[case]] entries, matrix-fanned to 32 trials, matching
+# exactly.
+#
+# [source] KEY DISAMBIGUATION (U5): source names the run fixture `main.<ext>`
+# and
+# the test fixture `smoke.test.<ext>` for BOTH variants (safe there -- private
+# tempdir per #[test]); the flat file-wide `[source]` table cannot hold two
+# bodies under one key, so the stems become `main_for_of` / `main_for_await`
+# and
+# `smoke_for_of.test` / `smoke_for_await.test`. The `.test.` infix is
+# preserved
+# so `kali test` still sees a test-shaped filename. No fixture body references
+# its own filename by string, so the rename changes no claim. Note the trial
+# dir
+# consequently holds all four harness fixtures at once; every case names its
+# entry explicitly on the argv, and the `payload.total = 1` claim on each
+# json/test case independently proves no sibling fixture was picked up.
+#
+# ARGV ORDER: this helper appends `--output json` AFTER
+# `--max-threads 0 --max-spawned-processes 0` and before the entry, unlike
+# most
+# of its siblings in this family which put it first. Mirrored exactly.
+#
+# ASSERTION SHAPE. `exit = "success"` carries
+# `assert!(output.status.success())` (this helper makes no separate
+# `status.code()` claim). Non-json, command == "run": `stdout_contains =
+# ["browser for-"]`; non-json, command == "test": `stdout_contains = ["ok 1"]`
+# -- source branches on the command and makes exactly one of those two claims,
+# never both, so neither case carries the other's needle (rule 2). Json:
+# source
+# asserts schemaVersion/command/success/payload(hostContract, runtimeBackend),
+# then for "run" `json["exitCode"] == 0` and `json["payload"]["exitCode"] ==
+# 0`,
+# and for "test" `payload.total/passed/failed == 1/1/0`; plus
+# `json["stdout"].contains("browser for-")`, `json["stderr"] == ""` and
+# `json["errors"].is_empty()`. The nested `json` leaf has no substring form,
+# so
+# the stdout claim resolves to an exact pin live-captured from the real `kali`
+# binary per (variant, command) -- a verified strengthening.
+#
+# PROSE ATTRIBUTION (rule 12 / U6): this file's only Rust comment block
+# (`:143-147`) sits INSIDE the helper's `if json_output` branch, so it is
+# prose
+# attached to the json-mode stdout pin and is carried into the rationale of
+# the
+# 16 json cases only -- not the 16 non-json cases, which never reach it.
+# `comment_coverage.py` has no per-helper (or per-branch) attribution and will
+# therefore report those 5 lines "missing" from the 4 non-json [[case]]
+# entries;
+# that is the checker's known limitation, recorded here rather than papered
+# over
+# by copying the prose into cases their producing branch does not reach (which
+# U6 forbids even though it would turn the checker green).
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main_for_of.${ext}" = """function browserForOfArrayIterationBreakContinue() {
+  const values = [0, 1, 1];
+  const valuesAlias = values;
+  const items = [];
+  for (const value of valuesAlias) {
+    if (!value) {
+      continue;
+    }
+    items.push(value);
+    break;
+  }
+  if (items.length !== 1 || items[0] !== 1) {
+    throw new Error('unexpected for-of break/continue iteration semantics');
+  }
+  console.log('browser for-of array iteration break/continue ok');
+}
+
+browserForOfArrayIterationBreakContinue();
+"""
+"smoke_for_of.test.${ext}" = """Kali.test('for-of array iteration break/continue', () => {
+  const values = [0, 1, 1];
+  const valuesAlias = values;
+  const items = [];
+  for (const value of valuesAlias) {
+    if (!value) {
+      continue;
+    }
+    items.push(value);
+    break;
+  }
+  if (items.length !== 1 || items[0] !== 1) {
+    throw new Error('unexpected for-of break/continue iteration semantics');
+  }
+  console.log('browser for-of array iteration break/continue ok');
+});
+"""
+"main_for_await.${ext}" = """async function browserForAwaitArrayIterationBreakContinue() {
+  const values = [0, 1, 1];
+  const valuesAlias = values;
+  const items = [];
+  for await (const value of valuesAlias) {
+    if (!value) {
+      continue;
+    }
+    items.push(value);
+    break;
+  }
+  if (items.length !== 1 || items[0] !== 1) {
+    throw new Error('unexpected for-await break/continue iteration semantics');
+  }
+  console.log('browser for-await array iteration break/continue ok');
+}
+
+browserForAwaitArrayIterationBreakContinue();
+"""
+"smoke_for_await.test.${ext}" = """async function browserForAwaitArrayIterationBreakContinue() {
+  const values = [0, 1, 1];
+  const valuesAlias = values;
+  const items = [];
+  for await (const value of valuesAlias) {
+    if (!value) {
+      continue;
+    }
+    items.push(value);
+    break;
+  }
+  if (items.length !== 1 || items[0] !== 1) {
+    throw new Error('unexpected for-await break/continue iteration semantics');
+  }
+  console.log('browser for-await array iteration break/continue ok');
+}
+
+Kali.test('for-await array iteration break/continue', () => browserForAwaitArrayIterationBreakContinue());
+"""
+
+[[case]]
+name = "run_supports_for_of_break_continue_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_of_array_iteration_break_continue_harness.rs. `assert_browser_harness_break_continue("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `browser for-`. Source branches on the command and makes exactly one of those two claims, never both, so this case carries only its own needle. The fixture is the for-of break/continue probe, which `continue`s past the falsy element, records the first truthy one and `break`s. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 32 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(variant,command,json_output,ext) invocations in source exactly. `[source]` stems are disambiguated per variant because the `[source]` table is one flat file-wide namespace and source reused `main.<ext>`/`smoke.test.<ext>` for both variants."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_for_of.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["browser for-"]
+
+[[case]]
+name = "json_run_supports_for_of_break_continue_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_of_array_iteration_break_continue_harness.rs. `assert_browser_harness_break_continue("run", ...)` runs `kali run --api browser ... --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `json["payload"]["exitCode"] == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `browser for-`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's `.contains()` check. The fixture is the for-of break/continue probe, which `continue`s past the falsy element, records the first truthy one and `break`s. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 32 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(variant,command,json_output,ext) invocations in source exactly. `[source]` stems are disambiguated per variant because the `[source]` table is one flat file-wide namespace and source reused `main.<ext>`/`smoke.test.<ext>` for both variants.
+
+node ground truth: the registered test callback executes at test time and logs its "… ok" line. (An earlier pin expected "" for the for-await test lane — an artifact of arrow-shaped `Kali.test` callbacks silently never being registered or run before the closure-return isolation fix.)"""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "--output", "json", "main_for_of.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "browser for-of array iteration break/continue ok\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_break_continue_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_of_array_iteration_break_continue_harness.rs. `assert_browser_harness_break_continue("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `ok 1`. Source branches on the command and makes exactly one of those two claims, never both, so this case carries only its own needle. The fixture is the for-of break/continue probe, which `continue`s past the falsy element, records the first truthy one and `break`s. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 32 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(variant,command,json_output,ext) invocations in source exactly. `[source]` stems are disambiguated per variant because the `[source]` table is one flat file-wide namespace and source reused `main.<ext>`/`smoke.test.<ext>` for both variants."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_for_of.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["ok 1"]
+
+[[case]]
+name = "json_test_supports_for_of_break_continue_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_of_array_iteration_break_continue_harness.rs. `assert_browser_harness_break_continue("test", ...)` runs `kali test --api browser ... --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `browser for-`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's `.contains()` check. The fixture is the for-of break/continue probe, which `continue`s past the falsy element, records the first truthy one and `break`s. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 32 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(variant,command,json_output,ext) invocations in source exactly. `[source]` stems are disambiguated per variant because the `[source]` table is one flat file-wide namespace and source reused `main.<ext>`/`smoke.test.<ext>` for both variants.
+
+node ground truth: the registered test callback executes at test time and logs its "… ok" line. (An earlier pin expected "" for the for-await test lane — an artifact of arrow-shaped `Kali.test` callbacks silently never being registered or run before the closure-return isolation fix.)"""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "--output", "json", "smoke_for_of.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "browser for-of array iteration break/continue ok\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "run_supports_for_await_break_continue_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_of_array_iteration_break_continue_harness.rs. `assert_browser_harness_break_continue("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `browser for-`. Source branches on the command and makes exactly one of those two claims, never both, so this case carries only its own needle. The fixture is the for-await break/continue probe, which `continue`s past the falsy element, records the first truthy one and `break`s. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 32 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(variant,command,json_output,ext) invocations in source exactly. `[source]` stems are disambiguated per variant because the `[source]` table is one flat file-wide namespace and source reused `main.<ext>`/`smoke.test.<ext>` for both variants."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_for_await.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["browser for-"]
+
+[[case]]
+name = "json_run_supports_for_await_break_continue_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_of_array_iteration_break_continue_harness.rs. `assert_browser_harness_break_continue("run", ...)` runs `kali run --api browser ... --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `json["payload"]["exitCode"] == 0`, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `browser for-`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's `.contains()` check. The fixture is the for-await break/continue probe, which `continue`s past the falsy element, records the first truthy one and `break`s. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 32 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(variant,command,json_output,ext) invocations in source exactly. `[source]` stems are disambiguated per variant because the `[source]` table is one flat file-wide namespace and source reused `main.<ext>`/`smoke.test.<ext>` for both variants.
+
+node ground truth: the registered test callback executes at test time and logs its "… ok" line. (An earlier pin expected "" for the for-await test lane — an artifact of arrow-shaped `Kali.test` callbacks silently never being registered or run before the closure-return isolation fix.)"""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "--output", "json", "main_for_await.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "browser for-await array iteration break/continue ok\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_await_break_continue_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_of_array_iteration_break_continue_harness.rs. `assert_browser_harness_break_continue("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `ok 1`. Source branches on the command and makes exactly one of those two claims, never both, so this case carries only its own needle. The fixture is the for-await break/continue probe, which `continue`s past the falsy element, records the first truthy one and `break`s. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 32 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(variant,command,json_output,ext) invocations in source exactly. `[source]` stems are disambiguated per variant because the `[source]` table is one flat file-wide namespace and source reused `main.<ext>`/`smoke.test.<ext>` for both variants."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_for_await.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["ok 1"]
+
+[[case]]
+name = "json_test_supports_for_await_break_continue_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_of_array_iteration_break_continue_harness.rs. `assert_browser_harness_break_continue("test", ...)` runs `kali test --api browser ... --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains `browser for-`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's `.contains()` check. The fixture is the for-await break/continue probe, which `continue`s past the falsy element, records the first truthy one and `break`s. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 32 #[test] fns collapse to 8 [[case]] entries here, matrix-fanned to 32 trials, matching the 32 real per-(variant,command,json_output,ext) invocations in source exactly. `[source]` stems are disambiguated per variant because the `[source]` table is one flat file-wide namespace and source reused `main.<ext>`/`smoke.test.<ext>` for both variants.
+
+node ground truth: the registered test callback executes at test time and logs its "… ok" line. (An earlier pin expected "" for the for-await test lane — an artifact of arrow-shaped `Kali.test` callbacks silently never being registered or run before the closure-return isolation fix.)"""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "--output", "json", "smoke_for_await.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "browser for-await array iteration break/continue ok\n", "stderr" = "", "errors" = [] }

@@ -1,0 +1,478 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'main_frozen.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_frozen.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_frozen.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# Migrated from tests/browser_object_keys_entries_spread_harness.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale` that its producing helper reaches, not
+# just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_keys_entries_spread_harness.rs returns 2 Rust comment line(s)
+# in 1 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Every block sits inside `assert_browser_harness_object_keys_entries_spread`, which
+# every `[[case]]` below reaches, so U6's bottom-up attribution puts all of it in every
+# rationale: the attribution is per helper and this helper is universal in this file,
+# which is NOT the over-attribution U6 forbids (that is copying a block into cases its
+# producing helper does not reach).
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 2 `#[test]` fns, 32 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_harness_object_keys_entries_spread` -- 32 invocation(s) = command(run/test) x ext(js/ts/jsx/tsx) x fixture(plain/frozen) x json_output(false/true), a complete cross product. Both `#[test]` fns loop all four extensions and make four calls per extension, so `ext` is uniform.
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 8 `[[case]]` entries x ext(4) = 32 trials = 32 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7, and their reasons DIFFER --
+# they are stated separately because measuring them separately is what fix round 2 found
+# the shared block had got wrong.
+# `json_output` changes WHAT IS ASSERTED, which is design spec 5.6's own note about
+# output shape: "Varying output shape changes both the argv and the assertions". This
+# target's only content claim is a single diagnostic needle, and the output mode moves the
+# stream that carries it (see the RULE 11 block below), so the text and json siblings pin
+# DIFFERENT keys.
+# `command` does NOT change what is asserted -- run and test carry the identical assertion
+# keys here, which the generator checks against the emitted steps. It is not an axis for
+# the other reason in rule 7: it selects a different `[source]` entry (`main*.<ext>` for
+# run, `smoke*.test.<ext>` for test), and a `[matrix]` axis substitutes ONE string
+# uniformly across every case rather than selecting among entries.
+# Each is written as sibling `[[case]]` entries instead, reached by rule 5 rather than
+# rule 6: this source has 2 `#[test]` fn(s) and NONE of them is dedicated to an
+# output mode (derived here, and this block refuses to render if one ever is), so the fns
+# cannot map one-to-one onto the cases. The RULE 6 paragraph below states the split.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+# That is the shape rule 5 governs rather than rule 6: this source has only TWO `#[test]`
+# fns and each makes SIXTEEN independent invocations over four independent programs, so
+# each is split into named siblings (by fixture and by output mode) rather than folded
+# into one case. The names carry the loop coordinate, not a number.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main.${ext}`, `main_frozen.${ext}`, `smoke.test.${ext}`, `smoke_frozen.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes four different program texts to just two filenames in different tests, so
+# the keys are variant-suffixed:
+#   * `main.<ext>` -> `main_frozen.${ext}` -- the frozen variant of the run program, which the source writes to the same `main.<ext>` name in a different test
+#   * `smoke.test.<ext>` -> `smoke_frozen.test.${ext}` -- the frozen variant of the test program; the `.test.` infix is preserved because `kali test` selects its entry by that name shape
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 8 / RULE 9 -- TWO OF THESE FOUR PROGRAMS ARE NOT STRING LITERALS.
+# `    browser_harness_object_keys_entries_spread_source(test_mode).replace(` (:144) builds the frozen variants by a str::replace off the plain ones, so there
+# is no literal for the lexer to extract and every other route is hand-derivation --
+# exactly the trap rule 8 exists to prevent. Both frozen texts are therefore the
+# BYTE-EXACT OUTPUT of executing the real code (see `batch7b_captures.py` for the capture
+# procedure).
+# The replace needle also carries 2 LEADING SPACE(S) -- measured, and compared against
+# the width the shipped captures were taken at, so a reindented source fails the
+# generator rather than leaving this sentence wrong. Whether that indentation is
+# load-bearing is MEASURED too, not asserted: it is not. The needle occurs 1 time(s) in
+# the plain text and the stripped form selects the same span, so the indentation hazard
+# is LATENT here, not the operative reason. The check stays as a staleness tripwire.
+# The generator
+# re-proves each capture against this source before emitting it: the plain capture must
+# be byte-identical to the literal the lexer extracts from the `.rs`, the needle and
+# replacement are read out of the `.rs` rather than restated, and applying them to the
+# plain capture must reproduce the frozen capture exactly.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_harness_object_keys_entries_spread_source`,
+#   `browser_harness_object_keys_entries_frozen_spread_source`,
+#   `assert_browser_harness_object_keys_entries_spread` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step, so its call chain never reaches
+# `kali_runtime_contract`'s two harness helpers and ruling 6's exemption has nothing
+# to exempt here; it is not stated.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * run/test: `[--output json] <run|test> --api browser --max-threads 0
+#              --max-spawned-processes 0 <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand, and both thread flags are always passed.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+# The env value is `KALI_BROWSER_BUNDLE_HARNESS_COMMAND`, read from the
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` constant the source passes by
+# name `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:162) rather than assumed.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# The source asserts the process fails `assert!(!output.status.success()` (:181) and makes ONE further claim, which is
+# OR-SHAPED.
+#
+# RULE 11 -- THE SOURCE MAKES AN OR-SHAPED CLAIM, AND IT WAS RESOLVED AGAINST THE REAL
+# BINARY RATHER THAN REPRODUCED OR DROPPED. The case format has no disjunction.
+#   `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable") || stdout.contains("Uncaught Error") || stdout.contains("unreachable"), "stdout: {stdout}\nstderr: {stderr}")`
+#   -- whose cited construct is `stderr.contains("Uncaught Error")` (:185).
+# Every cell was run against the real built `kali`, and the carrying STREAM is
+# unambiguous in each output mode:
+#   * text mode -> stderr
+#   * `--output json` -> stdout
+# The generator refuses to emit if a cell shows the needle on both streams or neither,
+# or if the cells disagree -- a disjunction that does not resolve to exactly one stream
+# is not narrowable.
+# THE NEEDLE TIE IS BROKEN BY SOURCE ORDER, and what was observed is disclosed rather
+# than implied away: on the carrying stream the real binary emits "Uncaught Error" and
+# "unreachable", so more than one disjunct is true. Pinning all of them would turn the
+# source's OR into an AND, which is a strengthening the source never asked for; picking
+# one at random is not a derivation. The generator therefore pins the FIRST disjunct the
+# source spells that holds on EVERY cell -- "Uncaught Error" -- and raises if no
+# disjunct is universal.
+# This is a PRESENCE claim, so narrowing it is a verified strengthening (every run
+# satisfying the new assertion satisfies the old); rule 2's asymmetry forbids the same
+# narrowing for an ABSENCE claim, and none is made here. The source's full disjunction
+# sentence is carried into every affected rationale, so the narrowing is recorded rather
+# than silent.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """function browserObjectKeysEntriesSpreadIteration() {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys spread iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 3 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2
+    ) {
+      throw new Error('unexpected Object.entries spread iteration semantics');
+    }
+  }
+
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const collectedKeys = [...Object.keys(fromEntries)];
+  const globalKeys = [...globalThis.Object.keys(fromEntries)];
+  const mixedKeys = [...globalThis.Object["keys"](fromEntries)];
+  const mixedBracketedKeys = [...globalThis["Object"].keys(fromEntries)];
+  const bracketedKeys = [...globalThis["Object"]["keys"](fromEntries)];
+  const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
+  const parenthesizedReceiverBracketedKeys = [...Object.freeze((globalThis["Object"])["keys"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedKeys = [...Object.freeze((globalThis['Object'])['keys'])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [...Object.freeze((globalThis['Object']).keys)(fromEntries)];
+  const parenthesizedBracketedKeys = [...Object.freeze((globalThis["Object"]).keys)(fromEntries)];
+  const collectedEntries = [...Object.entries(fromEntries)];
+  const globalEntries = [...globalThis.Object.entries(fromEntries)];
+  const mixedEntries = [...globalThis.Object["entries"](fromEntries)];
+  const mixedBracketedEntries = [...globalThis["Object"].entries(fromEntries)];
+  const bracketedEntries = [...globalThis["Object"]["entries"](fromEntries)];
+  const singleBracketedEntries = [...globalThis['Object']['entries'](fromEntries)];
+  const parenthesizedReceiverBracketedEntries = [...Object.freeze((globalThis["Object"])["entries"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedEntries = [...Object.freeze((globalThis['Object'])['entries'])(fromEntries)];
+  const parenthesizedBracketedEntries = [...Object.freeze((globalThis["Object"]).entries)(fromEntries)];
+
+  assertObjectKeysIteration(collectedKeys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(mixedBracketedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(parenthesizedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
+  assertObjectKeysIteration(parenthesizedBracketedKeys);
+  assertObjectEntriesIteration(collectedEntries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedBracketedEntries);
+  console.log('browser object keys and entries spread iteration ok');
+}
+
+browserObjectKeysEntriesSpreadIteration();
+"""
+"main_frozen.${ext}" = """function browserObjectKeysEntriesSpreadIteration() {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys spread iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 3 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2
+    ) {
+      throw new Error('unexpected Object.entries spread iteration semantics');
+    }
+  }
+
+  const fromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+  const collectedKeys = [...Object.keys(fromEntries)];
+  const globalKeys = [...globalThis.Object.keys(fromEntries)];
+  const mixedKeys = [...globalThis.Object["keys"](fromEntries)];
+  const mixedBracketedKeys = [...globalThis["Object"].keys(fromEntries)];
+  const bracketedKeys = [...globalThis["Object"]["keys"](fromEntries)];
+  const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
+  const parenthesizedReceiverBracketedKeys = [...Object.freeze((globalThis["Object"])["keys"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedKeys = [...Object.freeze((globalThis['Object'])['keys'])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [...Object.freeze((globalThis['Object']).keys)(fromEntries)];
+  const parenthesizedBracketedKeys = [...Object.freeze((globalThis["Object"]).keys)(fromEntries)];
+  const collectedEntries = [...Object.entries(fromEntries)];
+  const globalEntries = [...globalThis.Object.entries(fromEntries)];
+  const mixedEntries = [...globalThis.Object["entries"](fromEntries)];
+  const mixedBracketedEntries = [...globalThis["Object"].entries(fromEntries)];
+  const bracketedEntries = [...globalThis["Object"]["entries"](fromEntries)];
+  const singleBracketedEntries = [...globalThis['Object']['entries'](fromEntries)];
+  const parenthesizedReceiverBracketedEntries = [...Object.freeze((globalThis["Object"])["entries"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedEntries = [...Object.freeze((globalThis['Object'])['entries'])(fromEntries)];
+  const parenthesizedBracketedEntries = [...Object.freeze((globalThis["Object"]).entries)(fromEntries)];
+
+  assertObjectKeysIteration(collectedKeys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(mixedBracketedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(parenthesizedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
+  assertObjectKeysIteration(parenthesizedBracketedKeys);
+  assertObjectEntriesIteration(collectedEntries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedBracketedEntries);
+  console.log('browser object keys and entries spread iteration ok');
+}
+
+browserObjectKeysEntriesSpreadIteration();
+"""
+"smoke.test.${ext}" = """Kali.test('object keys and entries spread iteration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys spread iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 3 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2
+    ) {
+      throw new Error('unexpected Object.entries spread iteration semantics');
+    }
+  }
+
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const collectedKeys = [...Object.keys(fromEntries)];
+  const globalKeys = [...globalThis.Object.keys(fromEntries)];
+  const mixedKeys = [...globalThis.Object["keys"](fromEntries)];
+  const mixedBracketedKeys = [...globalThis["Object"].keys(fromEntries)];
+  const bracketedKeys = [...globalThis["Object"]["keys"](fromEntries)];
+  const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
+  const parenthesizedReceiverBracketedKeys = [...Object.freeze((globalThis["Object"])["keys"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedKeys = [...Object.freeze((globalThis['Object'])['keys'])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [...Object.freeze((globalThis['Object']).keys)(fromEntries)];
+  const parenthesizedBracketedKeys = [...Object.freeze((globalThis["Object"]).keys)(fromEntries)];
+  const collectedEntries = [...Object.entries(fromEntries)];
+  const globalEntries = [...globalThis.Object.entries(fromEntries)];
+  const mixedEntries = [...globalThis.Object["entries"](fromEntries)];
+  const mixedBracketedEntries = [...globalThis["Object"].entries(fromEntries)];
+  const bracketedEntries = [...globalThis["Object"]["entries"](fromEntries)];
+  const singleBracketedEntries = [...globalThis['Object']['entries'](fromEntries)];
+  const parenthesizedReceiverBracketedEntries = [...Object.freeze((globalThis["Object"])["entries"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedEntries = [...Object.freeze((globalThis['Object'])['entries'])(fromEntries)];
+  const parenthesizedBracketedEntries = [...Object.freeze((globalThis["Object"]).entries)(fromEntries)];
+
+  assertObjectKeysIteration(collectedKeys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(mixedBracketedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(parenthesizedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
+  assertObjectKeysIteration(parenthesizedBracketedKeys);
+  assertObjectEntriesIteration(collectedEntries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedBracketedEntries);
+  console.log('browser object keys and entries spread iteration ok');
+});
+"""
+"smoke_frozen.test.${ext}" = """Kali.test('object keys and entries spread iteration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys spread iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== 'b' ||
+      entries[0][1] !== 3 ||
+      entries[1][0] !== 'a' ||
+      entries[1][1] !== 2
+    ) {
+      throw new Error('unexpected Object.entries spread iteration semantics');
+    }
+  }
+
+  const fromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+  const collectedKeys = [...Object.keys(fromEntries)];
+  const globalKeys = [...globalThis.Object.keys(fromEntries)];
+  const mixedKeys = [...globalThis.Object["keys"](fromEntries)];
+  const mixedBracketedKeys = [...globalThis["Object"].keys(fromEntries)];
+  const bracketedKeys = [...globalThis["Object"]["keys"](fromEntries)];
+  const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
+  const parenthesizedReceiverBracketedKeys = [...Object.freeze((globalThis["Object"])["keys"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedKeys = [...Object.freeze((globalThis['Object'])['keys'])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [...Object.freeze((globalThis['Object']).keys)(fromEntries)];
+  const parenthesizedBracketedKeys = [...Object.freeze((globalThis["Object"]).keys)(fromEntries)];
+  const collectedEntries = [...Object.entries(fromEntries)];
+  const globalEntries = [...globalThis.Object.entries(fromEntries)];
+  const mixedEntries = [...globalThis.Object["entries"](fromEntries)];
+  const mixedBracketedEntries = [...globalThis["Object"].entries(fromEntries)];
+  const bracketedEntries = [...globalThis["Object"]["entries"](fromEntries)];
+  const singleBracketedEntries = [...globalThis['Object']['entries'](fromEntries)];
+  const parenthesizedReceiverBracketedEntries = [...Object.freeze((globalThis["Object"])["entries"])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverBracketedEntries = [...Object.freeze((globalThis['Object'])['entries'])(fromEntries)];
+  const parenthesizedBracketedEntries = [...Object.freeze((globalThis["Object"]).entries)(fromEntries)];
+
+  assertObjectKeysIteration(collectedKeys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(mixedBracketedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(parenthesizedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
+  assertObjectKeysIteration(parenthesizedBracketedKeys);
+  assertObjectEntriesIteration(collectedEntries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedBracketedEntries);
+  console.log('browser object keys and entries spread iteration ok');
+});
+"""
+
+[[case]]
+name = "run_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured__plain_text"
+rationale = """Migrated from browser_object_keys_entries_spread_harness.rs, the source fn `run_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`, its plain fixture in text mode (rule 5: that one fn makes sixteen independent invocations over four independent programs, so it becomes named siblings carrying the loop coordinate). `assert_browser_harness_object_keys_entries_spread` writes the program and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program spreads Object.keys and Object.entries over an Object.fromEntries result through ten and nine root spellings and checks every collected array. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:181) and that a runtime diagnostic appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable") || stdout.contains("Uncaught Error") || stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error")` (:185). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+stderr_contains = ["Uncaught Error"]
+
+[[case]]
+name = "run_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured__plain_json"
+rationale = """Migrated from browser_object_keys_entries_spread_harness.rs, the source fn `run_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`, its plain fixture in `--output json` mode (rule 5: that one fn makes sixteen independent invocations over four independent programs, so it becomes named siblings carrying the loop coordinate). `assert_browser_harness_object_keys_entries_spread` writes the program and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program spreads Object.keys and Object.entries over an Object.fromEntries result through ten and nine root spellings and checks every collected array. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:181) and that a runtime diagnostic appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable") || stdout.contains("Uncaught Error") || stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error")` (:185). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+stdout_contains = ["Uncaught Error"]
+
+[[case]]
+name = "run_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured__frozen_text"
+rationale = """Migrated from browser_object_keys_entries_spread_harness.rs, the source fn `run_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`, its frozen fixture in text mode (rule 5: that one fn makes sixteen independent invocations over four independent programs, so it becomes named siblings carrying the loop coordinate). `assert_browser_harness_object_keys_entries_spread` writes the program and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program spreads Object.keys and Object.entries over an Object.fromEntries result through ten and nine root spellings and checks every collected array, with the fromEntries result itself wrapped in `Object.freeze(...)`. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:181) and that a runtime diagnostic appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable") || stdout.contains("Uncaught Error") || stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error")` (:185). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+stderr_contains = ["Uncaught Error"]
+
+[[case]]
+name = "run_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured__frozen_json"
+rationale = """Migrated from browser_object_keys_entries_spread_harness.rs, the source fn `run_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`, its frozen fixture in `--output json` mode (rule 5: that one fn makes sixteen independent invocations over four independent programs, so it becomes named siblings carrying the loop coordinate). `assert_browser_harness_object_keys_entries_spread` writes the program and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program spreads Object.keys and Object.entries over an Object.fromEntries result through ten and nine root spellings and checks every collected array, with the fromEntries result itself wrapped in `Object.freeze(...)`. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:181) and that a runtime diagnostic appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable") || stdout.contains("Uncaught Error") || stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error")` (:185). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_frozen.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+stdout_contains = ["Uncaught Error"]
+
+[[case]]
+name = "test_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured__plain_text"
+rationale = """Migrated from browser_object_keys_entries_spread_harness.rs, the source fn `test_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`, its plain fixture in text mode (rule 5: that one fn makes sixteen independent invocations over four independent programs, so it becomes named siblings carrying the loop coordinate). `assert_browser_harness_object_keys_entries_spread` writes the program and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program spreads Object.keys and Object.entries over an Object.fromEntries result through ten and nine root spellings and checks every collected array. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:181) and that a runtime diagnostic appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable") || stdout.contains("Uncaught Error") || stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error")` (:185). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+stderr_contains = ["Uncaught Error"]
+
+[[case]]
+name = "test_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured__plain_json"
+rationale = """Migrated from browser_object_keys_entries_spread_harness.rs, the source fn `test_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`, its plain fixture in `--output json` mode (rule 5: that one fn makes sixteen independent invocations over four independent programs, so it becomes named siblings carrying the loop coordinate). `assert_browser_harness_object_keys_entries_spread` writes the program and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program spreads Object.keys and Object.entries over an Object.fromEntries result through ten and nine root spellings and checks every collected array. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:181) and that a runtime diagnostic appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable") || stdout.contains("Uncaught Error") || stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error")` (:185). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+stdout_contains = ["Uncaught Error"]
+
+[[case]]
+name = "test_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured__frozen_text"
+rationale = """Migrated from browser_object_keys_entries_spread_harness.rs, the source fn `test_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`, its frozen fixture in text mode (rule 5: that one fn makes sixteen independent invocations over four independent programs, so it becomes named siblings carrying the loop coordinate). `assert_browser_harness_object_keys_entries_spread` writes the program and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program spreads Object.keys and Object.entries over an Object.fromEntries result through ten and nine root spellings and checks every collected array, with the fromEntries result itself wrapped in `Object.freeze(...)`. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:181) and that a runtime diagnostic appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable") || stdout.contains("Uncaught Error") || stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error")` (:185). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+stderr_contains = ["Uncaught Error"]
+
+[[case]]
+name = "test_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured__frozen_json"
+rationale = """Migrated from browser_object_keys_entries_spread_harness.rs, the source fn `test_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`, its frozen fixture in `--output json` mode (rule 5: that one fn makes sixteen independent invocations over four independent programs, so it becomes named siblings carrying the loop coordinate). `assert_browser_harness_object_keys_entries_spread` writes the program and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program spreads Object.keys and Object.entries over an Object.fromEntries result through ten and nine root spellings and checks every collected array, with the fromEntries result itself wrapped in `Object.freeze(...)`. kali fails closed on it: the source asserts the process fails `assert!(!output.status.success()` (:181) and that a runtime diagnostic appears. The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable") || stdout.contains("Uncaught Error") || stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error")` (:185). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stdout, so the claim is carried as `stdout_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_frozen.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+stdout_contains = ["Uncaught Error"]

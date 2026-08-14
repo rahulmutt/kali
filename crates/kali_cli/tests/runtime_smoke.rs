@@ -30,7 +30,7 @@ use kali_common::{
     math_pow_browser_alias_inventory_invocation_source,
 };
 use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
-use kali_runtime::split_command_spec;
+use kali_runtime_contract::split_command_spec;
 use tempfile::tempdir;
 
 fn kali_bin() -> PathBuf {
@@ -884,11 +884,11 @@ fn count_wasm_instructions(bytes: &[u8]) -> usize {
 }
 
 fn browser_bundle_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
-    kali_runtime::browser_harness_command_parts_for(command)
+    kali_runtime_contract::browser_harness_command_parts_for(command)
 }
 
 fn browser_bundle_harness_command_parts() -> Vec<String> {
-    kali_runtime::browser_harness_command_parts_for(
+    kali_runtime_contract::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),
@@ -1727,7 +1727,7 @@ fn assert_browser_bundle_executes_with_result(
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir,
         false,
         &format!(
@@ -1804,7 +1804,7 @@ fn assert_browser_bundle_promise_all_sequencing(filename: &str, json_output: boo
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -1942,7 +1942,7 @@ fn assert_browser_bundle_dynamic_import_loader(bundle_root: &Path, specifier: &s
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-dynamic-import-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir,
         true,
         &format!(
@@ -2189,7 +2189,7 @@ fn assert_json_run_supports_reflect_own_keys_direct_iteration_when_browser_api_s
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -2239,7 +2239,7 @@ fn assert_json_test_supports_reflect_own_keys_direct_iteration_when_browser_api_
     .expect("write manifest");
 
     let output = Command::new(kali_bin())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg("--output")
         .arg("json")
@@ -2666,7 +2666,7 @@ fn assert_browser_requested_promise_all_sequencing(
 
     let mut command_line = Command::new(kali_bin());
     command_line.current_dir(dir.path());
-    command_line.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+    command_line.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
     if json_output {
         command_line.arg("--output").arg("json");
     }
@@ -3312,7 +3312,7 @@ fn assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_inp
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .arg("--output")
         .arg("json")
         .arg(command)
@@ -3483,7 +3483,7 @@ fn assert_browser_runtime_object_from_entries_has_own_semantics_in_input(
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .arg(command)
         .arg("--api")
         .arg("browser")
@@ -4641,7 +4641,7 @@ fn assert_browser_bundle_console_level_routing_in_extension(extension: &str) {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-console-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir_name,
         false,
         r#"const mod = await import(bundleJs.href);
@@ -4721,7 +4721,7 @@ fn assert_browser_bundle_console_assert_routing_in_extension(extension: &str) {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-console-assert-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         bundle_dir_name,
         false,
         r#"const mod = await import(bundleJs.href);
@@ -4870,7 +4870,7 @@ fn assert_object_is_same_reference_alias_chain_in_browser_harness(
     fs::write(&source_path, source).expect("write source");
 
     let mut cli = Command::new(kali_bin());
-    cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+    cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path())
         .arg(command)
         .arg("--api")

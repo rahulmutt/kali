@@ -1,0 +1,46 @@
+# Migrated from tests/math_inverse_trig_identities.rs -- all 3 #[test]
+# functions, 1:1 as 3 case blocks.
+#
+#   - `check`: plain `check` on the fixture, asserting bare exit success
+#     (the original test only checked `output.status.success()` and
+#     `output.status.code() == Some(0)`, no stdout claim).
+#   - `json_check`: same fixture through `check --output json`, asserting
+#     the JSON envelope (`schemaVersion`, `command`, `success`).
+#   - `run`: the original test asserted `stdout.matches("0\n").count() >=
+#     3`, a looser claim than exact equality -- chosen because the test's
+#     author did not want to over-specify. `Math.asin(0)`, `Math.acos(1)`,
+#     and `Math.atan(0)` are each exactly `0`, confirmed by running the
+#     built `kali` binary directly against this fixture, so `stdout =
+#     "0\n0\n0\n"` (exact equality) is available here and is strictly
+#     stronger than the original `>= 3` occurrence count -- not a
+#     weakening, since anything that satisfies equality also satisfies
+#     the original loose count.
+
+[source]
+"main.js" = '''
+console.log(Math.asin(0));
+console.log(Math.acos(1));
+console.log(Math.atan(0));
+'''
+
+[[case]]
+name = "check"
+rationale = "Math.asin(0), Math.acos(1), and Math.atan(0) are all statically-known inverse-trig identity literals that `check` must accept without error."
+args = ["check", "main.js"]
+exit = "success"
+
+[[case]]
+name = "json_check"
+rationale = "Same fixture, asserting the JSON output envelope from `check --output json` rather than a bare exit code."
+args = ["--output", "json", "check", "main.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+
+[[case]]
+name = "run"
+rationale = "The three inverse-trig identities each evaluate to 0 and `run` must print all three, in order. The original test only checked the count of \"0\\n\" occurrences (>= 3), not the full stdout; this asserts full equality, which is strictly stronger and implies the original claim."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "0\n0\n0\n"

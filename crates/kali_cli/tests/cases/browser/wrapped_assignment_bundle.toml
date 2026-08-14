@@ -1,0 +1,162 @@
+# Migrated from tests/browser_wrapped_assignment_bundle.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, LISTED BEFORE ANY TOML WAS WRITTEN.
+#   * `// fasta Spec 7 Task 3: scalar `??=` rejects fail-closed (null and 0 are` (:10) -- opens a 4-line block
+# Each is carried into the rationale of exactly the cases its owner's call path reaches (U6 bottom-up), COPIED out of the `.rs` by this generator rather than retyped, so an em-dash cannot become `--`.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 2 `#[test]` fns, 8 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_wrapped_assignment` -- 8 invocation(s) = 2 `#[test]` fns, each looping `for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"]`, so 2 x 4 = 8
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 2 `[[case]]` entries x ext(4) = 8 trials = 8 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one `json_output` half of the source's 2 fns, fanned to the four extensions; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. This source writes exactly one program
+# text, to `app.<ext>` in every test, so the file-wide `[source]` namespace has one
+# entry per extension and nothing collides.
+#
+# RULE 13 -- transitive helper docs. This source's helper chain carries NO `///`
+# doc comment on any helper any case reaches (checked mechanically by this file's
+# generator, which raises if the count it accounts for is wrong), so there is none
+# to carry. Controller ruling 6's runner-infrastructure exemption is separate and is
+# not relied on here.
+#
+# ARGV ORDER. `args` reproduces the source's own argument order exactly, token for
+# token, and the order is DERIVED from the source's `.arg(...)` chain by this file's
+# generator rather than written down. The entry filename is last, as the source
+# appends it last.
+# `--output json` appears after the subcommand and its flags in the json cases below, because that is where the source builds it.
+#
+# ASSERTION SHAPE. Three steps per case, in the source's own order: the `kali build`
+# invocation, the emitted `app/app.meta.json` (a `file_json` step, because the source
+# reads that file off disk rather than out of stdout), and the browser-bundle harness
+# run. THE BUILD SUCCEEDS AND SO DOES THE HARNESS: the source asserts
+# `output.status.success()` on both and additionally that the harness's stdout is
+# EXACTLY empty, so the harness step carries `exit = "success"` and `stdout = ""`.
+# That exact-empty pin is the source's own emptiness assertion on the harness stdout,
+# not an invention: a `stdout_absent` list cannot express "nothing at all" (rule 1).
+# Per controller ruling 6, the `browser_bundle_harness` step kind means the RUNNER
+# builds the harness script, so the `///` docs on
+# `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for` are shared runner infrastructure and are NOT
+# carried here -- the exemption is in the rule, not in this file's discretion.
+#
+# RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.
+# The program under test interpolates 3 of its own bindings (left, nullishOk, right) with a real JS
+# template literal in its throw message. `expand.rs`'s `substitute()` hard-fails on any
+# `${...}` it cannot resolve, and it substitutes `[source]` BODIES as well as step
+# fields, so this file declares `[constants] dollar = "$"` and spells every genuine
+# `${` as `${dollar}{`. The RESOLVED program text is byte-identical to the source's --
+# an encoding of rule 9, not an exception to it. DERIVED, not marked: the generator
+# escapes whatever `${` the extracted fixture actually contains and raises if any
+# survives, so a file cannot declare a constant it does not need or need one it does
+# not declare.
+#
+# RULING 7 -- NOTHING TO HOIST. This file has a single `[source]` entry, so there is no
+# duplicated body for U13 to hoist and no identity to assert.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+#
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '' -- the exact-empty `stdout` pin on the browser-bundle harness step. The source spells it as an is_empty check on the harness process's stdout, which carries no literal for the extractor to find, and no substring key can express "nothing at all" (rule 1)
+# EXTRA-OK: '$' -- the value of the rule-10 `[constants] dollar` escape, not an assertion at all -- the RESOLVED program text is byte-identical to the source's, which is the whole point of rule 10
+
+[constants]
+dollar = "$"
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserWrappedAssignmentTargets
+export function browserWrappedAssignmentTargets() {
+  var table = { a: 1, b: 2 };
+  var last = null;
+  for (var c in table) {
+    last = c;
+  }
+  ((last)) ??= null;
+  var nullishOk = 0;
+  if (last) { nullishOk = 1; }
+
+  let left = 0;
+  ((left)) ||= 1;
+  let right = 1;
+  ((right)) &&= 2;
+  if (nullishOk !== 1 || left !== 1 || right !== 2) {
+    throw new Error(`unexpected wrapped assignment result ${dollar}{nullishOk} ${dollar}{left} ${dollar}{right}`);
+  }
+}
+"""
+
+[[case]]
+name = "build_emits_wrapped_nullish_and_logical_assignment_semantics_in_js_ts_jsx_tsx_input__text"
+rationale = """Migrated from browser_wrapped_assignment_bundle.rs. This `[[case]]` is the text half of the source's 2 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for one trial per real invocation of `build_emits_wrapped_nullish_and_logical_assignment_semantics_in_js_ts_jsx_tsx_input`, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_bundle_wrapped_assignment(` (:36) writes a bundle whose exported function exercises the wrapped nullish and logical assignment targets `((last)) ??= null`, `((left)) ||= 1` and `((right)) &&= 2`, throwing if any of them lands on the wrong value to `app.<ext>` in a fresh temp dir, builds it with `kali build --bundle --api browser`, asserts the build succeeds, asserts the emitted `app/app.meta.json` carries `apiSurface = "browser"`, `artifactKind = "bundle"` (`join("app.meta.json")` (:74)), then writes the browser-bundle harness and runs it under node. BOTH PROCESSES SUCCEED here, unlike the fail-closed bundle targets migrated in earlier batches: the source asserts `output.status.success()` on the harness run and that its stdout is exactly empty, so the harness step carries `exit = "success"` and `stdout = ""`. The program under test is `browser_bundle_wrapped_assignment_source(` (:14); its text is copied out of the `.rs` by this generator, never retyped (rule 9). RULE 12 -- the Rust comment prose of this source, carried verbatim: "fasta Spec 7 Task 3: scalar `??=` rejects fail-closed (null and 0 are indistinguishable for a scalar), so the wrapped `??=` coverage rides the one surviving lowering — a for-in-key ALIAS binding (`-1` null sentinel). The scalar `||=`/`&&=` targets keep their falsy semantics and stay unchanged.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserWrappedAssignmentTargets();
+"""
+exit = "success"
+stdout = ""
+
+[[case]]
+name = "json_build_emits_wrapped_nullish_and_logical_assignment_semantics_in_js_ts_jsx_tsx_input__json"
+rationale = """Migrated from browser_wrapped_assignment_bundle.rs. This `[[case]]` is the --output json half of the source's 2 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for one trial per real invocation of `json_build_emits_wrapped_nullish_and_logical_assignment_semantics_in_js_ts_jsx_tsx_input`, with the assertion mapping staying one-to-one per trial (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_bundle_wrapped_assignment(` (:36) writes a bundle whose exported function exercises the wrapped nullish and logical assignment targets `((last)) ??= null`, `((left)) ||= 1` and `((right)) &&= 2`, throwing if any of them lands on the wrong value to `app.<ext>` in a fresh temp dir, builds it with `kali build --bundle --api browser --output json`, asserts the build succeeds, asserts the emitted `app/app.meta.json` carries `apiSurface = "browser"`, `artifactKind = "bundle"` (`join("app.meta.json")` (:74)), then writes the browser-bundle harness and runs it under node. BOTH PROCESSES SUCCEED here, unlike the fail-closed bundle targets migrated in earlier batches: the source asserts `output.status.success()` on the harness run and that its stdout is exactly empty, so the harness step carries `exit = "success"` and `stdout = ""`. The program under test is `browser_bundle_wrapped_assignment_source(` (:14); its text is copied out of the `.rs` by this generator, never retyped (rule 9). RULE 12 -- the Rust comment prose of this source, carried verbatim: "fasta Spec 7 Task 3: scalar `??=` rejects fail-closed (null and 0 are indistinguishable for a scalar), so the wrapped `??=` coverage rides the one surviving lowering — a for-in-key ALIAS binding (`-1` null sentinel). The scalar `||=`/`&&=` targets keep their falsy semantics and stay unchanged.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.exitCode = 0
+json.errors = []
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserWrappedAssignmentTargets();
+"""
+exit = "success"
+stdout = ""

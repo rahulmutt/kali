@@ -1,0 +1,196 @@
+# Migrated from tests/soundness_param_truncation.rs -- 10 #[test]
+# functions: 9 migrate to 9 cases here (1:1, no fn bundles multiple
+# independent assertions), 1 stays hand-written. No [matrix] -- each case
+# runs a distinct one-off TS program via `kali run <file>.ts`.
+#
+# `repro_default_param_does_not_silently_truncate_module` is NOT migrated
+# here -- it stays hand-written in `soundness_param_truncation.rs`
+# (trimmed to just that test and the helper it needs) per spec 5.11. Its
+# source assertion is a genuine disjunction (`if out.status.success() {
+# assert stdout contains "after-should-print" } else { assert combined
+# stdout+stderr contains "E5506" }`); pinning only the currently-observed
+# failure branch would either drop the source's success-branch
+# alternative (a weakening) or require asserting `stdout_absent =
+# ["after-should-print"]` against a literal that lives only in the
+# untaken branch's code (a fabricated claim a first draft of this
+# migration added and review rejected -- it directly inverts the
+# source's own stated forward-looking intent: the source's comment says
+# this string SHOULD appear the day default parameters are supported for
+# real). Both an audit-exception mechanism and a reachability analysis to
+# justify that shape were explicitly rejected. See that file's `//!` doc
+# for the full reasoning.
+#
+# The file's opening `//!` doc is prepended verbatim to every migrated
+# case's rationale. `assert_fails_closed`'s own `///` doc is claim prose,
+# appended to the rationale of every one of the 7 cases that helper
+# produced. `trailing_comma_param_still_runs` and `plain_params_still_run`
+# each carry their own direct `///` doc (negative controls).
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across #[test]s, no `${...}` template
+# literal, no `format!`-built fixture text (the file's one `format!`
+# call site builds a temp-directory path, never fixture text).
+#
+# `assert_fails_closed(src, construct)` maps to `exit = "failure"` +
+# `stderr_contains = ["E5506", construct]` (the helper checks the
+# COMBINED stdout+stderr text for both, but every rejection here happens
+# before any stdout is produced, verified empty for all seven, so
+# `stderr_contains` alone is equivalent and, combined with the pinned
+# `stdout = ""`, strictly stronger). `trailing_comma_param_still_runs`
+# and `plain_params_still_run` both compare `.trim()`'d stdout against a
+# literal -- per the pilot's precedent, `stdout` below is the untrimmed
+# RAW stdout captured from the real built kali binary ("v=7\n" both
+# times, each verified equal to the trimmed literal after `.strip()`).
+
+[source]
+"default_param_function_declaration_fails_closed.ts" = """function g(b = 5) { return b; }
+console.log("after");
+"""
+"default_param_function_expression_fails_closed.ts" = """const g = function (b = 5) { return b; };
+console.log("after");
+"""
+"default_param_arrow_fails_closed.ts" = """const g = (b = 5) => b;
+console.log("after");
+"""
+"default_param_class_method_fails_closed.ts" = """class C { m(b = 5) { return b; } }
+console.log("after");
+"""
+"rest_param_fails_closed.ts" = """function g(...r) { return 1; }
+console.log("after");
+"""
+"object_destructured_param_fails_closed.ts" = """function g({ x }) { return x; }
+console.log("after");
+"""
+"array_destructured_param_fails_closed.ts" = """function g([x]) { return x; }
+console.log("after");
+"""
+"trailing_comma_param_still_runs.ts" = """function g(a,) { return a; }
+console.log("v=" + g(7));
+"""
+"plain_params_still_run.ts" = """function g(a, b) { return a + b; }
+console.log("v=" + g(3, 4));
+"""
+
+[[case]]
+name = "default_param_function_declaration_fails_closed"
+rationale = """End-to-end: an unsupported parameter shape must never silently truncate the module.
+
+The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `parse_block_statement` advanced over it, and every remaining token in the file was absorbed into `g`'s body. The program exited 0 having silently skipped every statement after the declaration. Any fixture containing a default parameter had its self-checks vacuously "pass".
+
+The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
+
+The whole point of the test: a program using an unsupported parameter shape must NOT exit 0 with the post-declaration statements silently dropped. It must produce an E5506 naming the construct and a nonzero exit."""
+args = ["run", "default_param_function_declaration_fails_closed.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "default parameter"]
+
+[[case]]
+name = "default_param_function_expression_fails_closed"
+rationale = """End-to-end: an unsupported parameter shape must never silently truncate the module.
+
+The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `parse_block_statement` advanced over it, and every remaining token in the file was absorbed into `g`'s body. The program exited 0 having silently skipped every statement after the declaration. Any fixture containing a default parameter had its self-checks vacuously "pass".
+
+The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
+
+The whole point of the test: a program using an unsupported parameter shape must NOT exit 0 with the post-declaration statements silently dropped. It must produce an E5506 naming the construct and a nonzero exit."""
+args = ["run", "default_param_function_expression_fails_closed.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "default parameter"]
+
+[[case]]
+name = "default_param_arrow_fails_closed"
+rationale = """End-to-end: an unsupported parameter shape must never silently truncate the module.
+
+The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `parse_block_statement` advanced over it, and every remaining token in the file was absorbed into `g`'s body. The program exited 0 having silently skipped every statement after the declaration. Any fixture containing a default parameter had its self-checks vacuously "pass".
+
+The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
+
+The whole point of the test: a program using an unsupported parameter shape must NOT exit 0 with the post-declaration statements silently dropped. It must produce an E5506 naming the construct and a nonzero exit."""
+args = ["run", "default_param_arrow_fails_closed.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "default parameter"]
+
+[[case]]
+name = "default_param_class_method_fails_closed"
+rationale = """End-to-end: an unsupported parameter shape must never silently truncate the module.
+
+The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `parse_block_statement` advanced over it, and every remaining token in the file was absorbed into `g`'s body. The program exited 0 having silently skipped every statement after the declaration. Any fixture containing a default parameter had its self-checks vacuously "pass".
+
+The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
+
+The whole point of the test: a program using an unsupported parameter shape must NOT exit 0 with the post-declaration statements silently dropped. It must produce an E5506 naming the construct and a nonzero exit."""
+args = ["run", "default_param_class_method_fails_closed.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "default parameter"]
+
+[[case]]
+name = "rest_param_fails_closed"
+rationale = """End-to-end: an unsupported parameter shape must never silently truncate the module.
+
+The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `parse_block_statement` advanced over it, and every remaining token in the file was absorbed into `g`'s body. The program exited 0 having silently skipped every statement after the declaration. Any fixture containing a default parameter had its self-checks vacuously "pass".
+
+The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
+
+The whole point of the test: a program using an unsupported parameter shape must NOT exit 0 with the post-declaration statements silently dropped. It must produce an E5506 naming the construct and a nonzero exit."""
+args = ["run", "rest_param_fails_closed.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "rest parameter"]
+
+[[case]]
+name = "object_destructured_param_fails_closed"
+rationale = """End-to-end: an unsupported parameter shape must never silently truncate the module.
+
+The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `parse_block_statement` advanced over it, and every remaining token in the file was absorbed into `g`'s body. The program exited 0 having silently skipped every statement after the declaration. Any fixture containing a default parameter had its self-checks vacuously "pass".
+
+The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
+
+The whole point of the test: a program using an unsupported parameter shape must NOT exit 0 with the post-declaration statements silently dropped. It must produce an E5506 naming the construct and a nonzero exit."""
+args = ["run", "object_destructured_param_fails_closed.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "destructured parameter"]
+
+[[case]]
+name = "array_destructured_param_fails_closed"
+rationale = """End-to-end: an unsupported parameter shape must never silently truncate the module.
+
+The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `parse_block_statement` advanced over it, and every remaining token in the file was absorbed into `g`'s body. The program exited 0 having silently skipped every statement after the declaration. Any fixture containing a default parameter had its self-checks vacuously "pass".
+
+The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
+
+The whole point of the test: a program using an unsupported parameter shape must NOT exit 0 with the post-declaration statements silently dropped. It must produce an E5506 naming the construct and a nonzero exit."""
+args = ["run", "array_destructured_param_fails_closed.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "destructured parameter"]
+
+[[case]]
+name = "trailing_comma_param_still_runs"
+rationale = """End-to-end: an unsupported parameter shape must never silently truncate the module.
+
+The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `parse_block_statement` advanced over it, and every remaining token in the file was absorbed into `g`'s body. The program exited 0 having silently skipped every statement after the declaration. Any fixture containing a default parameter had its self-checks vacuously "pass".
+
+The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
+
+Negative control: a trailing comma is a SUPPORTED shape and must keep working. If the fix over-rejects, this goes red."""
+args = ["run", "trailing_comma_param_still_runs.ts"]
+exit = "success"
+stdout = "v=7\n"
+
+[[case]]
+name = "plain_params_still_run"
+rationale = """End-to-end: an unsupported parameter shape must never silently truncate the module.
+
+The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `parse_block_statement` advanced over it, and every remaining token in the file was absorbed into `g`'s body. The program exited 0 having silently skipped every statement after the declaration. Any fixture containing a default parameter had its self-checks vacuously "pass".
+
+The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
+
+Negative control: ordinary parameters are unaffected."""
+args = ["run", "plain_params_still_run.ts"]
+exit = "success"
+stdout = "v=7\n"

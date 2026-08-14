@@ -1,0 +1,336 @@
+# Migrated from tests/object_freeze_callable_helpers.rs -- all 8 #[test]
+# functions, as 4 sibling case blocks fanned across a file-level `[matrix]`
+# extension axis (js/ts/jsx/tsx) = 16 trials, matching the original 8
+# #[test] fns exactly: 4 of them (`run_supports_..._in_js_input`,
+# `json_run_supports_..._in_js_input`, `test_supports_..._in_js_input`,
+# `json_test_supports_..._in_js_input`) each cover exactly the "js"
+# extension, and their 4 siblings (`..._in_ts_jsx_and_tsx_input`) each loop
+# over ["ts", "jsx", "tsx"] internally -- together, each of the 4 case
+# shapes (run plain, json run, test plain, json test) is exercised across
+# all 4 extensions with an identical assertion shape per extension (the
+# fixture source and expected output do not depend on the extension at
+# all). That is a file-level uniform axis exactly like
+# `array/callback_number_predicates_browser_harness.toml` (Task 14), so
+# `[matrix]` is the right tool here rather than 8 flat siblings, per this
+# task's two-axis rule -- it was only split into a dedicated js-only test
+# plus a ts/jsx/tsx-looping test in the original `.rs`, not because any
+# case is exempt from any extension.
+#
+# `[constants]` factors out the two fixture bodies (`main_source`,
+# `test_source`) and their two expected-stdout bodies (`expected_stdout`,
+# `test_stdout`), each identical byte-for-byte across all 4 extensions.
+# `expected_stdout`/`test_stdout` are two separate constants (not one
+# referencing the other with `${expected_stdout}`) because `[constants]`
+# substitution is a single non-recursive pass (`crates/kali_case_runner/
+# src/expand.rs`'s `expand`): a constant's own value is never itself
+# scanned for `${...}` placeholders, so nesting them would leave a literal
+# `${expected_stdout}` token in the output instead of substituting it.
+#
+# Fixture content is generated at test-run time in the original `.rs` from
+# `kali_common::object_has_own_frozen_callable_aliases()` (37 entries) and
+# `kali_common::math_floor_trunc_ceil_frozen_callable_aliases()` (81
+# entries) -- not literal text in the `.rs` file itself. The exact bodies
+# below were captured by running a throwaway program linked against
+# `kali_common` that calls the same functions the original test calls, and
+# the exact expected stdout was verified for real by running the built
+# `kali` binary (`cargo run -q --bin kali --`, from the repository root) against the
+# captured fixture -- not guessed. The `test_plain` case's original
+# assertions were `stdout.contains(&expected_stdout)` followed by a
+# separate `stdout.contains("ok 1")`; running the binary confirmed the
+# real `test` stdout is exactly `expected_stdout` immediately followed by
+# `"ok 1\n"` with nothing else, so this migrates to an exact `stdout`
+# equality assertion (`test_stdout` below), strictly stronger than the
+# original `.contains()` pair, not a weakening -- the same judgment call
+# already made and documented in
+# `array/callback_number_predicates_browser_harness.toml`.
+
+[matrix]
+extension = ["js", "ts", "jsx", "tsx"]
+
+[constants]
+main_source = '''
+const object = { a: 1 }; console.log(Object.freeze(Object.hasOwn)(object, "a")); console.log(Object.freeze((Object.hasOwn))(object, "a")); console.log(Object.freeze(Object["hasOwn"])(object, "a")); console.log(Object.freeze((Object["hasOwn"]))(object, "a")); console.log(Object.freeze(globalThis.Object.hasOwn)(object, "a")); console.log(Object.freeze((globalThis.Object.hasOwn))(object, "a")); console.log(Object.freeze(globalThis.Object["hasOwn"])(object, "a")); console.log(Object.freeze(globalThis.Object['hasOwn'])(object, "a")); console.log(Object.freeze((globalThis.Object)["hasOwn"])(object, "a")); console.log(Object.freeze((globalThis.Object).hasOwn)(object, "a")); console.log(Object.freeze((globalThis.Object)['hasOwn'])(object, "a")); console.log(Object.freeze((globalThis.Object["hasOwn"]))(object, "a")); console.log(Object.freeze(globalThis?.Object.hasOwn)(object, "a")); console.log(Object.freeze((globalThis?.Object.hasOwn))(object, "a")); console.log(Object.freeze((globalThis?.Object).hasOwn)(object, "a")); console.log(Object.freeze((globalThis?.Object)["hasOwn"])(object, "a")); console.log(Object.freeze(globalThis?.Object["hasOwn"])(object, "a")); console.log(Object.freeze((globalThis?.Object["hasOwn"]))(object, "a")); console.log(Object.freeze(globalThis["Object"].hasOwn)(object, "a")); console.log(Object.freeze((globalThis["Object"].hasOwn))(object, "a")); console.log(Object.freeze((globalThis["Object"]).hasOwn)(object, "a")); console.log(Object.freeze((globalThis["Object"])["hasOwn"])(object, "a")); console.log(Object.freeze(globalThis["Object"]["hasOwn"])(object, "a")); console.log(Object.freeze((globalThis["Object"]["hasOwn"]))(object, "a")); console.log(Object.freeze((globalThis["Object"]))["hasOwn"](object, "a")); console.log(Object.freeze((globalThis["Object"]))['hasOwn'](object, "a")); console.log(Object.freeze((globalThis['Object']))["hasOwn"](object, "a")); console.log(Object.freeze((globalThis['Object']))['hasOwn'](object, "a")); console.log(Object.freeze(globalThis['Object'].hasOwn)(object, "a")); console.log(Object.freeze((globalThis['Object'].hasOwn))(object, "a")); console.log(Object.freeze((globalThis['Object']).hasOwn)(object, "a")); console.log(Object.freeze((globalThis['Object'])['hasOwn'])(object, "a")); console.log(Object.freeze(globalThis['Object']['hasOwn'])(object, "a")); console.log(Object.freeze((globalThis['Object']['hasOwn']))(object, "a")); console.log(Object.freeze((null ?? Object.hasOwn))(object, "a")); console.log(Object.freeze((true && Object.hasOwn))(object, "a")); console.log(Object.freeze((false || Object.hasOwn))(object, "a")); console.log(Object.freeze(globalThis.Math["floor"])(1.6)); console.log(Object.freeze((globalThis.Math["floor"]))(1.6)); console.log(Object.freeze(globalThis.Math['floor'])(1.6)); console.log(Object.freeze((globalThis.Math['floor']))(1.6)); console.log(Object.freeze(globalThis.Math.floor)(1.6)); console.log(Object.freeze((globalThis.Math.floor))(1.6)); console.log(Object.freeze(globalThis["Math"]["floor"])(1.6)); console.log(Object.freeze((globalThis["Math"]["floor"]))(1.6)); console.log(Object.freeze((globalThis["Math"]))["floor"](1.6)); console.log(Object.freeze((globalThis["Math"]))['floor'](1.6)); console.log(Object.freeze((globalThis.Math))["floor"](1.6)); console.log(Object.freeze((globalThis.Math))['floor'](1.6)); console.log(Object.freeze((globalThis['Math']))["floor"](1.6)); console.log(Object.freeze((globalThis['Math']))['floor'](1.6)); console.log(Object.freeze(globalThis["Math"]['floor'])(1.6)); console.log(Object.freeze((globalThis["Math"]['floor']))(1.6)); console.log(Object.freeze(globalThis["Math"].floor)(1.6)); console.log(Object.freeze((globalThis["Math"])["floor"])(1.6)); console.log(Object.freeze((globalThis['Math'])['floor'])(1.6)); console.log(Object.freeze(globalThis['Math'].floor)(1.6)); console.log(Object.freeze((globalThis['Math']).floor)(1.6)); console.log(Object.freeze((globalThis["Math"]).floor)(1.6)); console.log(Object.freeze((globalThis["Math"].floor))(1.6)); console.log(Object.freeze(Math["floor"])(1.6)); console.log(Object.freeze((Math["floor"]))(1.6)); console.log(Object.freeze(Math['floor'])(1.6)); console.log(Object.freeze((Math['floor']))(1.6)); console.log(Object.freeze(globalThis.Math["trunc"])(1.6)); console.log(Object.freeze((globalThis.Math["trunc"]))(1.6)); console.log(Object.freeze(globalThis.Math['trunc'])(1.6)); console.log(Object.freeze((globalThis.Math['trunc']))(1.6)); console.log(Object.freeze(globalThis.Math.trunc)(1.6)); console.log(Object.freeze((globalThis.Math.trunc))(1.6)); console.log(Object.freeze(globalThis["Math"]["trunc"])(1.6)); console.log(Object.freeze((globalThis["Math"]["trunc"]))(1.6)); console.log(Object.freeze((globalThis["Math"]))["trunc"](1.6)); console.log(Object.freeze((globalThis["Math"]))['trunc'](1.6)); console.log(Object.freeze((globalThis.Math))["trunc"](1.6)); console.log(Object.freeze((globalThis.Math))['trunc'](1.6)); console.log(Object.freeze((globalThis['Math']))["trunc"](1.6)); console.log(Object.freeze((globalThis['Math']))['trunc'](1.6)); console.log(Object.freeze(globalThis["Math"]['trunc'])(1.6)); console.log(Object.freeze((globalThis["Math"]['trunc']))(1.6)); console.log(Object.freeze(globalThis["Math"].trunc)(1.6)); console.log(Object.freeze((globalThis["Math"])["trunc"])(1.6)); console.log(Object.freeze((globalThis['Math'])['trunc'])(1.6)); console.log(Object.freeze(globalThis['Math'].trunc)(1.6)); console.log(Object.freeze((globalThis['Math']).trunc)(1.6)); console.log(Object.freeze((globalThis["Math"]).trunc)(1.6)); console.log(Object.freeze((globalThis["Math"].trunc))(1.6)); console.log(Object.freeze(Math["trunc"])(1.6)); console.log(Object.freeze((Math["trunc"]))(1.6)); console.log(Object.freeze(Math['trunc'])(1.6)); console.log(Object.freeze((Math['trunc']))(1.6)); console.log(Object.freeze(globalThis.Math["ceil"])(1.6)); console.log(Object.freeze((globalThis.Math["ceil"]))(1.6)); console.log(Object.freeze(globalThis.Math['ceil'])(1.6)); console.log(Object.freeze((globalThis.Math['ceil']))(1.6)); console.log(Object.freeze(globalThis.Math.ceil)(1.6)); console.log(Object.freeze((globalThis.Math.ceil))(1.6)); console.log(Object.freeze(globalThis["Math"]["ceil"])(1.6)); console.log(Object.freeze((globalThis["Math"]["ceil"]))(1.6)); console.log(Object.freeze((globalThis["Math"]))["ceil"](1.6)); console.log(Object.freeze((globalThis["Math"]))['ceil'](1.6)); console.log(Object.freeze((globalThis.Math))["ceil"](1.6)); console.log(Object.freeze((globalThis.Math))['ceil'](1.6)); console.log(Object.freeze((globalThis['Math']))["ceil"](1.6)); console.log(Object.freeze((globalThis['Math']))['ceil'](1.6)); console.log(Object.freeze(globalThis["Math"]['ceil'])(1.6)); console.log(Object.freeze((globalThis["Math"]['ceil']))(1.6)); console.log(Object.freeze(globalThis["Math"].ceil)(1.6)); console.log(Object.freeze((globalThis["Math"])["ceil"])(1.6)); console.log(Object.freeze((globalThis['Math'])['ceil'])(1.6)); console.log(Object.freeze(globalThis['Math'].ceil)(1.6)); console.log(Object.freeze((globalThis['Math']).ceil)(1.6)); console.log(Object.freeze((globalThis["Math"]).ceil)(1.6)); console.log(Object.freeze((globalThis["Math"].ceil))(1.6)); console.log(Object.freeze(Math["ceil"])(1.6)); console.log(Object.freeze((Math["ceil"]))(1.6)); console.log(Object.freeze(Math['ceil'])(1.6)); console.log(Object.freeze((Math['ceil']))(1.6));'''
+test_source = '''
+Kali.test('freeze-wrapped callable helpers', () => { const object = { a: 1 }; console.log(Object.freeze(Object.hasOwn)(object, "a")); console.log(Object.freeze((Object.hasOwn))(object, "a")); console.log(Object.freeze(Object["hasOwn"])(object, "a")); console.log(Object.freeze((Object["hasOwn"]))(object, "a")); console.log(Object.freeze(globalThis.Object.hasOwn)(object, "a")); console.log(Object.freeze((globalThis.Object.hasOwn))(object, "a")); console.log(Object.freeze(globalThis.Object["hasOwn"])(object, "a")); console.log(Object.freeze(globalThis.Object['hasOwn'])(object, "a")); console.log(Object.freeze((globalThis.Object)["hasOwn"])(object, "a")); console.log(Object.freeze((globalThis.Object).hasOwn)(object, "a")); console.log(Object.freeze((globalThis.Object)['hasOwn'])(object, "a")); console.log(Object.freeze((globalThis.Object["hasOwn"]))(object, "a")); console.log(Object.freeze(globalThis?.Object.hasOwn)(object, "a")); console.log(Object.freeze((globalThis?.Object.hasOwn))(object, "a")); console.log(Object.freeze((globalThis?.Object).hasOwn)(object, "a")); console.log(Object.freeze((globalThis?.Object)["hasOwn"])(object, "a")); console.log(Object.freeze(globalThis?.Object["hasOwn"])(object, "a")); console.log(Object.freeze((globalThis?.Object["hasOwn"]))(object, "a")); console.log(Object.freeze(globalThis["Object"].hasOwn)(object, "a")); console.log(Object.freeze((globalThis["Object"].hasOwn))(object, "a")); console.log(Object.freeze((globalThis["Object"]).hasOwn)(object, "a")); console.log(Object.freeze((globalThis["Object"])["hasOwn"])(object, "a")); console.log(Object.freeze(globalThis["Object"]["hasOwn"])(object, "a")); console.log(Object.freeze((globalThis["Object"]["hasOwn"]))(object, "a")); console.log(Object.freeze((globalThis["Object"]))["hasOwn"](object, "a")); console.log(Object.freeze((globalThis["Object"]))['hasOwn'](object, "a")); console.log(Object.freeze((globalThis['Object']))["hasOwn"](object, "a")); console.log(Object.freeze((globalThis['Object']))['hasOwn'](object, "a")); console.log(Object.freeze(globalThis['Object'].hasOwn)(object, "a")); console.log(Object.freeze((globalThis['Object'].hasOwn))(object, "a")); console.log(Object.freeze((globalThis['Object']).hasOwn)(object, "a")); console.log(Object.freeze((globalThis['Object'])['hasOwn'])(object, "a")); console.log(Object.freeze(globalThis['Object']['hasOwn'])(object, "a")); console.log(Object.freeze((globalThis['Object']['hasOwn']))(object, "a")); console.log(Object.freeze((null ?? Object.hasOwn))(object, "a")); console.log(Object.freeze((true && Object.hasOwn))(object, "a")); console.log(Object.freeze((false || Object.hasOwn))(object, "a")); console.log(Object.freeze(globalThis.Math["floor"])(1.6)); console.log(Object.freeze((globalThis.Math["floor"]))(1.6)); console.log(Object.freeze(globalThis.Math['floor'])(1.6)); console.log(Object.freeze((globalThis.Math['floor']))(1.6)); console.log(Object.freeze(globalThis.Math.floor)(1.6)); console.log(Object.freeze((globalThis.Math.floor))(1.6)); console.log(Object.freeze(globalThis["Math"]["floor"])(1.6)); console.log(Object.freeze((globalThis["Math"]["floor"]))(1.6)); console.log(Object.freeze((globalThis["Math"]))["floor"](1.6)); console.log(Object.freeze((globalThis["Math"]))['floor'](1.6)); console.log(Object.freeze((globalThis.Math))["floor"](1.6)); console.log(Object.freeze((globalThis.Math))['floor'](1.6)); console.log(Object.freeze((globalThis['Math']))["floor"](1.6)); console.log(Object.freeze((globalThis['Math']))['floor'](1.6)); console.log(Object.freeze(globalThis["Math"]['floor'])(1.6)); console.log(Object.freeze((globalThis["Math"]['floor']))(1.6)); console.log(Object.freeze(globalThis["Math"].floor)(1.6)); console.log(Object.freeze((globalThis["Math"])["floor"])(1.6)); console.log(Object.freeze((globalThis['Math'])['floor'])(1.6)); console.log(Object.freeze(globalThis['Math'].floor)(1.6)); console.log(Object.freeze((globalThis['Math']).floor)(1.6)); console.log(Object.freeze((globalThis["Math"]).floor)(1.6)); console.log(Object.freeze((globalThis["Math"].floor))(1.6)); console.log(Object.freeze(Math["floor"])(1.6)); console.log(Object.freeze((Math["floor"]))(1.6)); console.log(Object.freeze(Math['floor'])(1.6)); console.log(Object.freeze((Math['floor']))(1.6)); console.log(Object.freeze(globalThis.Math["trunc"])(1.6)); console.log(Object.freeze((globalThis.Math["trunc"]))(1.6)); console.log(Object.freeze(globalThis.Math['trunc'])(1.6)); console.log(Object.freeze((globalThis.Math['trunc']))(1.6)); console.log(Object.freeze(globalThis.Math.trunc)(1.6)); console.log(Object.freeze((globalThis.Math.trunc))(1.6)); console.log(Object.freeze(globalThis["Math"]["trunc"])(1.6)); console.log(Object.freeze((globalThis["Math"]["trunc"]))(1.6)); console.log(Object.freeze((globalThis["Math"]))["trunc"](1.6)); console.log(Object.freeze((globalThis["Math"]))['trunc'](1.6)); console.log(Object.freeze((globalThis.Math))["trunc"](1.6)); console.log(Object.freeze((globalThis.Math))['trunc'](1.6)); console.log(Object.freeze((globalThis['Math']))["trunc"](1.6)); console.log(Object.freeze((globalThis['Math']))['trunc'](1.6)); console.log(Object.freeze(globalThis["Math"]['trunc'])(1.6)); console.log(Object.freeze((globalThis["Math"]['trunc']))(1.6)); console.log(Object.freeze(globalThis["Math"].trunc)(1.6)); console.log(Object.freeze((globalThis["Math"])["trunc"])(1.6)); console.log(Object.freeze((globalThis['Math'])['trunc'])(1.6)); console.log(Object.freeze(globalThis['Math'].trunc)(1.6)); console.log(Object.freeze((globalThis['Math']).trunc)(1.6)); console.log(Object.freeze((globalThis["Math"]).trunc)(1.6)); console.log(Object.freeze((globalThis["Math"].trunc))(1.6)); console.log(Object.freeze(Math["trunc"])(1.6)); console.log(Object.freeze((Math["trunc"]))(1.6)); console.log(Object.freeze(Math['trunc'])(1.6)); console.log(Object.freeze((Math['trunc']))(1.6)); console.log(Object.freeze(globalThis.Math["ceil"])(1.6)); console.log(Object.freeze((globalThis.Math["ceil"]))(1.6)); console.log(Object.freeze(globalThis.Math['ceil'])(1.6)); console.log(Object.freeze((globalThis.Math['ceil']))(1.6)); console.log(Object.freeze(globalThis.Math.ceil)(1.6)); console.log(Object.freeze((globalThis.Math.ceil))(1.6)); console.log(Object.freeze(globalThis["Math"]["ceil"])(1.6)); console.log(Object.freeze((globalThis["Math"]["ceil"]))(1.6)); console.log(Object.freeze((globalThis["Math"]))["ceil"](1.6)); console.log(Object.freeze((globalThis["Math"]))['ceil'](1.6)); console.log(Object.freeze((globalThis.Math))["ceil"](1.6)); console.log(Object.freeze((globalThis.Math))['ceil'](1.6)); console.log(Object.freeze((globalThis['Math']))["ceil"](1.6)); console.log(Object.freeze((globalThis['Math']))['ceil'](1.6)); console.log(Object.freeze(globalThis["Math"]['ceil'])(1.6)); console.log(Object.freeze((globalThis["Math"]['ceil']))(1.6)); console.log(Object.freeze(globalThis["Math"].ceil)(1.6)); console.log(Object.freeze((globalThis["Math"])["ceil"])(1.6)); console.log(Object.freeze((globalThis['Math'])['ceil'])(1.6)); console.log(Object.freeze(globalThis['Math'].ceil)(1.6)); console.log(Object.freeze((globalThis['Math']).ceil)(1.6)); console.log(Object.freeze((globalThis["Math"]).ceil)(1.6)); console.log(Object.freeze((globalThis["Math"].ceil))(1.6)); console.log(Object.freeze(Math["ceil"])(1.6)); console.log(Object.freeze((Math["ceil"]))(1.6)); console.log(Object.freeze(Math['ceil'])(1.6)); console.log(Object.freeze((Math['ceil']))(1.6)); });'''
+expected_stdout = '''
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+'''
+test_stdout = '''
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+ok 1
+'''
+
+[source]
+"main.${extension}" = "${main_source}"
+"smoke.test.${extension}" = "${test_source}"
+
+[[case]]
+name = "run_plain"
+rationale = "`run` supports every documented freeze-wrapped callable alias for `Object.hasOwn` and for `Math.floor`/`Math.trunc`/`Math.ceil`, across every supported source class."
+args = ["run", "main.${extension}"]
+exit = "success"
+stdout = "${expected_stdout}"
+
+[[case]]
+name = "json_run"
+rationale = "Same fixture, asserting the JSON output envelope from `run` under `--output json`, including the exact stdout payload and an empty errors array."
+args = ["--output", "json", "run", "main.${extension}"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "${expected_stdout}"
+json.errors = []
+
+[[case]]
+name = "test_plain"
+rationale = "Same freeze-wrapped callable aliases, wrapped in `Kali.test` and run via `test`. The original assertion was `stdout.contains(&expected_stdout)` plus a separate `stdout.contains(\"ok 1\")`; see this file's header for why exact `stdout` equality is not a weakening."
+args = ["test", "smoke.test.${extension}"]
+exit = "success"
+stdout = "${test_stdout}"
+
+[[case]]
+name = "json_test"
+rationale = "Same `Kali.test`-wrapped fixture, asserting the JSON output envelope from `test` under `--output json`: one passing test, zero failing, and an empty errors array."
+args = ["--output", "json", "test", "smoke.test.${extension}"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.passed = 1
+json.payload.failed = 0
+json.errors = []

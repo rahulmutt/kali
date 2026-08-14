@@ -1,0 +1,715 @@
+# Migrated from tests/browser_for_await_frozen_set_map_constructor_result.rs
+# and its sibling submodule directory tests/browser_for_await_frozen_set_map_
+# constructor_result/{run,build,test}.rs (the `#[path]` submodule shape: the
+# top-level file declares zero top-level #[test] fns and pulls its 40 tests
+# in via `#[path = "..."] mod run;` / `mod build;` / `mod test;`). run.rs has
+# 14 #[test] fns, build.rs has 12, test.rs has 14 -- 40 total.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# `ext` (js/ts/jsx/tsx) is a genuinely uniform file-level [matrix] axis.
+# Every real assertion in this family -- enumerated by expanding every loop
+# in every #[test] fn, not counted by fn -- is, for a fixed (variant,
+# command, json_output) combination, exercising the identical assertion
+# shape across all four extensions:
+#   - `assert_browser_requested_frozen_set_map_constructor_result` (plain)
+#     and `..._parenthesized_frozen_set_map_constructor_result` (paren) and
+#     `..._frozen_object_helper_iteration_targets` (object): each reached
+#     command(run,test) x ext(js,ts,jsx,tsx) x json_output(2) = 16 times
+#     across run.rs+test.rs together, for each of the 3 variants (individual
+#     js/ts fns plus a jsx-and-tsx loop fn together cover run/test's full
+#     ext axis; a single all-4-extension loop covers the parenthesized
+#     variant's run/test axis in one fn each). 3 x 16 = 48 real invocations.
+#   - `assert_browser_bundle_frozen_set_map_constructor_result` (plain) and
+#     `..._bundle_parenthesized_frozen_set_map_constructor_result` (paren)
+#     and `..._bundle_frozen_object_helper_iteration_targets` (object): each
+#     reached ext(4) x json_output(2) = 8 times in build.rs, for each of the
+#     3 variants (individual js/ts fns plus a jsx-and-tsx loop calling both
+#     json_output values; a single all-4-extension loop, split one fn per
+#     json_output, covers the parenthesized variant). 3 x 8 = 24 real
+#     invocations.
+# Total real invocations: 48 + 24 = 72 = variant(3) x [command(2) x
+# json_output(2) + build(1) x json_output(2)] x ext(4) = 3 x (4+2) x 4 = 72.
+# This IS what all 40 #[test] fns together assert (40 differs from 72
+# because several fns make more than one call each -- every jsx-and-tsx loop
+# fn makes 2, the parenthesized run/test loop fns make 4 each, the
+# parenthesized+jsx-and-tsx build fns make up to 4 each), organized unevenly
+# across individual vs looped fns; recorded here per the house rule that
+# [matrix] eligibility is decided on invocation count, not #[test] fn count.
+# 18 [[case]] entries here (variant(3) x mode(run/test/build=3) x
+# json_output(2)), matrix-fanned by ext(4) = 72 trials, matching the 72 real
+# invocations exactly.
+#
+# [source] filenames are disambiguated with a `_plain`/`_paren`/`_object`
+# stem tag: [source] is one flat file-wide table, but source reuses bare
+# filenames (main.js, smoke.test.js, app.js, ...) across all THREE variants
+# (each gets its own private tempdir in the .rs world). No assertion ever
+# pins the literal filename, and no fixture body ever reads its own filename
+# back (no import()/require() of a self-referencing string anywhere in any
+# of the 9 fixture-building fns across all four source files), so renaming
+# it for disambiguation changes no claim -- same mechanism as the sibling
+# `frozen_set_map_constructor_result.toml` (the pre-existing non-for-await
+# migration of this same family), whose `_plain`/`_paren` convention this
+# file extends with a third `_object` tag for the frozen-object-helper
+# variant that file doesn't have.
+#
+# `--output json` mode's nested `json.stdout` field: source's own check is
+# `.contains(...)` (three separate substring checks for the `object`
+# variant), which the `json` assertion key cannot express directly
+# (exact-equality-only per path, per model.rs). The exact value was captured
+# LIVE from the real binary for every case and pinned exactly -- strictly
+# stronger, and (for `object`) it subsumes all three of source's substring
+# checks at once since the exact captured text contains each of them.
+#
+# `[[case.step]]`'s `browser_bundle_harness` `body` similarly pins the exact
+# captured harness stdout (via `stdout_contains` using source's own literal
+# needle(s), since source itself only ever asserts `.contains(...)` there,
+# never `assert_eq!`) rather than fabricating an exact-match claim source
+# never made.
+#
+# Every case's expected stdout/json/harness-stdout was captured LIVE from
+# the real `kali` binary (and, for browser_bundle_harness steps, real
+# `node`), via `tools/task-18-browser-pilot/kali_run.py` plus a small direct
+# harness-script replication (the same `browser_bundle_harness_prelude`
+# shape `crates/kali_runtime_contract/src/browser/harness.rs` emits,
+# `allow_subpaths = false`) -- not hand-computed.
+#
+# No Rust comments exist in any of the four source files (confirmed:
+# `grep -n '^\s*//'` on the top-level file and all three submodule files
+# has zero hits outside the JS `// kali-tree-shake: ...` fixture markers,
+# which are program text kept verbatim inside [source] bodies below, not
+# Rust doc comments), so there is no prose to move into `rationale`.
+#
+# BATCH CONVENTION (per pilot round 1 review, restated here): a single
+# [[case]] can correspond to MORE THAN ONE source #[test] fn (individual
+# js/ts fns plus a jsx-and-tsx loop fn, or a run/test all-4-extension loop
+# fn, folded into one matrix-fanned case). Assertion mapping stays 1:1 (every
+# trial still checks exactly the real per-extension source assertion), so no
+# claim is lost -- but a failing trial's id reads `[ext=jsx]`, not a source
+# fn name.
+
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app_object.${ext}" = """// kali-tree-shake: browserFrozenObjectHelperIterationTargets
+export async function browserFrozenObjectHelperIterationTargets() {
+  const object = Object.fromEntries([["b", 1], ["a", 2]]);
+  for await (const key of Object.freeze(Object.keys)(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis.Object.keys)(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze((globalThis.Object.keys))(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis["Object"]["keys"])(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis.Object["keys"])(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis["Object"].keys)(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze((globalThis["Object"]["keys"]))(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze((true && Object.keys))(object)) {
+    console.log(key);
+  }
+  for await (const value of Object.freeze(Object.values)(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis.Object.values)(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Object.values))(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis["Object"]["values"])(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis.Object["values"])(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis["Object"].values)(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Object"]["values"]))(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Object"]))["values"](object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || Object.values))(object)) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze(globalThis["Object"]["entries"])(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis.Object.entries)(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((globalThis.Object.entries))(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis.Object["entries"])(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis["Object"].entries)(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((globalThis["Object"]["entries"]))(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((true && Object.entries))(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+"""
+"app_paren.${ext}" = """// kali-tree-shake: browserParenthesizedFrozenSetMapConstructorResult
+export async function browserParenthesizedFrozenSetMapConstructorResult() {
+  const values = [1, 2, 1];
+  for await (const value of Object.freeze((new Set(values)))) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const value of Object.freeze((new (null ?? Set)(values)))) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((new (false || Set)(values)))) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze((new (null ?? Map)([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((new (false || Map)([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+"""
+"app_plain.${ext}" = """// kali-tree-shake: browserFrozenSetMapConstructorResult
+export async function browserFrozenSetMapConstructorResult() {
+  const values = [1, 2, 1];
+  for await (const value of Object.freeze(new Set(values))) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze(new Map([[1, 2], [1, 3], [4, 5]]))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+"""
+"main_object.${ext}" = """async function browserFrozenObjectHelperIterationTargets() {
+  const object = Object.fromEntries([["b", 1], ["a", 2]]);
+  for await (const key of Object.freeze(Object.keys)(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis.Object.keys)(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze((globalThis.Object.keys))(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis["Object"]["keys"])(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis.Object["keys"])(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis["Object"].keys)(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze((globalThis["Object"]["keys"]))(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze((true && Object.keys))(object)) {
+    console.log(key);
+  }
+  for await (const value of Object.freeze(Object.values)(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis.Object.values)(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Object.values))(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis["Object"]["values"])(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis.Object["values"])(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis["Object"].values)(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Object"]["values"]))(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Object"]))["values"](object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || Object.values))(object)) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze(globalThis["Object"]["entries"])(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis.Object.entries)(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((globalThis.Object.entries))(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis.Object["entries"])(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis["Object"].entries)(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((globalThis["Object"]["entries"]))(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((true && Object.entries))(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+
+browserFrozenObjectHelperIterationTargets();
+"""
+"main_paren.${ext}" = """async function browserParenthesizedFrozenSetMapConstructorResult() {
+  const values = [1, 2, 1];
+  for await (const value of Object.freeze((new Set(values)))) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const value of Object.freeze((new (null ?? Set)(values)))) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((new (false || Set)(values)))) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze((new (null ?? Map)([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((new (false || Map)([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+
+browserParenthesizedFrozenSetMapConstructorResult();
+"""
+"main_plain.${ext}" = """async function browserFrozenSetMapConstructorResult() {
+  const values = [1, 2, 1];
+  for await (const value of Object.freeze(new Set(values))) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze(new Map([[1, 2], [1, 3], [4, 5]]))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+
+browserFrozenSetMapConstructorResult();
+"""
+"smoke.test_object.${ext}" = """Kali.test('for await frozen object helper iteration targets', () => {
+  async function browserFrozenObjectHelperIterationTargets() {
+    const object = Object.fromEntries([["b", 1], ["a", 2]]);
+    for await (const key of Object.freeze(Object.keys)(object)) {
+      console.log(key);
+    }
+    for await (const key of Object.freeze(globalThis.Object.keys)(object)) {
+      console.log(key);
+    }
+    for await (const key of Object.freeze((globalThis.Object.keys))(object)) {
+      console.log(key);
+    }
+    for await (const key of Object.freeze(globalThis["Object"]["keys"])(object)) {
+      console.log(key);
+    }
+    for await (const key of Object.freeze(globalThis.Object["keys"])(object)) {
+      console.log(key);
+    }
+    for await (const key of Object.freeze(globalThis["Object"].keys)(object)) {
+      console.log(key);
+    }
+    for await (const key of Object.freeze((globalThis["Object"]["keys"]))(object)) {
+      console.log(key);
+    }
+    for await (const key of Object.freeze((true && Object.keys))(object)) {
+      console.log(key);
+    }
+    for await (const value of Object.freeze(Object.values)(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze(globalThis.Object.values)(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze((globalThis.Object.values))(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze(globalThis["Object"]["values"])(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze(globalThis.Object["values"])(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze(globalThis["Object"].values)(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze((globalThis["Object"]["values"]))(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze((globalThis["Object"]))["values"](object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze((false || Object.values))(object)) {
+      console.log(value);
+    }
+    for await (const entry of Object.freeze(globalThis["Object"]["entries"])(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze(globalThis.Object.entries)(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze((globalThis.Object.entries))(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze(globalThis.Object["entries"])(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze(globalThis["Object"].entries)(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze((globalThis["Object"]["entries"]))(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze((true && Object.entries))(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+  }
+
+  return browserFrozenObjectHelperIterationTargets();
+});
+"""
+"smoke.test_paren.${ext}" = """Kali.test('for await parenthesized frozen set/map constructor results', () => {
+  async function browserParenthesizedFrozenSetMapConstructorResult() {
+    const values = [1, 2, 1];
+    for await (const value of Object.freeze((new Set(values)))) {
+      console.log(value);
+    }
+    for await (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const value of Object.freeze((new (null ?? Set)(values)))) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze((new (false || Set)(values)))) {
+      console.log(value);
+    }
+    for await (const entry of Object.freeze((new (null ?? Map)([[1, 2], [1, 3], [4, 5]])))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze((new (false || Map)([[1, 2], [1, 3], [4, 5]])))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+  }
+
+  return browserParenthesizedFrozenSetMapConstructorResult();
+});
+"""
+"smoke.test_plain.${ext}" = """Kali.test('for await frozen set/map constructor results', () => {
+  async function browserFrozenSetMapConstructorResult() {
+    const values = [1, 2, 1];
+    for await (const value of Object.freeze(new Set(values))) {
+      console.log(value);
+    }
+    for await (const entry of Object.freeze(new Map([[1, 2], [1, 3], [4, 5]]))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+  }
+
+  return browserFrozenSetMapConstructorResult();
+});
+"""
+
+[[case]]
+name = "run_supports_for_await_frozen_set_map_constructor_result_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen set/map constructor results variant (`browserFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_plain.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n2\n1\n3\n4\n5\n"]
+stderr = ""
+
+[[case]]
+name = "json_run_supports_for_await_frozen_set_map_constructor_result_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen set/map constructor results variant (`browserFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_plain.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "exitCode" = 0, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "threadTopology" = { "totalInstances" = 0, "terminatedInstances" = 0, "liveInstances" = [] }, "exitCode" = 0 }, "stdout" = "1\n2\n1\n3\n4\n5\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_await_frozen_set_map_constructor_result_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen set/map constructor results variant (`browserFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_plain.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n2\n1\n3\n4\n5\n", "ok 1"]
+stderr = ""
+
+[[case]]
+name = "json_test_supports_for_await_frozen_set_map_constructor_result_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen set/map constructor results variant (`browserFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_plain.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "threadTopology" = { "totalInstances" = 0, "terminatedInstances" = 0, "liveInstances" = [] }, "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "1\n2\n1\n3\n4\n5\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "build_emits_for_await_frozen_set_map_constructor_result_in_all_browser_bundle_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen set/map constructor results variant (`browserFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_plain.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_plain/app_plain.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_plain"
+body = """const mod = await import(bundleJs.href);
+await mod.browserFrozenSetMapConstructorResult();
+console.log('browser for await frozen set/map constructor results ok');
+"""
+exit = "success"
+stdout_contains = ["1\n2\n1\n3\n4\n5\n"]
+
+[[case]]
+name = "json_build_emits_for_await_frozen_set_map_constructor_result_in_all_browser_bundle_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen set/map constructor results variant (`browserFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_plain.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_plain/app_plain.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_plain"
+body = """const mod = await import(bundleJs.href);
+await mod.browserFrozenSetMapConstructorResult();
+console.log('browser for await frozen set/map constructor results ok');
+"""
+exit = "success"
+stdout_contains = ["1\n2\n1\n3\n4\n5\n"]
+
+[[case]]
+name = "run_supports_for_await_parenthesized_frozen_set_map_constructor_result_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await parenthesized frozen set/map constructor results variant (`browserParenthesizedFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_paren.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"]
+stderr = ""
+
+[[case]]
+name = "json_run_supports_for_await_parenthesized_frozen_set_map_constructor_result_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await parenthesized frozen set/map constructor results variant (`browserParenthesizedFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_paren.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "exitCode" = 0, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "threadTopology" = { "totalInstances" = 0, "terminatedInstances" = 0, "liveInstances" = [] }, "exitCode" = 0 }, "stdout" = "1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_await_parenthesized_frozen_set_map_constructor_result_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await parenthesized frozen set/map constructor results variant (`browserParenthesizedFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_paren.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n", "ok 1"]
+stderr = ""
+
+[[case]]
+name = "json_test_supports_for_await_parenthesized_frozen_set_map_constructor_result_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await parenthesized frozen set/map constructor results variant (`browserParenthesizedFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_paren.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "threadTopology" = { "totalInstances" = 0, "terminatedInstances" = 0, "liveInstances" = [] }, "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "build_emits_for_await_parenthesized_frozen_set_map_constructor_result_in_all_browser_bundle_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await parenthesized frozen set/map constructor results variant (`browserParenthesizedFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_paren.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_paren/app_paren.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_paren"
+body = """const mod = await import(bundleJs.href);
+await mod.browserParenthesizedFrozenSetMapConstructorResult();
+console.log('browser for await parenthesized frozen set/map constructor results ok');
+"""
+exit = "success"
+stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"]
+
+[[case]]
+name = "json_build_emits_for_await_parenthesized_frozen_set_map_constructor_result_in_all_browser_bundle_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await parenthesized frozen set/map constructor results variant (`browserParenthesizedFrozenSetMapConstructorResult`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_paren.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_paren/app_paren.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_paren"
+body = """const mod = await import(bundleJs.href);
+await mod.browserParenthesizedFrozenSetMapConstructorResult();
+console.log('browser for await parenthesized frozen set/map constructor results ok');
+"""
+exit = "success"
+stdout_contains = ["1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"]
+
+[[case]]
+name = "run_supports_for_await_frozen_object_helper_iteration_targets_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen object helper iteration targets variant (`browserFrozenObjectHelperIterationTargets`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_object.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["b\na\n", "1\n2\n", "b\n1\na\n2\n"]
+stderr = ""
+
+[[case]]
+name = "json_run_supports_for_await_frozen_object_helper_iteration_targets_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen object helper iteration targets variant (`browserFrozenObjectHelperIterationTargets`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_object.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "exitCode" = 0, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "threadTopology" = { "totalInstances" = 0, "terminatedInstances" = 0, "liveInstances" = [] }, "exitCode" = 0 }, "stdout" = "b\na\nb\na\nb\na\nb\na\nb\na\nb\na\nb\na\nb\na\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_await_frozen_object_helper_iteration_targets_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen object helper iteration targets variant (`browserFrozenObjectHelperIterationTargets`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_object.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["b\na\n", "1\n2\n", "b\n1\na\n2\n", "ok 1"]
+stderr = ""
+
+[[case]]
+name = "json_test_supports_for_await_frozen_object_helper_iteration_targets_in_all_browser_harness_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen object helper iteration targets variant (`browserFrozenObjectHelperIterationTargets`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test_object.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "threadTopology" = { "totalInstances" = 0, "terminatedInstances" = 0, "liveInstances" = [] }, "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "b\na\nb\na\nb\na\nb\na\nb\na\nb\na\nb\na\nb\na\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "build_emits_for_await_frozen_object_helper_iteration_targets_in_all_browser_bundle_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen object helper iteration targets variant (`browserFrozenObjectHelperIterationTargets`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_object.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_object/app_object.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_object"
+body = """const mod = await import(bundleJs.href);
+await mod.browserFrozenObjectHelperIterationTargets();
+console.log('browser for await frozen object helper iteration targets ok');
+"""
+exit = "success"
+stdout_contains = ["b\na\n", "1\n2\n", "b\n1\na\n2\n"]
+
+[[case]]
+name = "json_build_emits_for_await_frozen_object_helper_iteration_targets_in_all_browser_bundle_input_variants_when_configured"
+rationale = """Migrated from browser_for_await_frozen_set_map_constructor_result.rs and its sibling submodule directory (the #[path] shape: the top-level file declares zero top-level #[test] fns; run.rs has 14 #[test] fns, build.rs has 12, test.rs has 14, 40 total). This case covers the for await frozen object helper iteration targets variant (`browserFrozenObjectHelperIterationTargets`). `ext` is a genuinely uniform file-level [matrix] axis here: every real assertion (enumerated by expanding every loop in every #[test] fn, not counted by fn) is, for a fixed (variant, command, json_output) combination, the same shape across js/ts/jsx/tsx. 18 [[case]] entries (variant(3) x mode(run/test/build=3) x json_output(2)) matrix-fanned by ext(4) = 72 trials, matching the 72 real invocations exactly (40 #[test] fns differ from 72 because several fns make more than one call each via loops). `${ext}`-suffixed filenames are disambiguated with a `_plain`/`_paren`/`_object` stem tag because [source] is one flat file-wide table and source reuses bare filenames (main.js, smoke.test.js, app.js, ...) across all three variants that each get their own private tempdir in the .rs world; no assertion ever pins the literal filename and no fixture body ever reads its own filename back, so this changes no claim. For `--output json` mode's nested `json.stdout` field (and the browser_bundle_harness step's harness stdout), source's own check is `.contains(...)` -- unexpressible directly as an exact json field (the `json` key is exact-equality-only per path); the exact value was captured live from the real binary and pinned exactly where used as `json.stdout` (strictly stronger), or mirrored as `stdout_contains` using source's own literal needle(s) where used on the browser_bundle_harness step's raw process stdout (source itself only ever asserts .contains() there, never assert_eq!, so no assertion source didn't make is added). No Rust comments exist in any of the four source files."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_object.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_object/app_object.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_object"
+body = """const mod = await import(bundleJs.href);
+await mod.browserFrozenObjectHelperIterationTargets();
+console.log('browser for await frozen object helper iteration targets ok');
+"""
+exit = "success"
+stdout_contains = ["b\na\n", "1\n2\n", "b\n1\na\n2\n"]

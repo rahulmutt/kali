@@ -1,0 +1,217 @@
+# Migrated from tests/object_enumeration_wrapped_js_input.rs -- all 8
+# #[test] functions, as 8 case blocks, 1:1. No test in this file loops --
+# each is a distinct fn calling either the shared `assert_wrapped_object_
+# enumeration` helper (plain output) or its own inline body (json output)
+# with one fixed extension -- so no [matrix], sibling cases throughout.
+#
+# Two distinct fixture bodies (`wrapped_object_enumeration_source()` for
+# `run`, `wrapped_object_enumeration_test_source()` for `test`), each used
+# byte-for-byte identically under both a `.js` and a `.ts` filename (the
+# plain and json variants of a given command+extension also write the exact
+# same fixture text to the exact same filename) -- both bodies are factored
+# into [constants] once and referenced from all 4 filenames, per the house
+# style for exact-duplicate fixture text.
+#
+# All `run` cases assert stdout contains `"wrapped object enumeration ok"`;
+# all `test` cases assert exit success (plain: stdout contains `"ok 1"`;
+# json: the payload counters and empty stdout/stderr, verified directly
+# against the built binary for both extensions -- `Kali.test` callbacks
+# write nothing to stdout/stderr themselves, so the json envelope's own
+# `stdout`/`stderr` fields are genuinely empty strings, not just absent).
+
+[constants]
+run_source = '''
+const wrapped = ({ "b": 1, "2": 2, "a": 3, "1": 4 });
+const alias = wrapped;
+const keys = Object.keys(alias);
+const entries = Object.entries(alias);
+const values = Object.values(alias);
+const bracketRootKeys = globalThis['Object']['keys'](alias);
+const bracketRootEntries = globalThis['Object']['entries'](alias);
+const bracketRootValues = globalThis['Object']['values'](alias);
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  entries.length !== 4 ||
+  entries[0][0] !== '1' ||
+  entries[0][1] !== 4 ||
+  entries[1][0] !== '2' ||
+  entries[1][1] !== 2 ||
+  entries[2][0] !== 'b' ||
+  entries[2][1] !== 1 ||
+  entries[3][0] !== 'a' ||
+  entries[3][1] !== 3 ||
+  values.length !== 4 ||
+  values[0] !== 4 ||
+  values[1] !== 2 ||
+  values[2] !== 1 ||
+  values[3] !== 3 ||
+  bracketRootKeys.length !== 4 ||
+  bracketRootKeys[0] !== '1' ||
+  bracketRootKeys[1] !== '2' ||
+  bracketRootKeys[2] !== 'b' ||
+  bracketRootKeys[3] !== 'a' ||
+  bracketRootEntries.length !== 4 ||
+  bracketRootEntries[0][0] !== '1' ||
+  bracketRootEntries[0][1] !== 4 ||
+  bracketRootEntries[1][0] !== '2' ||
+  bracketRootEntries[1][1] !== 2 ||
+  bracketRootEntries[2][0] !== 'b' ||
+  bracketRootEntries[2][1] !== 1 ||
+  bracketRootEntries[3][0] !== 'a' ||
+  bracketRootEntries[3][1] !== 3 ||
+  bracketRootValues.length !== 4 ||
+  bracketRootValues[0] !== 4 ||
+  bracketRootValues[1] !== 2 ||
+  bracketRootValues[2] !== 1 ||
+  bracketRootValues[3] !== 3
+) {
+  throw new Error('unexpected wrapped object enumeration ordering');
+}
+console.log('wrapped object enumeration ok');
+'''
+test_source = '''
+Kali.test('wrapped object enumeration', () => {
+  const wrapped = ({ "b": 1, "2": 2, "a": 3, "1": 4 });
+  const alias = wrapped;
+  const keys = Object.keys(alias);
+  const entries = Object.entries(alias);
+  const values = Object.values(alias);
+  const bracketRootKeys = globalThis['Object']['keys'](alias);
+  const bracketRootEntries = globalThis['Object']['entries'](alias);
+  const bracketRootValues = globalThis['Object']['values'](alias);
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3 ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    bracketRootKeys.length !== 4 ||
+    bracketRootKeys[0] !== '1' ||
+    bracketRootKeys[1] !== '2' ||
+    bracketRootKeys[2] !== 'b' ||
+    bracketRootKeys[3] !== 'a' ||
+    bracketRootEntries.length !== 4 ||
+    bracketRootEntries[0][0] !== '1' ||
+    bracketRootEntries[0][1] !== 4 ||
+    bracketRootEntries[1][0] !== '2' ||
+    bracketRootEntries[1][1] !== 2 ||
+    bracketRootEntries[2][0] !== 'b' ||
+    bracketRootEntries[2][1] !== 1 ||
+    bracketRootEntries[3][0] !== 'a' ||
+    bracketRootEntries[3][1] !== 3 ||
+    bracketRootValues.length !== 4 ||
+    bracketRootValues[0] !== 4 ||
+    bracketRootValues[1] !== 2 ||
+    bracketRootValues[2] !== 1 ||
+    bracketRootValues[3] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+});
+'''
+
+[source]
+"main.js" = "${run_source}"
+"main.ts" = "${run_source}"
+"main.test.js" = "${test_source}"
+"main.test.ts" = "${test_source}"
+
+[[case]]
+name = "run_accepts_wrapped_object_enumeration_in_js_input"
+rationale = "Object.keys/entries/values (and their bracket-indexed globalThis.Object aliases) over a parenthesized-wrapped object literal with mixed numeric/string keys must enumerate in ES order: array-index-like keys ascending first, then insertion order."
+args = ["run", "main.js"]
+exit = "success"
+stdout_contains = ["wrapped object enumeration ok"]
+
+[[case]]
+name = "run_accepts_wrapped_object_enumeration_in_ts_input"
+rationale = "Same wrapped-object enumeration ordering, ts source."
+args = ["run", "main.ts"]
+exit = "success"
+stdout_contains = ["wrapped object enumeration ok"]
+
+[[case]]
+name = "json_run_accepts_wrapped_object_enumeration_in_js_input"
+rationale = "Same wrapped-object enumeration ordering, asserting the JSON output envelope from `--output json run` rather than raw stdout. `stdout_contains` here matches against the raw process stdout (the single-line JSON envelope itself), inside which the JSON `stdout` field's own text -- `json[\"stdout\"].contains(...)` in the original -- appears as a substring; this is the same claim, not a weaker one, since the envelope text contains that field's value verbatim."
+args = ["--output", "json", "run", "main.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+stdout_contains = ["wrapped object enumeration ok"]
+
+[[case]]
+name = "json_run_accepts_wrapped_object_enumeration_in_ts_input"
+rationale = "Same wrapped-object enumeration ordering, ts source, asserting the JSON output envelope."
+args = ["--output", "json", "run", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+stdout_contains = ["wrapped object enumeration ok"]
+
+[[case]]
+name = "test_accepts_wrapped_object_enumeration_in_js_input"
+rationale = "Same wrapped-object enumeration ordering, run through `Kali.test(...)` via the `test` command instead of `run`."
+args = ["test", "main.test.js"]
+exit = "success"
+stdout_contains = ["ok 1"]
+
+[[case]]
+name = "test_accepts_wrapped_object_enumeration_in_ts_input"
+rationale = "Same Kali.test wrapped-object enumeration ordering, ts source."
+args = ["test", "main.test.ts"]
+exit = "success"
+stdout_contains = ["ok 1"]
+
+[[case]]
+name = "json_test_accepts_wrapped_object_enumeration_in_js_input"
+rationale = "Same Kali.test wrapped-object enumeration ordering, asserting the JSON output envelope from `--output json test`: the payload's total/passed/failed/skipped counters, and that the Kali.test callback itself wrote nothing to stdout or stderr."
+args = ["--output", "json", "test", "main.test.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.skipped = 0
+json.stdout = ""
+json.stderr = ""
+
+[[case]]
+name = "json_test_accepts_wrapped_object_enumeration_in_ts_input"
+rationale = "Same Kali.test wrapped-object enumeration ordering, ts source, asserting the JSON output envelope."
+args = ["--output", "json", "test", "main.test.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.skipped = 0
+json.stdout = ""
+json.stderr = ""

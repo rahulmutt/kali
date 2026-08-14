@@ -7,7 +7,7 @@
 //! blocks `fetch()` of `file://` URLs, so we serve the bundle dir from a tiny
 //! localhost server and navigate to a real HTML harness page that imports the
 //! glue. The harness page itself is no longer hand-written here — it comes
-//! from the production `kali_runtime::browser_bundle_harness_page` generator,
+//! from the production `kali_runtime_contract::browser_bundle_harness_page` generator,
 //! so this test proves that page is genuinely browser-loadable. No extra
 //! Chromium flags, no production-code changes, no driver changes.
 mod cdp_driver;
@@ -148,7 +148,7 @@ export async function smoke(left, right) {\n\
     // 3. Generate the browser-native harness page from the production API:
     //    run the top-level program via start(), then the exported wrapper.
     let harness_path = dir.path().join("cdp-harness.html");
-    let harness = kali_runtime::browser_bundle_harness_page(
+    let harness = kali_runtime_contract::browser_bundle_harness_page(
         "app",
         "const mod = await import(bundleJs.href);\n\
 await mod.start();\n\

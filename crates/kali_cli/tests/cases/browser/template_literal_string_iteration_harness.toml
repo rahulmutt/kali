@@ -1,0 +1,167 @@
+# Migrated from tests/browser_template_literal_string_iteration_harness.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
+# tests/browser_template_literal_string_iteration_harness.rs has 1 Rust comment block(s), listed with their
+# line numbers before any TOML was written:
+#   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:64) -- opens a 2-line block
+# It sits in `assert_browser_harness_template_literal_string_iteration`, which every `#[test]` fn in the file calls,
+# so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
+# by this generator (its comment_blocks helper, named plainly rather than backticked:
+# U8's gate resolves every backticked lower-case identifier against this source's own
+# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
+# become `--`.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_harness_template_literal_string_iteration` -- 16 invocation(s) = 16 individual `#[test]` fns, each one unlooped call = command(run/test) x json_output(2) x ext(4); the file contains no loop, so 16 fns = 16 invocations
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one `(command, json_output)` cell of the source's 16 fns, fanned to the 4 extensions; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Both fixtures
+# (`main.${ext}`, `smoke.test.${ext}`) are written unconditionally by the source into
+# a fresh temp dir: no fixture is written behind an `if`, no `kali.json` manifest is
+# written anywhere in this file, and no case's point is the presence or absence of a
+# file. Every command below names its entry explicitly on argv, so the unused siblings
+# in a trial dir are inert -- verified against the real binary rather than assumed:
+# `kali --output json test smoke.test.js` in a directory holding all four
+# `smoke.test.<ext>` fixtures still reports `payload.total = 1`, so no sibling is
+# picked up by discovery.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. The helper picks its body from the
+# COMMAND (`if command == "test" { ..._test_source() } else { ..._run_source() }`)
+# and the source hands it a DIFFERENT filename per command for every extension --
+# `main.<ext>` for `run` and `smoke.test.<ext>` for `test` -- so the two program
+# texts never land on one key and the flat file-wide namespace has no collision.
+# (That is the axis on which this file differs from `set_iteration_harness`, whose
+# looped fn reuses `main.<ext>` for BOTH commands and therefore does need renames.)
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `assert_browser_harness_template_literal_string_iteration`,
+#   `browser_template_literal_string_iteration_source` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# This file runs no `browser_bundle_harness` step at all -- every case is a single
+# `kali run`/`kali test` invocation -- so ruling 6's runner-infrastructure paragraph
+# is omitted rather than printed about a chain this file never reaches.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.
+# The program under test interpolates 2 of its own bindings (prefix, suffix) with a real JS
+# template literal. `expand.rs`'s `substitute()` hard-fails on any `${...}` it cannot resolve,
+# and `expand.rs:195` substitutes `[source]` BODIES as well as step fields, so this file
+# declares `[constants] dollar = "$"` and spells every genuine `${` as `${dollar}{`.
+# The RESOLVED program text is byte-identical to the source's -- this is an encoding of
+# rule 9, not an exception to it. The generator DERIVES this rather than marking it:
+# it escapes whatever `${` the captured fixture actually contains and raises if any
+# survives unescaped, so a file cannot declare the constant it does not need or need
+# the constant it does not declare.
+#
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '$' -- the value of the rule-10 `[constants] dollar` escape, not an assertion at all -- `check_extra_claims.py` reads every [constants] value as a claim string, and this one exists purely so `expand.rs`'s substitute() can put a literal `$` back into the fixture. The RESOLVED program text is byte-identical to the source's, which is the whole point of rule 10
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# The source's fail-closed assertion is at `output.status.success()` :66.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+
+[constants]
+dollar = "$"
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """  const prefix = "he";
+  const suffix = "llo";
+  const syncChars = [];
+  for (const item of `${dollar}{prefix}${dollar}{suffix}`) {
+    syncChars.push(item);
+  }
+  const asyncChars = [];
+  for await (const item of `${dollar}{prefix}${dollar}{suffix}`) {
+    asyncChars.push(item);
+  }
+  if (syncChars.join("") !== "hello" || asyncChars.join("") !== "hello") {
+    throw new Error('unexpected template literal iteration semantics');
+  }
+console.log('browser template literal iteration ok');
+"""
+"smoke.test.${ext}" = """Kali.test('browser template literal iteration', () => {
+  const prefix = "he";
+  const suffix = "llo";
+  const syncChars = [];
+  for (const item of `${dollar}{prefix}${dollar}{suffix}`) {
+    syncChars.push(item);
+  }
+  const asyncChars = [];
+  for await (const item of `${dollar}{prefix}${dollar}{suffix}`) {
+    asyncChars.push(item);
+  }
+  if (syncChars.join("") !== "hello" || asyncChars.join("") !== "hello") {
+    throw new Error('unexpected template literal iteration semantics');
+  }
+});
+"""
+
+[[case]]
+name = "run_template_literal_string_iteration_harness"
+rationale = """Migrated from browser_template_literal_string_iteration_harness.rs. This `[[case]]` is the `(run, text)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `run_supports_template_literal_iteration_in_browser_api_surface_with_harness_js_input`, `run_supports_template_literal_iteration_in_browser_api_surface_with_harness_ts_input`, `run_supports_template_literal_iteration_in_browser_api_surface_with_harness_jsx_input`, `run_supports_template_literal_iteration_in_browser_api_surface_with_harness_tsx_input` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_harness_template_literal_string_iteration(` (:33) writes the template-literal string-iteration probe to `main.${ext}` in a fresh temp dir and runs the real `kali run --api browser --max-threads 0 --max-spawned-processes 0` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:66) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_template_literal_string_iteration_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_template_literal_string_iteration_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser body for the supported template-literal string iteration slice." That doc belongs to browser_template_literal_string_iteration_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_template_literal_string_iteration_harness"
+rationale = """Migrated from browser_template_literal_string_iteration_harness.rs. This `[[case]]` is the `(run, json)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `json_run_supports_template_literal_iteration_in_browser_api_surface_with_harness_js_input`, `json_run_supports_template_literal_iteration_in_browser_api_surface_with_harness_ts_input`, `json_run_supports_template_literal_iteration_in_browser_api_surface_with_harness_jsx_input`, `json_run_supports_template_literal_iteration_in_browser_api_surface_with_harness_tsx_input` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_harness_template_literal_string_iteration(` (:33) writes the template-literal string-iteration probe to `main.${ext}` in a fresh temp dir and runs the real `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:66) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_template_literal_string_iteration_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_template_literal_string_iteration_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser body for the supported template-literal string iteration slice." That doc belongs to browser_template_literal_string_iteration_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_template_literal_string_iteration_harness"
+rationale = """Migrated from browser_template_literal_string_iteration_harness.rs. This `[[case]]` is the `(test, text)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `test_supports_template_literal_iteration_in_browser_api_surface_with_harness_js_input`, `test_supports_template_literal_iteration_in_browser_api_surface_with_harness_ts_input`, `test_supports_template_literal_iteration_in_browser_api_surface_with_harness_jsx_input`, `test_supports_template_literal_iteration_in_browser_api_surface_with_harness_tsx_input` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_harness_template_literal_string_iteration(` (:33) writes the template-literal string-iteration probe to `smoke.test.${ext}` in a fresh temp dir and runs the real `kali test --api browser --max-threads 0 --max-spawned-processes 0` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:66) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_template_literal_string_iteration_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_template_literal_string_iteration_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser body for the supported template-literal string iteration slice." That doc belongs to browser_template_literal_string_iteration_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_template_literal_string_iteration_harness"
+rationale = """Migrated from browser_template_literal_string_iteration_harness.rs. This `[[case]]` is the `(test, json)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `json_test_supports_template_literal_iteration_in_browser_api_surface_with_harness_js_input`, `json_test_supports_template_literal_iteration_in_browser_api_surface_with_harness_ts_input`, `json_test_supports_template_literal_iteration_in_browser_api_surface_with_harness_jsx_input`, `json_test_supports_template_literal_iteration_in_browser_api_surface_with_harness_tsx_input` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_harness_template_literal_string_iteration(` (:33) writes the template-literal string-iteration probe to `smoke.test.${ext}` in a fresh temp dir and runs the real `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:66) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_template_literal_string_iteration_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_template_literal_string_iteration_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser body for the supported template-literal string iteration slice." That doc belongs to browser_template_literal_string_iteration_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"

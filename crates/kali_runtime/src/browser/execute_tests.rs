@@ -10,5 +10,8 @@ mod execution;
 #[path = "execute_tests/harness.rs"]
 mod harness;
 
+#[path = "execute_tests/harness_script.rs"]
+mod harness_script;
+
 #[path = "execute_tests/diagnostic.rs"]
 mod diagnostic;

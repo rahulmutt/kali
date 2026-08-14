@@ -1,0 +1,135 @@
+# Migrated from tests/string_pad_static_ascii.rs -- all 8 #[test] functions,
+# as 11 case blocks:
+#
+#   - `run`, `json_check`, `json_browser_bundle_tsx`: 1:1 with their source
+#     tests.
+#   - `browser_bundle_js`/`ts`/`jsx`/`tsx`: sibling [[case]] blocks, not a
+#     [matrix] axis, for `browser_bundle_accepts_static_ascii_string_pad_
+#     across_source_classes`'s 4-extension loop -- a matrix axis is
+#     file-level and would fan every other case in this file out across all
+#     4 extensions too (spec 5.6).
+#   - `check_gates_dynamic_target_length`/`negative_target_length`/
+#     `non_ascii_receiver`/`non_ascii_padding`: the 4 E5506 fail-closed gate
+#     tests, each pinning `errors.0.code = "E5506"` via dotted-path array
+#     indexing.
+#
+# [source] is deliberately smaller than the file-level table the Task 12
+# template used: all `run`/`json_check`/browser-loop cases share one
+# `supported_source()` body from the .rs, so rather than 6 same-content
+# entries (one filename per test) this reuses a single "main.<ext>" file per
+# extension (4 entries) across every case that needs that extension. Each of
+# the 4 gate cases genuinely needs distinct content, so those keep distinct
+# filenames.
+
+[source]
+"main.js" = '''
+console.log("7".padStart(3, "0"));
+console.log("x".padEnd(4));
+console.log("abc".padStart(2, "0"));
+console.log("x".padEnd(5, "yz"));
+'''
+"main.ts" = '''
+console.log("7".padStart(3, "0"));
+console.log("x".padEnd(4));
+console.log("abc".padStart(2, "0"));
+console.log("x".padEnd(5, "yz"));
+'''
+"main.jsx" = '''
+console.log("7".padStart(3, "0"));
+console.log("x".padEnd(4));
+console.log("abc".padStart(2, "0"));
+console.log("x".padEnd(5, "yz"));
+'''
+"main.tsx" = '''
+console.log("7".padStart(3, "0"));
+console.log("x".padEnd(4));
+console.log("abc".padStart(2, "0"));
+console.log("x".padEnd(5, "yz"));
+'''
+"dynamic_target_length.js" = "function pad(width) { return 'x'.padStart(width, '0'); }\n"
+"negative_target_length.js" = "console.log('x'.padStart(-1, '0'));\n"
+"non_ascii_receiver.js" = "console.log('é'.padEnd(3, 'x'));\n"
+"non_ascii_padding.js" = "console.log('x'.padEnd(3, 'é'));\n"
+
+[[case]]
+name = "run"
+rationale = "`.padStart()`/`.padEnd()` on ASCII literals fold at compile time."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "007\nx   \nabc\nxyzyz\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_js"
+rationale = "The static-ASCII pad fold holds across every supported source class, not just plain JS -- js source."
+args = ["build", "--api", "browser", "--bundle", "main.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_ts"
+rationale = "The static-ASCII pad fold holds across every supported source class, not just plain JS -- ts source."
+args = ["build", "--api", "browser", "--bundle", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_jsx"
+rationale = "The static-ASCII pad fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["build", "--api", "browser", "--bundle", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_tsx"
+rationale = "The static-ASCII pad fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_browser_bundle_tsx"
+rationale = "Same tsx browser bundle, asserting the JSON output envelope rather than a bare success exit."
+args = ["--output", "json", "build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "check_gates_dynamic_target_length"
+rationale = "`.padStart()`/`.padEnd()` only fold for a statically-known target length; a dynamic length must fail closed with E5506."
+args = ["--output", "json", "check", "dynamic_target_length.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_negative_target_length"
+rationale = "A statically-known but negative target length is still unsupported and must fail closed with E5506."
+args = ["--output", "json", "check", "negative_target_length.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_receiver"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('é') must fail closed with E5506."
+args = ["--output", "json", "check", "non_ascii_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_padding"
+rationale = "The static-fold path also requires an ASCII padding argument; a non-ASCII padding string ('é') must fail closed with E5506."
+args = ["--output", "json", "check", "non_ascii_padding.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"

@@ -1,0 +1,940 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction, fix round 1 / I6).
+# check_extra_claims.py compares this file's claim strings against the
+# source's and fails on any that appear nowhere in the .rs. The entries
+# below are the deliberate exceptions; a genuinely new one will not be
+# on this list and will fail the gate.
+# EXTRA-OK: '5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# EXTRA-OK: 'main_test_entry.js' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
+# EXTRA-OK: 'main_test_entry.ts' -- U5-renamed [source] entry filename; passed on argv only, referenced by no fixture body (checked), so the rename cannot change the program
+# Migrated from tests/browser_math_hypot_frozen_aliases.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment): `browser_math_hypot_frozen_aliases.rs` contains NO Rust
+# comments. Checked with `grep -nE '//'`: the single hit is the
+# `// kali-tree-shake:` marker on the first line of the bundle fixture's
+# `r##"..."##` body, which is program text under test and is carried verbatim
+# into [source] below, not Rust prose. There is nothing to move into a
+# `rationale`, and `comment_coverage.py` is therefore run with --allow-empty for
+# this pair (its batch-3 zero-line floor would otherwise report a vacuous
+# green).
+#
+# RULE 7 / U1 -- INVOCATION ARITHMETIC, DERIVED BY HAND. 14 #[test] fns, 32 real
+# invocations. enumerate_invocations.py cannot close this file: it reports
+# `('command', 'source_name', 'source', ...)` as unresolved loop variables for
+# the 8-tuple loop, and it only ever reads the FIRST helper call in a loop body,
+# so it prints 6 bundle invocations where there are 8 and a TOTAL of 30 where
+# there are 32. Both loop bodies were therefore read directly:
+#   * `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename,
+#     json_output)` -- 4 unlooped fns (`build_emits_global_this_math_hypot_frozen_alias_slice_in_js_input()` :257 app.js/false, `build_emits_global_this_math_hypot_frozen_alias_slice_in_ts_input()` :262 app.ts/false,
+#     `json_build_emits_global_this_math_hypot_frozen_alias_slice_in_js_input()` :267 app.js/true, `json_build_emits_global_this_math_hypot_frozen_alias_slice_in_ts_input()` :272 app.ts/true) PLUS
+#     `build_emits_global_this_math_hypot_frozen_alias_slice_in_jsx_and_tsx_input`
+#     (`assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, true)` :277-282), which loops `for filename in ["app.jsx", "app.tsx"]` and calls
+#     the helper TWICE per iteration (`assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, false)` :279 false, `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, true)` :280 true) = 2 x 2 = 4.
+#     Bundle total 4 + 4 = 8.
+#   * `assert_browser_harness_global_this_math_hypot_frozen_aliases(command,
+#     filename, source, json_output)` -- 8 unlooped fns (`run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_input(` :285, `run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_ts_input(` :296, `test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_input(` :307, `test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_ts_input(` :318,
+#     `run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_js_input(` :329, `run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_ts_input(` :340, `test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_js_input(` :351, `test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_ts_input(` :362) PLUS
+#     `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`
+#     (`main.js` :373-426), a nested loop: 8 (command, source_name, source) tuples x
+#     `for json_output in [false, true]` = 16. Harness total 8 + 16 = 24.
+#   * 8 + 24 = 32 invocations, from 14 #[test] fns, mapping to 32 [[case]]
+#     entries below.
+#
+# FOUR INVOCATIONS ARE DUPLICATED BY THE SOURCE ITSELF, and the duplicates are
+# kept. The loop's first and third tuples are ("run", "main.js", run_source) and
+# ("run", "main.ts", run_source), which at both `json_output` values reproduce
+# exactly what the four unlooped fns at `run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_input(` :285, `run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_ts_input(` :296, `run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_js_input(` :329 and `run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_ts_input(` :340 already do. So
+# 28 of the 32 invocations are distinct commands and 4 are repeats. Per rule 6 a
+# [[case]] is the only remaining trace of its #[test] fn, and two distinct fns
+# are not folded into one case even when their invocations are literally
+# identical -- so all 32 are written, and the four `loop_run_...` siblings that
+# duplicate a standalone fn say so in their own rationale. The loop's `test`
+# tuples are NOT duplicates: they use `smoke.test.<ext>` where the unlooped test
+# fns use `main.<ext>` (see the U5 note).
+#
+# [matrix] DECLINED for the WHOLE file (rule 7 / U1). The enumeration above is
+# not a uniform cross product, and `[matrix]` is file-wide: `expand()` fans
+# EVERY [[case]] by the full axis product with no per-case opt-out
+# (crates/kali_case_runner/src/expand.rs). An `ext` axis would therefore fan the
+# cases the source never ran at that extension, inventing untested combinations
+# -- a rule 7 arithmetic failure and a rule 2 violation at the same time. Every
+# invocation below is its own named sibling [[case]] instead.
+# The loop-split siblings are named for the cell each one runs and carry a
+# "loop_" name prefix so the producing fn is unambiguous (rule 5: descriptive, never
+# numeric); the 12 unlooped cases keep their source #[test] fn's name verbatim.
+#
+# U5 -- [source] KEY DISAMBIGUATION. The source writes the TEST program to
+# `main.js`/`main.ts` for the four unlooped `test_supports_...` fns (:311, `browser_harness_global_this_math_hypot_frozen_aliases_test_source()` :323,
+# `main.js` :355, `browser_harness_global_this_math_hypot_frozen_aliases_test_source()` :367) while the `run` fns write the RUN program to the same
+# `main.js`/`main.ts` names -- harmless there, because each invocation gets its
+# own private tempdir, but impossible in one flat file-wide [source] table. The
+# two test-command entries are therefore renamed to `main_test_entry.js` and
+# `main_test_entry.ts`. That is the safe direction of U5: the filename is passed
+# on argv and is never referenced by string from inside any fixture body (these
+# programs contain no dynamic import or require specifier at all), and the
+# rename was verified
+# behaviour-neutral against the real binary -- `kali test` on `main.js` and on
+# `main_test_entry.js` both report total/passed/failed = 1/1/0 with identical
+# stdout, so the non-`.test.`-suffixed character of the source's entry name is
+# preserved. The `run` entries keep `main.<ext>` unchanged.
+#
+# U13 -- SHARED FIXTURE BODIES ARE NOT HOISTED INTO [constants] HERE, and that is
+# deliberate rather than an oversight. Without a [matrix] the same bundle/run/test
+# program has to be written once per entry filename, so several [source] values
+# below are byte-identical. U13 would normally hoist them. Two gates say
+# otherwise for program text specifically:
+#   * `check_fixtures.py` (the rule 9 gate) searches only [source] values and
+#     step `body` fields. A hoisted body would live in [constants] and the
+#     reference would be a `${...}` placeholder, so the gate that exists to catch
+#     a corrupted fixture would go red on a correct file -- and, worse, could be
+#     silenced by relaxing it.
+#   * U13 records the counter-hazard itself: [constants] IS a surface
+#     `audit-case-migration.py` searches for assertion strings, so hoisting
+#     program text moves a whole JS program onto the surface a claim can be
+#     satisfied from, weakening the rule 3 gate for the entire file.
+# The identity of the duplicated bodies is asserted mechanically rather than
+# eyeballed: this file is generated, every duplicate is the SAME Python string
+# object returned by ONE extraction call in
+# tools/task-18-browser-pilot/gen_batch4_group_a.py, and the generator asserts
+# that object identity for every [source] value before emitting. Matches the shipped browser/ precedent for a declined matrix
+# (`math_atan2_global_this_root.toml`, `for_of_array_iteration_alias_chain.toml`).
+#
+# U2 -- [source] is file-wide, and that is safe here. Every fixture is written
+# unconditionally into a fresh temp dir by the source, none sits behind an `if`,
+# and no case's point is a file's presence or absence. Each command names its
+# entry explicitly on argv, so the sibling fixtures in a trial dir are inert;
+# verified against the real binary that a `test` run in a directory containing
+# all four `smoke.test.<ext>` files still reports total/passed/failed = 1/1/0 for
+# the one it was given, and that a `build --bundle` of `app.<ext>` in a directory
+# containing all four `app.*` still emits `app/app.meta.json`.
+#
+# RULE 13 (transitive helper docs): `grep -c '///' browser_math_hypot_frozen_aliases.rs` returns 0 --
+# no fn in any call chain of this file carries a doc comment, so there is none to
+# carry. The chain does reach `kali_runtime_contract`'s
+# `browser_bundle_harness_script` and `browser_harness_command_parts_for`, which
+# carry one-line `///` docs, but the migrated case file never calls them: the
+# `browser_bundle_harness` step kind means the case RUNNER does, so those docs
+# describe shared runner infrastructure (design spec 5.3) rather than what this
+# case claims. Same disposition as the already-shipped `math_log2_log10.toml`
+# header, flagged there as a standing question rather than decided per file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# Bundle helper: `exit = "success"` on the build (:125) and on the harness
+# process (`output.status.success()` :181); in json mode schemaVersion/command/success/exitCode and payload
+# artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :134-140) PLUS `errors = []` (:141-144) -- this file
+# DOES assert the empty errors array on its build envelope; the emitted
+# `app/app.meta.json` metadata (:152-153), read outside the `if json_output`;
+# then the bundle-harness `stdout_contains = ["5\n"]` (:188).
+# Harness helper: `exit = "success"` (:220); non-json `stdout_contains = ["5\n"]`
+# (`stdout.contains(...)` :252); json mode schemaVersion/command/success/payload(hostContract,
+# runtimeBackend) (`json["command"]` :228-232), `exitCode` plus `payload.exitCode` for run
+# (`json["exitCode"]` :234-235) or payload total/passed/failed for test (`json["payload"]["total"]` :237-239), the exact
+# `json.stdout` pin resolving :241-247, `stderr = ""` (:248) AND `errors = []`
+# (`json["errors"].as_array().expect("errors array").is_empty()` :249).
+# The source DOES pass `--max-threads 0 --max-spawned-processes 0` on the harness
+# argv (`.arg("0")` :212-215); the build argv has neither. No `.matches(...).count()` claim
+# exists in this file, so no `stdout_count`/`json_count` key appears.
+#
+# The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`.
+# That leaf has no substring form: design spec 5.4's twelve keys include no
+# JSON-substring key at all (only exact `json` paths, `json_null` and
+# `json_count`). So per controller ruling 3 -- a plain `.contains` against a
+# field with NO substring form becomes an exact pin -- it is written as an exact
+# `json.stdout` pin, and per U9 the pinned value was captured by running the real
+# `kali` binary with `node` as the browser harness backend, never hand-computed. Captured value for both commands, for `main.<ext>`,
+# `smoke.test.<ext>` and the renamed `main_test_entry.<ext>` alike: fifteen `5`
+# lines, one per frozen alias spelling the program calls with (3, 4).
+
+[source]
+"app.js" = """// kali-tree-shake: globalThisMathHypotFrozenAliasSlice
+function globalThisMathHypotFrozenAliasSlice() {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+  return [
+    globalThis.Math.hypot(three, four),
+    frozenMathHypot(three, four),
+    frozenGlobalThisMathHypot(three, four),
+    frozenBracketedMathHypot(three, four),
+    frozenBracketedMathHypotCall(three, four),
+    frozenBracketedMathHypotSingle(three, four),
+    frozenParenthesizedBracketRootMathHypot(three, four),
+    frozenParenthesizedBracketRootMathHypotSingle(three, four),
+    frozenSingleQuotedBracketedMathHypot(three, four),
+    frozenSingleQuotedBracketedMathHypotCall(three, four),
+    frozenSingleQuotedBracketedMathHypotSingle(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four),
+    frozenParenthesizedDotRootMathHypot(three, four),
+    frozenParenthesizedDotRootMathHypotSingle(three, four),
+  ];
+}
+"""
+"app.ts" = """// kali-tree-shake: globalThisMathHypotFrozenAliasSlice
+function globalThisMathHypotFrozenAliasSlice() {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+  return [
+    globalThis.Math.hypot(three, four),
+    frozenMathHypot(three, four),
+    frozenGlobalThisMathHypot(three, four),
+    frozenBracketedMathHypot(three, four),
+    frozenBracketedMathHypotCall(three, four),
+    frozenBracketedMathHypotSingle(three, four),
+    frozenParenthesizedBracketRootMathHypot(three, four),
+    frozenParenthesizedBracketRootMathHypotSingle(three, four),
+    frozenSingleQuotedBracketedMathHypot(three, four),
+    frozenSingleQuotedBracketedMathHypotCall(three, four),
+    frozenSingleQuotedBracketedMathHypotSingle(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four),
+    frozenParenthesizedDotRootMathHypot(three, four),
+    frozenParenthesizedDotRootMathHypotSingle(three, four),
+  ];
+}
+"""
+"app.jsx" = """// kali-tree-shake: globalThisMathHypotFrozenAliasSlice
+function globalThisMathHypotFrozenAliasSlice() {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+  return [
+    globalThis.Math.hypot(three, four),
+    frozenMathHypot(three, four),
+    frozenGlobalThisMathHypot(three, four),
+    frozenBracketedMathHypot(three, four),
+    frozenBracketedMathHypotCall(three, four),
+    frozenBracketedMathHypotSingle(three, four),
+    frozenParenthesizedBracketRootMathHypot(three, four),
+    frozenParenthesizedBracketRootMathHypotSingle(three, four),
+    frozenSingleQuotedBracketedMathHypot(three, four),
+    frozenSingleQuotedBracketedMathHypotCall(three, four),
+    frozenSingleQuotedBracketedMathHypotSingle(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four),
+    frozenParenthesizedDotRootMathHypot(three, four),
+    frozenParenthesizedDotRootMathHypotSingle(three, four),
+  ];
+}
+"""
+"app.tsx" = """// kali-tree-shake: globalThisMathHypotFrozenAliasSlice
+function globalThisMathHypotFrozenAliasSlice() {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+  return [
+    globalThis.Math.hypot(three, four),
+    frozenMathHypot(three, four),
+    frozenGlobalThisMathHypot(three, four),
+    frozenBracketedMathHypot(three, four),
+    frozenBracketedMathHypotCall(three, four),
+    frozenBracketedMathHypotSingle(three, four),
+    frozenParenthesizedBracketRootMathHypot(three, four),
+    frozenParenthesizedBracketRootMathHypotSingle(three, four),
+    frozenSingleQuotedBracketedMathHypot(three, four),
+    frozenSingleQuotedBracketedMathHypotCall(three, four),
+    frozenSingleQuotedBracketedMathHypotSingle(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four),
+    frozenParenthesizedDotRootMathHypot(three, four),
+    frozenParenthesizedDotRootMathHypotSingle(three, four),
+  ];
+}
+"""
+"main.js" = """const three = 3; const four = 4; const frozenMathHypot = Object.freeze(Math.hypot); const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot); const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot); const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]); const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']); const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"]; const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot']; const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot); const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]); const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']); const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"]; const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot']; const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"]; const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot']; console.log(globalThis.Math.hypot(three, four)); console.log(frozenMathHypot(three, four)); console.log(frozenGlobalThisMathHypot(three, four)); console.log(frozenBracketedMathHypot(three, four)); console.log(frozenBracketedMathHypotCall(three, four)); console.log(frozenBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four)); console.log(frozenSingleQuotedBracketedMathHypot(three, four)); console.log(frozenSingleQuotedBracketedMathHypotCall(three, four)); console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four)); console.log(frozenParenthesizedDotRootMathHypot(three, four)); console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+"""
+"main.ts" = """const three = 3; const four = 4; const frozenMathHypot = Object.freeze(Math.hypot); const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot); const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot); const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]); const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']); const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"]; const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot']; const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot); const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]); const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']); const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"]; const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot']; const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"]; const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot']; console.log(globalThis.Math.hypot(three, four)); console.log(frozenMathHypot(three, four)); console.log(frozenGlobalThisMathHypot(three, four)); console.log(frozenBracketedMathHypot(three, four)); console.log(frozenBracketedMathHypotCall(three, four)); console.log(frozenBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four)); console.log(frozenSingleQuotedBracketedMathHypot(three, four)); console.log(frozenSingleQuotedBracketedMathHypotCall(three, four)); console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four)); console.log(frozenParenthesizedDotRootMathHypot(three, four)); console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+"""
+"main.jsx" = """const three = 3; const four = 4; const frozenMathHypot = Object.freeze(Math.hypot); const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot); const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot); const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]); const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']); const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"]; const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot']; const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot); const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]); const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']); const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"]; const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot']; const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"]; const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot']; console.log(globalThis.Math.hypot(three, four)); console.log(frozenMathHypot(three, four)); console.log(frozenGlobalThisMathHypot(three, four)); console.log(frozenBracketedMathHypot(three, four)); console.log(frozenBracketedMathHypotCall(three, four)); console.log(frozenBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four)); console.log(frozenSingleQuotedBracketedMathHypot(three, four)); console.log(frozenSingleQuotedBracketedMathHypotCall(three, four)); console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four)); console.log(frozenParenthesizedDotRootMathHypot(three, four)); console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+"""
+"main.tsx" = """const three = 3; const four = 4; const frozenMathHypot = Object.freeze(Math.hypot); const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot); const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot); const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]); const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']); const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"]; const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot']; const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot); const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]); const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']); const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"]; const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot']; const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"]; const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot']; console.log(globalThis.Math.hypot(three, four)); console.log(frozenMathHypot(three, four)); console.log(frozenGlobalThisMathHypot(three, four)); console.log(frozenBracketedMathHypot(three, four)); console.log(frozenBracketedMathHypotCall(three, four)); console.log(frozenBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four)); console.log(frozenSingleQuotedBracketedMathHypot(three, four)); console.log(frozenSingleQuotedBracketedMathHypotCall(three, four)); console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four)); console.log(frozenParenthesizedDotRootMathHypot(three, four)); console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+"""
+"smoke.test.js" = """Kali.test('globalThis math hypot frozen alias slice', () => {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+});
+"""
+"smoke.test.ts" = """Kali.test('globalThis math hypot frozen alias slice', () => {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+});
+"""
+"smoke.test.jsx" = """Kali.test('globalThis math hypot frozen alias slice', () => {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+});
+"""
+"smoke.test.tsx" = """Kali.test('globalThis math hypot frozen alias slice', () => {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+});
+"""
+"main_test_entry.js" = """Kali.test('globalThis math hypot frozen alias slice', () => {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+});
+"""
+"main_test_entry.ts" = """Kali.test('globalThis math hypot frozen alias slice', () => {
+  const three = 3;
+  const four = 4;
+  const frozenMathHypot = Object.freeze(Math.hypot);
+  const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
+  const frozenParenthesizedDotRootMathHypot = Object.freeze((globalThis.Math))["hypot"];
+  const frozenParenthesizedDotRootMathHypotSingle = Object.freeze((globalThis.Math))['hypot'];
+  console.log(globalThis.Math.hypot(three, four));
+  console.log(frozenMathHypot(three, four));
+  console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+  console.log(frozenParenthesizedDotRootMathHypot(three, four));
+  console.log(frozenParenthesizedDotRootMathHypotSingle(three, four));
+});
+"""
+
+[[case]]
+name = "build_emits_global_this_math_hypot_frozen_alias_slice_in_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_bundle_global_this_math_hypot_frozen_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program builds fourteen `Object.freeze`d aliases of `Math.hypot` across every dotted/bracketed/single-quoted/parenthesised spelling of the root, calls each with (3, 4) alongside the unfrozen `globalThis.Math.hypot`, and each prints `5`. The source asserts only `stdout.contains("5\\n")` (:188), carried as `stdout_contains` at that strength -- not strengthened to the fifteen-line output that actually appears, which the source never claims (controller ruling 3)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "build_emits_global_this_math_hypot_frozen_alias_slice_in_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_bundle_global_this_math_hypot_frozen_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program builds fourteen `Object.freeze`d aliases of `Math.hypot` across every dotted/bracketed/single-quoted/parenthesised spelling of the root, calls each with (3, 4) alongside the unfrozen `globalThis.Math.hypot`, and each prints `5`. The source asserts only `stdout.contains("5\\n")` (:188), carried as `stdout_contains` at that strength -- not strengthened to the fifteen-line output that actually appears, which the source never claims (controller ruling 3)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_hypot_frozen_alias_slice_in_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_bundle_global_this_math_hypot_frozen_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program builds fourteen `Object.freeze`d aliases of `Math.hypot` across every dotted/bracketed/single-quoted/parenthesised spelling of the root, calls each with (3, 4) alongside the unfrozen `globalThis.Math.hypot`, and each prints `5`. The source asserts only `stdout.contains("5\\n")` (:188), carried as `stdout_contains` at that strength -- not strengthened to the fifteen-line output that actually appears, which the source never claims (controller ruling 3). This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode, payload artifactKind and bundleFormat, and an empty `errors` array, :134-144) instead of plain text."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_hypot_frozen_alias_slice_in_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_bundle_global_this_math_hypot_frozen_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program builds fourteen `Object.freeze`d aliases of `Math.hypot` across every dotted/bracketed/single-quoted/parenthesised spelling of the root, calls each with (3, 4) alongside the unfrozen `globalThis.Math.hypot`, and each prints `5`. The source asserts only `stdout.contains("5\\n")` (:188), carried as `stdout_contains` at that strength -- not strengthened to the fifteen-line output that actually appears, which the source never claims (controller ruling 3). This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode, payload artifactKind and bundleFormat, and an empty `errors` array, :134-144) instead of plain text."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_build_emits_global_this_math_hypot_frozen_alias_slice_in_jsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_bundle_global_this_math_hypot_frozen_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program builds fourteen `Object.freeze`d aliases of `Math.hypot` across every dotted/bracketed/single-quoted/parenthesised spelling of the root, calls each with (3, 4) alongside the unfrozen `globalThis.Math.hypot`, and each prints `5`. The source asserts only `stdout.contains("5\\n")` (:188), carried as `stdout_contains` at that strength -- not strengthened to the fifteen-line output that actually appears, which the source never claims (controller ruling 3). This case is one of the four rule-5 siblings split out of the single #[test] fn `build_emits_global_this_math_hypot_frozen_alias_slice_in_jsx_and_tsx_input` (:277-282), which loops over ["app.jsx", "app.tsx"] and calls the helper twice per iteration (json_output false at `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, false)` :279, true at `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, true)` :280) -- four independent invocations, four siblings."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_build_emits_global_this_math_hypot_frozen_alias_slice_in_jsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_bundle_global_this_math_hypot_frozen_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program builds fourteen `Object.freeze`d aliases of `Math.hypot` across every dotted/bracketed/single-quoted/parenthesised spelling of the root, calls each with (3, 4) alongside the unfrozen `globalThis.Math.hypot`, and each prints `5`. The source asserts only `stdout.contains("5\\n")` (:188), carried as `stdout_contains` at that strength -- not strengthened to the fifteen-line output that actually appears, which the source never claims (controller ruling 3). This case is one of the four rule-5 siblings split out of the single #[test] fn `build_emits_global_this_math_hypot_frozen_alias_slice_in_jsx_and_tsx_input` (:277-282), which loops over ["app.jsx", "app.tsx"] and calls the helper twice per iteration (json_output false at `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, false)` :279, true at `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, true)` :280) -- four independent invocations, four siblings. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode, payload artifactKind and bundleFormat, and an empty `errors` array, :134-144) instead of plain text."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_build_emits_global_this_math_hypot_frozen_alias_slice_in_tsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_bundle_global_this_math_hypot_frozen_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program builds fourteen `Object.freeze`d aliases of `Math.hypot` across every dotted/bracketed/single-quoted/parenthesised spelling of the root, calls each with (3, 4) alongside the unfrozen `globalThis.Math.hypot`, and each prints `5`. The source asserts only `stdout.contains("5\\n")` (:188), carried as `stdout_contains` at that strength -- not strengthened to the fifteen-line output that actually appears, which the source never claims (controller ruling 3). This case is one of the four rule-5 siblings split out of the single #[test] fn `build_emits_global_this_math_hypot_frozen_alias_slice_in_jsx_and_tsx_input` (:277-282), which loops over ["app.jsx", "app.tsx"] and calls the helper twice per iteration (json_output false at `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, false)` :279, true at `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, true)` :280) -- four independent invocations, four siblings."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_build_emits_global_this_math_hypot_frozen_alias_slice_in_tsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_bundle_global_this_math_hypot_frozen_aliases` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program builds fourteen `Object.freeze`d aliases of `Math.hypot` across every dotted/bracketed/single-quoted/parenthesised spelling of the root, calls each with (3, 4) alongside the unfrozen `globalThis.Math.hypot`, and each prints `5`. The source asserts only `stdout.contains("5\\n")` (:188), carried as `stdout_contains` at that strength -- not strengthened to the fifteen-line output that actually appears, which the source never claims (controller ruling 3). This case is one of the four rule-5 siblings split out of the single #[test] fn `build_emits_global_this_math_hypot_frozen_alias_slice_in_jsx_and_tsx_input` (:277-282), which loops over ["app.jsx", "app.tsx"] and calls the helper twice per iteration (json_output false at `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, false)` :279, true at `assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename, true)` :280) -- four independent invocations, four siblings. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode, payload artifactKind and bundleFormat, and an empty `errors` array, :134-144) instead of plain text."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathHypotFrozenAliasSlice();
+"""
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. U5: the source writes this TEST program to `main.js`/`main.ts` -- the same names its `run` cases use for the RUN program -- which one flat file-wide [source] table cannot represent, so the entry is renamed to `main_test_entry.<ext>`. The name is passed on argv and referenced by no fixture body, and the rename was verified behaviour-neutral against the real binary."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_test_entry.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. U5: the source writes this TEST program to `main.js`/`main.ts` -- the same names its `run` cases use for the RUN program -- which one flat file-wide [source] table cannot represent, so the entry is renamed to `main_test_entry.<ext>`. The name is passed on argv and referenced by no fixture body, and the rename was verified behaviour-neutral against the real binary."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_test_entry.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. U5: the source writes this TEST program to `main.js`/`main.ts` -- the same names its `run` cases use for the RUN program -- which one flat file-wide [source] table cannot represent, so the entry is renamed to `main_test_entry.<ext>`. The name is passed on argv and referenced by no fixture body, and the rename was verified behaviour-neutral against the real binary."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_test_entry.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_json_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. U5: the source writes this TEST program to `main.js`/`main.ts` -- the same names its `run` cases use for the RUN program -- which one flat file-wide [source] table cannot represent, so the entry is renamed to `main_test_entry.<ext>`. The name is passed on argv and referenced by no fixture body, and the rename was verified behaviour-neutral against the real binary."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_test_entry.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "loop_run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true. This invocation is also performed by an unlooped #[test] fn earlier in the source; both are kept as separate cases because a [[case]] is the only remaining trace of its fn and rule 6 forbids folding two distinct fns into one, even when their invocations are identical."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true. This invocation is also performed by an unlooped #[test] fn earlier in the source; both are kept as separate cases because a [[case]] is the only remaining trace of its fn and rule 6 forbids folding two distinct fns into one, even when their invocations are identical."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "loop_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "loop_run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true. This invocation is also performed by an unlooped #[test] fn earlier in the source; both are kept as separate cases because a [[case]] is the only remaining trace of its fn and rule 6 forbids folding two distinct fns into one, even when their invocations are identical."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true. This invocation is also performed by an unlooped #[test] fn earlier in the source; both are kept as separate cases because a [[case]] is the only remaining trace of its fn and rule 6 forbids folding two distinct fns into one, even when their invocations are identical."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "loop_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "loop_run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "loop_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "loop_run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_run_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }
+
+[[case]]
+name = "loop_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the non-json branch (`stdout.contains(...)` :250-253): the only output claim is `stdout.contains("5\\n")`, carried as `stdout_contains` at the same strength. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["5\n"]
+
+[[case]]
+name = "loop_json_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_hypot_frozen_aliases.rs. `assert_browser_harness_global_this_math_hypot_frozen_aliases` runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by `node`, against a program that builds fourteen `Object.freeze`d aliases of `Math.hypot` across every spelling of the root and calls each with (3, 4); every call prints `5`. This is the json branch (`json["errors"].as_array().expect("errors array").is_empty()` :226-249). The `json` branch's stdout claim is `json["stdout"].as_str().contains(...)`. That leaf has no substring form: design spec 5.4's twelve keys include no JSON-substring key at all (only exact `json` paths, `json_null` and `json_count`). So per controller ruling 3 -- a plain `.contains` against a field with NO substring form becomes an exact pin -- it is written as an exact `json.stdout` pin, and per U9 the pinned value was captured by running the real `kali` binary with `node` as the browser harness backend, never hand-computed. The captured value is fifteen `5` lines. `stderr` is asserted exactly empty (:248) and `errors` exactly empty (:249); both are real source assertions here. This case is one of the sixteen rule-5 siblings split out of the single #[test] fn `run_and_test_supports_global_this_math_hypot_frozen_alias_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:373-426), whose eight (command, source_name, source) tuples are each run at `json_output` false and true."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n5\n", stderr = "", errors = [] }

@@ -1,0 +1,104 @@
+# Migrated from tests/array_callback_number_predicates_browser_harness.rs
+# -- all 16 #[test] functions, as 4 sibling case blocks fanned across a
+# file-level `[matrix]` extension axis (js/ts/jsx/tsx) = 16 trials.
+#
+# Unlike repeat_static_ascii.toml/char_at_static_ascii.toml (Task 14),
+# which used sibling [[case]] blocks specifically because a `[matrix]`
+# axis is file-level and would have fanned every *other* case in those
+# files out across extensions too, this file's 16 #[test] fns are
+# *already* a uniform cross product of exactly two axes -- extension
+# (js/ts/jsx/tsx) and one of {run plain, test plain, json run, json
+# test} -- with identical fixture content and identical assertion shape
+# in every cell (the source function ignores the extension entirely, per
+# `browser_number_predicates_source`). `[matrix]` is the correct tool
+# here precisely because the whole file is uniform in that axis (spec
+# 5.6); every one of the 4 sibling cases below is meant to run at every
+# extension, with no case that should be exempted.
+#
+# Controller pre-check ruling on this file's one `starts_with` use
+# (the non-json `test` branch): `stdout.starts_with("1\n0\n1\n0\n")`
+# followed by a separate `contains("ok 1")` check. Running the built
+# `kali` binary directly against this fixture shows the real `test`
+# plain-text stdout is exactly "1\n0\n1\n0\nok 1\n", nothing more --
+# so this migrates to an *exact* `stdout` equality assertion, which is
+# strictly stronger than the original `starts_with` + `contains` pair,
+# not a weakening.
+
+[matrix]
+extension = ["js", "ts", "jsx", "tsx"]
+
+[constants]
+run_body = '''
+function browserNumberPredicatesSlices() {
+  console.log([0, 1, 2].some((value) => value > 1));
+  console.log([0, 1].some((value) => value > 1));
+  console.log([2, 3].every((value) => value > 1));
+  console.log([1, 2].every((value) => value > 1));
+}
+browserNumberPredicatesSlices();
+'''
+test_body = '''
+Kali.test('number predicates', () => {
+function browserNumberPredicatesSlices() {
+  console.log([0, 1, 2].some((value) => value > 1));
+  console.log([0, 1].some((value) => value > 1));
+  console.log([2, 3].every((value) => value > 1));
+  console.log([1, 2].every((value) => value > 1));
+}
+browserNumberPredicatesSlices();
+});
+'''
+
+[source]
+"main.${extension}" = "${run_body}"
+"smoke.test.${extension}" = "${test_body}"
+
+[[case]]
+name = "run_plain"
+rationale = "`run --api browser` with a configured browser harness command supports the number-predicate fixture, printing each predicate's boolean result in order, across every supported source class."
+args = ["run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.${extension}"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout = "1\n0\n1\n0\n"
+
+[[case]]
+name = "test_plain"
+rationale = "Same fixture wrapped in `Kali.test`, run via `test --api browser` with a configured browser harness command. The original assertion used `starts_with` + a separate `contains(\"ok 1\")`; see this file's header for why exact `stdout` equality is not a weakening."
+args = ["test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.${extension}"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+stdout = "1\n0\n1\n0\nok 1\n"
+
+[[case]]
+name = "json_run"
+rationale = "Same `run --api browser` fixture through `--output json`, asserting the JSON output envelope including the browser-requested host contract and thread topology."
+args = ["--output", "json", "run", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "main.${extension}"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.stderr = ""
+json.stdout = "1\n0\n1\n0\n"
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.payload.exitCode = 0
+
+[[case]]
+name = "json_test"
+rationale = "Same `test --api browser` fixture through `--output json`, asserting the JSON output envelope including pass/fail/skip counts and thread topology."
+args = ["--output", "json", "test", "--max-threads", "0", "--max-spawned-processes", "0", "--api", "browser", "smoke.test.${extension}"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.stderr = ""
+json.stdout = "1\n0\n1\n0\n"
+json.payload.hostContract = "browser-requested"
+json.payload.runtimeBackend = "browser-harness"
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.skipped = 0

@@ -1,0 +1,437 @@
+# Migrated from tests/object_enumeration_finalization.rs -- all 4 #[test]
+# functions, as 4 case blocks, 1:1.
+#
+# Two of the four (`run_supports_..._in_js_input` / `..._in_ts_input`) share
+# one fixture body byte-for-byte (`object_enumeration_finalization_run_
+# source()`), and the other two (`test_supports_..._in_js_input` /
+# `..._in_ts_input`) share a second, different, fixture body
+# (`object_enumeration_finalization_test_source()`) -- so both bodies are
+# factored into [constants] once and referenced from the two filenames each
+# needs it under, per the house style for exact-duplicate fixture text.
+# `[matrix]` was not used: the file-level axis (js extension vs ts
+# extension) is real here, but so is a second axis (`run` command vs `test`
+# command, with two *different* fixture bodies), and `[matrix]` can only
+# express one axis fanning out uniformly -- sibling [[case]] blocks are the
+# only way to keep js/ts paired with the right command and the right body.
+#
+# All four cases assert the same shape: `kali <command> <fixture>` must
+# fail closed (nonzero exit) with an `E5506` diagnostic. The old
+# `assert_object_enumeration_finalization` helper checked
+# `stderr.contains("E5506") || stdout.contains("E5506")` -- verified
+# directly against the built binary for both js and ts, `run` and `test`:
+# the diagnostic is consistently emitted on stderr (`error[E5506]: try/
+# catch/finally is unavailable: kali has no exception-handling machinery`),
+# never stdout, so `stderr_contains = ["E5506"]` is the real, verified
+# assertion, not a guess at which branch of the OR held.
+#
+# The Rust-level `// Honest re-pin (PR #16 rev2): kali fails closed/loud
+# here; ...` comment inside the shared `assert_object_enumeration_
+# finalization` helper applies to all four cases and is carried into each
+# case's `rationale`. It is the only genuine `.rs`-level comment in this
+# file -- the `//` lines embedded inside the two JS fixture bodies
+# themselves (e.g. the "Wrapped in its own function ..." block above
+# `assertAsyncFinalization`) are JS source comments, part of the fixture
+# text, and stay embedded in [constants] verbatim rather than becoming a
+# `rationale`.
+
+[constants]
+run_source = '''
+function assertSyncFinalization() {
+  const values = { "b": 1, "a": 2 };
+  let returnFinally = false;
+  function returnProbe() {
+    try {
+      for (const key of Object.keys(values)) {
+        return key;
+      }
+      throw new Error('unexpected empty Object.keys iteration');
+    } finally {
+      returnFinally = true;
+    }
+  }
+  const returnValue = returnProbe();
+  if (returnValue !== 'b' || !returnFinally) {
+    throw new Error('unexpected Object.keys return/finally semantics');
+  }
+
+  let valuesReturnFinally = false;
+  function valuesReturnProbe() {
+    try {
+      for (const value of Object.values(values)) {
+        return value;
+      }
+      throw new Error('unexpected empty Object.values iteration');
+    } finally {
+      valuesReturnFinally = true;
+    }
+  }
+  const valuesReturnValue = valuesReturnProbe();
+  if (valuesReturnValue !== 1 || !valuesReturnFinally) {
+    throw new Error('unexpected Object.values return/finally semantics');
+  }
+
+  let throwFinally = false;
+  function throwProbe() {
+    try {
+      for (const entry of Object.entries(values)) {
+        if (entry[0] === 'b') {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Object.entries iteration');
+    } finally {
+      throwFinally = true;
+    }
+  }
+  let threw = false;
+  try {
+    throwProbe();
+  } catch {
+    threw = true;
+  }
+  if (!threw || !throwFinally) {
+    throw new Error('unexpected Object.entries throw/finally semantics');
+  }
+
+  let valuesThrowFinally = false;
+  function valuesThrowProbe() {
+    try {
+      for (const value of Object.values(values)) {
+        if (value === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Object.values iteration');
+    } finally {
+      valuesThrowFinally = true;
+    }
+  }
+  let valuesThrew = false;
+  try {
+    valuesThrowProbe();
+  } catch {
+    valuesThrew = true;
+  }
+  if (!valuesThrew || !valuesThrowFinally) {
+    throw new Error('unexpected Object.values throw/finally semantics');
+  }
+
+  let valuesBreakFinally = false;
+  let valuesBreakSeen = false;
+  function valuesBreakProbe() {
+    try {
+      for (const value of Object.values(values)) {
+        if (value === 1) {
+          continue;
+        }
+        valuesBreakSeen = true;
+        break;
+      }
+    } finally {
+      valuesBreakFinally = true;
+    }
+  }
+  valuesBreakProbe();
+  if (!valuesBreakSeen || !valuesBreakFinally) {
+    throw new Error('unexpected Object.values break/continue semantics');
+  }
+
+  let entriesBreakFinally = false;
+  let entriesBreakSeen = false;
+  function entriesBreakProbe() {
+    try {
+      for (const entry of Object.entries(values)) {
+        if (entry[0] === 'b') {
+          continue;
+        }
+        entriesBreakSeen = true;
+        break;
+      }
+    } finally {
+      entriesBreakFinally = true;
+    }
+  }
+  entriesBreakProbe();
+  if (!entriesBreakSeen || !entriesBreakFinally) {
+    throw new Error('unexpected Object.entries break/continue semantics');
+  }
+
+  let reflectReturnFinally = false;
+  function reflectReturnProbe() {
+    try {
+      for (const key of Reflect.ownKeys(values)) {
+        return key;
+      }
+      throw new Error('unexpected empty Reflect.ownKeys iteration');
+    } finally {
+      reflectReturnFinally = true;
+    }
+  }
+  const reflectReturnValue = reflectReturnProbe();
+  if (reflectReturnValue !== 'b' || !reflectReturnFinally) {
+    throw new Error('unexpected Reflect.ownKeys return/finally semantics');
+  }
+
+  let reflectThrowFinally = false;
+  function reflectThrowProbe() {
+    try {
+      for (const key of Reflect.ownKeys(values)) {
+        if (key === 'b') {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Reflect.ownKeys iteration');
+    } finally {
+      reflectThrowFinally = true;
+    }
+  }
+  let reflectThrew = false;
+  try {
+    reflectThrowProbe();
+  } catch {
+    reflectThrew = true;
+  }
+  if (!reflectThrew || !reflectThrowFinally) {
+    throw new Error('unexpected Reflect.ownKeys throw/finally semantics');
+  }
+}
+
+// Wrapped in its own function (mirroring `assertSyncFinalization` above),
+// called from module scope instead of running directly at the top level:
+// `asyncReflectReturnProbe` below mutates `asyncReflectReturnFinallySeen`
+// across a function boundary, and `_start`'s own `run`-mode top-level scope
+// is exactly the module scope Task 8 gates non-const reads of. Nesting one
+// level deeper keeps `asyncReflectReturnFinallySeen` local to
+// `assertAsyncFinalization` instead of `_start` (unsupported cross-function
+// mutable-closure writes were previously silently miscompiled — the write
+// was always dropped — and are now correctly rejected as E5506 only when
+// the outer scope is the true module/`_start` scope).
+function assertAsyncFinalization() {
+const asyncValues = { "b": 1, "a": 2 };
+let asyncFinallySeen = false;
+let asyncThrew = false;
+try {
+  for await (const key of Object.keys(asyncValues)) {
+    if (key === 'b') {
+      throw new Error('boom');
+    }
+  }
+  throw new Error('unexpected empty async Object.keys iteration');
+} catch {
+  asyncThrew = true;
+} finally {
+  asyncFinallySeen = true;
+}
+if (!asyncThrew || !asyncFinallySeen) {
+  throw new Error('unexpected async Object.keys throw/finally semantics');
+}
+
+let asyncValuesFinallySeen = false;
+let asyncValuesThrew = false;
+try {
+  for await (const value of Object.values(asyncValues)) {
+    if (value === 1) {
+      throw new Error('boom');
+    }
+  }
+  throw new Error('unexpected empty async Object.values iteration');
+} catch {
+  asyncValuesThrew = true;
+} finally {
+  asyncValuesFinallySeen = true;
+}
+if (!asyncValuesThrew || !asyncValuesFinallySeen) {
+  throw new Error('unexpected async Object.values throw/finally semantics');
+}
+
+let asyncValuesBreakFinally = false;
+let asyncValuesBreakSeen = false;
+try {
+  for await (const value of Object.values(asyncValues)) {
+    if (value === 1) {
+      continue;
+    }
+    asyncValuesBreakSeen = true;
+    break;
+  }
+} finally {
+  asyncValuesBreakFinally = true;
+}
+if (!asyncValuesBreakSeen || !asyncValuesBreakFinally) {
+  throw new Error('unexpected async Object.values break/continue semantics');
+}
+
+let asyncEntriesBreakFinally = false;
+let asyncEntriesBreakSeen = false;
+try {
+  for await (const entry of Object.entries(asyncValues)) {
+    if (entry[0] === 'b') {
+      continue;
+    }
+    asyncEntriesBreakSeen = true;
+    break;
+  }
+} finally {
+  asyncEntriesBreakFinally = true;
+}
+if (!asyncEntriesBreakSeen || !asyncEntriesBreakFinally) {
+  throw new Error('unexpected async Object.entries break/continue semantics');
+}
+
+let asyncEntriesFinallySeen = false;
+let asyncEntriesThrew = false;
+try {
+  for await (const entry of Object.entries(asyncValues)) {
+    if (entry[0] === 'b') {
+      throw new Error('boom');
+    }
+  }
+  throw new Error('unexpected empty async Object.entries iteration');
+} catch {
+  asyncEntriesThrew = true;
+} finally {
+  asyncEntriesFinallySeen = true;
+}
+if (!asyncEntriesThrew || !asyncEntriesFinallySeen) {
+  throw new Error('unexpected async Object.entries throw/finally semantics');
+}
+
+let asyncReflectReturnFinallySeen = false;
+function asyncReflectReturnProbe() {
+  try {
+    for await (const key of Reflect.ownKeys(asyncValues)) {
+      return key;
+    }
+    throw new Error('unexpected empty async Reflect.ownKeys iteration');
+  } finally {
+    asyncReflectReturnFinallySeen = true;
+  }
+}
+const asyncReflectReturnValue = asyncReflectReturnProbe();
+if (asyncReflectReturnValue !== 'b' || !asyncReflectReturnFinallySeen) {
+  throw new Error('unexpected async Reflect.ownKeys return/finally semantics');
+}
+
+let asyncReflectThrowFinallySeen = false;
+let asyncReflectThrew = false;
+try {
+  for await (const key of Reflect.ownKeys(asyncValues)) {
+    if (key === 'b') {
+      throw new Error('boom');
+    }
+  }
+  throw new Error('unexpected empty async Reflect.ownKeys iteration');
+} catch {
+  asyncReflectThrew = true;
+} finally {
+  asyncReflectThrowFinallySeen = true;
+}
+if (!asyncReflectThrew || !asyncReflectThrowFinallySeen) {
+  throw new Error('unexpected async Reflect.ownKeys throw/finally semantics');
+}
+}
+
+assertAsyncFinalization();
+assertSyncFinalization();
+console.log('object enumeration finalization ok');
+'''
+test_source = '''
+function assertSyncFinalization() {
+  const values = { "b": 1, "a": 2 };
+  let returnFinally = false;
+  function returnProbe() {
+    try {
+      for (const key of Object.keys(values)) {
+        return key;
+      }
+      throw new Error('unexpected empty Object.keys iteration');
+    } finally {
+      returnFinally = true;
+    }
+  }
+  const returnValue = returnProbe();
+  if (returnValue !== 'b' || !returnFinally) {
+    throw new Error('unexpected Object.keys return/finally semantics');
+  }
+
+  let throwFinally = false;
+  function throwProbe() {
+    try {
+      for (const entry of Object.entries(values)) {
+        if (entry[0] === 'b') {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Object.entries iteration');
+    } finally {
+      throwFinally = true;
+    }
+  }
+  let threw = false;
+  try {
+    throwProbe();
+  } catch {
+    threw = true;
+  }
+  if (!threw || !throwFinally) {
+    throw new Error('unexpected Object.entries throw/finally semantics');
+  }
+}
+
+const asyncValues = { "b": 1, "a": 2 };
+let asyncFinallySeen = false;
+let asyncThrew = false;
+try {
+  for await (const key of Object.keys(asyncValues)) {
+    if (key === 'b') {
+      throw new Error('boom');
+    }
+  }
+  throw new Error('unexpected empty async Object.keys iteration');
+} catch {
+  asyncThrew = true;
+} finally {
+  asyncFinallySeen = true;
+}
+if (!asyncThrew || !asyncFinallySeen) {
+  throw new Error('unexpected async Object.keys throw/finally semantics');
+}
+
+Kali.test('object enumeration finalization', () => {
+  assertSyncFinalization();
+});
+'''
+
+[source]
+"main.js" = "${run_source}"
+"main.ts" = "${run_source}"
+"smoke.test.js" = "${test_source}"
+"smoke.test.ts" = "${test_source}"
+
+[[case]]
+name = "run_supports_object_enumeration_finalization_in_js_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["run", "main.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "run_supports_object_enumeration_finalization_in_ts_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["run", "main.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "test_supports_object_enumeration_finalization_in_js_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["test", "smoke.test.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "test_supports_object_enumeration_finalization_in_ts_input"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["test", "smoke.test.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]

@@ -1,0 +1,128 @@
+# Migrated from tests/string_replace_static_ascii.rs -- all 8 #[test]
+# functions, as 11 case blocks:
+#
+#   - `run`, `json_check`, `json_browser_bundle_tsx`: 1:1 with their source
+#     tests.
+#   - `browser_bundle_js`/`ts`/`jsx`/`tsx`: sibling [[case]] blocks (not a
+#     [matrix] axis -- see repeat_static_ascii.toml's header) for
+#     `browser_bundle_accepts_..._across_source_classes`'s 4-extension loop.
+#   - `check_gates_dynamic_search`/`non_ascii_operand`/
+#     `substitution_marker`/`substitution_marker_all`: the 4 E5506
+#     fail-closed gate tests, 1:1 with their source tests; none assert a
+#     message substring, only the E5506 code.
+#
+# [source] uses one "main.<ext>" file per extension, shared by every case
+# that needs that extension, plus one distinct file per gate case.
+
+[source]
+"main.js" = '''
+console.log("hello hello".replace("hello", "hi"));
+console.log("abc".replace("", "X"));
+console.log("hello hello".replaceAll("hello", "hi"));
+console.log("abc".replaceAll("", "X"));
+'''
+"main.ts" = '''
+console.log("hello hello".replace("hello", "hi"));
+console.log("abc".replace("", "X"));
+console.log("hello hello".replaceAll("hello", "hi"));
+console.log("abc".replaceAll("", "X"));
+'''
+"main.jsx" = '''
+console.log("hello hello".replace("hello", "hi"));
+console.log("abc".replace("", "X"));
+console.log("hello hello".replaceAll("hello", "hi"));
+console.log("abc".replaceAll("", "X"));
+'''
+"main.tsx" = '''
+console.log("hello hello".replace("hello", "hi"));
+console.log("abc".replace("", "X"));
+console.log("hello hello".replaceAll("hello", "hi"));
+console.log("abc".replaceAll("", "X"));
+'''
+"dynamic_search.js" = "function replace(search) { return 'hello'.replace(search, 'x'); }\n"
+"non_ascii_operand.js" = "console.log('héllo'.replace('h', 'j'));\n"
+"substitution_marker.js" = "console.log('hello'.replace('h', '$&'));\n"
+"substitution_marker_all.js" = "console.log('hello'.replaceAll('h', '$&'));\n"
+
+[[case]]
+name = "run"
+rationale = "`.replace()`/`.replaceAll()` on static ASCII literals fold at compile time, including the empty-search-string case."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "hi hello\nXabc\nhi hi\nXaXbXcX\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_js"
+rationale = "The static-ASCII replace fold holds across every supported source class, not just plain JS -- js source."
+args = ["build", "--api", "browser", "--bundle", "main.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_ts"
+rationale = "The static-ASCII replace fold holds across every supported source class, not just plain JS -- ts source."
+args = ["build", "--api", "browser", "--bundle", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_jsx"
+rationale = "The static-ASCII replace fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["build", "--api", "browser", "--bundle", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_tsx"
+rationale = "The static-ASCII replace fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_browser_bundle_tsx"
+rationale = "Same tsx browser bundle, asserting the JSON output envelope rather than a bare success exit."
+args = ["--output", "json", "build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "check_gates_dynamic_string_replace_search"
+rationale = "`.replace()` only folds for a statically-known search string; a dynamic search argument must fail closed with E5506."
+args = ["--output", "json", "check", "dynamic_search.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_static_string_replace_operand"
+rationale = "The static-fold path requires ASCII string literal operands; a non-ASCII receiver ('héllo') must fail closed with E5506."
+args = ["--output", "json", "check", "non_ascii_operand.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_string_replace_substitution_marker"
+rationale = "A replacement string containing a `$&` substitution marker changes `.replace()`'s semantics and must fail closed with E5506 rather than being folded literally."
+args = ["--output", "json", "check", "substitution_marker.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_string_replace_all_substitution_marker"
+rationale = "Same substitution-marker gate for `.replaceAll()`."
+args = ["--output", "json", "check", "substitution_marker_all.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"

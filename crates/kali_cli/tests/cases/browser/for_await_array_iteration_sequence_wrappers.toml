@@ -1,0 +1,74 @@
+# Migrated from tests/browser_for_await_array_iteration_sequence_wrappers.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -n
+# '^\s*//'` finds nothing outside the JS fixture body's own
+# `// kali-tree-shake:` marker, which is program text, not a Rust comment),
+# so there is no prose to move verbatim into `rationale` here.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# MATRIX ARITHMETIC (rule 7): all 8 #[test] fns are individual (no loops
+# anywhere in this file) and funnel through the single helper
+# `assert_browser_bundle_for_await_sequence_wrapper`, one call per
+# (ext, json_output) pair: build_emits_..._in_{js,ts,jsx,tsx}_input (4,
+# json_output=false) + json_build_emits_..._in_{js,ts,jsx,tsx}_input (4,
+# json_output=true) = 8 invocations = ext(4) x json_output(2) exactly,
+# uniform across every case. `ext` is hoisted to a file-level [matrix] axis:
+# 8 #[test] fns collapse to 2 [[case]] entries (build / json_build),
+# matrix-fanned to 8 trials, matching the 8 real invocations exactly.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: forAwaitArrayIterationSequenceWrapper
+function forAwaitArrayIterationSequenceWrapper() {
+  let count = 0;
+  for await (const item of (0, [(0, 1), (0, 2)])) {
+    console.log(++count);
+  }
+}
+"""
+
+[[case]]
+name = "build_emits_for_await_sequence_wrapper"
+rationale = "Migrated from browser_for_await_array_iteration_sequence_wrappers.rs. `assert_browser_bundle_for_await_sequence_wrapper` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed sequence-wrapper iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 8 #[test] fns collapse to 2 [[case]] entries here, matrix-fanned to 8 trials, matching the 8 real per-(json_output,ext) invocations in source exactly (see the file header's arithmetic)."
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationSequenceWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_await_sequence_wrapper"
+rationale = "Migrated from browser_for_await_array_iteration_sequence_wrappers.rs. `assert_browser_bundle_for_await_sequence_wrapper` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed sequence-wrapper iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 8 #[test] fns collapse to 2 [[case]] entries here, matrix-fanned to 8 trials, matching the 8 real per-(json_output,ext) invocations in source exactly (see the file header's arithmetic)."
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationSequenceWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]

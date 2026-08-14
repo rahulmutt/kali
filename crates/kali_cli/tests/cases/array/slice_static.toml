@@ -1,0 +1,35 @@
+# Migrated from tests/array_slice_static.rs -- both #[test] functions, 1:1
+# with their source tests, no loops:
+#
+#   - `run`: `.slice()` on a statically-known array literal with a range of
+#     bound shapes (positive start/end, a negative start, and non-integer
+#     bounds) folds at compile time.
+#   - `check_rejects_dynamic_bounds`: a dynamic `start` bound must fail
+#     closed with E5506, asserted on stderr text (the old test never passed
+#     `--output json`, so there is no JSON envelope to check here -- only
+#     `stderr.contains(...)`).
+#
+# No [matrix]/[constants] needed: two cases, two distinct single-file
+# fixtures, no repeated content and no uniform axis across the file.
+
+[source]
+"array-slice.js" = '''
+console.log([10, 20, 30, 40].slice(1, 3)[0]);
+console.log([10, 20, 30, 40].slice(-2)[1]);
+console.log([10, 20, 30, 40].slice(1.8, 3.2)[1]);
+'''
+"array-slice-dynamic.js" = "function get(start) { return [10, 20, 30].slice(start)[0]; }\n"
+
+[[case]]
+name = "run"
+rationale = "`.slice()` on a statically-known array literal folds at compile time, across positive start/end, a negative start, and non-integer bounds."
+args = ["run", "array-slice.js"]
+exit = "success"
+stdout = "20\n40\n30\n"
+
+[[case]]
+name = "check_rejects_dynamic_bounds"
+rationale = "`.slice()` only folds when the receiver is a statically-known array literal and any start/end bounds are statically-known finite numeric literals; a dynamic `start` must fail closed with E5506."
+args = ["check", "array-slice-dynamic.js"]
+exit = "failure"
+stderr_contains = ["E5506", "Array.prototype.slice"]

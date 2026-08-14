@@ -1,0 +1,325 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'app_member_chain.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_member_chain.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_member_chain.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'app_member_chain.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_member_chain.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_member_chain.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_member_chain.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'main_member_chain.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_member_chain.test.js' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_member_chain.test.ts' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_member_chain.test.jsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+# EXTRA-OK: 'smoke_member_chain.test.tsx' -- U5-renamed `[source]` entry filename; passed to `kali` on argv only and referenced by no fixture body (checked mechanically in this file's generator), so the rename cannot rewrite the program under test
+#
+# Migrated from tests/browser_math_pow_bracketed_root.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_pow_bracketed_root.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 1 other `//` occurrence(s) in the file (:245) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 18 `#[test]` fns, 48 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_bracketed_global_this_math_pow` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), a full cross product
+#   * `run_and_test_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- 16 invocation(s) = the inlined harness sequence expanded by hand: 8 (command, source_name, source, expected_stdout) tuples x `for output_json in [false, true]`
+#   * `assert_browser_bundle_bracketed_global_this_math_pow_member` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), a full cross product
+#   * `run_and_test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- 16 invocation(s) = the second inlined harness sequence, the SAME shape as the first (asserted in this file's generator by comparing both arrays' entry-filename sets): 8 tuples x `for output_json in [false, true]`
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 12 `[[case]]` entries x ext(4) = 48 trials = 48 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns (or 4 loop iterations), one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`, `main.${ext}`, `smoke.test.${ext}`, `app_member_chain.${ext}`, `main_member_chain.${ext}`, `smoke_member_chain.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- `[source]` KEY RENAMES. `[source]` is one flat file-wide namespace, and this
+# source writes two different program texts to the same filename in different tests, so
+# the keys are variant-suffixed:
+#   * `app.${ext}` -> `app_member_chain.${ext}` -- the member-chain bundle program, which the source also writes to `app.<ext>`; the `file_json` path and the harness `entry` follow the rename, because `kali build --bundle` names its output directory after the input stem (verified against the real binary)
+#   * `main.${ext}` -> `main_member_chain.${ext}` -- the member-chain run program, distinct text from the alias-chain run program
+#   * `smoke.test.${ext}` -> `smoke_member_chain.test.${ext}` -- the member-chain test program, distinct text from the alias-chain test program
+# U5's safety condition holds for every rename: each of these filenames is passed to
+# `kali` as a CLI argument only. None is referenced by string from inside any fixture
+# body -- no dynamic-import call and no CommonJS require call names any of them, checked
+# against every `[source]` value in this file -- so renaming does not rewrite the program
+# under test (rule 9).
+#
+# RULE 9 / RULE 8 -- ONE FIXTURE COMES FROM ANOTHER CRATE. The alias-chain bundle
+# program is not a literal in this `.rs`: the helper writes
+# kali_common::math_pow_bracketed_global_this_alias_chain_source() (`kali_common::math_pow_bracketed_global_this_alias_chain_source()` :15), a library fn
+# one level removed. Its resolved text in `[source]` below is the byte-exact stdout of
+# EXECUTING that fn -- this file's generator compiles a throwaway `fn main()` against
+# the built libkali_common rlib with rustc and captures what it prints -- never a
+# transcription of crates/kali_common/src/math.rs. Nothing in the repository was
+# edited to obtain it. check_fixtures.py cannot see this fixture (it searches the
+# `.rs` for `fn *_source() -> &'static str` and for program-shaped literals, and this
+# program is neither), which is exactly why the capture procedure is recorded here
+# rather than left implicit.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `assert_browser_bundle_bracketed_global_this_math_pow`,
+#   `browser_bundle_bracketed_global_this_math_pow_member_source`,
+#   `assert_browser_bundle_bracketed_global_this_math_pow_member`,
+#   `run_and_test_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`,
+#   `run_and_test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more. Both bundle helpers are
+# byte-identical in structure: `exit = "success"` on the build (:32, `output.status.success()` :277) and on the
+# harness process (`output.status.success()` :84, `output.status.success()` :329); in json mode the envelope's
+# schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat
+# (`envelope["payload"].as_object().expect("payload object")` :40-46, `envelope["payload"].as_object().expect("payload object")` :285-291) and NOTHING ELSE -- NO `errors` claim on either build envelope,
+# so `errors = []` is absent; the emitted `<stem>/<stem>.meta.json` metadata (:54-55,
+# `metadata["apiSurface"]` :299-300), read outside the `if json_output` and so asserted in BOTH modes; then the
+# harness step's `stdout.contains("8\n")` (:90, `stdout.contains(...)` :335). No `.matches(...).count()`
+# claim exists anywhere in this file, so no `stdout_count`/`json_count` key appears.
+#
+# Both inlined harness sequences: `exit = "success"` (:211, `output.status.success()` :456); json mode carries
+# schemaVersion/command/success and payload hostContract/runtimeBackend (`json["command"]` :218-222,
+# `json["command"]` :463-467), then `exitCode` at BOTH levels for `run` (:224-225, `json["exitCode"]` :469-470) or payload
+# total/passed/failed for `test` (:227-229, `json["payload"]["total"]` :472-474) with NO `skipped`; the
+# `json["stdout"]` claim (:232, `json["stdout"].as_str().expect("stdout").contains("8")` :477) and `json["stderr"] == ""` (:235, `json["stderr"]` :480). NO
+# `errors` claim on the harness envelope either.
+#
+# THE JSON AND TEXT BRANCHES CLAIM DIFFERENT THINGS AND ARE NOT UNIFIED. On the json
+# branch the source asserts `json["stdout"].contains("8")` -- a bare "8", the SAME
+# literal for `run` and for `test`, ignoring the tuple's own `expected_stdout`. On the
+# text branch it asserts `stdout.contains(expected_stdout)` (:238, `stdout.contains(expected_stdout)` :483), which IS
+# per-command: "8" for `run` (:141) and "8\nok 1" for `test` (:147). Each is mirrored
+# where the source makes it; the text branch's per-command needle is NOT copied onto
+# the json branch, and the json branch's bare needle is NOT copied onto the text
+# branch.
+#
+# Both loops pass `--max-threads 0 --max-spawned-processes 0` (:202, `.arg("--max-threads")` :447) and set the
+# harness command through `kali_runtime_contract`'s BROWSER_HARNESS_COMMAND_ENV
+# constant (`.env(...)` :193, `.env(...)` :438), which resolves to KALI_BROWSER_BUNDLE_HARNESS_COMMAND;
+# neither build argv passes a thread flag or sets an env var.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: bracketedGlobalThisMathPowAliasChain
+function bracketedGlobalThisMathPowAliasChain() {
+  const exponent = 3;
+  const alias = exponent;
+  console.log(globalThis["Math"].pow(2, alias));
+  return globalThis["Math"].pow(2, alias);
+}
+"""
+"main.${ext}" = """const exponent = 3; const alias = exponent; console.log(globalThis["Math"].pow(2, alias));
+"""
+"smoke.test.${ext}" = """Kali.test('bracketed pow alias', () => { const exponent = 3; const alias = exponent; console.log(globalThis["Math"].pow(2, alias)); });
+"""
+"app_member_chain.${ext}" = """// kali-tree-shake: bracketedGlobalThisMathPowMemberChain
+function bracketedGlobalThisMathPowMemberChain() {
+  const exponent = 3;
+  const alias = exponent;
+  console.log(globalThis["Math"]["pow"](2, alias));
+  return globalThis["Math"]["pow"](2, alias);
+}
+"""
+"main_member_chain.${ext}" = """const exponent = 3; const alias = exponent; console.log(globalThis["Math"]["pow"](2, alias));
+"""
+"smoke_member_chain.test.${ext}" = """Kali.test('bracketed pow member alias', () => { const exponent = 3; const alias = exponent; console.log(globalThis["Math"]["pow"](2, alias)); });
+"""
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_pow_alias_chain"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `build_emits_bracketed_global_this_math_pow_alias_chain_in_<ext>_input` fns (one per extension). `assert_browser_bundle_bracketed_global_this_math_pow` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata, then runs the bundle glue under the browser-bundle-harness contract, against a program that reaches `pow` through a bracketed `globalThis["Math"].pow` alias chain and raises 2 to an aliased exponent of 3, so the harness prints `8`. The source's only output claim on that step is `stdout.contains("8\\n")`. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The program in `[source]` is not a literal in the `.rs`: the helper writes the output of the kali_common library fn math_pow_bracketed_global_this_alias_chain_source (`kali_common::math_pow_bracketed_global_this_alias_chain_source()` :15), and the text below is the byte-exact result of executing that fn, never a transcription (rule 9). RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported bracketed `globalThis["Math"].pow` alias chain.""""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathPowAliasChain();
+"""
+exit = "success"
+stdout_contains = ["8\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_pow_alias_chain"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `build_emits_bracketed_global_this_math_pow_alias_chain_in_<ext>_input` fns (one per extension). `assert_browser_bundle_bracketed_global_this_math_pow` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata, then runs the bundle glue under the browser-bundle-harness contract, against a program that reaches `pow` through a bracketed `globalThis["Math"].pow` alias chain and raises 2 to an aliased exponent of 3, so the harness prints `8`. The source's only output claim on that step is `stdout.contains("8\\n")`. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The program in `[source]` is not a literal in the `.rs`: the helper writes the output of the kali_common library fn math_pow_bracketed_global_this_alias_chain_source (`kali_common::math_pow_bracketed_global_this_alias_chain_source()` :15), and the text below is the byte-exact result of executing that fn, never a transcription (rule 9). RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser-bundle source text for the supported bracketed `globalThis["Math"].pow` alias chain." This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat) instead of plain text; the source makes no `errors` claim on it, so none is written (rule 2). Output shape is a sibling case rather than a matrix axis because it changes the assertion shape."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathPowAliasChain();
+"""
+exit = "success"
+stdout_contains = ["8\n"]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `ext` cells of the (command, source_name, source, expected_stdout) tuple array that `run_and_test_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` loops over (one per extension). That fn's body inlines the whole harness sequence rather than calling a helper: it runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that reaches `pow` through a bracketed `globalThis["Math"].pow` alias chain and raises 2 to an aliased exponent of 3. This is the non-json branch (`stdout.contains(expected_stdout)` :238): the only output claim is `stdout.contains(expected_stdout)`, and this tuple's `expected_stdout` is `"8"` (:141) -- carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["8"]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `ext` cells of the (command, source_name, source, expected_stdout) tuple array that `run_and_test_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` loops over (one per extension). That fn's body inlines the whole harness sequence rather than calling a helper: it runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that reaches `pow` through a bracketed `globalThis["Math"].pow` alias chain and raises 2 to an aliased exponent of 3. This is the non-json branch (`stdout.contains(expected_stdout)` :238): the only output claim is `stdout.contains(expected_stdout)`, and this tuple's `expected_stdout` is `"8\\nok 1"` (:147) -- carried verbatim as the `stdout_contains` needle, `ok 1` and all: that tail is the harness's own line for the single passing `Kali.test` case, so the needle also pins that the test body ran to completion. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["8\nok 1"]
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `ext` cells of the (command, source_name, source, expected_stdout) tuple array that `run_and_test_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` loops over (one per extension). That fn's body inlines the whole harness sequence rather than calling a helper: it runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that reaches `pow` through a bracketed `globalThis["Math"].pow` alias chain and raises 2 to an aliased exponent of 3. This is the json branch (`json["stdout"].as_str().expect("stdout").contains("8")` :218-235). The source's stdout claim here is `json["stdout"].as_str().expect("stdout").contains("8")` (:232) -- a bare "8", the same literal for both commands, NOT the tuple's `expected_stdout`. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. The captured value was identical for both commands, all four extensions and both alias and member chains -- 16 captures -- which is what makes ONE pin valid under a file-wide `ext` axis. `json["stderr"]` is asserted exactly empty (:235); the source makes NO `errors` claim on this envelope, so none is written (rule 2). The `run` envelope pins `exitCode` at both the envelope and the payload level (`json["exitCode"]` :224-225)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "8\n", stderr = "" }
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `ext` cells of the (command, source_name, source, expected_stdout) tuple array that `run_and_test_supports_bracketed_global_this_math_pow_alias_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` loops over (one per extension). That fn's body inlines the whole harness sequence rather than calling a helper: it runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that reaches `pow` through a bracketed `globalThis["Math"].pow` alias chain and raises 2 to an aliased exponent of 3. This is the json branch (`json["stdout"].as_str().expect("stdout").contains("8")` :218-235). The source's stdout claim here is `json["stdout"].as_str().expect("stdout").contains("8")` (:232) -- a bare "8", the same literal for both commands, NOT the tuple's `expected_stdout`. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. The captured value was identical for both commands, all four extensions and both alias and member chains -- 16 captures -- which is what makes ONE pin valid under a file-wide `ext` axis. `json["stderr"]` is asserted exactly empty (:235); the source makes NO `errors` claim on this envelope, so none is written (rule 2). The `test` envelope pins payload total/passed/failed (`json["payload"]["total"]` :227-229) and nothing else -- the source asserts no `skipped`, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "8\n", stderr = "" }
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_pow_member_chain"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `build_emits_bracketed_global_this_math_pow_member_chain_in_<ext>_input` fns (one per extension). `assert_browser_bundle_bracketed_global_this_math_pow_member` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata, then runs the bundle glue under the browser-bundle-harness contract, against a program that reaches `pow` through a fully bracketed `globalThis["Math"]["pow"]` member chain and raises 2 to an aliased exponent of 3, so the harness prints `8`. The source's only output claim on that step is `stdout.contains("8\\n")`. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U5: the source writes this program to the same filename its alias-chain sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_member_chain.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_member_chain/app_member_chain.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_member_chain"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathPowMemberChain();
+"""
+exit = "success"
+stdout_contains = ["8\n"]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_pow_member_chain"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `build_emits_bracketed_global_this_math_pow_member_chain_in_<ext>_input` fns (one per extension). `assert_browser_bundle_bracketed_global_this_math_pow_member` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted bundle metadata, then runs the bundle glue under the browser-bundle-harness contract, against a program that reaches `pow` through a fully bracketed `globalThis["Math"]["pow"]` member chain and raises 2 to an aliased exponent of 3, so the harness prints `8`. The source's only output claim on that step is `stdout.contains("8\\n")`. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U5: the source writes this program to the same filename its alias-chain sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test. This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat) instead of plain text; the source makes no `errors` claim on it, so none is written (rule 2). Output shape is a sibling case rather than a matrix axis because it changes the assertion shape."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_member_chain.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app_member_chain/app_member_chain.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_member_chain"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathPowMemberChain();
+"""
+exit = "success"
+stdout_contains = ["8\n"]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `ext` cells of the (command, source_name, source, expected_stdout) tuple array that `run_and_test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` loops over (one per extension). That fn's body inlines the whole harness sequence rather than calling a helper: it runs `kali run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that reaches `pow` through a fully bracketed `globalThis["Math"]["pow"]` member chain and raises 2 to an aliased exponent of 3. This is the non-json branch (`stdout.contains(expected_stdout)` :483): the only output claim is `stdout.contains(expected_stdout)`, and this tuple's `expected_stdout` is `"8"` (:141) -- carried verbatim as the `stdout_contains` needle. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U5: the source writes this program to the same filename its alias-chain sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_member_chain.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["8"]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `ext` cells of the (command, source_name, source, expected_stdout) tuple array that `run_and_test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` loops over (one per extension). That fn's body inlines the whole harness sequence rather than calling a helper: it runs `kali test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that reaches `pow` through a fully bracketed `globalThis["Math"]["pow"]` member chain and raises 2 to an aliased exponent of 3. This is the non-json branch (`stdout.contains(expected_stdout)` :483): the only output claim is `stdout.contains(expected_stdout)`, and this tuple's `expected_stdout` is `"8\\nok 1"` (:147) -- carried verbatim as the `stdout_contains` needle, `ok 1` and all: that tail is the harness's own line for the single passing `Kali.test` case, so the needle also pins that the test body ran to completion. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U5: the source writes this program to the same filename its alias-chain sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_member_chain.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["8\nok 1"]
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `ext` cells of the (command, source_name, source, expected_stdout) tuple array that `run_and_test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` loops over (one per extension). That fn's body inlines the whole harness sequence rather than calling a helper: it runs `kali --output json run --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that reaches `pow` through a fully bracketed `globalThis["Math"]["pow"]` member chain and raises 2 to an aliased exponent of 3. This is the json branch (`json["stdout"].as_str().expect("stdout").contains("8")` :463-480). The source's stdout claim here is `json["stdout"].as_str().expect("stdout").contains("8")` (:477) -- a bare "8", the same literal for both commands, NOT the tuple's `expected_stdout`. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. The captured value was identical for both commands, all four extensions and both alias and member chains -- 16 captures -- which is what makes ONE pin valid under a file-wide `ext` axis. `json["stderr"]` is asserted exactly empty (:480); the source makes NO `errors` claim on this envelope, so none is written (rule 2). The `run` envelope pins `exitCode` at both the envelope and the payload level (`json["exitCode"]` :469-470). U5: the source writes this program to the same filename its alias-chain sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main_member_chain.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "8\n", stderr = "" }
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_root.rs, the 4 `ext` cells of the (command, source_name, source, expected_stdout) tuple array that `run_and_test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` loops over (one per extension). That fn's body inlines the whole harness sequence rather than calling a helper: it runs `kali --output json test --api browser --max-threads 0 --max-spawned-processes 0` with the browser harness backed by node, against a program that reaches `pow` through a fully bracketed `globalThis["Math"]["pow"]` member chain and raises 2 to an aliased exponent of 3. This is the json branch (`json["stdout"].as_str().expect("stdout").contains("8")` :463-480). The source's stdout claim here is `json["stdout"].as_str().expect("stdout").contains("8")` (:477) -- a bare "8", the same literal for both commands, NOT the tuple's `expected_stdout`. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. The captured value was identical for both commands, all four extensions and both alias and member chains -- 16 captures -- which is what makes ONE pin valid under a file-wide `ext` axis. `json["stderr"]` is asserted exactly empty (:480); the source makes NO `errors` claim on this envelope, so none is written (rule 2). The `test` envelope pins payload total/passed/failed (`json["payload"]["total"]` :472-474) and nothing else -- the source asserts no `skipped`, so none is written. U5: the source writes this program to the same filename its alias-chain sibling uses, which one flat file-wide `[source]` table cannot represent, so the key is variant-suffixed. The name is passed to `kali` on argv only and is referenced by no fixture body, so the rename does not rewrite the program under test."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke_member_chain.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "8\n", stderr = "" }

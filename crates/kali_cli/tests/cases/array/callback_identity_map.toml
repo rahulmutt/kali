@@ -1,0 +1,165 @@
+# Migrated from tests/array_callback_identity_map.rs -- all 6 #[test]
+# functions, as 16 sibling case blocks:
+#
+#   - `check_supports_..._in_js_and_ts_input` (loop over js/ts, via
+#     `assert_identity_map_succeeds("check", ext)`) -> `check_js`/`check_ts`.
+#     `assert_identity_map_succeeds` only checks process exit success for
+#     any command other than `run`/`test`, so these two cases assert `exit =
+#     "success"` only.
+#   - `build_supports_..._in_js_and_ts_input` (loop over js/ts, via
+#     `assert_identity_map_succeeds("build", ext)`) -> `build_js`/`build_ts`.
+#     Note this helper adds *no* `--bundle`/`--api` flags -- plain `kali
+#     build <file>` -- unlike the browser-surface helper below. Exit success
+#     only, same reason as above.
+#   - `run_supports_..._in_js_and_ts_input` (loop over js/ts, via
+#     `assert_identity_map_succeeds("run", ext)`) -> `run_js`/`run_ts`. The
+#     `command == "run"` branch asserts exact stdout equality.
+#   - `test_supports_..._in_js_and_ts_input` (loop over js/ts, via
+#     `assert_identity_map_succeeds("test", ext)`) -> `test_js`/`test_ts`.
+#     The `command == "test"` branch asserts `stdout.contains(...)`, not
+#     equality (kali test's own reporter output surrounds it).
+#   - `check_supports_..._in_browser_api_surface_js_ts_jsx_and_tsx_input`
+#     (loop over js/ts/jsx/tsx, via
+#     `assert_identity_map_browser_check_build_succeeds("check", ext)`,
+#     which always adds `--api browser`) -> `check_browser_js`/`_ts`/`_jsx`/
+#     `_tsx`. This helper only ever checks process exit success, never
+#     stdout.
+#   - `build_supports_..._in_browser_api_surface_js_ts_jsx_and_tsx_input`
+#     (loop over js/ts/jsx/tsx, via
+#     `assert_identity_map_browser_check_build_succeeds("build", ext)`,
+#     which adds both `--bundle` and `--api browser` when the command is
+#     `build`) -> `build_browser_js`/`_ts`/`_jsx`/`_tsx`. Exit success only,
+#     same reason as above.
+#
+# Sibling [[case]] blocks, not a [matrix] axis: the extension axis only
+# covers js/ts for 4 of the 6 source tests and js/ts/jsx/tsx for the other 2,
+# so it is not uniform across the whole file -- a [matrix] axis is
+# file-level and would incorrectly fan every case out across all 4
+# extensions. The command axis (check/build/run/test, plain vs. browser
+# surface) also varies which fields are asserted (stdout equality only for
+# `run`, stdout_contains only for `test`, exit-only for everything else), so
+# it isn't a matrix axis either -- see the two-axis rule in the migration
+# house style.
+#
+# [constants]: `identity_map_source()` returns one fixed program, written
+# byte-for-byte to `smoke.test.<ext>` for every one of the 16 cases (both
+# helper functions use the same source and the same filename pattern), so it
+# is factored into [constants] once instead of repeating it in every
+# `[source]` entry.
+
+[constants]
+program = '''
+function main() {
+  const values = [1, 2];
+  for (const item of values.map((value) => value)) {
+    console.log(item);
+  }
+}
+main();
+'''
+
+[source]
+"smoke.test.js" = "${program}"
+"smoke.test.ts" = "${program}"
+"smoke.test.jsx" = "${program}"
+"smoke.test.tsx" = "${program}"
+
+[[case]]
+name = "check_js"
+rationale = "An identity `.map((value) => value)` callback used to drive `for...of` array iteration lowers successfully under `kali check` -- js source."
+args = ["check", "smoke.test.js"]
+exit = "success"
+
+[[case]]
+name = "check_ts"
+rationale = "Same identity-map iteration lowering succeeds under `kali check` -- ts source."
+args = ["check", "smoke.test.ts"]
+exit = "success"
+
+[[case]]
+name = "build_js"
+rationale = "Same identity-map iteration lowering succeeds under plain `kali build` (no `--bundle`/`--api`) -- js source."
+args = ["build", "smoke.test.js"]
+exit = "success"
+
+[[case]]
+name = "build_ts"
+rationale = "Same identity-map iteration lowering succeeds under plain `kali build` (no `--bundle`/`--api`) -- ts source."
+args = ["build", "smoke.test.ts"]
+exit = "success"
+
+[[case]]
+name = "run_js"
+rationale = "Same identity-map iteration lowering succeeds under `kali run`, asserted on exact stdout -- js source."
+args = ["run", "smoke.test.js"]
+exit = "success"
+stdout = "1\n2\n"
+
+[[case]]
+name = "run_ts"
+rationale = "Same identity-map iteration lowering succeeds under `kali run`, asserted on exact stdout -- ts source."
+args = ["run", "smoke.test.ts"]
+exit = "success"
+stdout = "1\n2\n"
+
+[[case]]
+name = "test_js"
+rationale = "Same identity-map iteration lowering succeeds under `kali test`, whose reporter output surrounds the program's own stdout, so this is a `stdout_contains` check rather than exact equality -- js source."
+args = ["test", "smoke.test.js"]
+exit = "success"
+stdout_contains = ["1\n2\n"]
+
+[[case]]
+name = "test_ts"
+rationale = "Same identity-map iteration lowering succeeds under `kali test`, whose reporter output surrounds the program's own stdout, so this is a `stdout_contains` check rather than exact equality -- ts source."
+args = ["test", "smoke.test.ts"]
+exit = "success"
+stdout_contains = ["1\n2\n"]
+
+[[case]]
+name = "check_browser_js"
+rationale = "Same identity-map iteration lowering succeeds under `kali check --api browser` -- js source."
+args = ["check", "--api", "browser", "smoke.test.js"]
+exit = "success"
+
+[[case]]
+name = "check_browser_ts"
+rationale = "Same identity-map iteration lowering succeeds under `kali check --api browser` -- ts source."
+args = ["check", "--api", "browser", "smoke.test.ts"]
+exit = "success"
+
+[[case]]
+name = "check_browser_jsx"
+rationale = "Same identity-map iteration lowering succeeds under `kali check --api browser` -- jsx source."
+args = ["check", "--api", "browser", "smoke.test.jsx"]
+exit = "success"
+
+[[case]]
+name = "check_browser_tsx"
+rationale = "Same identity-map iteration lowering succeeds under `kali check --api browser` -- tsx source."
+args = ["check", "--api", "browser", "smoke.test.tsx"]
+exit = "success"
+
+[[case]]
+name = "build_browser_js"
+rationale = "Same identity-map iteration lowering succeeds under `kali build --bundle --api browser` -- js source."
+args = ["build", "--bundle", "--api", "browser", "smoke.test.js"]
+exit = "success"
+
+[[case]]
+name = "build_browser_ts"
+rationale = "Same identity-map iteration lowering succeeds under `kali build --bundle --api browser` -- ts source."
+args = ["build", "--bundle", "--api", "browser", "smoke.test.ts"]
+exit = "success"
+
+[[case]]
+name = "build_browser_jsx"
+rationale = "Same identity-map iteration lowering succeeds under `kali build --bundle --api browser` -- jsx source."
+args = ["build", "--bundle", "--api", "browser", "smoke.test.jsx"]
+exit = "success"
+
+[[case]]
+name = "build_browser_tsx"
+rationale = "Same identity-map iteration lowering succeeds under `kali build --bundle --api browser` -- tsx source."
+args = ["build", "--bundle", "--api", "browser", "smoke.test.tsx"]
+exit = "success"

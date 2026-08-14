@@ -1,0 +1,176 @@
+# Migrated from tests/array_from_frozen_set_map_constructor_result.rs -- all
+# 4 #[test] functions, as 8 sibling case blocks:
+#
+#   - `run_supports_..._in_js_input` (1 direct call) and
+#     `run_supports_..._in_ts_jsx_and_tsx_input` (a 3-extension loop) between
+#     them cover `run` over all 4 extensions -> `run_js`/`run_ts`/`run_jsx`/
+#     `run_tsx`.
+#   - `test_supports_..._in_js_input` (1 direct call) and
+#     `test_supports_..._in_ts_jsx_and_tsx_input` (a 3-extension loop)
+#     between them cover `test` over all 4 extensions -> `test_js`/`test_ts`/
+#     `test_jsx`/`test_tsx`.
+#
+# Sibling [[case]] blocks, not a [matrix] axis: the extension axis alone is
+# uniform across all 8 cases, but `run` and `test` differ in more than the
+# extension -- different filename pattern (`main.<ext>` vs
+# `smoke.test.<ext>`), different fixture body (a bare script vs a
+# `Kali.test(...)`-wrapped one), and different assertion shape (`run`
+# asserts exact stdout equality; `test` asserts `stdout_contains` plus a
+# `"ok 1"` marker the `run` cases never produce). A single [matrix] axis
+# would have forced one assertion shape onto every fanned-out case, which
+# does not fit here -- see the two-axis rule in the migration house style.
+#
+# [constants]: `run_program` and `test_program` are each written
+# byte-for-byte into 4 different filenames (`main.js/ts/jsx/tsx` and
+# `smoke.test.js/ts/jsx/tsx` respectively) in the original tests, so they are
+# factored into [constants] once and referenced via `${...}` instead of
+# repeating each ~50-line fixture body 4 times.
+
+[constants]
+run_program = '''
+async function arrayFromFrozenSetMapWrappers() {
+  const setValues = [1, 2, 1];
+  const mapValues = [[1, 2], [1, 3], [4, 5]];
+  for (const value of Array.from(Object.freeze(new Set(setValues)))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze(new globalThis["Set"](setValues)))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze(new globalThis['Set'](setValues)))) {
+    console.log(value);
+  }
+  for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
+    console.log(value);
+  }
+  for (const value of Array.from(Object.freeze((new (true && Set)(setValues))))) {
+    console.log(value);
+  }
+  for (const entry of Array.from(Object.freeze(new Map(mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze(new globalThis['Map'](mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze(new globalThis["Map"](mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Array.from(Object.freeze((new Map(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze((new (true && Map)(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+
+arrayFromFrozenSetMapWrappers();
+'''
+test_program = '''
+Kali.test('array.from frozen set/map constructor results', () => {
+  async function arrayFromFrozenSetMapWrappers() {
+    const setValues = [1, 2, 1];
+    const mapValues = [[1, 2], [1, 3], [4, 5]];
+    for (const value of Array.from(Object.freeze(new Set(setValues)))) {
+      console.log(value);
+    }
+    for (const value of Array.from(Object.freeze(new globalThis["Set"](setValues)))) {
+      console.log(value);
+    }
+    for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
+      console.log(value);
+    }
+    for (const value of Array.from(Object.freeze((new (true && Set)(setValues))))) {
+      console.log(value);
+    }
+    for (const entry of Array.from(Object.freeze(new Map(mapValues)))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of Array.from(Object.freeze(new globalThis['Map'](mapValues)))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Array.from(Object.freeze((new Map(mapValues))))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of Array.from(Object.freeze((new (true && Map)(mapValues))))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+  }
+
+  return arrayFromFrozenSetMapWrappers();
+});
+'''
+
+[source]
+"main.js" = "${run_program}"
+"main.ts" = "${run_program}"
+"main.jsx" = "${run_program}"
+"main.tsx" = "${run_program}"
+"smoke.test.js" = "${test_program}"
+"smoke.test.ts" = "${test_program}"
+"smoke.test.jsx" = "${test_program}"
+"smoke.test.tsx" = "${test_program}"
+
+[[case]]
+name = "run_js"
+rationale = "`Array.from()` over a frozen `Set`/`Map` reached via a bare constructor, a bracketed `globalThis[\"Set\"|\"Map\"]` lookup, a parenthesized `new`, and a `for await` loop all fold at compile time -- js source."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"
+
+[[case]]
+name = "run_ts"
+rationale = "Same frozen `Set`/`Map` `Array.from()` fold holds across every supported source class, not just plain JS -- ts source."
+args = ["run", "main.ts"]
+exit = "success"
+stdout = "1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"
+
+[[case]]
+name = "run_jsx"
+rationale = "Same frozen `Set`/`Map` `Array.from()` fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["run", "main.jsx"]
+exit = "success"
+stdout = "1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"
+
+[[case]]
+name = "run_tsx"
+rationale = "Same frozen `Set`/`Map` `Array.from()` fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["run", "main.tsx"]
+exit = "success"
+stdout = "1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"
+
+[[case]]
+name = "test_js"
+rationale = "The same frozen `Set`/`Map` `Array.from()` fold holds inside a `Kali.test(...)`-wrapped program run via `kali test`, which reports its own pass marker (\"ok 1\") alongside the program's stdout -- js source."
+args = ["test", "smoke.test.js"]
+exit = "success"
+stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n", "ok 1"]
+
+[[case]]
+name = "test_ts"
+rationale = "Same `kali test` fold holds across every supported source class, not just plain JS -- ts source."
+args = ["test", "smoke.test.ts"]
+exit = "success"
+stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n", "ok 1"]
+
+[[case]]
+name = "test_jsx"
+rationale = "Same `kali test` fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["test", "smoke.test.jsx"]
+exit = "success"
+stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n", "ok 1"]
+
+[[case]]
+name = "test_tsx"
+rationale = "Same `kali test` fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["test", "smoke.test.tsx"]
+exit = "success"
+stdout_contains = ["1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n", "ok 1"]

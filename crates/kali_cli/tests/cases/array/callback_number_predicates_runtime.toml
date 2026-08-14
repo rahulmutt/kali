@@ -1,0 +1,77 @@
+# Migrated from tests/array_callback_number_predicates_runtime.rs -- all 4
+# #[test] functions, 1:1 as 4 case blocks.
+#
+# Fix-round review, Finding 1: this file's one `starts_with` use
+# (test_supports_number_predicates_in_js_input, non-json branch),
+# `stdout.starts_with("1\n0\n1\n0\n1\n1\n")`, was originally downgraded to
+# `stdout_contains` on the reasoning that nothing precedes program output
+# in `test`'s plain-text stdout today -- but that is a claim about
+# today's binary, not about the assertion: a regression that ever
+# prepended a banner would fail the old test and pass the new one, which
+# is exactly the position-0 anchor `starts_with` existed to catch.
+# Confirmed by running the built `kali` binary directly against this
+# fixture that the real full stdout is exactly "1\n0\n1\n0\n1\n1\nok 1\n",
+# so `test_supports` below now asserts exact `stdout`, which is strictly
+# stronger than `starts_with` and not a weakening.
+
+[constants]
+# The source .rs file's `number_predicates_source()` and
+# `number_predicates_test_source()` are byte-identical (both plain,
+# un-wrapped script bodies -- `test` treats a file with no `Kali.test()`
+# calls as one implicit test, confirmed by running the built `kali`
+# binary directly: it prints "ok 1" and reports payload.passed = 1 for
+# this exact fixture). Deduplicated here per the human-partner ruling on
+# repeated fixture bodies.
+program = '''
+function main() {
+  console.log([0, 1, 2].some((value) => value > 1));
+  console.log([0, 1].some((value) => value > 1));
+  console.log([2, 3].every((value) => value > 1));
+  console.log([1, 2].every((value) => value > 1));
+  console.log([0, 1, 2].some((value) => value === 1));
+  console.log([1, 2].every((value) => value !== 0));
+}
+main();
+'''
+
+[source]
+"main.js" = "${program}"
+"smoke.test.js" = "${program}"
+
+[[case]]
+name = "run_supports"
+rationale = "`.some()`/`.every()` number predicates over runtime (non-statically-foldable) arrays are supported by `run`, printing each predicate's boolean result in order."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "1\n0\n1\n0\n1\n1\n"
+
+[[case]]
+name = "json_run_supports"
+rationale = "Same fixture through `run --output json`, asserting the JSON output envelope."
+args = ["--output", "json", "run", "main.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "1\n0\n1\n0\n1\n1\n"
+json.errors = []
+
+[[case]]
+name = "test_supports"
+rationale = "The same number predicates inside a `Kali.test` block, run via `test`. The original assertion combined `starts_with` on this six-line block with a separate `contains(\"ok 1\")` check; both are subsumed by the exact `stdout` equality below (verified against the real binary -- see file header)."
+args = ["test", "smoke.test.js"]
+exit = "success"
+stdout = "1\n0\n1\n0\n1\n1\nok 1\n"
+
+[[case]]
+name = "json_test_supports"
+rationale = "Same `Kali.test` fixture through `test --output json`, asserting the JSON output envelope including the pass/fail counts."
+args = ["--output", "json", "test", "smoke.test.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.passed = 1
+json.payload.failed = 0
+json.stdout = "1\n0\n1\n0\n1\n1\n"
+json.errors = []

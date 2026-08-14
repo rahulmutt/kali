@@ -1,3 +1,55 @@
+//! Task 18 batch 8A audit escalation: kept 100% hand-written, not migrated.
+//!
+//! GROUND: FIXTURE SELF-INSPECTION (controller ruling 4 / ruling 10).
+//! All 8 `#[test]` fns in this file route through
+//! `assert_browser_bundle_promise_any` (`:71`), which runs 6
+//! `assert!(source.contains(...))` self-checks (`:75-95`) on the JS fixture's
+//! OWN TEXT -- a dev-time invariant check that the fixture still literally
+//! embeds every frozen-callable `Promise.any` spelling this file means to
+//! exercise -- before the fixture is ever written to disk or `kali` is ever
+//! invoked. These are not claims about process output.
+//!
+//! `audit-case-migration.py` deliberately excludes everything under a migrated
+//! case file's `[source]` table from its claim search, so a migration of this
+//! file would report those literals MISSING even though they are verbatim
+//! present in the `[source]` fixture body. Controller ruling 4 is explicit that
+//! the audit script is NOT extended for this shape and that each hit is
+//! escalated per rule 3 and retained hand-written with a `//!` header per U3.
+//!
+//! WHY WHOLE-FILE AND NOT U4 TRIM-AND-KEEP: U4's trim-and-keep is tried first
+//! and does not apply, because EVERY test reaches the self-inspecting helper
+//! unconditionally -- 8 of 8 -- so there is no complementary migratable subset
+//! to split off. That reach count is not asserted here, it is derived:
+//!
+//!     $ python3 tools/task-18-browser-pilot/find_fixture_self_inspection.py
+//!     browser_promise_any_bundle.rs
+//!         6 site(s) in assert_browser_bundle_promise_any; 8 of 8 #[test] fns
+//!         reach it -> WHOLE-FILE retention
+//!
+//! This file is one of the exactly two instances controller ruling 10 recorded
+//! as NOT YET ADJUDICATED; this batch adjudicates it. The predicate's `KNOWN`
+//! list already carries it, which ruling 10 requires so the selftest cannot
+//! silently weaken as the corpus grows.
+//!
+//! Full reasoning: the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path. No case file exists for this target.//!
+//! CONSEQUENCE FOR THE GATES (ruling 9). THIS FILE HAS NO RED-LIST, and that is
+//! the finding, not an omission. Ruling 9 addresses a U4 TRIM-and-keep retention,
+//! where the on-disk `.rs` is shorter than the source its case file was migrated
+//! from and every literal-comparison gate therefore runs against the wrong
+//! left-hand side. This is a WHOLE-FILE retention: nothing was trimmed, so there
+//! is no pre-trim/post-trim divergence, no pre-trim ref declaration (the
+//! literal marker is deliberately NOT spelled here: several readers grep the
+//! whole file for it, so a header quoting it would be read as declaring one),
+//! and ruling 12's
+//! third (migrated-complement) column does not apply either -- there is no
+//! migrated complement. There is also no right-hand side: `verify_pair.sh promise_any_bundle`
+//! exits 2 with `missing .../cases/browser/promise_any_bundle.toml` before running any gate,
+//! so the five gates that take a `.rs`/`.toml` pair cannot run here at all. The
+//! exception is `batch5_crosscheck.py`, which needs no case file -- it resolves
+//! THIS header's own `:N` citations against this very file. Run it directly:
+//! `batch5_crosscheck.py --citations-only promise_any_bundle`. It exits 0 today.
+//!
 use std::{fs, process::Command};
 
 use serde_json::Value;
@@ -92,7 +144,7 @@ fn assert_browser_bundle_promise_any(filename: &str, json_output: bool) {
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -102,7 +154,7 @@ console.log('browser promise any ok');
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),

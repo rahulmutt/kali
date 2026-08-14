@@ -1,0 +1,183 @@
+# Migrated from tests/browser_math_abs_sign_frozen_aliases.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#
+# PARTIAL MIGRATION -- 24 of this file's 25 #[test] fns are migrated here. The
+# 25th,
+# `browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_
+# frozen_math_aliases`, is a FIXTURE SELF-INSPECTION test: it runs four
+# `assert!(source.contains("Object.freeze(...)"))` checks against the JS
+# fixture's own text and never builds a command at all. That shape is
+# invisible
+# to `scripts/audit-case-migration.py` (its `.contains()` extractor cannot
+# tell a
+# fixture-text read from an output assertion, and everything under `[source]`
+# is
+# excluded from its search by construction), so migrating it would produce a
+# false green. It stays hand-written and is escalated per rule 3/4; see the
+# retention header on the `.rs` and the batch report. Nothing else in this
+# file
+# reaches that construct -- the 24 fns below all route through
+# `assert_browser_bundle_global_this_math_abs_sign_frozen` or
+# `assert_browser_harness_global_this_math_abs_sign_frozen`, neither of which
+# reads fixture text -- so U4's trim-and-keep applies and only that one test
+# is
+# retained. The `.rs` has since been TRIMMED to exactly that one test and
+# the fixture builder it reads (batch 3, controller ruling on concern 5), so
+# the 24 fns migrated here no longer exist there -- audit this pair against
+# the PRE-TRIM source, not the working tree. The trim is commit 1db95b469f,
+# so the pre-trim blob is its parent 50061950a4:
+#   git show 50061950a4:crates/kali_cli/tests/browser_math_abs_sign_frozen_aliases.rs
+# (the same revision the `.rs`'s own retention header declares as
+# `PRE-TRIM REF: 1db95b469f^`).
+#
+# MATRIX ARITHMETIC (rule 7), over the migrated 24: 8 bundle fns
+# (ext(4) x json_output(2), all individual, no loops) + 16 harness fns
+# (command(run/test) x ext(4) x json_output(2), likewise all individual) = 24
+# invocations = 24 #[test] fns. Both groups vary uniformly over all four
+# extensions, so `ext` is hoisted to a file-level [matrix] axis: 24 fns
+# collapse
+# to 6 [[case]] entries, matrix-fanned to 24 trials, matching exactly.
+#
+# [source] needs no disambiguation (U5): `app.<ext>` (bundle), `main.<ext>`
+# (run)
+# and `smoke.test.<ext>` (test) are already distinct keys.
+#
+# ASSERTION SHAPE. Bundle: `exit = "success"`; in json mode
+# schemaVersion/command/success/exitCode/payload(artifactKind, bundleFormat)
+# --
+# source makes NO `errors` claim in this file's bundle helper, so none is
+# added
+# (rule 2); then the emitted `app/app.meta.json` metadata; then the
+# bundle-harness `stdout_contains = ["3\n", "-1\n"]`, mirroring source's two
+# plain `.contains` checks. Harness: `exit = "success"`; non-json
+# `stdout_contains = ["3\n", "-1\n"]`; json mode carries
+# schemaVersion/command/success/payload(hostContract, runtimeBackend), then
+# `json["exitCode"]`/`payload.exitCode` for "run" or
+# `payload.total/passed/failed`
+# for "test", `stderr = ""` and `errors = []`
+# (`assert_eq!(json["errors"], Value::Array(vec![]))`), plus an exact
+# `json.stdout` pin. That last one resolves source's
+# `json["stdout"].contains("3\n")`/`...("-1\n")`: a nested `json` leaf has no
+# substring form in this format, so it is pinned exactly and only after
+# live-capturing the value from the real `kali` binary -- a verified
+# strengthening. This helper's argv has NO `--max-threads`/
+# `--max-spawned-processes` throttle (unlike most siblings in this family);
+# mirrored exactly.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: globalThisMathAbsSignFrozenAliases
+function globalThisMathAbsSignFrozenAliases() {
+  const value = -3;
+  const alias = value;
+  console.log(globalThis.Math.abs(value));
+  console.log(globalThis.Math.sign(value));
+  console.log(Object.freeze(globalThis.Math.abs)(alias));
+  console.log(Object.freeze(globalThis.Math.sign)(alias));
+  console.log(Object.freeze(Math.abs)(alias));
+  console.log(Object.freeze(Math.sign)(alias));
+  return [
+    globalThis.Math.abs(value),
+    globalThis.Math.sign(value),
+    Object.freeze(globalThis.Math.abs)(alias),
+    Object.freeze(globalThis.Math.sign)(alias),
+    Object.freeze(Math.abs)(alias),
+    Object.freeze(Math.sign)(alias),
+  ];
+}
+"""
+"main.${ext}" = """const value = -3; const alias = value; console.log(globalThis.Math.abs(value)); console.log(globalThis.Math.sign(value)); console.log(Object.freeze(globalThis.Math.abs)(alias)); console.log(Object.freeze(globalThis.Math.sign)(alias)); console.log(Object.freeze(Math.abs)(alias)); console.log(Object.freeze(Math.sign)(alias));
+"""
+"smoke.test.${ext}" = """Kali.test('globalThis.Math abs sign frozen aliases', () => {
+  const value = -3;
+  const alias = value;
+  console.log(globalThis.Math.abs(value));
+  console.log(globalThis.Math.sign(value));
+  console.log(Object.freeze(globalThis.Math.abs)(alias));
+  console.log(Object.freeze(globalThis.Math.sign)(alias));
+  console.log(Object.freeze(Math.abs)(alias));
+  console.log(Object.freeze(Math.sign)(alias));
+});
+"""
+
+[[case]]
+name = "build_emits_global_this_math_abs_sign_frozen_aliases"
+rationale = """Migrated from browser_math_abs_sign_frozen_aliases.rs. `assert_browser_bundle_global_this_math_abs_sign_frozen` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `Math.abs`/`Math.sign` alias calls printed `3` and `-1`. Source's stdout claims are plain `.contains`, mirrored as `stdout_contains` rather than strengthened. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: the 24 migrated #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic). The file's 25th fn, `browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen_math_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAbsSignFrozenAliases();
+"""
+exit = "success"
+stdout_contains = ["3\n", "-1\n"]
+
+[[case]]
+name = "json_build_emits_global_this_math_abs_sign_frozen_aliases"
+rationale = """Migrated from browser_math_abs_sign_frozen_aliases.rs. `assert_browser_bundle_global_this_math_abs_sign_frozen` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields -- source makes no `errors` claim in this file's bundle helper, so none is added -- then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the frozen `Math.abs`/`Math.sign` alias calls printed `3` and `-1`. Source's stdout claims are plain `.contains`, mirrored as `stdout_contains` rather than strengthened. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: the 24 migrated #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header's arithmetic). The file's 25th fn, `browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen_math_aliases`, is a fixture self-inspection test and stays hand-written per rule 3/4."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathAbsSignFrozenAliases();
+"""
+exit = "success"
+stdout_contains = ["3\n", "-1\n"]
+
+[[case]]
+name = "run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_abs_sign_frozen_aliases.rs. `assert_browser_harness_global_this_math_abs_sign_frozen("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `3\\n` and `-1\\n`; plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. This helper's argv carries no `--max-threads`/`--max-spawned-processes` throttle, unlike most siblings in this family; mirrored exactly. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: the 24 migrated #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header). The file's 25th fn is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["run", "--api", "browser", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["3\n", "-1\n"]
+
+[[case]]
+name = "json_run_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_abs_sign_frozen_aliases.rs. `assert_browser_harness_global_this_math_abs_sign_frozen("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, that `errors` is exactly the empty array, and that `json["stdout"]` contains both `3\\n` and `-1\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. This helper's argv carries no `--max-threads`/`--max-spawned-processes` throttle, unlike most siblings in this family; mirrored exactly. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: the 24 migrated #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header). The file's 25th fn is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "3\n-1\n3\n-1\n3\n-1\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_abs_sign_frozen_aliases.rs. `assert_browser_harness_global_this_math_abs_sign_frozen("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `3\\n` and `-1\\n`; plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. This helper's argv carries no `--max-threads`/`--max-spawned-processes` throttle, unlike most siblings in this family; mirrored exactly. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: the 24 migrated #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header). The file's 25th fn is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["test", "--api", "browser", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["3\n", "-1\n"]
+
+[[case]]
+name = "json_test_supports_global_this_math_abs_sign_frozen_aliases_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_abs_sign_frozen_aliases.rs. `assert_browser_harness_global_this_math_abs_sign_frozen("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed` == 1/1/0, that `stderr` is exactly empty, that `errors` is exactly the empty array, and that `json["stdout"]` contains both `3\\n` and `-1\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. This helper's argv carries no `--max-threads`/`--max-spawned-processes` throttle, unlike most siblings in this family; mirrored exactly. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: the 24 migrated #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials (see the file header). The file's 25th fn is a fixture self-inspection test and stays hand-written per rule 3/4."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0 }, "stdout" = "3\n-1\n3\n-1\n3\n-1\n", "stderr" = "", "errors" = [] }

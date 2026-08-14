@@ -1,0 +1,164 @@
+# Migrated from tests/browser_runtime_sandbox_jsx_tsx.rs -- the inherited-manifest half.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE. tests/browser_runtime_sandbox_jsx_tsx.rs carries NO
+# Rust comment block at all -- neither a bare `//` block nor a `///` doc comment on
+# any helper (the generator counts both and raises if either count changes), so
+# there is no prose to move verbatim into a `rationale` here.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 4 `#[test]` fns, 4 real helper invocations with every loop
+# expanded.
+# The entries this half writes do NOT cover one uniform extension axis: ['smoke.test.tsx'].
+# An `ext` axis would have to manufacture combinations the source never ran.
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 4 invocations -> 4 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+#
+# U2 -- `[source]` is FILE-WIDE, WHICH IS WHY THIS TARGET IS TWO CASE FILES.
+# The source writes `kali.json` behind an `if with_browser_api_surface_manifest`.
+# `expand.rs` clones the whole file-level `[source]` map into EVERY trial and a
+# `[[case]]` cannot opt out of a fixture a sibling case needs, so one shared file would
+# make the manifest unconditionally present. That is invisible to
+# `audit-case-migration.py` (no literal is dropped) and invisible to `cargo test` (the
+# trial still passes), so it is measured instead:
+#   $ gen_batch8b.py --derive
+#     JSON cases: with the manifest present and `--api browser` REMOVED, the binary emits
+#       `errors[0].context.origin = "config"` where these cases pin `"cli"`, so on the
+#       JSON cases ALONE a shared file would still discriminate;
+#     TEXT cases: they pin only stderr substrings (`E5506`, the contract sentence, the
+#       selected-host sentence) and the manifest supplies every one of them with the flag
+#       removed -- so those cases WOULD be disarmed.
+#   `[source]` is file-wide with no per-case opt-out, so one disarmed case disarms the
+#   file. Deriving from the JSON half alone would have answered `no split needed`, which
+#   is the mistake batch 8A made in the other direction and is why the derivation is run
+#   per case SHAPE rather than per target.
+# This file is the inherited-manifest half: 4 source `#[test]` fn(s) worth of
+# invocations (4 of them). The other half is `runtime_sandbox_jsx_tsx_explicit_api`.
+# The disarmed shape, stated so a reader can check the split is on the right line: the TEXT cases pin only stderr substrings, every one of which the manifest supplies with `--api browser` removed; the JSON cases pin `errors[0].context.origin = "cli"`, which it does not
+# Every command below names its entry explicitly on argv, so the unused sibling
+# fixtures in a trial dir are inert.
+#
+# RULE 13 -- transitive helper docs. This source's helper chain carries NO `///`
+# doc comment on any helper any case reaches (checked mechanically by this file's
+# generator, which raises if the count it accounts for is wrong), so there is none
+# to carry. Controller ruling 6's runner-infrastructure exemption is separate and is
+# not relied on here.
+#
+# ARGV ORDER. `args` reproduces the source's own argument order exactly, token for
+# token, and the order is DERIVED from the source's `.arg(...)` chain by this file's
+# generator rather than written down. The entry filename is last, as the source
+# appends it last.
+# `--output json` appears first in the json cases below, because that is where the source builds it.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. Every entry filename in this half
+# carries exactly one program text, so the flat file-wide `[source]` namespace has
+# no collision. Checked mechanically, not eyeballed: the generator raises if any
+# filename would carry two different bodies.
+#
+# ASSERTION SHAPE. Every key below is derived from the source's own asserts, resolved
+# for this case's `(command, json_output)` binding by this file's generator, which
+# RAISES on a branch condition it cannot evaluate rather than letting both branches
+# contribute. Text cases keep `stdout_contains`/`stderr_contains` (ruling 3: a plain
+# `.contains` against a field that HAS a substring form is not strengthened). JSON
+# cases pin the envelope paths the source asserts; where the source spells
+# `.contains(...)` against a JSON string leaf, which has no substring form in this
+# format, ruling 3 requires an exact pin, and the generator refuses to emit one that
+# does not contain the source's own needle -- so the strengthening is verified.
+# `assert!(!errors.is_empty())` is carried by the `errors.0.*` pins, which a missing
+# path hard-fails on; the generator raises if a file asserts non-emptiness with no
+# `errors.0` pin to carry it.
+#
+# RULING 7 -- NOTHING TO HOIST. The `[source]` entries below are all DIFFERENT
+# programs (checked mechanically by this file's generator, which raises if any two
+# entries would carry the same key with different bodies), so U13 has no duplicated
+# body to hoist and controller ruling 7's decline does not arise.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+#
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: 'test does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract (selected host contract: browser-requested). Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.' -- live-captured exact `json.errors.0.message` pin; the source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+
+[source]
+"smoke.test.tsx" = "Kali.test('browser', () => {});"
+"kali.json" = """{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"""
+"kali.policy.json" = """{
+  "schemaVersion": 1,
+  "$schema": "https://kali.sh/schemas/policy-v1.json",
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": 1 },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": 1000, "maxActiveTimers": 1 },
+    "eval": false,
+    "random": true,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": 256,
+    "maxCpuTimeMs": 10000,
+    "maxOpenFiles": 8,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 0
+  }
+}"""
+
+[[case]]
+name = "test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_runtime_sandbox_jsx_tsx.rs. With no `[matrix]` there is no fold: this case is exactly the source fn `test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_when_browser_harness_is_configured` and its one real invocation (rule 6). The program under test is a one-line `console.log('browser run');` for `run` and a single empty `Kali.test('browser', () => {});` registration for `test`, alongside a `kali.policy.json` sandbox policy every case in this half writes unconditionally (rule 9: all three are copied out of the source, never retyped). It routes through `assert_browser_runtime_rejection_inherited(` (:126); that helper writes the fixtures, runs the command and routes the output through `assert_browser_runtime_rejection_text` or `assert_browser_runtime_rejection_json` depending on the output mode; both are inlined into this case's claim set by the generator rather than summarised. The source spells this as a plain `.contains(...)` against raw stdout/stderr, so it is carried as stdout_contains/stderr_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_sandbox_jsx_tsx_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["test", "--sandbox", "kali.policy.json", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 1
+stderr_contains = ["E5506", "standalone browser runtime contract", "selected host contract: browser-requested"]
+
+[[case]]
+name = "json_test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_runtime_sandbox_jsx_tsx.rs. With no `[matrix]` there is no fold: this case is exactly the source fn `json_test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_when_browser_harness_is_configured` and its one real invocation (rule 6). The program under test is a one-line `console.log('browser run');` for `run` and a single empty `Kali.test('browser', () => {});` registration for `test`, alongside a `kali.policy.json` sandbox policy every case in this half writes unconditionally (rule 9: all three are copied out of the source, never retyped). It routes through `assert_browser_runtime_rejection_inherited(` (:126); that helper writes the fixtures, runs the command and routes the output through `assert_browser_runtime_rejection_text` or `assert_browser_runtime_rejection_json` depending on the output mode; both are inlined into this case's claim set by the generator rather than summarised. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.errors.0.message`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_sandbox_jsx_tsx_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["--output", "json", "test", "--sandbox", "kali.policy.json", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 1
+json.schemaVersion = 1
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.context.origin = "config"
+json.errors.0.context.requestedValue = "browser"
+json.errors.0.context.effectiveValue = "browser"
+json.errors.0.message = "test does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract (selected host contract: browser-requested). Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work."
+
+[[case]]
+name = "test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_without_browser_harness"
+rationale = """Migrated from browser_runtime_sandbox_jsx_tsx.rs. With no `[matrix]` there is no fold: this case is exactly the source fn `test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_without_browser_harness` and its one real invocation (rule 6). The program under test is a one-line `console.log('browser run');` for `run` and a single empty `Kali.test('browser', () => {});` registration for `test`, alongside a `kali.policy.json` sandbox policy every case in this half writes unconditionally (rule 9: all three are copied out of the source, never retyped). It routes through `assert_browser_runtime_rejection_inherited_without_browser_harness(` (:207); that helper writes the fixtures, runs the command and routes the output through `assert_browser_runtime_rejection_text` or `assert_browser_runtime_rejection_json` depending on the output mode; both are inlined into this case's claim set by the generator rather than summarised. The source spells this as a plain `.contains(...)` against raw stdout/stderr, so it is carried as stdout_contains/stderr_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The source calls `.env_remove(...)` on the browser-harness command variable. A case file can set a variable but cannot unset one (the runner layers a step's `env` on the inherited environment), so this case carries no `env` key. Measured rather than assumed: with the variable unset, set to `node`, and set to three spaces, the binary emits the same exit code, the same E5506, the same context.origin and the same message -- this rejection precedes any use of the harness command, so no claim here depends on it. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_sandbox_jsx_tsx_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["test", "--sandbox", "kali.policy.json", "smoke.test.tsx"]
+exit = 1
+stderr_contains = ["E5506", "standalone browser runtime contract", "selected host contract: browser-requested"]
+
+[[case]]
+name = "json_test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_without_browser_harness"
+rationale = """Migrated from browser_runtime_sandbox_jsx_tsx.rs. With no `[matrix]` there is no fold: this case is exactly the source fn `json_test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_without_browser_harness` and its one real invocation (rule 6). The program under test is a one-line `console.log('browser run');` for `run` and a single empty `Kali.test('browser', () => {});` registration for `test`, alongside a `kali.policy.json` sandbox policy every case in this half writes unconditionally (rule 9: all three are copied out of the source, never retyped). It routes through `assert_browser_runtime_rejection_inherited_without_browser_harness(` (:207); that helper writes the fixtures, runs the command and routes the output through `assert_browser_runtime_rejection_text` or `assert_browser_runtime_rejection_json` depending on the output mode; both are inlined into this case's claim set by the generator rather than summarised. On the JSON branch the source spells its claim as `.contains(...)` against the string leaf `json.errors.0.message`, which has NO substring form in this case format (the twelve keys of design spec 5.4 include no json-substring key), so per controller ruling 3 it becomes an exact pin -- and, per U9, only after the value was captured from the real `kali` binary rather than hand-computed. The generator refuses to emit a pin that does not contain the source's own needle, so the strengthening is verified rather than asserted. The source calls `.env_remove(...)` on the browser-harness command variable. A case file can set a variable but cannot unset one (the runner layers a step's `env` on the inherited environment), so this case carries no `env` key. Measured rather than assumed: with the variable unset, set to `node`, and set to three spaces, the binary emits the same exit code, the same E5506, the same context.origin and the same message -- this rejection precedes any use of the harness command, so no claim here depends on it. U2 -- this target is TWO case files split on `kali.json` presence; this is the inherited-manifest half and `runtime_sandbox_jsx_tsx_explicit_api` is the other. The split is measured, not assumed (see the file header)."""
+args = ["--output", "json", "test", "--sandbox", "kali.policy.json", "smoke.test.tsx"]
+exit = 1
+json.schemaVersion = 1
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.context.origin = "config"
+json.errors.0.context.requestedValue = "browser"
+json.errors.0.context.effectiveValue = "browser"
+json.errors.0.message = "test does not support the browser API surface in this phase; Kali does not yet define a standalone browser runtime contract (selected host contract: browser-requested). Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work."

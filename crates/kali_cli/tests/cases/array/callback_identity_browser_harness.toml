@@ -1,0 +1,141 @@
+# Migrated from tests/array_callback_identity_browser_harness.rs -- all
+# 16 #[test] functions, as 4 sibling case blocks fanned across a
+# file-level `[matrix]` extension axis (js/ts/jsx/tsx) = 16 trials.
+#
+# Structurally this is the same shape as the orchestrator's worked example
+# `array/callback_number_predicates_browser_harness.toml`: 16 #[test] fns
+# that are already a uniform cross product of extension (js/ts/jsx/tsx)
+# and one of {run plain, test plain, json run, json test}, with identical
+# fixture content and identical assertion shape in every cell (the source
+# function ignores the extension entirely, per
+# `browser_array_callback_identity_source`). `[matrix]` is the correct
+# tool for the same reason as that file: the whole file is uniform in the
+# extension axis, with no case exempted.
+#
+# Verified independently, not assumed from the reference file, that this
+# file is *not* identical in assertion shape: `assert_browser_harness_
+# array_callback_identity_succeeds` asserts only `output.status.success()`
+# in the non-JSON branch (no stdout claim at all -- the fixture itself
+# throws if the observed callback-identity sequence doesn't match, so a
+# clean exit already proves the claim), and in the JSON branch only 4
+# envelope fields (`schemaVersion`, `command`, `success`, `exitCode`) --
+# no `stdout`/`stderr`/`payload.*` assertions the way the reference file
+# had. The case blocks below reflect that narrower, but fully faithful,
+# claim.
+#
+# `[source]` fixture rewrite, noted for transparency: the original fixture
+# prints two lines via template literals, e.g.
+# `` console.log(`some:${[0, 1].some((value) => value)}`); ``. A literal
+# `${...}` inside a `[source]` value collides with this case-file format's
+# own `${...}` substitution syntax (`expand.rs` substitutes every `${...}`
+# span in every `[source]` value unconditionally, matrix or not, and
+# errors out with "unresolved placeholder" if the name inside isn't a
+# known constant/axis -- confirmed directly: pasting this fixture's
+# template-literal lines into a probe case file and running it produces
+# exactly that expansion error, not a passing case). Rewritten to
+# equivalent string concatenation (`"some:" + [0, 1].some(...)`), which
+# produces byte-identical stdout (JS coerces a boolean operand of `+` the
+# same way a template literal does) -- and no case in this file asserts on
+# stdout content at all (see above), so this rewrite cannot affect any
+# preserved claim either way.
+
+[matrix]
+extension = ["js", "ts", "jsx", "tsx"]
+
+[constants]
+run_body = '''
+function browserArrayCallbackIdentitySlices() {
+  const observed = [];
+  for (const item of [1, 2].map((value) => value)) {
+    observed.push(item);
+  }
+  for (const item of [1, 2].filter((value) => value)) {
+    observed.push(item);
+  }
+  for (const item of Array.from([1, 2].filter((value) => value))) {
+    observed.push(item);
+  }
+  for (const item of [...[1, 2].filter((value) => value)]) {
+    observed.push(item);
+  }
+  for (const item of [1, 2].flatMap((value) => [value])) {
+    observed.push(item);
+  }
+  console.log("some:" + [0, 1].some((value) => value));
+  console.log("every:" + [1, 0].every((value) => value));
+  if (observed.join(",") !== "1,2,1,2,1,2,1,2,1,2") {
+    throw new Error('unexpected array callback identity semantics');
+  }
+  console.log(observed.join("\n"));
+}
+browserArrayCallbackIdentitySlices();
+'''
+test_body = '''
+Kali.test('array callback identity slices', () => {
+function browserArrayCallbackIdentitySlices() {
+  const observed = [];
+  for (const item of [1, 2].map((value) => value)) {
+    observed.push(item);
+  }
+  for (const item of [1, 2].filter((value) => value)) {
+    observed.push(item);
+  }
+  for (const item of Array.from([1, 2].filter((value) => value))) {
+    observed.push(item);
+  }
+  for (const item of [...[1, 2].filter((value) => value)]) {
+    observed.push(item);
+  }
+  for (const item of [1, 2].flatMap((value) => [value])) {
+    observed.push(item);
+  }
+  console.log("some:" + [0, 1].some((value) => value));
+  console.log("every:" + [1, 0].every((value) => value));
+  if (observed.join(",") !== "1,2,1,2,1,2,1,2,1,2") {
+    throw new Error('unexpected array callback identity semantics');
+  }
+  console.log(observed.join("\n"));
+}
+browserArrayCallbackIdentitySlices();
+});
+'''
+
+[source]
+"main.${extension}" = "${run_body}"
+"smoke.test.${extension}" = "${test_body}"
+
+[[case]]
+name = "run_plain"
+rationale = "`run --api browser` with a configured browser harness command supports the array-callback-identity fixture across every supported source class; a clean exit itself proves the identity-semantics assertion the fixture makes internally (it throws otherwise)."
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${extension}"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "test_plain"
+rationale = "Same fixture wrapped in `Kali.test`, run via `test --api browser` with a configured browser harness command."
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${extension}"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+
+[[case]]
+name = "json_run"
+rationale = "Same `run --api browser` fixture through `--output json`, asserting the JSON output envelope (schemaVersion, command, success, exitCode)."
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${extension}"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+
+[[case]]
+name = "json_test"
+rationale = "Same `test --api browser` fixture through `--output json`, asserting the JSON output envelope (schemaVersion, command, success, exitCode)."
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${extension}"]
+env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0

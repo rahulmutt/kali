@@ -1,4 +1,4 @@
-use kali_runtime::{browser_runtime_contract_value, BrowserRuntimeContract};
+use kali_runtime_contract::{browser_runtime_contract_value, BrowserRuntimeContract};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::process::Command;

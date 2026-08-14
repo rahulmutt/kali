@@ -1,34 +1,110 @@
-use std::{fs, process::Command};
+//! Deliberately kept hand-written (not migrated to a `.toml` case file).
+//!
+//! This file originally had 21 `#[test]` fns. 20 of them invoke the real
+//! `kali` binary (via `assert_browser_bundle_array_iteration_spread`/
+//! `assert_browser_bundle_object_enumeration_spread`) and have been migrated
+//! to `crates/kali_cli/tests/cases/browser/array_iteration_spread.toml`.
+//!
+//! The one remaining here,
+//! `browser_bundle_test_reuses_the_shared_array_from_inventory_in_both_loop_sections`,
+//! never constructs a `Command` and never invokes `kali` at all: it calls
+//! `browser_bundle_array_from_source()` directly and asserts on the
+//! *returned string's own line content*
+//! (`.lines().filter(|line| line.contains(&format!(...))).count()`). This is
+//! a pure Rust unit test of a fixture-construction helper, not a
+//! CLI-behavior test -- there is no process output and no JSON file on disk
+//! for a case-file `Step` to assert on (`cli` and `browser_bundle_harness`
+//! steps assert on a spawned process's output; `file_json` steps assert on a
+//! file the binary wrote; none of the three fits "assert on a Rust string
+//! value computed in-process"). `audit-case-migration.py` cannot see this
+//! shape either way: it deliberately excludes `[source]` fixture text from
+//! its search (a claim that exists only inside a fixture body is correctly
+//! reported missing, not a bug), and this test's `.contains(&format!(...))`
+//! call's argument is not a bare string literal in the first place, so it
+//! does not even match the audit script's `CONTAINS` regex.
+//!
+//! See
+//! the Task 18 pilot's own working report, git-ignored scratch that does not ship
+//! ("Finding 1" / "File 6", the `browser_math_pow_exponent_one.rs` §5.11
+//! trim-and-keep precedent) for the general shape this disposition follows.
+//!
+//! CONSEQUENCE FOR THE GATES -- THE COMPLETE RED-LIST (ruling 9). Added
+//! retroactively by Task 18 batch 5: ruling 9 postdates the commit that trimmed
+//! this file, so this pair shipped without one. Every line below was produced by
+//! RUNNING the gate against both sides, not by reasoning about it, and it is NOT
+//! a copy of batch 4's list -- this pair behaves differently.
+//!
+//!   PRE-TRIM REF:  f0bfb76d79^   (= 3e083edc5d)
+//!   git show f0bfb76d79^:crates/kali_cli/tests/browser_array_iteration_spread.rs > /tmp/pretrim.rs
+//!
+//! Read the two columns as POST-trim (the plain `verify_pair.sh
+//! array_iteration_spread` run, against this file) then PRE-trim.
+//!
+//!   audit-case-migration.py      INAPPLICABLE (exit 3) / GREEN (exit 0), both
+//!        re-measured (post-trim read GREEN until the third verdict landed): the
+//!        retained test's claim is invisible to the extractor, so only PRE gates.
+//!   comment_coverage.py          RED / RED, but for two different reasons and
+//!        only one of them is the trim. Post-trim, every non-blank line of this
+//!        header comes back missing, because the header is prose about the
+//!        RETAINED test, which has no case. NO COUNT IS GIVEN, deliberately --
+//!        any figure would count this header's own length and would be
+//!        invalidated by every edit to it. PRE-trim it is red for an unrelated,
+//!        pre-existing reason: the source's two-line PR#16 honest-re-pin comment
+//!        is carried into 2 of the 8 cases and reported missing from the other
+//!        6. That is `comment_coverage.py`'s known absence of per-helper
+//!        attribution (U6): the comment belongs to exactly the cases its
+//!        producing helper reaches, and copying it into all 8 to green the
+//!        checker would be the over-attribution U6 forbids.
+//!   check_rationale_fn_names.py  RED / RED -- 35 unexplained post-trim, 10
+//!        pre-trim. The pre-trim 10 are `[source]` key stems, `kali_common`
+//!        helper names and two JS keywords quoted in backticks; the checker
+//!        resolves names only against the `.rs` it is handed, so none of those
+//!        can resolve. The post-trim excess is the migrated helpers and fn names
+//!        that left with the trim.
+//!   check_fixtures.py            GREEN / GREEN.
+//!   batch5_crosscheck.py         GREEN / GREEN -- the citation gate, wired into
+//!        `verify_pair.sh` by batch 6; this row is part of that same wiring
+//!        change, as ruling 9 requires. The post-trim green is INCIDENTAL and
+//!        must not be read as a property of retention pairs: it means only that
+//!        this file's case-file citations happen to still resolve against the
+//!        trimmed remainder. Run it with the pre-trim ref regardless -- that is
+//!        the run this migration is gated on, and on the sibling batch-4 pairs
+//!        the same gate is red post-trim. NO COUNT IS GIVEN: this gate also
+//!        resolves THIS header's own `:N` citations, so every edit to this
+//!        paragraph is an input to the figure it would report (ruling 11).
+//!   check_extra_claims.py        RED / RED, both sides. This gate and the U8 checker were both shipped in ef0b2cf3f5,
+//!        AFTER this pair; the `# EXTRA-OK:` declaration mechanism it reads did
+//!        not exist when the case file was written, so its U5-renamed source
+//!        keys and its grandfathered exact output pins are undeclared by
+//!        construction. NOTE, and it is not a nicety: `check_extra_claims.py`
+//!        accepts any claim string that appears verbatim anywhere in the `.rs`,
+//!        INCLUDING in a comment, so spelling a claim-shaped literal in this
+//!        header would silently green the gate for that claim. None is spelled
+//!        here for that reason. (Measured on the sibling retention
+//!        `browser_math_abs_sign_frozen_aliases.rs`, where a draft of the same
+//!        paragraph did exactly that.)
+//!        NO COUNT IS GIVEN, and that is a ruling-11 correction applied after
+//!        this paragraph first shipped with one. `check_extra_claims.py`
+//!        counts a claim as justified if the string occurs verbatim ANYWHERE
+//!        in the `.rs`, comments included, so this header is part of the
+//!        gate's own input and its prose moves the figure. Measured, not
+//!        supposed: running the gate against this file with and without the
+//!        header block gives two different numbers. Ruling 11 forbids a figure
+//!        that an edit to the surrounding prose can move, so the durable fact
+//!        is the classification. Run the gate for today's number.
+//!
+//! SO: this pair does NOT go all-green against the pre-trim ref. The audit, the
+//! fixture check and the citation gate do; the other three are red on both
+//! sides, for three
+//! unrelated reasons -- a U6 attribution limit, and two gates that postdate the
+//! file. Recording that is the point; a red-list that claimed otherwise would be
+//! worse than none.
+//!
+//! Adding a new gate to `verify_pair.sh` includes updating this paragraph, in
+//! the same change (ruling 9). This file must NOT be deleted by the family-wide
+//! sweep after batch 8.
 
 use kali_common::{array_from_alias_inventory_source, array_from_loop_lines};
-use serde_json::Value;
-use tempfile::tempdir;
-
-fn kali_bin() -> String {
-    std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
-}
-
-fn for_of_spread_source() -> &'static str {
-    r##"// kali-tree-shake: forOfArrayIterationSpreadWrapper
-export function forOfArrayIterationSpreadWrapper() {
-  const values = [1, 2];
-  for (const item of [...values]) {
-    console.log(item);
-  }
-}
-"##
-}
-
-fn for_await_spread_source() -> &'static str {
-    r##"// kali-tree-shake: forAwaitArrayIterationSpreadWrapper
-export async function forAwaitArrayIterationSpreadWrapper() {
-  const values = [1, 2];
-  for await (const item of [...values]) {
-    console.log(item);
-  }
-}
-"##
-}
 
 fn browser_bundle_array_from_source() -> String {
     let array_from_source = array_from_alias_inventory_source();
@@ -71,508 +147,6 @@ fn browser_bundle_test_reuses_the_shared_array_from_inventory_in_both_loop_secti
                 .count(),
             1,
             "browser bundle Array.from source should embed {alias} in the for-await loop section"
-        );
-    }
-}
-
-fn object_enumeration_spread_source() -> &'static str {
-    r##"// kali-tree-shake: objectEnumerationSpreadWrapper
-export async function objectEnumerationSpreadWrapper() {
-  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
-  const frozenValues = [...Object.values(frozenFromEntries)];
-  const frozenKeys = [...Object.keys(frozenFromEntries)];
-  const frozenEntries = [...Object.entries(frozenFromEntries)];
-  const reflectiveKeys = [...Reflect.ownKeys({ "b": 1, "2": 2, "a": 3, "1": 4 })];
-  const frozenReflectiveKeys = [...Reflect.ownKeys(Object.freeze({ "b": 1, "2": 2, "a": 3, "1": 4 }))];
-
-  for (const value of [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(value);
-  }
-  for (const value of [...globalThis.Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(value);
-  }
-  for (const value of [...globalThis.Object["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(value);
-  }
-  for (const value of [...globalThis["Object"].values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(value);
-  }
-  for (const value of [...globalThis['Object']['values'](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(value);
-  }
-  for (const value of [...globalThis["Object"]["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(value);
-  }
-  for (const key of [...Object.keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(key);
-  }
-  for (const key of [...globalThis.Object.keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(key);
-  }
-  for (const key of [...globalThis.Object["keys"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(key);
-  }
-  for (const key of [...globalThis["Object"].keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(key);
-  }
-  for (const key of [...globalThis["Object"]["keys"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(key);
-  }
-  for (const entry of [...Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-  for (const entry of [...globalThis.Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-  for (const entry of [...globalThis.Object["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-  for (const entry of [...globalThis["Object"].entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-  for (const entry of [...globalThis["Object"]["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-  for await (const value of [...Object.values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(value);
-  }
-  for await (const value of [...globalThis.Object.values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(value);
-  }
-  for await (const value of [...globalThis.Object["values"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(value);
-  }
-  for await (const value of [...globalThis["Object"].values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(value);
-  }
-  for await (const value of [...globalThis['Object']['values'](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(value);
-  }
-  for await (const value of [...globalThis["Object"]["values"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(value);
-  }
-  for await (const key of [...Object.keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(key);
-  }
-  for await (const key of [...globalThis.Object.keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(key);
-  }
-  for await (const key of [...globalThis.Object["keys"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(key);
-  }
-  for await (const key of [...globalThis["Object"].keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(key);
-  }
-  for await (const key of [...globalThis["Object"]["keys"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(key);
-  }
-  for await (const entry of [...Object.entries(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-  for await (const entry of [...globalThis.Object.entries(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-  for await (const entry of [...globalThis.Object["entries"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-  for await (const entry of [...globalThis["Object"].entries(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-  for await (const entry of [...globalThis["Object"]["entries"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
-    console.log(entry[0]);
-    console.log(entry[1]);
-  }
-
-  if (
-    frozenValues.length !== 2 ||
-    frozenValues[0] !== 3 ||
-    frozenValues[1] !== 2 ||
-    frozenKeys.length !== 2 ||
-    frozenKeys[0] !== 'b' ||
-    frozenKeys[1] !== 'a' ||
-    frozenEntries.length !== 2 ||
-    frozenEntries[0][0] !== 'b' ||
-    frozenEntries[0][1] !== 3 ||
-    frozenEntries[1][0] !== 'a' ||
-    frozenEntries[1][1] !== 2 ||
-    reflectiveKeys.length !== 4 ||
-    reflectiveKeys[0] !== '1' ||
-    reflectiveKeys[1] !== '2' ||
-    reflectiveKeys[2] !== 'b' ||
-    reflectiveKeys[3] !== 'a' ||
-    frozenReflectiveKeys.length !== 4 ||
-    frozenReflectiveKeys[0] !== '1' ||
-    frozenReflectiveKeys[1] !== '2' ||
-    frozenReflectiveKeys[2] !== 'b' ||
-    frozenReflectiveKeys[3] !== 'a'
-  ) {
-    throw new Error('unexpected frozen or reflective spread iteration semantics');
-  }
-}
-"##
-}
-fn assert_browser_bundle_array_iteration_spread(
-    filename: &str,
-    json_output: bool,
-    source: impl AsRef<str>,
-    harness_function: &str,
-) {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join(filename);
-    let source = source.as_ref();
-    fs::write(&source_path, source).expect("write source");
-
-    let mut command = Command::new(kali_bin());
-    command
-        .current_dir(dir.path())
-        .arg("build")
-        .arg("--bundle")
-        .arg("--api")
-        .arg("browser");
-    if json_output {
-        command.arg("--output").arg("json");
-    }
-    let output = command.arg(&source_path).output().expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if json_output {
-        let envelope: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
-        assert_eq!(envelope["schemaVersion"], 1);
-        assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["success"], true);
-        assert_eq!(envelope["exitCode"], 0);
-        let payload = envelope["payload"].as_object().expect("payload object");
-        assert_eq!(payload["artifactKind"], "bundle");
-        assert_eq!(payload["bundleFormat"], "esm");
-        assert!(envelope["errors"]
-            .as_array()
-            .expect("errors array")
-            .is_empty());
-    }
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_eq!(metadata["apiSurface"], "browser");
-    assert_eq!(metadata["artifactKind"], "bundle");
-
-    let harness_path = bundle_dir
-        .parent()
-        .expect("bundle root parent")
-        .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
-        "app",
-        false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
-await mod.{harness_function}();
-"#
-        ),
-    );
-    fs::write(&harness_path, harness).expect("write browser bundle harness");
-
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
-        std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
-            .ok()
-            .as_deref(),
-    );
-    let harness_executable = harness_command.remove(0);
-    let output = Command::new(&harness_executable)
-        .current_dir(&bundle_dir)
-        .args(&harness_command)
-        .arg(&harness_path)
-        .output()
-        .expect("run browser bundle harness");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n"), "stdout: {stdout}");
-    assert!(stdout.contains("2\n"), "stdout: {stdout}");
-}
-
-fn assert_browser_bundle_object_enumeration_spread(
-    filename: &str,
-    json_output: bool,
-    source: &str,
-    _harness_function: &str,
-) {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join(filename);
-    fs::write(&source_path, source).expect("write source");
-
-    let mut command = Command::new(kali_bin());
-    command
-        .current_dir(dir.path())
-        .arg("build")
-        .arg("--bundle")
-        .arg("--api")
-        .arg("browser");
-    if json_output {
-        command.arg("--output").arg("json");
-    }
-    let output = command.arg(&source_path).output().expect("run kali");
-
-    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
-    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
-    assert!(!output.status.success(), "must fail closed: {output:?}");
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stderr.contains("E5506") || stdout.contains("E5506"),
-        "stdout: {stdout}\nstderr: {stderr}"
-    );
-}
-
-#[test]
-fn build_emits_for_of_spread_in_js_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.js",
-        false,
-        for_of_spread_source(),
-        "forOfArrayIterationSpreadWrapper",
-    );
-}
-
-#[test]
-fn json_build_emits_for_of_spread_in_js_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.js",
-        true,
-        for_of_spread_source(),
-        "forOfArrayIterationSpreadWrapper",
-    );
-}
-
-#[test]
-fn build_emits_for_of_spread_in_ts_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.ts",
-        false,
-        for_of_spread_source(),
-        "forOfArrayIterationSpreadWrapper",
-    );
-}
-
-#[test]
-fn json_build_emits_for_of_spread_in_ts_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.ts",
-        true,
-        for_of_spread_source(),
-        "forOfArrayIterationSpreadWrapper",
-    );
-}
-
-#[test]
-fn build_emits_for_await_spread_in_js_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.js",
-        false,
-        for_await_spread_source(),
-        "forAwaitArrayIterationSpreadWrapper",
-    );
-}
-
-#[test]
-fn json_build_emits_for_await_spread_in_js_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.js",
-        true,
-        for_await_spread_source(),
-        "forAwaitArrayIterationSpreadWrapper",
-    );
-}
-
-#[test]
-fn build_emits_for_await_spread_in_ts_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.ts",
-        false,
-        for_await_spread_source(),
-        "forAwaitArrayIterationSpreadWrapper",
-    );
-}
-
-#[test]
-fn json_build_emits_for_await_spread_in_ts_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.ts",
-        true,
-        for_await_spread_source(),
-        "forAwaitArrayIterationSpreadWrapper",
-    );
-}
-
-#[test]
-fn build_emits_for_of_spread_in_jsx_and_tsx_input() {
-    for filename in ["app.jsx", "app.tsx"] {
-        assert_browser_bundle_array_iteration_spread(
-            filename,
-            false,
-            for_of_spread_source(),
-            "forOfArrayIterationSpreadWrapper",
-        );
-        assert_browser_bundle_array_iteration_spread(
-            filename,
-            true,
-            for_of_spread_source(),
-            "forOfArrayIterationSpreadWrapper",
-        );
-    }
-}
-
-#[test]
-fn build_emits_for_await_spread_in_jsx_and_tsx_input() {
-    for filename in ["app.jsx", "app.tsx"] {
-        assert_browser_bundle_array_iteration_spread(
-            filename,
-            false,
-            for_await_spread_source(),
-            "forAwaitArrayIterationSpreadWrapper",
-        );
-        assert_browser_bundle_array_iteration_spread(
-            filename,
-            true,
-            for_await_spread_source(),
-            "forAwaitArrayIterationSpreadWrapper",
-        );
-    }
-}
-
-#[test]
-fn build_emits_browser_array_from_wrappers_in_js_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.js",
-        false,
-        browser_bundle_array_from_source(),
-        "browserArrayFromWrappers",
-    );
-}
-
-#[test]
-fn json_build_emits_browser_array_from_wrappers_in_js_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.js",
-        true,
-        browser_bundle_array_from_source(),
-        "browserArrayFromWrappers",
-    );
-}
-
-#[test]
-fn build_emits_browser_array_from_wrappers_in_ts_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.ts",
-        false,
-        browser_bundle_array_from_source(),
-        "browserArrayFromWrappers",
-    );
-}
-
-#[test]
-fn json_build_emits_browser_array_from_wrappers_in_ts_input() {
-    assert_browser_bundle_array_iteration_spread(
-        "app.ts",
-        true,
-        browser_bundle_array_from_source(),
-        "browserArrayFromWrappers",
-    );
-}
-
-#[test]
-fn build_emits_browser_array_from_wrappers_in_jsx_and_tsx_input() {
-    for filename in ["app.jsx", "app.tsx"] {
-        assert_browser_bundle_array_iteration_spread(
-            filename,
-            false,
-            browser_bundle_array_from_source(),
-            "browserArrayFromWrappers",
-        );
-        assert_browser_bundle_array_iteration_spread(
-            filename,
-            true,
-            browser_bundle_array_from_source(),
-            "browserArrayFromWrappers",
-        );
-    }
-}
-
-#[test]
-fn build_emits_object_enumeration_spread_in_js_input() {
-    assert_browser_bundle_object_enumeration_spread(
-        "app.js",
-        false,
-        object_enumeration_spread_source(),
-        "objectEnumerationSpreadWrapper",
-    );
-}
-
-#[test]
-fn json_build_emits_object_enumeration_spread_in_js_input() {
-    assert_browser_bundle_object_enumeration_spread(
-        "app.js",
-        true,
-        object_enumeration_spread_source(),
-        "objectEnumerationSpreadWrapper",
-    );
-}
-
-#[test]
-fn build_emits_object_enumeration_spread_in_ts_input() {
-    assert_browser_bundle_object_enumeration_spread(
-        "app.ts",
-        false,
-        object_enumeration_spread_source(),
-        "objectEnumerationSpreadWrapper",
-    );
-}
-
-#[test]
-fn json_build_emits_object_enumeration_spread_in_ts_input() {
-    assert_browser_bundle_object_enumeration_spread(
-        "app.ts",
-        true,
-        object_enumeration_spread_source(),
-        "objectEnumerationSpreadWrapper",
-    );
-}
-
-#[test]
-fn build_emits_object_enumeration_spread_in_jsx_and_tsx_input() {
-    for filename in ["app.jsx", "app.tsx"] {
-        assert_browser_bundle_object_enumeration_spread(
-            filename,
-            false,
-            object_enumeration_spread_source(),
-            "objectEnumerationSpreadWrapper",
-        );
-        assert_browser_bundle_object_enumeration_spread(
-            filename,
-            true,
-            object_enumeration_spread_source(),
-            "objectEnumerationSpreadWrapper",
         );
     }
 }

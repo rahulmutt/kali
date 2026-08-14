@@ -1,0 +1,891 @@
+# Migrated from tests/browser_reflect_own_keys.rs and its `#[path]` submodule directory
+# tests/browser_reflect_own_keys/ -- the manifest-inherited half of a two-file U2 split.
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
+# The carrier and three of its four submodules carry NO Rust comment at all; the
+# whole target has exactly one block, opening 12 lines above
+# `assert_browser_requested_reflect_own_keys_fails_closed(` (run.rs:15) and running 11 line(s), and it
+# sits at module scope in `run.rs` above that file's three local `_fails_closed`
+# helpers. It is therefore carried into the rationale of every case that came from
+# run.rs and into no others -- which is per-helper attribution (U6), not pooling.
+# `comment_coverage.py` has no per-helper attribution and will report those lines
+# missing from the cases that did NOT come from run.rs. That is the checker's known
+# limitation, recorded here rather than papered over by copying the prose into cases
+# whose producing file never runs, which U6 forbids even though it would turn the
+# checker green.
+# The text is COPIED out of the `.rs` by this generator (its comment_blocks helper,
+# named plainly rather than backticked: U8's gate resolves every backticked
+# lower-case identifier against this source's own fn list, and that one lives in the
+# generator), not retyped, so an em-dash cannot become `--`.
+#
+# U10 -- SUBMODULE CARRIER, AND THE TRAP IT EXISTS FOR.
+# `grep -c '#\[test\]'` on tests/browser_reflect_own_keys.rs returns 0 and would silently drop
+# every test in this target: all 44 of them live behind a `#[path = "..."] mod`
+# declaration, in 4 sibling files (build.rs, check.rs, run.rs, test.rs). The carrier
+# holds only the three fixture builders and the five shared assert helpers.
+# Citations into a submodule are written `<file>.rs:N` and are resolved against THAT
+# file by batch5_crosscheck.py; a bare `:N` means the carrier.
+# The carrier and its sibling directory tests/browser_reflect_own_keys/ are RETAINED by this
+# commit -- they are deleted together, by the family-wide operation after batch 8, not
+# here.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 8 `#[test]` fns, 8 real helper invocations with every loop
+# expanded:
+#   * `assert_inherited_browser_api_surface_reflect_own_keys_fails_closed` -- 8 invocation(s) = run.rs's 8 manifest-inheriting fns = json_output(2) x ext(4). It is the ONLY manifest-writing helper in the migrated half -- the other one is reached solely by the RETAINED test.rs
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 2 `[[case]]` entries x ext(4) = 8 trials = 8 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one `json_output` half of this file's 8 fns, fanned to the 4 extensions; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, WHICH IS WHY THE MIGRATED HALF IS TWO CASE
+# FILES AND NOT ONE.
+# U10 says migrate a submodule carrier and its sibling directory into ONE `.toml`.
+# That is wrong here and U2 takes precedence. Of the 28 `#[test]` fns migrated from
+# this target, 8 -- all in `run.rs` -- go through a helper that writes a `kali.json`
+# manifest and pass NO `--api` flag: the browser API surface is resolved from the
+# manifest instead. The other 20 pass `--api browser` explicitly and run against a
+# tree with NO manifest.
+# `crates/kali_case_runner/src/expand.rs`'s `expand()` substitutes and clones the
+# whole file-level `[source]` map into EVERY trial regardless of which case
+# references which key, so one shared table would make `kali.json` unconditionally
+# present.
+#
+# THE DISCRIMINATOR WAS RE-DERIVED AFTER THE U4 TRIM, AND IT MOVED. Before the trim
+# it was `payload.hostContract` / `payload.runtimeBackend`, which flip from
+# `kali-hosted`/`wasmtime` to `browser-requested`/`browser-harness` on manifest
+# presence alone -- but those fields are asserted only by `test.rs`, which is now
+# RETAINED, so that measurement no longer covers anything this file claims. Measured
+# again against the claims that ARE migrated, the `build` cases now carry the
+# discriminating power:
+#     kali build --bundle app.js        (no manifest, no --api)  -> exit 5, no meta
+#     kali build --bundle app.js        (kali.json present)      -> exit 0,
+#                                        app/app.meta.json apiSurface = browser
+# The 8 build cases assert `exit = "success"` and `apiSurface = "browser"` on that
+# very file, so a leaked manifest would supply both and they would pass whether or
+# not `--api browser` did anything. No literal is dropped by that leak, so
+# audit-case-migration.py cannot see it; the trial still passes, so `cargo test`
+# cannot either. That invisibility is exactly why U2 exists.
+# For completeness, the same probe over the other two migrated commands shows NO
+# difference -- `check main.jsx` exits 0 with `filesChecked = 1` either way, and
+# `run main.js` exits 1 either way -- so the build cases are load-bearing on their
+# own. One measured disarmament is enough to require the split.
+#
+# THE SPLIT IS ON MANIFEST PRESENCE, NOT ON THE SUBMODULE BOUNDARY. `run.rs`
+# straddles it 8 explicit / 8 inherited, so one case file per submodule would put
+# both halves of run.rs in one file and reproduce the disarmament. The generator
+# DERIVES which half a fn belongs to by asking whether the helper it calls writes a
+# `kali.json`, then cross-checks that against the fn's own name and raises on
+# disagreement (ruling 18: derive the property, make a non-match an error) -- so a
+# case cannot be filed into the wrong half silently.
+# THIS FILE carries 8 of the 28 migrated `#[test]` fns (32 trials).
+# THIS FILE is the MANIFEST-INHERITED half: `kali.json` IS in its `[source]` table
+# and no argv below carries `--api`, so the browser API surface can only come from
+# the manifest. Its sibling is reflect_own_keys_explicit_api.toml, whose `[source]` deliberately
+# holds no manifest at all -- see that file's header for why one shared table would
+# silently disarm it.
+# Within this file `[source]` is safe in the ordinary way: the manifest is written
+# unconditionally by this half's single helper. NOTE that the OTHER manifest-writing
+# helper in this target is reached only by the RETAINED `test.rs`, so ruling 7's
+# duplicate-identity assertion is still run by this file's generator across both --
+# the two texts are asserted byte-identical rather than eyeballed -- even though only
+# one of them now produces a `[source]` entry.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. Each of this target's three program
+# texts has its own filename stem in the source (`main.<ext>` for the run-mode probe,
+# `smoke.test.<ext>` for the `Kali.test` probe, `app.<ext>` for the bundle fixture),
+# so the flat file-wide namespace has no collision and every key below is the
+# source's own filename. `check.rs` writes the SAME run-mode probe to the same
+# `main.<ext>` names that `run.rs` uses, which is a shared entry rather than a
+# collision -- the two texts are byte-identical because they are the same call to the
+# same builder.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `assert_browser_requested_reflect_own_keys`,
+#   `assert_json_browser_requested_reflect_own_keys`,
+#   `assert_inherited_browser_api_surface_reflect_own_keys`,
+#   `assert_browser_bundle_reflect_own_keys`,
+#   `assert_browser_checked_reflect_own_keys`, `reflect_own_keys_source`,
+#   `reflect_own_keys_test_source`, `browser_bundle_reflect_own_keys_source` -- none carries a `///` doc comment.
+# This half runs no `browser_bundle_harness` step -- every case is a single `kali run`/`kali test` invocation -- so ruling 6's runner-infrastructure paragraph is omitted rather than printed about a chain this file never reaches. It also never reaches `kali_common::reflect_own_keys_frozen_callable_source`, whose `///` doc IS carried in the sibling file: the manifest-inherited helpers write the same run-mode fixture, so the doc is carried here too where that fixture appears.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+# No `build` or `check` invocation appears in this half, so only the run/test argv shape above applies here.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more. This file's cases
+# do NOT all make the same shape of claim, so each is stated with its count:
+#   * 8 case(s): `exit = "failure"` and nothing else -- the source's only process assertion on this path is `assert!(!output.status.success())`, so a diagnostic code or a stream needle would be a rule-2 invention.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.js" = """const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const frozenObj = Object.freeze(obj);
+const keys = globalThis.Reflect.ownKeys(obj);
+const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
+const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+const singleQuotedPropertyKeys = globalThis['Reflect'].ownKeys(obj);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
+const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj); const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj); const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); const mixedBracketedRootKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj); const parenthesizedMixedBracketedRootKeys = Object.freeze((globalThis["Reflect"]['ownKeys']))(obj); const mixedSingleQuotedRootKeys = Object.freeze(globalThis['Reflect']["ownKeys"])(obj); const parenthesizedMixedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']["ownKeys"]))(obj); const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); const frozenSingleQuotedMixedBracketedKeys = Object.freeze(globalThis.Reflect['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedMixedBracketedKeys = Object.freeze((globalThis.Reflect['ownKeys']))(obj); const nullishFrozenCallableKeys = Object.freeze((null ?? globalThis.Reflect.ownKeys))(obj); const logicalAndFrozenCallableKeys = Object.freeze((true && globalThis.Reflect.ownKeys))(obj); const logicalOrFrozenCallableKeys = Object.freeze((false || globalThis.Reflect.ownKeys))(obj); const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); const parenthesizedFrozenDotRootBracketedKeys = Object.freeze((globalThis.Reflect)["ownKeys"])(obj); const frozenParenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj); const frozenParenthesizedMixedRootKeys = Object.freeze((globalThis["Reflect"].ownKeys))(obj); const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj); const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj); const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj); const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj); const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)(obj); const nullishFrozenBracketedKeys = Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))(obj); const logicalAndFrozenBracketedKeys = Object.freeze((true && globalThis["Reflect"]["ownKeys"]))(obj); const logicalOrFrozenBracketedKeys = Object.freeze((false || globalThis["Reflect"]["ownKeys"]))(obj); const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj); const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj); const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj); const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj); const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj); const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj); const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj); const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj);
+let syncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  syncCount += 1;
+}
+let frozenSyncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenSyncCount += 1;
+}
+let sequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
+let frozenSequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenSequenceCount += 1;
+}
+let asyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(obj)) {
+  asyncCount += 1;
+}
+let frozenAsyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenAsyncCount += 1;
+}
+let asyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  asyncSequenceCount += 1;
+}
+let frozenAsyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenAsyncSequenceCount += 1;
+}
+let breakContinueCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  if (key === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  mixedRootKeys.length !== 4 ||
+  mixedRootKeys[0] !== '1' ||
+  mixedRootKeys[1] !== '2' ||
+  mixedRootKeys[2] !== 'b' ||
+  mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
+  mixedBracketedKeys.length !== 4 ||
+  mixedBracketedKeys[0] !== '1' ||
+  mixedBracketedKeys[1] !== '2' ||
+  mixedBracketedKeys[2] !== 'b' ||
+  mixedBracketedKeys[3] !== 'a' ||
+  singleQuotedPropertyKeys.length !== 4 ||
+  singleQuotedPropertyKeys[0] !== '1' ||
+  singleQuotedPropertyKeys[1] !== '2' ||
+  singleQuotedPropertyKeys[2] !== 'b' ||
+  singleQuotedPropertyKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+  singleQuotedMixedBracketedKeys.length !== 4 ||
+  singleQuotedMixedBracketedKeys[0] !== '1' ||
+  singleQuotedMixedBracketedKeys[1] !== '2' ||
+  singleQuotedMixedBracketedKeys[2] !== 'b' ||
+  singleQuotedMixedBracketedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
+  parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+  parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+  parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+  parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+  parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenBareCallableKeys.length !== 4 ||
+  parenthesizedFrozenBareCallableKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
+  frozenMixedBracketedKeys.length !== 4 ||
+  frozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenBracketedKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  frozenBareCallableKeys[0] !== '1' ||
+  frozenBareCallableKeys[1] !== '2' ||
+  frozenBareCallableKeys[2] !== 'b' ||
+  frozenBareCallableKeys[3] !== 'a' ||
+  parenthesizedFrozenBareCallableKeys[0] !== '1' ||
+  parenthesizedFrozenBareCallableKeys[1] !== '2' ||
+  parenthesizedFrozenBareCallableKeys[2] !== 'b' ||
+  parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a' ||
+  syncCount !== 4 ||
+  frozenSyncCount !== 4 ||
+  sequenceCount !== 4 ||
+  frozenSequenceCount !== 4 ||
+  asyncCount !== 4 ||
+  frozenAsyncCount !== 4 ||
+  asyncSequenceCount !== 4 ||
+  frozenAsyncSequenceCount !== 4 ||
+  breakContinueCount !== 1
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+console.log('reflect ownKeys ok');
+"""
+"main.jsx" = """const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const frozenObj = Object.freeze(obj);
+const keys = globalThis.Reflect.ownKeys(obj);
+const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
+const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+const singleQuotedPropertyKeys = globalThis['Reflect'].ownKeys(obj);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
+const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj); const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj); const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); const mixedBracketedRootKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj); const parenthesizedMixedBracketedRootKeys = Object.freeze((globalThis["Reflect"]['ownKeys']))(obj); const mixedSingleQuotedRootKeys = Object.freeze(globalThis['Reflect']["ownKeys"])(obj); const parenthesizedMixedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']["ownKeys"]))(obj); const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); const frozenSingleQuotedMixedBracketedKeys = Object.freeze(globalThis.Reflect['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedMixedBracketedKeys = Object.freeze((globalThis.Reflect['ownKeys']))(obj); const nullishFrozenCallableKeys = Object.freeze((null ?? globalThis.Reflect.ownKeys))(obj); const logicalAndFrozenCallableKeys = Object.freeze((true && globalThis.Reflect.ownKeys))(obj); const logicalOrFrozenCallableKeys = Object.freeze((false || globalThis.Reflect.ownKeys))(obj); const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); const parenthesizedFrozenDotRootBracketedKeys = Object.freeze((globalThis.Reflect)["ownKeys"])(obj); const frozenParenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj); const frozenParenthesizedMixedRootKeys = Object.freeze((globalThis["Reflect"].ownKeys))(obj); const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj); const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj); const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj); const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj); const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)(obj); const nullishFrozenBracketedKeys = Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))(obj); const logicalAndFrozenBracketedKeys = Object.freeze((true && globalThis["Reflect"]["ownKeys"]))(obj); const logicalOrFrozenBracketedKeys = Object.freeze((false || globalThis["Reflect"]["ownKeys"]))(obj); const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj); const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj); const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj); const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj); const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj); const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj); const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj); const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj);
+let syncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  syncCount += 1;
+}
+let frozenSyncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenSyncCount += 1;
+}
+let sequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
+let frozenSequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenSequenceCount += 1;
+}
+let asyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(obj)) {
+  asyncCount += 1;
+}
+let frozenAsyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenAsyncCount += 1;
+}
+let asyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  asyncSequenceCount += 1;
+}
+let frozenAsyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenAsyncSequenceCount += 1;
+}
+let breakContinueCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  if (key === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  mixedRootKeys.length !== 4 ||
+  mixedRootKeys[0] !== '1' ||
+  mixedRootKeys[1] !== '2' ||
+  mixedRootKeys[2] !== 'b' ||
+  mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
+  mixedBracketedKeys.length !== 4 ||
+  mixedBracketedKeys[0] !== '1' ||
+  mixedBracketedKeys[1] !== '2' ||
+  mixedBracketedKeys[2] !== 'b' ||
+  mixedBracketedKeys[3] !== 'a' ||
+  singleQuotedPropertyKeys.length !== 4 ||
+  singleQuotedPropertyKeys[0] !== '1' ||
+  singleQuotedPropertyKeys[1] !== '2' ||
+  singleQuotedPropertyKeys[2] !== 'b' ||
+  singleQuotedPropertyKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+  singleQuotedMixedBracketedKeys.length !== 4 ||
+  singleQuotedMixedBracketedKeys[0] !== '1' ||
+  singleQuotedMixedBracketedKeys[1] !== '2' ||
+  singleQuotedMixedBracketedKeys[2] !== 'b' ||
+  singleQuotedMixedBracketedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
+  parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+  parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+  parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+  parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+  parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenBareCallableKeys.length !== 4 ||
+  parenthesizedFrozenBareCallableKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
+  frozenMixedBracketedKeys.length !== 4 ||
+  frozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenBracketedKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  frozenBareCallableKeys[0] !== '1' ||
+  frozenBareCallableKeys[1] !== '2' ||
+  frozenBareCallableKeys[2] !== 'b' ||
+  frozenBareCallableKeys[3] !== 'a' ||
+  parenthesizedFrozenBareCallableKeys[0] !== '1' ||
+  parenthesizedFrozenBareCallableKeys[1] !== '2' ||
+  parenthesizedFrozenBareCallableKeys[2] !== 'b' ||
+  parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a' ||
+  syncCount !== 4 ||
+  frozenSyncCount !== 4 ||
+  sequenceCount !== 4 ||
+  frozenSequenceCount !== 4 ||
+  asyncCount !== 4 ||
+  frozenAsyncCount !== 4 ||
+  asyncSequenceCount !== 4 ||
+  frozenAsyncSequenceCount !== 4 ||
+  breakContinueCount !== 1
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+console.log('reflect ownKeys ok');
+"""
+"main.ts" = """const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const frozenObj = Object.freeze(obj);
+const keys = globalThis.Reflect.ownKeys(obj);
+const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
+const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+const singleQuotedPropertyKeys = globalThis['Reflect'].ownKeys(obj);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
+const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj); const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj); const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); const mixedBracketedRootKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj); const parenthesizedMixedBracketedRootKeys = Object.freeze((globalThis["Reflect"]['ownKeys']))(obj); const mixedSingleQuotedRootKeys = Object.freeze(globalThis['Reflect']["ownKeys"])(obj); const parenthesizedMixedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']["ownKeys"]))(obj); const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); const frozenSingleQuotedMixedBracketedKeys = Object.freeze(globalThis.Reflect['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedMixedBracketedKeys = Object.freeze((globalThis.Reflect['ownKeys']))(obj); const nullishFrozenCallableKeys = Object.freeze((null ?? globalThis.Reflect.ownKeys))(obj); const logicalAndFrozenCallableKeys = Object.freeze((true && globalThis.Reflect.ownKeys))(obj); const logicalOrFrozenCallableKeys = Object.freeze((false || globalThis.Reflect.ownKeys))(obj); const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); const parenthesizedFrozenDotRootBracketedKeys = Object.freeze((globalThis.Reflect)["ownKeys"])(obj); const frozenParenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj); const frozenParenthesizedMixedRootKeys = Object.freeze((globalThis["Reflect"].ownKeys))(obj); const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj); const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj); const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj); const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj); const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)(obj); const nullishFrozenBracketedKeys = Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))(obj); const logicalAndFrozenBracketedKeys = Object.freeze((true && globalThis["Reflect"]["ownKeys"]))(obj); const logicalOrFrozenBracketedKeys = Object.freeze((false || globalThis["Reflect"]["ownKeys"]))(obj); const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj); const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj); const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj); const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj); const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj); const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj); const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj); const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj);
+let syncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  syncCount += 1;
+}
+let frozenSyncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenSyncCount += 1;
+}
+let sequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
+let frozenSequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenSequenceCount += 1;
+}
+let asyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(obj)) {
+  asyncCount += 1;
+}
+let frozenAsyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenAsyncCount += 1;
+}
+let asyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  asyncSequenceCount += 1;
+}
+let frozenAsyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenAsyncSequenceCount += 1;
+}
+let breakContinueCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  if (key === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  mixedRootKeys.length !== 4 ||
+  mixedRootKeys[0] !== '1' ||
+  mixedRootKeys[1] !== '2' ||
+  mixedRootKeys[2] !== 'b' ||
+  mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
+  mixedBracketedKeys.length !== 4 ||
+  mixedBracketedKeys[0] !== '1' ||
+  mixedBracketedKeys[1] !== '2' ||
+  mixedBracketedKeys[2] !== 'b' ||
+  mixedBracketedKeys[3] !== 'a' ||
+  singleQuotedPropertyKeys.length !== 4 ||
+  singleQuotedPropertyKeys[0] !== '1' ||
+  singleQuotedPropertyKeys[1] !== '2' ||
+  singleQuotedPropertyKeys[2] !== 'b' ||
+  singleQuotedPropertyKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+  singleQuotedMixedBracketedKeys.length !== 4 ||
+  singleQuotedMixedBracketedKeys[0] !== '1' ||
+  singleQuotedMixedBracketedKeys[1] !== '2' ||
+  singleQuotedMixedBracketedKeys[2] !== 'b' ||
+  singleQuotedMixedBracketedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
+  parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+  parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+  parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+  parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+  parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenBareCallableKeys.length !== 4 ||
+  parenthesizedFrozenBareCallableKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
+  frozenMixedBracketedKeys.length !== 4 ||
+  frozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenBracketedKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  frozenBareCallableKeys[0] !== '1' ||
+  frozenBareCallableKeys[1] !== '2' ||
+  frozenBareCallableKeys[2] !== 'b' ||
+  frozenBareCallableKeys[3] !== 'a' ||
+  parenthesizedFrozenBareCallableKeys[0] !== '1' ||
+  parenthesizedFrozenBareCallableKeys[1] !== '2' ||
+  parenthesizedFrozenBareCallableKeys[2] !== 'b' ||
+  parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a' ||
+  syncCount !== 4 ||
+  frozenSyncCount !== 4 ||
+  sequenceCount !== 4 ||
+  frozenSequenceCount !== 4 ||
+  asyncCount !== 4 ||
+  frozenAsyncCount !== 4 ||
+  asyncSequenceCount !== 4 ||
+  frozenAsyncSequenceCount !== 4 ||
+  breakContinueCount !== 1
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+console.log('reflect ownKeys ok');
+"""
+"main.tsx" = """const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const frozenObj = Object.freeze(obj);
+const keys = globalThis.Reflect.ownKeys(obj);
+const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
+const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+const singleQuotedPropertyKeys = globalThis['Reflect'].ownKeys(obj);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
+const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj); const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj); const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); const mixedBracketedRootKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj); const parenthesizedMixedBracketedRootKeys = Object.freeze((globalThis["Reflect"]['ownKeys']))(obj); const mixedSingleQuotedRootKeys = Object.freeze(globalThis['Reflect']["ownKeys"])(obj); const parenthesizedMixedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']["ownKeys"]))(obj); const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); const frozenSingleQuotedMixedBracketedKeys = Object.freeze(globalThis.Reflect['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedMixedBracketedKeys = Object.freeze((globalThis.Reflect['ownKeys']))(obj); const nullishFrozenCallableKeys = Object.freeze((null ?? globalThis.Reflect.ownKeys))(obj); const logicalAndFrozenCallableKeys = Object.freeze((true && globalThis.Reflect.ownKeys))(obj); const logicalOrFrozenCallableKeys = Object.freeze((false || globalThis.Reflect.ownKeys))(obj); const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); const parenthesizedFrozenDotRootBracketedKeys = Object.freeze((globalThis.Reflect)["ownKeys"])(obj); const frozenParenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj); const frozenParenthesizedMixedRootKeys = Object.freeze((globalThis["Reflect"].ownKeys))(obj); const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj); const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj); const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj); const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj); const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)(obj); const nullishFrozenBracketedKeys = Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))(obj); const logicalAndFrozenBracketedKeys = Object.freeze((true && globalThis["Reflect"]["ownKeys"]))(obj); const logicalOrFrozenBracketedKeys = Object.freeze((false || globalThis["Reflect"]["ownKeys"]))(obj); const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj); const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj); const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj); const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj); const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj); const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj); const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj); const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj);
+let syncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  syncCount += 1;
+}
+let frozenSyncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenSyncCount += 1;
+}
+let sequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
+let frozenSequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenSequenceCount += 1;
+}
+let asyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(obj)) {
+  asyncCount += 1;
+}
+let frozenAsyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenAsyncCount += 1;
+}
+let asyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  asyncSequenceCount += 1;
+}
+let frozenAsyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenAsyncSequenceCount += 1;
+}
+let breakContinueCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  if (key === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  mixedRootKeys.length !== 4 ||
+  mixedRootKeys[0] !== '1' ||
+  mixedRootKeys[1] !== '2' ||
+  mixedRootKeys[2] !== 'b' ||
+  mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
+  mixedBracketedKeys.length !== 4 ||
+  mixedBracketedKeys[0] !== '1' ||
+  mixedBracketedKeys[1] !== '2' ||
+  mixedBracketedKeys[2] !== 'b' ||
+  mixedBracketedKeys[3] !== 'a' ||
+  singleQuotedPropertyKeys.length !== 4 ||
+  singleQuotedPropertyKeys[0] !== '1' ||
+  singleQuotedPropertyKeys[1] !== '2' ||
+  singleQuotedPropertyKeys[2] !== 'b' ||
+  singleQuotedPropertyKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+  singleQuotedMixedBracketedKeys.length !== 4 ||
+  singleQuotedMixedBracketedKeys[0] !== '1' ||
+  singleQuotedMixedBracketedKeys[1] !== '2' ||
+  singleQuotedMixedBracketedKeys[2] !== 'b' ||
+  singleQuotedMixedBracketedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
+  parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+  parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+  parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+  parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+  parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenBareCallableKeys.length !== 4 ||
+  parenthesizedFrozenBareCallableKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
+  frozenMixedBracketedKeys.length !== 4 ||
+  frozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenBracketedKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  frozenBareCallableKeys[0] !== '1' ||
+  frozenBareCallableKeys[1] !== '2' ||
+  frozenBareCallableKeys[2] !== 'b' ||
+  frozenBareCallableKeys[3] !== 'a' ||
+  parenthesizedFrozenBareCallableKeys[0] !== '1' ||
+  parenthesizedFrozenBareCallableKeys[1] !== '2' ||
+  parenthesizedFrozenBareCallableKeys[2] !== 'b' ||
+  parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a' ||
+  syncCount !== 4 ||
+  frozenSyncCount !== 4 ||
+  sequenceCount !== 4 ||
+  frozenSequenceCount !== 4 ||
+  asyncCount !== 4 ||
+  frozenAsyncCount !== 4 ||
+  asyncSequenceCount !== 4 ||
+  frozenAsyncSequenceCount !== 4 ||
+  breakContinueCount !== 1
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+console.log('reflect ownKeys ok');
+"""
+"kali.json" = """{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"""
+
+[[case]]
+name = "run_reflect_own_keys_inherited"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `run_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited` `#[test]` fn in its `run` `#[path]` submodule -- `run_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited(` (run.rs:124). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_inherited_browser_api_surface_reflect_own_keys_fails_closed(` (run.rs:63) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the MANIFEST-INHERITED half. `kali.json` is in this file's `[source]` table and no argv here carries `--api`, so the browser API surface can only come from the manifest. The other half is in reflect_own_keys_explicit_api.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["run", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_reflect_own_keys_inherited"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_run_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited` `#[test]` fn in its `run` `#[path]` submodule -- `json_run_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited(` (run.rs:144). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_inherited_browser_api_surface_reflect_own_keys_fails_closed(` (run.rs:63) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the MANIFEST-INHERITED half. `kali.json` is in this file's `[source]` table and no argv here carries `--api`, so the browser API surface can only come from the manifest. The other half is in reflect_own_keys_explicit_api.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["--output", "json", "run", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"

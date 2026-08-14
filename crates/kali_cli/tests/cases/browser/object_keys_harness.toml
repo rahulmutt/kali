@@ -1,0 +1,443 @@
+# Migrated from tests/browser_object_keys_harness.rs.
+#   SOURCE REF: fd75de19cad9c174165048a565468ce99064c87f
+#
+# Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud
+# here (12 of this file's 41 worklist members were tagged class B by the
+# automated classifier, but direct verification shows every one of them
+# panics on this exact assertion too — a loud E5506/runtime-trap failure,
+# not a silent wrong value; re-pinned as class A for all 41 members — see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md).
+#
+# All 41 #[test] fns in source reduce to exactly ONE assertion per
+# invocation: `assert!(!output.status.success())` -- no stdout/stderr content
+# is ever checked, and `--output json` does not change that assertion's
+# shape (the helper never parses the JSON in either mode). This is therefore
+# the pilot's designated `[matrix]` use beyond file 5's extension-loop
+# candidate: the `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every
+# case in this file (verified: every one of the 4 distinct fixture bodies
+# was directly re-run against the real kali binary here, in both output
+# modes, and fails closed) -- so it is hoisted to a file-level [matrix] axis
+# rather than expanded into 4x as many named [[case]] entries. 41 #[test]
+# fns collapse to 16 [[case]] entries here, matrix-fanned to 64 trials --
+# matching the 64 real assertions in source exactly (4 variants x 2 commands
+# x 2 json_output x 4 extensions).
+#
+# BATCH CONVENTION (minor, pilot round 1 review): a single [[case]] here can
+# correspond to MORE THAN ONE source #[test] fn -- e.g. the "global" variant
+# has separate `..._in_js_input` and `..._in_ts_jsx_tsx_input` (a 3-way
+# loop) fns in source; together they cover all 4 extensions, and this file's
+# matrix-fanned case folds both into one [[case]] block. Assertion mapping
+# stays 1:1 (every trial still checks exactly the real per-extension source
+# assertion), so no claim is lost -- but a failing trial's id reads
+# `[ext=jsx]`, not a source fn name, so this is worth stating explicitly as
+# the convention batches 2-8 will also produce.
+
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.const_bound.${ext}" = """function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserObjectKeysConstBoundIteration() {
+  const values = { "b": 1, "a": 2 };
+  const keys = [];
+  for (const key of Object.keys(values)) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+}
+
+browserObjectKeysConstBoundIteration();
+"""
+"main.default.${ext}" = """function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserObjectKeysIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of Object.keys(alias)) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+}
+
+browserObjectKeysIteration();
+"""
+"main.direct.${ext}" = """function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserDirectObjectKeysIteration() {
+  const keys = [];
+  for (const key of Object.keys({ "b": 1, "a": 2 })) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+}
+
+browserDirectObjectKeysIteration();
+"""
+"main.global.${ext}" = """function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserGlobalObjectKeysIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of globalThis.Object.keys(alias)) {
+    keys.push(key);
+  }
+  const mixed = [];
+  for (const key of globalThis.Object["keys"](alias)) {
+    mixed.push(key);
+  }
+  const mixedBracketed = [];
+  for (const key of globalThis["Object"].keys(alias)) {
+    mixedBracketed.push(key);
+  }
+  const singleQuotedProperty = [];
+  for (const key of globalThis['Object'].keys(alias)) {
+    singleQuotedProperty.push(key);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const key of globalThis["Object"]['keys'](alias)) {
+    doubleQuotedSingleQuoted.push(key);
+  }
+  const bracketed = [];
+  for (const key of globalThis["Object"]["keys"](alias)) {
+    bracketed.push(key);
+  }
+  const parenthesizedReceiverBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"])["keys"])(alias)) {
+    parenthesizedReceiverBracketed.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const key of Object.freeze((globalThis['Object'])['keys'])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(key);
+  }
+  const parenthesizedBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
+    parenthesizedBracketed.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(mixed);
+  assertObjectKeysIteration(mixedBracketed);
+  assertObjectKeysIteration(singleQuotedProperty);
+  assertObjectKeysIteration(doubleQuotedSingleQuoted);
+  assertObjectKeysIteration(bracketed);
+  assertObjectKeysIteration(parenthesizedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
+  assertObjectKeysIteration(parenthesizedBracketed);
+  console.log('browser object keys iteration ok');
+}
+
+browserGlobalObjectKeysIteration();
+"""
+"smoke.test.const_bound.${ext}" = """Kali.test('const-bound object keys iteration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys iteration semantics');
+    }
+  }
+
+  const values = { "b": 1, "a": 2 };
+  const keys = [];
+  for (const key of Object.keys(values)) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+});
+"""
+"smoke.test.default.${ext}" = """Kali.test('object keys iteration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys iteration semantics');
+    }
+  }
+
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of Object.keys(alias)) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+});
+"""
+"smoke.test.direct.${ext}" = """Kali.test('object keys iteration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys iteration semantics');
+    }
+  }
+
+  const keys = [];
+  for (const key of Object.keys({ "b": 1, "a": 2 })) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+});
+"""
+"smoke.test.global.${ext}" = """Kali.test('global object keys iteration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys iteration semantics');
+    }
+  }
+
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of globalThis.Object.keys(alias)) {
+    keys.push(key);
+  }
+  const mixed = [];
+  for (const key of globalThis.Object["keys"](alias)) {
+    mixed.push(key);
+  }
+  const mixedBracketed = [];
+  for (const key of globalThis["Object"].keys(alias)) {
+    mixedBracketed.push(key);
+  }
+  const singleQuotedProperty = [];
+  for (const key of globalThis['Object'].keys(alias)) {
+    singleQuotedProperty.push(key);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const key of globalThis["Object"]['keys'](alias)) {
+    doubleQuotedSingleQuoted.push(key);
+  }
+  const bracketed = [];
+  for (const key of globalThis["Object"]["keys"](alias)) {
+    bracketed.push(key);
+  }
+  const parenthesizedReceiverBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"])["keys"])(alias)) {
+    parenthesizedReceiverBracketed.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const key of Object.freeze((globalThis['Object'])['keys'])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(key);
+  }
+  const parenthesizedBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
+    parenthesizedBracketed.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(mixed);
+  assertObjectKeysIteration(mixedBracketed);
+  assertObjectKeysIteration(singleQuotedProperty);
+  assertObjectKeysIteration(doubleQuotedSingleQuoted);
+  assertObjectKeysIteration(bracketed);
+  assertObjectKeysIteration(parenthesizedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
+  assertObjectKeysIteration(parenthesizedBracketed);
+  console.log('browser object keys iteration ok');
+});
+"""
+
+[[case]]
+name = "run_supports_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.default.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.default.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.default.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.default.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.const_bound.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.const_bound.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.const_bound.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.const_bound.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_direct_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.direct.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.direct.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_direct_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.direct.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.direct.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "run_supports_global_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.global.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_global_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.global.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_supports_global_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.global.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_supports_global_object_keys_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_keys_harness.rs. Every one of this file's 41 #[test] fns funnels through `assert_browser_harness_object_keys`, whose entire assertion is `assert!(!output.status.success())` -- fail closed, no stdout/stderr/JSON content is ever checked.
+
+Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.global.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"

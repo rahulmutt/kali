@@ -1,0 +1,50 @@
+# Migrated from tests/string_trim_static_ascii.rs -- all 4 #[test]
+# functions, 1:1 as 4 case blocks. This file has no browser_bundle test at
+# all, unlike the rest of the family.
+
+[source]
+"main.js" = '''
+console.log("  hello  ".trim());
+console.log("  hello  ".trimStart());
+console.log("  hello  ".trimEnd());
+'''
+"main.ts" = '''
+console.log("  hello  ".trim());
+console.log("  hello  ".trimStart());
+console.log("  hello  ".trimEnd());
+'''
+"trim_arguments.js" = "console.log('  hello  '.trim(1));\n"
+"non_ascii_receiver.js" = "console.log('  héllo  '.trim());\n"
+
+[[case]]
+name = "run"
+rationale = "`.trim()`/`.trimStart()`/`.trimEnd()` on a static ASCII literal fold at compile time."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "hello\nhello  \n  hello\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "check_gates_trim_arguments"
+rationale = "`.trim()` only folds when called with no arguments; a call with an argument must fail closed with E5506."
+args = ["--output", "json", "check", "trim_arguments.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_static_string_trim_receiver"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('héllo') must fail closed with E5506."
+args = ["--output", "json", "check", "non_ascii_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"

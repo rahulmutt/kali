@@ -1,0 +1,61 @@
+# Migrated from tests/string_identity_static.rs -- all 4 #[test] functions,
+# 1:1 as 4 case blocks. Unlike most of this family,
+# `browser_bundle_accepts_static_string_identity_helpers` is NOT a
+# 4-extension loop -- it only ever writes a single `main.ts` -- so there is
+# no sibling-case fan-out here.
+#
+# `build_gates_argument_bearing_static_string_identity_helpers` also differs
+# from the rest of the family's gate tests: it invokes plain `build` (no
+# `--api browser --bundle`), not `check`, and its message assertion
+# (`.contains("String.prototype.toString is unavailable with arguments")`)
+# turns out to be the exact prefix of the full diagnostic text, obtained by
+# running the built `kali` binary -- asserted here as the full exact
+# message, at least as strong as the original substring claim (see
+# case_static_ascii.toml's header).
+
+[source]
+"main.js" = '''
+const alias = "héllo";
+console.log("hello".toString());
+console.log(alias.valueOf());
+console.log(Object.freeze("wrapped").toString());
+'''
+"main.ts" = '''
+const alias = "héllo";
+console.log("hello".toString());
+console.log(alias.valueOf());
+console.log(Object.freeze("wrapped").toString());
+'''
+"argument_bearing.js" = "console.log('hello'.toString(1));\n"
+
+[[case]]
+name = "run"
+rationale = "`.toString()`/`.valueOf()` on static string literals fold at compile time, including a non-ASCII literal ('héllo') and a frozen receiver."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "hello\nhéllo\nwrapped\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle"
+rationale = "The static string identity-helper fold also holds in a browser bundle build."
+args = ["build", "--api", "browser", "--bundle", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "build_gates_argument_bearing"
+rationale = "`.toString()` only folds when called with no arguments; a call with an argument must fail closed with E5506 under plain `build`, not just `check`."
+args = ["--output", "json", "build", "argument_bearing.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.toString is unavailable with arguments in the current direct-runtime path; use a no-argument static string call or the later compatibility path"

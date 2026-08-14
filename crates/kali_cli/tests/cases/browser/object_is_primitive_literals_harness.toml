@@ -1,0 +1,170 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\nbrowser object is primitive literals ok\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# Migrated from tests/browser_object_is_primitive_literals_harness.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_object_is_primitive_literals_harness.rs returns NOTHING -- the file has no Rust comment lines at
+# all. The generator re-derives that on every run and RAISES rather than emitting this
+# block if the source ever grows one, so the `--allow-empty` discharge below cannot
+# become a vacuous green by drift.
+# The file contains no `//` of any kind -- it declares no bundle fixture, so
+# there is not even a kali-tree-shake marker in it.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 4 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_harness_object_is` -- 16 invocation(s) = command(run/test) x json_output(false/true) x ext(js/ts/jsx/tsx). Unlike the rest of this batch, EACH of the four `#[test]` fns is itself a LOOP over all four filenames (`for filename in [...]`, a count the generator asserts against the source before emitting), so 4 fns make 16 invocations. Both fixture builders are parameterless, so every cell of a loop runs the same program text and `ext` is uniform.
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to exactly one source `#[test]` fn, whose own four-filename loop the `ext` axis reproduces cell for cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+# This is the cleanest possible matrix fold: the source ALREADY wrote the axis, as a
+# `for filename in [...]` loop, and `[matrix] ext` is the same four iterations expressed
+# as trials. No case corresponds to more than one fn.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main.${ext}`, `smoke.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `object_is_browser_harness_source`,
+#   `object_is_browser_harness_test_source`, `assert_browser_harness_object_is` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step, so ruling 6's exemption has nothing
+# to exempt and is not stated.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * run/test: `[--output json] <run|test> --api browser --max-threads 0
+#              --max-spawned-processes 0 <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand, and both thread flags are always passed.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+# The env value is `KALI_BROWSER_BUNDLE_HARNESS_COMMAND`, read from the
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` constant the source passes by
+# name `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:73) rather than assumed.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+#   * `exit = "success"` `output.status.success(),` (:91) -- the status class, because this source
+#     checks `status.success()` and no exact code.
+#   * TEXT MODE: `stdout_contains` on the one needle the source asserts
+#     `stdout.contains("browser object is primitive literals ok")` (:122), plus `"ok 1"` for the `test` command only `stdout.contains("ok 1")` (:126).
+# The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed.
+#   * JSON MODE: the same claim against the string leaf json["stdout"]
+#     `let stdout = json["stdout"].as_str()` (:112), plus schemaVersion/command/success, payload hostContract/
+#     runtimeBackend, envelope and payload `exitCode = 0` for `run` `assert_eq!(json["exitCode"], 0)` (:105) or
+#     payload total/passed/failed for `test`, `json.stderr = ""` `assert_eq!(json["stderr"], "")` (:117) and an
+#     empty `errors` array.
+# On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed.
+#     The same pin serves `run` and `test`: the `test` fixture's Kali.test body prints
+#     the identical lines, and the `ok 1` TAP line is written to the process's own
+#     stdout rather than into the JSON leaf. That is not assumed -- the generator
+#     re-captures all eight cells (4 extensions x run/test) and requires them equal.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """const zero = 0; const zeroAlias = zero;
+console.log(Object.is(zeroAlias, -0));
+console.log(Object.is(-0, +0));
+console.log(Object.is(+1, 1));
+console.log(Object.is(true, true));
+console.log(Object.is("hello", "hello"));
+console.log(Object.is(Object.freeze(+1), Object.freeze(1)));
+console.log(Object.is(1n, 1n));
+console.log(Object.is(-1n, -1n));
+console.log(Object.is(null, null));
+console.log(Object.is(Infinity, Infinity));
+console.log(Object.is(NaN, NaN));
+console.log(Object.is(-Infinity, -Infinity));
+console.log(globalThis["Object"]["is"](+1, 1));
+console.log(globalThis.Object["is"](+1, 1));
+console.log(globalThis["Object"].is(+1, 1));
+console.log(globalThis.Object.is(+1, 1));
+console.log(Object["is"](+1, 1));
+console.log(Object.freeze(globalThis["Object"]["is"])(+1, 1));
+console.log('browser object is primitive literals ok');
+"""
+"smoke.test.${ext}" = """Kali.test('object is primitive literals', () => {
+  const zero = 0;
+  const zeroAlias = zero;
+  console.log(Object.is(zeroAlias, -0));
+  console.log(Object.is(-0, +0));
+  console.log(Object.is(+1, 1));
+  console.log(Object.is(true, true));
+  console.log(Object.is("hello", "hello"));
+  console.log(Object.is(Object.freeze(+1), Object.freeze(1)));
+  console.log(Object.is(1n, 1n));
+  console.log(Object.is(-1n, -1n));
+  console.log(Object.is(null, null));
+  console.log(Object.is(Infinity, Infinity));
+  console.log(Object.is(NaN, NaN));
+  console.log(Object.is(-Infinity, -Infinity));
+  console.log(globalThis["Object"]["is"](+1, 1));
+  console.log(globalThis.Object["is"](+1, 1));
+  console.log(globalThis["Object"].is(+1, 1));
+  console.log(globalThis.Object.is(+1, 1));
+  console.log(Object["is"](+1, 1));
+  console.log(Object.freeze(globalThis["Object"]["is"])(+1, 1));
+  console.log('browser object is primitive literals ok');
+});
+"""
+
+[[case]]
+name = "run_supports_object_is_primitive_literals_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_is_primitive_literals_harness.rs, the single source fn `run_supports_object_is_primitive_literals_when_browser_harness_is_configured_in_js_ts_jsx_tsx_input`, whose own `for filename in [...]` loop over the four extensions is exactly what the `ext` axis reproduces. `assert_browser_harness_object_is` writes the Object.is primitive-literals run fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program prints Object.is results for a zero alias against -0, the signed zeros, unary-plus integers, booleans, strings, frozen numbers, BigInts, null, the infinities and NaN, and for every bracketed and frozen-callable `globalThis["Object"]["is"]` spelling, then prints its ok line. The process succeeds `output.status.success(),` (:91). Its text-mode claim is a plain substring match, `stdout.contains("browser object is primitive literals ok")` (:122). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["browser object is primitive literals ok"]
+
+[[case]]
+name = "json_run_supports_object_is_primitive_literals_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_is_primitive_literals_harness.rs, the single source fn `json_run_supports_object_is_primitive_literals_when_browser_harness_is_configured_in_js_ts_jsx_tsx_input`, whose own `for filename in [...]` loop over the four extensions is exactly what the `ext` axis reproduces. `assert_browser_harness_object_is` writes the Object.is primitive-literals run fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program prints Object.is results for a zero alias against -0, the signed zeros, unary-plus integers, booleans, strings, frozen numbers, BigInts, null, the infinities and NaN, and for every bracketed and frozen-callable `globalThis["Object"]["is"]` spelling, then prints its ok line. The process succeeds `output.status.success(),` (:91). In json mode the source takes its claim against the string leaf json["stdout"] `let stdout = json["stdout"].as_str()` (:112) and also pins the envelope and payload `exitCode = 0` `assert_eq!(json["exitCode"], 0)` (:105), `json.stderr = ""` `assert_eq!(json["stderr"], "")` (:117) and an empty `errors` array. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\nbrowser object is primitive literals ok\n", stderr = "", errors = [] }
+
+[[case]]
+name = "test_supports_object_is_primitive_literals_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_is_primitive_literals_harness.rs, the single source fn `test_supports_object_is_primitive_literals_when_browser_harness_is_configured_in_js_ts_jsx_tsx_input`, whose own `for filename in [...]` loop over the four extensions is exactly what the `ext` axis reproduces. `assert_browser_harness_object_is` writes the Object.is primitive-literals test fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program prints Object.is results for a zero alias against -0, the signed zeros, unary-plus integers, booleans, strings, frozen numbers, BigInts, null, the infinities and NaN, and for every bracketed and frozen-callable `globalThis["Object"]["is"]` spelling, then prints its ok line. The process succeeds `output.status.success(),` (:91). Its text-mode claim is a plain substring match, `stdout.contains("browser object is primitive literals ok")` (:122), plus `stdout.contains("ok 1")` (:126) for the `test` command. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["browser object is primitive literals ok", "ok 1"]
+
+[[case]]
+name = "json_test_supports_object_is_primitive_literals_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_is_primitive_literals_harness.rs, the single source fn `json_test_supports_object_is_primitive_literals_when_browser_harness_is_configured_in_js_ts_jsx_tsx_input`, whose own `for filename in [...]` loop over the four extensions is exactly what the `ext` axis reproduces. `assert_browser_harness_object_is` writes the Object.is primitive-literals test fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program prints Object.is results for a zero alias against -0, the signed zeros, unary-plus integers, booleans, strings, frozen numbers, BigInts, null, the infinities and NaN, and for every bracketed and frozen-callable `globalThis["Object"]["is"]` spelling, then prints its ok line. The process succeeds `output.status.success(),` (:91). In json mode the source takes its claim against the string leaf json["stdout"] `let stdout = json["stdout"].as_str()` (:112) and also pins the payload's total, passed and failed, `json.stderr = ""` `assert_eq!(json["stderr"], "")` (:117) and an empty `errors` array. On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\nbrowser object is primitive literals ok\n", stderr = "", errors = [] }

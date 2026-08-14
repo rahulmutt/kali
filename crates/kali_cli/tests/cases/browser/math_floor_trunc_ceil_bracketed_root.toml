@@ -1,0 +1,408 @@
+# MIGRATION NOTE (stale source fn name): the looped `#[test]` fn ends
+# `_in_js_and_ts_input`, but its body loops over jsx and tsx as well -- verified
+# by reading the loop's tuple list, which names main/smoke.test entries for all
+# four extensions. The name is stale; the body is what runs and what is migrated,
+# and all four extensions appear as sibling cases below. This file still declines
+# the file-wide [matrix] -- not because the loop is js/ts-only, but because the
+# BUNDLE group is (rule 7 / U1: an ext axis would fan the bundle cases over
+# jsx/tsx, inventing build invocations the source never runs). Recorded per
+# ruling 8, which requires a flagged note wherever a source fn name lies about
+# its own body. (Not a rule 12 / U7 item: a fn NAME is not a comment, and this
+# file has no Rust comments at all.)
+#
+# Migrated from tests/browser_math_floor_trunc_ceil_bracketed_root.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim): `browser_math_floor_trunc_ceil_bracketed_root.rs` has NO Rust
+# comments. Verified with `grep -nE '//' browser_math_floor_trunc_ceil_bracketed_root.rs`, whose single hit is
+# line 11's `// kali-tree-shake:` marker -- that sits INSIDE the `r##"..."##` JS
+# bundle fixture, so it is program text carried verbatim into [source] below,
+# not Rust prose. There is therefore nothing to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- INVOCATION ARITHMETIC, and why the matrix is DECLINED.
+# 5 #[test] fns, 20 real invocations, in two groups that do NOT cover the same
+# extensions:
+#   * `assert_browser_bundle_bracketed_global_this_math_floor_trunc_ceil(
+#     filename, json_output)` -- 4 unlooped #[test] fns = ext(js/ts) x
+#     json_output(false/true). js and ts ONLY; there is no jsx or tsx build fn.
+#   * `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_
+#     when_browser_harness_is_configured_in_js_and_ts_input` -- ONE #[test] fn
+#     whose body is an INLINE loop over eight literal
+#     `(command, source_name, source)` tuples -- ("run","main.js"),
+#     ("test","smoke.test.js"), then the same pair for ts, jsx and tsx -- nested
+#     inside `for output_json in [false, true]`: 8 x 2 = 16 invocations.
+#     (enumerate_invocations.py reports this fn as `UNPARSED (no helper call
+#     found)`: it only expands loops that call a named helper, and this loop
+#     builds its Command inline. It is enumerated by hand above and mechanically
+#     by the loop-tuple extractor in tools/task-18-browser-pilot/
+#     gen_batch4_group_d.py, which asserts the 8-tuple count.)
+# Total 4 + 16 = 20 invocations from 5 fns.
+#
+# NO [matrix] (rule 7 / U1). [matrix] is FILE-WIDE -- `expand()` fans every
+# [[case]] by the full cross product of every axis with no per-case opt-out
+# (crates/kali_case_runner/src/expand.rs) -- so an `ext` axis here would fan the
+# four bundle cases over jsx/tsx, manufacturing four build invocations the source
+# never runs. That is both a rule 7 arithmetic failure (cases x axis product
+# would not equal the real invocation count) and a rule 2 invention. The axis is
+# therefore dropped for the WHOLE file and every real invocation is written as
+# its own named sibling [[case]]. Same disposition, same reason, as the
+# already-shipped `math_exp_log_bracketed_root.toml`.
+#
+# RULE 5 (split, don't fold) / rule 6 (1:1). The single looped #[test] fn writes
+# 16 independently-created programs into 16 fresh temp dirs and asserts each
+# separately, so it becomes 16 sibling [[case]] entries named descriptively (by
+# command, extension and output mode), not one case and not numbered ones. The
+# four bundle fns keep their own case each. 20 [[case]] entries, 20 invocations,
+# 1:1.
+#
+# U2 -- [source] is file-wide, and that is safe here: all ten fixtures are
+# written unconditionally into a fresh temp dir by the source, none sits behind
+# an `if`, and no case's point is a file's presence or absence. Every command
+# names its own entry on argv, so the siblings are inert. U5 needs no renaming:
+# `app.js`/`app.ts` (bundle) and `main.<ext>`/`smoke.test.<ext>` (harness) are
+# already distinct keys.
+#
+# THE COUNT CLAIMS -- this file is one of batch 4's two count-carrying targets,
+# and it makes TWO separate count claims, not one. Six sites in the source, all
+# the same pair of bounds:
+#   `stdout.matches(...).count()` :121  `stdout.matches("1\n").count() >= 6`   raw bundle-harness stdout
+#   `stdout.matches(...).count()` :122  `stdout.matches("2\n").count() >= 3`   raw bundle-harness stdout
+#   `stdout.matches(...).count()` :236  `stdout.matches("1\n").count() >= 6`   `json["stdout"].as_str()`, :235
+#   `stdout.matches(...).count()` :237  `stdout.matches("2\n").count() >= 3`   same JSON leaf
+#   `stdout.matches(...).count()` :241  `stdout.matches("1\n").count() >= 6`   raw stdout, the `else` branch
+#   `stdout.matches(...).count()` :242  `stdout.matches("2\n").count() >= 3`   raw stdout, the `else` branch
+# The raw-stdout sites become `stdout_count`; the two sites taken against
+# `json["stdout"].as_str()` become `json_count` with `path = "stdout"`, which is
+# exactly why the two keys are separate (design spec 5.4). BOTH needles are
+# carried at every site -- `1\n` at `at_least = 6` and `2\n` at `at_least = 3`
+# -- because they are two distinct source claims; carrying one would drop the
+# other. Neither is strengthened to `exact`: the live output is
+# `1\n1\n2\n1\n1\n2\n1\n1\n2\n` (floor(1.6)=1, trunc(1.6)=1,
+# ceil(1.6)=2, through three bracketing spellings), so both claims sit exactly on
+# their `>=` boundary at 6 and 3 -- but the source states lower bounds and pinning
+# equality would assert something it never did (rule 2). The source makes no
+# `.contains` claim alongside these counts, so no `stdout_contains` is written.
+#
+# RULE 13 (transitive helper docs): every fn in each call chain was checked for a
+# `///` doc comment and none carries one -- the file's only `//` is the JS
+# tree-shake marker inside a fixture (see the rule 12 note above). The chain does
+# reach `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which carry one-line `///` docs, but in
+# the migrated form this case file never calls them: the `browser_bundle_harness`
+# step kind means the case RUNNER does (crates/kali_case_runner/src/steps.rs), so
+# those docs describe shared runner infrastructure (design spec 5.3), not what
+# this case claims. Every browser/ case file shipped before batch 4 does the
+# same.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# Bundle group: `exit = "success"` on the build (:62) and on the harness process
+# (`output.status.success()` :114); in json mode the envelope's schemaVersion/command/success/exitCode and
+# payload artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :71-77) -- the source asserts NO `errors`
+# array on this envelope, so none is written; the emitted `app/app.meta.json`
+# metadata (`metadata["apiSurface"]` :85-86), asserted in BOTH modes because the source reads it outside
+# the `if json_output`; then the harness step's two `stdout_count` claims.
+# Harness group: `exit = "success"` (:214); json mode carries schemaVersion/
+# command/success/payload(hostContract, runtimeBackend) (`json["command"]` :222-226), plus
+# `exitCode` and `payload.exitCode` for `run` (:228-229) or payload
+# total/passed/failed for `test` (:231-233), then the two `json_count` claims and
+# `stderr = ""` (:238); again no `errors` claim, so none is written. No
+# `json.stdout` equality pin is written either -- the source asserts only how
+# many times each needle occurs in that leaf, never what it equals.
+# ARGV: unlike the bundle group, this file's harness invocations DO pass
+# `--max-threads 0 --max-spawned-processes 0` (:206-209), so both flags appear on
+# every harness argv below, in source order, after `--api browser`.
+
+[source]
+"app.js" = """// kali-tree-shake: bracketedGlobalThisMathFloorTruncCeilIdentity
+function bracketedGlobalThisMathFloorTruncCeilIdentity() {
+  const value = 1.6;
+  console.log(globalThis["Math"].floor(value));
+  console.log(globalThis["Math"].trunc(value));
+  console.log(globalThis["Math"].ceil(value));
+  console.log(globalThis["Math"]["floor"](value));
+  console.log(globalThis["Math"]["trunc"](value));
+  console.log(globalThis["Math"]["ceil"](value));
+  console.log(globalThis.Math["floor"](value));
+  console.log(globalThis.Math["trunc"](value));
+  console.log(globalThis.Math["ceil"](value));
+  return [
+    globalThis["Math"].floor(value),
+    globalThis["Math"].trunc(value),
+    globalThis["Math"].ceil(value),
+    globalThis["Math"]["floor"](value),
+    globalThis["Math"]["trunc"](value),
+    globalThis["Math"]["ceil"](value),
+    globalThis.Math["floor"](value),
+    globalThis.Math["trunc"](value),
+    globalThis.Math["ceil"](value),
+  ];
+}
+"""
+"app.ts" = """// kali-tree-shake: bracketedGlobalThisMathFloorTruncCeilIdentity
+function bracketedGlobalThisMathFloorTruncCeilIdentity() {
+  const value = 1.6;
+  console.log(globalThis["Math"].floor(value));
+  console.log(globalThis["Math"].trunc(value));
+  console.log(globalThis["Math"].ceil(value));
+  console.log(globalThis["Math"]["floor"](value));
+  console.log(globalThis["Math"]["trunc"](value));
+  console.log(globalThis["Math"]["ceil"](value));
+  console.log(globalThis.Math["floor"](value));
+  console.log(globalThis.Math["trunc"](value));
+  console.log(globalThis.Math["ceil"](value));
+  return [
+    globalThis["Math"].floor(value),
+    globalThis["Math"].trunc(value),
+    globalThis["Math"].ceil(value),
+    globalThis["Math"]["floor"](value),
+    globalThis["Math"]["trunc"](value),
+    globalThis["Math"]["ceil"](value),
+    globalThis.Math["floor"](value),
+    globalThis.Math["trunc"](value),
+    globalThis.Math["ceil"](value),
+  ];
+}
+"""
+"main.js" = """const value = 1.6; console.log(globalThis["Math"].floor(value)); console.log(globalThis["Math"].trunc(value)); console.log(globalThis["Math"].ceil(value)); console.log(globalThis["Math"]["floor"](value)); console.log(globalThis["Math"]["trunc"](value)); console.log(globalThis["Math"]["ceil"](value)); console.log(globalThis.Math["floor"](value)); console.log(globalThis.Math["trunc"](value)); console.log(globalThis.Math["ceil"](value));
+"""
+"smoke.test.js" = """Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis["Math"].floor(value)); console.log(globalThis["Math"].trunc(value)); console.log(globalThis["Math"].ceil(value)); console.log(globalThis["Math"]["floor"](value)); console.log(globalThis["Math"]["trunc"](value)); console.log(globalThis["Math"]["ceil"](value)); console.log(globalThis.Math["floor"](value)); console.log(globalThis.Math["trunc"](value)); console.log(globalThis.Math["ceil"](value)); });
+"""
+"main.ts" = """const value = 1.6; console.log(globalThis["Math"].floor(value)); console.log(globalThis["Math"].trunc(value)); console.log(globalThis["Math"].ceil(value)); console.log(globalThis["Math"]["floor"](value)); console.log(globalThis["Math"]["trunc"](value)); console.log(globalThis["Math"]["ceil"](value)); console.log(globalThis.Math["floor"](value)); console.log(globalThis.Math["trunc"](value)); console.log(globalThis.Math["ceil"](value));
+"""
+"smoke.test.ts" = """Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis["Math"].floor(value)); console.log(globalThis["Math"].trunc(value)); console.log(globalThis["Math"].ceil(value)); console.log(globalThis["Math"]["floor"](value)); console.log(globalThis["Math"]["trunc"](value)); console.log(globalThis["Math"]["ceil"](value)); console.log(globalThis.Math["floor"](value)); console.log(globalThis.Math["trunc"](value)); console.log(globalThis.Math["ceil"](value)); });
+"""
+"main.jsx" = """const value = 1.6; console.log(globalThis["Math"].floor(value)); console.log(globalThis["Math"].trunc(value)); console.log(globalThis["Math"].ceil(value)); console.log(globalThis["Math"]["floor"](value)); console.log(globalThis["Math"]["trunc"](value)); console.log(globalThis["Math"]["ceil"](value)); console.log(globalThis.Math["floor"](value)); console.log(globalThis.Math["trunc"](value)); console.log(globalThis.Math["ceil"](value));
+"""
+"smoke.test.jsx" = """Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis["Math"].floor(value)); console.log(globalThis["Math"].trunc(value)); console.log(globalThis["Math"].ceil(value)); console.log(globalThis["Math"]["floor"](value)); console.log(globalThis["Math"]["trunc"](value)); console.log(globalThis["Math"]["ceil"](value)); console.log(globalThis.Math["floor"](value)); console.log(globalThis.Math["trunc"](value)); console.log(globalThis.Math["ceil"](value)); });
+"""
+"main.tsx" = """const value = 1.6; console.log(globalThis["Math"].floor(value)); console.log(globalThis["Math"].trunc(value)); console.log(globalThis["Math"].ceil(value)); console.log(globalThis["Math"]["floor"](value)); console.log(globalThis["Math"]["trunc"](value)); console.log(globalThis["Math"]["ceil"](value)); console.log(globalThis.Math["floor"](value)); console.log(globalThis.Math["trunc"](value)); console.log(globalThis.Math["ceil"](value));
+"""
+"smoke.test.tsx" = """Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis["Math"].floor(value)); console.log(globalThis["Math"].trunc(value)); console.log(globalThis["Math"].ceil(value)); console.log(globalThis["Math"]["floor"](value)); console.log(globalThis["Math"]["trunc"](value)); console.log(globalThis["Math"]["ceil"](value)); console.log(globalThis.Math["floor"](value)); console.log(globalThis.Math["trunc"](value)); console.log(globalThis.Math["ceil"](value)); });
+"""
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_floor_trunc_ceil_identity_literals_in_js_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs. `assert_browser_bundle_bracketed_global_this_math_floor_trunc_ceil` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program takes value = 1.6 through nine bracketed-root spellings of globalThis.Math floor/trunc/ceil, printing 1 six times and 2 three times. The source's only stdout claims here are the two counts at `stdout.matches(...).count()` :121-122. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The same holds for the second needle at `at_least = 3`. No [matrix] in this file: the bundle group covers only js/ts while the harness group covers all four extensions, and [matrix] is file-wide with no per-case opt-out (the header carries the arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathFloorTruncCeilIdentity();
+"""
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "build_emits_bracketed_global_this_math_floor_trunc_ceil_identity_literals_in_ts_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs. `assert_browser_bundle_bracketed_global_this_math_floor_trunc_ceil` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program takes value = 1.6 through nine bracketed-root spellings of globalThis.Math floor/trunc/ceil, printing 1 six times and 2 three times. The source's only stdout claims here are the two counts at `stdout.matches(...).count()` :121-122. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The same holds for the second needle at `at_least = 3`. No [matrix] in this file: the bundle group covers only js/ts while the harness group covers all four extensions, and [matrix] is file-wide with no per-case opt-out (the header carries the arithmetic)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathFloorTruncCeilIdentity();
+"""
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_floor_trunc_ceil_identity_literals_in_js_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs. `assert_browser_bundle_bracketed_global_this_math_floor_trunc_ceil` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program takes value = 1.6 through nine bracketed-root spellings of globalThis.Math floor/trunc/ceil, printing 1 six times and 2 three times. The source's only stdout claims here are the two counts at `stdout.matches(...).count()` :121-122. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The same holds for the second needle at `at_least = 3`. No [matrix] in this file: the bundle group covers only js/ts while the harness group covers all four extensions, and [matrix] is file-wide with no per-case opt-out (the header carries the arithmetic). This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat) instead of plain text; the source makes no `errors` claim on that envelope, so none is written. Output shape is not a matrix axis because it changes the assertion shape."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathFloorTruncCeilIdentity();
+"""
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_build_emits_bracketed_global_this_math_floor_trunc_ceil_identity_literals_in_ts_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs. `assert_browser_bundle_bracketed_global_this_math_floor_trunc_ceil` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract. The bundled program takes value = 1.6 through nine bracketed-root spellings of globalThis.Math floor/trunc/ceil, printing 1 six times and 2 three times. The source's only stdout claims here are the two counts at `stdout.matches(...).count()` :121-122. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The same holds for the second needle at `at_least = 3`. No [matrix] in this file: the bundle group covers only js/ts while the harness group covers all four extensions, and [matrix] is file-wide with no per-case opt-out (the header carries the arithmetic). This sibling asserts the JSON build envelope (schemaVersion/command/success/exitCode and payload artifactKind/bundleFormat) instead of plain text; the source makes no `errors` claim on that envelope, so none is written. Output shape is not a matrix axis because it changes the assertion shape."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.bracketedGlobalThisMathFloorTruncCeilIdentity();
+"""
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `run` / `js` / plain-text-output cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. The source's only stdout claims on this branch are the two counts at `stdout.matches(...).count()` :241-242. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`; both are separate source claims and both are kept."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `test` / `js` / plain-text-output cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. The source's only stdout claims on this branch are the two counts at `stdout.matches(...).count()` :241-242. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`; both are separate source claims and both are kept."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `run` / `ts` / plain-text-output cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. The source's only stdout claims on this branch are the two counts at `stdout.matches(...).count()` :241-242. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`; both are separate source claims and both are kept."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `test` / `ts` / plain-text-output cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. The source's only stdout claims on this branch are the two counts at `stdout.matches(...).count()` :241-242. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`; both are separate source claims and both are kept."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `run` / `jsx` / plain-text-output cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. The source's only stdout claims on this branch are the two counts at `stdout.matches(...).count()` :241-242. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`; both are separate source claims and both are kept."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `test` / `jsx` / plain-text-output cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. The source's only stdout claims on this branch are the two counts at `stdout.matches(...).count()` :241-242. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`; both are separate source claims and both are kept."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `run` / `tsx` / plain-text-output cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. The source's only stdout claims on this branch are the two counts at `stdout.matches(...).count()` :241-242. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`; both are separate source claims and both are kept."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `test` / `tsx` / plain-text-output cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. The source's only stdout claims on this branch are the two counts at `stdout.matches(...).count()` :241-242. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `stdout_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`; both are separate source claims and both are kept."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_count = [{ needle = "1\n", at_least = 6 }, { needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `run` / `js` / --output json cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. On this branch the same two counts are taken against the JSON string leaf `json["stdout"]` (:235-237) rather than raw stdout, which is why `json_count` exists alongside `stdout_count`. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `json_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`. No equality pin is written for `json.stdout`: the source asserts only how many times each needle occurs in it. `stderr` is asserted exactly empty (:238); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "" }
+json_count = [{ path = "stdout", needle = "1\n", at_least = 6 }, { path = "stdout", needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `test` / `js` / --output json cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. On this branch the same two counts are taken against the JSON string leaf `json["stdout"]` (:235-237) rather than raw stdout, which is why `json_count` exists alongside `stdout_count`. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `json_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`. No equality pin is written for `json.stdout`: the source asserts only how many times each needle occurs in it. `stderr` is asserted exactly empty (:238); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "" }
+json_count = [{ path = "stdout", needle = "1\n", at_least = 6 }, { path = "stdout", needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `run` / `ts` / --output json cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. On this branch the same two counts are taken against the JSON string leaf `json["stdout"]` (:235-237) rather than raw stdout, which is why `json_count` exists alongside `stdout_count`. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `json_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`. No equality pin is written for `json.stdout`: the source asserts only how many times each needle occurs in it. `stderr` is asserted exactly empty (:238); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "" }
+json_count = [{ path = "stdout", needle = "1\n", at_least = 6 }, { path = "stdout", needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_ts_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `test` / `ts` / --output json cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. On this branch the same two counts are taken against the JSON string leaf `json["stdout"]` (:235-237) rather than raw stdout, which is why `json_count` exists alongside `stdout_count`. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `json_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`. No equality pin is written for `json.stdout`: the source asserts only how many times each needle occurs in it. `stderr` is asserted exactly empty (:238); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "" }
+json_count = [{ path = "stdout", needle = "1\n", at_least = 6 }, { path = "stdout", needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `run` / `jsx` / --output json cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. On this branch the same two counts are taken against the JSON string leaf `json["stdout"]` (:235-237) rather than raw stdout, which is why `json_count` exists alongside `stdout_count`. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `json_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`. No equality pin is written for `json.stdout`: the source asserts only how many times each needle occurs in it. `stderr` is asserted exactly empty (:238); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "" }
+json_count = [{ path = "stdout", needle = "1\n", at_least = 6 }, { path = "stdout", needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_jsx_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `test` / `jsx` / --output json cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. On this branch the same two counts are taken against the JSON string leaf `json["stdout"]` (:235-237) rather than raw stdout, which is why `json_count` exists alongside `stdout_count`. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `json_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`. No equality pin is written for `json.stdout`: the source asserts only how many times each needle occurs in it. `stderr` is asserted exactly empty (:238); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "" }
+json_count = [{ path = "stdout", needle = "1\n", at_least = 6 }, { path = "stdout", needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `run` / `tsx` / --output json cell. `kali run --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. On this branch the same two counts are taken against the JSON string leaf `json["stdout"]` (:235-237) rather than raw stdout, which is why `json_count` exists alongside `stdout_count`. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `json_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`. No equality pin is written for `json.stdout`: the source asserts only how many times each needle occurs in it. `stderr` is asserted exactly empty (:238); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stderr = "" }
+json_count = [{ path = "stdout", needle = "1\n", at_least = 6 }, { path = "stdout", needle = "2\n", at_least = 3 }]
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_tsx_input"
+rationale = """Migrated from browser_math_floor_trunc_ceil_bracketed_root.rs, from the inline loop in `run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_when_browser_harness_is_configured_in_js_and_ts_input`. That one #[test] fn loops over eight literal (command, source_name, source) tuples and over `for output_json in [false, true]`, giving 16 independent invocations; per rule 5 each becomes its own named sibling rather than being folded. This case is the `test` / `tsx` / --output json cell. `kali test --api browser --max-threads 0 --max-spawned-processes 0` runs the program with the browser harness backed by `node`; the program prints 1 six times and 2 three times from nine bracketed-root spellings of globalThis.Math floor/trunc/ceil on 1.6. On this branch the same two counts are taken against the JSON string leaf `json["stdout"]` (:235-237) rather than raw stdout, which is why `json_count` exists alongside `stdout_count`. The source spells this as `.matches("1\\n")` `.count() >= 6`, carried directly as `json_count` with `at_least = 6`. It is NOT weakened to a `*_contains` (a single occurrence would satisfy that) and NOT strengthened to `exact` (the source states a lower bound, not an equality), per controller ruling 3 -- mirror the source. The second needle `"2\\n"` is carried the same way at `at_least = 3`. No equality pin is written for `json.stdout`: the source asserts only how many times each needle occurs in it. `stderr` is asserted exactly empty (:238); the source makes no `errors` claim on this envelope, so none is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stderr = "" }
+json_count = [{ path = "stdout", needle = "1\n", at_least = 6 }, { path = "stdout", needle = "2\n", at_least = 3 }]

@@ -1,0 +1,286 @@
+# Migrated from tests/object_has_own_js_input.rs -- all 22 #[test]
+# functions, as 22 sibling [[case]] blocks. No `//` comments existed in
+# the source file to carry into `rationale`.
+#
+# [matrix] vs siblings: 20 of the 22 tests are a uniform cross product of
+# extension (js/ts/jsx/tsx) x case-shape (check/run/json_run/test/
+# json_test), but the other 2
+# (`check_accepts_object_has_own_for_as_const_object_alias_in_js_input`,
+# `run_accepts_object_has_own_for_as_const_object_alias_in_js_input`) only
+# ever run against "js" -- there is no ts/jsx/tsx "as const" sibling
+# anywhere in the file. Per this task's two-axis rule, a `[matrix]`
+# extension axis is file-level and would incorrectly fan those 2 "as
+# const" cases out across ts/jsx/tsx too (which the original file never
+# tests), so all 22 cases are flat siblings instead, exactly like
+# `string/repeat_static_ascii.toml` and `string/char_at_static_ascii.toml`
+# did for the same reason.
+#
+# `[constants]` factors out the two fixture bodies that are reused
+# byte-for-byte across all 4 extensions: `main_source`
+# (`object_has_own_source()`, shared by every `check_*`/`run_*`/
+# `json_run_*` case) and `test_source` (`object_has_own_test_source()`,
+# shared by every `test_*`/`json_test_*` case). The "as const" fixture
+# (`object_has_own_as_const_source()`) is used by exactly 1 filename, so
+# it stays a plain `[source]` literal.
+#
+# `[source]` collision: `check_accepts_object_has_own_in_js_input` and
+# `check_accepts_object_has_own_for_as_const_object_alias_in_js_input`
+# (and their `run_*` counterparts) both write to a file literally named
+# "main.js" in the original `.rs`, but with different content -- a
+# same-filename, different-content collision once folded into one
+# file-level [source] table (per this task's instructions). The "as
+# const" fixture is renamed to "as_const.js" below; the filename itself
+# carries no claim the audit script tracks.
+#
+# The 4 `json_run_*` cases pin `json.stdout` by exact equality rather than
+# `.contains()`, and the 4 `json_test_*` cases pin every payload counter
+# by exact equality -- both stronger than what a `.contains()`-only
+# migration would need, and both verified for real against the built
+# `kali` binary (`main.js` -> `run` stdout is exactly "object hasOwn
+# ok\n" with nothing else; `main.test.js` -> `test` JSON stdout is
+# exactly "" and payload total/passed/failed/skipped are exactly
+# 1/1/0/0), matching the original `assert_eq!` claims already present on
+# `json["stdout"].contains(...)`'s sibling fields. `json.stdout`
+# specifically strengthens the original `.contains("object hasOwn ok")`
+# to the verified exact text, which is not a weakening (equality implies
+# containment).
+
+[constants]
+main_source = '''
+const object = Object.fromEntries([["a", 1], ["b", 2]]);
+const alias = object;
+const wrapped = (0, alias);
+const singleQuotedHasOwn = globalThis['Object']['hasOwn'];
+const parenthesizedSingleQuotedHasOwn = (globalThis['Object'])['hasOwn'];
+const frozenSingleQuotedHasOwn = Object.freeze(globalThis['Object']['hasOwn']);
+const frozenParenthesizedSingleQuotedHasOwn = Object.freeze((globalThis['Object'])['hasOwn']);
+if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !singleQuotedHasOwn(wrapped, "a") || !parenthesizedSingleQuotedHasOwn(wrapped, "a") || !frozenSingleQuotedHasOwn(wrapped, "a") || !frozenParenthesizedSingleQuotedHasOwn(wrapped, "a") || !Object["hasOwnProperty"].call(wrapped, "a") || !Object["hasOwnProperty"]["call"](wrapped, "a") || !globalThis.Object.hasOwnProperty.call(wrapped, "a") || !globalThis["Object"]["hasOwnProperty"].call(wrapped, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](wrapped, "a") || !globalThis["Object"].hasOwnProperty.call(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
+  throw new Error('unexpected Object.hasOwn result');
+}
+console.log('object hasOwn ok');
+'''
+test_source = '''
+Kali.test('object hasOwn', () => {
+  const object = { a: 1, "b": 2 };
+  const alias = object;
+  const wrapped = (0, alias);
+  const singleQuotedHasOwn = globalThis['Object']['hasOwn'];
+  const parenthesizedSingleQuotedHasOwn = (globalThis['Object'])['hasOwn'];
+  const frozenSingleQuotedHasOwn = Object.freeze(globalThis['Object']['hasOwn']);
+  const frozenParenthesizedSingleQuotedHasOwn = Object.freeze((globalThis['Object'])['hasOwn']);
+  if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !singleQuotedHasOwn(wrapped, "a") || !parenthesizedSingleQuotedHasOwn(wrapped, "a") || !frozenSingleQuotedHasOwn(wrapped, "a") || !frozenParenthesizedSingleQuotedHasOwn(wrapped, "a") || !Object["hasOwnProperty"].call(wrapped, "a") || !Object["hasOwnProperty"]["call"](wrapped, "a") || !globalThis.Object.hasOwnProperty.call(wrapped, "a") || !globalThis["Object"]["hasOwnProperty"].call(wrapped, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](wrapped, "a") || !globalThis["Object"].hasOwnProperty.call(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
+    throw new Error('unexpected Object.hasOwn result');
+  }
+});
+'''
+
+[source]
+"main.js" = "${main_source}"
+"main.ts" = "${main_source}"
+"main.jsx" = "${main_source}"
+"main.tsx" = "${main_source}"
+"as_const.js" = '''
+const object = ({ a: 1, "b": 2 } as const);
+const wrapped = (0, object);
+const singleQuotedHasOwn = globalThis['Object']['hasOwn'];
+const parenthesizedSingleQuotedHasOwn = (globalThis['Object'])['hasOwn'];
+const frozenSingleQuotedHasOwn = Object.freeze(globalThis['Object']['hasOwn']);
+const frozenParenthesizedSingleQuotedHasOwn = Object.freeze((globalThis['Object'])['hasOwn']);
+if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !singleQuotedHasOwn(wrapped, "a") || !parenthesizedSingleQuotedHasOwn(wrapped, "a") || !frozenSingleQuotedHasOwn(wrapped, "a") || !frozenParenthesizedSingleQuotedHasOwn(wrapped, "a") || !Object["hasOwnProperty"].call(wrapped, "a") || !Object["hasOwnProperty"]["call"](wrapped, "a") || !globalThis.Object.hasOwnProperty.call(wrapped, "a") || !globalThis["Object"]["hasOwnProperty"].call(wrapped, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](wrapped, "a") || !globalThis["Object"].hasOwnProperty.call(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
+  throw new Error('unexpected as const Object.hasOwn result');
+}
+console.log('as const object hasOwn ok');
+'''
+"main.test.js" = "${test_source}"
+"main.test.ts" = "${test_source}"
+"main.test.jsx" = "${test_source}"
+"main.test.tsx" = "${test_source}"
+
+[[case]]
+name = "check_accepts_object_has_own_in_js_input"
+rationale = "`check` accepts every documented alias spelling of `Object.hasOwn` (bracket access, globalThis-qualified, frozen, `.hasOwnProperty.call`, `Object.prototype.hasOwnProperty.call`) in js input."
+args = ["check", "main.js"]
+exit = "success"
+
+[[case]]
+name = "check_accepts_object_has_own_for_as_const_object_alias_in_js_input"
+rationale = "`check` accepts the same `Object.hasOwn` alias set when the receiver is an `as const` object literal alias."
+args = ["check", "as_const.js"]
+exit = "success"
+
+[[case]]
+name = "run_accepts_object_has_own_in_js_input"
+rationale = "`run` accepts every documented alias spelling of `Object.hasOwn` in js input and executes to the expected marker output."
+args = ["run", "main.js"]
+exit = "success"
+stdout_contains = ["object hasOwn ok"]
+
+[[case]]
+name = "run_accepts_object_has_own_for_as_const_object_alias_in_js_input"
+rationale = "`run` accepts the same `Object.hasOwn` alias set when the receiver is an `as const` object literal alias and executes to the expected marker output."
+args = ["run", "as_const.js"]
+exit = "success"
+stdout_contains = ["as const object hasOwn ok"]
+
+[[case]]
+name = "json_run_accepts_object_has_own_in_js_input"
+rationale = "Same js `run` fixture, asserting the JSON output envelope, including the exact stdout text (verified for real, strictly stronger than the original `.contains(\"object hasOwn ok\")`)."
+args = ["--output", "json", "run", "main.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.stdout = "object hasOwn ok\n"
+
+[[case]]
+name = "test_accepts_object_has_own_in_js_input"
+rationale = "Same alias set wrapped in `Kali.test`, run via `test` in js input."
+args = ["test", "main.test.js"]
+exit = "success"
+
+[[case]]
+name = "json_test_accepts_object_has_own_in_js_input"
+rationale = "Same `Kali.test`-wrapped js fixture, asserting the JSON output envelope: one passing test, zero failing/skipped."
+args = ["--output", "json", "test", "main.test.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.skipped = 0
+
+[[case]]
+name = "check_accepts_object_has_own_in_ts_input"
+rationale = "`check` accepts every documented alias spelling of `Object.hasOwn` in ts input."
+args = ["check", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "run_accepts_object_has_own_in_ts_input"
+rationale = "`run` accepts every documented alias spelling of `Object.hasOwn` in ts input and executes to the expected marker output."
+args = ["run", "main.ts"]
+exit = "success"
+stdout_contains = ["object hasOwn ok"]
+
+[[case]]
+name = "json_run_accepts_object_has_own_in_ts_input"
+rationale = "Same ts `run` fixture, asserting the JSON output envelope, including the exact stdout text (verified for real, strictly stronger than the original `.contains(\"object hasOwn ok\")`)."
+args = ["--output", "json", "run", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.stdout = "object hasOwn ok\n"
+
+[[case]]
+name = "test_accepts_object_has_own_in_ts_input"
+rationale = "Same alias set wrapped in `Kali.test`, run via `test` in ts input."
+args = ["test", "main.test.ts"]
+exit = "success"
+
+[[case]]
+name = "json_test_accepts_object_has_own_in_ts_input"
+rationale = "Same `Kali.test`-wrapped ts fixture, asserting the JSON output envelope: one passing test, zero failing/skipped."
+args = ["--output", "json", "test", "main.test.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.skipped = 0
+
+[[case]]
+name = "check_accepts_object_has_own_in_jsx_input"
+rationale = "`check` accepts every documented alias spelling of `Object.hasOwn` in jsx input."
+args = ["check", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "run_accepts_object_has_own_in_jsx_input"
+rationale = "`run` accepts every documented alias spelling of `Object.hasOwn` in jsx input and executes to the expected marker output."
+args = ["run", "main.jsx"]
+exit = "success"
+stdout_contains = ["object hasOwn ok"]
+
+[[case]]
+name = "json_run_accepts_object_has_own_in_jsx_input"
+rationale = "Same jsx `run` fixture, asserting the JSON output envelope, including the exact stdout text (verified for real, strictly stronger than the original `.contains(\"object hasOwn ok\")`)."
+args = ["--output", "json", "run", "main.jsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.stdout = "object hasOwn ok\n"
+
+[[case]]
+name = "test_accepts_object_has_own_in_jsx_input"
+rationale = "Same alias set wrapped in `Kali.test`, run via `test` in jsx input."
+args = ["test", "main.test.jsx"]
+exit = "success"
+
+[[case]]
+name = "json_test_accepts_object_has_own_in_jsx_input"
+rationale = "Same `Kali.test`-wrapped jsx fixture, asserting the JSON output envelope: one passing test, zero failing/skipped."
+args = ["--output", "json", "test", "main.test.jsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.skipped = 0
+
+[[case]]
+name = "check_accepts_object_has_own_in_tsx_input"
+rationale = "`check` accepts every documented alias spelling of `Object.hasOwn` in tsx input."
+args = ["check", "main.tsx"]
+exit = "success"
+
+[[case]]
+name = "run_accepts_object_has_own_in_tsx_input"
+rationale = "`run` accepts every documented alias spelling of `Object.hasOwn` in tsx input and executes to the expected marker output."
+args = ["run", "main.tsx"]
+exit = "success"
+stdout_contains = ["object hasOwn ok"]
+
+[[case]]
+name = "json_run_accepts_object_has_own_in_tsx_input"
+rationale = "Same tsx `run` fixture, asserting the JSON output envelope, including the exact stdout text (verified for real, strictly stronger than the original `.contains(\"object hasOwn ok\")`)."
+args = ["--output", "json", "run", "main.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.exitCode = 0
+json.stdout = "object hasOwn ok\n"
+
+[[case]]
+name = "test_accepts_object_has_own_in_tsx_input"
+rationale = "Same alias set wrapped in `Kali.test`, run via `test` in tsx input."
+args = ["test", "main.test.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_test_accepts_object_has_own_in_tsx_input"
+rationale = "Same `Kali.test`-wrapped tsx fixture, asserting the JSON output envelope: one passing test, zero failing/skipped."
+args = ["--output", "json", "test", "main.test.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.exitCode = 0
+json.payload.total = 1
+json.payload.passed = 1
+json.payload.failed = 0
+json.payload.skipped = 0

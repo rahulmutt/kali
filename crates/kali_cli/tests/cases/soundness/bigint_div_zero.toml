@@ -1,0 +1,49 @@
+# Migrated from tests/soundness_bigint_div_zero.rs -- both #[test]
+# functions, 1:1 to a case (no fn bundles multiple independent assertions;
+# no [matrix] -- each case runs a distinct one-off TS program via
+# `kali run <file>.ts`; the shared `run_source` helper writes every fixture
+# to `main.ts`, matching the `.ts` filename convention used elsewhere in
+# this family).
+#
+# Every `//` comment in the file is a leading-body comment directly above
+# its own #[test] (no banner, no //! doc, no helper fn -- both bodies are
+# hand-inlined `assert!`/`assert_eq!` over `run_source`'s raw `Output`) --
+# moved verbatim into that case's rationale.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across the two #[test]s, no `${...}`
+# template literal, no `format!`-built fixture text (the file's one
+# `format!` call site builds a temp-directory path, never fixture text).
+#
+# `bigint_division_by_zero_traps_with_range_error` only asserts failure +
+# a stderr substring in source (no stdout assertion at all) -- verified
+# against the real built kali binary: stdout is empty (the trap fires
+# during argument evaluation, before `console.log` is ever reached), so no
+# `stdout` field is pinned (pinning an unasserted empty string would be an
+# assertion the source never made, per rule 2).
+# `bigint_division_nonzero_still_truncates` compares `.trim()`'d stdout
+# against a literal -- per the pilot's precedent, `stdout` below is the
+# untrimmed RAW stdout captured from the real built kali binary
+# ("3\n", verified equal to the trimmed literal "3" after `.strip()`),
+# strictly stronger than the trimmed comparison it replaces.
+
+[source]
+"bigint_division_by_zero_traps_with_range_error.ts" = """console.log(7n / 0n);
+"""
+"bigint_division_nonzero_still_truncates.ts" = """console.log(7n / 2n);
+"""
+
+[[case]]
+name = "bigint_division_by_zero_traps_with_range_error"
+rationale = """node: `1n/0n` throws "RangeError: Division by zero". kali already traps (correct abort) but with the generic unreachable envelope; pin the node-shaped message. Also pin that a nonzero literal divide still works."""
+args = ["run", "bigint_division_by_zero_traps_with_range_error.ts"]
+exit = "failure"
+stderr_contains = ["RangeError: Division by zero"]
+
+[[case]]
+name = "bigint_division_nonzero_still_truncates"
+rationale = """kali's existing (pre-existing, out of scope for this task) bigint console.log format prints the runtime i64 result without the `n` suffix for a non-literal-folded binary op result — see e.g. `7n + 2n` -> "9" — even though node prints "3n". Pin what kali ALREADY prints; do not change output formatting here."""
+args = ["run", "bigint_division_nonzero_still_truncates.ts"]
+exit = "success"
+stdout = "3\n"
+

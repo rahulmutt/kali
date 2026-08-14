@@ -1,0 +1,87 @@
+# Migrated from tests/browser_for_of_array_iteration_harness_sequence_wrappers_js_input.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# MATRIX ARITHMETIC (rule 7): all 5 #[test] fns funnel through the single
+# helper
+# `assert_browser_harness_for_of_sequence_wrapper(command, filename,
+# json_output)`, using the SAME filename convention (`main.<ext>`) regardless
+# of
+# command -- `kali test` is handed `main.js`, not a `smoke.test.js`, so there
+# is
+# no per-command filename asymmetry in this file. Four fns each make one
+# individual call, always with `filename = "main.js"`:
+#   run_supports_..._js_input       -> ("run",  "main.js", false)
+#   test_supports_..._js_input      -> ("test", "main.js", false)
+#   json_run_supports_..._js_input  -> ("run",  "main.js", true)
+#   json_test_supports_..._js_input -> ("test", "main.js", true)
+# The fifth fn loops `for extension in ["ts","jsx","tsx"]` around all four
+# `(command, json_output)` pairs: 3 x 4 = 12 more calls. Total 4 + 12 = 16
+# invocations = command(2) x json_output(2) x ext(4) exactly, uniform across
+# every case. `ext` is hoisted to a file-level [matrix] axis: 5 #[test] fns
+# collapse to 4 [[case]] entries, matrix-fanned to 16 trials, matching
+# exactly.
+#
+# ASSERTION SHAPE. `exit = "success"` folds both
+# `assert!(output.status.success())` and `assert_eq!(output.status.code(),
+# Some(0))` (identical on a normal process exit). Non-json: `stdout_contains =
+# ["1", "2"]`, mirroring source's plain `stdout.contains("1")` /
+# `stdout.contains("2")` -- kept as `*_contains` per controller ruling 3, not
+# strengthened. Json: source asserts `json["stdout"].contains("1")` and
+# `...("2")`, `json["stderr"] == ""`, and `json["errors"].is_empty()`; a
+# nested
+# `json` leaf has no substring form in this format, so the two stdout
+# `.contains`
+# claims are resolved to one exact pin, live-captured from the real `kali`
+# binary
+# via `tools/task-18-browser-batch3/capture.py` -- a verified strengthening
+# (every run satisfying the pin satisfies both originals). Source's json
+# branch
+# makes no `exitCode`/`payload.total` claim in this file, so none is added
+# (rule 2).
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """// kali-tree-shake: forOfArrayIterationSequenceWrapper
+let count = 0;
+for (const item of (0, [(0, 1), (0, 2)])) {
+  console.log(++count);
+}
+"""
+
+[[case]]
+name = "run_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness"
+rationale = """Migrated from browser_for_of_array_iteration_harness_sequence_wrappers_js_input.rs. `assert_browser_harness_for_of_sequence_wrapper("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1` and `2`; a plain `.contains` against a field that has a substring form, so it is mirrored as `stdout_contains` rather than strengthened. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 5 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness"
+rationale = """Migrated from browser_for_of_array_iteration_harness_sequence_wrappers_js_input.rs. `assert_browser_harness_for_of_sequence_wrapper("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 5 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }
+
+[[case]]
+name = "test_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness"
+rationale = """Migrated from browser_for_of_array_iteration_harness_sequence_wrappers_js_input.rs. `assert_browser_harness_for_of_sequence_wrapper("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1` and `2`; a plain `.contains` against a field that has a substring form, so it is mirrored as `stdout_contains` rather than strengthened. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 5 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness"
+rationale = """Migrated from browser_for_of_array_iteration_harness_sequence_wrappers_js_input.rs. `assert_browser_harness_for_of_sequence_wrapper("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, that `errors` is empty, and that `json["stdout"]` contains both `1` and `2`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed, and strictly stronger than source's two `.contains()` checks. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 5 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials, matching the 16 real per-(command,json_output,ext) invocations in source exactly (see the file header's arithmetic)."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "", "errors" = [] }

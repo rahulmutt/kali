@@ -1,0 +1,933 @@
+# Migrated from tests/browser_array_iteration_spread.rs.
+#
+# This file's 21 #[test] fns funnel through TWO shared assertion helpers with
+# DIFFERENT assertion shapes:
+#   - `assert_browser_bundle_array_iteration_spread` (for_of / for_await /
+#     array_from-wrappers fixtures): builds a browser bundle, asserts exit
+#     success, checks `app_<variant>/app_<variant>.meta.json`'s
+#     `apiSurface`/`artifactKind`, then runs the bundle glue under the
+#     browser-bundle-harness contract and checks `stdout.contains("1\n")` and
+#     `stdout.contains("2\n")`.
+#   - `assert_browser_bundle_object_enumeration_spread` (the
+#     object-enumeration-spread fixture): builds a browser bundle and asserts
+#     it FAILS closed with an E5506 diagnostic (see the STREAM NOTE below).
+#
+# MATRIX ARITHMETIC (rule 7): enumerating every call site (expanding every
+# `for filename in [...]` loop):
+#   assert_browser_bundle_array_iteration_spread: for_of js/ts direct (2x2=4)
+#     + for_await js/ts direct (2x2=4) + for_of jsx/tsx loop (2 filenames x
+#     2 json_output = 4) + for_await jsx/tsx loop (4) + array_from js/ts
+#     direct (4) + array_from jsx/tsx loop (4) = 24 invocations, exactly
+#     3 variants x 4 ext x 2 json_output.
+#   assert_browser_bundle_object_enumeration_spread: js/ts direct (2x2=4) +
+#     jsx/tsx loop (2x2=4) = 8 invocations, exactly 1 variant x 4 ext x 2
+#     json_output.
+# All 32 invocations vary uniformly over the SAME `ext` axis
+# (js/ts/jsx/tsx), so `ext` is hoisted to a single file-level [matrix] axis:
+# 21 #[test] fns -> 8 [[case]] entries (6 for the first helper's 3 variants x
+# 2 json-modes, 2 for the second helper's 1 variant x 2 json-modes),
+# matrix-fanned to 32 trials -- matching the 32 real invocations exactly.
+# Every one of this file's cases genuinely varies over `ext` (its args/
+# file_json path/browser_bundle_harness entry all reference `${ext}`-derived
+# filenames), so no case here is silently duplicated by the file-level fan.
+#
+# TRIM-AND-KEEP (rule 3, spec 5.11 shape): one #[test] fn,
+# `browser_bundle_test_reuses_the_shared_array_from_inventory_in_both_loop_
+# sections`, never constructs a `Command` and never invokes `kali` -- it calls
+# `browser_bundle_array_from_source()` and `array_from_alias_inventory_source()`
+# directly and asserts on the RETURNED STRING's own line content
+# (`.lines().filter(|line| line.contains(&format!(...))).count()`). This is a
+# pure Rust unit test of a fixture-construction helper, not a CLI-behavior
+# test, and audit-case-migration.py structurally cannot represent it (no CLI
+# invocation, no JSON file read). Kept hand-written, trimmed, in
+# `crates/kali_cli/tests/browser_array_iteration_spread.rs`; the other 20
+# #[test] fns (all of which DO invoke `kali`) migrate here. The precedent
+# this disposition follows is the Task 18 pilot's "Finding 1"/"File 6"; that
+# pilot report lived in git-ignored scratch and does not ship, so it is
+# described here rather than cited to a path a clean checkout cannot resolve.
+#
+# FILENAME RENAMING (rule 8): source reuses the bare filename `app.<ext>`
+# across all four fixture bodies (for_of / for_await / array_from /
+# object_enum) -- safe to disambiguate since none of the fixture bodies
+# reference their own filename internally (checked: no `import()`/`require()`
+# specifier or other self-referencing string in any of the four bodies).
+# Disambiguated with a variant-suffix stem (`app_for_of.${ext}`,
+# `app_for_await.${ext}`, `app_array_from.${ext}`, `app_object_enum.${ext}`),
+# same mechanism as math_atan2_bracketed_root.toml. `kali build --bundle`'s
+# output directory is named after the input file's stem, so each case's
+# `file_json` `path` and `browser_bundle_harness` `entry` track the renamed
+# stem (`app_for_of`, `app_for_await`, `app_array_from`, `app_object_enum`),
+# not a hardcoded `"app"`.
+#
+# format!/LIBRARY-HELPER SITE (rule 9): `browser_bundle_array_from_source()`
+# calls `kali_common::array_from_alias_inventory_source()` and
+# `kali_common::array_from_loop_lines()` -- both library-crate helpers whose
+# `format!` calls are one level removed from this `.rs` file (source:
+# `crates/kali_common/src/array.rs`). Per rule 9, the resolved text was
+# captured by actually executing the real code: a temporary
+# `#[test] fn dump() { println!("{}", browser_bundle_array_from_source()); }`
+# was added to `crates/kali_cli/tests/browser_array_iteration_spread.rs`, run
+# with `cargo test -p kali_cli --test browser_array_iteration_spread dump --
+# --nocapture`, its printed output captured exactly (one trailing newline
+# from `println!` itself stripped), then the temporary test was deleted.
+# `array_from_aliases()` returns 12 entries and
+# `array_from_frozen_callable_aliases()` returns 70 (verified by direct
+# count against the real arrays in `crates/kali_common/src/array.rs`, not
+# assumed from a prior estimate) -- 82 total, matching the dump's 82
+# `for (const value of` / 82 `for await (const value of` occurrences
+# exactly.
+#
+# STREAM NOTE (rule 11): `assert_browser_bundle_object_enumeration_spread`'s
+# assertion is `stderr.contains("E5506") || stdout.contains("E5506")` -- an
+# OR across STREAMS (the same code, not two different codes), rule 11's
+# shape applied to stream selection. Verified directly against the real
+# binary for the object-enumeration-spread fixture, in both output modes,
+# across all four extensions: in text mode E5506 is written to stderr only
+# (stdout is empty); in `--output json` mode the diagnostic is JSON-encoded
+# on stdout as `errors[0].code` (21 diagnostics, all E5506) and stderr is
+# empty. Each mode is pinned to the stream/field that actually carries it --
+# a verified strengthening, with the disjunction sentence carried into every
+# affected case's rationale below, not silently narrowed.
+#
+# Honest re-pin (PR #16 rev2): kali fails closed/loud here; see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md. (This is the
+# ONLY Rust comment in the source file outside `// kali-tree-shake:` JS
+# fixture-text markers -- grep-confirmed. It sits directly above
+# `assert_browser_bundle_object_enumeration_spread`'s fail-closed assertion
+# and is carried verbatim into every case that helper produces, below.)
+#
+# Checked (rule 13): `for_of_spread_source`, `for_await_spread_source`,
+# `browser_bundle_array_from_source`, `object_enumeration_spread_source`,
+# `assert_browser_bundle_array_iteration_spread`,
+# `assert_browser_bundle_object_enumeration_spread` in this file, and
+# `array_from_alias_inventory_source`/`array_from_loop_lines` in
+# `kali_common`, all for doc comments. None of this file's helper fns carry
+# a `///` doc comment. The two `kali_common` fns each carry a one-line
+# `///` doc comment ("Canonical source text for the supported `Array.from`
+# alias inventory."; "Canonical `for`/`for await` loop lines for the
+# supported `Array.from` helper slice.") -- REVIEW ROUND 1, minor 5: an
+# earlier draft declined to carry these into `rationale` as "purely
+# descriptive," but rule 13 has no such exemption (a case produced through
+# a call chain carries every doc comment on every helper in that chain, not
+# just the ones judged behaviorally significant), so both are now carried
+# verbatim into the two `array_from` cases below (the only cases whose
+# `[source]` text is built through `browser_bundle_array_from_source`,
+# which calls both `kali_common` fns) rather than left as an
+# implementer-discretion exception.
+
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app_for_of.${ext}" = """// kali-tree-shake: forOfArrayIterationSpreadWrapper
+export function forOfArrayIterationSpreadWrapper() {
+  const values = [1, 2];
+  for (const item of [...values]) {
+    console.log(item);
+  }
+}
+"""
+"app_for_await.${ext}" = """// kali-tree-shake: forAwaitArrayIterationSpreadWrapper
+export async function forAwaitArrayIterationSpreadWrapper() {
+  const values = [1, 2];
+  for await (const item of [...values]) {
+    console.log(item);
+  }
+}
+"""
+"app_array_from.${ext}" = """// kali-tree-shake: browserArrayFromWrappers
+export async function browserArrayFromWrappers() {
+  const values = [1, 2];
+  for (const value of Array.from(values)) {
+    console.log(value);
+  }
+  for (const value of globalThis.Array.from(values)) {
+    console.log(value);
+  }
+  for (const value of globalThis["Array"].from(values)) {
+    console.log(value);
+  }
+  for (const value of globalThis["Array"]["from"](values)) {
+    console.log(value);
+  }
+  for (const value of globalThis["Array"]['from'](values)) {
+    console.log(value);
+  }
+  for (const value of globalThis['Array'].from(values)) {
+    console.log(value);
+  }
+  for (const value of globalThis['Array']['from'](values)) {
+    console.log(value);
+  }
+  for (const value of globalThis['Array']["from"](values)) {
+    console.log(value);
+  }
+  for (const value of Array["from"](values)) {
+    console.log(value);
+  }
+  for (const value of Array['from'](values)) {
+    console.log(value);
+  }
+  for (const value of globalThis.Array["from"](values)) {
+    console.log(value);
+  }
+  for (const value of globalThis.Array['from'](values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(Array.from)(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis.Array.from)(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis["Array"].from)(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis["Array"]).from)(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis["Array"])["from"])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis["Array"])['from'])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis["Array"]["from"])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis["Array"]["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis['Array'].from)(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis['Array']).from)(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis['Array'])["from"])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis["Array"]))["from"](values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis["Array"]))['from'](values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis['Array']))["from"](values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis['Array']))['from'](values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis['Array']['from'])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis['Array']['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis["Array"]['from'])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis["Array"]['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis['Array'])['from'])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis['Array']["from"])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis['Array']["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(Array['from'])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((Array['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(Array["from"])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((Array["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis.Array['from'])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis.Array["from"])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? globalThis.Array["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis.Array["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis.Array["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array).from)(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array)["from"])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array))["from"](values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array))['from'](values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array)['from'])(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((Array.from, Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array.from, globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis["Array"].from, globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis['Array'].from, globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || Array.from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? globalThis["Array"]["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis["Array"]["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis["Array"]["from"]))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? globalThis['Array']['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis['Array']['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis['Array']['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? globalThis["Array"]['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis["Array"]['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis["Array"]['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? globalThis.Array['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis.Array['from']))(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis.Array['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Array.from(values)) {
+    console.log(value);
+  }
+  for await (const value of globalThis.Array.from(values)) {
+    console.log(value);
+  }
+  for await (const value of globalThis["Array"].from(values)) {
+    console.log(value);
+  }
+  for await (const value of globalThis["Array"]["from"](values)) {
+    console.log(value);
+  }
+  for await (const value of globalThis["Array"]['from'](values)) {
+    console.log(value);
+  }
+  for await (const value of globalThis['Array'].from(values)) {
+    console.log(value);
+  }
+  for await (const value of globalThis['Array']['from'](values)) {
+    console.log(value);
+  }
+  for await (const value of globalThis['Array']["from"](values)) {
+    console.log(value);
+  }
+  for await (const value of Array["from"](values)) {
+    console.log(value);
+  }
+  for await (const value of Array['from'](values)) {
+    console.log(value);
+  }
+  for await (const value of globalThis.Array["from"](values)) {
+    console.log(value);
+  }
+  for await (const value of globalThis.Array['from'](values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(Array.from)(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis.Array.from)(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis["Array"].from)(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Array"]).from)(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Array"])["from"])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Array"])['from'])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis["Array"]["from"])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Array"]["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis['Array'].from)(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis['Array']).from)(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis['Array'])["from"])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Array"]))["from"](values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Array"]))['from'](values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis['Array']))["from"](values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis['Array']))['from'](values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis['Array']['from'])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis['Array']['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis["Array"]['from'])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Array"]['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis['Array'])['from'])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis['Array']["from"])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis['Array']["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(Array['from'])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((Array['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(Array["from"])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((Array["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis.Array['from'])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Array['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis.Array["from"])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((null ?? globalThis.Array["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((true && globalThis.Array["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || globalThis.Array["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Array["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Array).from)(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Array)["from"])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Array))["from"](values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Array))['from'](values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Array)['from'])(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((null ?? globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((true && globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((Array.from, Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis.Array.from, globalThis.Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Array"].from, globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis['Array'].from, globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((null ?? Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((true && Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || Array.from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((null ?? globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((true && globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || globalThis["Array"].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((null ?? globalThis["Array"]["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((true && globalThis["Array"]["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || globalThis["Array"]["from"]))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((null ?? globalThis['Array']['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((true && globalThis['Array']['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || globalThis['Array']['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((null ?? globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((true && globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || globalThis['Array'].from))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((null ?? globalThis["Array"]['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((true && globalThis["Array"]['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || globalThis["Array"]['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((null ?? globalThis.Array['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((true && globalThis.Array['from']))(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((false || globalThis.Array['from']))(values)) {
+    console.log(value);
+  }}
+"""
+"app_object_enum.${ext}" = """// kali-tree-shake: objectEnumerationSpreadWrapper
+export async function objectEnumerationSpreadWrapper() {
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+  const frozenValues = [...Object.values(frozenFromEntries)];
+  const frozenKeys = [...Object.keys(frozenFromEntries)];
+  const frozenEntries = [...Object.entries(frozenFromEntries)];
+  const reflectiveKeys = [...Reflect.ownKeys({ "b": 1, "2": 2, "a": 3, "1": 4 })];
+  const frozenReflectiveKeys = [...Reflect.ownKeys(Object.freeze({ "b": 1, "2": 2, "a": 3, "1": 4 }))];
+
+  for (const value of [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
+  for (const value of [...globalThis.Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
+  for (const value of [...globalThis.Object["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
+  for (const value of [...globalThis["Object"].values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
+  for (const value of [...globalThis['Object']['values'](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
+  for (const value of [...globalThis["Object"]["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
+  for (const key of [...Object.keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(key);
+  }
+  for (const key of [...globalThis.Object.keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(key);
+  }
+  for (const key of [...globalThis.Object["keys"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(key);
+  }
+  for (const key of [...globalThis["Object"].keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(key);
+  }
+  for (const key of [...globalThis["Object"]["keys"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(key);
+  }
+  for (const entry of [...Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of [...globalThis.Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of [...globalThis.Object["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of [...globalThis["Object"].entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of [...globalThis["Object"]["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const value of [...Object.values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const value of [...globalThis.Object.values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const value of [...globalThis.Object["values"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const value of [...globalThis["Object"].values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const value of [...globalThis['Object']['values'](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const value of [...globalThis["Object"]["values"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const key of [...Object.keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(key);
+  }
+  for await (const key of [...globalThis.Object.keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(key);
+  }
+  for await (const key of [...globalThis.Object["keys"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(key);
+  }
+  for await (const key of [...globalThis["Object"].keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(key);
+  }
+  for await (const key of [...globalThis["Object"]["keys"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(key);
+  }
+  for await (const entry of [...Object.entries(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of [...globalThis.Object.entries(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of [...globalThis.Object["entries"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of [...globalThis["Object"].entries(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of [...globalThis["Object"]["entries"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+
+  if (
+    frozenValues.length !== 2 ||
+    frozenValues[0] !== 3 ||
+    frozenValues[1] !== 2 ||
+    frozenKeys.length !== 2 ||
+    frozenKeys[0] !== 'b' ||
+    frozenKeys[1] !== 'a' ||
+    frozenEntries.length !== 2 ||
+    frozenEntries[0][0] !== 'b' ||
+    frozenEntries[0][1] !== 3 ||
+    frozenEntries[1][0] !== 'a' ||
+    frozenEntries[1][1] !== 2 ||
+    reflectiveKeys.length !== 4 ||
+    reflectiveKeys[0] !== '1' ||
+    reflectiveKeys[1] !== '2' ||
+    reflectiveKeys[2] !== 'b' ||
+    reflectiveKeys[3] !== 'a' ||
+    frozenReflectiveKeys.length !== 4 ||
+    frozenReflectiveKeys[0] !== '1' ||
+    frozenReflectiveKeys[1] !== '2' ||
+    frozenReflectiveKeys[2] !== 'b' ||
+    frozenReflectiveKeys[3] !== 'a'
+  ) {
+    throw new Error('unexpected frozen or reflective spread iteration semantics');
+  }
+}
+"""
+[[case]]
+name = "build_emits_for_of_spread_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_array_iteration_spread.rs. THE NON-JSON-OUTPUT CASE: folds `build_emits_for_of_spread_in_js_input`, `build_emits_for_of_spread_in_ts_input`, and the `json_output = false` half of `build_emits_for_of_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_for_of.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_for_of/app_for_of.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_for_of"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationSpreadWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_of_spread_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_array_iteration_spread.rs. THE `--output json` CASE: folds `json_build_emits_for_of_spread_in_js_input`, `json_build_emits_for_of_spread_in_ts_input`, and the `json_output = true` half of `build_emits_for_of_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_for_of.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_for_of/app_for_of.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_for_of"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationSpreadWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "build_emits_for_await_spread_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_array_iteration_spread.rs. THE NON-JSON-OUTPUT CASE: folds `build_emits_for_await_spread_in_js_input`, `build_emits_for_await_spread_in_ts_input`, and the `json_output = false` half of `build_emits_for_await_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_for_await.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_for_await/app_for_await.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_for_await"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationSpreadWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_await_spread_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_array_iteration_spread.rs. THE `--output json` CASE: folds `json_build_emits_for_await_spread_in_js_input`, `json_build_emits_for_await_spread_in_ts_input`, and the `json_output = true` half of `build_emits_for_await_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_for_await.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_for_await/app_for_await.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_for_await"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationSpreadWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "build_emits_array_from_spread_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_array_iteration_spread.rs. THE NON-JSON-OUTPUT CASE: folds `build_emits_browser_array_from_wrappers_in_js_input`, `build_emits_browser_array_from_wrappers_in_ts_input`, and the `json_output = false` half of `build_emits_browser_array_from_wrappers_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`. The `[source]` fixture text this case exercises is built by `kali_common`'s `array_from_alias_inventory_source()` ("Canonical source text for the supported `Array.from` alias inventory.") and `array_from_loop_lines()` ("Canonical `for`/`for await` loop lines for the supported `Array.from` helper slice.") -- both `///`-documented in that crate, carried here per rule 13 (a case produced through a call chain carries every doc comment on every helper in that chain, not just the one closest to the case)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_array_from.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_array_from/app_array_from.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_array_from"
+body = """const mod = await import(bundleJs.href);
+await mod.browserArrayFromWrappers();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_array_from_spread_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_array_iteration_spread.rs. THE `--output json` CASE: folds `json_build_emits_browser_array_from_wrappers_in_js_input`, `json_build_emits_browser_array_from_wrappers_in_ts_input`, and the `json_output = true` half of `build_emits_browser_array_from_wrappers_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (BATCH CONVENTION, same as object_keys_harness.toml: a single [[case]] here corresponds to more than one source #[test] fn / loop iteration; assertion mapping stays 1:1 per trial, so no claim is lost, but a failing trial's id reads `[ext=jsx]`, not a source fn name). Exercises `assert_browser_bundle_array_iteration_spread`: builds a browser bundle (`kali build --bundle --api browser`), asserts exit success, checks the emitted meta.json's `apiSurface`/`artifactKind`, then runs the bundle glue under the browser-bundle-harness contract and checks the printed output contains both `"1\n"` and `"2\n"`. The `[source]` fixture text this case exercises is built by `kali_common`'s `array_from_alias_inventory_source()` ("Canonical source text for the supported `Array.from` alias inventory.") and `array_from_loop_lines()` ("Canonical `for`/`for await` loop lines for the supported `Array.from` helper slice.") -- both `///`-documented in that crate, carried here per rule 13 (a case produced through a call chain carries every doc comment on every helper in that chain, not just the one closest to the case)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_array_from.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_array_from/app_array_from.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_array_from"
+body = """const mod = await import(bundleJs.href);
+await mod.browserArrayFromWrappers();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "build_emits_object_enumeration_spread_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_array_iteration_spread.rs. THE NON-JSON-OUTPUT CASE: folds `build_emits_object_enumeration_spread_in_js_input`, `build_emits_object_enumeration_spread_in_ts_input`, and the `json_output = false` half of `build_emits_object_enumeration_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (same BATCH CONVENTION as above). Exercises `assert_browser_bundle_object_enumeration_spread`: builds a browser bundle and asserts it fails closed.
+
+Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+
+Source asserts `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams, not two codes (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary, across all four extensions: in non-json mode E5506 appears on stderr only (stdout is empty); in `--output json` mode the diagnostic is JSON-encoded on stdout as `errors[0].code` (21 diagnostics, all E5506) and stderr is empty. Pinned to the stream/field that actually carries it in each mode -- a verified strengthening of the source's OR, carrying the disjunction sentence here per rule 11 -- rather than reproducing the OR as `stdout_absent`+`stderr_contains`."""
+args = ["build", "--bundle", "--api", "browser", "app_object_enum.${ext}"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_build_emits_object_enumeration_spread_in_js_ts_jsx_and_tsx_input"
+rationale = """Migrated from browser_array_iteration_spread.rs. THE `--output json` CASE: folds `json_build_emits_object_enumeration_spread_in_js_input`, `json_build_emits_object_enumeration_spread_in_ts_input`, and the `json_output = true` half of `build_emits_object_enumeration_spread_in_jsx_and_tsx_input`'s `for filename in ["app.jsx", "app.tsx"]` loop (that fn calls the assert helper twice per extension, once non-json and once json) into one matrix-fanned case (same BATCH CONVENTION as above). Exercises `assert_browser_bundle_object_enumeration_spread`: builds a browser bundle and asserts it fails closed.
+
+Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+
+Source asserts `stderr.contains("E5506") || stdout.contains("E5506")` -- an OR across streams, not two codes (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary, across all four extensions: in non-json mode E5506 appears on stderr only (stdout is empty); in `--output json` mode the diagnostic is JSON-encoded on stdout as `errors[0].code` (21 diagnostics, all E5506) and stderr is empty. Pinned to the stream/field that actually carries it in each mode -- a verified strengthening of the source's OR, carrying the disjunction sentence here per rule 11 -- rather than reproducing the OR as `stdout_absent`+`stderr_contains`."""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_object_enum.${ext}"]
+exit = "failure"
+json = { errors = { "0" = { code = "E5506" } } }

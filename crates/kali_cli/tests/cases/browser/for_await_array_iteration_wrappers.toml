@@ -1,0 +1,184 @@
+# Migrated from tests/browser_for_await_array_iteration_wrappers.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -n
+# '^\s*//'` finds nothing outside the JS fixture bodies' own
+# `// kali-tree-shake:` markers, which are program text, not Rust comments),
+# so there is no prose to move verbatim into `rationale` here.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# MATRIX ARITHMETIC (rule 7): all 24 #[test] fns are individual (no loops
+# anywhere in this file) and funnel through the single helper
+# `assert_browser_bundle_for_await_wrapper`, one call per
+# (variant, ext, json_output) triple. Three distinct fixture bodies/variants
+# (as_const, satisfies, transparent_await), each exercised across all four
+# extensions in both json_output states:
+#   as_const:            4 (false) + 4 (true) = 8
+#   satisfies:            4 (false) + 4 (true) = 8
+#   transparent_await:    4 (false) + 4 (true) = 8
+# Total 24 invocations = variant(3) x ext(4) x json_output(2) exactly,
+# uniform across every case. `ext` is hoisted to a file-level [matrix] axis:
+# 24 #[test] fns collapse to 6 [[case]] entries (build/json_build x
+# as_const/satisfies/transparent_await), matrix-fanned to 24 trials,
+# matching the 24 real invocations exactly.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app_as_const.${ext}" = """// kali-tree-shake: forAwaitArrayIterationAsConstWrapper
+export async function forAwaitArrayIterationAsConstWrapper() {
+  const value = 2;
+  for await (const item of ([1, (value)] as const)) {
+    console.log(item);
+  }
+}
+"""
+"app_satisfies.${ext}" = """// kali-tree-shake: forAwaitArrayIterationSatisfiesWrapper
+export async function forAwaitArrayIterationSatisfiesWrapper() {
+  const value = 2;
+  for await (const item of ([1, (value)] satisfies readonly [1, 2])) {
+    console.log(item);
+  }
+}
+"""
+"app_transparent_await.${ext}" = """// kali-tree-shake: forAwaitArrayIterationTransparentAwaitWrapper
+export async function forAwaitArrayIterationTransparentAwaitWrapper() {
+  for await (const item of await [1, 2]) {
+    console.log(item);
+  }
+}
+"""
+
+[[case]]
+name = "build_emits_for_await_as_const_wrapper"
+rationale = "Migrated from browser_for_await_array_iteration_wrappers.rs. `assert_browser_bundle_for_await_wrapper` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed as-const-wrapped iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials, matching the 24 real per-(variant,json_output,ext) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`/`app_transparent_await`) since the format's `[source]` table is one flat, file-wide namespace and source reused the bare filename `app.${ext}` across all three private-tempdir fixture bodies; no assertion ever pins the literal filename, and none of these fixture bodies reference their own filename by string (they are plain `kali build --bundle` entry points, not `import()`/`require()` targets), so renaming is safe per the file-vs-fixture-body distinction in the house rules."
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_as_const.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_as_const/app_as_const.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_as_const"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationAsConstWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_await_as_const_wrapper"
+rationale = "Migrated from browser_for_await_array_iteration_wrappers.rs. `assert_browser_bundle_for_await_wrapper` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed as-const-wrapped iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials, matching the 24 real per-(variant,json_output,ext) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`/`app_transparent_await`) since the format's `[source]` table is one flat, file-wide namespace and source reused the bare filename `app.${ext}` across all three private-tempdir fixture bodies; no assertion ever pins the literal filename, and none of these fixture bodies reference their own filename by string (they are plain `kali build --bundle` entry points, not `import()`/`require()` targets), so renaming is safe per the file-vs-fixture-body distinction in the house rules."
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_as_const.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_as_const/app_as_const.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_as_const"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationAsConstWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "build_emits_for_await_satisfies_wrapper"
+rationale = "Migrated from browser_for_await_array_iteration_wrappers.rs. `assert_browser_bundle_for_await_wrapper` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed satisfies-wrapped iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials, matching the 24 real per-(variant,json_output,ext) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`/`app_transparent_await`) since the format's `[source]` table is one flat, file-wide namespace and source reused the bare filename `app.${ext}` across all three private-tempdir fixture bodies; no assertion ever pins the literal filename, and none of these fixture bodies reference their own filename by string (they are plain `kali build --bundle` entry points, not `import()`/`require()` targets), so renaming is safe per the file-vs-fixture-body distinction in the house rules."
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_satisfies.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_satisfies/app_satisfies.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_satisfies"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationSatisfiesWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_await_satisfies_wrapper"
+rationale = "Migrated from browser_for_await_array_iteration_wrappers.rs. `assert_browser_bundle_for_await_wrapper` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed satisfies-wrapped iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials, matching the 24 real per-(variant,json_output,ext) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`/`app_transparent_await`) since the format's `[source]` table is one flat, file-wide namespace and source reused the bare filename `app.${ext}` across all three private-tempdir fixture bodies; no assertion ever pins the literal filename, and none of these fixture bodies reference their own filename by string (they are plain `kali build --bundle` entry points, not `import()`/`require()` targets), so renaming is safe per the file-vs-fixture-body distinction in the house rules."
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_satisfies.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_satisfies/app_satisfies.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_satisfies"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationSatisfiesWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "build_emits_for_await_transparent_await_wrapper"
+rationale = "Migrated from browser_for_await_array_iteration_wrappers.rs. `assert_browser_bundle_for_await_wrapper` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed transparent-await-wrapped iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials, matching the 24 real per-(variant,json_output,ext) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`/`app_transparent_await`) since the format's `[source]` table is one flat, file-wide namespace and source reused the bare filename `app.${ext}` across all three private-tempdir fixture bodies; no assertion ever pins the literal filename, and none of these fixture bodies reference their own filename by string (they are plain `kali build --bundle` entry points, not `import()`/`require()` targets), so renaming is safe per the file-vs-fixture-body distinction in the house rules."
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app_transparent_await.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app_transparent_await/app_transparent_await.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_transparent_await"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationTransparentAwaitWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_await_transparent_await_wrapper"
+rationale = "Migrated from browser_for_await_array_iteration_wrappers.rs. `assert_browser_bundle_for_await_wrapper` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks the printed transparent-await-wrapped iteration output. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 24 #[test] fns collapse to 6 [[case]] entries here, matrix-fanned to 24 trials, matching the 24 real per-(variant,json_output,ext) invocations in source exactly (see the file header's arithmetic). `[source]` filenames are disambiguated per variant (`app_as_const`/`app_satisfies`/`app_transparent_await`) since the format's `[source]` table is one flat, file-wide namespace and source reused the bare filename `app.${ext}` across all three private-tempdir fixture bodies; no assertion ever pins the literal filename, and none of these fixture bodies reference their own filename by string (they are plain `kali build --bundle` entry points, not `import()`/`require()` targets), so renaming is safe per the file-vs-fixture-body distinction in the house rules."
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app_transparent_await.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app_transparent_await/app_transparent_await.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app_transparent_await"
+body = """const mod = await import(bundleJs.href);
+await mod.forAwaitArrayIterationTransparentAwaitWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]

@@ -1,0 +1,272 @@
+# Migrated from tests/object_string_enumeration_js_input.rs -- all 16
+# #[test] functions, as 4 sibling case blocks fanned across a file-level
+# `[matrix]` extension axis (js/ts/jsx/tsx) = 16 trials, matching the
+# original 16 #[test] fns exactly: 4 case shapes (run plain, json run,
+# test plain, json test) each run once per extension, with identical
+# assertion shape in every cell (every one of the 16 original tests only
+# asserts `!output.status.success()`, nothing else -- no stdout, no
+# stderr, no JSON payload, no diagnostic code).
+#
+# This file's 16 #[test] fns are already a uniform cross product of
+# extension and case-shape -- unlike `has_own_js_input.toml`, there is no
+# extension-exempt case here, so `[matrix]` is the correct tool per this
+# task's two-axis rule (every case below is meant to run at every
+# extension, with no case exempted), matching the pattern already used in
+# `array/callback_number_predicates_browser_harness.toml` and
+# `object/freeze_callable_helpers.toml`.
+#
+# `[constants]` factors out the two fixture bodies
+# (`object_string_enumeration_run_source()`, `object_string_enumeration_
+# test_source()`), each reused byte-for-byte across all 4 extensions.
+#
+# Every one of the 16 original tests carries the identical explanatory
+# comment ("Honest re-pin (PR #16 rev2): kali fails closed/loud here; see
+# docs/superpowers/followups/pr16-honest-repin-inventory.md."), duplicated
+# verbatim at every assertion site -- carried into every case's
+# `rationale` below rather than dropped. Unlike the sibling
+# `enumeration_spread_frozen_js_input.rs` migration, no test in this file
+# asserts a diagnostic code or stderr text, so no `stderr_contains`/`json`
+# fields beyond `exit = "failure"` are added here -- adding one would
+# assert something the original test never claimed.
+#
+# CONSEQUENCE FOR THE GATES -- `audit-case-migration.py` IS EXPECTED-RED
+# (rc=3) ON THIS PAIR. rc=3 is AUDIT INAPPLICABLE, not a dropped claim: the
+# audit ran to completion over this pair and demanded ZERO claims of it, so
+# it decided nothing either way. Measured, not assumed -- 16 #[test] fns
+# found, 0 claims demanded in either direction.
+#
+# WHY IT DEMANDS NOTHING. Every one of the 16 fns routes through
+# `assert_object_string_enumeration`, whose only assertion is
+# `assert!(!output.status.success(), ...)` -- an exit-status claim carrying
+# no output literal. The four argv tokens the extractor does find (`run`,
+# `test`, `json`, `--output`) are every one of them in the audit's BORING
+# set, which exists precisely because those tokens discriminate nothing.
+# Everything else in the source is fixture program text, which the audit
+# excludes from its search by construction. So the source genuinely makes
+# no literal claim this tool can see; this is not broken claim extraction.
+#
+# Stated here because AUDIT OK over zero demanded claims and AUDIT OK over
+# a covered pair are otherwise indistinguishable, and only one of them is
+# evidence. What DOES cover this pair is the case runner itself: all 16
+# trials pin `exit = "failure"`, which is exactly the claim the source
+# made, and `check_fixtures.py` pins the argv and fixture correspondence.
+#
+# Reproduce (the source was deleted by b5d7ef8129; its last content is the
+# blob at that commit's parent):
+#
+#   git show 239a4b0fffc9febad7eb8e8adbb0d2de5009c584:crates/kali_cli/tests/object_string_enumeration_js_input.rs > /tmp/src.rs
+#   python3 scripts/audit-case-migration.py /tmp/src.rs \
+#     crates/kali_cli/tests/cases/object/string_enumeration_js_input.toml
+
+[matrix]
+extension = ["js", "ts", "jsx", "tsx"]
+
+[constants]
+run_source = '''
+function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+}
+
+function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+}
+
+function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== '0' ||
+    entries[0][1] !== 'a' ||
+    entries[1][0] !== '1' ||
+    entries[1][1] !== 'b'
+  ) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+}
+
+function objectStringEnumeration() {
+  const keys = [];
+  for (const key of Object.keys('ab')) {
+    keys.push(key);
+  }
+  const nullishKeys = [];
+  for (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+  const logicalOrKeys = [];
+  for (const key of Object.freeze((false || Object.keys))('ab')) {
+    logicalOrKeys.push(key);
+  }
+  const values = [];
+  for (const value of Object.values('ab')) {
+    values.push(value);
+  }
+  const nullishValues = [];
+  for (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalAndValues = [];
+  for (const value of Object.freeze((true && Object.values))('ab')) {
+    logicalAndValues.push(value);
+  }
+  const logicalOrValues = [];
+  for (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
+  }
+  const entries = [];
+  for (const entry of Object.entries('ab')) {
+    entries.push(entry);
+  }
+  const nullishEntries = [];
+  for (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectKeysIteration(logicalOrKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalAndValues);
+  assertObjectValuesIteration(logicalOrValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
+  console.log('object string enumeration ok');
+}
+
+objectStringEnumeration();
+'''
+test_source = '''
+Kali.test('object string enumeration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+      throw new Error('unexpected Object.keys string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectValuesIteration(values) {
+    if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+      throw new Error('unexpected Object.values string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== '0' ||
+      entries[0][1] !== 'a' ||
+      entries[1][0] !== '1' ||
+      entries[1][1] !== 'b'
+    ) {
+      throw new Error('unexpected Object.entries string-primitive iteration semantics');
+    }
+  }
+
+  const keys = [];
+  for (const key of Object.keys('ab')) {
+    keys.push(key);
+  }
+  const nullishKeys = [];
+  for (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+  const logicalOrKeys = [];
+  for (const key of Object.freeze((false || Object.keys))('ab')) {
+    logicalOrKeys.push(key);
+  }
+  const values = [];
+  for (const value of Object.values('ab')) {
+    values.push(value);
+  }
+  const nullishValues = [];
+  for (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalAndValues = [];
+  for (const value of Object.freeze((true && Object.values))('ab')) {
+    logicalAndValues.push(value);
+  }
+  const logicalOrValues = [];
+  for (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
+  }
+  const entries = [];
+  for (const entry of Object.entries('ab')) {
+    entries.push(entry);
+  }
+  const nullishEntries = [];
+  for (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectKeysIteration(logicalOrKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalAndValues);
+  assertObjectValuesIteration(logicalOrValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
+  console.log('object string enumeration ok');
+});
+'''
+
+[source]
+"main.${extension}" = "${run_source}"
+"main.test.${extension}" = "${test_source}"
+
+[[case]]
+name = "run_plain"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["run", "main.${extension}"]
+exit = "failure"
+
+[[case]]
+name = "json_run"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["--output", "json", "run", "main.${extension}"]
+exit = "failure"
+
+[[case]]
+name = "test_plain"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["test", "main.test.${extension}"]
+exit = "failure"
+
+[[case]]
+name = "json_test"
+rationale = "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+args = ["--output", "json", "test", "main.test.${extension}"]
+exit = "failure"

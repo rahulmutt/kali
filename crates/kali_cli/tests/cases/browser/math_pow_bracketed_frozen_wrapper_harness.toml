@@ -1,0 +1,180 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '8\n8\n8\n8\n8\n8\n8\n8\n8\n8\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# Migrated from tests/browser_math_pow_bracketed_frozen_wrapper_harness.rs.
+#
+# PARTIAL MIGRATION (U4 trim-and-keep) -- 16 of the source's 17 `#[test]`
+# fns are migrated here. The remaining one, `browser_harness_bracketed_global_this_math_pow_frozen_source_includes_parenthesized_bracketed_aliases`, is a FIXTURE
+# SELF-INSPECTION test: declared at `browser_harness_bracketed_global_this_math_pow_frozen_source_includes_parenthesized_bracketed_aliases(` :33, it takes the run fixture built by `browser_harness_bracketed_global_this_math_pow_frozen_run_source` and asserts `source.contains(expected)` (:38) for every `expected` in the runtime-computed inventory kali_common's math_pow_bracketed_frozen_callable_aliases returns. It builds no command, runs no binary, and asserts
+# nothing about behaviour -- it checks the fixture's own text. That claim has no
+# expressible form in the case format (no step kind asserts on `[source]` text;
+# `[source]` is program text by construction, not a claim), and it is invisible to
+# `audit-case-migration.py`, whose `.contains()` extractor cannot tell a fixture-text
+# read from an output assertion and which excludes everything under `[source]` from its
+# search by design. Migrating it would produce a false green. It is escalated per rule
+# 3/4 and RETAINED hand-written; controller ruling 4 is explicit that the audit script
+# is NOT extended for this shape.
+#
+# THE `.rs` HAS SINCE BEEN TRIMMED to exactly that test plus the fixture builders it
+# reads, carrying a `//!` retention header. TWO CONSEQUENCES A LATER READER MUST NOT
+# MISREAD:
+#   * EVERY `:N` LINE CITATION IN THIS FILE IS A PRE-TRIM LINE NUMBER. Audit and diff
+#     this pair against the pre-trim source from git history, not against the working
+#     tree.
+#   * THE POST-TRIM PAIR IS THE WRONG COMPARISON FOR EVERY GATE, not just the audit. The
+#     retained `.rs` carries the COMPLETE measured red-list (ruling 9) -- which gates go
+#     red post-trim and which are green. Read it there, so there is one source of truth.
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_pow_bracketed_frozen_wrapper_harness.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The file contains no `//` of any kind -- it declares no bundle fixture,
+# so there is not even a `// kali-tree-shake:` marker in it.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_harness_bracketed_global_this_math_pow_frozen` -- 16 invocation(s) = command(run/test) x ext(js/ts/jsx/tsx) x json_output(false/true), a full cross product, with no loop anywhere in the file; the 17th fn makes no helper call at all and is retained, not folded
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to four source `#[test]` fns, one per extension; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main.${ext}`, `smoke.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_harness_bracketed_global_this_math_pow_frozen_run_source`,
+#   `browser_harness_bracketed_global_this_math_pow_frozen_test_source`,
+#   `assert_browser_harness_bracketed_global_this_math_pow_frozen` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+# The documented helpers are, in call-chain order, kali_common's
+# math_pow_bracketed_frozen_callable_invocation_lines, which reads
+# math_pow_bracketed_frozen_callable_aliases and formats it through
+# math_pow_invocation_lines_for_aliases. Three helpers, three `///` docs, all
+# three carried into every rationale below, since every case reproduces that
+# chain's OUTPUT in [source]. The doc texts are extracted from
+# crates/kali_common/src/math.rs by this file's generator, not retyped.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# Both branches assert `exit = "success"` (:68).
+# JSON branch: schemaVersion (`json["schemaVersion"]` :76), command (`json["command"]` :77), success (`json["success"]` :78), payload
+# hostContract (`json["payload"]["hostContract"]` :79) and runtimeBackend (`json["payload"]["runtimeBackend"]` :80); for `run`, `exitCode` at the envelope
+# level (`json["exitCode"]` :82) AND at the payload level (`json["payload"]["exitCode"]` :83); for `test`, payload
+# total/passed/failed (`json["payload"]["total"]` :85-87) AND skipped (`json["payload"]["skipped"]` :88) -- this file asserts `skipped`,
+# matching browser_math_pow_harness.rs; the other three sources migrated alongside
+# it (browser_math_sin_cos_zero_identities.rs,
+# browser_math_sinh_cosh_tanh_zero_identities.rs and browser_math_round.rs) do
+# not, and no `skipped` claim is written for any of them. Then the stdout claim (`stdout.contains(...)` :91) and `stderr` exactly empty (:92).
+# THE SOURCE MAKES NO `errors` CLAIM ON THIS ENVELOPE, so none is written -- rule 2,
+# and a deliberate difference from browser_math_pow_harness.rs, which does assert
+# it. Do not add one because the sibling has one.
+# TEXT branch: the stdout claim (`stdout.contains(...)` :95), plus `stdout.contains("ok 1")` (:97) which
+# the source makes ONLY inside `if command == "test"` (:96); the conditional is
+# part of the claim, so the needle is on the test case and not on the run case.
+# The source passes NO `--max-threads` / `--max-spawned-processes`, so neither
+# flag appears below. No `.matches(...).count()` claim exists in this file, so no
+# stdout_count / json_count key appears.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """const exponent = 3; const alias = exponent; console.log(Object.freeze((globalThis.Math))["pow"](2, alias));
+console.log(Object.freeze((globalThis.Math))['pow'](2, alias));
+console.log(Object.freeze((globalThis.Math).pow)(2, alias));
+console.log(Object.freeze((globalThis.Math)['pow'])(2, alias));
+console.log(Object.freeze((globalThis["Math"]))["pow"](2, alias));
+console.log(Object.freeze((globalThis['Math']))['pow'](2, alias));
+console.log(Object.freeze((globalThis['Math'])["pow"])(2, alias));
+console.log(Object.freeze((globalThis['Math'])['pow'])(2, alias));
+console.log(Object.freeze((globalThis["Math"]).pow)(2, alias));
+console.log(Object.freeze((globalThis['Math']).pow)(2, alias));
+"""
+"smoke.test.${ext}" = """Kali.test('bracketed globalThis Math.pow frozen wrapper', () => {
+  const exponent = 3;
+  const alias = exponent;
+  console.log(Object.freeze((globalThis.Math))["pow"](2, alias));
+console.log(Object.freeze((globalThis.Math))['pow'](2, alias));
+console.log(Object.freeze((globalThis.Math).pow)(2, alias));
+console.log(Object.freeze((globalThis.Math)['pow'])(2, alias));
+console.log(Object.freeze((globalThis["Math"]))["pow"](2, alias));
+console.log(Object.freeze((globalThis['Math']))['pow'](2, alias));
+console.log(Object.freeze((globalThis['Math'])["pow"])(2, alias));
+console.log(Object.freeze((globalThis['Math'])['pow'])(2, alias));
+console.log(Object.freeze((globalThis["Math"]).pow)(2, alias));
+console.log(Object.freeze((globalThis['Math']).pow)(2, alias));
+});
+"""
+
+[[case]]
+name = "run_supports_bracketed_global_this_math_pow_frozen_wrapper_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_frozen_wrapper_harness.rs, the four `run_supports_bracketed_global_this_math_pow_frozen_wrapper_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_bracketed_global_this_math_pow_frozen` runs `kali run --api browser` with the browser harness backed by node, against a program that raises 2 to an aliased exponent of 3 through every bracketed-root frozen Math.pow wrapper in the canonical inventory, so 8 is printed once per alias. Its stdout claim is `stdout.contains("8\\n8")` against raw stdout (:95). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical `console.log(...)` invocation lines for the supported bracketed-root frozen `Math.pow` aliases.", "Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice." and "Canonical `console.log(...)` invocation lines for an arbitrary `Math.pow` alias inventory.""""
+args = ["run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["8\n8"]
+
+[[case]]
+name = "test_supports_bracketed_global_this_math_pow_frozen_wrapper_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_frozen_wrapper_harness.rs, the four `test_supports_bracketed_global_this_math_pow_frozen_wrapper_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_bracketed_global_this_math_pow_frozen` runs `kali test --api browser` with the browser harness backed by node, against a program that raises 2 to an aliased exponent of 3 through every bracketed-root frozen Math.pow wrapper in the canonical inventory, so 8 is printed once per alias. Its stdout claim is `stdout.contains("8\\n8")` against raw stdout (:95). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. This case additionally carries `stdout.contains("ok 1")` (:97), which the source makes only under `if command == "test"` (:96). The run sibling does not carry it, because the source does not claim it there. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical `console.log(...)` invocation lines for the supported bracketed-root frozen `Math.pow` aliases.", "Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice." and "Canonical `console.log(...)` invocation lines for an arbitrary `Math.pow` alias inventory.""""
+args = ["test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["8\n8", "ok 1"]
+
+[[case]]
+name = "json_run_supports_bracketed_global_this_math_pow_frozen_wrapper_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_frozen_wrapper_harness.rs, the four `json_run_supports_bracketed_global_this_math_pow_frozen_wrapper_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_bracketed_global_this_math_pow_frozen` runs `kali --output json run --api browser` with the browser harness backed by node, against a program that raises 2 to an aliased exponent of 3 through every bracketed-root frozen Math.pow wrapper in the canonical inventory, so 8 is printed once per alias. This sibling asserts the JSON envelope: schemaVersion/command/success (`json["command"]` :76-78), payload hostContract/runtimeBackend (`json["payload"]["hostContract"]` :79-80), and `exitCode` at both the envelope (:82) and the payload (`json["payload"]["exitCode"]` :83) level for `run`, and `stderr` exactly empty (:92). The source makes NO `errors` claim on this envelope, so none is written (rule 2). The stdout claim is `stdout.contains("8\\n8")` taken against json["stdout"] (:91). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical `console.log(...)` invocation lines for the supported bracketed-root frozen `Math.pow` aliases.", "Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice." and "Canonical `console.log(...)` invocation lines for an arbitrary `Math.pow` alias inventory.""""
+args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "8\n8\n8\n8\n8\n8\n8\n8\n8\n8\n", stderr = "" }
+
+[[case]]
+name = "json_test_supports_bracketed_global_this_math_pow_frozen_wrapper_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_pow_bracketed_frozen_wrapper_harness.rs, the four `json_test_supports_bracketed_global_this_math_pow_frozen_wrapper_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_bracketed_global_this_math_pow_frozen` runs `kali --output json test --api browser` with the browser harness backed by node, against a program that raises 2 to an aliased exponent of 3 through every bracketed-root frozen Math.pow wrapper in the canonical inventory, so 8 is printed once per alias. This sibling asserts the JSON envelope: schemaVersion/command/success (`json["command"]` :76-78), payload hostContract/runtimeBackend (`json["payload"]["hostContract"]` :79-80), payload total/passed/failed (`json["payload"]["total"]` :85-87) and payload skipped (`json["payload"]["skipped"]` :88) for `test`, and `stderr` exactly empty (:92). The source makes NO `errors` claim on this envelope, so none is written (rule 2). The stdout claim is `stdout.contains("8\\n8")` taken against json["stdout"] (:91). On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical `console.log(...)` invocation lines for the supported bracketed-root frozen `Math.pow` aliases.", "Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice." and "Canonical `console.log(...)` invocation lines for an arbitrary `Math.pow` alias inventory.""""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0, skipped = 0 }, stdout = "8\n8\n8\n8\n8\n8\n8\n8\n8\n8\n", stderr = "" }

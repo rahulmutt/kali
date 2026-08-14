@@ -1,0 +1,91 @@
+# Migrated from tests/browser_bundle_cjs_source_classes.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# Matrix arithmetic: all 8 #[test] fns are individual, unlooped calls to
+# `assert_browser_bundle_cjs_source_class(filename, inherited)` -- grouped by
+# `inherited` (false/true), each group covers `ext(4) = js/ts/jsx/tsx`
+# exactly once. 8 #[test] fns -> 2 [[case]] entries (inherited=false,
+# inherited=true), matrix-fanned by `ext(4)` to 8 trials, matching the 8 real
+# invocations exactly.
+#
+# SPLIT INTO TWO FILES (review round 1, Important fix 1): source writes
+# the manifest with `dir.path().join("kali.json")` (:23-33) only when
+# `inherited` is true -- that `if` is this file's entire point: one test
+# proves `--api browser` works WITHOUT a manifest, the other proves the
+# manifest works WITHOUT the flag. `crates/kali_case_runner/src/
+# expand.rs`'s `expand()` clones the whole file-level [source] map into
+# EVERY trial regardless of which case references which key (the same
+# file-wide-not-per-case mechanism already documented for [matrix] in this
+# batch's other files), so keeping both cases in one file with `kali.json`
+# in the shared [source] table would leak the manifest into the
+# explicit-`--api browser` case's trial directory too -- that case could no
+# longer fail if `--api browser` regressed, since the manifest would supply
+# the same `apiSurface` and the `app/app.meta.json` assertion would be
+# satisfied either way. No literal assertion is dropped by this leak, so
+# `audit-case-migration.py` cannot see it and the trial stays green with its
+# discriminating power silently gone. Fixed by splitting into two case
+# files: this one (no `kali.json` in [source] at all, exercises the
+# explicit `--api browser` flag with no manifest present) and
+# `bundle_cjs_source_classes_inherited.toml` (has `kali.json`, omits
+# `--api browser` from argv, exercises manifest-inherited resolution).
+#
+# NEW RULE FOR BATCHES 3-8 (the [source] analogue of the file-wide [matrix]
+# gotcha): before merging fixtures into one case file, check whether the
+# source wrote any file CONDITIONALLY, or wrote a file whose mere PRESENCE
+# is what a case tests -- a manifest, a config file, a lockfile, a sibling
+# module used by only one variant. If so, the cases must go in separate
+# case FILES, not just separate [[case]] entries in one file -- [source] is
+# file-wide, so a [[case]] cannot opt out of a fixture another case in the
+# same file needs.
+#
+# The format has no step kind that reads an arbitrary on-disk text file and
+# asserts `.contains()` on its raw content (`file_json` only parses JSON), so
+# the `app.cjs` glue-text checks (`module.exports = exported`,
+# `sourceMappingURL=app.cjs.map`) use a `browser_bundle_harness` step whose
+# `body` reads the file via the node `fs`/`fileURLToPath` bindings the
+# harness prelude already imports and echoes it to stdout for
+# `stdout_contains` -- a legitimate use of the existing format, verified
+# directly against the real binary. The source map and metadata files ARE
+# JSON, so those use `file_json` steps as usual.
+#
+# That step deliberately carries NO `exit` assertion (fix round 1, batch 3
+# I2). Every other `browser_bundle_harness` step in the browser family now
+# sets `exit = "success"`, mirroring the `assert!(output.status.success())`
+# its source makes on the harness process. This source runs no harness
+# process at all -- the step exists only as the format's way of reading a
+# text file -- so there is no source claim to mirror, and adding one would
+# be a rule 2 invention.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = "// kali-tree-shake: greet\nfunction greet(name) { return name; }\n"
+
+[[case]]
+name = "build_emits_browser_bundle_cjs_artifacts"
+rationale = """Migrated from browser_bundle_cjs_source_classes.rs. Exercises the explicit `--api browser` flag with NO `kali.json` manifest present in the trial directory (see this file's header for why the manifest is kept out of this file entirely, in a sibling case file, rather than merely out of this one case)."""
+
+[[case.step]]
+args = ["--output", "json", "build", "--bundle", "--format", "cjs", "--api", "browser", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "cjs" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.cjs.map"
+fields = { version = 3, file = "app.cjs", sources = { "0" = "app.${ext}" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const glueUrl = new URL('./app/app.cjs', import.meta.url);
+const js = await fs.readFile(fileURLToPath(glueUrl), 'utf8');
+console.log(js);
+"""
+stdout_contains = ["module.exports = exported", "sourceMappingURL=app.cjs.map"]

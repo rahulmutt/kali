@@ -1,0 +1,340 @@
+# Migrated from tests/browser_for_of_array_iteration_alias_chain.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# NO [matrix] (rule 7 / U1): this file has TWO helper groups with DIFFERENT
+# extension coverage, and `[matrix]` is file-wide (`expand()` fans EVERY
+# [[case]] by the full cross-product, with no per-case opt-out), so one axis
+# cannot serve both without inventing untested combinations. The build group
+# (`assert_browser_bundle_for_of_alias_chain`) is called for all four
+# extensions
+# x json_output(2) = 8 invocations, matching its 8 `build_emits_*` /
+# `json_build_emits_*` #[test] fns. The harness group
+# (`assert_browser_harness_for_of_alias_chain`) is called for only TWO
+# extensions
+# (ts, js) x command(run/test) x json_output(2) = 8 invocations, matching its
+# 8
+# `*_supports_*_with_harness_{ts,js}_input` fns -- there is no jsx/tsx harness
+# fn in this file at all (verified against the real fn list, not inferred from
+# the first few). 8 + 8 = 16 invocations = 16 #[test] fns = 16 [[case]]
+# entries
+# below, no folding. Matrix declined for the whole file.
+#
+# [source] needs no disambiguation (U5): the build fixture is `app.<ext>`, the
+# harness fixture is `main.<ext>`/`smoke.test.<ext>`, so no key collides.
+#
+# ASSERTION SHAPE. Build group: `exit = "success"` for
+# `assert!(output.status.success())`, the json envelope fields, the emitted
+# `app/app.meta.json` metadata, and the bundle-harness `stdout_contains`
+# (`1\n`, `2\n`) -- a plain `.contains` against a field that has a substring
+# form, so kept as `*_contains` (controller ruling 3). Harness group:
+# `exit = "success"` folds BOTH `assert!(output.status.success())` and
+# `assert_eq!(output.status.code(), Some(0))` (identical on a normal process
+# exit). Non-json: `stdout_contains = ["1", "2"]`, mirroring source's own
+# `stdout.contains("1")`/`stdout.contains("2")` -- note the needles are bare
+# `1`/`2` here, NOT `1\n`/`2\n` as in the build group; carried as written.
+# Json: source asserts `json["stdout"].as_str().contains("1")` and `...("2")`,
+# but a nested `json` leaf has no substring form in this format, so per
+# controller ruling 3 those two are resolved to an exact pin of the leaf --
+# and
+# only after live-capturing the value from the real `kali` binary
+# (`tools/task-18-browser-batch3/capture.py`), never hand-computed. Every run
+# satisfying the exact pin satisfies both original `.contains` claims, so this
+# is
+# a verified strengthening, not a rewrite. `json["stderr"] == ""` is carried
+# as
+# `stderr = ""` inside `json`. Source's json branch makes no `errors` or
+# `exitCode` claim in this file, so none is added (rule 2).
+
+[source]
+"app.js" = """// kali-tree-shake: forOfArrayIterationConstAliasChainWrapper
+function forOfArrayIterationConstAliasChainWrapper() {
+  const values = [1, 2];
+  const alias = values;
+  for (const value of alias) {
+    console.log(value);
+  }
+}
+"""
+"app.ts" = """// kali-tree-shake: forOfArrayIterationConstAliasChainWrapper
+function forOfArrayIterationConstAliasChainWrapper() {
+  const values = [1, 2];
+  const alias = values;
+  for (const value of alias) {
+    console.log(value);
+  }
+}
+"""
+"app.jsx" = """// kali-tree-shake: forOfArrayIterationConstAliasChainWrapper
+function forOfArrayIterationConstAliasChainWrapper() {
+  const values = [1, 2];
+  const alias = values;
+  for (const value of alias) {
+    console.log(value);
+  }
+}
+"""
+"app.tsx" = """// kali-tree-shake: forOfArrayIterationConstAliasChainWrapper
+function forOfArrayIterationConstAliasChainWrapper() {
+  const values = [1, 2];
+  const alias = values;
+  for (const value of alias) {
+    console.log(value);
+  }
+}
+"""
+"main.ts" = """const values = [1, 2]; const alias = values; for (const value of alias) { console.log(value); }
+"""
+"smoke.test.ts" = """const values = [1, 2]; const alias = values; for (const value of alias) { console.log(value); }
+"""
+"main.js" = """const values = [1, 2]; const alias = values; for (const value of alias) { console.log(value); }
+"""
+"smoke.test.js" = """const values = [1, 2]; const alias = values; for (const value of alias) { console.log(value); }
+"""
+
+[[case]]
+name = "build_emits_for_of_const_alias_chain_in_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_bundle_for_of_alias_chain` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the const-alias-chain `for (const value of alias)` loop printed both `1` and `2`. No [matrix] in this file: the build group covers all four extensions but the harness group covers only js/ts, and `[matrix]` is file-wide with no per-case opt-out (see the file header's invocation arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationConstAliasChainWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_of_const_alias_chain_in_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_bundle_for_of_alias_chain` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the const-alias-chain `for (const value of alias)` loop printed both `1` and `2`. No [matrix] in this file: the build group covers all four extensions but the harness group covers only js/ts, and `[matrix]` is file-wide with no per-case opt-out (see the file header's invocation arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationConstAliasChainWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "build_emits_for_of_const_alias_chain_in_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_bundle_for_of_alias_chain` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the const-alias-chain `for (const value of alias)` loop printed both `1` and `2`. No [matrix] in this file: the build group covers all four extensions but the harness group covers only js/ts, and `[matrix]` is file-wide with no per-case opt-out (see the file header's invocation arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationConstAliasChainWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_of_const_alias_chain_in_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_bundle_for_of_alias_chain` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the const-alias-chain `for (const value of alias)` loop printed both `1` and `2`. No [matrix] in this file: the build group covers all four extensions but the harness group covers only js/ts, and `[matrix]` is file-wide with no per-case opt-out (see the file header's invocation arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationConstAliasChainWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "build_emits_for_of_const_alias_chain_in_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_bundle_for_of_alias_chain` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the const-alias-chain `for (const value of alias)` loop printed both `1` and `2`. No [matrix] in this file: the build group covers all four extensions but the harness group covers only js/ts, and `[matrix]` is file-wide with no per-case opt-out (see the file header's invocation arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationConstAliasChainWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_of_const_alias_chain_in_jsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_bundle_for_of_alias_chain` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the const-alias-chain `for (const value of alias)` loop printed both `1` and `2`. No [matrix] in this file: the build group covers all four extensions but the harness group covers only js/ts, and `[matrix]` is file-wide with no per-case opt-out (see the file header's invocation arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationConstAliasChainWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "build_emits_for_of_const_alias_chain_in_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_bundle_for_of_alias_chain` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the const-alias-chain `for (const value of alias)` loop printed both `1` and `2`. No [matrix] in this file: the build group covers all four extensions but the harness group covers only js/ts, and `[matrix]` is file-wide with no per-case opt-out (see the file header's invocation arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationConstAliasChainWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_of_const_alias_chain_in_tsx_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_bundle_for_of_alias_chain` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the const-alias-chain `for (const value of alias)` loop printed both `1` and `2`. No [matrix] in this file: the build group covers all four extensions but the harness group covers only js/ts, and `[matrix]` is file-wide with no per-case opt-out (see the file header's invocation arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationConstAliasChainWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "run_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_harness_for_of_alias_chain("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1` and `2` (bare needles, not `1\\n`/`2\\n` as in this file's build group -- carried as written). `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. No [matrix] in this file: the harness group covers only js/ts while the build group covers all four extensions, and `[matrix]` is file-wide with no per-case opt-out."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_harness_for_of_alias_chain("run", ...)` runs `kali run --api browser --output json` under the browser harness (`node`) and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1` and `2`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so per the mirror-the-source policy that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed. Every run satisfying the exact pin satisfies both original `.contains` claims, so this is a verified strengthening. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. No [matrix] in this file: the harness group covers only js/ts while the build group covers all four extensions, and `[matrix]` is file-wide with no per-case opt-out."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "" }
+
+[[case]]
+name = "test_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_harness_for_of_alias_chain("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1` and `2` (bare needles, not `1\\n`/`2\\n` as in this file's build group -- carried as written). `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. No [matrix] in this file: the harness group covers only js/ts while the build group covers all four extensions, and `[matrix]` is file-wide with no per-case opt-out."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_ts_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_harness_for_of_alias_chain("test", ...)` runs `kali test --api browser --output json` under the browser harness (`node`) and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1` and `2`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so per the mirror-the-source policy that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed. Every run satisfying the exact pin satisfies both original `.contains` claims, so this is a verified strengthening. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. No [matrix] in this file: the harness group covers only js/ts while the build group covers all four extensions, and `[matrix]` is file-wide with no per-case opt-out."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.ts"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "" }
+
+[[case]]
+name = "run_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_harness_for_of_alias_chain("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1` and `2` (bare needles, not `1\\n`/`2\\n` as in this file's build group -- carried as written). `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. No [matrix] in this file: the harness group covers only js/ts while the build group covers all four extensions, and `[matrix]` is file-wide with no per-case opt-out."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_run_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_harness_for_of_alias_chain("run", ...)` runs `kali run --api browser --output json` under the browser harness (`node`) and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1` and `2`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so per the mirror-the-source policy that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed. Every run satisfying the exact pin satisfies both original `.contains` claims, so this is a verified strengthening. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. No [matrix] in this file: the harness group covers only js/ts while the build group covers all four extensions, and `[matrix]` is file-wide with no per-case opt-out."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "" }
+
+[[case]]
+name = "test_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_harness_for_of_alias_chain("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains both `1` and `2` (bare needles, not `1\\n`/`2\\n` as in this file's build group -- carried as written). `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. No [matrix] in this file: the harness group covers only js/ts while the build group covers all four extensions, and `[matrix]` is file-wide with no per-case opt-out."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["1", "2"]
+
+[[case]]
+name = "json_test_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_js_input"
+rationale = """Migrated from browser_for_of_array_iteration_alias_chain.rs. `assert_browser_harness_for_of_alias_chain("test", ...)` runs `kali test --api browser --output json` under the browser harness (`node`) and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, that `stderr` is exactly empty, and that `json["stdout"]` contains both `1` and `2`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so per the mirror-the-source policy that claim is resolved to an exact pin -- live-captured from the real `kali` binary, never hand-computed. Every run satisfying the exact pin satisfies both original `.contains` claims, so this is a verified strengthening. `exit = "success"` folds both `assert!(output.status.success())` and `assert_eq!(output.status.code(), Some(0))`. No [matrix] in this file: the harness group covers only js/ts while the build group covers all four extensions, and `[matrix]` is file-wide with no per-case opt-out."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.js"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness" }, "stdout" = "1\n2\n", "stderr" = "" }

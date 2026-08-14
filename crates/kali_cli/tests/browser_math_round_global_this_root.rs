@@ -1,3 +1,65 @@
+//! Task 18 batch 5 design-spec 5.11 retention: kept 100% hand-written, not
+//! migrated. No case file exists for this target.
+//!
+//! WHAT BLOCKS IT. All 9 `#[test]` fns in this file route through one of two
+//! helpers -- `assert_browser_bundle_global_this_math_round` (`:191`), which
+//! 8 of them call, and `assert_browser_harness_global_this_math_round`
+//! (`:316`), which the ninth calls 16 times from an inlined loop -- and
+//! BOTH helpers end in a line-oriented count -- `stdout.lines()` (`:310`) in the
+//! bundle helper, and `stdout.lines()` (`:392`, JSON branch) and
+//! `stdout.lines()` (`:440`, text branch) in the harness helper. The
+//! harness helper's two sites sit on opposite arms of its output-shape `if`, so
+//! every call reaches exactly one of them. 9 of 9 tests reach the construct
+//! unconditionally, so U4's trim-and-keep degenerates to whole-file retention:
+//! there is no complementary migratable subset to split off.
+//!
+//! MIGRATION NOTE (controller ruling 8): the retained looping fn
+//! `run_and_test_supports_global_this_math_round_identity_when_browser_harness_is_configured_in_js_and_ts_input`
+//! has a name that misdescribes its own body -- it says `js_and_ts`, but its
+//! literal table covers js, ts, jsx AND tsx, so it makes 16 invocations rather
+//! than the 8 the name implies. The source is NOT corrected: a fn name is not a
+//! comment so U7 does not literally apply, and editing a source invalidates
+//! every audit run against its blob. This file is a WHOLE-FILE retention with no
+//! case file, so there is no `rationale` for the note to live in -- ruling 8's
+//! usual home -- and it is recorded here instead, which is the only place a
+//! later reader will look.
+//!
+//! The construct splits the captured output into lines, keeps the lines equal to
+//! a literal, and pins how many there are. Design spec 5.4's closing paragraph
+//! already places the line-oriented outliers outside the assertion vocabulary,
+//! and none of the twelve keys reaches this shape. In particular the occurrence-
+//! count keys added in batch 4 do NOT: they count NON-OVERLAPPING SUBSTRING
+//! occurrences, as Rust's substring-match iterator does, whereas this construct
+//! counts WHOLE LINES that equal the literal exactly. The two differ on real
+//! output -- a line holding the literal plus anything else is counted by the
+//! substring form and rejected by the line form -- so migrating onto a count key
+//! would be a silent weakening, not a transcription. Rule 1 forbids that.
+//!
+//! ADJUDICATED, NOT PROPOSED. The human partner has ruled the line-oriented
+//! sites design-spec 5.11 outliers: **no assertion key is being added for them.**
+//! Do not reopen this by proposing a line-equality or line-count key.
+//!
+//! CONSEQUENCE FOR THE GATES (ruling 9): THIS FILE HAS NO RED-LIST, and that is
+//! the finding, not an omission. Ruling 9 addresses a U4 trim-and-keep retention,
+//! where the on-disk `.rs` is shorter than the source its case file was migrated
+//! from. Nothing was trimmed here, so there is no pre-trim/post-trim divergence
+//! and no pre-trim ref to run anything against; and there is no right-hand side,
+//! since `verify_pair.sh math_round_global_this_root` exits 2 with a missing case
+//! file before running any gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
+//! run here at all. The SIXTH is the exception, and it changes this paragraph:
+//! `batch5_crosscheck.py`, the citation gate that batch 6 wired into
+//! `verify_pair.sh`, needs no case file -- it resolves THIS header's own `:N`
+//! citations against this very file. So a whole-file retention is no longer
+//! ungated: run it directly, as
+//! `batch5_crosscheck.py --citations-only math_round_global_this_root`, because `verify_pair.sh`
+//! still exits 2 before reaching it. It exits 0 today. Ruling 11 exempts `:N` from the
+//! no-moving-numbers rule only because it is mechanically gated, and this is
+//! where that gating applies to a file with no pair. Verified by running it, not assumed.
+//!
+//! Escalated per rule 3/4 rather than shipped with a false green or a fabricated
+//! claim. This file must NOT be deleted by the family-wide sweep after batch 8.
+//! See the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path.
 use std::{fs, process::Command};
 
 use serde_json::Value;
@@ -174,7 +236,7 @@ fn assert_browser_bundle_global_this_math_round(filename: &str, json_output: boo
         .parent()
         .expect("bundle root parent")
         .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
+    let harness = kali_runtime_contract::browser_bundle_harness_script(
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
@@ -183,7 +245,7 @@ await mod.globalThisMathRoundIdentity();
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+    let mut harness_command = kali_runtime_contract::browser_harness_command_parts_for(
         std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
             .ok()
             .as_deref(),

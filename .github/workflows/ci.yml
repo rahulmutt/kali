@@ -218,6 +218,22 @@ jobs:
       - name: Run package corpus suite
         run: cargo test -p kali_cli --test package_corpus --verbose
 
+  # NO `migration-gates` JOB. The Task 18/19 migration gates
+  # (`bash scripts/test-gate.sh --gates-only`) are a DEVELOPER command, not a CI
+  # gate. A job running them was added and then removed before merge: it could
+  # not pass on a runner. It installed no Rust toolchain and ran no `cargo
+  # build`, while two of the 14 gates -- tools/migration/gen_task19_batch4.py
+  # and gen_task19_batch5.py -- invoke the compiled `kali` binary and fail
+  # rather than skip when it is absent; and the target directory they resolved
+  # was `.cache/cargo-target`, which comes from a machine-local
+  # ~/.cargo/config.toml in the dev container and is not in this repository, so
+  # a runner's cargo would build to ./target and the path would be wrong even
+  # with a build step. The migration is finished and frozen at merge, and the
+  # corpus those gates guard does not change again, so the gates are run by hand
+  # rather than repaired into CI. See
+  # docs/superpowers/specs/2026-07-29-test-binary-consolidation-design.md
+  # section 9, deviation 7, and crates/kali_cli/tests/cases/README.md.
+
   proof-check:
     runs-on: ubuntu-latest
     steps:

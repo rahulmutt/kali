@@ -1,0 +1,88 @@
+# Migrated from tests/browser_bundle_toplevel_start.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# A bare top-level program in a browser bundle runs via the glue's exported
+# `start()` helper, routing its console output through the `console_log`
+# import — and runs at most once no matter how many times `start()` is
+# called.
+#
+# `start_helper_is_present_in_both_glue_formats` loops `for format in ["esm",
+# "cjs"]`, but the two formats assert a DIFFERENT set of literal glue-text
+# markers (esm checks `export async function start()`; cjs checks `async
+# function start()` PLUS the CJS-only `const exported = { load,
+# loadWithImports, loadDynamicImport, start };` export line; both check
+# `instance.exports._start()`) -- not a uniform matrix axis (rule 7), so
+# split into 2 individually named sibling cases instead of a [matrix]. Since
+# the format has no step kind that reads an arbitrary on-disk text file and
+# asserts `.contains()` on its raw content (`file_json` only parses JSON),
+# both cases use a `browser_bundle_harness` step whose `body` reads the
+# emitted glue file via the node `fs`/`fileURLToPath` bindings the harness
+# prelude already imports, and echoes it to stdout for `stdout_contains` to
+# check -- a legitimate use of the existing format, not a new capability;
+# verified directly against the real binary.
+#
+# Those two glue-text steps deliberately carry NO `exit` assertion (fix
+# round 1, batch 3 I2). Every other `browser_bundle_harness` step in the
+# browser family now sets `exit = "success"`, mirroring the
+# `assert!(output.status.success())` its source makes on the harness
+# process. `start_helper_is_present_in_both_glue_formats` runs no harness
+# process at all -- the step exists only as the format's way of reading a
+# text file -- so there is no source claim to mirror, and adding one would
+# be a rule 2 invention. The first case,
+# `toplevel_program_runs_once_via_glue_start_helper`, DOES run the harness
+# in source and does carry `exit = "success"`.
+
+[source]
+"app.ts" = "console.log(1 + 2);\n"
+
+[[case]]
+name = "toplevel_program_runs_once_via_glue_start_helper"
+rationale = """Migrated from browser_bundle_toplevel_start.rs. A bare top-level program in a browser bundle runs via the glue's exported `start()` helper, routing its console output through the `console_log` import — and runs at most once no matter how many times `start()` is called."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.start();
+await mod.start();
+"""
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "start_helper_is_present_in_esm_glue_format"
+rationale = """Migrated from browser_bundle_toplevel_start.rs. A bare top-level program in a browser bundle runs via the glue's exported `start()` helper, routing its console output through the `console_log` import — and runs at most once no matter how many times `start()` is called. The ESM glue format exports an `async function start()` and invokes the wasm instance's `_start()` export."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const glueUrl = new URL('./app/app.js', import.meta.url);
+const js = await fs.readFile(fileURLToPath(glueUrl), 'utf8');
+console.log(js);
+"""
+stdout_contains = ["export async function start()", "instance.exports._start()"]
+
+[[case]]
+name = "start_helper_is_present_in_cjs_glue_format"
+rationale = """Migrated from browser_bundle_toplevel_start.rs. A bare top-level program in a browser bundle runs via the glue's exported `start()` helper, routing its console output through the `console_log` import — and runs at most once no matter how many times `start()` is called. The CJS glue format exports an `async function start()` (not `export async function`) alongside a `const exported = { load, loadWithImports, loadDynamicImport, start };` export table, and invokes the wasm instance's `_start()` export."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--format", "cjs", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const glueUrl = new URL('./app/app.cjs', import.meta.url);
+const js = await fs.readFile(fileURLToPath(glueUrl), 'utf8');
+console.log(js);
+"""
+stdout_contains = ["async function start()", "const exported = { load, loadWithImports, loadDynamicImport, start };", "instance.exports._start()"]

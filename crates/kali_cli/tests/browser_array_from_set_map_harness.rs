@@ -1,3 +1,53 @@
+//! Task 18 batch 2 audit escalation: kept 100% hand-written, not migrated.
+//!
+//! All 8 `#[test]` fns in this file route through
+//! `assert_browser_harness_array_from_set_map` (`:264`), which runs 21
+//! `assert!(source.contains(...))` self-checks (`:272-292`) on the JS
+//! fixture's OWN TEXT -- a dev-time invariant check that the fixture still
+//! literally embeds every `Array.from`/bracket-notation/logical-operator
+//! variant this file means to exercise -- before the fixture is ever
+//! written to disk or `kali` is ever invoked. These are not claims about
+//! process output.
+//!
+//! `audit-case-migration.py` deliberately excludes everything under a
+//! migrated case file's `[source]` table from its claim search (see that
+//! script's module docstring: "`body` and everything under `[source]` are
+//! program text, not claims about behavior"). A full draft migration of
+//! this file was built and verified against the real `kali` binary, then
+//! audited with the real `audit-case-migration.py` -- AUDIT FAILED, all 21
+//! of the literals above reported MISSING, despite being genuinely,
+//! verbatim present in the migrated `[source]` fixture body (confirmed by
+//! construction: that body is a byte-for-byte copy of this file's own
+//! `browser_harness_array_from_set_map_run_source()`). This is the same
+//! shape as the Task 18 pilot's `browser_math_pow_exponent_one.rs` finding
+//! (see that pilot's own working report -- git-ignored scratch that does
+//! not ship, so it is not cited by path), except here EVERY `#[test]` fn (not a
+//! subset) reaches the flagged helper unconditionally, so the pilot's
+//! §5.11 "trim-and-keep" disposition degenerates to whole-file retention --
+//! there is no complementary migratable subset to split off. No case file
+//! exists for this target.
+//!
+//! CONSEQUENCE FOR THE GATES (ruling 9), added retroactively by Task 18 batch 5:
+//! THIS FILE HAS NO RED-LIST, and that is the finding, not an omission. Ruling 9
+//! addresses a U4 trim-and-keep retention, where the on-disk `.rs` is shorter
+//! than the source its case file was migrated from and every literal-comparison
+//! gate therefore goes red against the wrong left-hand side. This is a
+//! WHOLE-FILE retention: nothing was trimmed, so there is no pre-trim/post-trim
+//! divergence and no pre-trim ref to run anything against. There is also no
+//! right-hand side -- `verify_pair.sh array_from_set_map_harness` exits 2 with
+//! `missing .../cases/browser/array_from_set_map_harness.toml` before running any
+//! gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
+//! run here at all. The SIXTH is the exception, and it changes this paragraph:
+//! `batch5_crosscheck.py`, the citation gate that batch 6 wired into
+//! `verify_pair.sh`, needs no case file -- it resolves THIS header's own `:N`
+//! citations against this very file. So a whole-file retention is no longer
+//! ungated: run it directly, as
+//! `batch5_crosscheck.py --citations-only array_from_set_map_harness`, because `verify_pair.sh`
+//! still exits 2 before reaching it. It exits 0 today. Ruling 11 exempts `:N` from the
+//! no-moving-numbers rule only because it is mechanically gated, and this is
+//! where that gating applies to a file with no pair. Verified by
+//! running it, not assumed. The batch-8 family gate's carve-out for this file is
+//! the retention statement above, not a gate red-list.
 use std::{fs, process::Command};
 
 use serde_json::Value;
@@ -243,7 +293,7 @@ fn assert_browser_harness_array_from_set_map(command: &str, filename: &str, json
     fs::write(&source_path, source).expect("write source");
 
     let mut cli = Command::new(kali_bin());
-    cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+    cli.env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
     if json_output {
         cli.arg("--output").arg("json");

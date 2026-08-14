@@ -1,0 +1,35 @@
+# Migrated from tests/array_at.rs -- both #[test] functions, 1:1 with their
+# source tests, no loops:
+#
+#   - `run`: `.at()` on a statically-known array literal folds at compile
+#     time, across an in-range positive index, an in-range negative index,
+#     and two out-of-range indexes (positive and negative).
+#   - `check_rejects_dynamic_index`: a dynamic index must fail closed with
+#     E5506, asserted on stderr text (the old test never passed `--output
+#     json`).
+#
+# No [matrix]/[constants] needed: two cases, two distinct single-file
+# fixtures, no repeated content and no uniform axis across the file.
+
+[source]
+"array-at.js" = '''
+console.log([10, 20, 30].at(1));
+console.log([10, 20, 30].at(-1));
+console.log([10, 20, 30].at(3));
+console.log([10, 20, 30].at(-4));
+'''
+"array-at-dynamic.js" = "function get(index) { return [10, 20, 30].at(index); }\n"
+
+[[case]]
+name = "run"
+rationale = "`.at()` on a statically-known array literal folds at compile time, across an in-range positive index, an in-range negative index, and out-of-range indexes in both directions."
+args = ["run", "array-at.js"]
+exit = "success"
+stdout = "20\n30\nundefined\nundefined\n"
+
+[[case]]
+name = "check_rejects_dynamic_index"
+rationale = "`.at()` only folds when the receiver is a statically-known array literal and the index is a statically-known integer; a dynamic index must fail closed with E5506."
+args = ["check", "array-at-dynamic.js"]
+exit = "failure"
+stderr_contains = ["E5506", "Array.prototype.at"]

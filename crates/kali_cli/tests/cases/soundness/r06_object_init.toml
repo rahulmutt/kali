@@ -1,0 +1,412 @@
+# Migrated from tests/soundness_r06_object_init.rs -- all 24 #[test] functions,
+# 1:1 to a case (no fn bundles multiple independent programs; no [matrix] --
+# every case runs a distinct one-off JS program via `kali run <file>.js`).
+#
+# The file's opening plain `//` header (4 lines, not a `//!` doc -- this file
+# has no crate-doc comment) is prepended verbatim to every case's rationale.
+# Six section banners (`// ---- Title ----`, some with a following paragraph,
+# blank-line-separated from the #[test] they introduce) are prepended to every
+# case in the fn-range they cover -- contiguous, non-overlapping, monotonic,
+# verified programmatically; none exceeds 15 cases so none needs an additional
+# `#` divider (rule: only sections over ~15 cases keep one). `run_ok`'s and
+# `run_e5506`'s own `///` doc comments are claim prose and are appended to the
+# rationale of every case the respective helper produced. A `//` comment
+# sitting as the FIRST statement inside a fn body (before its first real
+# statement) is a third attachment point, distinct from a banner or a direct
+# `///` doc immediately above `#[test]` -- `var_object_bool_field_reads_value`
+# is the one case of this in the file. `var_object_mixed_fields_read` carries
+# its explanatory comment as an unusual FOURTH attachment point: text trailing
+# the `#[ignore]` attribute itself (`#[ignore] // R-06-R4 (root cause
+# corrected...): this is` continuing across 11 more indented `//` lines) --
+# moved verbatim into that one case's rationale, and the case carries
+# `ignore = true` to match the source's `#[ignore]`.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture shared across two different #[test]s, no `${...}`
+# template literal in this file (all sources are plain non-template JS).
+#
+# `run_ok` trims stdout before comparing (`assert_eq!(run_ok(src), expected)`
+# compares against a TRIMMED literal) -- so, per the pilot's precedent, every
+# `run_ok`-based case's `stdout` field below is the untrimmed RAW stdout
+# captured from the real built kali binary (verified equal to the trimmed
+# literal after `.strip()`), which is the exact, complete process output --
+# strictly stronger than the trimmed comparison it replaces, not a departure
+# from source intent. `run_e5506` cases assert `exit = "failure"` and
+# `stderr_contains = ["E5506"]` per the helper's own body.
+#
+# Two cases (`returned_object_member_read_no_worse`,
+# `object_literal_reassignment_no_worse`) call bare `run()` and assert an OR
+# of tolerated outcomes in the source ("stdout == X OR stdout == Y", or even
+# "success with one of two stdouts, OR any non-success exit") -- a real
+# disjunction the case format cannot express as a disjunction (same class as
+# rule 11's OR-error-code case, here triggered by an explicit tolerance-OR
+# instead). Both were run against the real built kali binary; each currently
+# takes one specific, verified branch of its own tolerated set, and that exact
+# branch is pinned here as `exit = "success"` plus the verified `stdout` --
+# strictly stronger than the untranslated OR, per the same resolution rule 11
+# uses for a disjoint error code, extended here to a disjoint stdout/exit
+# shape. The source's full tolerance sentence is carried into both cases'
+# rationale so a reader sees why the pin is narrower than what the source
+# actually demanded.
+
+[source]
+"var_object_numeric_field_reads_value.js" = "var o = { f: 7 }; console.log(o.f);"
+"let_object_numeric_field_reads_value.js" = "let o = { f: 7 }; console.log(o.f);"
+"var_object_string_field_reads_value.js" = "var o = { f: \"hi\" }; console.log(o.f);"
+"var_object_bool_field_reads_value.js" = "var o = { f: true }; console.log(o.f);"
+"bool_via_variable_fails_closed.js" = "var t=true; var o={f:t}; console.log(o.f);"
+"bool_via_unary_not_fails_closed.js" = "var o={f:!0}; console.log(o.f);"
+"bool_via_comparison_fails_closed.js" = "var o={f:1>0}; console.log(o.f);"
+"bigint_field_fails_closed.js" = "var o={f:7n}; console.log(o.f);"
+"null_field_fails_closed.js" = "var o = { f: null }; console.log(o.f);"
+"var_object_float_field_reads_value.js" = "var o = { f: 1.5 }; console.log(o.f);"
+"var_object_negative_field_reads_value.js" = "var o = { f: -7 }; console.log(o.f);"
+"unary_plus_on_nonnumeric_string_fails_closed.js" = "var o={f:+\"hi\"}; console.log(o.f);"
+"unary_plus_on_decimal_string_fails_closed.js" = "var o={f:+\"3\"}; console.log(o.f);"
+"unary_minus_on_string_fails_closed.js" = "var o={f:-\"3\"}; console.log(o.f);"
+"var_object_multi_field_reads_all.js" = "var o = { a: 1, b: 2, c: 3 }; console.log(o.a + o.b + o.c);"
+"var_object_mixed_fields_read.js" = "var o = { n: 7, s: \"hi\" }; console.log(o.n, o.s);"
+"var_object_function_scope_reads_value.js" = "function h(){ var o = { f: 7 }; return o.f; } console.log(h());"
+"const_object_still_folds.js" = "const o = { f: 7 }; console.log(o.f);"
+"var_object_nested_field_fails_closed.js" = "var o = { inner: { x: 1 } }; console.log(o.inner.x);"
+"var_object_unknown_field_fails_closed.js" = "var o = { f: 7 }; console.log(o.zzz);"
+"returned_object_member_read_no_worse.js" = "function h(){ var o = { f: 7 }; return o; } console.log(h().f);"
+"object_literal_reassignment_no_worse.js" = "var o = { f: 1 }; console.log(o.f); o = { f: 2 }; console.log(o.f);"
+"write_materialized_bool_stays_untouched.js" = "var o = { f: false }; o.f = true; console.log(o.f);"
+"mixed_bool_numeric_field_over_denies_e5506.js" = "var o = { f: 7, g: true }; console.log(o.f);"
+
+# --- Green pins: read-only mutable object literals materialize correctly ---
+
+[[case]]
+name = "var_object_numeric_field_reads_value"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Green pins: read-only mutable object literals materialize correctly ----
+
+Compile+run, assert success, return trimmed stdout."""
+args = ["run", "var_object_numeric_field_reads_value.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "let_object_numeric_field_reads_value"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Green pins: read-only mutable object literals materialize correctly ----
+
+Compile+run, assert success, return trimmed stdout."""
+args = ["run", "let_object_numeric_field_reads_value.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "var_object_string_field_reads_value"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Green pins: read-only mutable object literals materialize correctly ----
+
+Compile+run, assert success, return trimmed stdout."""
+args = ["run", "var_object_string_field_reads_value.js"]
+exit = "success"
+stdout = "hi\n"
+
+[[case]]
+name = "var_object_bool_field_reads_value"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Green pins: read-only mutable object literals materialize correctly ----
+
+R-06 Boolean-field residual (task review 2026-07-24): kali has no first-class runtime Boolean repr axis at all (`var b = true; console.log(b);` — NO object involved — already prints "1", not "true"), so a materialized object field can NEVER read a Boolean field back correctly. Read-materializing this binding would turn the pre-fix silent-`0` into a NEW nonzero-wrong value (silent `1`) — exactly what R-06 must never introduce. It fails closed (E5506) instead: honest over-deny beats a new silent-wrong value. A write-materialized Boolean field's pre-existing silent-`1` behavior (`var o={f:false}; o.f=true; console.log(o.f)` -> "1", unchanged) is a separate, out-of-scope, pre-existing bug this fix deliberately leaves untouched.
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "var_object_bool_field_reads_value.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+# --- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ---
+
+[[case]]
+name = "bool_via_variable_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ----
+
+The bare Boolean-LITERAL check above is a DENYLIST and leaks: a Boolean value reached via a variable, `!x`, or a comparison — or a BigInt literal — slips it, materializes, and reads back a NEW nonzero-wrong value (main was silent-0). These pins lock in the allowlist-at-the-choke fix (`object_field_value_is_safe_for_materialization`): only a numeric literal, a string literal, or unary `+`/`-` on one is admitted; every other field-value shape fails the WHOLE binding closed (E5506).
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "bool_via_variable_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "bool_via_unary_not_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ----
+
+The bare Boolean-LITERAL check above is a DENYLIST and leaks: a Boolean value reached via a variable, `!x`, or a comparison — or a BigInt literal — slips it, materializes, and reads back a NEW nonzero-wrong value (main was silent-0). These pins lock in the allowlist-at-the-choke fix (`object_field_value_is_safe_for_materialization`): only a numeric literal, a string literal, or unary `+`/`-` on one is admitted; every other field-value shape fails the WHOLE binding closed (E5506).
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "bool_via_unary_not_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "bool_via_comparison_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ----
+
+The bare Boolean-LITERAL check above is a DENYLIST and leaks: a Boolean value reached via a variable, `!x`, or a comparison — or a BigInt literal — slips it, materializes, and reads back a NEW nonzero-wrong value (main was silent-0). These pins lock in the allowlist-at-the-choke fix (`object_field_value_is_safe_for_materialization`): only a numeric literal, a string literal, or unary `+`/`-` on one is admitted; every other field-value shape fails the WHOLE binding closed (E5506).
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "bool_via_comparison_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "bigint_field_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ----
+
+The bare Boolean-LITERAL check above is a DENYLIST and leaks: a Boolean value reached via a variable, `!x`, or a comparison — or a BigInt literal — slips it, materializes, and reads back a NEW nonzero-wrong value (main was silent-0). These pins lock in the allowlist-at-the-choke fix (`object_field_value_is_safe_for_materialization`): only a numeric literal, a string literal, or unary `+`/`-` on one is admitted; every other field-value shape fails the WHOLE binding closed (E5506).
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "bigint_field_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "null_field_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ----
+
+The bare Boolean-LITERAL check above is a DENYLIST and leaks: a Boolean value reached via a variable, `!x`, or a comparison — or a BigInt literal — slips it, materializes, and reads back a NEW nonzero-wrong value (main was silent-0). These pins lock in the allowlist-at-the-choke fix (`object_field_value_is_safe_for_materialization`): only a numeric literal, a string literal, or unary `+`/`-` on one is admitted; every other field-value shape fails the WHOLE binding closed (E5506).
+
+kali has no null repr; `main` silently printed `0` where node prints `null` (already wrong, but zero). The allowlist now fails this closed instead — honest over-deny, and no worse than main (E5506, not a new nonzero-wrong value).
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "null_field_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "var_object_float_field_reads_value"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ----
+
+The bare Boolean-LITERAL check above is a DENYLIST and leaks: a Boolean value reached via a variable, `!x`, or a comparison — or a BigInt literal — slips it, materializes, and reads back a NEW nonzero-wrong value (main was silent-0). These pins lock in the allowlist-at-the-choke fix (`object_field_value_is_safe_for_materialization`): only a numeric literal, a string literal, or unary `+`/`-` on one is admitted; every other field-value shape fails the WHOLE binding closed (E5506).
+
+Compile+run, assert success, return trimmed stdout."""
+args = ["run", "var_object_float_field_reads_value.js"]
+exit = "success"
+stdout = "1.5\n"
+
+[[case]]
+name = "var_object_negative_field_reads_value"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ----
+
+The bare Boolean-LITERAL check above is a DENYLIST and leaks: a Boolean value reached via a variable, `!x`, or a comparison — or a BigInt literal — slips it, materializes, and reads back a NEW nonzero-wrong value (main was silent-0). These pins lock in the allowlist-at-the-choke fix (`object_field_value_is_safe_for_materialization`): only a numeric literal, a string literal, or unary `+`/`-` on one is admitted; every other field-value shape fails the WHOLE binding closed (E5506).
+
+Compile+run, assert success, return trimmed stdout."""
+args = ["run", "var_object_negative_field_reads_value.js"]
+exit = "success"
+stdout = "-7\n"
+
+# --- Unary-on-string pins (task review round 4, 2026-07-24) ---
+
+[[case]]
+name = "unary_plus_on_nonnumeric_string_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Unary-on-string pins (task review round 4, 2026-07-24) ----
+
+The unary +/- arm of `object_field_value_is_safe_for_materialization` used to recurse into the GENERAL predicate, which admits `String` at the top level — so it wrongly admitted `+"hi"`/`-"3"` too. A materialized field has no string->number coercion (kali reads the raw string bytes as an integer), so `+"3"` happening to read back `3` is COINCIDENTAL, not proof of soundness; `+"hi"`/`+"0x10"`/`+"  5  "` read back garbage. The fix restricts the unary arm to a numeric-literal-only sub-check (`unary_numeric_literal_operand`) that never accepts a string at any depth — a string is admitted ONLY as a bare top-level field value, never underneath a unary operator.
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "unary_plus_on_nonnumeric_string_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "unary_plus_on_decimal_string_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Unary-on-string pins (task review round 4, 2026-07-24) ----
+
+The unary +/- arm of `object_field_value_is_safe_for_materialization` used to recurse into the GENERAL predicate, which admits `String` at the top level — so it wrongly admitted `+"hi"`/`-"3"` too. A materialized field has no string->number coercion (kali reads the raw string bytes as an integer), so `+"3"` happening to read back `3` is COINCIDENTAL, not proof of soundness; `+"hi"`/`+"0x10"`/`+"  5  "` read back garbage. The fix restricts the unary arm to a numeric-literal-only sub-check (`unary_numeric_literal_operand`) that never accepts a string at any depth — a string is admitted ONLY as a bare top-level field value, never underneath a unary operator.
+
+Coincidentally-correct today (`+"3"` would read back `3`), but unsound in general (see `unary_plus_on_nonnumeric_string_fails_closed`) — must fail closed regardless of this specific value.
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "unary_plus_on_decimal_string_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "unary_minus_on_string_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Unary-on-string pins (task review round 4, 2026-07-24) ----
+
+The unary +/- arm of `object_field_value_is_safe_for_materialization` used to recurse into the GENERAL predicate, which admits `String` at the top level — so it wrongly admitted `+"hi"`/`-"3"` too. A materialized field has no string->number coercion (kali reads the raw string bytes as an integer), so `+"3"` happening to read back `3` is COINCIDENTAL, not proof of soundness; `+"hi"`/`+"0x10"`/`+"  5  "` read back garbage. The fix restricts the unary arm to a numeric-literal-only sub-check (`unary_numeric_literal_operand`) that never accepts a string at any depth — a string is admitted ONLY as a bare top-level field value, never underneath a unary operator.
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "unary_minus_on_string_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "var_object_multi_field_reads_all"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Unary-on-string pins (task review round 4, 2026-07-24) ----
+
+The unary +/- arm of `object_field_value_is_safe_for_materialization` used to recurse into the GENERAL predicate, which admits `String` at the top level — so it wrongly admitted `+"hi"`/`-"3"` too. A materialized field has no string->number coercion (kali reads the raw string bytes as an integer), so `+"3"` happening to read back `3` is COINCIDENTAL, not proof of soundness; `+"hi"`/`+"0x10"`/`+"  5  "` read back garbage. The fix restricts the unary arm to a numeric-literal-only sub-check (`unary_numeric_literal_operand`) that never accepts a string at any depth — a string is admitted ONLY as a bare top-level field value, never underneath a unary operator.
+
+Compile+run, assert success, return trimmed stdout."""
+args = ["run", "var_object_multi_field_reads_all.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "var_object_mixed_fields_read"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Unary-on-string pins (task review round 4, 2026-07-24) ----
+
+The unary +/- arm of `object_field_value_is_safe_for_materialization` used to recurse into the GENERAL predicate, which admits `String` at the top level — so it wrongly admitted `+"hi"`/`-"3"` too. A materialized field has no string->number coercion (kali reads the raw string bytes as an integer), so `+"3"` happening to read back `3` is COINCIDENTAL, not proof of soundness; `+"hi"`/`+"0x10"`/`+"  5  "` read back garbage. The fix restricts the unary arm to a numeric-literal-only sub-check (`unary_numeric_literal_operand`) that never accepts a string at any depth — a string is admitted ONLY as a bare top-level field value, never underneath a unary operator.
+
+R-06-R4 (root cause corrected on task review 2026-07-24): this is a pre-existing multi-arg `console.log` SINK bug, not a field-repr gap. A single-arg `console.log(o.s)` reads a String field correctly ("hi"), which disproves "object fields have no Repr::String axis" — the field itself is fine. The corruption is specific to a String field being a NON-SOLE argument of a multi-arg `console.log` call: `const o={n:7,s:"hi"}; console.log(o.n,o.s)` corrupts IDENTICALLY, and `const` never materializes / never touches R-06 at all, proving this is a pre-existing downstream sink bug outside R-06's scope. R-06 merely routes the read-only var object to the same already-broken sink. See task-1-report.md.
+
+Compile+run, assert success, return trimmed stdout.
+
+Migration note: this case is `ignore = true` (matching the source's own `#[ignore]`), so it is not run against today's known-broken binary; `stdout` is pinned to the source's literal "7 hi" WITHOUT a trailing newline, unlike every sibling case in this file (which pin the raw untrimmed stdout, e.g. "7\\n", "6\\n", ...). Whoever removes the `ignore` should expect a spurious trailing-newline failure against the raw (untrimmed) stdout the runner actually captures, and will need to either trim the comparison or repin to the untrimmed value at that time."""
+ignore = true
+args = ["run", "var_object_mixed_fields_read.js"]
+exit = "success"
+stdout = "7 hi"
+
+[[case]]
+name = "var_object_function_scope_reads_value"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Unary-on-string pins (task review round 4, 2026-07-24) ----
+
+The unary +/- arm of `object_field_value_is_safe_for_materialization` used to recurse into the GENERAL predicate, which admits `String` at the top level — so it wrongly admitted `+"hi"`/`-"3"` too. A materialized field has no string->number coercion (kali reads the raw string bytes as an integer), so `+"3"` happening to read back `3` is COINCIDENTAL, not proof of soundness; `+"hi"`/`+"0x10"`/`+"  5  "` read back garbage. The fix restricts the unary arm to a numeric-literal-only sub-check (`unary_numeric_literal_operand`) that never accepts a string at any depth — a string is admitted ONLY as a bare top-level field value, never underneath a unary operator.
+
+Compile+run, assert success, return trimmed stdout."""
+args = ["run", "var_object_function_scope_reads_value.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "const_object_still_folds"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Unary-on-string pins (task review round 4, 2026-07-24) ----
+
+The unary +/- arm of `object_field_value_is_safe_for_materialization` used to recurse into the GENERAL predicate, which admits `String` at the top level — so it wrongly admitted `+"hi"`/`-"3"` too. A materialized field has no string->number coercion (kali reads the raw string bytes as an integer), so `+"3"` happening to read back `3` is COINCIDENTAL, not proof of soundness; `+"hi"`/`+"0x10"`/`+"  5  "` read back garbage. The fix restricts the unary arm to a numeric-literal-only sub-check (`unary_numeric_literal_operand`) that never accepts a string at any depth — a string is admitted ONLY as a bare top-level field value, never underneath a unary operator.
+
+Regression guard: const stays fold-first, unchanged.
+
+Compile+run, assert success, return trimmed stdout."""
+args = ["run", "const_object_still_folds.js"]
+exit = "success"
+stdout = "7\n"
+
+# --- Fail-closed pins: shapes the materialized lane cannot store ---
+
+[[case]]
+name = "var_object_nested_field_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Fail-closed pins: shapes the materialized lane cannot store ----
+
+Nested-object field: E5506, not silent-0.
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "var_object_nested_field_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "var_object_unknown_field_fails_closed"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Fail-closed pins: shapes the materialized lane cannot store ----
+
+Unknown field on a materialized read-only object: E5506 (kali has no `undefined`; honest over-deny beats today's silent-0).
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "var_object_unknown_field_fails_closed.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+# --- Residual guards (out of scope): must be NO WORSE than main. ---
+
+[[case]]
+name = "returned_object_member_read_no_worse"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Residual guards (out of scope): must be NO WORSE than main. Each may stay silent-0 or fail closed, but must never crash and never produce a NEW nonzero-wrong value. ----
+
+A newly-materialized object that ESCAPES via return then a member-on-call read (R-06-R1 / R-14). Today: silent-0. Guard: exit 0 with "0", OR a fail-closed diagnostic — never a crash, never a nonzero-wrong value.
+
+May not print node's "7" yet (R-14 escape is a later stage), but it must not print a WRONG NONZERO value. Silent-0 is the tolerated state.
+
+A non-success exit (fail-closed) is also acceptable — the only forbidden outcome is a silent NONZERO-wrong value, guarded above.
+
+Verified against the real built kali binary: this program currently exits success with stdout "0", one of the two tolerated outcomes -- pinned as the exact, strictly stronger, currently-observed behavior rather than left as an unpinned OR the case format cannot express natively."""
+args = ["run", "returned_object_member_read_no_worse.js"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "object_literal_reassignment_no_worse"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Residual guards (out of scope): must be NO WORSE than main. Each may stay silent-0 or fail closed, but must never crash and never produce a NEW nonzero-wrong value. ----
+
+Whole-object reassignment to an object literal (R-06-R2), a distinct store mechanism from the declarator init. Today: the reassigned read is silent-0. Guard: no crash, no new nonzero-wrong value.
+
+First read is correct (1); the reassigned read is the residual.
+
+Verified against the real built kali binary: this program currently exits success with stdout "1\\n0", one of the two tolerated outcomes -- pinned as the exact, strictly stronger, currently-observed behavior rather than left as an unpinned OR the case format cannot express natively."""
+args = ["run", "object_literal_reassignment_no_worse.js"]
+exit = "success"
+stdout = "1\n0\n"
+
+# --- Regression pins (Task 1 review): lock in R-06 soundness invariants ---
+
+[[case]]
+name = "write_materialized_bool_stays_untouched"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Regression pins (Task 1 review): lock in R-06 soundness invariants ----
+
+R-06's bool fail-close (see `var_object_bool_field_reads_value` above) must NOT bleed into the pre-existing WRITE-materialization path, which is a distinct mechanism from the read-only declarator-init lane R-06 touches. Confirmed on a fresh build: prints "1", exit 0 (NOT E5506) — this locks in the load-bearing `!obj_materialized.contains` guard that scopes R-06's Boolean-field fail-close to read-only bindings only.
+
+Compile+run, assert success, return trimmed stdout."""
+args = ["run", "write_materialized_bool_stays_untouched.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "mixed_bool_numeric_field_over_denies_e5506"
+rationale = """R-06 — read-only var/let object-literal materialization soundness pins. A read-only mutable object literal must read back its real field values (materialized allocation), not the silent-0 fold fallback. Shapes the materialized lane cannot store fail closed with E5506, never silent-0.
+
+---- Regression pins (Task 1 review): lock in R-06 soundness invariants ----
+
+The bool fail-close is scoped to the WHOLE binding, not per-field: a read-only mutable object with ANY Boolean-literal field fails closed even when only a safe numeric field is read. Confirmed on a fresh build: E5506, exit 1. This documents an intended honest over-deny; per-field precision is a possible later refinement, not a bug.
+
+Compile+run, assert fail-closed with E5506."""
+args = ["run", "mixed_bool_numeric_field_over_denies_e5506.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+

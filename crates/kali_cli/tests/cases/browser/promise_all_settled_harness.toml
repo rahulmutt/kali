@@ -1,0 +1,502 @@
+# Migrated from tests/browser_promise_all_settled_harness.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
+# tests/browser_promise_all_settled_harness.rs has 1 Rust comment block(s), listed with their
+# line numbers before any TOML was written:
+#   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:49) -- opens a 2-line block
+# It sits in `assert_browser_requested_promise_all_settled`, which every `#[test]` fn in the file calls,
+# so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
+# by this generator (its comment_blocks helper, named plainly rather than backticked:
+# U8's gate resolves every backticked lower-case identifier against this source's own
+# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
+# become `--`.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_requested_promise_all_settled` -- 16 invocation(s) = 16 individual `#[test]` fns, each one unlooped call = command(run/test) x json_output(2) x ext(4); the file contains no loop, so 16 fns = 16 invocations
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one `(command, json_output)` cell of the source's 16 fns, fanned to the 4 extensions; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Both fixtures
+# (`main.${ext}`, `smoke.test.${ext}`) are written unconditionally by the source into
+# a fresh temp dir: no fixture is written behind an `if`, no `kali.json` manifest is
+# written anywhere in this file, and no case's point is the presence or absence of a
+# file. Every command below names its entry explicitly on argv, so the unused siblings
+# in a trial dir are inert -- verified against the real binary rather than assumed:
+# `kali --output json test smoke.test.js` in a directory holding all four
+# `smoke.test.<ext>` fixtures still reports `payload.total = 1`, so no sibling is
+# picked up by discovery.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. The helper picks its body from the
+# COMMAND (`if command == "test" { ..._test_source() } else { ..._run_source() }`)
+# and the source hands it a DIFFERENT filename per command for every extension --
+# `main.<ext>` for `run` and `smoke.test.<ext>` for `test` -- so the two program
+# texts never land on one key and the flat file-wide namespace has no collision.
+# (That is the axis on which this file differs from `set_iteration_harness`, whose
+# looped fn reuses `main.<ext>` for BOTH commands and therefore does need renames.)
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `assert_browser_requested_promise_all_settled`,
+#   `browser_promise_all_settled_run_source`,
+#   `browser_promise_all_settled_test_source` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# This file runs no `browser_bundle_harness` step at all -- every case is a single
+# `kali run`/`kali test` invocation -- so ruling 6's runner-infrastructure paragraph
+# is omitted rather than printed about a chain this file never reaches.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# The source's fail-closed assertion is at `output.status.success()` :51.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """async function browserPromiseAllSettled() {
+  const settled = await Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedSettled = await Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedSettled = await Promise['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
+  const dottedSettled = await globalThis.Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedDottedSettled = await globalThis.Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const singleDottedSettled = await globalThis.Promise['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedBracketedSettled = await globalThis["Promise"].allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const singleBracketedSettled = await globalThis['Promise']['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedBracketedSettled = await globalThis['Promise'].allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const nullishRootSettled = await Object.freeze((null ?? Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalAndRootSettled = await Object.freeze((true && Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalOrRootSettled = await Object.freeze((false || Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const nullishDottedSettled = await Object.freeze((null ?? globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalAndDottedSettled = await Object.freeze((true && globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalOrDottedSettled = await Object.freeze((false || globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedDottedRootFrozenSettled = await Object.freeze((globalThis.Promise)["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"])["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedBracketedDotRootFrozenSettled = await Object.freeze((globalThis["Promise"]).allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedSingleBracketedDotRootFrozenSettled = await Object.freeze((globalThis['Promise']).allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis["Promise"]["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleFrozenBracketedSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleFrozenBracketedSettled = await Object.freeze((globalThis['Promise']['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedBracketedRootFrozenSettled = await Object.freeze(globalThis["Promise"].allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedMixedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"].allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedBracketedRootFrozenSettled = await Object.freeze(globalThis['Promise'].allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const fullyBracketedSingleRootFrozenSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedFullyBracketedSingleRootFrozenSettled = await Object.freeze((globalThis['Promise']['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleMixedBracketedRootFrozenSettled = await Object.freeze((globalThis['Promise'].allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedRootFrozenSettled = await Object.freeze(globalThis.Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedMixedRootFrozenSettled = await Object.freeze((globalThis.Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedRootFrozenSettled = await Object.freeze(globalThis.Promise['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleMixedRootFrozenSettled = await Object.freeze((globalThis.Promise['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const bracketedRootFrozenSettled = await Object.freeze(Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedBracketedRootFrozenSettled = await Object.freeze((Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleBracketedRootFrozenSettled = await Object.freeze(Promise['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleBracketedRootFrozenSettled = await Object.freeze((Promise['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const rootFrozenSettled = await Object.freeze(Promise.allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedRootFrozenSettled = await Object.freeze((Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  if (
+    settled.length !== 2 ||
+    settled[0].status !== 'fulfilled' ||
+    settled[0].value !== 1 ||
+    settled[1].status !== 'rejected' ||
+    settled[1].reason !== 'boom' ||
+    mixedSettled.length !== 2 ||
+    mixedSettled[0].status !== 'fulfilled' ||
+    mixedSettled[0].value !== 1 ||
+    mixedSettled[1].status !== 'rejected' ||
+    mixedSettled[1].reason !== 'boom' ||
+    dottedSettled.length !== 2 ||
+    dottedSettled[0].status !== 'fulfilled' ||
+    dottedSettled[0].value !== 1 ||
+    dottedSettled[1].status !== 'rejected' ||
+    dottedSettled[1].reason !== 'boom' ||
+    mixedDottedSettled.length !== 2 ||
+    mixedDottedSettled[0].status !== 'fulfilled' ||
+    mixedDottedSettled[0].value !== 1 ||
+    mixedDottedSettled[1].status !== 'rejected' ||
+    mixedDottedSettled[1].reason !== 'boom' ||
+    mixedBracketedSettled.length !== 2 ||
+    mixedBracketedSettled[0].status !== 'fulfilled' ||
+    mixedBracketedSettled[0].value !== 1 ||
+    mixedBracketedSettled[1].status !== 'rejected' ||
+    mixedBracketedSettled[1].reason !== 'boom' ||
+    bracketedSettled.length !== 2 ||
+    bracketedSettled[0].status !== 'fulfilled' ||
+    bracketedSettled[0].value !== 1 ||
+    bracketedSettled[1].status !== 'rejected' ||
+    bracketedSettled[1].reason !== 'boom' ||
+    nullishRootSettled.length !== 2 ||
+    nullishRootSettled[0].status !== 'fulfilled' ||
+    nullishRootSettled[0].value !== 1 ||
+    nullishRootSettled[1].status !== 'rejected' ||
+    nullishRootSettled[1].reason !== 'boom' ||
+    logicalAndRootSettled.length !== 2 ||
+    logicalAndRootSettled[0].status !== 'fulfilled' ||
+    logicalAndRootSettled[0].value !== 1 ||
+    logicalAndRootSettled[1].status !== 'rejected' ||
+    logicalAndRootSettled[1].reason !== 'boom' ||
+    logicalOrRootSettled.length !== 2 ||
+    logicalOrRootSettled[0].status !== 'fulfilled' ||
+    logicalOrRootSettled[0].value !== 1 ||
+    logicalOrRootSettled[1].status !== 'rejected' ||
+    logicalOrRootSettled[1].reason !== 'boom' ||
+    nullishDottedSettled.length !== 2 ||
+    nullishDottedSettled[0].status !== 'fulfilled' ||
+    nullishDottedSettled[0].value !== 1 ||
+    nullishDottedSettled[1].status !== 'rejected' ||
+    nullishDottedSettled[1].reason !== 'boom' ||
+    logicalAndDottedSettled.length !== 2 ||
+    logicalAndDottedSettled[0].status !== 'fulfilled' ||
+    logicalAndDottedSettled[0].value !== 1 ||
+    logicalAndDottedSettled[1].status !== 'rejected' ||
+    logicalAndDottedSettled[1].reason !== 'boom' ||
+    logicalOrDottedSettled.length !== 2 ||
+    logicalOrDottedSettled[0].status !== 'fulfilled' ||
+    logicalOrDottedSettled[0].value !== 1 ||
+    logicalOrDottedSettled[1].status !== 'rejected' ||
+    logicalOrDottedSettled[1].reason !== 'boom' ||
+    wrappedBracketedDotRootFrozenSettled.length !== 2 ||
+    wrappedBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||
+    wrappedBracketedDotRootFrozenSettled[0].value !== 1 ||
+    wrappedBracketedDotRootFrozenSettled[1].status !== 'rejected' ||
+    wrappedBracketedDotRootFrozenSettled[1].reason !== 'boom' ||
+    wrappedSingleBracketedDotRootFrozenSettled.length !== 2 ||
+    wrappedSingleBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||
+    wrappedSingleBracketedDotRootFrozenSettled[0].value !== 1 ||
+    wrappedSingleBracketedDotRootFrozenSettled[1].status !== 'rejected' ||
+    wrappedSingleBracketedDotRootFrozenSettled[1].reason !== 'boom' ||
+    frozenBracketedSettled.length !== 2 ||
+    frozenBracketedSettled[0].status !== 'fulfilled' ||
+    frozenBracketedSettled[0].value !== 1 ||
+    frozenBracketedSettled[1].status !== 'rejected' ||
+    frozenBracketedSettled[1].reason !== 'boom' ||
+    parenthesizedFrozenBracketedSettled.length !== 2 ||
+    parenthesizedFrozenBracketedSettled[0].status !== 'fulfilled' ||
+    parenthesizedFrozenBracketedSettled[0].value !== 1 ||
+    parenthesizedFrozenBracketedSettled[1].status !== 'rejected' ||
+    parenthesizedFrozenBracketedSettled[1].reason !== 'boom' ||
+    mixedBracketedRootFrozenSettled.length !== 2 ||
+    mixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    mixedBracketedRootFrozenSettled[0].value !== 1 ||
+    mixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    mixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedMixedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    singleMixedBracketedRootFrozenSettled.length !== 2 ||
+    singleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    singleMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    singleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    singleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    fullyBracketedSingleRootFrozenSettled.length !== 2 ||
+    fullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||
+    fullyBracketedSingleRootFrozenSettled[0].value !== 1 ||
+    fullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||
+    fullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled.length !== 2 ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[0].value !== 1 ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    mixedRootFrozenSettled.length !== 2 ||
+    mixedRootFrozenSettled[0].status !== 'fulfilled' ||
+    mixedRootFrozenSettled[0].value !== 1 ||
+    mixedRootFrozenSettled[1].status !== 'rejected' ||
+    mixedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedMixedRootFrozenSettled.length !== 2 ||
+    parenthesizedMixedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedMixedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedMixedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedMixedRootFrozenSettled[1].reason !== 'boom' ||
+    bracketedRootFrozenSettled.length !== 2 ||
+    bracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    bracketedRootFrozenSettled[0].value !== 1 ||
+    bracketedRootFrozenSettled[1].status !== 'rejected' ||
+    bracketedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    rootFrozenSettled.length !== 2 ||
+    rootFrozenSettled[0].status !== 'fulfilled' ||
+    rootFrozenSettled[0].value !== 1 ||
+    rootFrozenSettled[1].status !== 'rejected' ||
+    rootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedRootFrozenSettled.length !== 2 ||
+    parenthesizedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedRootFrozenSettled[1].reason !== 'boom'
+  ) {
+    throw new Error('unexpected Promise.allSettled semantics');
+  }
+
+}
+
+async function main() {
+  await browserPromiseAllSettled();
+  console.log('browser promise allSettled ok');
+}
+
+main();
+"""
+"smoke.test.${ext}" = """async function browserPromiseAllSettled() {
+  const settled = await Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedSettled = await Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedSettled = await Promise['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
+  const dottedSettled = await globalThis.Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedDottedSettled = await globalThis.Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const singleDottedSettled = await globalThis.Promise['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedBracketedSettled = await globalThis["Promise"].allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const singleBracketedSettled = await globalThis['Promise']['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedBracketedSettled = await globalThis['Promise'].allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const nullishRootSettled = await Object.freeze((null ?? Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalAndRootSettled = await Object.freeze((true && Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalOrRootSettled = await Object.freeze((false || Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const nullishDottedSettled = await Object.freeze((null ?? globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalAndDottedSettled = await Object.freeze((true && globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalOrDottedSettled = await Object.freeze((false || globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedDottedRootFrozenSettled = await Object.freeze((globalThis.Promise)["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"])["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedBracketedDotRootFrozenSettled = await Object.freeze((globalThis["Promise"]).allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedSingleBracketedDotRootFrozenSettled = await Object.freeze((globalThis['Promise']).allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis["Promise"]["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleFrozenBracketedSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleFrozenBracketedSettled = await Object.freeze((globalThis['Promise']['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedBracketedRootFrozenSettled = await Object.freeze(globalThis["Promise"].allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedMixedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"].allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedBracketedRootFrozenSettled = await Object.freeze(globalThis['Promise'].allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const fullyBracketedSingleRootFrozenSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedFullyBracketedSingleRootFrozenSettled = await Object.freeze((globalThis['Promise']['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleMixedBracketedRootFrozenSettled = await Object.freeze((globalThis['Promise'].allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedRootFrozenSettled = await Object.freeze(globalThis.Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedMixedRootFrozenSettled = await Object.freeze((globalThis.Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedRootFrozenSettled = await Object.freeze(globalThis.Promise['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleMixedRootFrozenSettled = await Object.freeze((globalThis.Promise['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const bracketedRootFrozenSettled = await Object.freeze(Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedBracketedRootFrozenSettled = await Object.freeze((Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleBracketedRootFrozenSettled = await Object.freeze(Promise['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleBracketedRootFrozenSettled = await Object.freeze((Promise['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const rootFrozenSettled = await Object.freeze(Promise.allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedRootFrozenSettled = await Object.freeze((Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  if (
+    settled.length !== 2 ||
+    settled[0].status !== 'fulfilled' ||
+    settled[0].value !== 1 ||
+    settled[1].status !== 'rejected' ||
+    settled[1].reason !== 'boom' ||
+    mixedSettled.length !== 2 ||
+    mixedSettled[0].status !== 'fulfilled' ||
+    mixedSettled[0].value !== 1 ||
+    mixedSettled[1].status !== 'rejected' ||
+    mixedSettled[1].reason !== 'boom' ||
+    dottedSettled.length !== 2 ||
+    dottedSettled[0].status !== 'fulfilled' ||
+    dottedSettled[0].value !== 1 ||
+    dottedSettled[1].status !== 'rejected' ||
+    dottedSettled[1].reason !== 'boom' ||
+    mixedDottedSettled.length !== 2 ||
+    mixedDottedSettled[0].status !== 'fulfilled' ||
+    mixedDottedSettled[0].value !== 1 ||
+    mixedDottedSettled[1].status !== 'rejected' ||
+    mixedDottedSettled[1].reason !== 'boom' ||
+    mixedBracketedSettled.length !== 2 ||
+    mixedBracketedSettled[0].status !== 'fulfilled' ||
+    mixedBracketedSettled[0].value !== 1 ||
+    mixedBracketedSettled[1].status !== 'rejected' ||
+    mixedBracketedSettled[1].reason !== 'boom' ||
+    bracketedSettled.length !== 2 ||
+    bracketedSettled[0].status !== 'fulfilled' ||
+    bracketedSettled[0].value !== 1 ||
+    bracketedSettled[1].status !== 'rejected' ||
+    bracketedSettled[1].reason !== 'boom' ||
+    nullishRootSettled.length !== 2 ||
+    nullishRootSettled[0].status !== 'fulfilled' ||
+    nullishRootSettled[0].value !== 1 ||
+    nullishRootSettled[1].status !== 'rejected' ||
+    nullishRootSettled[1].reason !== 'boom' ||
+    logicalAndRootSettled.length !== 2 ||
+    logicalAndRootSettled[0].status !== 'fulfilled' ||
+    logicalAndRootSettled[0].value !== 1 ||
+    logicalAndRootSettled[1].status !== 'rejected' ||
+    logicalAndRootSettled[1].reason !== 'boom' ||
+    logicalOrRootSettled.length !== 2 ||
+    logicalOrRootSettled[0].status !== 'fulfilled' ||
+    logicalOrRootSettled[0].value !== 1 ||
+    logicalOrRootSettled[1].status !== 'rejected' ||
+    logicalOrRootSettled[1].reason !== 'boom' ||
+    nullishDottedSettled.length !== 2 ||
+    nullishDottedSettled[0].status !== 'fulfilled' ||
+    nullishDottedSettled[0].value !== 1 ||
+    nullishDottedSettled[1].status !== 'rejected' ||
+    nullishDottedSettled[1].reason !== 'boom' ||
+    logicalAndDottedSettled.length !== 2 ||
+    logicalAndDottedSettled[0].status !== 'fulfilled' ||
+    logicalAndDottedSettled[0].value !== 1 ||
+    logicalAndDottedSettled[1].status !== 'rejected' ||
+    logicalAndDottedSettled[1].reason !== 'boom' ||
+    logicalOrDottedSettled.length !== 2 ||
+    logicalOrDottedSettled[0].status !== 'fulfilled' ||
+    logicalOrDottedSettled[0].value !== 1 ||
+    logicalOrDottedSettled[1].status !== 'rejected' ||
+    logicalOrDottedSettled[1].reason !== 'boom' ||
+    wrappedBracketedDotRootFrozenSettled.length !== 2 ||
+    wrappedBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||
+    wrappedBracketedDotRootFrozenSettled[0].value !== 1 ||
+    wrappedBracketedDotRootFrozenSettled[1].status !== 'rejected' ||
+    wrappedBracketedDotRootFrozenSettled[1].reason !== 'boom' ||
+    wrappedSingleBracketedDotRootFrozenSettled.length !== 2 ||
+    wrappedSingleBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||
+    wrappedSingleBracketedDotRootFrozenSettled[0].value !== 1 ||
+    wrappedSingleBracketedDotRootFrozenSettled[1].status !== 'rejected' ||
+    wrappedSingleBracketedDotRootFrozenSettled[1].reason !== 'boom' ||
+    frozenBracketedSettled.length !== 2 ||
+    frozenBracketedSettled[0].status !== 'fulfilled' ||
+    frozenBracketedSettled[0].value !== 1 ||
+    frozenBracketedSettled[1].status !== 'rejected' ||
+    frozenBracketedSettled[1].reason !== 'boom' ||
+    parenthesizedFrozenBracketedSettled.length !== 2 ||
+    parenthesizedFrozenBracketedSettled[0].status !== 'fulfilled' ||
+    parenthesizedFrozenBracketedSettled[0].value !== 1 ||
+    parenthesizedFrozenBracketedSettled[1].status !== 'rejected' ||
+    parenthesizedFrozenBracketedSettled[1].reason !== 'boom' ||
+    mixedBracketedRootFrozenSettled.length !== 2 ||
+    mixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    mixedBracketedRootFrozenSettled[0].value !== 1 ||
+    mixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    mixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedMixedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    singleMixedBracketedRootFrozenSettled.length !== 2 ||
+    singleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    singleMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    singleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    singleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    fullyBracketedSingleRootFrozenSettled.length !== 2 ||
+    fullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||
+    fullyBracketedSingleRootFrozenSettled[0].value !== 1 ||
+    fullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||
+    fullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled.length !== 2 ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[0].value !== 1 ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    mixedRootFrozenSettled.length !== 2 ||
+    mixedRootFrozenSettled[0].status !== 'fulfilled' ||
+    mixedRootFrozenSettled[0].value !== 1 ||
+    mixedRootFrozenSettled[1].status !== 'rejected' ||
+    mixedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedMixedRootFrozenSettled.length !== 2 ||
+    parenthesizedMixedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedMixedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedMixedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedMixedRootFrozenSettled[1].reason !== 'boom' ||
+    bracketedRootFrozenSettled.length !== 2 ||
+    bracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    bracketedRootFrozenSettled[0].value !== 1 ||
+    bracketedRootFrozenSettled[1].status !== 'rejected' ||
+    bracketedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    rootFrozenSettled.length !== 2 ||
+    rootFrozenSettled[0].status !== 'fulfilled' ||
+    rootFrozenSettled[0].value !== 1 ||
+    rootFrozenSettled[1].status !== 'rejected' ||
+    rootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedRootFrozenSettled.length !== 2 ||
+    parenthesizedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedRootFrozenSettled[1].reason !== 'boom'
+  ) {
+    throw new Error('unexpected Promise.allSettled semantics');
+  }
+
+}
+
+Kali.test('browser promise allSettled', () => browserPromiseAllSettled());
+"""
+
+[[case]]
+name = "run_promise_all_settled_harness"
+rationale = """Migrated from browser_promise_all_settled_harness.rs. This `[[case]]` is the `(run, text)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `run_supports_promise_all_settled_in_js_input_when_browser_harness_is_configured`, `run_supports_promise_all_settled_in_ts_input_when_browser_harness_is_configured`, `run_supports_promise_all_settled_in_jsx_input_when_browser_harness_is_configured`, `run_supports_promise_all_settled_in_tsx_input_when_browser_harness_is_configured` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_requested_promise_all_settled(` (:24) writes the browser `Promise.allSettled` smoke probe to `main.${ext}` in a fresh temp dir and runs the real `kali run --api browser` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:51) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_promise_all_settled_run_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_settled_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.allSettled` slice." That doc belongs to promise_all_settled_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_promise_all_settled_harness"
+rationale = """Migrated from browser_promise_all_settled_harness.rs. This `[[case]]` is the `(run, json)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `json_run_supports_promise_all_settled_in_js_input_when_browser_harness_is_configured`, `json_run_supports_promise_all_settled_in_ts_input_when_browser_harness_is_configured`, `json_run_supports_promise_all_settled_in_jsx_input_when_browser_harness_is_configured`, `json_run_supports_promise_all_settled_in_tsx_input_when_browser_harness_is_configured` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_requested_promise_all_settled(` (:24) writes the browser `Promise.allSettled` smoke probe to `main.${ext}` in a fresh temp dir and runs the real `kali --output json run --api browser` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:51) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_promise_all_settled_run_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_settled_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.allSettled` slice." That doc belongs to promise_all_settled_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_promise_all_settled_harness"
+rationale = """Migrated from browser_promise_all_settled_harness.rs. This `[[case]]` is the `(test, text)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `test_supports_promise_all_settled_in_js_input_when_browser_harness_is_configured`, `test_supports_promise_all_settled_in_ts_input_when_browser_harness_is_configured`, `test_supports_promise_all_settled_in_jsx_input_when_browser_harness_is_configured`, `test_supports_promise_all_settled_in_tsx_input_when_browser_harness_is_configured` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_requested_promise_all_settled(` (:24) writes the browser `Promise.allSettled` smoke probe to `smoke.test.${ext}` in a fresh temp dir and runs the real `kali test --api browser` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:51) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_promise_all_settled_test_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_settled_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.allSettled` slice." That doc belongs to promise_all_settled_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_promise_all_settled_harness"
+rationale = """Migrated from browser_promise_all_settled_harness.rs. This `[[case]]` is the `(test, json)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `json_test_supports_promise_all_settled_in_js_input_when_browser_harness_is_configured`, `json_test_supports_promise_all_settled_in_ts_input_when_browser_harness_is_configured`, `json_test_supports_promise_all_settled_in_jsx_input_when_browser_harness_is_configured`, `json_test_supports_promise_all_settled_in_tsx_input_when_browser_harness_is_configured` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_requested_promise_all_settled(` (:24) writes the browser `Promise.allSettled` smoke probe to `smoke.test.${ext}` in a fresh temp dir and runs the real `kali --output json test --api browser` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:51) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_promise_all_settled_test_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_settled_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.allSettled` slice." That doc belongs to promise_all_settled_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"

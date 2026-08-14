@@ -1,0 +1,80 @@
+# Migrated from tests/browser_bundle_reserved_export_names.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# The browser bundle glue reserves `load`, `loadWithImports`,
+# `loadDynamicImport`, and `start` — a user export with one of those names
+# previously built green but emitted an unloadable module (duplicate
+# declaration at import time). It must be a build-time error.
+#
+# No [matrix]: `[matrix]` is file-wide (crates/kali_case_runner/src/expand.rs
+# fans EVERY case in the file by every axis combination), and this file's
+# second #[test] (`build_accepts_non_reserved_export_names`) does not vary
+# over the `name` axis at all -- a file-level `name` matrix would silently
+# quadruple-run that single real invocation as four identical trials
+# (harmless in outcome, but a real mismatch against rule 7's "total
+# invocations == cases x axis product" arithmetic, since that case only has
+# one real source invocation, not four). So `build_rejects_exports_that_
+# collide_with_reserved_glue_names`'s `for name in [...]` loop (4
+# invocations, identical assertion shape per name) is instead written as 4
+# individually named sibling cases, not a matrix.
+
+[source]
+"app_load.ts" = """// kali-tree-shake: load
+export async function load(left, right) {
+  return left - left + right - right;
+}
+"""
+"app_loadwithimports.ts" = """// kali-tree-shake: loadWithImports
+export async function loadWithImports(left, right) {
+  return left - left + right - right;
+}
+"""
+"app_loaddynamicimport.ts" = """// kali-tree-shake: loadDynamicImport
+export async function loadDynamicImport(left, right) {
+  return left - left + right - right;
+}
+"""
+"app_start.ts" = """// kali-tree-shake: start
+export async function start(left, right) {
+  return left - left + right - right;
+}
+"""
+"app_startup.ts" = """// kali-tree-shake: startup
+export async function startup(left, right) {
+  return left - left + right - right;
+}
+"""
+
+[[case]]
+name = "build_rejects_export_named_load"
+rationale = """Migrated from browser_bundle_reserved_export_names.rs. The browser bundle glue reserves `load`, `loadWithImports`, `loadDynamicImport`, and `start` — a user export with one of those names previously built green but emitted an unloadable module (duplicate declaration at import time). It must be a build-time error."""
+args = ["build", "--bundle", "--api", "browser", "app_load.ts"]
+exit = "failure"
+stderr_contains = ["E5511", "load"]
+
+[[case]]
+name = "build_rejects_export_named_loadWithImports"
+rationale = """Migrated from browser_bundle_reserved_export_names.rs. The browser bundle glue reserves `load`, `loadWithImports`, `loadDynamicImport`, and `start` — a user export with one of those names previously built green but emitted an unloadable module (duplicate declaration at import time). It must be a build-time error."""
+args = ["build", "--bundle", "--api", "browser", "app_loadwithimports.ts"]
+exit = "failure"
+stderr_contains = ["E5511", "loadWithImports"]
+
+[[case]]
+name = "build_rejects_export_named_loadDynamicImport"
+rationale = """Migrated from browser_bundle_reserved_export_names.rs. The browser bundle glue reserves `load`, `loadWithImports`, `loadDynamicImport`, and `start` — a user export with one of those names previously built green but emitted an unloadable module (duplicate declaration at import time). It must be a build-time error."""
+args = ["build", "--bundle", "--api", "browser", "app_loaddynamicimport.ts"]
+exit = "failure"
+stderr_contains = ["E5511", "loadDynamicImport"]
+
+[[case]]
+name = "build_rejects_export_named_start"
+rationale = """Migrated from browser_bundle_reserved_export_names.rs. The browser bundle glue reserves `load`, `loadWithImports`, `loadDynamicImport`, and `start` — a user export with one of those names previously built green but emitted an unloadable module (duplicate declaration at import time). It must be a build-time error."""
+args = ["build", "--bundle", "--api", "browser", "app_start.ts"]
+exit = "failure"
+stderr_contains = ["E5511", "start"]
+
+[[case]]
+name = "build_accepts_non_reserved_export_names"
+rationale = """Migrated from browser_bundle_reserved_export_names.rs. The browser bundle glue reserves `load`, `loadWithImports`, `loadDynamicImport`, and `start` — a user export with one of those names previously built green but emitted an unloadable module (duplicate declaration at import time). It must be a build-time error. `startup` is not one of the reserved names, so the build must succeed."""
+args = ["build", "--bundle", "--api", "browser", "app_startup.ts"]
+exit = "success"

@@ -8,6 +8,7 @@ members = [
     "crates/kali_ast",
     "crates/kali_types",
     "crates/kali_test_support",
+    "crates/kali_case_runner",
     "crates/kali_hir",
     "crates/kali_mir",
     "crates/kali_lir",
@@ -15,6 +16,7 @@ members = [
     "crates/kali_optimize",
     "crates/kali_sandbox",
     "crates/kali_runtime",
+    "crates/kali_runtime_contract",
     "crates/kali_api_deno",
     "crates/kali_api_node",
     "crates/kali_api_web",
@@ -43,6 +45,7 @@ kali_parser = { path = "crates/kali_parser" }
 kali_ast = { path = "crates/kali_ast" }
 kali_types = { path = "crates/kali_types" }
 kali_test_support = { path = "crates/kali_test_support" }
+kali_case_runner = { path = "crates/kali_case_runner" }
 kali_hir = { path = "crates/kali_hir" }
 kali_mir = { path = "crates/kali_mir" }
 kali_lir = { path = "crates/kali_lir" }
@@ -50,6 +53,7 @@ kali_codegen = { path = "crates/kali_codegen" }
 kali_optimize = { path = "crates/kali_optimize" }
 kali_sandbox = { path = "crates/kali_sandbox" }
 kali_runtime = { path = "crates/kali_runtime" }
+kali_runtime_contract = { path = "crates/kali_runtime_contract" }
 kali_api_deno = { path = "crates/kali_api_deno" }
 kali_api_node = { path = "crates/kali_api_node" }
 kali_api_web = { path = "crates/kali_api_web" }
@@ -86,6 +90,9 @@ wasmtime = "47"
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
 getrandom = "0.4"
 ryu-js = "1.0"
+libtest-mimic = "0.8"
+toml = "0.9"
+tempfile = "3.10"
 
 [profile.dev]
 opt-level = 1

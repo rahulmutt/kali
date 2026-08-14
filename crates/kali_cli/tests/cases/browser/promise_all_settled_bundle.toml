@@ -1,0 +1,324 @@
+# Migrated from tests/browser_promise_all_settled_bundle.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
+# tests/browser_promise_all_settled_bundle.rs has 1 Rust comment block(s), listed with their
+# line numbers before any TOML was written:
+#   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:93) -- opens a 2-line block
+# It sits in `assert_browser_bundle_promise_all_settled`, which every `#[test]` fn in the file calls,
+# so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
+# by this generator (its comment_blocks helper, named plainly rather than backticked:
+# U8's gate resolves every backticked lower-case identifier against this source's own
+# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
+# become `--`.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 8 `#[test]` fns, 8 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_promise_all_settled` -- 8 invocation(s) = 4 individual `#[test]` fns per output mode x 2 output modes; the file contains no loop at all, so 8 fns = 8 invocations
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 2 `[[case]]` entries x ext(4) = 8 trials = 8 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note:
+# it changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# It is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one `(json_output)` half of the source's 8 fns, fanned to the 4 extensions; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. This source writes exactly one program
+# text, to `app.<ext>` in every test, so the file-wide `[source]` namespace has one
+# entry per extension and nothing collides.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `assert_browser_bundle_promise_all_settled`,
+#   `browser_bundle_promise_all_settled_source` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# `exit = "success"` on the `kali build --bundle` process: `output.status.success(),` (:37).
+# In JSON mode the envelope's schemaVersion/command/success/exitCode and
+# payload(artifactKind, bundleFormat) are pinned, plus `errors = []` -- `envelope["errors"]` (:52) --
+# this file's helper does assert the errors array is empty, and a file whose helper
+# does not would not carry the claim.
+# The emitted `app/app.meta.json` is pinned to apiSurface/artifactKind: `join("app.meta.json")` (:60).
+# THEN THE HARNESS PROCESS MUST FAIL CLOSED -- `assert!(!output.status.success(), "must fail closed` (:95) -- so the
+# `browser_bundle_harness` step carries `exit = "failure"` and NO output claim,
+# because the source makes none
+# there. Adding a diagnostic code or a stream needle would be a rule-2 invention even
+# though the real binary does emit one.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserPromiseAllSettled
+async function browserPromiseAllSettled() {
+  const settled = await Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedSettled = await Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedSettled = await Promise['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
+  const dottedSettled = await globalThis.Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedDottedSettled = await globalThis.Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const singleDottedSettled = await globalThis.Promise['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedBracketedSettled = await globalThis["Promise"].allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const singleBracketedSettled = await globalThis['Promise']['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedBracketedSettled = await globalThis['Promise'].allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const nullishRootSettled = await Object.freeze((null ?? Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalAndRootSettled = await Object.freeze((true && Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalOrRootSettled = await Object.freeze((false || Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const nullishDottedSettled = await Object.freeze((null ?? globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalAndDottedSettled = await Object.freeze((true && globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalOrDottedSettled = await Object.freeze((false || globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedDottedRootFrozenSettled = await Object.freeze((globalThis.Promise)["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"])["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedBracketedDotRootFrozenSettled = await Object.freeze((globalThis["Promise"]).allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedSingleBracketedDotRootFrozenSettled = await Object.freeze((globalThis['Promise']).allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis["Promise"]["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleFrozenBracketedSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleFrozenBracketedSettled = await Object.freeze((globalThis['Promise']['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedBracketedRootFrozenSettled = await Object.freeze(globalThis["Promise"].allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedMixedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"].allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedBracketedRootFrozenSettled = await Object.freeze(globalThis['Promise'].allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const fullyBracketedSingleRootFrozenSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedFullyBracketedSingleRootFrozenSettled = await Object.freeze((globalThis['Promise']['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleMixedBracketedRootFrozenSettled = await Object.freeze((globalThis['Promise'].allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedRootFrozenSettled = await Object.freeze(globalThis.Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedMixedRootFrozenSettled = await Object.freeze((globalThis.Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedRootFrozenSettled = await Object.freeze(globalThis.Promise['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleMixedRootFrozenSettled = await Object.freeze((globalThis.Promise['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const bracketedRootFrozenSettled = await Object.freeze(Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedBracketedRootFrozenSettled = await Object.freeze((Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleBracketedRootFrozenSettled = await Object.freeze(Promise['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleBracketedRootFrozenSettled = await Object.freeze((Promise['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const rootFrozenSettled = await Object.freeze(Promise.allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedRootFrozenSettled = await Object.freeze((Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  if (
+    settled.length !== 2 ||
+    settled[0].status !== 'fulfilled' ||
+    settled[0].value !== 1 ||
+    settled[1].status !== 'rejected' ||
+    settled[1].reason !== 'boom' ||
+    mixedSettled.length !== 2 ||
+    mixedSettled[0].status !== 'fulfilled' ||
+    mixedSettled[0].value !== 1 ||
+    mixedSettled[1].status !== 'rejected' ||
+    mixedSettled[1].reason !== 'boom' ||
+    dottedSettled.length !== 2 ||
+    dottedSettled[0].status !== 'fulfilled' ||
+    dottedSettled[0].value !== 1 ||
+    dottedSettled[1].status !== 'rejected' ||
+    dottedSettled[1].reason !== 'boom' ||
+    mixedDottedSettled.length !== 2 ||
+    mixedDottedSettled[0].status !== 'fulfilled' ||
+    mixedDottedSettled[0].value !== 1 ||
+    mixedDottedSettled[1].status !== 'rejected' ||
+    mixedDottedSettled[1].reason !== 'boom' ||
+    mixedBracketedSettled.length !== 2 ||
+    mixedBracketedSettled[0].status !== 'fulfilled' ||
+    mixedBracketedSettled[0].value !== 1 ||
+    mixedBracketedSettled[1].status !== 'rejected' ||
+    mixedBracketedSettled[1].reason !== 'boom' ||
+    bracketedSettled.length !== 2 ||
+    bracketedSettled[0].status !== 'fulfilled' ||
+    bracketedSettled[0].value !== 1 ||
+    bracketedSettled[1].status !== 'rejected' ||
+    bracketedSettled[1].reason !== 'boom' ||
+    nullishRootSettled.length !== 2 ||
+    nullishRootSettled[0].status !== 'fulfilled' ||
+    nullishRootSettled[0].value !== 1 ||
+    nullishRootSettled[1].status !== 'rejected' ||
+    nullishRootSettled[1].reason !== 'boom' ||
+    logicalAndRootSettled.length !== 2 ||
+    logicalAndRootSettled[0].status !== 'fulfilled' ||
+    logicalAndRootSettled[0].value !== 1 ||
+    logicalAndRootSettled[1].status !== 'rejected' ||
+    logicalAndRootSettled[1].reason !== 'boom' ||
+    logicalOrRootSettled.length !== 2 ||
+    logicalOrRootSettled[0].status !== 'fulfilled' ||
+    logicalOrRootSettled[0].value !== 1 ||
+    logicalOrRootSettled[1].status !== 'rejected' ||
+    logicalOrRootSettled[1].reason !== 'boom' ||
+    nullishDottedSettled.length !== 2 ||
+    nullishDottedSettled[0].status !== 'fulfilled' ||
+    nullishDottedSettled[0].value !== 1 ||
+    nullishDottedSettled[1].status !== 'rejected' ||
+    nullishDottedSettled[1].reason !== 'boom' ||
+    logicalAndDottedSettled.length !== 2 ||
+    logicalAndDottedSettled[0].status !== 'fulfilled' ||
+    logicalAndDottedSettled[0].value !== 1 ||
+    logicalAndDottedSettled[1].status !== 'rejected' ||
+    logicalAndDottedSettled[1].reason !== 'boom' ||
+    logicalOrDottedSettled.length !== 2 ||
+    logicalOrDottedSettled[0].status !== 'fulfilled' ||
+    logicalOrDottedSettled[0].value !== 1 ||
+    logicalOrDottedSettled[1].status !== 'rejected' ||
+    logicalOrDottedSettled[1].reason !== 'boom' ||
+    wrappedBracketedDotRootFrozenSettled.length !== 2 ||
+    wrappedBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||
+    wrappedBracketedDotRootFrozenSettled[0].value !== 1 ||
+    wrappedBracketedDotRootFrozenSettled[1].status !== 'rejected' ||
+    wrappedBracketedDotRootFrozenSettled[1].reason !== 'boom' ||
+    wrappedSingleBracketedDotRootFrozenSettled.length !== 2 ||
+    wrappedSingleBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||
+    wrappedSingleBracketedDotRootFrozenSettled[0].value !== 1 ||
+    wrappedSingleBracketedDotRootFrozenSettled[1].status !== 'rejected' ||
+    wrappedSingleBracketedDotRootFrozenSettled[1].reason !== 'boom' ||
+    frozenBracketedSettled.length !== 2 ||
+    frozenBracketedSettled[0].status !== 'fulfilled' ||
+    frozenBracketedSettled[0].value !== 1 ||
+    frozenBracketedSettled[1].status !== 'rejected' ||
+    frozenBracketedSettled[1].reason !== 'boom' ||
+    parenthesizedFrozenBracketedSettled.length !== 2 ||
+    parenthesizedFrozenBracketedSettled[0].status !== 'fulfilled' ||
+    parenthesizedFrozenBracketedSettled[0].value !== 1 ||
+    parenthesizedFrozenBracketedSettled[1].status !== 'rejected' ||
+    parenthesizedFrozenBracketedSettled[1].reason !== 'boom' ||
+    mixedBracketedRootFrozenSettled.length !== 2 ||
+    mixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    mixedBracketedRootFrozenSettled[0].value !== 1 ||
+    mixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    mixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedMixedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    singleMixedBracketedRootFrozenSettled.length !== 2 ||
+    singleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    singleMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    singleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    singleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    fullyBracketedSingleRootFrozenSettled.length !== 2 ||
+    fullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||
+    fullyBracketedSingleRootFrozenSettled[0].value !== 1 ||
+    fullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||
+    fullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled.length !== 2 ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[0].value !== 1 ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    mixedRootFrozenSettled.length !== 2 ||
+    mixedRootFrozenSettled[0].status !== 'fulfilled' ||
+    mixedRootFrozenSettled[0].value !== 1 ||
+    mixedRootFrozenSettled[1].status !== 'rejected' ||
+    mixedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedMixedRootFrozenSettled.length !== 2 ||
+    parenthesizedMixedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedMixedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedMixedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedMixedRootFrozenSettled[1].reason !== 'boom' ||
+    bracketedRootFrozenSettled.length !== 2 ||
+    bracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    bracketedRootFrozenSettled[0].value !== 1 ||
+    bracketedRootFrozenSettled[1].status !== 'rejected' ||
+    bracketedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    rootFrozenSettled.length !== 2 ||
+    rootFrozenSettled[0].status !== 'fulfilled' ||
+    rootFrozenSettled[0].value !== 1 ||
+    rootFrozenSettled[1].status !== 'rejected' ||
+    rootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedRootFrozenSettled.length !== 2 ||
+    parenthesizedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedRootFrozenSettled[1].reason !== 'boom'
+  ) {
+    throw new Error('unexpected Promise.allSettled semantics');
+  }
+
+}
+"""
+
+[[case]]
+name = "promise_all_settled_bundle__text"
+rationale = """Migrated from browser_promise_all_settled_bundle.rs. This `[[case]]` is the text output half of the source's 8 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `build_emits_promise_all_settled_in_js_input`, `build_emits_promise_all_settled_in_ts_input`, `build_emits_promise_all_settled_in_jsx_input`, `build_emits_promise_all_settled_in_tsx_input` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `fn assert_browser_bundle_promise_all_settled(` (:19) writes the browser `Promise.allSettled` smoke body to `app.<ext>` in a fresh temp dir, builds it with `kali build --bundle --api browser`, asserts the build succeeds  -- `output.status.success(),` (:37), asserts the emitted `app/app.meta.json` metadata (`join("app.meta.json")` (:60)), then writes the browser-bundle harness and runs it under node. THE BUILD SUCCEEDS; it is the HARNESS process that must fail closed (`assert!(!output.status.success(), "must fail closed` (:95)), so the `browser_bundle_harness` step carries `exit = "failure"` and no output claim -- the source makes none there, and inventing one would break rule 2. The program under test is `fn browser_bundle_promise_all_settled_source(` (:12); its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_settled_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.allSettled` slice." That doc belongs to promise_all_settled_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserPromiseAllSettled();
+console.log('browser promise allSettled ok');
+"""
+exit = "failure"
+
+[[case]]
+name = "json_promise_all_settled_bundle__json"
+rationale = """Migrated from browser_promise_all_settled_bundle.rs. This `[[case]]` is the --output json half of the source's 8 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `json_build_emits_promise_all_settled_in_js_input`, `json_build_emits_promise_all_settled_in_ts_input`, `json_build_emits_promise_all_settled_in_jsx_input`, `json_build_emits_promise_all_settled_in_tsx_input` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `fn assert_browser_bundle_promise_all_settled(` (:19) writes the browser `Promise.allSettled` smoke body to `app.<ext>` in a fresh temp dir, builds it with `kali build --bundle --api browser --output json`, asserts the build succeeds  -- `output.status.success(),` (:37), asserts the JSON envelope's schemaVersion/command/success/exitCode and payload(artifactKind, bundleFormat) and that `errors` is empty (`envelope["errors"]` (:52)), asserts the emitted `app/app.meta.json` metadata (`join("app.meta.json")` (:60)), then writes the browser-bundle harness and runs it under node. THE BUILD SUCCEEDS; it is the HARNESS process that must fail closed (`assert!(!output.status.success(), "must fail closed` (:95)), so the `browser_bundle_harness` step carries `exit = "failure"` and no output claim -- the source makes none there, and inventing one would break rule 2. The program under test is `fn browser_bundle_promise_all_settled_source(` (:12); its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_settled_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.allSettled` slice." That doc belongs to promise_all_settled_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.browserPromiseAllSettled();
+console.log('browser promise allSettled ok');
+"""
+exit = "failure"

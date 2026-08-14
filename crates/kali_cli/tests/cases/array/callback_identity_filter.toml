@@ -1,0 +1,114 @@
+# Migrated from tests/array_callback_identity_filter.rs -- all 6 #[test]
+# functions, as 10 sibling case blocks, matching the original 10
+# loop-iteration/single-call assertions exactly:
+#
+#   - check_js/ts, build_js/ts: `assert_identity_filter_succeeds("check"|
+#     "build", ext)` for ext in [js, ts] -- success only (stdout checks
+#     are gated on `command == "run"`/`"test"`).
+#   - run_js/ts: same helper with command "run" -- success plus exact
+#     `stdout` equality (`assert_eq!`).
+#   - test_js/ts: same helper with command "test" -- success plus
+#     `stdout_contains` (`.contains()`).
+#   - browser_check, browser_build: the 2 remaining #[test] fns each make
+#     a single (unlooped) call to
+#     `assert_identity_filter_browser_check_build_succeeds`, always
+#     against a fixed "smoke.test.js" -- no extension loop at all, unlike
+#     every other sibling group in this family. Success only, via
+#     `--api browser` (and `--bundle` for build).
+#
+# No `[matrix]`: the plain group loops js/ts while the browser group
+# doesn't loop over extension at all (js only, single call) -- a clear
+# subset mismatch, so per the two-axis rule this stays sibling blocks.
+#
+# `[constants]` factors the one fixture body (`identity_filter_source()`,
+# fixed, no command-dependent branching) shared byte-for-byte across every
+# `[source]` filename -- including "smoke.test.js", reused as-is by both
+# the plain-group's js case and the two browser cases, since its content
+# is identical in both roles (no rename needed; this is not a collision,
+# same filename genuinely maps to the same text everywhere it's used).
+#
+# No `//` comments existed in the source file to carry into `rationale`.
+
+[constants]
+program = '''
+function main() {
+  for (const item of [1, 2].filter((value) => value)) {
+    console.log(item);
+  }
+  for (const item of Array.from([1, 2].filter((value) => value))) {
+    console.log(item);
+  }
+  for (const item of [...[1, 2].filter((value) => value)]) {
+    console.log(item);
+  }
+}
+main();
+'''
+
+[source]
+"smoke.test.js" = "${program}"
+"smoke.test.ts" = "${program}"
+
+[[case]]
+name = "check_js"
+rationale = "`check` accepts the truthy-identity array `.filter()` fixture -- js source."
+args = ["check", "smoke.test.js"]
+exit = "success"
+
+[[case]]
+name = "check_ts"
+rationale = "`check` accepts the truthy-identity array `.filter()` fixture -- ts source."
+args = ["check", "smoke.test.ts"]
+exit = "success"
+
+[[case]]
+name = "build_js"
+rationale = "`build` accepts the truthy-identity array `.filter()` fixture -- js source."
+args = ["build", "smoke.test.js"]
+exit = "success"
+
+[[case]]
+name = "build_ts"
+rationale = "`build` accepts the truthy-identity array `.filter()` fixture -- ts source."
+args = ["build", "smoke.test.ts"]
+exit = "success"
+
+[[case]]
+name = "run_js"
+rationale = "`run` accepts the truthy-identity array `.filter()` fixture and reproduces the same elements across all three equivalent iteration forms (plain `for...of`, `Array.from()`, spread) -- js source."
+args = ["run", "smoke.test.js"]
+exit = "success"
+stdout = "1\n2\n1\n2\n1\n2\n"
+
+[[case]]
+name = "run_ts"
+rationale = "`run` accepts the truthy-identity array `.filter()` fixture and reproduces the same elements across all three equivalent iteration forms (plain `for...of`, `Array.from()`, spread) -- ts source."
+args = ["run", "smoke.test.ts"]
+exit = "success"
+stdout = "1\n2\n1\n2\n1\n2\n"
+
+[[case]]
+name = "test_js"
+rationale = "`test` accepts the truthy-identity array `.filter()` fixture and its stdout includes the same elements across all three iteration forms -- js source."
+args = ["test", "smoke.test.js"]
+exit = "success"
+stdout_contains = ["1\n2\n1\n2\n1\n2\n"]
+
+[[case]]
+name = "test_ts"
+rationale = "`test` accepts the truthy-identity array `.filter()` fixture and its stdout includes the same elements across all three iteration forms -- ts source."
+args = ["test", "smoke.test.ts"]
+exit = "success"
+stdout_contains = ["1\n2\n1\n2\n1\n2\n"]
+
+[[case]]
+name = "browser_check"
+rationale = "`check --api browser` accepts the truthy-identity array `.filter()` fixture."
+args = ["check", "--api", "browser", "smoke.test.js"]
+exit = "success"
+
+[[case]]
+name = "browser_build"
+rationale = "`build --bundle --api browser` accepts the truthy-identity array `.filter()` fixture."
+args = ["build", "--bundle", "--api", "browser", "smoke.test.js"]
+exit = "success"

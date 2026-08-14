@@ -1,0 +1,357 @@
+# Migrated from tests/browser_promise_all_harness.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
+# tests/browser_promise_all_harness.rs has 1 Rust comment block(s), listed with their
+# line numbers before any TOML was written:
+#   * `// Honest re-pin (PR #16 rev2): kali fails closed/loud here;` (:50) -- opens a 2-line block
+# It sits in `assert_browser_requested_promise_all`, which every `#[test]` fn in the file calls,
+# so it is carried into the rationale of every case in this file. The text is COPIED out of the `.rs`
+# by this generator (its comment_blocks helper, named plainly rather than backticked:
+# U8's gate resolves every backticked lower-case identifier against this source's own
+# fn list, and that one lives in the generator), not retyped, so an em-dash cannot
+# become `--`.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_requested_promise_all` -- 16 invocation(s) = 16 individual `#[test]` fns, each one unlooped call = command(run/test) x json_output(2) x ext(4); the file contains no loop, so 16 fns = 16 invocations
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to one `(command, json_output)` cell of the source's 16 fns, fanned to the 4 extensions; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Both fixtures
+# (`main.${ext}`, `smoke.test.${ext}`) are written unconditionally by the source into
+# a fresh temp dir: no fixture is written behind an `if`, no `kali.json` manifest is
+# written anywhere in this file, and no case's point is the presence or absence of a
+# file. Every command below names its entry explicitly on argv, so the unused siblings
+# in a trial dir are inert -- verified against the real binary rather than assumed:
+# `kali --output json test smoke.test.js` in a directory holding all four
+# `smoke.test.<ext>` fixtures still reports `payload.total = 1`, so no sibling is
+# picked up by discovery.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. The helper picks its body from the
+# COMMAND (`if command == "test" { ..._test_source() } else { ..._run_source() }`)
+# and the source hands it a DIFFERENT filename per command for every extension --
+# `main.<ext>` for `run` and `smoke.test.<ext>` for `test` -- so the two program
+# texts never land on one key and the flat file-wide namespace has no collision.
+# (That is the axis on which this file differs from `set_iteration_harness`, whose
+# looped fn reuses `main.<ext>` for BOTH commands and therefore does need renames.)
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `assert_browser_requested_promise_all`, `browser_promise_all_run_source`,
+#   `browser_promise_all_test_source` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# This file runs no `browser_bundle_harness` step at all -- every case is a single
+# `kali run`/`kali test` invocation -- so ruling 6's runner-infrastructure paragraph
+# is omitted rather than printed about a chain this file never reaches.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# The source's fail-closed assertion is at `output.status.success()` :52.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """async function browserPromiseAll() {
+  const direct = await Promise.all([Promise.resolve(1), Promise.resolve(2)]);
+  const mixed = await Promise["all"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixed = await Promise['all']([Promise.resolve(1), Promise.resolve(2)]);
+  const dotted = await globalThis.Promise.all([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedDotted = await globalThis.Promise["all"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleDotted = await globalThis.Promise['all']([Promise.resolve(1), Promise.resolve(2)]);
+  const bracketed = await globalThis["Promise"].all([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedBracketed = await globalThis["Promise"]["all"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleBracketed = await globalThis['Promise']['all']([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixedBracketed = await globalThis['Promise'].all([Promise.resolve(1), Promise.resolve(2)]);
+  const nullishRoot = await Object.freeze((null ?? Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalAndRoot = await Object.freeze((true && Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalOrRoot = await Object.freeze((false || Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const nullishDotted = await Object.freeze((null ?? globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalAndDotted = await Object.freeze((true && globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalOrDotted = await Object.freeze((false || globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenRoot = await Object.freeze(Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenRoot = await Object.freeze((Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenBracketedRoot = await Object.freeze(Promise["all"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenBracketedRoot = await Object.freeze((Promise["all"]))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenSingleBracketedRoot = await Object.freeze(Promise['all'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenSingleBracketedRoot = await Object.freeze((Promise['all']))([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedRoot = await Object.freeze(globalThis.Promise["all"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedMixedRoot = await Object.freeze((globalThis.Promise["all"]))([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixedRoot = await Object.freeze(globalThis.Promise['all'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedSingleMixedRoot = await Object.freeze((globalThis.Promise['all']))([Promise.resolve(1), Promise.resolve(2)]);
+  const bracketedRoot = await Object.freeze(globalThis["Promise"].all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedBracketedRoot = await Object.freeze((globalThis["Promise"].all))([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedBracketedRoot = await Object.freeze(globalThis["Promise"]["all"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedMixedBracketedRoot = await Object.freeze((globalThis["Promise"]["all"]))([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixedBracketedRoot = await Object.freeze(globalThis['Promise'].all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedSingleMixedBracketedRoot = await Object.freeze((globalThis['Promise'].all))([Promise.resolve(1), Promise.resolve(2)]);
+  const fullyBracketedSingleRoot = await Object.freeze(globalThis['Promise']['all'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFullyBracketedSingleRoot = await Object.freeze((globalThis['Promise']['all']))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenGlobal = await Object.freeze(globalThis.Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenGlobal = await Object.freeze((globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  if (
+    direct.length !== 2 ||
+    direct[0] !== 1 ||
+    direct[1] !== 2 ||
+    mixed.length !== 2 ||
+    mixed[0] !== 1 ||
+    mixed[1] !== 2 ||
+    singleMixed.length !== 2 ||
+    singleMixed[0] !== 1 ||
+    singleMixed[1] !== 2 ||
+    dotted.length !== 2 ||
+    dotted[0] !== 1 ||
+    dotted[1] !== 2 ||
+    mixedDotted.length !== 2 ||
+    mixedDotted[0] !== 1 ||
+    mixedDotted[1] !== 2 ||
+    singleDotted.length !== 2 ||
+    singleDotted[0] !== 1 ||
+    singleDotted[1] !== 2 ||
+    bracketed.length !== 2 ||
+    bracketed[0] !== 1 ||
+    bracketed[1] !== 2 ||
+    mixedBracketed.length !== 2 ||
+    mixedBracketed[0] !== 1 ||
+    mixedBracketed[1] !== 2 ||
+    singleBracketed.length !== 2 ||
+    singleBracketed[0] !== 1 ||
+    singleBracketed[1] !== 2 ||
+    singleMixedBracketed.length !== 2 ||
+    singleMixedBracketed[0] !== 1 ||
+    singleMixedBracketed[1] !== 2 ||
+    nullishRoot.length !== 2 ||
+    nullishRoot[0] !== 1 ||
+    nullishRoot[1] !== 2 ||
+    logicalAndRoot.length !== 2 ||
+    logicalAndRoot[0] !== 1 ||
+    logicalAndRoot[1] !== 2 ||
+    logicalOrRoot.length !== 2 ||
+    logicalOrRoot[0] !== 1 ||
+    logicalOrRoot[1] !== 2 ||
+    nullishDotted.length !== 2 ||
+    nullishDotted[0] !== 1 ||
+    nullishDotted[1] !== 2 ||
+    logicalAndDotted.length !== 2 ||
+    logicalAndDotted[0] !== 1 ||
+    logicalAndDotted[1] !== 2 ||
+    logicalOrDotted.length !== 2 ||
+    logicalOrDotted[0] !== 1 ||
+    logicalOrDotted[1] !== 2 ||
+    frozenRoot.length !== 2 ||
+    frozenRoot[0] !== 1 ||
+    frozenRoot[1] !== 2 ||
+    parenthesizedFrozenRoot.length !== 2 ||
+    parenthesizedFrozenRoot[0] !== 1 ||
+    parenthesizedFrozenRoot[1] !== 2 ||
+    frozenBracketedRoot.length !== 2 ||
+    frozenBracketedRoot[0] !== 1 ||
+    frozenBracketedRoot[1] !== 2 ||
+    parenthesizedFrozenBracketedRoot.length !== 2 ||
+    parenthesizedFrozenBracketedRoot[0] !== 1 ||
+    parenthesizedFrozenBracketedRoot[1] !== 2 ||
+    frozenSingleBracketedRoot.length !== 2 ||
+    frozenSingleBracketedRoot[0] !== 1 ||
+    frozenSingleBracketedRoot[1] !== 2 ||
+    parenthesizedFrozenSingleBracketedRoot.length !== 2 ||
+    parenthesizedFrozenSingleBracketedRoot[0] !== 1 ||
+    parenthesizedFrozenSingleBracketedRoot[1] !== 2 ||
+    frozenGlobal.length !== 2 ||
+    frozenGlobal[0] !== 1 ||
+    frozenGlobal[1] !== 2 ||
+    parenthesizedFrozenGlobal.length !== 2 ||
+    parenthesizedFrozenGlobal[0] !== 1 ||
+    parenthesizedFrozenGlobal[1] !== 2
+  ) {
+    throw new Error("unexpected Promise.all results");
+  }
+
+}
+
+async function main() {
+  await browserPromiseAll();
+  console.log('browser promise all ok');
+}
+
+main();
+"""
+"smoke.test.${ext}" = """async function browserPromiseAll() {
+  const direct = await Promise.all([Promise.resolve(1), Promise.resolve(2)]);
+  const mixed = await Promise["all"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixed = await Promise['all']([Promise.resolve(1), Promise.resolve(2)]);
+  const dotted = await globalThis.Promise.all([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedDotted = await globalThis.Promise["all"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleDotted = await globalThis.Promise['all']([Promise.resolve(1), Promise.resolve(2)]);
+  const bracketed = await globalThis["Promise"].all([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedBracketed = await globalThis["Promise"]["all"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleBracketed = await globalThis['Promise']['all']([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixedBracketed = await globalThis['Promise'].all([Promise.resolve(1), Promise.resolve(2)]);
+  const nullishRoot = await Object.freeze((null ?? Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalAndRoot = await Object.freeze((true && Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalOrRoot = await Object.freeze((false || Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const nullishDotted = await Object.freeze((null ?? globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalAndDotted = await Object.freeze((true && globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalOrDotted = await Object.freeze((false || globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenRoot = await Object.freeze(Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenRoot = await Object.freeze((Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenBracketedRoot = await Object.freeze(Promise["all"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenBracketedRoot = await Object.freeze((Promise["all"]))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenSingleBracketedRoot = await Object.freeze(Promise['all'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenSingleBracketedRoot = await Object.freeze((Promise['all']))([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedRoot = await Object.freeze(globalThis.Promise["all"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedMixedRoot = await Object.freeze((globalThis.Promise["all"]))([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixedRoot = await Object.freeze(globalThis.Promise['all'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedSingleMixedRoot = await Object.freeze((globalThis.Promise['all']))([Promise.resolve(1), Promise.resolve(2)]);
+  const bracketedRoot = await Object.freeze(globalThis["Promise"].all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedBracketedRoot = await Object.freeze((globalThis["Promise"].all))([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedBracketedRoot = await Object.freeze(globalThis["Promise"]["all"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedMixedBracketedRoot = await Object.freeze((globalThis["Promise"]["all"]))([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixedBracketedRoot = await Object.freeze(globalThis['Promise'].all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedSingleMixedBracketedRoot = await Object.freeze((globalThis['Promise'].all))([Promise.resolve(1), Promise.resolve(2)]);
+  const fullyBracketedSingleRoot = await Object.freeze(globalThis['Promise']['all'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFullyBracketedSingleRoot = await Object.freeze((globalThis['Promise']['all']))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenGlobal = await Object.freeze(globalThis.Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenGlobal = await Object.freeze((globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  if (
+    direct.length !== 2 ||
+    direct[0] !== 1 ||
+    direct[1] !== 2 ||
+    mixed.length !== 2 ||
+    mixed[0] !== 1 ||
+    mixed[1] !== 2 ||
+    singleMixed.length !== 2 ||
+    singleMixed[0] !== 1 ||
+    singleMixed[1] !== 2 ||
+    dotted.length !== 2 ||
+    dotted[0] !== 1 ||
+    dotted[1] !== 2 ||
+    mixedDotted.length !== 2 ||
+    mixedDotted[0] !== 1 ||
+    mixedDotted[1] !== 2 ||
+    singleDotted.length !== 2 ||
+    singleDotted[0] !== 1 ||
+    singleDotted[1] !== 2 ||
+    bracketed.length !== 2 ||
+    bracketed[0] !== 1 ||
+    bracketed[1] !== 2 ||
+    mixedBracketed.length !== 2 ||
+    mixedBracketed[0] !== 1 ||
+    mixedBracketed[1] !== 2 ||
+    singleBracketed.length !== 2 ||
+    singleBracketed[0] !== 1 ||
+    singleBracketed[1] !== 2 ||
+    singleMixedBracketed.length !== 2 ||
+    singleMixedBracketed[0] !== 1 ||
+    singleMixedBracketed[1] !== 2 ||
+    nullishRoot.length !== 2 ||
+    nullishRoot[0] !== 1 ||
+    nullishRoot[1] !== 2 ||
+    logicalAndRoot.length !== 2 ||
+    logicalAndRoot[0] !== 1 ||
+    logicalAndRoot[1] !== 2 ||
+    logicalOrRoot.length !== 2 ||
+    logicalOrRoot[0] !== 1 ||
+    logicalOrRoot[1] !== 2 ||
+    nullishDotted.length !== 2 ||
+    nullishDotted[0] !== 1 ||
+    nullishDotted[1] !== 2 ||
+    logicalAndDotted.length !== 2 ||
+    logicalAndDotted[0] !== 1 ||
+    logicalAndDotted[1] !== 2 ||
+    logicalOrDotted.length !== 2 ||
+    logicalOrDotted[0] !== 1 ||
+    logicalOrDotted[1] !== 2 ||
+    frozenRoot.length !== 2 ||
+    frozenRoot[0] !== 1 ||
+    frozenRoot[1] !== 2 ||
+    parenthesizedFrozenRoot.length !== 2 ||
+    parenthesizedFrozenRoot[0] !== 1 ||
+    parenthesizedFrozenRoot[1] !== 2 ||
+    frozenBracketedRoot.length !== 2 ||
+    frozenBracketedRoot[0] !== 1 ||
+    frozenBracketedRoot[1] !== 2 ||
+    parenthesizedFrozenBracketedRoot.length !== 2 ||
+    parenthesizedFrozenBracketedRoot[0] !== 1 ||
+    parenthesizedFrozenBracketedRoot[1] !== 2 ||
+    frozenSingleBracketedRoot.length !== 2 ||
+    frozenSingleBracketedRoot[0] !== 1 ||
+    frozenSingleBracketedRoot[1] !== 2 ||
+    parenthesizedFrozenSingleBracketedRoot.length !== 2 ||
+    parenthesizedFrozenSingleBracketedRoot[0] !== 1 ||
+    parenthesizedFrozenSingleBracketedRoot[1] !== 2 ||
+    frozenGlobal.length !== 2 ||
+    frozenGlobal[0] !== 1 ||
+    frozenGlobal[1] !== 2 ||
+    parenthesizedFrozenGlobal.length !== 2 ||
+    parenthesizedFrozenGlobal[0] !== 1 ||
+    parenthesizedFrozenGlobal[1] !== 2
+  ) {
+    throw new Error("unexpected Promise.all results");
+  }
+
+}
+
+Kali.test('browser promise all', () => browserPromiseAll());
+"""
+
+[[case]]
+name = "run_promise_all_harness"
+rationale = """Migrated from browser_promise_all_harness.rs. This `[[case]]` is the `(run, text)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `run_supports_promise_all_in_js_input_when_browser_harness_is_configured`, `run_supports_promise_all_in_ts_input_when_browser_harness_is_configured`, `run_supports_promise_all_in_jsx_input_when_browser_harness_is_configured`, `run_supports_promise_all_in_tsx_input_when_browser_harness_is_configured` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_requested_promise_all(` (:25) writes the browser `Promise.all` smoke probe to `main.${ext}` in a fresh temp dir and runs the real `kali run --api browser` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:52) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_promise_all_run_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.all` slice." That doc belongs to promise_all_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_promise_all_harness"
+rationale = """Migrated from browser_promise_all_harness.rs. This `[[case]]` is the `(run, json)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `json_run_supports_promise_all_in_js_input_when_browser_harness_is_configured`, `json_run_supports_promise_all_in_ts_input_when_browser_harness_is_configured`, `json_run_supports_promise_all_in_jsx_input_when_browser_harness_is_configured`, `json_run_supports_promise_all_in_tsx_input_when_browser_harness_is_configured` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_requested_promise_all(` (:25) writes the browser `Promise.all` smoke probe to `main.${ext}` in a fresh temp dir and runs the real `kali --output json run --api browser` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:52) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_promise_all_run_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.all` slice." That doc belongs to promise_all_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "test_promise_all_harness"
+rationale = """Migrated from browser_promise_all_harness.rs. This `[[case]]` is the `(test, text)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `test_supports_promise_all_in_js_input_when_browser_harness_is_configured`, `test_supports_promise_all_in_ts_input_when_browser_harness_is_configured`, `test_supports_promise_all_in_jsx_input_when_browser_harness_is_configured`, `test_supports_promise_all_in_tsx_input_when_browser_harness_is_configured` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_requested_promise_all(` (:25) writes the browser `Promise.all` smoke probe to `smoke.test.${ext}` in a fresh temp dir and runs the real `kali test --api browser` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:52) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_promise_all_test_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.all` slice." That doc belongs to promise_all_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_test_promise_all_harness"
+rationale = """Migrated from browser_promise_all_harness.rs. This `[[case]]` is the `(test, json)` cell of the source's 16 `#[test]` fns, matrix-fanned by `ext(4)` to the four extensions, so it stands for `json_test_supports_promise_all_in_js_input_when_browser_harness_is_configured`, `json_test_supports_promise_all_in_ts_input_when_browser_harness_is_configured`, `json_test_supports_promise_all_in_jsx_input_when_browser_harness_is_configured`, `json_test_supports_promise_all_in_tsx_input_when_browser_harness_is_configured` -- one trial per fn, assertion mapping 1:1 (rule 6's sanctioned rule-7 fold, stated here as the rule requires). `assert_browser_requested_promise_all(` (:25) writes the browser `Promise.all` smoke probe to `smoke.test.${ext}` in a fresh temp dir and runs the real `kali --output json test --api browser` with that dir as cwd and the browser harness command variable set to `node`. ASSERTION SHAPE: the source's ONLY process assertion in this file is `assert!(!output.status.success(), "must fail closed: {output:?}")` (:52) -- no exit code, no stdout/stderr needle, no envelope field, in either output mode -- so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. The program under test is `browser_promise_all_test_source()`; its text is the byte-exact output of executing that real code (rules 8 and 9), never hand-derived. RULE 12 -- the Rust comment prose of browser_promise_all_harness.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md." RULE 13 -- doc comments on the library helpers that produce this fixture, carried verbatim: "Canonical browser smoke body for the supported `Promise.all` slice." That doc belongs to promise_all_browser_body_source (named plainly rather than backticked: U8's gate resolves backticked identifiers against this source's own fn list and this one lives in kali_common)."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"

@@ -1,0 +1,87 @@
+# Migrated from tests/browser_math_exp2_zero_identity.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# MATRIX ARITHMETIC (rule 7): all 16 #[test] fns are individual (no loops)
+# calls
+# to the single helper `assert_browser_harness_math_exp2(command, filename,
+# source, json_output)` = command(run/test) x ext(js/ts/jsx/tsx) x
+# json_output(2) = 16 invocations, uniform over `ext`. `ext` is hoisted to a
+# file-level [matrix] axis: 16 fns collapse to 4 [[case]] entries, matrix-
+# fanned
+# to 16 trials, matching exactly. This file has no bundle group at all.
+#
+# ASSERTION SHAPE. `exit = "success"`. Non-json: `stdout_contains = ["4\n"]`,
+# plus `"ok 1"` on the "test" cases ONLY -- source guards that needle with
+# `if command == "test"`, so the "run" cases must not carry it (rule 2). Json:
+# schemaVersion/command/success/payload(hostContract, runtimeBackend), then
+# `json["exitCode"]`/`payload.exitCode` for "run" or
+# `payload.total/passed/failed/skipped` for "test" -- note this file also pins
+# `payload.skipped == 0`, which most of its siblings do not -- `stderr = ""`,
+# and
+# an exact `json.stdout` pin resolving source's
+# `json["stdout"].contains("4\n")`,
+# live-captured from the real `kali` binary. This helper's argv carries no
+# `--max-threads`/`--max-spawned-processes` throttle; mirrored exactly.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """const exponent = 2; const alias = exponent; console.log(Math.exp2(alias)); console.log(globalThis?.Math.exp2(alias)); console.log(Object.freeze(globalThis?.Math.exp2)(alias)); console.log(globalThis["Math"]["exp2"](alias)); console.log(Object.freeze(Math.exp2)(alias)); console.log(Object.freeze(globalThis.Math["exp2"])(alias)); console.log(Object.freeze((null ?? globalThis.Math["exp2"]))(alias)); console.log(Object.freeze((true && globalThis.Math["exp2"]))(alias)); console.log(Object.freeze((false || globalThis.Math["exp2"]))(alias)); console.log(Object.freeze((null ?? globalThis["Math"].exp2))(alias)); console.log(Object.freeze((true && globalThis["Math"].exp2))(alias)); console.log(Object.freeze((false || globalThis["Math"].exp2))(alias)); console.log(Object.freeze((null ?? Math.exp2))(alias)); console.log(Object.freeze((true && Math.exp2))(alias)); console.log(Object.freeze((false || Math.exp2))(alias));
+"""
+"smoke.test.${ext}" = """Kali.test('math exp2 non-negative integer literals', () => {
+  const exponent = 2;
+  const alias = exponent;
+  console.log(Math.exp2(alias));
+  console.log(globalThis?.Math.exp2(alias));
+  console.log(Object.freeze(globalThis?.Math.exp2)(alias));
+  console.log(globalThis["Math"]["exp2"](alias));
+  console.log(Object.freeze(Math.exp2)(alias));
+  console.log(Object.freeze(globalThis.Math["exp2"])(alias));
+  console.log(Object.freeze((null ?? globalThis.Math["exp2"]))(alias));
+  console.log(Object.freeze((true && globalThis.Math["exp2"]))(alias));
+  console.log(Object.freeze((false || globalThis.Math["exp2"]))(alias));
+  console.log(Object.freeze((null ?? globalThis["Math"].exp2))(alias));
+  console.log(Object.freeze((true && globalThis["Math"].exp2))(alias));
+  console.log(Object.freeze((false || globalThis["Math"].exp2))(alias));
+  console.log(Object.freeze((null ?? Math.exp2))(alias));
+  console.log(Object.freeze((true && Math.exp2))(alias));
+  console.log(Object.freeze((false || Math.exp2))(alias));
+});
+"""
+
+[[case]]
+name = "run_supports_math_exp2_zero_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp2_zero_identity.rs. `assert_browser_harness_math_exp2("run", ...)` runs `kali run --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `4\\n`; source's second needle `ok 1` is guarded by `if command == "test"` and is therefore NOT carried here. Plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. This helper's argv carries no `--max-threads`/`--max-spawned-processes` throttle; mirrored exactly. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials (see the file header's arithmetic)."""
+args = ["run", "--api", "browser", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["4\n"]
+
+[[case]]
+name = "json_run_supports_math_exp2_zero_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp2_zero_identity.rs. `assert_browser_harness_math_exp2("run", ...)` runs `kali run --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `json["exitCode"] == 0` and `payload.exitCode == 0`, that `stderr` is exactly empty, and that `json["stdout"]` contains `4\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. This helper's argv carries no `--max-threads`/`--max-spawned-processes` throttle; mirrored exactly. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials (see the file header's arithmetic)."""
+args = ["--output", "json", "run", "--api", "browser", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "run", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "exitCode" = 0 }, "exitCode" = 0, "stdout" = "4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n", "stderr" = "" }
+
+[[case]]
+name = "test_supports_math_exp2_zero_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp2_zero_identity.rs. `assert_browser_harness_math_exp2("test", ...)` runs `kali test --api browser` under the browser harness (`node`) and, in non-json mode, asserts a clean exit and that stdout contains `4\\n`, plus `ok 1` -- source guards that second needle with `if command == "test"`, so it is carried on the test cases only. Plain `.contains` against a field that has a substring form, so mirrored as `stdout_contains`. This helper's argv carries no `--max-threads`/`--max-spawned-processes` throttle; mirrored exactly. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials (see the file header's arithmetic)."""
+args = ["test", "--api", "browser", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+stdout_contains = ["4\n", "ok 1"]
+
+[[case]]
+name = "json_test_supports_math_exp2_zero_identity_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_exp2_zero_identity.rs. `assert_browser_harness_math_exp2("test", ...)` runs `kali test --api browser --output json` and asserts the JSON envelope's schemaVersion/command/success/payload (hostContract, runtimeBackend) fields, `payload.total`/`passed`/`failed`/`skipped` == 1/1/0/0, that `stderr` is exactly empty, and that `json["stdout"]` contains `4\\n`. A nested `json` leaf has no substring-assertion form in this case-file format (only exact equality), so that claim is resolved to an exact pin -- live-captured from the real `kali` binary and strictly stronger than source's `.contains()` check. This helper's argv carries no `--max-threads`/`--max-spawned-processes` throttle; mirrored exactly. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 16 #[test] fns collapse to 4 [[case]] entries here, matrix-fanned to 16 trials (see the file header's arithmetic)."""
+args = ["--output", "json", "test", "--api", "browser", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "test", "success" = true, "payload" = { "hostContract" = "browser-requested", "runtimeBackend" = "browser-harness", "total" = 1, "passed" = 1, "failed" = 0, "skipped" = 0 }, "stdout" = "4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n4\n", "stderr" = "" }

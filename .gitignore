@@ -31,3 +31,23 @@ devenv.local.yaml
 
 # Kali fixture build cache (per-fixture compiled artifacts)
 crates/kali_cli/tests/fixtures/.kali-cache/
+
+# TEMPORARY `cargo test` TARGETS WRITTEN INTO THE TESTS TREE BY THE MIGRATION
+# CAPTURE RUNNERS. Cargo discovers integration-test targets in
+# `crates/kali_cli/tests/` and nowhere else, so a runner that has to execute
+# pinned bytes through the real harness must write a `.rs` there; each removes
+# its own in a `finally` (`t19b5_capture_run.py`, `t19b2_captures.py`,
+# `batch{5a,6a,7a,7b,8a}` in tools/task-18-browser-pilot). A SIGKILL between
+# the write and the `finally` leaves one behind, and a stray one is a target
+# `cargo test` compiles and `scripts/test-gate.sh` counts. Ignoring the whole
+# `zz_*` class -- the naming convention every one of those runners already
+# follows -- means a stray can never be committed. The runners refuse to start
+# when one is already present, so it also cannot be silently inherited.
+crates/kali_cli/tests/zz_*.rs
+
+# CPython bytecode caches. The migration gates are Python: `test-gate.sh
+# --gates-only` and every `tools/migration/gen_task19_batch*.py` import
+# sibling modules, so running the gates locally leaves `__pycache__/` beside
+# tracked scripts. It is build output, never a source of truth.
+__pycache__/
+*.pyc

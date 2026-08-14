@@ -1,0 +1,138 @@
+# Migrated from tests/string_repeat_static_ascii.rs -- all 7 #[test]
+# functions, as 10 case blocks:
+#
+#   - `run`, `json_check`: 1:1 with their source tests.
+#   - `browser_bundle_js`/`ts`/`jsx`/`tsx`: sibling [[case]] blocks, not a
+#     [matrix] axis, for `browser_bundle_accepts_static_ascii_string_repeat_
+#     across_source_classes`'s 4-extension loop -- a matrix axis is
+#     file-level and would have fanned every other case in this file out
+#     across all 4 extensions too (spec 5.6).
+#   - `json_browser_bundle_tsx`: 1:1 with its source test.
+#   - `check_gates_dynamic_count`/`negative_count`/`non_ascii`: the 3 E5506
+#     fail-closed gate tests, each pinning `errors.0.code = "E5506"` via
+#     dotted-path array indexing (jsonpath.rs). Whole-array equality is not
+#     an option here: every diagnostic `kali_cli` emits hard-codes
+#     `"fix": null` (output/serialize.rs), and TOML has no null literal that
+#     can ever match it -- confirmed by jsonpath_tests.rs's own
+#     `a_json_null_matches_nothing_expressible_in_toml`. Indexing just the
+#     one field that matters is what makes these three expressible at all.
+#
+# `[source]` is file-level: every trial in this file writes all 9 entries
+# below into its temp dir, unlike the original tests, each of which had a
+# tempdir containing exactly one file. This is deliberate, not an oversight
+# -- each case's `args` names the one file it acts on, and `check`/`build`
+# only touch the named argument, so the extra files are inert. It does mean
+# a passing case is sensitive to files it never mentions (a case's outcome
+# depends on the whole file-level `[source]` table, not just what it names)
+# -- worth knowing before copying this file as a template for the other
+# ~300 migrations.
+
+[source]
+"main.js" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"main.ts" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"string-repeat.js" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"string-repeat.ts" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"string-repeat.jsx" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"string-repeat.tsx" = '''
+console.log("ha".repeat(3));
+console.log("x".repeat(0));
+'''
+"dynamic_count.js" = '''
+function repeat(count) { return 'ha'.repeat(count); }
+'''
+"negative_count.js" = '''
+console.log('ha'.repeat(-1));
+'''
+"non_ascii.js" = '''
+console.log('hé'.repeat(2));
+'''
+
+[[case]]
+name = "run"
+rationale = "`.repeat()` on an ASCII literal folds at compile time."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "hahaha\n\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_js"
+rationale = "The static-ASCII `.repeat()` fold holds across every supported source class, not just plain JS -- js source."
+args = ["build", "--api", "browser", "--bundle", "string-repeat.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_ts"
+rationale = "The static-ASCII `.repeat()` fold holds across every supported source class, not just plain JS -- ts source."
+args = ["build", "--api", "browser", "--bundle", "string-repeat.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_jsx"
+rationale = "The static-ASCII `.repeat()` fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["build", "--api", "browser", "--bundle", "string-repeat.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_tsx"
+rationale = "The static-ASCII `.repeat()` fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["build", "--api", "browser", "--bundle", "string-repeat.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_browser_bundle_tsx"
+rationale = "Same tsx browser bundle, asserting the JSON output envelope rather than a bare success exit."
+args = ["--output", "json", "build", "--api", "browser", "--bundle", "string-repeat.tsx"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "build"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "check_gates_dynamic_count"
+rationale = "`.repeat()` only folds for a statically-known count; a dynamic count must fail closed with E5506, not silently fall through to an unsupported runtime path."
+args = ["--output", "json", "check", "dynamic_count.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_negative_count"
+rationale = "A statically-known but negative count is still outside the supported 0..=1024 range and must fail closed with E5506."
+args = ["--output", "json", "check", "negative_count.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+
+[[case]]
+name = "check_gates_non_ascii_receiver"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('hé') must fail closed with E5506 rather than silently folding incorrectly."
+args = ["--output", "json", "check", "non_ascii.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"

@@ -1,0 +1,97 @@
+# Migrated from tests/browser_for_of_array_iteration_sequence_wrappers.rs.
+# No Rust comments exist anywhere in the source file (checked: `grep -nE
+# '^\s*//'` finds nothing outside the JS fixture bodies' own `// kali-tree-
+# shake:` markers, which are program text, not Rust comments), so there is no
+# prose to move verbatim into `rationale` here (rule 12).
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# MATRIX ARITHMETIC (rule 7): all 8 #[test] fns are individual (no loops
+# anywhere in this file -- confirmed by reading every fn body, not by matching
+# fn names) and funnel through the single helper
+# `assert_browser_bundle_for_of_sequence_wrapper(filename, json_output,
+# source,
+# harness_function)`, one call each, always with the SAME fixture body
+# (`for_of_sequence_source()`) and the same harness export
+# (`forOfArrayIterationSequenceWrapper`). The 8 calls are exactly
+# ext(js/ts/jsx/tsx) x json_output(false/true) = 8, uniform across every case,
+# so `ext` is hoisted to a file-level [matrix] axis: 8 #[test] fns collapse to
+# 2
+# [[case]] entries (build / json_build), matrix-fanned to 8 trials, matching
+# the
+# 8 real invocations exactly.
+#
+# [source] needs no disambiguation (rule U5): this file has ONE fixture body
+# and
+# source names it `app.<ext>`, so the flat file-wide `[source]` namespace
+# holds
+# it under its original name. `--bundle` names its output directory after the
+# input stem, so `app/app.meta.json` and `entry = "app"` are unchanged too.
+#
+# `exit = "success"` carries `assert!(output.status.success())`. The harness
+# step's `stdout_contains = ["1\n", "2\n"]` mirrors source's own
+# `stdout.contains("1\n")` / `stdout.contains("2\n")` -- plain `.contains`
+# against a field that HAS a substring form, so it is kept as `*_contains` and
+# NOT strengthened to an exact pin (controller ruling 3: mirror the source).
+# No `format!` hand-simulation (rule 8): the harness `body` below was produced
+# by
+# executing the real `format!(r#"const mod = await
+# import(bundleJs.href);\nawait
+# mod.{harness_function}();\n"#)` from source, not by hand-substitution.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: forOfArrayIterationSequenceWrapper
+function forOfArrayIterationSequenceWrapper() {
+  let count = 0;
+  for (const item of (0, [(0, 1), (0, 2)])) {
+    console.log(++count);
+  }
+}
+"""
+
+[[case]]
+name = "build_emits_for_of_sequence_wrapper"
+rationale = """Migrated from browser_for_of_array_iteration_sequence_wrappers.rs. `assert_browser_bundle_for_of_sequence_wrapper` builds a browser bundle (`kali build --bundle --api browser`), asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the sequence-wrapped `for (const item of (0, [(0, 1), (0, 2)]))` loop printed both `1` and `2`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 8 #[test] fns collapse to 2 [[case]] entries here, matrix-fanned to 8 trials, matching the 8 real per-(ext,json_output) invocations in source exactly (see the file header's arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened to an exact pin."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationSequenceWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]
+
+[[case]]
+name = "json_build_emits_for_of_sequence_wrapper"
+rationale = """Migrated from browser_for_of_array_iteration_sequence_wrappers.rs. `assert_browser_bundle_for_of_sequence_wrapper` builds a browser bundle (`kali build --bundle --api browser --output json`), asserts the JSON envelope's schemaVersion/command/success/exitCode/payload (artifactKind, bundleFormat) fields and that `errors` is empty, then asserts the emitted `app/app.meta.json` metadata, then runs the bundle glue under the browser-bundle-harness contract and checks that the sequence-wrapped `for (const item of (0, [(0, 1), (0, 2)]))` loop printed both `1` and `2`. `ext` (js/ts/jsx/tsx) is hoisted to a file-level [matrix] axis: 8 #[test] fns collapse to 2 [[case]] entries here, matrix-fanned to 8 trials, matching the 8 real per-(ext,json_output) invocations in source exactly (see the file header's arithmetic). Source's stdout claim is a plain `.contains`, mirrored as `stdout_contains` rather than strengthened to an exact pin."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { "schemaVersion" = 1, "command" = "build", "success" = true, "exitCode" = 0, "payload" = { "artifactKind" = "bundle", "bundleFormat" = "esm" }, "errors" = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { "apiSurface" = "browser", "artifactKind" = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.forOfArrayIterationSequenceWrapper();
+"""
+exit = "success"
+stdout_contains = ["1\n", "2\n"]

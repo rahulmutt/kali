@@ -1,0 +1,192 @@
+# Migrated from tests/browser_object_is_alias_chain_harness.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_object_is_alias_chain_harness.rs returns NOTHING -- the file has no Rust comment lines at
+# all. The generator re-derives that on every run and RAISES rather than emitting this
+# block if the source ever grows one, so the `--allow-empty` discharge below cannot
+# become a vacuous green by drift.
+# The file contains no `//` of any kind -- it declares no bundle fixture, so
+# there is not even a kali-tree-shake marker in it.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 16 `#[test]` fns, 16 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_harness_object_is_alias_chain` -- 16 invocation(s) = command(run/test) x ext(js/ts/jsx/tsx) x json_output(false/true), a complete cross product. Every `#[test]` fn is one unlooped call and the file contains no loop at all.
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 4 `[[case]]` entries x ext(4) = 16 trials = 16 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`main.${ext}`, `smoke.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULE 8 -- THE FIXTURES ARE CAPTURED, NEVER HAND-DERIVED. One builder produces both
+# texts from a shared body with a `match command` and two `format!`s
+# `"test" => format!(` (:41): the `test` arm wraps the body in
+# `Kali.test('browser object is alias chain', () => {...})` and every other arm appends
+# a `console.log`. The two texts below are the byte-exact output of EXECUTING the real
+# builder (see tools/task-18-browser-pilot/batch7a_captures.py), and the generator
+# re-checks each against anchors present in both the producing Rust source and the
+# captured text.
+# BOTH COUNTS ARE DERIVED FROM THE SOURCE ON EVERY GENERATOR RUN, not typed here -- the
+# `format!` count from inside the builder's own body, the text count from the captures
+# emitted below. Ruling 15's first answer.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_object_is_alias_chain_source`,
+#   `assert_browser_harness_object_is_alias_chain` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step, so ruling 6's exemption has nothing
+# to exempt and is not stated.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * run/test: `[--output json] <run|test> --api browser --max-threads 0
+#              --max-spawned-processes 0 <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand, and both thread flags are always passed.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+# The env value is `KALI_BROWSER_BUNDLE_HARNESS_COMMAND`, read from the
+# `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` constant the source passes by
+# name `kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV` (:52) rather than assumed.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+#   * `exit = 0`, not `exit = "success"`. The source asserts BOTH `status.success()`
+#     and `assert_eq!(output.status.code(), Some(0))` `assert_eq!(output.status.code(), Some(0))` (:75); the exact-code form
+#     of design spec 5.4's `exit` key carries both at once, and downgrading it to the
+#     status class would drop the source's exact claim (rule 1).
+#   * In json mode: schemaVersion/command/success and payload hostContract/
+#     runtimeBackend; for `run`, `payload.exitCode = 0` and an EXACT `json.stdout`
+#     `assert_eq!(json["stdout"], "browser object is alias chain ok` (:86); for `test`, payload total/passed/failed and an EXACT
+#     `json.stdout = ""` `assert_eq!(json["stdout"], "")` (:91); `json.stderr = ""` `assert_eq!(json["stderr"], "")` (:93) and an
+#     empty `errors` array in both.
+#     NOTE the envelope-level `exitCode` is NOT asserted -- this source checks only
+#     `payload.exitCode` for `run` -- so it is omitted rather than added, per rule 2.
+#     Both `json.stdout` pins are EXACT IN THE SOURCE (`assert_eq!`), so they are exact
+#     here by rule 1's non-negotiable direction, not by strengthening; U9 re-captures
+#     both from the real binary for all four `ext` cells on every generator run, and
+#     they are 'browser object is alias chain ok\n' and ''.
+#   * In text mode: `stdout_contains` -- the run cases at
+# `stdout.contains("browser object is alias chain ok")` (:99), the test cases at
+# `stdout.contains("ok 1")` (:103).
+# The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """const object = { a: 1 };
+const objectAlias = object;
+const frozenObject = Object.freeze(object);
+const array = [1, 2];
+const arrayAlias = array;
+const frozenArray = Object.freeze(array);
+if (
+  Object.is(objectAlias, object) !== true ||
+  globalThis?.Object?.is(objectAlias, object) !== true ||
+  globalThis["Object"]["is"](objectAlias, object) !== true ||
+  globalThis.Object["is"](objectAlias, object) !== true ||
+  globalThis["Object"].is(objectAlias, object) !== true ||
+  globalThis.Object.is(objectAlias, object) !== true ||
+  Object["is"](objectAlias, object) !== true ||
+  Object.is(frozenObject, object) !== true ||
+  globalThis["Object"]["is"](frozenObject, object) !== true ||
+  globalThis.Object["is"](frozenObject, object) !== true ||
+  globalThis["Object"].is(frozenObject, object) !== true ||
+  globalThis.Object.is(frozenObject, object) !== true ||
+  Object["is"](frozenObject, object) !== true ||
+  Object.is(arrayAlias, array) !== true ||
+  Object.is(frozenArray, array) !== true ||
+  Object.is({}, {}) !== false ||
+  Object.is([], []) !== false
+) {
+  throw new Error('unexpected browser Object.is alias chain result');
+}
+console.log('browser object is alias chain ok');
+"""
+"smoke.test.${ext}" = """Kali.test('browser object is alias chain', () => {
+const object = { a: 1 };
+const objectAlias = object;
+const frozenObject = Object.freeze(object);
+const array = [1, 2];
+const arrayAlias = array;
+const frozenArray = Object.freeze(array);
+if (
+  Object.is(objectAlias, object) !== true ||
+  globalThis?.Object?.is(objectAlias, object) !== true ||
+  globalThis["Object"]["is"](objectAlias, object) !== true ||
+  globalThis.Object["is"](objectAlias, object) !== true ||
+  globalThis["Object"].is(objectAlias, object) !== true ||
+  globalThis.Object.is(objectAlias, object) !== true ||
+  Object["is"](objectAlias, object) !== true ||
+  Object.is(frozenObject, object) !== true ||
+  globalThis["Object"]["is"](frozenObject, object) !== true ||
+  globalThis.Object["is"](frozenObject, object) !== true ||
+  globalThis["Object"].is(frozenObject, object) !== true ||
+  globalThis.Object.is(frozenObject, object) !== true ||
+  Object["is"](frozenObject, object) !== true ||
+  Object.is(arrayAlias, array) !== true ||
+  Object.is(frozenArray, array) !== true ||
+  Object.is({}, {}) !== false ||
+  Object.is([], []) !== false
+) {
+  throw new Error('unexpected browser Object.is alias chain result');
+}
+});
+"""
+
+[[case]]
+name = "run_supports_object_is_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_is_alias_chain_harness.rs, the four `run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_is_alias_chain` writes the Object.is alias-chain run fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node. The program aliases an object and an array, freezes each, and pins that Object.is reports reference identity through the optional-chained, bracketed, mixed and dotted `globalThis.Object.is` spellings while reporting false for two structurally equal but distinct literals. It succeeds, and the source asserts both `status.success()` and an exact exit code of 0 `assert_eq!(output.status.code(), Some(0))` (:75), which is carried as `exit = 0`. Its text-mode claim is a plain `stdout.contains("browser object is alias chain ok")` (:99). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The fixture text is the byte-exact output of executing the real `format!` (rule 8), never hand-derived."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 0
+stdout_contains = ["browser object is alias chain ok"]
+
+[[case]]
+name = "json_run_supports_object_is_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_is_alias_chain_harness.rs, the four `json_run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_is_alias_chain` writes the Object.is alias-chain run fixture and asks `kali` to run it against the browser API surface with the browser harness backed by node, with `--output json`. The program aliases an object and an array, freezes each, and pins that Object.is reports reference identity through the optional-chained, bracketed, mixed and dotted `globalThis.Object.is` spellings while reporting false for two structurally equal but distinct literals. It succeeds, and the source asserts both `status.success()` and an exact exit code of 0 `assert_eq!(output.status.code(), Some(0))` (:75), which is carried as `exit = 0`. In json mode this case pins schemaVersion/command/success, the payload's hostContract and runtimeBackend, `payload.exitCode = 0`, an empty `errors` array, `json.stderr = ""` `assert_eq!(json["stderr"], "")` (:93) and an EXACT `json.stdout` `assert_eq!(json["stdout"], "browser object is alias chain ok` (:86). That pin is exact IN THE SOURCE (`assert_eq!`), so carrying it exactly is rule 1's non-negotiable direction rather than a strengthening; U9 re-captured it from the real binary for all four `ext` cells. The envelope-level `exitCode` is NOT asserted by this source, so it is not asserted here (rule 2). The fixture text is the byte-exact output of executing the real `format!` (rule 8), never hand-derived."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 0
+json = { schemaVersion = 1, command = "run", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "browser object is alias chain ok\n", stderr = "", errors = [] }
+
+[[case]]
+name = "test_supports_object_is_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_is_alias_chain_harness.rs, the four `test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_is_alias_chain` writes the Object.is alias-chain test fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node. The program aliases an object and an array, freezes each, and pins that Object.is reports reference identity through the optional-chained, bracketed, mixed and dotted `globalThis.Object.is` spellings while reporting false for two structurally equal but distinct literals. It succeeds, and the source asserts both `status.success()` and an exact exit code of 0 `assert_eq!(output.status.code(), Some(0))` (:75), which is carried as `exit = 0`. Its text-mode claim is a plain `stdout.contains("ok 1")` (:103). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The fixture text is the byte-exact output of executing the real `format!` (rule 8), never hand-derived."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 0
+stdout_contains = ["ok 1"]
+
+[[case]]
+name = "json_test_supports_object_is_alias_chain_when_browser_harness_is_configured"
+rationale = """Migrated from browser_object_is_alias_chain_harness.rs, the four `json_test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_*_input` fns (one per extension). `assert_browser_harness_object_is_alias_chain` writes the Object.is alias-chain test fixture and asks `kali` to test it against the browser API surface with the browser harness backed by node, with `--output json`. The program aliases an object and an array, freezes each, and pins that Object.is reports reference identity through the optional-chained, bracketed, mixed and dotted `globalThis.Object.is` spellings while reporting false for two structurally equal but distinct literals. It succeeds, and the source asserts both `status.success()` and an exact exit code of 0 `assert_eq!(output.status.code(), Some(0))` (:75), which is carried as `exit = 0`. In json mode this case pins schemaVersion/command/success, the payload's hostContract and runtimeBackend, the payload's total, passed and failed, an empty `errors` array, `json.stderr = ""` `assert_eq!(json["stderr"], "")` (:93) and an EXACT `json.stdout` `assert_eq!(json["stdout"], "")` (:91). That pin is exact IN THE SOURCE (`assert_eq!`), so carrying it exactly is rule 1's non-negotiable direction rather than a strengthening; U9 re-captured it from the real binary for all four `ext` cells. The envelope-level `exitCode` is NOT asserted by this source, so it is not asserted here (rule 2). The fixture text is the byte-exact output of executing the real `format!` (rule 8), never hand-derived."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = 0
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "", stderr = "", errors = [] }

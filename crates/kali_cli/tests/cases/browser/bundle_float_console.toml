@@ -1,0 +1,30 @@
+# Migrated from tests/browser_bundle_float_console.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# Runtime floats route through the browser bundle glue's `float_to_string`
+# mirror: a top-level program's division results print with JS semantics
+# when executed via the glue's `start()` helper under the node harness.
+
+[source]
+"app.ts" = """console.log(7 / 2);
+console.log("v: " + (0 / 0));
+console.log(7 / 0);
+console.log(1 / 10000000);
+"""
+
+[[case]]
+name = "browser_bundle_prints_runtime_floats_via_start"
+rationale = """Migrated from browser_bundle_float_console.rs. Runtime floats route through the browser bundle glue's `float_to_string` mirror: a top-level program's division results print with JS semantics when executed via the glue's `start()` helper under the node harness."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.start();
+"""
+exit = "success"
+stdout_contains = ["3.5\n", "v: NaN\n", "Infinity\n", "1e-7\n"]

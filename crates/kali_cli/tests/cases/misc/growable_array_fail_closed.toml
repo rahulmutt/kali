@@ -1,0 +1,253 @@
+# Migrated from tests/growable_array_fail_closed.rs.
+#   SOURCE REF: ee0d086a82729d3938fcd4e822ed01f2507c68d7
+#
+# Stage 4 Task 6: out-of-scope growable-array shapes fail CLOSED (E5506),
+# never a silent wrong answer. A growable-shape binding (`const o = []`) that
+# is a `.push` receiver but cannot be promoted — because it escapes, is
+# aliased, is pushed through a computed/optional-chain call, is captured by a
+# closure, is mutated by a non-`push` method, is pushed with the wrong arity,
+# or would carry an unsupported (float/object) element — must be rejected at
+# compile time, not left on the pre-existing push-no-op lane whose length/
+# index reads silently diverge from node.
+#
+# Modeled on `growable_array_core.rs` (kali_bin() helper, tempdir, `run`),
+# asserting `!status.success()` + stderr contains `error[E5506]` for each.
+#
+# MATRIX ARITHMETIC — IT CLOSES EXACTLY, AND ONE SOURCE FN HAD TO MOVE OUT FOR
+# IT TO (rule 7, U1).
+#
+# `assert_fail_closed_e5506` (`:23-51`) runs every source it is given twice,
+# `for extension in ["js", "ts"]`, so `ext` is a real axis. Enumerating every
+# helper invocation in the source, expanding every loop:
+#
+#   10 fns calling assert_fail_closed_e5506  x 2 extensions          = 20
+#   multi_arg_console_log_with_growable_read_fails_closed:
+#       2 sources x 2 extensions                                     =  4
+#   malformed_push_call_reports_the_push_not_a_position:
+#       2 sources x 1 extension (`smoke.test.js`, HARDCODED at :157) =  2
+#                                                                     ----
+#   total real invocations in growable_array_fail_closed.rs           = 26
+#
+# `[matrix]` is FILE-WIDE with no per-case opt-out (U1): every `[[case]]` is
+# fanned by every axis. `malformed_push_call_reports_the_push_not_a_position`
+# does NOT vary over `ext` — it hardcodes `.js` — so fanning it here would
+# manufacture two `.ts` trials the source never ran, which is a rule-2
+# invention as well as a rule-7 arithmetic break. It is therefore migrated to
+# its own case file, `growable_array_fail_closed_push_diagnostics.toml`, which
+# declares no matrix. The two files are one migration and are audited together.
+#
+#   this file:            12 cases x 2 (ext) = 24
+#   push_diagnostics:      2 cases x 1       =  2
+#                                             ----
+#                                               26   == the source's 26. Closes.
+#
+# `[source]` keys are per-case and `${ext}`-suffixed (U5): `[source]` is one
+# flat FILE-WIDE namespace cloned into every trial (U2), so twelve cases cannot
+# share the source's single `smoke.test.{extension}` key. U2 CHECK, run rather
+# than assumed: every program is standalone and references no sibling filename,
+# so the other eleven fixtures being present in each trial is inert. No case
+# here turns on a fixture's presence or absence.
+#
+# No `[source]` key contains a literal this source asserts (`error[E5506]`,
+# `console output of multiple arguments`), so none of them can satisfy an audit
+# claim by accident — see the channel documented in
+# `cases/misc/bitwise_operators_runtime.toml`.
+#
+# CONSEQUENCE FOR THE GATES — `check_rationale_fn_names.py` IS EXPECTED-RED ON
+# THIS FILE, AND THE RED IS RULE 12 DOING ITS JOB.
+#
+#   python3 tools/task-18-browser-pilot/check_rationale_fn_names.py \
+#     crates/kali_cli/tests/growable_array_fail_closed.rs \
+#     crates/kali_cli/tests/cases/misc/growable_array_fail_closed.toml
+#   # -> UNEXPLAINED: `obj_fields_of`, `obj_literal_slots`,
+#   #                 `obj_materialized`            ... rc=1
+#
+# All three are carried VERBATIM out of the source's own `///` doc comment on
+# `object_identifier_push_fails_closed` (`:134-139`). They name compiler
+# internals in other crates, not fns in `growable_array_fail_closed.rs`, so they
+# cannot resolve against it. Removing them would violate rule 12; rewording them
+# would violate U7. The sibling file
+# `growable_array_fail_closed_push_diagnostics.toml` carries no such name and
+# this gate is GREEN on it (rc=0) — so the red here is specific to the carried
+# prose, not to the migration. Same disposition and same named fix as
+# `cases/nullish/assign_reject.toml`: extend the script's known-identifier
+# allowlist, in the instrument dispatch. NOT worked around, and NOT silenced.
+#
+# EXTRA-OK: '' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'alias_binding.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'alias_binding.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'closure_capture.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'closure_capture.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'computed_push_call.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'computed_push_call.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'escaping_via_return.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'escaping_via_return.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'float_element_push.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'float_element_push.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'map_materialization_bind.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'map_materialization_bind.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'multi_arg_length_and_index.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'multi_arg_length_and_index.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'multi_arg_string_and_length.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'multi_arg_string_and_length.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'object_identifier_push.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'object_identifier_push.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'optional_chain_push_call.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'optional_chain_push_call.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'pop_mutator.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'pop_mutator.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'wrong_arity_push.test.js' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+# EXTRA-OK: 'wrong_arity_push.test.ts' -- U5 variant-suffixed `[source]` key, surfaced as an argv token; it is a fixture FILENAME, not a claim about behaviour. The source wrote every program to one `main.ts`/`smoke.test.{extension}` under a fresh dir per test, which a single file-wide `[source]` namespace cannot reproduce (U2), so the keys had to be renamed and argv had to follow
+#
+# CONSEQUENCE FOR THE GATES — `comment_coverage.py` IS EXPECTED-RED (rc=1) ON
+# THIS PAIR, FOR U6's REASON. The checker asks whether every source comment line
+# appears in every case's rationale; U6 says a comment belongs in the rationale
+# of exactly the cases its producing helper reaches, and calls copying all of a
+# file's comments into all of its cases "over-attribution ... forbidden, even
+# though it turns the checker green". Every `MISSING` this reports is a
+# per-test comment correctly attributed to its own case and correctly absent
+# from its siblings. U6 anticipates this exactly: "on such a file the checker's
+# false `missing` must be documented in the header instead." That is what this
+# paragraph is. Reproduce with:
+#
+#   python3 tools/task-18-browser-pilot/comment_coverage.py \
+#     crates/kali_cli/tests/growable_array_fail_closed.rs \
+#     crates/kali_cli/tests/cases/misc/growable_array_fail_closed.toml
+#   # -> rc=1, every line a per-test comment absent from its siblings
+
+[matrix]
+ext = ["js", "ts"]
+
+[source]
+"map_materialization_bind.test.${ext}" = "function m(){const out=[1,2,3].map(v=>v*2);console.log(out.length);}m();"
+"escaping_via_return.test.${ext}" = "function make(){const o=[];o.push(1);o.push(2);o.push(3);return o;}function m(){const a=make();console.log(a.length);}m();"
+"pop_mutator.test.${ext}" = "function m(){const o=[];o.push(1);o.push(2);o.pop();console.log(o.length);}m();"
+"alias_binding.test.${ext}" = "function m(){const o=[];o.push(1);o.push(2);o.push(3);const p=o;console.log(o.length);}m();"
+"computed_push_call.test.${ext}" = "function m(){const o=[];o[\"push\"](1);o[\"push\"](2);console.log(o.length);}m();"
+"optional_chain_push_call.test.${ext}" = "function m(){const o=[];o?.push(1);o?.push(2);console.log(o.length);}m();"
+"closure_capture.test.${ext}" = "function m(){const o=[];o.push(1);o.push(2);const f=()=>o.push(3);console.log(o.length);}m();"
+"wrong_arity_push.test.${ext}" = "function m(){const o=[];o.push(1,2);console.log(o.length);}m();"
+"float_element_push.test.${ext}" = "function m(){const o=[];o.push(1.5);o.push(2.5);console.log(o.length);}m();"
+"object_identifier_push.test.${ext}" = "function m(){const obj={a:1};const o=[];o.push(obj);console.log(o[0]);}m();"
+"multi_arg_length_and_index.test.${ext}" = "function m(){const o=[];o.push(1);o.push(2);console.log(o.length,o[0]);}m();"
+"multi_arg_string_and_length.test.${ext}" = "function m(){const o=[];o.push(1);console.log(\"len\",o.length);}m();"
+
+[[case]]
+name = "map_materialization_bind_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Brief shape 1 — map materialization: `[1,2,3].map(...)` bound to a const is unavailable (design repro D). Already E5506; pinned here so no future change silently promotes it to a wrong-length answer."""
+args = ["run", "map_materialization_bind.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "escaping_via_return_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Brief shape 2 — escaping growable: a pushed array returned from its function escapes the safe-position allowlist. Node prints 3; the push-no-op lane printed 1 — a silent miscompile that must now reject."""
+args = ["run", "escaping_via_return.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "pop_mutator_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Brief shape 3 — non-push mutator: `.pop()` has no growable recognizer, so a growable-shape push receiver that also `.pop()`s must reject (the pushes would otherwise silently no-op)."""
+args = ["run", "pop_mutator.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "alias_binding_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Silent-poison class (Task 4 re-review shapes): aliasing the growable binding."""
+args = ["run", "alias_binding.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "computed_push_call_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Silent-poison class: a computed `o["push"](v)` call — no clean `.push` occurrence exists, so the binding never promoted and silently printed 0."""
+args = ["run", "computed_push_call.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "optional_chain_push_call_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Silent-poison class: an optional-chain `o?.push(v)` call."""
+args = ["run", "optional_chain_push_call.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "closure_capture_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Silent-poison class: capturing the growable binding in a closure."""
+args = ["run", "closure_capture.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "wrong_arity_push_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Silent-poison class: `push` with the wrong arity (two args). Node pushes both; the no-op lane printed 0."""
+args = ["run", "wrong_arity_push.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "float_element_push_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Repr-gate class: float elements are unsupported (constraints doc: F64 fails closed). The syntactic candidate solves a float element axis and must reject rather than silently no-op (printed 0, node 2)."""
+args = ["run", "float_element_push.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "object_identifier_push_fails_closed"
+rationale = """Migrated from growable_array_fail_closed.rs. Runs `src` (as both `.js` and `.ts`) and asserts a fail-closed E5506: non-zero exit, no stdout (never a silent partial run), stderr `error[E5506]`.
+
+Repr-gate class (review fix): pushing an object-LITERAL-bound identifier stored the raw object pointer as an i64 element — `o[0]` printed the pointer's low bits (`0`) while node prints `{ a: 1 }`. The identifier guard previously failed open because a never-field-read literal reaches neither `obj_materialized` nor `obj_fields_of` (both consumed before the promotion loop anyway); the dedicated `obj_literal_slots` set closes it."""
+args = ["run", "object_identifier_push.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]"]
+
+[[case]]
+name = "multi_arg_console_log_with_growable_read_fails_closed_length_and_index"
+rationale = """Migrated from growable_array_fail_closed.rs. Task 6 re-review fix: the dynamic console lane prints only its FIRST argument (pre-existing lane limitation), so a multi-argument `console.log` reading a growable array silently DROPPED the remaining arguments (`console.log(o.length, o[0])` printed `2`, node `2 1`). The growable lane is new this stage and must not ship into that hole: such calls fail closed (E5506). Single-argument growable logs and static multi-argument folds are unaffected.
+
+Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `console.log(o.length, o[0])` program."""
+args = ["run", "multi_arg_length_and_index.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]", "console output of multiple arguments"]
+
+[[case]]
+name = "multi_arg_console_log_with_growable_read_fails_closed_string_and_length"
+rationale = """Migrated from growable_array_fail_closed.rs. Task 6 re-review fix: the dynamic console lane prints only its FIRST argument (pre-existing lane limitation), so a multi-argument `console.log` reading a growable array silently DROPPED the remaining arguments (`console.log(o.length, o[0])` printed `2`, node `2 1`). The growable lane is new this stage and must not ship into that hole: such calls fail closed (E5506). Single-argument growable logs and static multi-argument folds are unaffected.
+
+Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `console.log("len", o.length)` program."""
+args = ["run", "multi_arg_string_and_length.test.${ext}"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["error[E5506]", "console output of multiple arguments"]

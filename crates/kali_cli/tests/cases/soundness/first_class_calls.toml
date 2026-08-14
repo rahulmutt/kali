@@ -1,0 +1,640 @@
+# Migrated from tests/soundness_first_class_calls.rs -- all 20 #[test]
+# functions, 1:1 to a case (no fn bundles multiple independent assertions;
+# no [matrix] -- every case runs a distinct one-off TS program via `kali run
+# <file>.ts`; [source] filenames end `.ts` since this file's own `run_source`
+# writes every fixture to `main.ts`, not `main.js`).
+#
+# The file's opening `//!` doc (its full multi-paragraph explanation of the
+# call-through-a-first-class-function-value soundness fix) is prepended
+# verbatim to EVERY case's rationale. Six `// ---...---` section banners
+# (bracketing a short paragraph, blank-line-separated from the #[test] they
+# introduce) are prepended to every case in the fn-range they cover -- the
+# banner-to-fn-range map is contiguous, non-overlapping, and monotonic
+# (verified programmatically). A same-line `// node: ...` comment sitting as
+# the FIRST statement inside a fn body (before its first real statement) is a
+# THIRD attachment point, distinct from a banner or a comment directly above
+# `#[test]` (this file has none of the latter) -- captured by an exhaustive
+# scan of every fn body's leading lines, not just a banner-grep, per the
+# batch-2 lesson that a bare banner-grep silently drops this class.
+# `assert_fails_closed`'s own `///` doc comment ("A call-through-a-value must
+# fail closed with `E5506`...") is claim prose, not boilerplate, and is
+# appended to the rationale of every case that helper produced (17 of the
+# 20); `assert_stdout` has no doc comment, so nothing is appended for its 3
+# cases.
+#
+# No [constants]: no `const NAME: &str` rule-literal declarations, no
+# byte-identical fixture body shared across two different #[test]s, and no
+# `${...}` template literal in this file.
+#
+# `assert_fails_closed` needle values (e.g. "first-class function value",
+# "E5506") map to `stderr_contains = ["E5506", needle]` (the helper always
+# requires E5506 AND the specific needle; two cases pin only "E5506" as the
+# needle itself, so the list has one entry, not two). `assert_stdout` cases
+# compare RAW (untrimmed) stdout via `assert_eq!` directly -- no `.trim()` --
+# so `stdout` is a direct copy of the literal expected string. Every fixture
+# was independently re-run against the real built kali binary (see the task
+# report); 0 discrepancies.
+
+[source]
+"calling_a_returned_closure_fails_closed.ts" = """function make() {
+  let n = 0;
+  return function () { n = n + 1; return n; };
+}
+const c = make();
+console.log("returned=" + c());
+"""
+"calling_a_function_alias_fails_closed.ts" = """function fn() { return 7; }
+var g = fn;
+console.log("alias=" + g());
+"""
+"calling_a_callback_parameter_fails_closed.ts" = """function fn() { return 7; }
+function apply(cb) { return cb(); }
+console.log("param=" + apply(fn));
+"""
+"calling_a_reassigned_function_binding_fails_closed.ts" = """function a() { return 1; }
+function b() { return 2; }
+var h = a;
+h = b;
+console.log("reassigned=" + h());
+"""
+"calling_a_function_held_in_an_object_field_fails_closed.ts" = """const o = { v: 3, f: function () { return 42; } };
+console.log("field=" + o.f());
+"""
+"a_call_through_a_value_never_silently_skips_its_side_effect.ts" = """let hits = 0;
+function bump() { hits = hits + 1; return 1; }
+var g = bump;
+if (g()) {
+  console.log("hits=" + hits + " taken");
+} else {
+  console.log("hits=" + hits + " not-taken");
+}
+"""
+"calling_an_array_element_directly_fails_closed.ts" = """function outer() {
+  let c = 9;
+  let arr = [function () { return c; }];
+  console.log(arr[0]());
+}
+outer();
+"""
+"calling_a_const_bound_arrow_by_name_fails_closed.ts" = """function bench() {
+  const layer0 = (x) => x + 0;
+  const layer1 = (x) => layer0(x);
+  return layer1(5);
+}
+console.log("lay=" + bench());
+"""
+"calling_a_function_named_by_an_object_property_fails_closed.ts" = """function f() { return 7; }
+const o = { g: f };
+console.log("a=" + o.g());
+"""
+"calling_a_function_named_by_an_array_element_fails_closed.ts" = """function f() { return 7; }
+const arr = [f];
+console.log("b=" + arr[0]());
+"""
+"calling_a_ternary_selected_function_fails_closed.ts" = """function f() { return 7; }
+console.log("c=" + (true ? f : f)());
+"""
+"calling_a_call_result_fails_closed.ts" = """function make() { return function () { return 3; }; }
+console.log("e=" + make()());
+"""
+"calling_a_function_returned_from_a_callback_taking_helper_fails_closed.ts" = """function f() { return 7; }
+function g(cb) { return cb; }
+console.log("j=" + g(f)());
+"""
+"calling_a_nested_object_property_function_fails_closed.ts" = """function f() { return 7; }
+const o = { n: { p: f } };
+console.log("k=" + o.n.p());
+"""
+"a_parenthesized_direct_call_still_runs.ts" = """function f() { return 7; }
+console.log("d=" + (f)());
+"""
+"for_each_with_a_callback_fails_closed.ts" = """let hits = 0;
+const arr = [1, 2, 3];
+arr.forEach(function (x) { hits = hits + x; });
+console.log("forEach=" + hits);
+"""
+"filter_with_a_predicate_callback_fails_closed.ts" = """const arr = [1, 2, 3];
+const r = arr.filter(x => x > 1);
+console.log("filter=" + r.length);
+"""
+"map_with_a_callback_still_fails_closed.ts" = """const arr = [1, 2, 3];
+const r = arr.map(x => x * 2);
+console.log("map=" + r.length);
+"""
+"direct_sibling_capture_still_runs.ts" = """function direct() {
+  let n = 0;
+  function inc() { n = n + 1; }
+  inc();
+  inc();
+  return "captured=" + n;
+}
+console.log(direct());
+"""
+"a_directly_named_call_still_runs.ts" = """function add(a, b) { return a + b; }
+console.log("sum=" + add(2, 3));
+"""
+
+# --- The controller-verified repro: a returned closure. ---
+
+[[case]]
+name = "calling_a_returned_closure_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+The controller-verified repro: a returned closure.
+
+node: returned=1. Pre-fix kali: returned=0 at exit 0, callee never ran.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_returned_closure_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+# --- The rest of the family. ---
+
+[[case]]
+name = "calling_a_function_alias_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+The rest of the family. Each was `0` at exit 0 before the fix.
+
+node: alias=7.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_function_alias_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "calling_a_callback_parameter_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+The rest of the family. Each was `0` at exit 0 before the fix.
+
+node: param=7.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_callback_parameter_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "calling_a_reassigned_function_binding_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+The rest of the family. Each was `0` at exit 0 before the fix.
+
+node: reassigned=2.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_reassigned_function_binding_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "calling_a_function_held_in_an_object_field_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+The rest of the family. Each was `0` at exit 0 before the fix.
+
+node: field=42. Pre-fix kali: field=0 at exit 0, while the sibling class-method `this` shape already failed closed — the same inconsistency the single choke point removes.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_function_held_in_an_object_field_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+# --- A silently-skipped call is worse than a wrong value: it takes the wrong branch. ---
+
+[[case]]
+name = "a_call_through_a_value_never_silently_skips_its_side_effect"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+A silently-skipped call is worse than a wrong value: it takes the wrong branch. Probe the side effect with a module-scope SCALAR counter (a growable array escaping into a call is itself a no-op here and would measure nothing).
+
+node: hits=1 taken. Pre-fix kali: `g()` was `0`, so the `else` branch ran and `bump` never executed — wrong control flow AND a dropped effect.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "a_call_through_a_value_never_silently_skips_its_side_effect.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "calling_an_array_element_directly_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+A silently-skipped call is worse than a wrong value: it takes the wrong branch. Probe the side effect with a module-scope SCALAR counter (a growable array escaping into a call is itself a no-op here and would measure nothing).
+
+node: 9. The sibling SPELLING of the re-pinned `let g = arr[0]; g()` tripwire in soundness_closures.rs — it reached the choke point through the computed-element path, where the property-name rule cannot see it, and printed `0` at exit 0 until the aggregate rule closed it. Pinned so the two spellings stay consistent.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_an_array_element_directly_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "calling_a_const_bound_arrow_by_name_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+A silently-skipped call is worse than a wrong value: it takes the wrong branch. Probe the side effect with a module-scope SCALAR counter (a growable array escaping into a call is itself a no-op here and would measure nothing).
+
+node: lay=5. Pre-fix kali: lay=0 at exit 0 — the whole `nested-wrapper-pruning` benchmark fixture had been compiling to a program whose layers never ran. See the report's follow-up: this shape IS statically resolvable and is the best candidate for real support.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_const_bound_arrow_by_name_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+# --- Sibling SPELLINGS. ---
+
+[[case]]
+name = "calling_a_function_named_by_an_object_property_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Sibling SPELLINGS. Each of these reached the choke point by a different route and was silently `0` until the shared "does this expression denote a program-defined function" predicate closed them together. They are pinned so the family cannot regrow holes one spelling at a time.
+
+node: a=7. The property holds an IDENTIFIER naming a function, not an inline function expression — the shape that slipped the first rule.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_function_named_by_an_object_property_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "calling_a_function_named_by_an_array_element_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Sibling SPELLINGS. Each of these reached the choke point by a different route and was silently `0` until the shared "does this expression denote a program-defined function" predicate closed them together. They are pinned so the family cannot regrow holes one spelling at a time.
+
+node: b=7.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_function_named_by_an_array_element_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "calling_a_ternary_selected_function_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Sibling SPELLINGS. Each of these reached the choke point by a different route and was silently `0` until the shared "does this expression denote a program-defined function" predicate closed them together. They are pinned so the family cannot regrow holes one spelling at a time.
+
+node: c=7.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_ternary_selected_function_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "calling_a_call_result_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Sibling SPELLINGS. Each of these reached the choke point by a different route and was silently `0` until the shared "does this expression denote a program-defined function" predicate closed them together. They are pinned so the family cannot regrow holes one spelling at a time.
+
+node: e=3. A callee that is itself a call.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_call_result_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "calling_a_function_returned_from_a_callback_taking_helper_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Sibling SPELLINGS. Each of these reached the choke point by a different route and was silently `0` until the shared "does this expression denote a program-defined function" predicate closed them together. They are pinned so the family cannot regrow holes one spelling at a time.
+
+node: j=7.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_function_returned_from_a_callback_taking_helper_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "calling_a_nested_object_property_function_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Sibling SPELLINGS. Each of these reached the choke point by a different route and was silently `0` until the shared "does this expression denote a program-defined function" predicate closed them together. They are pinned so the family cannot regrow holes one spelling at a time.
+
+node: k=7.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "calling_a_nested_object_property_function_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "a_parenthesized_direct_call_still_runs"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Sibling SPELLINGS. Each of these reached the choke point by a different route and was silently `0` until the shared "does this expression denote a program-defined function" predicate closed them together. They are pinned so the family cannot regrow holes one spelling at a time.
+
+node: d=7. `(f)()` is still a statically-resolvable direct call and must NOT be swept up by the family deny."""
+args = ["run", "a_parenthesized_direct_call_still_runs.ts"]
+exit = "success"
+stdout = "d=7\n"
+
+# --- Array-callback consistency. ---
+
+[[case]]
+name = "for_each_with_a_callback_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Array-callback consistency. Pre-fix, `map` failed closed with E5506 while `forEach` (absent from the gated method list entirely) and a predicate `filter` (admitted by the kali_types allowlist but never lowered by codegen) silently no-opped at exit 0. All three must now agree.
+
+node: forEach=6.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "for_each_with_a_callback_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "filter_with_a_predicate_callback_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Array-callback consistency. Pre-fix, `map` failed closed with E5506 while `forEach` (absent from the gated method list entirely) and a predicate `filter` (admitted by the kali_types allowlist but never lowered by codegen) silently no-opped at exit 0. All three must now agree.
+
+node: filter=2.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "filter_with_a_predicate_callback_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "map_with_a_callback_still_fails_closed"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Array-callback consistency. Pre-fix, `map` failed closed with E5506 while `forEach` (absent from the gated method list entirely) and a predicate `filter` (admitted by the kali_types allowlist but never lowered by codegen) silently no-opped at exit 0. All three must now agree.
+
+The one member of the family that already failed closed; pinned so the three stay consistent by construction.
+
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+args = ["run", "map_with_a_callback_still_fails_closed.ts"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+# --- Regression guard: the shipped closure lane. ---
+
+[[case]]
+name = "direct_sibling_capture_still_runs"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Regression guard: the shipped closure lane. A callee that IS statically resolvable by name keeps running, captures included.
+
+node: captured=2. This is the repo's shipped env-pointer closure lane and must not regress: the callee is resolved by NAME, so it is on the allowlist at the choke point."""
+args = ["run", "direct_sibling_capture_still_runs.ts"]
+exit = "success"
+stdout = "captured=2\n"
+
+[[case]]
+name = "a_directly_named_call_still_runs"
+rationale = """Soundness pins for the call-through-a-first-class-function-value family closed in soundness batch 1 (Fix 5).
+
+kali's closure lane resolves a callee by NAME: `emit_call` looks `callee_node.text` up in the emitter's compiled-function map. When the callee is a *value* rather than a statically-resolvable name — a returned closure, an alias (`var g = fn`), a callback parameter, a reassigned function binding, a method held in an object field, or an array-callback argument — that lookup misses and the call used to fall through the terminal "undefined call target" fallback in `emit_call`, which pushed a WARNING and an `i64.const 0` placeholder. The program exited 0, the callee never ran, and the call site evaluated to `0`:
+
+```js function make() { let n = 0; return function () { n = n + 1; return n; }; } const c = make(); console.log("returned=" + c());   // node: returned=1   kali: returned=0 ```
+
+That escalates past a wrong printed value into wrong control flow (`if (g())` took the else branch) and silently skipped side effects.
+
+kali has no first-class function representation to lower these onto: there is no `Repr` variant for a closure value, and codegen emits no WASM table, element section or `call_indirect` anywhere. Real support is an architectural change (uniform calling convention across a per-function repr table, escaping environment records, interaction with monomorphization and arena reclamation), so the honest target here is REJECT-DON'T-MISCOMPILE: every call whose callee cannot be proven to be a compiled function fails closed with `E5506`.
+
+The decision is made at ONE choke point — the terminal fallback of `emit_call`, which every unresolved callee shape already converged on — with an allowlist of the callee shapes that keep the pre-existing non-invoking lowering. Shapes are not enumerated for denial, so a new call-through-a-value spelling is denied by construction rather than needing its own arm (the `forEach`/`filter`/`map` inconsistency below is what the old per-method denylist produced).
+
+Every expected value in this file was captured from node v26.
+
+Regression guard: the shipped closure lane. A callee that IS statically resolvable by name keeps running, captures included."""
+args = ["run", "a_directly_named_call_still_runs.ts"]
+exit = "success"
+stdout = "sum=5\n"
+

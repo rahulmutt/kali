@@ -1,11 +1,117 @@
-use std::{fs, process::Command, sync::OnceLock};
-
-use serde_json::Value;
-use tempfile::tempdir;
-
-fn kali_bin() -> String {
-    std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
-}
+//! Task 18 batch 4 audit escalation, TRIMMED: this file now holds exactly the
+//! one `#[test]` its fixture-introspecting body blocks from migrating, plus the
+//! three fixture builders that test reads.
+//!
+//! It originally had 9 `#[test]` fns. The other 8 -- every `build_emits_*` and
+//! `json_build_emits_*` fn, one real invocation each of
+//! `assert_browser_bundle_math_floor_trunc_ceil_alias` -- ARE migrated, to
+//! `tests/cases/browser/math_floor_trunc_ceil_bundle.toml` (2 `[[case]]` x a
+//! file-wide `ext` `[matrix]` of js/ts/jsx/tsx = 8 trials, audited against the
+//! pre-trim source and green). That helper, `kali_bin()` and the
+//! `fs`/`Command`/`Value`/`tempdir` imports went with them; nothing left here
+//! is unused.
+//!
+//! WHAT BLOCKS THE ONE RETAINED TEST.
+//! `browser_bundle_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory`
+//! (`:148-148`) has no helper: its whole body is a single
+//! `assert!(source.contains(expected))` self-check (`:152-155`) run in a `for`
+//! loop over `kali_common::math_floor_trunc_ceil_frozen_callable_aliases()`,
+//! against `browser_bundle_math_floor_trunc_ceil_alias_source()`'s OWN TEXT
+//! (`:124-138`), before any command is built and without ever invoking `kali`.
+//!
+//! It is doubly unmigratable, and the second reason is the sharper one:
+//!   1. `scripts/audit-case-migration.py` extracts every `.contains(<literal>)`
+//!      argument as a claim and searches only the fields the case runner turns
+//!      into assertions; `[source]` is excluded from that search by
+//!      construction. A fixture-text read is indistinguishable to it from an
+//!      output assertion, so migrating this test would produce a false green.
+//!   2. The claim is about `[source]` TEXT, and the format has no step kind
+//!      that asserts on it. Every assertion key in design spec 5.4 is about a
+//!      process's stdout/stderr/JSON output; this test runs no process at all.
+//!      So the claim is not expressible at any strength, which is rule 4's
+//!      condition exactly.
+//!
+//!      CORRECTED, fix round 1 (I4): this paragraph previously said "there is
+//!      no literal to migrate at all... a RUNTIME-COMPUTED inventory". That was
+//!      FALSE and is worth stating plainly, because a later reader could have
+//!      acted on it. `kali_common::math_floor_trunc_ceil_frozen_callable_
+//!      aliases()` (crates/kali_common/src/math.rs:87) is a `pub const fn`
+//!      returning a compile-time `&[&str]` of 81 raw-string literals, and all
+//!      81 are already present verbatim in the migrated case file's `[source]`
+//!      bodies (verified by counting, both case files, 81/81). The inventory
+//!      is perfectly enumerable. What blocks migration is reason 1 plus the
+//!      absence of a `[source]`-text assertion -- not any inability to obtain
+//!      the needles.
+//!
+//! Same shape as the Task 18 pilot's `browser_math_pow_exponent_one.rs`, batch
+//! 2's `browser_array_from_set_map_bundle.rs` and batch 3's
+//! `browser_math_atan2_global_this_root.rs`; the controller has ruled the
+//! script is NOT extended for it (ruling 4), so this is escalated per rule 3/4
+//! and the affected test is retained hand-written. U4's trim-and-keep applied:
+//! this is a partial retention (1 of 9), not a whole-file one, and the trim is
+//! done -- this file is now exactly its retained remainder.
+//!
+//! CONSEQUENCE FOR THE GATES -- THE COMPLETE RED-LIST (ruling 9). Every gate
+//! below was RUN against this post-trim file, not reasoned about. A trimmed
+//! retention makes the post-trim `.rs` the WRONG left-hand side: the migrated
+//! 8 cases were produced from the file as it stood BEFORE the trim, so any
+//! gate that compares case file against source must be given the pre-trim ref.
+//!
+//!   PRE-TRIM REF:  b44fd6acf9^   (= c934f6ebdd)
+//!   git show b44fd6acf9^:crates/kali_cli/tests/browser_math_floor_trunc_ceil_bundle.rs > /tmp/pretrim.rs
+//!
+//! Against the POST-trim file (i.e. the plain `verify_pair.sh math_floor_trunc_ceil_bundle` run):
+//!   RED  comment_coverage.py          exit 1 -- EVERY non-blank line of this
+//!        header comes back missing. The checker requires each source comment
+//!        line to appear in some case's `rationale`; this header is prose
+//!        about the RETAINED test, which by construction has no case, so none
+//!        of it is carried anywhere and all of it reports as uncovered.
+//!        NO COUNT IS GIVEN, deliberately. Any figure here would be a count of
+//!        THIS header's own length, so every edit to this paragraph -- including
+//!        the edit that corrects the figure -- silently invalidates it. That is
+//!        exactly how it went stale: measured, then the explanatory prose was
+//!        written, and the writing changed the measurement. Batch 4 caught this
+//!        class three times. Run the gate if you want today's number; the
+//!        durable fact is the classification, not the integer.
+//!   RED  check_rationale_fn_names.py  exit 1, 2 unexplained -- cites helpers
+//!        that left with the migrated cases and no longer exist here.
+//!   RED  check_extra_claims.py        exit 1 -- the
+//!        migrated cases' claims are absent from the trimmed remainder.
+//!        NO COUNT IS GIVEN, a ruling-11 correction applied after this
+//!        paragraph shipped with one. `check_extra_claims.py` counts a claim as
+//!        justified if the string occurs verbatim ANYWHERE in the `.rs`,
+//!        comments included, so this header is part of the gate's own input and
+//!        its prose moves the figure -- measured, not supposed. The durable
+//!        fact is the classification; run the gate for today's number.
+//!   INAPP audit-case-migration.py     exit 3 -- AUDIT INAPPLICABLE, re-measured
+//!        after the third verdict landed (it read "GREEN / exit 0" until then).
+//!        The retained test's needle is a loop variable, so the run demands 0
+//!        claims either way and decides nothing; the pre-trim run below does.
+//!   GREEN check_fixtures.py           exit 0.
+//!   RED  batch5_crosscheck.py         exit 1 -- the citation gate, wired into
+//!        `verify_pair.sh` by batch 6. This row is part of that same wiring
+//!        change, which is what ruling 9 requires and what batch 4 failed to do
+//!        when it added `check_extra_claims.py`. Every `:N` in the case file is
+//!        a PRE-TRIM line number -- this header says so above -- so resolving
+//!        them against the trimmed remainder lands them in unrelated code. That
+//!        is precisely the artifact the tool's `STEM=PRETRIM.rs` argument
+//!        exists for. NO COUNT IS GIVEN: this gate also resolves THIS header's
+//!        own `:N` citations, so every edit to this paragraph is an input to
+//!        the figure it would report (ruling 11).
+//!
+//! Against the PRE-TRIM ref, ALL SIX exit 0. That is the run that gates this
+//! migration; it is the one to reproduce.
+//!
+//! Adding a new gate to `verify_pair.sh` includes updating this paragraph, in
+//! the same change (ruling 9). `check_extra_claims.py` and the U8 check were
+//! shipped in ef0b2cf3f5 and were missing from this list until N1 of that
+//! round's re-review caught it -- the fix commit edited this very block
+//! without adding the gate it was itself introducing.
+//!
+//! This file must NOT be deleted by the family-wide sweep after batch 8. See
+//! the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path.
+use std::sync::OnceLock;
 
 fn math_floor_trunc_ceil_frozen_callable_invocations() -> String {
     kali_common::math_floor_trunc_ceil_frozen_callable_invocation_lines("  ")
@@ -38,90 +144,6 @@ function mathFloorTruncCeilAliasChain() {{
         .as_str()
 }
 
-fn assert_browser_bundle_math_floor_trunc_ceil_alias(filename: &str, json_output: bool) {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join(filename);
-    fs::write(
-        &source_path,
-        browser_bundle_math_floor_trunc_ceil_alias_source(),
-    )
-    .expect("write source");
-
-    let mut command = Command::new(kali_bin());
-    command
-        .current_dir(dir.path())
-        .arg("build")
-        .arg("--bundle")
-        .arg("--api")
-        .arg("browser");
-    if json_output {
-        command.arg("--output").arg("json");
-    }
-    let output = command.arg(&source_path).output().expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if json_output {
-        let envelope: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
-        assert_eq!(envelope["schemaVersion"], 1);
-        assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["success"], true);
-        assert_eq!(envelope["exitCode"], 0);
-        let payload = envelope["payload"].as_object().expect("payload object");
-        assert_eq!(payload["artifactKind"], "bundle");
-        assert_eq!(payload["bundleFormat"], "esm");
-    }
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_eq!(metadata["apiSurface"], "browser");
-    assert_eq!(metadata["artifactKind"], "bundle");
-
-    let harness_path = bundle_dir
-        .parent()
-        .expect("bundle root parent")
-        .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
-        "app",
-        false,
-        r#"const mod = await import(bundleJs.href);
-await mod.mathFloorTruncCeilAliasChain();
-"#,
-    );
-    fs::write(&harness_path, harness).expect("write browser bundle harness");
-
-    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
-        std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
-            .ok()
-            .as_deref(),
-    );
-    let harness_executable = harness_command.remove(0);
-    let output = Command::new(&harness_executable)
-        .current_dir(&bundle_dir)
-        .args(&harness_command)
-        .arg(&harness_path)
-        .output()
-        .expect("run browser bundle harness");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n"), "stdout: {stdout}");
-    assert!(stdout.contains("2\n"), "stdout: {stdout}");
-}
-
 #[test]
 fn browser_bundle_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory() {
     let source = browser_bundle_math_floor_trunc_ceil_alias_source();
@@ -132,44 +154,4 @@ fn browser_bundle_math_floor_trunc_ceil_source_includes_full_frozen_callable_inv
             "missing {expected} in source: {source}"
         );
     }
-}
-
-#[test]
-fn build_emits_math_floor_trunc_ceil_alias_chain_in_js_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.js", false);
-}
-
-#[test]
-fn build_emits_math_floor_trunc_ceil_alias_chain_in_ts_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.ts", false);
-}
-
-#[test]
-fn build_emits_math_floor_trunc_ceil_alias_chain_in_jsx_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.jsx", false);
-}
-
-#[test]
-fn build_emits_math_floor_trunc_ceil_alias_chain_in_tsx_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.tsx", false);
-}
-
-#[test]
-fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_js_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.js", true);
-}
-
-#[test]
-fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_ts_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.ts", true);
-}
-
-#[test]
-fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_jsx_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.jsx", true);
-}
-
-#[test]
-fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_tsx_input() {
-    assert_browser_bundle_math_floor_trunc_ceil_alias("app.tsx", true);
 }

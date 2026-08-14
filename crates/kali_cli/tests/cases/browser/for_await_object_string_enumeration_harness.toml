@@ -1,0 +1,536 @@
+# Migrated from tests/browser_for_await_object_string_enumeration_harness.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here
+# (growable-array lane rejects push-then-alias with E5506), never a silent
+# wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+# Helper re-pin: every caller of this helper in this file (all 16
+# run/test x js/ts/jsx/tsx x plain/json variants) is red — no green
+# out-of-batch caller of THIS file's private helper exists (a same-named
+# helper in browser_object_string_enumeration_harness.rs is a distinct
+# compilation unit, not a shared caller), so the helper itself is
+# re-pinned rather than inlining each wrapper.
+#
+# MATRIX ARITHMETIC (rule 7): source has 16 #[test] fns, each an individual,
+# unlooped call to `assert_browser_harness_object_string_enumeration(command,
+# filename, source, json_output)`. Grouping by (command, json_output) yields
+# exactly 4 distinct invocation shapes (run/plain, run/json, test/plain,
+# test/json); within each shape, the 4 fns differ only by the input
+# extension (js/ts/jsx/tsx) with an identical assertion. 16 invocations = 4
+# cases x ext(4) -- matches exactly, so `ext` is hoisted to a file-level
+# [matrix] axis (every one of this file's 4 [[case]] entries genuinely
+# varies over `ext` via `${ext}` in its `[source]` key and `args`, so a
+# file-level [matrix] is safe here per the no-per-case-opt-out rule).
+#
+# STREAM NOTE (rule 11, applied to streams not codes): source's assertion is
+# `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across
+# STREAMS for the SAME code, not two different codes, but the same shape
+# rule 11 describes. Verified directly against the real binary for every
+# (command, json_output) combination, across all four extensions: in
+# non-json mode E5506 appears on stderr only (stdout is empty or a short
+# harness banner, never contains E5506); in `--output json` mode the
+# diagnostic is JSON-encoded on stdout (`errors[].code`) and stderr is
+# empty. Each mode is pinned to the stream that actually carries it -- a
+# verified strengthening of the source's OR (this is a presence claim, so
+# narrowing to the stream that actually carries it is a strengthening, not
+# the absence-narrowing hazard rule 2 warns about) -- with the disjunction
+# sentence carried into every case's rationale below per rule 11, not
+# silently narrowed.
+#
+# No `format!` sites: both fixture builders
+# (`browser_harness_object_string_enumeration_run_source` /
+# `..._test_source`) return a plain `&'static str` raw string literal, no
+# Rust-side substitution. No `[matrix]`-key filename collisions across
+# distinct fixture bodies: `main.${ext}` is used only by the run-source
+# fixture and `smoke.test.${ext}` only by the test-source fixture, so no
+# `[source]` key needed disambiguation.
+
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"main.${ext}" = """function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+    throw new Error('unexpected Object.keys string-primitive iteration semantics');
+  }
+}
+
+function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+    throw new Error('unexpected Object.values string-primitive iteration semantics');
+  }
+}
+
+function assertObjectEntriesIteration(entries) {
+  if (
+    entries.length !== 2 ||
+    entries[0][0] !== '0' ||
+    entries[0][1] !== 'a' ||
+    entries[1][0] !== '1' ||
+    entries[1][1] !== 'b'
+  ) {
+    throw new Error('unexpected Object.entries string-primitive iteration semantics');
+  }
+}
+
+async function browserObjectStringEnumeration() {
+  const keys = [];
+  for await (const key of Object.keys('ab')) {
+    keys.push(key);
+  }
+  const frozenKeys = [];
+  for await (const key of Object.freeze(Object.keys('ab'))) {
+    frozenKeys.push(key);
+  }
+  const globalKeys = [];
+  for await (const key of globalThis.Object.keys('ab')) {
+    globalKeys.push(key);
+  }
+  const mixedKeys = [];
+  for await (const key of globalThis.Object["keys"]('ab')) {
+    mixedKeys.push(key);
+  }
+  const bracketedKeys = [];
+  for await (const key of globalThis["Object"].keys('ab')) {
+    bracketedKeys.push(key);
+  }
+  const fullyBracketedKeys = [];
+  for await (const key of globalThis["Object"]["keys"]('ab')) {
+    fullyBracketedKeys.push(key);
+  }
+  const singleBracketedKeys = [];
+  for await (const key of globalThis['Object']['keys']('ab')) {
+    singleBracketedKeys.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [];
+  for await (const key of Object.freeze((globalThis['Object']).keys)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyKeys.push(key);
+  }
+  const parenthesizedBracketedKeys = [];
+  for await (const key of (globalThis.Object)["keys"]('ab')) {
+    parenthesizedBracketedKeys.push(key);
+  }
+  const parenthesizedBracketedReceiverKeys = [];
+  for await (const key of (globalThis["Object"])["keys"]('ab')) {
+    parenthesizedBracketedReceiverKeys.push(key);
+  }
+  const nullishKeys = [];
+  for await (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for await (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+
+  const values = [];
+  for await (const value of Object.values('ab')) {
+    values.push(value);
+  }
+  const frozenValues = [];
+  for await (const value of Object.freeze(Object.values('ab'))) {
+    frozenValues.push(value);
+  }
+  const globalValues = [];
+  for await (const value of globalThis.Object.values('ab')) {
+    globalValues.push(value);
+  }
+  const mixedValues = [];
+  for await (const value of globalThis.Object["values"]('ab')) {
+    mixedValues.push(value);
+  }
+  const bracketedValues = [];
+  for await (const value of globalThis["Object"].values('ab')) {
+    bracketedValues.push(value);
+  }
+  const fullyBracketedValues = [];
+  for await (const value of globalThis["Object"]["values"]('ab')) {
+    fullyBracketedValues.push(value);
+  }
+  const singleBracketedValues = [];
+  for await (const value of globalThis['Object']['values']('ab')) {
+    singleBracketedValues.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyValues = [];
+  for await (const value of Object.freeze((globalThis['Object']).values)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyValues.push(value);
+  }
+  const parenthesizedBracketedValues = [];
+  for await (const value of (globalThis.Object)["values"]('ab')) {
+    parenthesizedBracketedValues.push(value);
+  }
+  const parenthesizedBracketedReceiverValues = [];
+  for await (const value of (globalThis["Object"])["values"]('ab')) {
+    parenthesizedBracketedReceiverValues.push(value);
+  }
+  const nullishValues = [];
+  for await (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalOrValues = [];
+  for await (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
+  }
+
+  const entries = [];
+  for await (const entry of Object.entries('ab')) {
+    entries.push(entry);
+  }
+  const frozenEntries = [];
+  for await (const entry of Object.freeze(Object.entries('ab'))) {
+    frozenEntries.push(entry);
+  }
+  const globalEntries = [];
+  for await (const entry of globalThis.Object.entries('ab')) {
+    globalEntries.push(entry);
+  }
+  const mixedEntries = [];
+  for await (const entry of globalThis.Object["entries"]('ab')) {
+    mixedEntries.push(entry);
+  }
+  const bracketedEntries = [];
+  for await (const entry of globalThis["Object"].entries('ab')) {
+    bracketedEntries.push(entry);
+  }
+  const fullyBracketedEntries = [];
+  for await (const entry of globalThis["Object"]["entries"]('ab')) {
+    fullyBracketedEntries.push(entry);
+  }
+  const singleBracketedEntries = [];
+  for await (const entry of globalThis['Object']['entries']('ab')) {
+    singleBracketedEntries.push(entry);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyEntries = [];
+  for await (const entry of Object.freeze((globalThis['Object']).entries)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyEntries.push(entry);
+  }
+  const parenthesizedBracketedEntries = [];
+  for await (const entry of (globalThis.Object)["entries"]('ab')) {
+    parenthesizedBracketedEntries.push(entry);
+  }
+  const parenthesizedBracketedReceiverEntries = [];
+  for await (const entry of (globalThis["Object"])["entries"]('ab')) {
+    parenthesizedBracketedReceiverEntries.push(entry);
+  }
+  const nullishEntries = [];
+  for await (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for await (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for await (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
+
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(frozenKeys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(fullyBracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
+  assertObjectKeysIteration(parenthesizedBracketedKeys);
+  assertObjectKeysIteration(parenthesizedBracketedReceiverKeys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(frozenValues);
+  assertObjectValuesIteration(globalValues);
+  assertObjectValuesIteration(mixedValues);
+  assertObjectValuesIteration(bracketedValues);
+  assertObjectValuesIteration(fullyBracketedValues);
+  assertObjectValuesIteration(singleBracketedValues);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverPropertyValues);
+  assertObjectValuesIteration(parenthesizedBracketedValues);
+  assertObjectValuesIteration(parenthesizedBracketedReceiverValues);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalOrValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(frozenEntries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(fullyBracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverPropertyEntries);
+  assertObjectEntriesIteration(parenthesizedBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedBracketedReceiverEntries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
+  console.log('browser object string enumeration ok');
+}
+
+browserObjectStringEnumeration();
+"""
+"smoke.test.${ext}" = """async function browserObjectStringEnumeration() {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+      throw new Error('unexpected Object.keys string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectValuesIteration(values) {
+    if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+      throw new Error('unexpected Object.values string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== '0' ||
+      entries[0][1] !== 'a' ||
+      entries[1][0] !== '1' ||
+      entries[1][1] !== 'b'
+    ) {
+      throw new Error('unexpected Object.entries string-primitive iteration semantics');
+    }
+  }
+
+  const keys = [];
+  for await (const key of Object.keys('ab')) {
+    keys.push(key);
+  }
+  const frozenKeys = [];
+  for await (const key of Object.freeze(Object.keys('ab'))) {
+    frozenKeys.push(key);
+  }
+  const globalKeys = [];
+  for await (const key of globalThis.Object.keys('ab')) {
+    globalKeys.push(key);
+  }
+  const mixedKeys = [];
+  for await (const key of globalThis.Object["keys"]('ab')) {
+    mixedKeys.push(key);
+  }
+  const bracketedKeys = [];
+  for await (const key of globalThis["Object"].keys('ab')) {
+    bracketedKeys.push(key);
+  }
+  const fullyBracketedKeys = [];
+  for await (const key of globalThis["Object"]["keys"]('ab')) {
+    fullyBracketedKeys.push(key);
+  }
+  const singleBracketedKeys = [];
+  for await (const key of globalThis['Object']['keys']('ab')) {
+    singleBracketedKeys.push(key);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [];
+  for await (const key of Object.freeze((globalThis['Object']).keys)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyKeys.push(key);
+  }
+  const parenthesizedBracketedKeys = [];
+  for await (const key of (globalThis.Object)["keys"]('ab')) {
+    parenthesizedBracketedKeys.push(key);
+  }
+  const parenthesizedBracketedReceiverKeys = [];
+  for await (const key of (globalThis["Object"])["keys"]('ab')) {
+    parenthesizedBracketedReceiverKeys.push(key);
+  }
+  const nullishKeys = [];
+  for await (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for await (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+
+  const values = [];
+  for await (const value of Object.values('ab')) {
+    values.push(value);
+  }
+  const frozenValues = [];
+  for await (const value of Object.freeze(Object.values('ab'))) {
+    frozenValues.push(value);
+  }
+  const globalValues = [];
+  for await (const value of globalThis.Object.values('ab')) {
+    globalValues.push(value);
+  }
+  const mixedValues = [];
+  for await (const value of globalThis.Object["values"]('ab')) {
+    mixedValues.push(value);
+  }
+  const bracketedValues = [];
+  for await (const value of globalThis["Object"].values('ab')) {
+    bracketedValues.push(value);
+  }
+  const fullyBracketedValues = [];
+  for await (const value of globalThis["Object"]["values"]('ab')) {
+    fullyBracketedValues.push(value);
+  }
+  const singleBracketedValues = [];
+  for await (const value of globalThis['Object']['values']('ab')) {
+    singleBracketedValues.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyValues = [];
+  for await (const value of Object.freeze((globalThis['Object']).values)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyValues.push(value);
+  }
+  const parenthesizedBracketedValues = [];
+  for await (const value of (globalThis.Object)["values"]('ab')) {
+    parenthesizedBracketedValues.push(value);
+  }
+  const parenthesizedBracketedReceiverValues = [];
+  for await (const value of (globalThis["Object"])["values"]('ab')) {
+    parenthesizedBracketedReceiverValues.push(value);
+  }
+  const nullishValues = [];
+  for await (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalOrValues = [];
+  for await (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
+  }
+
+  const entries = [];
+  for await (const entry of Object.entries('ab')) {
+    entries.push(entry);
+  }
+  const frozenEntries = [];
+  for await (const entry of Object.freeze(Object.entries('ab'))) {
+    frozenEntries.push(entry);
+  }
+  const globalEntries = [];
+  for await (const entry of globalThis.Object.entries('ab')) {
+    globalEntries.push(entry);
+  }
+  const mixedEntries = [];
+  for await (const entry of globalThis.Object["entries"]('ab')) {
+    mixedEntries.push(entry);
+  }
+  const bracketedEntries = [];
+  for await (const entry of globalThis["Object"].entries('ab')) {
+    bracketedEntries.push(entry);
+  }
+  const fullyBracketedEntries = [];
+  for await (const entry of globalThis["Object"]["entries"]('ab')) {
+    fullyBracketedEntries.push(entry);
+  }
+  const singleBracketedEntries = [];
+  for await (const entry of globalThis['Object']['entries']('ab')) {
+    singleBracketedEntries.push(entry);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyEntries = [];
+  for await (const entry of Object.freeze((globalThis['Object']).entries)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyEntries.push(entry);
+  }
+  const parenthesizedBracketedEntries = [];
+  for await (const entry of (globalThis.Object)["entries"]('ab')) {
+    parenthesizedBracketedEntries.push(entry);
+  }
+  const parenthesizedBracketedReceiverEntries = [];
+  for await (const entry of (globalThis["Object"])["entries"]('ab')) {
+    parenthesizedBracketedReceiverEntries.push(entry);
+  }
+  const nullishEntries = [];
+  for await (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for await (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for await (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
+
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(frozenKeys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(fullyBracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
+  assertObjectKeysIteration(parenthesizedBracketedKeys);
+  assertObjectKeysIteration(parenthesizedBracketedReceiverKeys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(frozenValues);
+  assertObjectValuesIteration(globalValues);
+  assertObjectValuesIteration(mixedValues);
+  assertObjectValuesIteration(bracketedValues);
+  assertObjectValuesIteration(fullyBracketedValues);
+  assertObjectValuesIteration(singleBracketedValues);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverPropertyValues);
+  assertObjectValuesIteration(parenthesizedBracketedValues);
+  assertObjectValuesIteration(parenthesizedBracketedReceiverValues);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalOrValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(frozenEntries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(fullyBracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverPropertyEntries);
+  assertObjectEntriesIteration(parenthesizedBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedBracketedReceiverEntries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
+  console.log('browser object string enumeration ok');
+}
+
+Kali.test('browser object string enumeration', () => browserObjectStringEnumeration());
+"""
+
+[[case]]
+name = "run_supports_string_primitive_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_await_object_string_enumeration_harness.rs. Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (growable-array lane rejects push-then-alias with E5506), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (all 16 run/test x js/ts/jsx/tsx x plain/json variants) is red — no green out-of-batch caller of THIS file's private helper exists (a same-named helper in browser_object_string_enumeration_harness.rs is a distinct compilation unit, not a shared caller), so the helper itself is re-pinned rather than inlining each wrapper.
+
+Source's assertion is `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only, never stdout. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11.
+
+16 #[test] fns in source, each an individual (unlooped) call to `assert_browser_harness_object_string_enumeration`, grouped by (command, json_output) into 4 distinct shapes; within this shape the 4 fns differ only by input extension (js/ts/jsx/tsx) with an identical assertion -- hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_run_supports_string_primitive_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_await_object_string_enumeration_harness.rs. Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (growable-array lane rejects push-then-alias with E5506), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (all 16 run/test x js/ts/jsx/tsx x plain/json variants) is red — no green out-of-batch caller of THIS file's private helper exists (a same-named helper in browser_object_string_enumeration_harness.rs is a distinct compilation unit, not a shared caller), so the helper itself is re-pinned rather than inlining each wrapper.
+
+Source's assertion is `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in `--output json` mode the diagnostic is JSON-encoded on stdout and stderr is empty. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11.
+
+16 #[test] fns in source, each an individual (unlooped) call to `assert_browser_harness_object_string_enumeration`, grouped by (command, json_output) into 4 distinct shapes; within this shape the 4 fns differ only by input extension (js/ts/jsx/tsx) with an identical assertion -- hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stdout_contains = ["E5506"]
+
+[[case]]
+name = "test_supports_string_primitive_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_await_object_string_enumeration_harness.rs. Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (growable-array lane rejects push-then-alias with E5506), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (all 16 run/test x js/ts/jsx/tsx x plain/json variants) is red — no green out-of-batch caller of THIS file's private helper exists (a same-named helper in browser_object_string_enumeration_harness.rs is a distinct compilation unit, not a shared caller), so the helper itself is re-pinned rather than inlining each wrapper.
+
+Source's assertion is `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in non-json mode E5506 appears on stderr only, never stdout. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11.
+
+16 #[test] fns in source, each an individual (unlooped) call to `assert_browser_harness_object_string_enumeration`, grouped by (command, json_output) into 4 distinct shapes; within this shape the 4 fns differ only by input extension (js/ts/jsx/tsx) with an identical assertion -- hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "json_test_supports_string_primitive_iteration_when_browser_harness_is_configured"
+rationale = """Migrated from browser_for_await_object_string_enumeration_harness.rs. Honest re-pin (PR #16 rev2 straggler cleanup): kali fails closed/loud here (growable-array lane rejects push-then-alias with E5506), never a silent wrong value; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Helper re-pin: every caller of this helper in this file (all 16 run/test x js/ts/jsx/tsx x plain/json variants) is red — no green out-of-batch caller of THIS file's private helper exists (a same-named helper in browser_object_string_enumeration_harness.rs is a distinct compilation unit, not a shared caller), so the helper itself is re-pinned rather than inlining each wrapper.
+
+Source's assertion is `stdout.contains("E5506") || stderr.contains("E5506")` -- an OR across streams for the same code (rule 11's shape, applied to streams instead of codes). Verified directly against the real binary: in `--output json` mode the diagnostic is JSON-encoded on stdout and stderr is empty. Pinned to the stream that actually carries it -- a verified strengthening of the source's OR (a presence claim, so narrowing is safe), with the disjunction sentence carried here per rule 11.
+
+16 #[test] fns in source, each an individual (unlooped) call to `assert_browser_harness_object_string_enumeration`, grouped by (command, json_output) into 4 distinct shapes; within this shape the 4 fns differ only by input extension (js/ts/jsx/tsx) with an identical assertion -- hoisted to a file-level [matrix] axis rather than 4 named siblings per case."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
+exit = "failure"
+stdout_contains = ["E5506"]

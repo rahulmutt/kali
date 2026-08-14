@@ -1,0 +1,73 @@
+# Migrated from tests/array_join.rs -- all 4 #[test] functions, 1:1 with
+# their source tests, no loops:
+#
+#   - `run`: `.join()` on a statically-known array literal folds at compile
+#     time, with an explicit separator and with the default (`,`) separator,
+#     including a `null` element (which folds to the empty string) and a
+#     `true` element.
+#   - `run_to_string`: `.toString()` on a statically-known array literal
+#     folds the same way `.join()` with no arguments does.
+#   - `check_rejects_dynamic_join_operand`: a dynamic separator must fail
+#     closed with E5506, asserted on stderr text (no `--output json` in the
+#     old test).
+#   - `check_rejects_argument_bearing_to_string`: `.toString('-')` (an
+#     argument-bearing call -- `.toString()` never takes arguments in real
+#     JS) must fail closed with E5506, asserted on the raw JSON *text* of
+#     `--output json check`'s stdout via `.contains("\"code\":\"E5506\"")`
+#     and `.contains("Array.prototype.toString")` in the old test, not a
+#     parsed field. Both are strengthened here to real, verified equality
+#     on the parsed JSON envelope -- `json.errors.0.code = "E5506"` and the
+#     full `json.errors.0.message` text, confirmed by running the built
+#     `kali` binary against the fixture (`cargo run -q --bin kali --
+#     --output json check array-to-string-args.js`, from the repository root).
+#     Equality is strictly stronger than the substring checks it replaces.
+#     The raw-text substring `"code":"E5506"` (quotes included, exactly as
+#     the old test spelled it) is additionally kept as a literal
+#     `stdout_contains` entry: it's still true of the real `--output json`
+#     stdout text (stdout *is* the JSON text here), a distinct claim from
+#     the structured `json.errors.0.code` equality above.
+#
+# No [matrix]/[constants] needed: four cases, four distinct single-file
+# fixtures, no repeated content and no uniform axis across the file.
+
+[source]
+"array-join.js" = '''
+console.log([1, true, null, 'x'].join('-'));
+console.log(['a', 'b'].join());
+'''
+"array-to-string.js" = '''
+console.log([1, true, null, 'x'].toString());
+console.log(['a', 'b'].toString());
+'''
+"array-join-dynamic.js" = "function join(separator) { return [1, 2].join(separator); }\n"
+"array-to-string-args.js" = "console.log([1, 2].toString('-'));\n"
+
+[[case]]
+name = "run"
+rationale = "`.join()` on a statically-known array literal folds at compile time, with an explicit separator and with the default separator, including `null` (folds to empty string) and `true` elements."
+args = ["run", "array-join.js"]
+exit = "success"
+stdout = "1-true--x\na,b\n"
+
+[[case]]
+name = "run_to_string"
+rationale = "`.toString()` on a statically-known array literal folds the same way as a no-argument `.join()`."
+args = ["run", "array-to-string.js"]
+exit = "success"
+stdout = "1,true,,x\na,b\n"
+
+[[case]]
+name = "check_rejects_dynamic_join_operand"
+rationale = "`.join()` only folds for a statically-known literal-array receiver when the optional separator is statically known; a dynamic separator must fail closed with E5506."
+args = ["check", "array-join-dynamic.js"]
+exit = "failure"
+stderr_contains = ["E5506", "Array.prototype.join"]
+
+[[case]]
+name = "check_rejects_argument_bearing_to_string"
+rationale = "`.toString()` never takes arguments in real JS; an argument-bearing call on a static literal-array receiver must fail closed with E5506 rather than being silently accepted or misfolded."
+args = ["--output", "json", "check", "array-to-string-args.js"]
+exit = "failure"
+stdout_contains = ["\"code\":\"E5506\""]
+json.errors.0.code = "E5506"
+json.errors.0.message = "Array.prototype.toString is unavailable for static literal-array receivers when arguments are supplied in the current direct-runtime path; use a no-argument call or the later compatibility path"

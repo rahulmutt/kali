@@ -512,7 +512,7 @@ fn doctor_emits_json_envelope_for_browser_harness_override() {
         .arg("json")
         .arg("doctor")
         .env(
-            kali_runtime::BROWSER_HARNESS_COMMAND_ENV,
+            kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV,
             "definitely-missing-browser-harness --flag",
         )
         .output()
@@ -533,7 +533,7 @@ fn doctor_emits_json_envelope_for_browser_harness_override() {
     let browser_harness = &json["payload"]["browserHarness"];
     assert_eq!(
         browser_harness["envVar"],
-        kali_runtime::BROWSER_HARNESS_COMMAND_ENV
+        kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV
     );
     assert_eq!(browser_harness["source"], "env");
     assert_eq!(
@@ -567,7 +567,7 @@ fn doctor_emits_json_envelope_for_browser_harness_override() {
     );
     assert_eq!(
         browser_runtime_contract["diagnosticHint"],
-        json!(kali_runtime::BrowserRuntimeContract::diagnostic_hint())
+        json!(kali_runtime_contract::BrowserRuntimeContract::diagnostic_hint())
     );
     assert_eq!(browser_runtime_contract["diagnosticNotes"], json!([
         "supported browser runtime commands: run, test",
@@ -587,7 +587,7 @@ fn doctor_emits_pretty_json_envelope_for_browser_harness_override() {
         .arg("--pretty")
         .arg("doctor")
         .env(
-            kali_runtime::BROWSER_HARNESS_COMMAND_ENV,
+            kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV,
             "definitely-missing-browser-harness --flag",
         )
         .output()
@@ -615,7 +615,7 @@ fn doctor_emits_pretty_json_envelope_for_browser_harness_override() {
     let browser_runtime_contract = &json["payload"]["browserRuntimeContract"];
     assert_eq!(
         browser_runtime_contract["diagnosticHint"],
-        json!(kali_runtime::BrowserRuntimeContract::diagnostic_hint())
+        json!(kali_runtime_contract::BrowserRuntimeContract::diagnostic_hint())
     );
     assert_eq!(browser_runtime_contract["hostLabel"], "browser-requested");
     assert_eq!(
@@ -630,7 +630,7 @@ fn doctor_emits_human_output_for_browser_harness_override() {
     let output = Command::new(kali_bin())
         .arg("doctor")
         .env(
-            kali_runtime::BROWSER_HARNESS_COMMAND_ENV,
+            kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV,
             "definitely-missing-browser-harness --flag",
         )
         .output()

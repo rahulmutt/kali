@@ -1,0 +1,82 @@
+# Migrated from tests/object_is_void_undefined_runtime.rs -- all 4 #[test]
+# functions, as 4 case blocks, 1:1 (each old test called a shared
+# `assert_..._in_js_input(json_output: bool)` helper with a fixed `false`/
+# `true` literal, never a loop -- no axis to fan out, so no [matrix]).
+#
+# Two distinct fixture bodies, `main.js` for `run` and `smoke.test.js` for
+# `test` -- not factored into [constants] since the test fixture wraps the
+# body in `Kali.test(...)` rather than repeating it byte-for-byte (same
+# "merely similar, not identical" call as `is_primitive_literals_runtime
+# .toml`).
+#
+# Same judgment call as `is_primitive_literals_runtime.toml`'s header,
+# flagged again here since it recurs: the plain `run` case's original
+# assertion is `assert_eq!(stdout.trim(), "1\n1\n1\n1\n1\n1\n1")`, and
+# `kali_case_runner`'s `stdout` key is exact-equality against untrimmed
+# captured stdout. The real untrimmed stdout was captured from the built
+# binary and used verbatim below (verified equal to the 7-line block plus
+# exactly one trailing newline) -- not a weakening, since `.trim()` only
+# ever discarded that one trailing newline.
+
+[source]
+"main.js" = '''
+const alias = void 0;
+const same = Object.is;
+console.log(Object.is(alias, void 0));
+console.log(Object.is(void 0, void 0));
+console.log(globalThis["Object"]["is"](alias, void 0));
+console.log(globalThis.Object["is"](alias, void 0));
+console.log(globalThis["Object"].is(alias, void 0));
+console.log(globalThis.Object.is(alias, void 0));
+console.log(same(alias, void 0));
+'''
+"smoke.test.js" = '''
+Kali.test('object is void undefined', () => {
+  const alias = void 0;
+  const same = Object.is;
+  console.log(Object.is(alias, void 0));
+  console.log(Object.is(void 0, void 0));
+  console.log(globalThis["Object"]["is"](alias, void 0));
+  console.log(globalThis.Object["is"](alias, void 0));
+  console.log(globalThis["Object"].is(alias, void 0));
+  console.log(globalThis.Object.is(alias, void 0));
+  console.log(same(alias, void 0));
+});
+'''
+
+[[case]]
+name = "run_supports_object_is_void_undefined_in_js_input"
+rationale = "Object.is(void 0, void 0), through an alias and every bracket/dot spelling of the Object.is call (including a plain local binding `same`), must all be true."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "1\n1\n1\n1\n1\n1\n1\n"
+
+[[case]]
+name = "json_run_supports_object_is_void_undefined_in_js_input"
+rationale = "Same void-undefined Object.is fold, asserting the JSON output envelope from `--output json run` rather than raw stdout."
+args = ["--output", "json", "run", "main.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "run"
+json.success = true
+json.stdout = "1\n1\n1\n1\n1\n1\n1\n"
+json.errors = []
+
+[[case]]
+name = "test_supports_object_is_void_undefined_in_js_input"
+rationale = "Same void-undefined Object.is fold, run through `Kali.test(...)` via the `test` command instead of `run`."
+args = ["test", "smoke.test.js"]
+exit = "success"
+stdout_contains = ["1\n1\n1\n1\n1\n1\n1", "ok 1"]
+
+[[case]]
+name = "json_test_supports_object_is_void_undefined_in_js_input"
+rationale = "Same Kali.test fold, asserting the JSON output envelope from `--output json test` rather than raw stdout."
+args = ["--output", "json", "test", "smoke.test.js"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "test"
+json.success = true
+json.payload.passed = 1
+json.payload.failed = 0
+json.errors = []

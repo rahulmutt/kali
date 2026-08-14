@@ -1,0 +1,129 @@
+# Migrated from tests/string_normalize_static_ascii.rs -- all 7 #[test]
+# functions, as 10 case blocks:
+#
+#   - `run`, `json_check`: 1:1 with their source tests. Unlike most of this
+#     family, this file has no `json_browser_bundle_*_in_tsx_input` test.
+#   - `browser_bundle_js`/`ts`/`jsx`/`tsx`: sibling [[case]] blocks (not a
+#     [matrix] axis -- see repeat_static_ascii.toml's header) for
+#     `browser_bundle_accepts_..._across_source_classes`'s 4-extension loop.
+#   - `check_gates_dynamic_form`/`non_ascii_receiver`/`invalid_form`/
+#     `extra_arguments`: the 4 E5506 fail-closed gate tests, 1:1 with their
+#     source tests. Each also asserts
+#     `errors[0]["message"].contains("String.prototype.normalize")`; since
+#     `json` is exact-match only, each asserts the full exact message text
+#     (obtained by running the built `kali` binary) -- see
+#     case_static_ascii.toml's header for why that is not a weakening.
+#
+# [source] uses one "main.<ext>" file per extension, shared by every case
+# that needs that extension, plus one distinct file per gate case.
+
+[source]
+"main.js" = '''
+console.log("hello".normalize());
+console.log("ASCII".normalize("NFC"));
+console.log(Object.freeze("wrapped").normalize(Object.freeze("NFD")));
+console.log("compat".normalize("NFKC"));
+console.log("decomp".normalize("NFKD"));
+'''
+"main.ts" = '''
+console.log("hello".normalize());
+console.log("ASCII".normalize("NFC"));
+console.log(Object.freeze("wrapped").normalize(Object.freeze("NFD")));
+console.log("compat".normalize("NFKC"));
+console.log("decomp".normalize("NFKD"));
+'''
+"main.jsx" = '''
+console.log("hello".normalize());
+console.log("ASCII".normalize("NFC"));
+console.log(Object.freeze("wrapped").normalize(Object.freeze("NFD")));
+console.log("compat".normalize("NFKC"));
+console.log("decomp".normalize("NFKD"));
+'''
+"main.tsx" = '''
+console.log("hello".normalize());
+console.log("ASCII".normalize("NFC"));
+console.log(Object.freeze("wrapped").normalize(Object.freeze("NFD")));
+console.log("compat".normalize("NFKC"));
+console.log("decomp".normalize("NFKD"));
+'''
+"dynamic_form.js" = "function normalize(form) { return 'hello'.normalize(form); }\n"
+"non_ascii_receiver.js" = "console.log('é'.normalize());\n"
+"invalid_form.js" = "console.log('hello'.normalize('BAD'));\n"
+"extra_arguments.js" = "console.log('hello'.normalize('NFC', 'NFD'));\n"
+
+[[case]]
+name = "run"
+rationale = "`.normalize()` on static ASCII literals folds at compile time, for every supported normalization form and with no arguments, including a frozen receiver and frozen form argument."
+args = ["run", "main.js"]
+exit = "success"
+stdout = "hello\nASCII\nwrapped\ncompat\ndecomp\n"
+
+[[case]]
+name = "json_check"
+rationale = "Same fold, asserting the JSON output envelope from `check` rather than `run`'s stdout."
+args = ["--output", "json", "check", "main.ts"]
+exit = "success"
+json.schemaVersion = 1
+json.command = "check"
+json.success = true
+json.errors = []
+
+[[case]]
+name = "browser_bundle_js"
+rationale = "The static-ASCII normalize fold holds across every supported source class, not just plain JS -- js source."
+args = ["build", "--api", "browser", "--bundle", "main.js"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_ts"
+rationale = "The static-ASCII normalize fold holds across every supported source class, not just plain JS -- ts source."
+args = ["build", "--api", "browser", "--bundle", "main.ts"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_jsx"
+rationale = "The static-ASCII normalize fold holds across every supported source class, not just plain JS -- jsx source."
+args = ["build", "--api", "browser", "--bundle", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "browser_bundle_tsx"
+rationale = "The static-ASCII normalize fold holds across every supported source class, not just plain JS -- tsx source."
+args = ["build", "--api", "browser", "--bundle", "main.tsx"]
+exit = "success"
+
+[[case]]
+name = "check_gates_dynamic_string_normalize_form"
+rationale = "`.normalize()` only folds for a statically-known normalization form; a dynamic form must fail closed with E5506."
+args = ["--output", "json", "check", "dynamic_form.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.normalize is unavailable unless the receiver is a statically-known ASCII string literal and the optional normalization form is one of the statically-known strings NFC, NFD, NFKC, or NFKD in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+
+[[case]]
+name = "check_gates_non_ascii_static_string_normalize_receiver"
+rationale = "The static-fold path requires an ASCII string literal receiver; a non-ASCII receiver ('é') must fail closed with E5506."
+args = ["--output", "json", "check", "non_ascii_receiver.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.normalize is unavailable unless the receiver is a statically-known ASCII string literal and the optional normalization form is one of the statically-known strings NFC, NFD, NFKC, or NFKD in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+
+[[case]]
+name = "check_gates_invalid_static_string_normalize_form"
+rationale = "The static-fold path only accepts NFC/NFD/NFKC/NFKD; an unrecognized static form ('BAD') must fail closed with E5506."
+args = ["--output", "json", "check", "invalid_form.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.normalize is unavailable unless the receiver is a statically-known ASCII string literal and the optional normalization form is one of the statically-known strings NFC, NFD, NFKC, or NFKD in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+
+[[case]]
+name = "check_gates_extra_string_normalize_arguments"
+rationale = "`.normalize()` only folds with at most one argument; an extra argument must fail closed with E5506."
+args = ["--output", "json", "check", "extra_arguments.js"]
+exit = "failure"
+json.success = false
+json.errors.0.code = "E5506"
+json.errors.0.message = "String.prototype.normalize is unavailable unless the receiver is a statically-known ASCII string literal and the optional normalization form is one of the statically-known strings NFC, NFD, NFKC, or NFKD in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"

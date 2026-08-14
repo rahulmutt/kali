@@ -1,3 +1,137 @@
+//! Task 18 batch 3 escalation: kept 100% hand-written, not migrated. No case
+//! file exists for this target.
+//!
+//! ALL 28 `#[test]` fns in this file reach
+//! `assert_browser_harness_generator_rejection_with_expected_messages`
+//! (`:205-269`) -- 16 of them indirectly, through the four-branch dispatcher
+//! `assert_browser_harness_generator_rejection` (`:177-203`), and 12 directly
+//! -- so U4's
+//! trim-and-keep degenerates to whole-file retention: there is no complementary
+//! migratable subset to split off. (Batch 3's two OTHER escalations,
+//! `browser_math_abs_sign_frozen_aliases.rs` and
+//! `browser_math_atan2_global_this_root.rs`, WERE trimmed to their one blocked
+//! test each; this one could not be, because there is no unblocked subset.)
+//!
+//! TWO INDEPENDENT GROUNDS, EITHER OF WHICH ALONE RETAINS THIS FILE. They are
+//! unrelated -- one is a tool blind spot, the other a format gap -- and they do
+//! not overlap in their fix. **Removing one does not make this file
+//! migratable.** A later reader who teaches `audit-case-migration.py` to see
+//! fixture self-inspection, or who adds an assertion key for quantified JSON
+//! arrays, must satisfy BOTH before reopening this target:
+//!
+//! (1) FIXTURE SELF-INSPECTION (audit blind spot; reaches 16 of the 28 fns).
+//!     `assert_browser_harness_generator_rejection` (`:177-203`) selects its
+//!     `expected_messages` by reading the JS fixture's OWN TEXT at
+//!     `source.contains("(0, async function*")` (`:185`),
+//!     `source.contains("yield*")` (`:187`) and
+//!     `source.contains("async function*")` (`:189`) -- the blocking construct
+//!     is the `if`/`else if` chain the first of them heads,
+//!     `source.contains("(0, async function*")` (`:185-193`) -- before any
+//!     command is built:
+//!
+//!     ```text
+//!     if source.contains("(0, async function*") && matches!(command, "check" | "build") { ... }
+//!     else if source.contains("yield*") { ... }
+//!     else if source.contains("async function*") { ... }
+//!     ```
+//!
+//!     `scripts/audit-case-migration.py` extracts each of those three
+//!     `.contains` arguments as a claim, and `[source]` is excluded from its
+//!     search by construction, so a migration reports them absent no matter
+//!     what it contains -- they are read, never asserted on output. Verified,
+//!     not assumed: a throwaway draft `.toml` carrying the strongest assertions
+//!     the format can express for this file was audited against it and reported
+//!     `AUDIT FAILED`, naming `(0, async function*` and `async function*` (the
+//!     third needle, `yield*`, happens to survive only because it is a
+//!     substring of the asserted message text `yield* delegation`). The
+//!     controller has ruled the script is NOT extended for this shape
+//!     (ruling 4).
+//!
+//! (2) UNIVERSALLY-QUANTIFIED JSON-ARRAY CLAIMS (format gap, spec 5.11; reaches
+//!     all 28 fns). In `--output json` mode the shared helper asserts, at
+//!     `errors.is_empty()` (`:244`), `errors.iter().all(...)` (`:245-248`) and
+//!     `expected_messages.iter().all(...)` (`:253-258`),
+//!
+//!     ```text
+//!     assert!(!errors.is_empty(), "errors array should not be empty");
+//!     assert!(errors.iter().all(|error| error["code"] == "E5506"), ...);
+//!     assert!(expected_messages.iter().all(|expected| messages.iter().any(|m| m.contains(expected))), ...);
+//!     ```
+//!
+//!     Both are universal quantifiers over the `errors` array. The case-file
+//!     format offers only closed dotted-path indexing into JSON -- design spec
+//!     5.4 is explicit that there are "no slices, no wildcards, no
+//!     negative-from-end indexing, no filters" -- so `json.errors.0.code` can
+//!     pin the FIRST error and nothing more. Narrowing "every error's code is
+//!     E5506" to "error 0's code is E5506" is a weakening (a second,
+//!     differently-coded diagnostic would satisfy the migration and fail the
+//!     source), and rule 1 forbids weakening. Pinning `payload.errorCount` to
+//!     restore the strength would add a claim the source never makes (rule 2).
+//!     Every one of the 28 fns runs the json branch, because each loops
+//!     `for json_output in [false, true]` inside its own body, so no fn is
+//!     wholly free of this gap.
+//!
+//!     ADJUDICATED: the human partner ruled these quantifiers are §5.11
+//!     outliers, in the same class as the `starts_with`/`lines()` sites that
+//!     §5.4's closing paragraph already places outside the assertion
+//!     vocabulary. **No eleventh assertion key is being added for them.** The
+//!     disposition is retention, not a format extension, and it is settled --
+//!     do not reopen it by proposing a `json.errors.*.code` wildcard or an
+//!     `errors_all_code` key. Three further `browser_*` targets carry the same
+//!     shape and fall in later batches
+//!     (`browser_non_literal_dynamic_import_harness_jsx_tsx.rs`,
+//!     `browser_math_pow_optional_chain_harness.rs`,
+//!     `browser_math_unsupported_member_calls_harness_jsx_tsx.rs`); they are
+//!     expected to be retained on this same ground.
+//!
+//! The non-json half of the file WOULD have migrated cleanly
+//! (`exit = 1` for `assert_eq!(output.status.code(), Some(1))`, and
+//! `stderr_contains = ["E5506", <expected message>]`), but a source `#[test]`
+//! fn cannot be split across the two halves: each fn's own inner
+//! `for json_output in [false, true]` loop runs both.
+//!
+//! Escalated per rule 3/4 rather than shipped with a false green or a
+//! fabricated claim. This file must NOT be deleted by the family-wide sweep
+//! after batch 8. See the batch's own working report -- which was git-ignored scratch and
+//! does not ship, so it is deliberately not cited by path.
+//!
+//! CONSEQUENCE FOR THE GATES (ruling 9), added retroactively by Task 18 batch 5:
+//! THIS FILE HAS NO RED-LIST, and that is the finding, not an omission. Ruling 9
+//! addresses a U4 trim-and-keep retention, where the on-disk `.rs` is shorter
+//! than the source its case file was migrated from and every literal-comparison
+//! gate therefore goes red against the wrong left-hand side. This is a
+//! WHOLE-FILE retention -- the batch-3 commit that adjudicated it added this
+//! header and deleted nothing -- so there is no pre-trim/post-trim divergence and
+//! no pre-trim ref to run anything against. There is also no right-hand side:
+//! `verify_pair.sh generator_default_export_rejection` exits 2 with
+//! `missing .../cases/browser/generator_default_export_rejection.toml` before
+//! running any gate. FIVE of the six gates take a `.rs`/`.toml` pair and therefore cannot
+//! run here at all. The SIXTH is the exception, and it changes this paragraph:
+//! `batch5_crosscheck.py`, the citation gate that batch 6 wired into
+//! `verify_pair.sh`, needs no case file -- it resolves THIS header's own `:N`
+//! citations against this very file. So a whole-file retention is no longer
+//! ungated: run it directly, as
+//! `batch5_crosscheck.py --citations-only generator_default_export_rejection`, because `verify_pair.sh`
+//! still exits 2 before reaching it. It EXITS 0. That is new in batch 7 and it
+//! is why `citation_sweep.sh` can now be wired into CI: this header used to cite
+//! in a bare `:N` prose form with no adjacent backticked construct, so the gate
+//! reported seven citations as unresolvable rather than pretending to check
+//! them, and the sweep exited 1 on a clean tree. The fix taken is the one that
+//! ruling 11 asks for -- reword the header so each citation names its construct
+//! in backticks, making the artifact gateable rather than the gate blind -- not
+//! a red-list, because every one of the seven turned out to be rewordable. They
+//! were the citations in blocks (1) and (2) above, and they are NOT re-listed
+//! here: repeating a citation in this paragraph makes the paragraph itself an
+//! ungated citation site, which is the same defect one layer out -- the first
+//! draft of this rewrite did exactly that and the gate reported seven again,
+//! for the new copies. They are now anchored on the `source.contains` and
+//! `errors.iter().all` constructs they point at, and every number in this
+//! header was re-derived by measuring the shift this rewrite itself caused (an
+//! edit here moves every line below it) and then re-run through the gate.
+//! Ruling 11 exempts `:N` from the no-moving-numbers rule only because it is
+//! mechanically gated, and this is where that gating applies to a file with no
+//! pair. Verified by running it, not assumed. The batch-8 family gate's carve-out for
+//! this file is the "must NOT be deleted" line above, not a gate red-list.
 use std::{fs, process::Command};
 
 use serde_json::Value;
@@ -82,7 +216,7 @@ fn assert_browser_harness_generator_rejection_with_expected_messages(
 
     let mut cli = Command::new(kali_bin());
     cli.current_dir(dir.path())
-        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+        .env(kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV, "node");
     if json_output {
         cli.arg("--output").arg("json");
     }

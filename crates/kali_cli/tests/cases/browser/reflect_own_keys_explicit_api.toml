@@ -1,0 +1,1859 @@
+# Migrated from tests/browser_reflect_own_keys.rs and its `#[path]` submodule directory
+# tests/browser_reflect_own_keys/ -- the explicit-`--api browser` half of a two-file U2 split.
+#
+# RULE 12 / U6 -- SOURCE COMMENT PROSE, CARRIED VERBATIM AND ATTRIBUTED BOTTOM-UP.
+# The carrier and three of its four submodules carry NO Rust comment at all; the
+# whole target has exactly one block, opening 12 lines above
+# `assert_browser_requested_reflect_own_keys_fails_closed(` (run.rs:15) and running 11 line(s), and it
+# sits at module scope in `run.rs` above that file's three local `_fails_closed`
+# helpers. It is therefore carried into the rationale of every case that came from
+# run.rs and into no others -- which is per-helper attribution (U6), not pooling.
+# `comment_coverage.py` has no per-helper attribution and will report those lines
+# missing from the cases that did NOT come from run.rs. That is the checker's known
+# limitation, recorded here rather than papered over by copying the prose into cases
+# whose producing file never runs, which U6 forbids even though it would turn the
+# checker green.
+# The text is COPIED out of the `.rs` by this generator (its comment_blocks helper,
+# named plainly rather than backticked: U8's gate resolves every backticked
+# lower-case identifier against this source's own fn list, and that one lives in the
+# generator), not retyped, so an em-dash cannot become `--`.
+#
+# U10 -- SUBMODULE CARRIER, AND THE TRAP IT EXISTS FOR.
+# `grep -c '#\[test\]'` on tests/browser_reflect_own_keys.rs returns 0 and would silently drop
+# every test in this target: all 44 of them live behind a `#[path = "..."] mod`
+# declaration, in 4 sibling files (build.rs, check.rs, run.rs, test.rs). The carrier
+# holds only the three fixture builders and the five shared assert helpers.
+# Citations into a submodule are written `<file>.rs:N` and are resolved against THAT
+# file by batch5_crosscheck.py; a bare `:N` means the carrier.
+# The carrier and its sibling directory tests/browser_reflect_own_keys/ are RETAINED by this
+# commit -- they are deleted together, by the family-wide operation after batch 8, not
+# here.
+#
+# RULE 7 / U1 -- MATRIX DECLINED, and why.
+# 20 `#[test]` fns, 20 real helper invocations with every loop
+# expanded.
+# THE EXTENSION AXIS IS NOT UNIFORM ACROSS THIS FILE. The run and build
+# submodules each cover all four of js/ts/jsx/tsx, but `check.rs` covers `jsx`
+# and `tsx` ONLY -- there is no `check_accepts_reflect_own_keys_in_js_input` and
+# no `..._in_ts_input`. A file-wide `ext(4)` axis would fan the four check cases
+# to `js` and `ts` as well, manufacturing four `kali check --api browser main.js`
+# / `main.ts` trials the source never ran (a rule-2 invention).
+# Nor can the axis be `ext(2)`: that would drop half of the run and build
+# coverage, which is a rule-1 weakening.
+# 20 `#[test]` fns, each one unlooped: run.rs contributes 8, build.rs 8 and
+# check.rs 4, and none of the three migrated submodules contains a loop, so
+# 20 fns = 20 invocations.
+# Per U1 a `[matrix]` axis is FILE-WIDE -- `expand()` fans EVERY `[[case]]` by the full
+# cross-product whether or not that case references the axis, and there is no per-case
+# opt-out -- so an axis that any one case does not vary over would manufacture trials
+# the source never ran (also a rule-2 invention). Rule 7's own remedy applies: drop
+# `[matrix]` for the whole file and write named siblings.
+# 20 invocations -> 20 named `[[case]]` entries, no `[matrix]`.
+#
+# RULE 6 -- 1:1 MAPPING. With no `[matrix]` there is no fold: every `[[case]]` below is
+# exactly one real helper invocation of the source, named after the `#[test]` fn that made
+# it. Two source fns are never folded into one case even when their invocations are
+# literally identical, because the case is the only remaining trace of the fn.
+#
+# U2 -- `[source]` is FILE-WIDE, WHICH IS WHY THE MIGRATED HALF IS TWO CASE
+# FILES AND NOT ONE.
+# U10 says migrate a submodule carrier and its sibling directory into ONE `.toml`.
+# That is wrong here and U2 takes precedence. Of the 28 `#[test]` fns migrated from
+# this target, 8 -- all in `run.rs` -- go through a helper that writes a `kali.json`
+# manifest and pass NO `--api` flag: the browser API surface is resolved from the
+# manifest instead. The other 20 pass `--api browser` explicitly and run against a
+# tree with NO manifest.
+# `crates/kali_case_runner/src/expand.rs`'s `expand()` substitutes and clones the
+# whole file-level `[source]` map into EVERY trial regardless of which case
+# references which key, so one shared table would make `kali.json` unconditionally
+# present.
+#
+# THE DISCRIMINATOR WAS RE-DERIVED AFTER THE U4 TRIM, AND IT MOVED. Before the trim
+# it was `payload.hostContract` / `payload.runtimeBackend`, which flip from
+# `kali-hosted`/`wasmtime` to `browser-requested`/`browser-harness` on manifest
+# presence alone -- but those fields are asserted only by `test.rs`, which is now
+# RETAINED, so that measurement no longer covers anything this file claims. Measured
+# again against the claims that ARE migrated, the `build` cases now carry the
+# discriminating power:
+#     kali build --bundle app.js        (no manifest, no --api)  -> exit 5, no meta
+#     kali build --bundle app.js        (kali.json present)      -> exit 0,
+#                                        app/app.meta.json apiSurface = browser
+# The 8 build cases assert `exit = "success"` and `apiSurface = "browser"` on that
+# very file, so a leaked manifest would supply both and they would pass whether or
+# not `--api browser` did anything. No literal is dropped by that leak, so
+# audit-case-migration.py cannot see it; the trial still passes, so `cargo test`
+# cannot either. That invisibility is exactly why U2 exists.
+# For completeness, the same probe over the other two migrated commands shows NO
+# difference -- `check main.jsx` exits 0 with `filesChecked = 1` either way, and
+# `run main.js` exits 1 either way -- so the build cases are load-bearing on their
+# own. One measured disarmament is enough to require the split.
+#
+# THE SPLIT IS ON MANIFEST PRESENCE, NOT ON THE SUBMODULE BOUNDARY. `run.rs`
+# straddles it 8 explicit / 8 inherited, so one case file per submodule would put
+# both halves of run.rs in one file and reproduce the disarmament. The generator
+# DERIVES which half a fn belongs to by asking whether the helper it calls writes a
+# `kali.json`, then cross-checks that against the fn's own name and raises on
+# disagreement (ruling 18: derive the property, make a non-match an error) -- so a
+# case cannot be filed into the wrong half silently.
+# THIS FILE carries 20 of the 28 migrated `#[test]` fns (20 trials).
+# THIS FILE is the EXPLICIT-`--api browser` half: `kali.json` appears in its
+# `[source]` table NOWHERE. Its sibling is reflect_own_keys_inherited_manifest.toml.
+# Within this file `[source]` is safe in the ordinary way: every fixture is written
+# unconditionally by the source into a fresh temp dir, none is written behind an
+# `if`, and every command names its entry explicitly on argv -- verified against
+# the real binary rather than assumed, in a directory holding all 8 fixtures:
+# `kali --output json check --api browser main.jsx` still reports
+# `payload.filesChecked = 1`, so no sibling fixture is picked up by discovery and
+# the unused ones are inert.
+#
+# U5 -- NO `[source]` KEY RENAME IS NEEDED. Each of this target's three program
+# texts has its own filename stem in the source (`main.<ext>` for the run-mode probe,
+# `smoke.test.<ext>` for the `Kali.test` probe, `app.<ext>` for the bundle fixture),
+# so the flat file-wide namespace has no collision and every key below is the
+# source's own filename. `check.rs` writes the SAME run-mode probe to the same
+# `main.<ext>` names that `run.rs` uses, which is a shared entry rather than a
+# collision -- the two texts are byte-identical because they are the same call to the
+# same builder.
+#
+# RULE 10 -- A GENUINE JS TEMPLATE LITERAL, ESCAPED THROUGH `[constants]`.
+# The program under test interpolates one of its own bindings (result) with a real JS
+# template literal. `expand.rs`'s `substitute()` hard-fails on any `${...}` it cannot resolve,
+# and `expand.rs:195` substitutes `[source]` BODIES as well as step fields, so this file
+# declares `[constants] dollar = "$"` and spells every genuine `${` as `${dollar}{`.
+# The RESOLVED program text is byte-identical to the source's -- this is an encoding of
+# rule 9, not an exception to it. The generator DERIVES this rather than marking it:
+# it escapes whatever `${` the captured fixture actually contains and raises if any
+# survives unescaped, so a file cannot declare the constant it does not need or need
+# the constant it does not declare.
+#
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '$' -- the value of the rule-10 `[constants] dollar` escape, not an assertion at all -- `check_extra_claims.py` reads every [constants] value as a claim string, and this one exists purely so `expand.rs`'s substitute() can put a literal `$` back into the fixture. The RESOLVED program text is byte-identical to the source's, which is the whole point of rule 10
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `assert_browser_requested_reflect_own_keys`,
+#   `assert_json_browser_requested_reflect_own_keys`,
+#   `assert_inherited_browser_api_surface_reflect_own_keys`,
+#   `assert_browser_bundle_reflect_own_keys`,
+#   `assert_browser_checked_reflect_own_keys`, `reflect_own_keys_source`,
+#   `reflect_own_keys_test_source`, `browser_bundle_reflect_own_keys_source` -- none carries a `///` doc comment.
+# The chain DOES reach `///`-documented helpers in `kali_common` whose OUTPUT this
+# case file reproduces in [source], so their docs are claim prose and are carried
+# into the rationale of every case that helper's text reaches (ruling 6's test:
+# carry the docs if the migrated case still depends on what the helper computed).
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+# The `check` shape follows the build convention: `check --api browser [--output json] <entry>`, with the `--output json` pair appended AFTER the subcommand and its flags.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more. This file's cases
+# do NOT all make the same shape of claim, so each is stated with its count:
+#   * 8 case(s): `exit = "failure"` and nothing else -- the source's only process assertion on this path is `assert!(!output.status.success())`, so a diagnostic code or a stream needle would be a rule-2 invention.
+#   * 8 case(s): `exit = "success"` on the build, the `app/app.meta.json` apiSurface/artifactKind pins, and -- unlike every other bundle target in this batch -- `exit = "success"` on the harness too, plus `stdout_contains = ["0"]`. No `errors` claim: this helper does not make one.
+#   * 4 case(s): `exit = "success"`, and in JSON mode the envelope's schemaVersion/command/success/exitCode, `payload.filesChecked = 1` and an empty `errors` array. In text mode that is the helper's ONLY assertion.
+#
+# No count of the wider `browser/` corpus appears anywhere in this file (ruling 16): a
+# family-wide population count has no gateable home inside a case file, and the
+# remaining batches would falsify it by construction.
+
+[constants]
+dollar = "$"
+
+[source]
+"app.js" = """// kali-tree-shake: reflectOwnKeysSmoke
+async function reflectOwnKeysSmoke(left, right) {
+  const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenObj = Object.freeze(obj);
+  const keys = Reflect.ownKeys(obj);
+  const frozenKeys = Reflect.ownKeys(frozenObj);
+  const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+  const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+  const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+  const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+  const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+  const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+  const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+  const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj);
+const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj);
+const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
+const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
+const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
+const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
+const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj);
+const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj);
+  let syncCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    syncCount += 1;
+  }
+  let frozenSyncCount = 0;
+  for (const key of Reflect.ownKeys(frozenObj)) {
+    frozenSyncCount += 1;
+  }
+  let sequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(obj))) {
+    sequenceCount += 1;
+  }
+  let frozenSequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenSequenceCount += 1;
+  }
+  let asyncCount = 0;
+  for await (const key of Reflect.ownKeys(obj)) {
+    asyncCount += 1;
+  }
+  let frozenAsyncCount = 0;
+  for await (const key of Reflect.ownKeys(frozenObj)) {
+    frozenAsyncCount += 1;
+  }
+  let asyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(obj))) {
+    asyncSequenceCount += 1;
+  }
+  let frozenAsyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenAsyncSequenceCount += 1;
+  }
+  let breakContinueCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    if (key === '1') {
+      continue;
+    }
+    breakContinueCount += 1;
+    break;
+  }
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    frozenKeys.length !== 4 ||
+    frozenKeys[0] !== '1' ||
+    frozenKeys[1] !== '2' ||
+    frozenKeys[2] !== 'b' ||
+    frozenKeys[3] !== 'a' ||
+    mixedRootKeys.length !== 4 ||
+    mixedRootKeys[0] !== '1' ||
+    mixedRootKeys[1] !== '2' ||
+    mixedRootKeys[2] !== 'b' ||
+    mixedRootKeys[3] !== 'a' ||
+    mixedBracketedDirectKeys.length !== 4 ||
+    mixedBracketedDirectKeys[0] !== '1' ||
+    mixedBracketedDirectKeys[1] !== '2' ||
+    mixedBracketedDirectKeys[2] !== 'b' ||
+    mixedBracketedDirectKeys[3] !== 'a' ||
+    mixedSingleQuotedDirectKeys.length !== 4 ||
+    mixedSingleQuotedDirectKeys[0] !== '1' ||
+    mixedSingleQuotedDirectKeys[1] !== '2' ||
+    mixedSingleQuotedDirectKeys[2] !== 'b' ||
+    mixedSingleQuotedDirectKeys[3] !== 'a' ||
+    mixedBracketedKeys.length !== 4 ||
+    mixedBracketedKeys[0] !== '1' ||
+    mixedBracketedKeys[1] !== '2' ||
+    mixedBracketedKeys[2] !== 'b' ||
+    mixedBracketedKeys[3] !== 'a' ||
+    bracketedKeys.length !== 4 ||
+    bracketedKeys[0] !== '1' ||
+    bracketedKeys[1] !== '2' ||
+    bracketedKeys[2] !== 'b' ||
+    bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+    parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+    parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+    parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+    parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+    parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+    frozenNullishCallableKeys.length !== 4 ||
+    frozenNullishCallableKeys[0] !== '1' ||
+    frozenNullishCallableKeys[1] !== '2' ||
+    frozenNullishCallableKeys[2] !== 'b' ||
+    frozenNullishCallableKeys[3] !== 'a' ||
+    frozenLogicalAndCallableKeys.length !== 4 ||
+    frozenLogicalAndCallableKeys[0] !== '1' ||
+    frozenLogicalAndCallableKeys[1] !== '2' ||
+    frozenLogicalAndCallableKeys[2] !== 'b' ||
+    frozenLogicalAndCallableKeys[3] !== 'a' ||
+    frozenLogicalOrCallableKeys.length !== 4 ||
+    frozenLogicalOrCallableKeys[0] !== '1' ||
+    frozenLogicalOrCallableKeys[1] !== '2' ||
+    frozenLogicalOrCallableKeys[2] !== 'b' ||
+    frozenLogicalOrCallableKeys[3] !== 'a' ||
+    syncCount !== 4 ||
+    frozenSyncCount !== 4 ||
+    sequenceCount !== 4 ||
+    frozenSequenceCount !== 4 ||
+    asyncCount !== 4 ||
+    frozenAsyncCount !== 4 ||
+    asyncSequenceCount !== 4 ||
+    frozenAsyncSequenceCount !== 4 ||
+    breakContinueCount !== 1
+  ) {
+    throw new Error('unexpected Reflect.ownKeys ordering');
+  }
+  return left - left + right - right;
+}
+"""
+"app.jsx" = """// kali-tree-shake: reflectOwnKeysSmoke
+async function reflectOwnKeysSmoke(left, right) {
+  const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenObj = Object.freeze(obj);
+  const keys = Reflect.ownKeys(obj);
+  const frozenKeys = Reflect.ownKeys(frozenObj);
+  const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+  const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+  const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+  const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+  const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+  const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+  const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+  const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj);
+const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj);
+const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
+const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
+const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
+const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
+const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj);
+const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj);
+  let syncCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    syncCount += 1;
+  }
+  let frozenSyncCount = 0;
+  for (const key of Reflect.ownKeys(frozenObj)) {
+    frozenSyncCount += 1;
+  }
+  let sequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(obj))) {
+    sequenceCount += 1;
+  }
+  let frozenSequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenSequenceCount += 1;
+  }
+  let asyncCount = 0;
+  for await (const key of Reflect.ownKeys(obj)) {
+    asyncCount += 1;
+  }
+  let frozenAsyncCount = 0;
+  for await (const key of Reflect.ownKeys(frozenObj)) {
+    frozenAsyncCount += 1;
+  }
+  let asyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(obj))) {
+    asyncSequenceCount += 1;
+  }
+  let frozenAsyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenAsyncSequenceCount += 1;
+  }
+  let breakContinueCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    if (key === '1') {
+      continue;
+    }
+    breakContinueCount += 1;
+    break;
+  }
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    frozenKeys.length !== 4 ||
+    frozenKeys[0] !== '1' ||
+    frozenKeys[1] !== '2' ||
+    frozenKeys[2] !== 'b' ||
+    frozenKeys[3] !== 'a' ||
+    mixedRootKeys.length !== 4 ||
+    mixedRootKeys[0] !== '1' ||
+    mixedRootKeys[1] !== '2' ||
+    mixedRootKeys[2] !== 'b' ||
+    mixedRootKeys[3] !== 'a' ||
+    mixedBracketedDirectKeys.length !== 4 ||
+    mixedBracketedDirectKeys[0] !== '1' ||
+    mixedBracketedDirectKeys[1] !== '2' ||
+    mixedBracketedDirectKeys[2] !== 'b' ||
+    mixedBracketedDirectKeys[3] !== 'a' ||
+    mixedSingleQuotedDirectKeys.length !== 4 ||
+    mixedSingleQuotedDirectKeys[0] !== '1' ||
+    mixedSingleQuotedDirectKeys[1] !== '2' ||
+    mixedSingleQuotedDirectKeys[2] !== 'b' ||
+    mixedSingleQuotedDirectKeys[3] !== 'a' ||
+    mixedBracketedKeys.length !== 4 ||
+    mixedBracketedKeys[0] !== '1' ||
+    mixedBracketedKeys[1] !== '2' ||
+    mixedBracketedKeys[2] !== 'b' ||
+    mixedBracketedKeys[3] !== 'a' ||
+    bracketedKeys.length !== 4 ||
+    bracketedKeys[0] !== '1' ||
+    bracketedKeys[1] !== '2' ||
+    bracketedKeys[2] !== 'b' ||
+    bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+    parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+    parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+    parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+    parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+    parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+    frozenNullishCallableKeys.length !== 4 ||
+    frozenNullishCallableKeys[0] !== '1' ||
+    frozenNullishCallableKeys[1] !== '2' ||
+    frozenNullishCallableKeys[2] !== 'b' ||
+    frozenNullishCallableKeys[3] !== 'a' ||
+    frozenLogicalAndCallableKeys.length !== 4 ||
+    frozenLogicalAndCallableKeys[0] !== '1' ||
+    frozenLogicalAndCallableKeys[1] !== '2' ||
+    frozenLogicalAndCallableKeys[2] !== 'b' ||
+    frozenLogicalAndCallableKeys[3] !== 'a' ||
+    frozenLogicalOrCallableKeys.length !== 4 ||
+    frozenLogicalOrCallableKeys[0] !== '1' ||
+    frozenLogicalOrCallableKeys[1] !== '2' ||
+    frozenLogicalOrCallableKeys[2] !== 'b' ||
+    frozenLogicalOrCallableKeys[3] !== 'a' ||
+    syncCount !== 4 ||
+    frozenSyncCount !== 4 ||
+    sequenceCount !== 4 ||
+    frozenSequenceCount !== 4 ||
+    asyncCount !== 4 ||
+    frozenAsyncCount !== 4 ||
+    asyncSequenceCount !== 4 ||
+    frozenAsyncSequenceCount !== 4 ||
+    breakContinueCount !== 1
+  ) {
+    throw new Error('unexpected Reflect.ownKeys ordering');
+  }
+  return left - left + right - right;
+}
+"""
+"app.ts" = """// kali-tree-shake: reflectOwnKeysSmoke
+async function reflectOwnKeysSmoke(left, right) {
+  const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenObj = Object.freeze(obj);
+  const keys = Reflect.ownKeys(obj);
+  const frozenKeys = Reflect.ownKeys(frozenObj);
+  const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+  const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+  const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+  const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+  const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+  const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+  const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+  const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj);
+const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj);
+const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
+const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
+const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
+const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
+const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj);
+const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj);
+  let syncCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    syncCount += 1;
+  }
+  let frozenSyncCount = 0;
+  for (const key of Reflect.ownKeys(frozenObj)) {
+    frozenSyncCount += 1;
+  }
+  let sequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(obj))) {
+    sequenceCount += 1;
+  }
+  let frozenSequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenSequenceCount += 1;
+  }
+  let asyncCount = 0;
+  for await (const key of Reflect.ownKeys(obj)) {
+    asyncCount += 1;
+  }
+  let frozenAsyncCount = 0;
+  for await (const key of Reflect.ownKeys(frozenObj)) {
+    frozenAsyncCount += 1;
+  }
+  let asyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(obj))) {
+    asyncSequenceCount += 1;
+  }
+  let frozenAsyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenAsyncSequenceCount += 1;
+  }
+  let breakContinueCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    if (key === '1') {
+      continue;
+    }
+    breakContinueCount += 1;
+    break;
+  }
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    frozenKeys.length !== 4 ||
+    frozenKeys[0] !== '1' ||
+    frozenKeys[1] !== '2' ||
+    frozenKeys[2] !== 'b' ||
+    frozenKeys[3] !== 'a' ||
+    mixedRootKeys.length !== 4 ||
+    mixedRootKeys[0] !== '1' ||
+    mixedRootKeys[1] !== '2' ||
+    mixedRootKeys[2] !== 'b' ||
+    mixedRootKeys[3] !== 'a' ||
+    mixedBracketedDirectKeys.length !== 4 ||
+    mixedBracketedDirectKeys[0] !== '1' ||
+    mixedBracketedDirectKeys[1] !== '2' ||
+    mixedBracketedDirectKeys[2] !== 'b' ||
+    mixedBracketedDirectKeys[3] !== 'a' ||
+    mixedSingleQuotedDirectKeys.length !== 4 ||
+    mixedSingleQuotedDirectKeys[0] !== '1' ||
+    mixedSingleQuotedDirectKeys[1] !== '2' ||
+    mixedSingleQuotedDirectKeys[2] !== 'b' ||
+    mixedSingleQuotedDirectKeys[3] !== 'a' ||
+    mixedBracketedKeys.length !== 4 ||
+    mixedBracketedKeys[0] !== '1' ||
+    mixedBracketedKeys[1] !== '2' ||
+    mixedBracketedKeys[2] !== 'b' ||
+    mixedBracketedKeys[3] !== 'a' ||
+    bracketedKeys.length !== 4 ||
+    bracketedKeys[0] !== '1' ||
+    bracketedKeys[1] !== '2' ||
+    bracketedKeys[2] !== 'b' ||
+    bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+    parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+    parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+    parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+    parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+    parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+    frozenNullishCallableKeys.length !== 4 ||
+    frozenNullishCallableKeys[0] !== '1' ||
+    frozenNullishCallableKeys[1] !== '2' ||
+    frozenNullishCallableKeys[2] !== 'b' ||
+    frozenNullishCallableKeys[3] !== 'a' ||
+    frozenLogicalAndCallableKeys.length !== 4 ||
+    frozenLogicalAndCallableKeys[0] !== '1' ||
+    frozenLogicalAndCallableKeys[1] !== '2' ||
+    frozenLogicalAndCallableKeys[2] !== 'b' ||
+    frozenLogicalAndCallableKeys[3] !== 'a' ||
+    frozenLogicalOrCallableKeys.length !== 4 ||
+    frozenLogicalOrCallableKeys[0] !== '1' ||
+    frozenLogicalOrCallableKeys[1] !== '2' ||
+    frozenLogicalOrCallableKeys[2] !== 'b' ||
+    frozenLogicalOrCallableKeys[3] !== 'a' ||
+    syncCount !== 4 ||
+    frozenSyncCount !== 4 ||
+    sequenceCount !== 4 ||
+    frozenSequenceCount !== 4 ||
+    asyncCount !== 4 ||
+    frozenAsyncCount !== 4 ||
+    asyncSequenceCount !== 4 ||
+    frozenAsyncSequenceCount !== 4 ||
+    breakContinueCount !== 1
+  ) {
+    throw new Error('unexpected Reflect.ownKeys ordering');
+  }
+  return left - left + right - right;
+}
+"""
+"app.tsx" = """// kali-tree-shake: reflectOwnKeysSmoke
+async function reflectOwnKeysSmoke(left, right) {
+  const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenObj = Object.freeze(obj);
+  const keys = Reflect.ownKeys(obj);
+  const frozenKeys = Reflect.ownKeys(frozenObj);
+  const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+  const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+  const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+  const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+  const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+  const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+  const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+  const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+  const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj);
+const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj);
+const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
+const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
+const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
+const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
+const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj);
+const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj);
+  let syncCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    syncCount += 1;
+  }
+  let frozenSyncCount = 0;
+  for (const key of Reflect.ownKeys(frozenObj)) {
+    frozenSyncCount += 1;
+  }
+  let sequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(obj))) {
+    sequenceCount += 1;
+  }
+  let frozenSequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenSequenceCount += 1;
+  }
+  let asyncCount = 0;
+  for await (const key of Reflect.ownKeys(obj)) {
+    asyncCount += 1;
+  }
+  let frozenAsyncCount = 0;
+  for await (const key of Reflect.ownKeys(frozenObj)) {
+    frozenAsyncCount += 1;
+  }
+  let asyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(obj))) {
+    asyncSequenceCount += 1;
+  }
+  let frozenAsyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenAsyncSequenceCount += 1;
+  }
+  let breakContinueCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    if (key === '1') {
+      continue;
+    }
+    breakContinueCount += 1;
+    break;
+  }
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    frozenKeys.length !== 4 ||
+    frozenKeys[0] !== '1' ||
+    frozenKeys[1] !== '2' ||
+    frozenKeys[2] !== 'b' ||
+    frozenKeys[3] !== 'a' ||
+    mixedRootKeys.length !== 4 ||
+    mixedRootKeys[0] !== '1' ||
+    mixedRootKeys[1] !== '2' ||
+    mixedRootKeys[2] !== 'b' ||
+    mixedRootKeys[3] !== 'a' ||
+    mixedBracketedDirectKeys.length !== 4 ||
+    mixedBracketedDirectKeys[0] !== '1' ||
+    mixedBracketedDirectKeys[1] !== '2' ||
+    mixedBracketedDirectKeys[2] !== 'b' ||
+    mixedBracketedDirectKeys[3] !== 'a' ||
+    mixedSingleQuotedDirectKeys.length !== 4 ||
+    mixedSingleQuotedDirectKeys[0] !== '1' ||
+    mixedSingleQuotedDirectKeys[1] !== '2' ||
+    mixedSingleQuotedDirectKeys[2] !== 'b' ||
+    mixedSingleQuotedDirectKeys[3] !== 'a' ||
+    mixedBracketedKeys.length !== 4 ||
+    mixedBracketedKeys[0] !== '1' ||
+    mixedBracketedKeys[1] !== '2' ||
+    mixedBracketedKeys[2] !== 'b' ||
+    mixedBracketedKeys[3] !== 'a' ||
+    bracketedKeys.length !== 4 ||
+    bracketedKeys[0] !== '1' ||
+    bracketedKeys[1] !== '2' ||
+    bracketedKeys[2] !== 'b' ||
+    bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+    parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+    parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+    parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+    parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+    parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+    frozenNullishCallableKeys.length !== 4 ||
+    frozenNullishCallableKeys[0] !== '1' ||
+    frozenNullishCallableKeys[1] !== '2' ||
+    frozenNullishCallableKeys[2] !== 'b' ||
+    frozenNullishCallableKeys[3] !== 'a' ||
+    frozenLogicalAndCallableKeys.length !== 4 ||
+    frozenLogicalAndCallableKeys[0] !== '1' ||
+    frozenLogicalAndCallableKeys[1] !== '2' ||
+    frozenLogicalAndCallableKeys[2] !== 'b' ||
+    frozenLogicalAndCallableKeys[3] !== 'a' ||
+    frozenLogicalOrCallableKeys.length !== 4 ||
+    frozenLogicalOrCallableKeys[0] !== '1' ||
+    frozenLogicalOrCallableKeys[1] !== '2' ||
+    frozenLogicalOrCallableKeys[2] !== 'b' ||
+    frozenLogicalOrCallableKeys[3] !== 'a' ||
+    syncCount !== 4 ||
+    frozenSyncCount !== 4 ||
+    sequenceCount !== 4 ||
+    frozenSequenceCount !== 4 ||
+    asyncCount !== 4 ||
+    frozenAsyncCount !== 4 ||
+    asyncSequenceCount !== 4 ||
+    frozenAsyncSequenceCount !== 4 ||
+    breakContinueCount !== 1
+  ) {
+    throw new Error('unexpected Reflect.ownKeys ordering');
+  }
+  return left - left + right - right;
+}
+"""
+"main.js" = """const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const frozenObj = Object.freeze(obj);
+const keys = globalThis.Reflect.ownKeys(obj);
+const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
+const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+const singleQuotedPropertyKeys = globalThis['Reflect'].ownKeys(obj);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
+const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj); const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj); const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); const mixedBracketedRootKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj); const parenthesizedMixedBracketedRootKeys = Object.freeze((globalThis["Reflect"]['ownKeys']))(obj); const mixedSingleQuotedRootKeys = Object.freeze(globalThis['Reflect']["ownKeys"])(obj); const parenthesizedMixedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']["ownKeys"]))(obj); const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); const frozenSingleQuotedMixedBracketedKeys = Object.freeze(globalThis.Reflect['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedMixedBracketedKeys = Object.freeze((globalThis.Reflect['ownKeys']))(obj); const nullishFrozenCallableKeys = Object.freeze((null ?? globalThis.Reflect.ownKeys))(obj); const logicalAndFrozenCallableKeys = Object.freeze((true && globalThis.Reflect.ownKeys))(obj); const logicalOrFrozenCallableKeys = Object.freeze((false || globalThis.Reflect.ownKeys))(obj); const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); const parenthesizedFrozenDotRootBracketedKeys = Object.freeze((globalThis.Reflect)["ownKeys"])(obj); const frozenParenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj); const frozenParenthesizedMixedRootKeys = Object.freeze((globalThis["Reflect"].ownKeys))(obj); const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj); const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj); const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj); const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj); const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)(obj); const nullishFrozenBracketedKeys = Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))(obj); const logicalAndFrozenBracketedKeys = Object.freeze((true && globalThis["Reflect"]["ownKeys"]))(obj); const logicalOrFrozenBracketedKeys = Object.freeze((false || globalThis["Reflect"]["ownKeys"]))(obj); const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj); const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj); const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj); const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj); const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj); const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj); const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj); const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj);
+let syncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  syncCount += 1;
+}
+let frozenSyncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenSyncCount += 1;
+}
+let sequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
+let frozenSequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenSequenceCount += 1;
+}
+let asyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(obj)) {
+  asyncCount += 1;
+}
+let frozenAsyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenAsyncCount += 1;
+}
+let asyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  asyncSequenceCount += 1;
+}
+let frozenAsyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenAsyncSequenceCount += 1;
+}
+let breakContinueCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  if (key === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  mixedRootKeys.length !== 4 ||
+  mixedRootKeys[0] !== '1' ||
+  mixedRootKeys[1] !== '2' ||
+  mixedRootKeys[2] !== 'b' ||
+  mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
+  mixedBracketedKeys.length !== 4 ||
+  mixedBracketedKeys[0] !== '1' ||
+  mixedBracketedKeys[1] !== '2' ||
+  mixedBracketedKeys[2] !== 'b' ||
+  mixedBracketedKeys[3] !== 'a' ||
+  singleQuotedPropertyKeys.length !== 4 ||
+  singleQuotedPropertyKeys[0] !== '1' ||
+  singleQuotedPropertyKeys[1] !== '2' ||
+  singleQuotedPropertyKeys[2] !== 'b' ||
+  singleQuotedPropertyKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+  singleQuotedMixedBracketedKeys.length !== 4 ||
+  singleQuotedMixedBracketedKeys[0] !== '1' ||
+  singleQuotedMixedBracketedKeys[1] !== '2' ||
+  singleQuotedMixedBracketedKeys[2] !== 'b' ||
+  singleQuotedMixedBracketedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
+  parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+  parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+  parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+  parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+  parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenBareCallableKeys.length !== 4 ||
+  parenthesizedFrozenBareCallableKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
+  frozenMixedBracketedKeys.length !== 4 ||
+  frozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenBracketedKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  frozenBareCallableKeys[0] !== '1' ||
+  frozenBareCallableKeys[1] !== '2' ||
+  frozenBareCallableKeys[2] !== 'b' ||
+  frozenBareCallableKeys[3] !== 'a' ||
+  parenthesizedFrozenBareCallableKeys[0] !== '1' ||
+  parenthesizedFrozenBareCallableKeys[1] !== '2' ||
+  parenthesizedFrozenBareCallableKeys[2] !== 'b' ||
+  parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a' ||
+  syncCount !== 4 ||
+  frozenSyncCount !== 4 ||
+  sequenceCount !== 4 ||
+  frozenSequenceCount !== 4 ||
+  asyncCount !== 4 ||
+  frozenAsyncCount !== 4 ||
+  asyncSequenceCount !== 4 ||
+  frozenAsyncSequenceCount !== 4 ||
+  breakContinueCount !== 1
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+console.log('reflect ownKeys ok');
+"""
+"main.jsx" = """const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const frozenObj = Object.freeze(obj);
+const keys = globalThis.Reflect.ownKeys(obj);
+const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
+const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+const singleQuotedPropertyKeys = globalThis['Reflect'].ownKeys(obj);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
+const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj); const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj); const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); const mixedBracketedRootKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj); const parenthesizedMixedBracketedRootKeys = Object.freeze((globalThis["Reflect"]['ownKeys']))(obj); const mixedSingleQuotedRootKeys = Object.freeze(globalThis['Reflect']["ownKeys"])(obj); const parenthesizedMixedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']["ownKeys"]))(obj); const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); const frozenSingleQuotedMixedBracketedKeys = Object.freeze(globalThis.Reflect['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedMixedBracketedKeys = Object.freeze((globalThis.Reflect['ownKeys']))(obj); const nullishFrozenCallableKeys = Object.freeze((null ?? globalThis.Reflect.ownKeys))(obj); const logicalAndFrozenCallableKeys = Object.freeze((true && globalThis.Reflect.ownKeys))(obj); const logicalOrFrozenCallableKeys = Object.freeze((false || globalThis.Reflect.ownKeys))(obj); const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); const parenthesizedFrozenDotRootBracketedKeys = Object.freeze((globalThis.Reflect)["ownKeys"])(obj); const frozenParenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj); const frozenParenthesizedMixedRootKeys = Object.freeze((globalThis["Reflect"].ownKeys))(obj); const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj); const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj); const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj); const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj); const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)(obj); const nullishFrozenBracketedKeys = Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))(obj); const logicalAndFrozenBracketedKeys = Object.freeze((true && globalThis["Reflect"]["ownKeys"]))(obj); const logicalOrFrozenBracketedKeys = Object.freeze((false || globalThis["Reflect"]["ownKeys"]))(obj); const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj); const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj); const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj); const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj); const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj); const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj); const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj); const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj);
+let syncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  syncCount += 1;
+}
+let frozenSyncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenSyncCount += 1;
+}
+let sequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
+let frozenSequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenSequenceCount += 1;
+}
+let asyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(obj)) {
+  asyncCount += 1;
+}
+let frozenAsyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenAsyncCount += 1;
+}
+let asyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  asyncSequenceCount += 1;
+}
+let frozenAsyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenAsyncSequenceCount += 1;
+}
+let breakContinueCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  if (key === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  mixedRootKeys.length !== 4 ||
+  mixedRootKeys[0] !== '1' ||
+  mixedRootKeys[1] !== '2' ||
+  mixedRootKeys[2] !== 'b' ||
+  mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
+  mixedBracketedKeys.length !== 4 ||
+  mixedBracketedKeys[0] !== '1' ||
+  mixedBracketedKeys[1] !== '2' ||
+  mixedBracketedKeys[2] !== 'b' ||
+  mixedBracketedKeys[3] !== 'a' ||
+  singleQuotedPropertyKeys.length !== 4 ||
+  singleQuotedPropertyKeys[0] !== '1' ||
+  singleQuotedPropertyKeys[1] !== '2' ||
+  singleQuotedPropertyKeys[2] !== 'b' ||
+  singleQuotedPropertyKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+  singleQuotedMixedBracketedKeys.length !== 4 ||
+  singleQuotedMixedBracketedKeys[0] !== '1' ||
+  singleQuotedMixedBracketedKeys[1] !== '2' ||
+  singleQuotedMixedBracketedKeys[2] !== 'b' ||
+  singleQuotedMixedBracketedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
+  parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+  parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+  parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+  parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+  parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenBareCallableKeys.length !== 4 ||
+  parenthesizedFrozenBareCallableKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
+  frozenMixedBracketedKeys.length !== 4 ||
+  frozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenBracketedKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  frozenBareCallableKeys[0] !== '1' ||
+  frozenBareCallableKeys[1] !== '2' ||
+  frozenBareCallableKeys[2] !== 'b' ||
+  frozenBareCallableKeys[3] !== 'a' ||
+  parenthesizedFrozenBareCallableKeys[0] !== '1' ||
+  parenthesizedFrozenBareCallableKeys[1] !== '2' ||
+  parenthesizedFrozenBareCallableKeys[2] !== 'b' ||
+  parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a' ||
+  syncCount !== 4 ||
+  frozenSyncCount !== 4 ||
+  sequenceCount !== 4 ||
+  frozenSequenceCount !== 4 ||
+  asyncCount !== 4 ||
+  frozenAsyncCount !== 4 ||
+  asyncSequenceCount !== 4 ||
+  frozenAsyncSequenceCount !== 4 ||
+  breakContinueCount !== 1
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+console.log('reflect ownKeys ok');
+"""
+"main.ts" = """const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const frozenObj = Object.freeze(obj);
+const keys = globalThis.Reflect.ownKeys(obj);
+const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
+const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+const singleQuotedPropertyKeys = globalThis['Reflect'].ownKeys(obj);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
+const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj); const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj); const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); const mixedBracketedRootKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj); const parenthesizedMixedBracketedRootKeys = Object.freeze((globalThis["Reflect"]['ownKeys']))(obj); const mixedSingleQuotedRootKeys = Object.freeze(globalThis['Reflect']["ownKeys"])(obj); const parenthesizedMixedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']["ownKeys"]))(obj); const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); const frozenSingleQuotedMixedBracketedKeys = Object.freeze(globalThis.Reflect['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedMixedBracketedKeys = Object.freeze((globalThis.Reflect['ownKeys']))(obj); const nullishFrozenCallableKeys = Object.freeze((null ?? globalThis.Reflect.ownKeys))(obj); const logicalAndFrozenCallableKeys = Object.freeze((true && globalThis.Reflect.ownKeys))(obj); const logicalOrFrozenCallableKeys = Object.freeze((false || globalThis.Reflect.ownKeys))(obj); const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); const parenthesizedFrozenDotRootBracketedKeys = Object.freeze((globalThis.Reflect)["ownKeys"])(obj); const frozenParenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj); const frozenParenthesizedMixedRootKeys = Object.freeze((globalThis["Reflect"].ownKeys))(obj); const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj); const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj); const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj); const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj); const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)(obj); const nullishFrozenBracketedKeys = Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))(obj); const logicalAndFrozenBracketedKeys = Object.freeze((true && globalThis["Reflect"]["ownKeys"]))(obj); const logicalOrFrozenBracketedKeys = Object.freeze((false || globalThis["Reflect"]["ownKeys"]))(obj); const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj); const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj); const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj); const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj); const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj); const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj); const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj); const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj);
+let syncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  syncCount += 1;
+}
+let frozenSyncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenSyncCount += 1;
+}
+let sequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
+let frozenSequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenSequenceCount += 1;
+}
+let asyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(obj)) {
+  asyncCount += 1;
+}
+let frozenAsyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenAsyncCount += 1;
+}
+let asyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  asyncSequenceCount += 1;
+}
+let frozenAsyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenAsyncSequenceCount += 1;
+}
+let breakContinueCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  if (key === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  mixedRootKeys.length !== 4 ||
+  mixedRootKeys[0] !== '1' ||
+  mixedRootKeys[1] !== '2' ||
+  mixedRootKeys[2] !== 'b' ||
+  mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
+  mixedBracketedKeys.length !== 4 ||
+  mixedBracketedKeys[0] !== '1' ||
+  mixedBracketedKeys[1] !== '2' ||
+  mixedBracketedKeys[2] !== 'b' ||
+  mixedBracketedKeys[3] !== 'a' ||
+  singleQuotedPropertyKeys.length !== 4 ||
+  singleQuotedPropertyKeys[0] !== '1' ||
+  singleQuotedPropertyKeys[1] !== '2' ||
+  singleQuotedPropertyKeys[2] !== 'b' ||
+  singleQuotedPropertyKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+  singleQuotedMixedBracketedKeys.length !== 4 ||
+  singleQuotedMixedBracketedKeys[0] !== '1' ||
+  singleQuotedMixedBracketedKeys[1] !== '2' ||
+  singleQuotedMixedBracketedKeys[2] !== 'b' ||
+  singleQuotedMixedBracketedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
+  parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+  parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+  parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+  parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+  parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenBareCallableKeys.length !== 4 ||
+  parenthesizedFrozenBareCallableKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
+  frozenMixedBracketedKeys.length !== 4 ||
+  frozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenBracketedKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  frozenBareCallableKeys[0] !== '1' ||
+  frozenBareCallableKeys[1] !== '2' ||
+  frozenBareCallableKeys[2] !== 'b' ||
+  frozenBareCallableKeys[3] !== 'a' ||
+  parenthesizedFrozenBareCallableKeys[0] !== '1' ||
+  parenthesizedFrozenBareCallableKeys[1] !== '2' ||
+  parenthesizedFrozenBareCallableKeys[2] !== 'b' ||
+  parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a' ||
+  syncCount !== 4 ||
+  frozenSyncCount !== 4 ||
+  sequenceCount !== 4 ||
+  frozenSequenceCount !== 4 ||
+  asyncCount !== 4 ||
+  frozenAsyncCount !== 4 ||
+  asyncSequenceCount !== 4 ||
+  frozenAsyncSequenceCount !== 4 ||
+  breakContinueCount !== 1
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+console.log('reflect ownKeys ok');
+"""
+"main.tsx" = """const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const frozenObj = Object.freeze(obj);
+const keys = globalThis.Reflect.ownKeys(obj);
+const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
+const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
+const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
+const singleQuotedPropertyKeys = globalThis['Reflect'].ownKeys(obj);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
+const frozenBracketRootKeys = Object.freeze((globalThis["Reflect"]))["ownKeys"](obj);
+const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
+const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
+const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
+const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj); const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj); const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); const mixedBracketedRootKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj); const parenthesizedMixedBracketedRootKeys = Object.freeze((globalThis["Reflect"]['ownKeys']))(obj); const mixedSingleQuotedRootKeys = Object.freeze(globalThis['Reflect']["ownKeys"])(obj); const parenthesizedMixedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']["ownKeys"]))(obj); const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); const frozenSingleQuotedMixedBracketedKeys = Object.freeze(globalThis.Reflect['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedMixedBracketedKeys = Object.freeze((globalThis.Reflect['ownKeys']))(obj); const nullishFrozenCallableKeys = Object.freeze((null ?? globalThis.Reflect.ownKeys))(obj); const logicalAndFrozenCallableKeys = Object.freeze((true && globalThis.Reflect.ownKeys))(obj); const logicalOrFrozenCallableKeys = Object.freeze((false || globalThis.Reflect.ownKeys))(obj); const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); const parenthesizedFrozenDotRootBracketedKeys = Object.freeze((globalThis.Reflect)["ownKeys"])(obj); const frozenParenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj); const frozenParenthesizedMixedRootKeys = Object.freeze((globalThis["Reflect"].ownKeys))(obj); const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj); const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj); const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj); const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj); const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)(obj); const nullishFrozenBracketedKeys = Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))(obj); const logicalAndFrozenBracketedKeys = Object.freeze((true && globalThis["Reflect"]["ownKeys"]))(obj); const logicalOrFrozenBracketedKeys = Object.freeze((false || globalThis["Reflect"]["ownKeys"]))(obj); const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj); const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj); const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(obj); const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj); const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj); const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj); const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj); const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj); const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj); const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj);
+let syncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  syncCount += 1;
+}
+let frozenSyncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenSyncCount += 1;
+}
+let sequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
+let frozenSequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenSequenceCount += 1;
+}
+let asyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(obj)) {
+  asyncCount += 1;
+}
+let frozenAsyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenAsyncCount += 1;
+}
+let asyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  asyncSequenceCount += 1;
+}
+let frozenAsyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenAsyncSequenceCount += 1;
+}
+let breakContinueCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {
+  if (key === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  mixedRootKeys.length !== 4 ||
+  mixedRootKeys[0] !== '1' ||
+  mixedRootKeys[1] !== '2' ||
+  mixedRootKeys[2] !== 'b' ||
+  mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
+  mixedBracketedKeys.length !== 4 ||
+  mixedBracketedKeys[0] !== '1' ||
+  mixedBracketedKeys[1] !== '2' ||
+  mixedBracketedKeys[2] !== 'b' ||
+  mixedBracketedKeys[3] !== 'a' ||
+  singleQuotedPropertyKeys.length !== 4 ||
+  singleQuotedPropertyKeys[0] !== '1' ||
+  singleQuotedPropertyKeys[1] !== '2' ||
+  singleQuotedPropertyKeys[2] !== 'b' ||
+  singleQuotedPropertyKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
+    frozenBracketRootKeys.length !== 4 ||
+    frozenBracketRootKeys[0] !== '1' ||
+    frozenBracketRootKeys[1] !== '2' ||
+    frozenBracketRootKeys[2] !== 'b' ||
+    frozenBracketRootKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
+    frozenSingleQuotedKeys.length !== 4 ||
+    frozenSingleQuotedKeys[0] !== '1' ||
+    frozenSingleQuotedKeys[1] !== '2' ||
+    frozenSingleQuotedKeys[2] !== 'b' ||
+    frozenSingleQuotedKeys[3] !== 'a' ||
+  singleQuotedMixedBracketedKeys.length !== 4 ||
+  singleQuotedMixedBracketedKeys[0] !== '1' ||
+  singleQuotedMixedBracketedKeys[1] !== '2' ||
+  singleQuotedMixedBracketedKeys[2] !== 'b' ||
+  singleQuotedMixedBracketedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
+  parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
+  parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
+  parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
+  parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
+  parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenBareCallableKeys.length !== 4 ||
+  parenthesizedFrozenBareCallableKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
+  frozenMixedBracketedKeys.length !== 4 ||
+  frozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenBracketedKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
+  frozenBareCallableKeys[0] !== '1' ||
+  frozenBareCallableKeys[1] !== '2' ||
+  frozenBareCallableKeys[2] !== 'b' ||
+  frozenBareCallableKeys[3] !== 'a' ||
+  parenthesizedFrozenBareCallableKeys[0] !== '1' ||
+  parenthesizedFrozenBareCallableKeys[1] !== '2' ||
+  parenthesizedFrozenBareCallableKeys[2] !== 'b' ||
+  parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a' ||
+  syncCount !== 4 ||
+  frozenSyncCount !== 4 ||
+  sequenceCount !== 4 ||
+  frozenSequenceCount !== 4 ||
+  asyncCount !== 4 ||
+  frozenAsyncCount !== 4 ||
+  asyncSequenceCount !== 4 ||
+  frozenAsyncSequenceCount !== 4 ||
+  breakContinueCount !== 1
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+console.log('reflect ownKeys ok');
+"""
+
+[[case]]
+name = "run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured` `#[test]` fn in its `run` `#[path]` submodule -- `run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured(` (run.rs:104). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_requested_reflect_own_keys_fails_closed(` (run.rs:15) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["run", "--api", "browser", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured` `#[test]` fn in its `run` `#[path]` submodule -- `json_run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured(` (run.rs:164). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_json_browser_requested_reflect_own_keys_fails_closed(` (run.rs:38) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["--output", "json", "run", "--api", "browser", "main.js"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input` `#[test]` fn in its `build` `#[path]` submodule -- `build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input(` (build.rs:4). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_bundle_reflect_own_keys(` (:665) writes the tree-shakeable `reflectOwnKeysSmoke` bundle fixture to `app.js`, builds it with `kali build --bundle --api browser`, asserts the emitted `app/app.meta.json` metadata, then writes the browser-bundle harness and runs it under node. UNLIKE the other bundle targets in this batch, BOTH processes succeed here: the source asserts `output.status.success()` on the harness too, and then `stdout.contains('0')`. So the `browser_bundle_harness` step carries `exit = "success"` and `stdout_contains = ["0"]` -- a plain `.contains` against a field that HAS a substring form, mirrored as `stdout_contains` rather than strengthened to an exact pin (ruling 3). U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.js"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+const result = await mod.reflectOwnKeysSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${dollar}{result}`);
+}
+console.log(String(result));
+"""
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "json_build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input` `#[test]` fn in its `build` `#[path]` submodule -- `json_build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input(` (build.rs:24). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_bundle_reflect_own_keys(` (:665) writes the tree-shakeable `reflectOwnKeysSmoke` bundle fixture to `app.js`, builds it with `kali build --bundle --api browser --output json`, asserts the JSON envelope's schemaVersion/command/success/exitCode and payload(artifactKind, bundleFormat), asserts the emitted `app/app.meta.json` metadata, then writes the browser-bundle harness and runs it under node. UNLIKE the other bundle targets in this batch, BOTH processes succeed here: the source asserts `output.status.success()` on the harness too, and then `stdout.contains('0')`. So the `browser_bundle_harness` step carries `exit = "success"` and `stdout_contains = ["0"]` -- a plain `.contains` against a field that HAS a substring form, mirrored as `stdout_contains` rather than strengthened to an exact pin (ruling 3). This helper does NOT assert that the envelope's `errors` array is empty -- the other five bundle helpers in this batch do -- so no `errors` claim is carried here. Mirroring the source means mirroring what it omits. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.js"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+const result = await mod.reflectOwnKeysSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${dollar}{result}`);
+}
+console.log(String(result));
+"""
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured` `#[test]` fn in its `run` `#[path]` submodule -- `run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured(` (run.rs:109). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_requested_reflect_own_keys_fails_closed(` (run.rs:15) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["run", "--api", "browser", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured` `#[test]` fn in its `run` `#[path]` submodule -- `json_run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured(` (run.rs:169). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_json_browser_requested_reflect_own_keys_fails_closed(` (run.rs:38) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["--output", "json", "run", "--api", "browser", "main.ts"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input` `#[test]` fn in its `build` `#[path]` submodule -- `build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input(` (build.rs:9). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_bundle_reflect_own_keys(` (:665) writes the tree-shakeable `reflectOwnKeysSmoke` bundle fixture to `app.ts`, builds it with `kali build --bundle --api browser`, asserts the emitted `app/app.meta.json` metadata, then writes the browser-bundle harness and runs it under node. UNLIKE the other bundle targets in this batch, BOTH processes succeed here: the source asserts `output.status.success()` on the harness too, and then `stdout.contains('0')`. So the `browser_bundle_harness` step carries `exit = "success"` and `stdout_contains = ["0"]` -- a plain `.contains` against a field that HAS a substring form, mirrored as `stdout_contains` rather than strengthened to an exact pin (ruling 3). U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+const result = await mod.reflectOwnKeysSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${dollar}{result}`);
+}
+console.log(String(result));
+"""
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "json_build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input` `#[test]` fn in its `build` `#[path]` submodule -- `json_build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input(` (build.rs:29). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_bundle_reflect_own_keys(` (:665) writes the tree-shakeable `reflectOwnKeysSmoke` bundle fixture to `app.ts`, builds it with `kali build --bundle --api browser --output json`, asserts the JSON envelope's schemaVersion/command/success/exitCode and payload(artifactKind, bundleFormat), asserts the emitted `app/app.meta.json` metadata, then writes the browser-bundle harness and runs it under node. UNLIKE the other bundle targets in this batch, BOTH processes succeed here: the source asserts `output.status.success()` on the harness too, and then `stdout.contains('0')`. So the `browser_bundle_harness` step carries `exit = "success"` and `stdout_contains = ["0"]` -- a plain `.contains` against a field that HAS a substring form, mirrored as `stdout_contains` rather than strengthened to an exact pin (ruling 3). This helper does NOT assert that the envelope's `errors` array is empty -- the other five bundle helpers in this batch do -- so no `errors` claim is carried here. Mirroring the source means mirroring what it omits. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.ts"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+const result = await mod.reflectOwnKeysSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${dollar}{result}`);
+}
+console.log(String(result));
+"""
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured` `#[test]` fn in its `run` `#[path]` submodule -- `run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured(` (run.rs:114). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_requested_reflect_own_keys_fails_closed(` (run.rs:15) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["run", "--api", "browser", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured` `#[test]` fn in its `run` `#[path]` submodule -- `json_run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured(` (run.rs:174). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_json_browser_requested_reflect_own_keys_fails_closed(` (run.rs:38) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["--output", "json", "run", "--api", "browser", "main.jsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input` `#[test]` fn in its `build` `#[path]` submodule -- `build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input(` (build.rs:14). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_bundle_reflect_own_keys(` (:665) writes the tree-shakeable `reflectOwnKeysSmoke` bundle fixture to `app.jsx`, builds it with `kali build --bundle --api browser`, asserts the emitted `app/app.meta.json` metadata, then writes the browser-bundle harness and runs it under node. UNLIKE the other bundle targets in this batch, BOTH processes succeed here: the source asserts `output.status.success()` on the harness too, and then `stdout.contains('0')`. So the `browser_bundle_harness` step carries `exit = "success"` and `stdout_contains = ["0"]` -- a plain `.contains` against a field that HAS a substring form, mirrored as `stdout_contains` rather than strengthened to an exact pin (ruling 3). U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.jsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+const result = await mod.reflectOwnKeysSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${dollar}{result}`);
+}
+console.log(String(result));
+"""
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "json_build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input` `#[test]` fn in its `build` `#[path]` submodule -- `json_build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input(` (build.rs:34). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_bundle_reflect_own_keys(` (:665) writes the tree-shakeable `reflectOwnKeysSmoke` bundle fixture to `app.jsx`, builds it with `kali build --bundle --api browser --output json`, asserts the JSON envelope's schemaVersion/command/success/exitCode and payload(artifactKind, bundleFormat), asserts the emitted `app/app.meta.json` metadata, then writes the browser-bundle harness and runs it under node. UNLIKE the other bundle targets in this batch, BOTH processes succeed here: the source asserts `output.status.success()` on the harness too, and then `stdout.contains('0')`. So the `browser_bundle_harness` step carries `exit = "success"` and `stdout_contains = ["0"]` -- a plain `.contains` against a field that HAS a substring form, mirrored as `stdout_contains` rather than strengthened to an exact pin (ruling 3). This helper does NOT assert that the envelope's `errors` array is empty -- the other five bundle helpers in this batch do -- so no `errors` claim is carried here. Mirroring the source means mirroring what it omits. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.jsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+const result = await mod.reflectOwnKeysSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${dollar}{result}`);
+}
+console.log(String(result));
+"""
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured` `#[test]` fn in its `run` `#[path]` submodule -- `run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured(` (run.rs:119). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_requested_reflect_own_keys_fails_closed(` (run.rs:15) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["run", "--api", "browser", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "json_run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured` `#[test]` fn in its `run` `#[path]` submodule -- `json_run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured(` (run.rs:179). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_json_browser_requested_reflect_own_keys_fails_closed(` (run.rs:38) is a LOCAL, run-module-only variant of the carrier's shared helper of the same name minus the suffix: it copies the command shape and narrows the assertion to the honest fail-closed result. The source's only process assertion on this path is `assert!(!output.status.success(), "must fail closed: {output:?}")`, so this case carries exactly `exit = "failure"` and nothing else. Adding a diagnostic code or a stream claim would invent a claim the source never made (rule 2), even though the real binary does emit one. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.) RULE 12 -- the Rust comment prose of the `run` submodule, which is the only one of this target's five files that carries any, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. These are local, run-module-only variants of the shared assert_browser_requested_reflect_own_keys / assert_json_browser_requested_reflect_own_keys / assert_inherited_browser_api_surface_reflect_own_keys helpers defined in the parent `browser_reflect_own_keys.rs`. Those shared helpers still have green callers in `test.rs` (out of this batch), so per the shared-helper red-only rule they are left untouched; the command shape is copied here instead and the assertion is narrowed to the honest fail-closed result.""""
+args = ["--output", "json", "run", "--api", "browser", "main.tsx"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "failure"
+
+[[case]]
+name = "build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input` `#[test]` fn in its `build` `#[path]` submodule -- `build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input(` (build.rs:19). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_bundle_reflect_own_keys(` (:665) writes the tree-shakeable `reflectOwnKeysSmoke` bundle fixture to `app.tsx`, builds it with `kali build --bundle --api browser`, asserts the emitted `app/app.meta.json` metadata, then writes the browser-bundle harness and runs it under node. UNLIKE the other bundle targets in this batch, BOTH processes succeed here: the source asserts `output.status.success()` on the harness too, and then `stdout.contains('0')`. So the `browser_bundle_harness` step carries `exit = "success"` and `stdout_contains = ["0"]` -- a plain `.contains` against a field that HAS a substring form, mirrored as `stdout_contains` rather than strengthened to an exact pin (ruling 3). U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.tsx"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+const result = await mod.reflectOwnKeysSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${dollar}{result}`);
+}
+console.log(String(result));
+"""
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "json_build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input` `#[test]` fn in its `build` `#[path]` submodule -- `json_build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input(` (build.rs:39). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_bundle_reflect_own_keys(` (:665) writes the tree-shakeable `reflectOwnKeysSmoke` bundle fixture to `app.tsx`, builds it with `kali build --bundle --api browser --output json`, asserts the JSON envelope's schemaVersion/command/success/exitCode and payload(artifactKind, bundleFormat), asserts the emitted `app/app.meta.json` metadata, then writes the browser-bundle harness and runs it under node. UNLIKE the other bundle targets in this batch, BOTH processes succeed here: the source asserts `output.status.success()` on the harness too, and then `stdout.contains('0')`. So the `browser_bundle_harness` step carries `exit = "success"` and `stdout_contains = ["0"]` -- a plain `.contains` against a field that HAS a substring form, mirrored as `stdout_contains` rather than strengthened to an exact pin (ruling 3). This helper does NOT assert that the envelope's `errors` array is empty -- the other five bundle helpers in this batch do -- so no `errors` claim is carried here. Mirroring the source means mirroring what it omits. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.tsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" } }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+const result = await mod.reflectOwnKeysSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${dollar}{result}`);
+}
+console.log(String(result));
+"""
+exit = "success"
+stdout_contains = ["0"]
+
+[[case]]
+name = "check_accepts_reflect_own_keys_in_jsx_input_on_browser_surface"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `check_accepts_reflect_own_keys_in_jsx_input_on_browser_surface` `#[test]` fn in its `check` `#[path]` submodule -- `check_accepts_reflect_own_keys_in_jsx_input_on_browser_surface(` (check.rs:4). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_checked_reflect_own_keys(` (:748) writes the run-mode probe to `main.jsx` and runs `kali check --api browser`, asserting the process succeeds. In text mode that is the ONLY assertion the helper makes -- no stdout, no stderr, no envelope -- so this case carries exactly `exit = "success"`. NOTE THE EXTENSION DOMAIN: `check` is exercised for `jsx` and `tsx` ONLY, never for `js` or `ts`. That is why this file declares no `[matrix]` -- see the header's arithmetic. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+args = ["check", "--api", "browser", "main.jsx"]
+exit = "success"
+
+[[case]]
+name = "json_check_accepts_reflect_own_keys_in_jsx_input_on_browser_surface"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_check_accepts_reflect_own_keys_in_jsx_input_on_browser_surface` `#[test]` fn in its `check` `#[path]` submodule -- `json_check_accepts_reflect_own_keys_in_jsx_input_on_browser_surface(` (check.rs:14). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_checked_reflect_own_keys(` (:748) writes the run-mode probe to `main.jsx` and runs `kali check --api browser --output json`, asserting the process succeeds and pinning the envelope's schemaVersion/command/success/exitCode, `payload.filesChecked = 1`, and an empty `errors` array. NOTE THE EXTENSION DOMAIN: `check` is exercised for `jsx` and `tsx` ONLY, never for `js` or `ts`. That is why this file declares no `[matrix]` -- see the header's arithmetic. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+args = ["check", "--api", "browser", "--output", "json", "main.jsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "check", success = true, exitCode = 0, payload = { filesChecked = 1 }, errors = [] }
+
+[[case]]
+name = "check_accepts_reflect_own_keys_in_tsx_input_on_browser_surface"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `check_accepts_reflect_own_keys_in_tsx_input_on_browser_surface` `#[test]` fn in its `check` `#[path]` submodule -- `check_accepts_reflect_own_keys_in_tsx_input_on_browser_surface(` (check.rs:9). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_checked_reflect_own_keys(` (:748) writes the run-mode probe to `main.tsx` and runs `kali check --api browser`, asserting the process succeeds. In text mode that is the ONLY assertion the helper makes -- no stdout, no stderr, no envelope -- so this case carries exactly `exit = "success"`. NOTE THE EXTENSION DOMAIN: `check` is exercised for `jsx` and `tsx` ONLY, never for `js` or `ts`. That is why this file declares no `[matrix]` -- see the header's arithmetic. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+args = ["check", "--api", "browser", "main.tsx"]
+exit = "success"
+
+[[case]]
+name = "json_check_accepts_reflect_own_keys_in_tsx_input_on_browser_surface"
+rationale = """Migrated from browser_reflect_own_keys.rs, the `json_check_accepts_reflect_own_keys_in_tsx_input_on_browser_surface` `#[test]` fn in its `check` `#[path]` submodule -- `json_check_accepts_reflect_own_keys_in_tsx_input_on_browser_surface(` (check.rs:19). That fn is a single unlooped helper call, so it maps 1:1 to this one `[[case]]` and keeps the fn's name verbatim -- the case is the only remaining trace of the fn (rule 6). `assert_browser_checked_reflect_own_keys(` (:748) writes the run-mode probe to `main.tsx` and runs `kali check --api browser --output json`, asserting the process succeeds and pinning the envelope's schemaVersion/command/success/exitCode, `payload.filesChecked = 1`, and an empty `errors` array. NOTE THE EXTENSION DOMAIN: `check` is exercised for `jsx` and `tsx` ONLY, never for `js` or `ts`. That is why this file declares no `[matrix]` -- see the header's arithmetic. U2 TWO-FILE SPLIT: this case is in the EXPLICIT-`--api browser` half. `kali.json` appears nowhere in this file's `[source]` table, which is exactly what keeps this case able to FAIL if `--api browser` regressed. The other half is in reflect_own_keys_inherited_manifest.toml. They cannot share a file: `expand()` clones the whole file-level `[source]` map into every trial, so a shared `kali.json` would supply the browser surface to the explicit cases too. Measured on a claim this migration actually carries: `kali build --bundle app.js` with no manifest and no `--api` exits 5 and emits no `app/app.meta.json` at all, while the same command with `kali.json` present exits 0 and writes `apiSurface = "browser"` into it -- so the 8 `build` cases, which pin exactly those two, would pass whether or not `--api browser` did anything. No literal is dropped by that leak, so the audit cannot see it, and the trial still passes, so `cargo test` cannot either. (The `payload.hostContract` measurement that justified this split before the U4 trim is NOT cited here: those fields are asserted only by the retained `test.rs`, so they no longer cover anything either file claims.)"""
+args = ["check", "--api", "browser", "--output", "json", "main.tsx"]
+exit = "success"
+json = { schemaVersion = 1, command = "check", success = true, exitCode = 0, payload = { filesChecked = 1 }, errors = [] }

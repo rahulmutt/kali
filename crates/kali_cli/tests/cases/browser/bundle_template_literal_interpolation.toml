@@ -1,0 +1,28 @@
+# Migrated from tests/browser_bundle_template_literal_interpolation.rs.
+#   SOURCE REF: 3e083edc5d8ba24dd69a79cc75c60889d8258cb5
+#
+# Interpolated template literals print interpolated values through the
+# browser bundle glue under the node harness.
+
+[constants]
+dollar = "$"
+
+[source]
+"app.ts" = "console.log(`v: ${dollar}{7 / 2}`);\n"
+
+[[case]]
+name = "browser_bundle_interpolates_template_literals_via_start"
+rationale = """Migrated from browser_bundle_template_literal_interpolation.rs. Interpolated template literals print interpolated values through the browser bundle glue under the node harness."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.ts"]
+exit = "success"
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.start();
+"""
+exit = "success"
+stdout_contains = ["v: 3.5\n"]

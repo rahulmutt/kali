@@ -1,0 +1,130 @@
+# Migrated from tests/browser_object_from_entries.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim) -- THIS SOURCE HAS PROSE, and it is
+# carried into EVERY case's own `rationale`, not just into this header.
+# `grep -nE '^\s*//'` over tests/browser_object_from_entries.rs returns 2 Rust comment line(s)
+# in 1 contiguous block(s), of 1 distinct text(s):
+#   * "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md."
+# Every block sits inside `assert_browser_bundle_object_from_entries`,
+# which every `[[case]]` below reaches, so U6's bottom-up attribution puts all of it in
+# every rationale: the attribution is per helper and this helper is universal in this
+# file, which is NOT the over-attribution U6 forbids (that is copying a block into cases
+# its producing helper does not reach).
+# A pointer ("see the file header") would not satisfy rule 12: a reader of one failing
+# trial sees only that trial's `rationale`.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 8 `#[test]` fns, 8 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_object_from_entries` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), a complete cross product. Every `#[test]` fn is one unlooped call and the file contains no loop at all.
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 2 `[[case]]` entries x ext(4) = 8 trials = 8 invocations. Exact.
+# `json_output` is NOT a matrix axis, per rule 7 and design spec 5.6's own note, and the
+# reason here is not the usual one: this target asserts nothing but process failure, so
+# the output mode changes no assertion -- it appends an argv PAIR rather than
+# substituting a value, which a `[matrix]` axis cannot express.
+# It is written as sibling `[[case]]` entries instead, which is also what rule 6
+# requires: the source has its own `#[test]` fns for both.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 source `#[test]` fns, one per `ext` cell; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# RULE 10 -- NOT NEEDED HERE, and that is checked rather than assumed. `expand.rs`'s
+# `substitute()` hard-fails on any `${...}` it cannot resolve, so a fixture carrying a
+# genuine JS template literal must declare `[constants] dollar = "$"` and spell the
+# genuine `${` as `${dollar}{`. No `[source]` value and no step `body` in this file
+# contains `${` at all -- the generator greps every emitted string and raises if one does
+# -- so this file declares no `[constants]` table.
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_object_from_entries_source`,
+#   `assert_browser_bundle_object_from_entries` -- none carries a `///` doc comment.
+# This file runs no `browser_bundle_harness` step -- the build never succeeds, so the
+# source never writes one -- so ruling 6's exemption has nothing to exempt and is not
+# stated.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it
+# and is not normalised here:
+#   * build: `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#            pair is appended AFTER the subcommand and its flags.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE -- THIS TARGET ASSERTS A FAILURE, NOT A SUCCESS. The source's only
+# process assertion is `assert!(!output.status.success(), ...)`, so the migrated step
+# carries `exit = "failure"` and nothing else. That is the whole claim; adding a
+# diagnostic-code or stdout claim the source never made would be a rule-2 invention,
+# and `exit = "failure"` is exactly as strong as the assertion it replaces.
+# The source writes one fixture `browser_bundle_object_from_entries_source()).expect("write source")` (:57) and asserts only `assert!(!output.status.success()` (:73). There is no
+# stdout, stderr, exit-code or JSON claim in the file, in either output mode.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: browserObjectFromEntries
+function assertFromEntriesShape(fromEntries) {
+  const keys = Object.keys(fromEntries);
+  const entries = Object.entries(fromEntries);
+  const values = Object.values(fromEntries);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'b' ||
+    keys[1] !== 'a' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 1 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected Object.fromEntries semantics');
+  }
+}
+
+function browserObjectFromEntries() {
+  const wrappedEntries = ([["b", 1], ["a", 2]]);
+  const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+  const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+  const frozenObjectFromEntries = Object.freeze(Object.fromEntries);
+  const frozenBracketedObjectFromEntries = Object.freeze(globalThis["Object"]["fromEntries"]);
+  const parenthesizedFrozenBracketedObjectFromEntries = Object.freeze((globalThis["Object"]["fromEntries"]));
+  assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(Object.fromEntries(wrappedEntries));
+  assertFromEntriesShape(Object.fromEntries(frozenEntries));
+  assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+  assertFromEntriesShape(frozenObjectFromEntries(wrappedEntries));
+  assertFromEntriesShape(frozenBracketedObjectFromEntries(wrappedEntries));
+  assertFromEntriesShape(parenthesizedFrozenBracketedObjectFromEntries(wrappedEntries));
+  assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]));
+}
+"""
+
+[[case]]
+name = "build_emits_object_from_entries_semantics"
+rationale = """Migrated from browser_object_from_entries.rs, the four `build_emits_object_from_entries_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_object_from_entries` writes the browser Object.fromEntries fixture `browser_bundle_object_from_entries_source()).expect("write source")` (:57) and runs `kali build --bundle --api browser`. The program builds objects from entry pairs through eleven spellings -- wrapped, frozen, conditional, frozen-callable and every bracketed `globalThis["Object"]["fromEntries"]` root -- and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:73), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. RULE 12 -- the Rust comment prose of browser_object_from_entries.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "failure"
+
+[[case]]
+name = "json_build_emits_object_from_entries_semantics"
+rationale = """Migrated from browser_object_from_entries.rs, the four `json_build_emits_object_from_entries_semantics_in_*_input` fns (one per extension). `assert_browser_bundle_object_from_entries` writes the browser Object.fromEntries fixture `browser_bundle_object_from_entries_source()).expect("write source")` (:57) and runs `kali build --bundle --api browser` with `--output json`. The program builds objects from entry pairs through eleven spellings -- wrapped, frozen, conditional, frozen-callable and every bracketed `globalThis["Object"]["fromEntries"]` root -- and asserts the resulting key, entry and value ordering. kali fails closed on it: the source's ONLY assertion is that the process fails `assert!(!output.status.success()` (:73), so this step carries `exit = "failure"` and nothing else. Adding a diagnostic code or a stdout claim the source never made would be a rule-2 invention. This sibling issues the `--output json` argv; the source asserts nothing about the envelope, so neither does this case. RULE 12 -- the Rust comment prose of browser_object_from_entries.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "failure"

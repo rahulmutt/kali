@@ -93,8 +93,18 @@ def find_matching_brace(text: str, open_brace_index: int) -> int:
             in_string = '"'
             i += 1
             continue
-        if ch == "r":
-            j = i + 1
+    # RAW-STRING OPENER, PREFIX- AND BOUNDARY-CORRECT. One instance of a class
+    # enumerated repo-wide by Task 19 batch 4 and gated by
+    # `inst2_probes.probe_raw_string_recogniser_class`, which fails if a site is
+    # added without being declared. Two failure directions: UNDER-recognition
+    # (keying on `r` alone does not admit the `b`/`c` of a byte or C raw string,
+    # so its interior is scanned as live code) and OVER-recognition (no left word
+    # boundary opens a raw string on the trailing `r` of `"operator"`). A bare
+    # `b"`/`c"` is an ESCAPED literal and still falls through to the plain path.
+        prefix = 1 if (ch in "bc" and text.startswith("r", i + 1)) else 0
+        boundary = i == 0 or not (text[i - 1].isalnum() or text[i - 1] == "_")
+        if text.startswith("r", i + prefix) and boundary:
+            j = i + prefix + 1
             hashes = 0
             while j < len(text) and text[j] == "#":
                 hashes += 1

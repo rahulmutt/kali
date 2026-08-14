@@ -1,0 +1,232 @@
+# EXTRA-CLAIM DECLARATIONS (U14's `extra` direction).
+# check_extra_claims.py compares this file's claim strings against the source's and fails
+# on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
+# a genuinely new one will not be on this list and will fail the gate.
+# EXTRA-OK: '3\n3\n3\n3\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# Migrated from tests/browser_math_log2_log10_mixed_root.rs.
+#   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
+#
+# RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
+# tests/browser_math_log2_log10_mixed_root.rs returns NOTHING -- the file has no Rust comments
+# at all.
+# The 1 other `//` occurrence(s) in the file (:11) sit
+# inside JS fixture bodies, which is program text carried verbatim into
+# [source], not Rust prose.
+# There is therefore no prose to move into any `rationale`, and
+# comment_coverage.py is run with --allow-empty for this pair.
+#
+# RULE 7 / U1 -- MATRIX ARITHMETIC, and it closes exactly.
+# 9 `#[test]` fns, 24 real helper invocations with every loop
+# expanded:
+#   * `assert_browser_bundle_global_this_math_bracketed_log2_log10` -- 8 invocation(s) = ext(js/ts/jsx/tsx) x json_output(false/true), one
+#     unlooped call per `#[test]` fn across 8 fns.
+#   * `run_and_test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- 16 invocation(s) = ONE `#[test]` fn containing a nested loop:
+#     8 `(command, source_name, source, expected_stdout)` table entries
+#     (run/test x the four extensions) x `for output_json in [false, true]`
+#     (:225) = 16 invocations, all made by that single fn.
+#     enumerate_invocations.py reports it as UNPARSED because the harness logic
+#     is inlined in the loop body rather than called, so this half of the
+#     arithmetic was read off the source directly.
+# `ext` is the ONE axis every case varies over uniformly, and every helper covers
+# all 4 of its values, so a file-wide axis fans nothing the source never ran:
+# 6 `[[case]]` entries x ext(4) = 24 trials = 24 invocations. Exact.
+# `command` and `json_output` are NOT matrix axes, per rule 7 and design spec 5.6's own note:
+# each changes the ASSERTION SHAPE rather than substituting a string.
+# `json_output` switches between a text claim and a JSON-envelope claim.
+# `command` switches the envelope's payload between `exitCode` (run) and
+# `total`/`passed`/`failed` (test).
+# Each is written as sibling `[[case]]` entries instead.
+#
+# RULE 6 -- 1:1 MAPPING, and the fold is stated here as the rule requires.
+# Each `[[case]]` below corresponds to 4 trials of one source construct, one per `ext` cell -- but
+# WHICH construct differs between the two halves of this file, and the distinction
+# is load-bearing. The two bundle cases each fold 4 separate `#[test]` fns. The four
+# harness cases fold no fns at all: they correspond to loop ITERATIONS of the single
+# `#[test]` fn
+#   `run_and_test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input`
+# (`run_and_test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(` :173), whose table walks run/test x js/ts/jsx/tsx and whose inner loop walks
+# json_output. A reader must not infer four source fns behind them; the assertion mapping stays
+# 1:1 per trial, so no claim is lost, but a failing trial's id reads its matrix cell
+# rather than a source fn name.
+#
+# U2 -- `[source]` is FILE-WIDE, and that is safe here. Every fixture
+# (`app.${ext}`, `main.${ext}`, `smoke.test.${ext}`)
+# is written unconditionally by the source into a fresh temp dir: no fixture is written
+# behind an `if`, and no case's point is the presence or absence of a file.
+# Every command below names its entry explicitly on argv, so the unused siblings in
+# a trial dir are inert.
+#
+# THE COUNT KEYS. The source makes exactly one occurrence-count claim, and it is on the
+# browser-bundle harness process's raw stdout:
+# `.matches("3\n").count() >= 2` (:129), carried as `stdout_count` with
+# `at_least = 2`. The line above it (:128) makes a SEPARATE
+# `.contains("3\n")` claim about the same surface; both are carried on that step,
+# because collapsing them into one would drop a claim.
+# The harness `#[test]` fn makes NO count claim at all -- on its json branch it asserts
+# `json["stdout"].as_str().contains("3")` (:271), an equality-free containment
+# on a JSON leaf, which is why the four harness cases carry a `json.stdout` pin and no
+# `json_count`. (Its bracketed sibling browser_math_log2_log10.rs does spell that same
+# leaf as a count, which is where `json_count` came from; this file does not.)
+#
+# RULE 13 -- transitive helper docs. Checked every fn in each call chain:
+#   `kali_bin`, `browser_bundle_global_this_math_bracketed_log2_log10_source`,
+#   `browser_harness_global_this_math_bracketed_log2_log10_run_source`,
+#   `browser_harness_global_this_math_bracketed_log2_log10_test_source`,
+#   `assert_browser_bundle_global_this_math_bracketed_log2_log10`,
+#   `run_and_test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` -- none carries a `///` doc comment.
+# The chain also reaches `kali_runtime_contract::browser_bundle_harness_script` and
+# `::browser_harness_command_parts_for`, which DO carry one-line `///` docs. Those are
+# NOT carried: in the migrated form this case file never calls them -- the
+# `browser_bundle_harness` step kind means the case RUNNER does
+# (crates/kali_case_runner/src/steps.rs) -- so their docs describe shared runner
+# infrastructure documented in design spec 5.3, not what this case claims. That is
+# controller ruling 6, which writes the exemption into the rule rather than leaving it
+# to implementer discretion.
+#
+# ARGV ORDER is transcribed in the exact order the source's `Command` builder appends it,
+# which differs between the two helper shapes and is not normalised here:
+#   * build:   `build --bundle --api browser [--output json] <entry>` -- the `--output json`
+#              pair is appended AFTER the subcommand and its flags.
+#   * run/test: `[--output json] <run|test> --api browser [--max-threads 0
+#              --max-spawned-processes 0] <entry>` -- the `--output json` pair is appended
+#              BEFORE the subcommand.
+# The source passes an absolute `dir.path().join(filename)` as the entry; the case runner
+# passes the bare filename relative to the trial dir, matching every previously shipped
+# `browser/` case file.
+#
+# ASSERTION SHAPE, mirrored from the source and nothing more.
+# BUNDLE helper `assert_browser_bundle_global_this_math_bracketed_log2_log10`:
+# `exit = "success"` on the build (:66) and on the harness process
+# (`output.status.success()` :122); in json mode
+# the build envelope's schemaVersion/command/success/exitCode and payload
+# artifactKind/bundleFormat (`envelope["payload"].as_object().expect("payload object")` :74-80) PLUS an empty `errors`
+# array (`.as_array()` :81-84); the emitted app/app.meta.json
+# apiSurface/artifactKind (`metadata["apiSurface"]` :92-93) in BOTH modes, because the source
+# reads that file outside the `if json_output` block; then `stdout_contains`
+# (`stdout.contains(...)` :128) and `stdout_count` (:129).
+# HARNESS `#[test]` fn (:173): `exit = "success"` (:250).
+# On the text branch, `stdout.contains(expected_stdout)` (:278), where
+# `expected_stdout` is the table's own literal -- "3\n3" for `run` (:180) and
+# "3\nok 1" for `test` (:186). Those are DIFFERENT strings, so they are
+# mirrored per command and never merged.
+# On the json branch, schemaVersion/command/success
+# (`json["command"]` :257-259), payload hostContract/runtimeBackend
+# (`json["payload"]["hostContract"]` :260-261), then `exitCode` at both the envelope and the payload level
+# for `run` (:263-264) or payload total/passed/failed for `test`
+# (`json["payload"]["total"]` :266-268); the `json.stdout` pin (:271); `stderr = ""`
+# (`json["stderr"]` :274); and `errors = []` (:275).
+# The source asserts nothing about `skipped`, so no `skipped` claim is written even
+# though the live payload carries one.
+# The bundle helper passes NO --max-threads / --max-spawned-processes arguments and the
+# harness fn DOES (`.arg("--max-threads")` :241, `.arg("--max-spawned-processes")` :243); that difference is preserved exactly, not
+# normalised across the file.
+
+[matrix]
+ext = ["js", "ts", "jsx", "tsx"]
+
+[source]
+"app.${ext}" = """// kali-tree-shake: globalThisMathBracketedLog2Log10Identities
+function globalThisMathBracketedLog2Log10Identities() {
+  const log2Value = 8;
+  const log10Value = 1000;
+  const frozenLog2 = Object.freeze(globalThis.Math["log2"]);
+  const frozenLog10 = Object.freeze(globalThis.Math["log10"]);
+  console.log(globalThis.Math["log2"](log2Value));
+  console.log(frozenLog2(log2Value));
+  console.log(globalThis.Math["log10"](log10Value));
+  console.log(frozenLog10(log10Value));
+  return [globalThis.Math["log2"](log2Value), globalThis.Math["log10"](log10Value), frozenLog2(log2Value), frozenLog10(log10Value)];
+}
+"""
+"main.${ext}" = """const frozenLog2 = Object.freeze(globalThis.Math["log2"]); const frozenLog10 = Object.freeze(globalThis.Math["log10"]); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math["log2"](log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math["log10"](log10Value)); console.log(frozenLog10(log10Value));
+"""
+"smoke.test.${ext}" = """Kali.test('globalThis.Math bracketed log2/log10 identities', () => {
+  const frozenLog2 = Object.freeze(globalThis.Math["log2"]);
+  const frozenLog10 = Object.freeze(globalThis.Math["log10"]);
+  const log2Value = 8;
+  const log10Value = 1000;
+  console.log(globalThis.Math["log2"](log2Value));
+  console.log(frozenLog2(log2Value));
+  console.log(globalThis.Math["log10"](log10Value));
+  console.log(frozenLog10(log10Value));
+});
+"""
+
+[[case]]
+name = "build_emits_global_this_math_bracketed_log2_log10_identity_literals"
+rationale = """Migrated from browser_math_log2_log10_mixed_root.rs, the four `build_emits_global_this_math_bracketed_log2_log10_identity_literals_in_*_input` fns (one per extension). `assert_browser_bundle_global_this_math_bracketed_log2_log10` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose four calls -- globalThis.Math["log2"](8), a frozen alias of it, globalThis.Math["log10"](1000) and a frozen alias of that -- each print 3. The source makes TWO separate claims about that output, `.contains("3\\n")` (:128) and `.matches("3\\n").count() >= 2` (:129), so both are carried. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The source spells this as `.matches("3\\n").count() >= 2`, carried verbatim as `stdout_count` with `at_least = 2` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
+exit = "success"
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathBracketedLog2Log10Identities();
+"""
+exit = "success"
+stdout_contains = ["3\n"]
+stdout_count = [{ needle = "3\n", at_least = 2 }]
+
+[[case]]
+name = "json_build_emits_global_this_math_bracketed_log2_log10_identity_literals"
+rationale = """Migrated from browser_math_log2_log10_mixed_root.rs, the four `json_build_emits_global_this_math_bracketed_log2_log10_identity_literals_in_*_input` fns (one per extension). `assert_browser_bundle_global_this_math_bracketed_log2_log10` builds a browser bundle with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node, against a program whose four calls -- globalThis.Math["log2"](8), a frozen alias of it, globalThis.Math["log10"](1000) and a frozen alias of that -- each print 3. The source makes TWO separate claims about that output, `.contains("3\\n")` (:128) and `.matches("3\\n").count() >= 2` (:129), so both are carried. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed. The source spells this as `.matches("3\\n").count() >= 2`, carried verbatim as `stdout_count` with `at_least = 2` per controller ruling 3 (mirror the source): NOT weakened to a plain contains, which a single occurrence would satisfy, and NOT strengthened to `exact`, which the source never says. Counting is non-overlapping and left-to-right, as Rust's `str::matches` is. This sibling additionally asserts the build JSON envelope -- schemaVersion/command/success/exitCode, payload artifactKind/bundleFormat, and the empty `errors` array the source checks at :81-84 -- rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case."""
+
+[[case.step]]
+args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
+exit = "success"
+json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, payload = { artifactKind = "bundle", bundleFormat = "esm" }, errors = [] }
+
+[[case.step]]
+kind = "file_json"
+path = "app/app.meta.json"
+fields = { apiSurface = "browser", artifactKind = "bundle" }
+
+[[case.step]]
+kind = "browser_bundle_harness"
+entry = "app"
+body = """const mod = await import(bundleJs.href);
+await mod.globalThisMathBracketedLog2Log10Identities();
+"""
+exit = "success"
+stdout_contains = ["3\n"]
+stdout_count = [{ needle = "3\n", at_least = 2 }]
+
+[[case]]
+name = "run_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_log2_log10_mixed_root.rs. This case does NOT correspond to four source `#[test]` fns: it corresponds to four loop ITERATIONS of the single `#[test]` fn `run_and_test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:173) -- the four `run` rows of that fn's `(command, source_name, source, expected_stdout)` table, one per extension, taken at `output_json = false`. That fn runs `kali run --api browser` with the browser harness backed by node and with --max-threads 0 --max-spawned-processes 0 (`.arg("--max-threads")` :241, `.arg("--max-spawned-processes")` :243), against a program whose four calls -- globalThis.Math["log2"](8), a frozen alias of it, globalThis.Math["log10"](1000) and a frozen alias of that -- each print 3. On the text branch the claim is `stdout.contains(expected_stdout)` (:278) with the table's `run` literal "3\\n3" (:180). The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\n3"]
+
+[[case]]
+name = "test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_log2_log10_mixed_root.rs. This case does NOT correspond to four source `#[test]` fns: it corresponds to four loop ITERATIONS of the single `#[test]` fn `run_and_test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:173) -- the four `test` rows of that fn's `(command, source_name, source, expected_stdout)` table, one per extension, taken at `output_json = false`. That fn runs `kali test --api browser` with the browser harness backed by node and with --max-threads 0 --max-spawned-processes 0 (`.arg("--max-threads")` :241, `.arg("--max-spawned-processes")` :243), against a program whose four calls -- globalThis.Math["log2"](8), a frozen alias of it, globalThis.Math["log10"](1000) and a frozen alias of that -- each print 3. On the text branch the claim is `stdout.contains(expected_stdout)` (:278) with the table's `test` literal "3\\nok 1" (:186) -- a different string from the `run` rows', mirrored per command rather than merged. The source spells this as a plain `.contains(...)` against raw stdout, so it is carried as stdout_contains and NOT strengthened to an exact pin -- controller ruling 3, mirror the source: a plain `.contains` against a field that HAS a substring form keeps the substring form even though the exact output was observed."""
+args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+stdout_contains = ["3\nok 1"]
+
+[[case]]
+name = "json_run_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_log2_log10_mixed_root.rs. This case does NOT correspond to four source `#[test]` fns: it corresponds to four loop ITERATIONS of the single `#[test]` fn `run_and_test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:173) -- the four `run` rows of that fn's `(command, source_name, source, expected_stdout)` table, one per extension, taken at `output_json = true`. That fn runs `kali run --api browser` with the browser harness backed by node and with --max-threads 0 --max-spawned-processes 0 (`.arg("--max-threads")` :241, `.arg("--max-spawned-processes")` :243), against a program whose four calls -- globalThis.Math["log2"](8), a frozen alias of it, globalThis.Math["log10"](1000) and a frozen alias of that -- each print 3. On the json branch the same output is claimed as `json["stdout"].as_str().contains("3")` (:271) -- note the bare "3", not "3\\n". On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and `exitCode` at both the envelope and the payload level (`json["exitCode"]` :263-264), plus stderr exactly empty (`json["stderr"]` :274) and an empty `errors` array (:275)."""
+args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "3\n3\n3\n3\n", stderr = "", errors = [] }
+
+[[case]]
+name = "json_test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured"
+rationale = """Migrated from browser_math_log2_log10_mixed_root.rs. This case does NOT correspond to four source `#[test]` fns: it corresponds to four loop ITERATIONS of the single `#[test]` fn `run_and_test_supports_global_this_math_bracketed_log2_log10_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input` (:173) -- the four `test` rows of that fn's `(command, source_name, source, expected_stdout)` table, one per extension, taken at `output_json = true`. That fn runs `kali test --api browser` with the browser harness backed by node and with --max-threads 0 --max-spawned-processes 0 (`.arg("--max-threads")` :241, `.arg("--max-spawned-processes")` :243), against a program whose four calls -- globalThis.Math["log2"](8), a frozen alias of it, globalThis.Math["log10"](1000) and a frozen alias of that -- each print 3. On the json branch the same output is claimed as `json["stdout"].as_str().contains("3")` (:271) -- note the bare "3", not "3\\n". On the JSON branch the same claim is taken against the string leaf json["stdout"], which has NO substring form in the case format (there is no json_contains key), so per controller ruling 3 it becomes an exact `json.stdout` pin -- and, per U9, only after the value was captured from the real kali binary rather than hand-computed. This sibling asserts the JSON envelope: schemaVersion/command/success, payload hostContract/runtimeBackend, and payload total/passed/failed (`json["payload"]["total"]` :266-268), plus stderr exactly empty (`json["stderr"]` :274) and an empty `errors` array (:275). The source asserts nothing about `skipped`, so nothing about it is written."""
+args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
+env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
+exit = "success"
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "3\n3\n3\n3\n", stderr = "", errors = [] }
