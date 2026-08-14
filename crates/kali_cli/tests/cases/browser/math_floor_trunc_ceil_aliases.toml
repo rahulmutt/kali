@@ -39,17 +39,16 @@
 #     -- which gates go red post-trim, with counts, and which are green and why.
 #     Read it there rather than here, so there is one source of truth. Summary:
 #     comment_coverage.py, check_rationale_fn_names.py and check_extra_claims.py
-#     all exit 1 against the post-trim file; audit-case-migration.py and
-#     check_fixtures.py exit 0. Against the PRE-TRIM ref `b44fd6acf9^`
-#     (= c934f6ebdd) ALL FIVE exit 0, and that is the run that gates this
-#     migration.
-#       git show b44fd6acf9^:crates/kali_cli/tests/browser_math_floor_trunc_ceil_aliases.rs \
-#         > /tmp/x.rs
-#     (Corrected in re-review N1: this paragraph previously said the post-trim
-#     audit "reports the retained fn's own needles as absent", and claimed that
-#     was measured. Re-measuring shows the post-trim audit exits 0 -- the retained
-#     test's needle is a loop variable, so there is no literal for the audit to
-#     find missing. The old sentence named the wrong gate and the wrong outcome.)
+#     all exit 1 against the post-trim file; audit-case-migration.py exits 3
+#     (AUDIT INAPPLICABLE) and check_fixtures.py exits 0. Against the PRE-TRIM
+#     ref `b44fd6acf9^` (= c934f6ebdd) ALL FIVE exit 0, and that is the run that
+#     gates this migration.
+#       git show b44fd6acf9^:crates/kali_cli/tests/browser_math_floor_trunc_ceil_aliases.rs > /tmp/x.rs
+#     (Corrected twice, both times by re-measuring. Re-review N1: this paragraph
+#     had said the post-trim audit "reports the retained fn's own needles as
+#     absent" -- it reports nothing, the retained test's needle being a loop
+#     variable. Final cleanup: N1's replacement said "exits 0", which was true
+#     until the audit gained a third verdict for a run that demands no claims.)
 #
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_floor_trunc_ceil_aliases.rs returns NOTHING -- the file has no Rust comments

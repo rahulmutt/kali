@@ -26,10 +26,12 @@
 #   * EVERY `:N` LINE CITATION IN THIS FILE IS A PRE-TRIM LINE NUMBER. Audit and
 #     diff this pair against the pre-trim source (git history), not against the
 #     working tree.
-#   * Running audit-case-migration.py on the POST-trim pair reports the retained
-#     fn's own needles as absent -- they live in the retained test and by ruling
-#     4 have no home here. Measured, not assumed. That is the documented
-#     escalation, not a drop; against the PRE-TRIM source the audit exits 0.
+#   * Running audit-case-migration.py on the POST-trim pair exits 3, AUDIT
+#     INAPPLICABLE -- it demands 0 claims either way and so decides nothing. This
+#     bullet claimed it "reports the retained fn's own needles as absent"; that
+#     was never true (the needle is a loop variable). The PRE-TRIM run is the
+#     gate, and against that source the audit exits 0. Re-measured, both columns;
+#     the sibling aliases file fixed the same sentence at N1 and this was missed.
 #
 # RULE 12 (carry every source comment verbatim): `grep -nE '^\s*//'` over
 # tests/browser_math_floor_trunc_ceil_bundle.rs returns NOTHING -- the file has no Rust comments

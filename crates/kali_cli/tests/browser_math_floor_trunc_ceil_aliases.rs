@@ -84,10 +84,10 @@
 //!        comments included, so this header is part of the gate's own input and
 //!        its prose moves the figure -- measured, not supposed. The durable
 //!        fact is the classification; run the gate for today's number.
-//!   GREEN audit-case-migration.py     exit 0 -- the retained test's claim has
-//!        no extractable literal (its needle is a loop variable), so there is
-//!        nothing for the audit to report missing. Do not read this green as
-//!        the migration being audited; that is the pre-trim run below.
+//!   INAPP audit-case-migration.py     exit 3 -- AUDIT INAPPLICABLE, re-measured
+//!        after the third verdict landed (it read "GREEN / exit 0" until then).
+//!        The retained test's needle is a loop variable, so the run demands 0
+//!        claims either way and decides nothing; the pre-trim run below does.
 //!   GREEN check_fixtures.py           exit 0.
 //!   RED  batch5_crosscheck.py         exit 1 -- the citation gate, wired into
 //!        `verify_pair.sh` by batch 6. This row is part of that same wiring

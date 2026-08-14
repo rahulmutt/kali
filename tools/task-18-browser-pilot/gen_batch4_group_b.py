@@ -517,16 +517,16 @@ LATER READER MUST NOT MISREAD:
     -- which gates go red post-trim, with counts, and which are green and why.
     Read it there rather than here, so there is one source of truth. Summary:
     comment_coverage.py, check_rationale_fn_names.py and check_extra_claims.py
-    all exit 1 against the post-trim file; audit-case-migration.py and
-    check_fixtures.py exit 0. Against the PRE-TRIM ref `b44fd6acf9^`
-    (= c934f6ebdd) ALL FIVE exit 0, and that is the run that gates this
-    migration.
-      git show b44fd6acf9^:crates/kali_cli/tests/browser_<stem>.rs > /tmp/x.rs
-    (Corrected in re-review N1: this paragraph previously said the post-trim
-    audit "reports the retained fn's own needles as absent", and claimed that
-    was measured. Re-measuring shows the post-trim audit exits 0 -- the retained
-    test's needle is a loop variable, so there is no literal for the audit to
-    find missing. The old sentence named the wrong gate and the wrong outcome.)
+    all exit 1 against the post-trim file; audit-case-migration.py exits 3
+    (AUDIT INAPPLICABLE) and check_fixtures.py exits 0. Against the PRE-TRIM
+    ref `b44fd6acf9^` (= c934f6ebdd) ALL FIVE exit 0, and that is the run that
+    gates this migration.
+      git show b44fd6acf9^:crates/kali_cli/tests/browser_math_floor_trunc_ceil_aliases.rs > /tmp/x.rs
+    (Corrected twice, both times by re-measuring. Re-review N1: this paragraph
+    had said the post-trim audit "reports the retained fn's own needles as
+    absent" -- it reports nothing, the retained test's needle being a loop
+    variable. Final cleanup: N1's replacement said "exits 0", which was true
+    until the audit gained a third verdict for a run that demands no claims.)
 
 {NO_RUST_COMMENTS.format(stem="math_floor_trunc_ceil_aliases")}
 (The `//!` retention header added to the .rs is migration bookkeeping about the
@@ -683,10 +683,12 @@ LATER READER MUST NOT MISREAD:
   * EVERY `:N` LINE CITATION IN THIS FILE IS A PRE-TRIM LINE NUMBER. Audit and
     diff this pair against the pre-trim source (git history), not against the
     working tree.
-  * Running audit-case-migration.py on the POST-trim pair reports the retained
-    fn's own needles as absent -- they live in the retained test and by ruling
-    4 have no home here. Measured, not assumed. That is the documented
-    escalation, not a drop; against the PRE-TRIM source the audit exits 0.
+  * Running audit-case-migration.py on the POST-trim pair exits 3, AUDIT
+    INAPPLICABLE -- it demands 0 claims either way and so decides nothing. This
+    bullet claimed it "reports the retained fn's own needles as absent"; that
+    was never true (the needle is a loop variable). The PRE-TRIM run is the
+    gate, and against that source the audit exits 0. Re-measured, both columns;
+    the sibling aliases file fixed the same sentence at N1 and this was missed.
 
 {NO_RUST_COMMENTS.format(stem="math_floor_trunc_ceil_bundle")}
 (The `//!` retention header added to the .rs is migration bookkeeping about the

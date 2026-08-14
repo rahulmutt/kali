@@ -56,12 +56,12 @@
 //! ref. Read the two columns as POST-trim (the plain
 //! `verify_pair.sh math_pow_bracketed_frozen_wrapper --allow-empty` run) then PRE-trim.
 //!
-//!   audit-case-migration.py      green / green. Do NOT read that green as this
-//!        migration being audited on the post-trim side; it is green there only
-//!        because the retained test's needle is a LOOP VARIABLE, so there is no
-//!        literal for the audit to report missing. The run that audits the
-//!        migration is the pre-trim one below. Same shape as batch 4's
-//!        `browser_math_floor_trunc_ceil_aliases.rs`.
+//!   audit-case-migration.py      INAPPLICABLE (exit 3) / green (exit 0). Both
+//!        re-measured; the post-trim column read "green" until the audit gained
+//!        its third verdict. Post-trim the retained test's needle is a LOOP
+//!        VARIABLE, so 0 claims are demanded either way and the run decides
+//!        nothing -- it never audited this migration; the pre-trim run below
+//!        does. Same shape as batch 4's `browser_math_floor_trunc_ceil_aliases.rs`.
 //!   comment_coverage.py          RED / green. Post-trim, every non-blank line of
 //!        this header comes back missing: the checker requires each source
 //!        comment line to appear in some case's rationale, and this header is

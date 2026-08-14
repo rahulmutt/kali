@@ -40,9 +40,9 @@
 //! Read the two columns as POST-trim (the plain `verify_pair.sh
 //! array_iteration_spread` run, against this file) then PRE-trim.
 //!
-//!   audit-case-migration.py      GREEN / GREEN. The migration gate proper is
-//!        clean on both sides; the one test retained here makes no claim the
-//!        script's literal extractor can see, as the paragraph above explains.
+//!   audit-case-migration.py      INAPPLICABLE (exit 3) / GREEN (exit 0), both
+//!        re-measured (post-trim read GREEN until the third verdict landed): the
+//!        retained test's claim is invisible to the extractor, so only PRE gates.
 //!   comment_coverage.py          RED / RED, but for two different reasons and
 //!        only one of them is the trim. Post-trim, every non-blank line of this
 //!        header comes back missing, because the header is prose about the
