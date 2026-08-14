@@ -2168,6 +2168,11 @@ def main() -> int:
         disjunction_notes.append(note)
 
     missing: list[tuple[str, str]] = []
+    # How many claims this run actually put to the case files. Not
+    # `sum(len(entries))`: a claim that is blank, BORING, or suppressed by a
+    # satisfied disjunction is never checked, so counting it would overstate
+    # what the run demanded. See the zero-demand guard below.
+    demanded = 0
     for kind, entries in old_claims.items():
         exclude = BORING.get(kind, set())
         for canonical, variants in sorted(entries.items()):
@@ -2175,6 +2180,7 @@ def main() -> int:
                 continue
             if kind == "contains literals" and canonical in satisfied_by_disjunction:
                 continue
+            demanded += 1
             if not any(variant and variant in new_text for variant in variants):
                 missing.append((kind, canonical))
 
@@ -2187,6 +2193,7 @@ def main() -> int:
         print(f"  {kind}: {len(entries)}")
     print(f"  count claims in the case files (checked back against the source): "
           f"{len(case_claims)}")
+    print(f"  claims demanded of the case files: {demanded}")
     # Printed unconditionally, before any verdict: a claim this script cannot
     # decide must never be indistinguishable from one it decided in favour.
     for note in disjunction_notes:
@@ -2214,6 +2221,29 @@ def main() -> int:
             "\nAUDIT FAILED — 0 #[test] fns found (after resolving every "
             "submodule); refusing to report success against zero examined "
             "tests."
+        )
+        return 1
+
+    # The same guard one step further along. The check above proves this
+    # script FOUND tests; it does not prove it ASKED the case files for
+    # anything. A source whose every claim is blank, BORING, or suppressed
+    # leaves the `missing` loop with nothing to check, and the run prints
+    # AUDIT OK having demanded zero claims -- green over nothing, reached by
+    # a different route than the empty-file one. It is not hypothetical: any
+    # regression in the claim extractors (a broken regex, a masking bug in
+    # the raw-string scanner) degrades to exactly this shape, silently and
+    # across every file at once, and the audit would keep reporting OK.
+    # `case_claims` is the reverse direction and cannot substitute: it is
+    # checked source-ward, so it is non-empty only when the case files
+    # happen to use the count keys.
+    if not demanded:
+        print(
+            f"\nAUDIT FAILED — {len(old_tests)} #[test] fn(s) found but 0 "
+            "claims demanded of the case files; refusing to report success "
+            "having asserted nothing. Either the source genuinely makes no "
+            "auditable claim (in which case this migration cannot be "
+            "audited and must not be reported as if it were), or claim "
+            "extraction is broken."
         )
         return 1
 

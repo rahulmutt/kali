@@ -711,6 +711,40 @@ class Bug8_PathModResolution(unittest.TestCase):
         self.assertIn("0 #[test] fns found", out2)
         self.assertNotIn("AUDIT OK", out2)
 
+    def test_tests_found_but_zero_claims_demanded_is_audit_failed(self):
+        # The guard above proves this script FOUND tests. It does not prove
+        # it ASKED the case files for anything. A source with a real #[test]
+        # fn whose assertions carry no extractable literal clears the zero-
+        # test guard and reaches the verdict having demanded nothing -- the
+        # same green-over-nothing shape, one step further along. It is what
+        # any regression in the claim extractors degrades to, silently and
+        # across every file at once.
+        rc, out = _run_audit(
+            "#[test]\nfn t() { assert!(true); }\n",
+            {"new.toml": '[[case]]\nname = "t"\nargs = ["run"]\n'},
+        )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("AUDIT FAILED", out)
+        self.assertIn("0 claims demanded", out)
+        self.assertNotIn("AUDIT OK", out)
+        # The two guards must stay distinguishable: this one fired because
+        # there were no claims, NOT because there were no tests.
+        self.assertNotIn("0 #[test] fns found", out)
+
+    def test_one_demanded_claim_is_enough_to_clear_the_zero_demand_guard(self):
+        # A control that can only fail is worth as little as one that cannot.
+        # The same source plus a single extractable literal must audit OK, so
+        # the guard is pinned at the boundary rather than merely known to
+        # fire somewhere.
+        rc, out = _run_audit(
+            '#[test]\nfn t() { assert!(stdout.contains("MARKER")); }\n',
+            {"new.toml": '[[case]]\nname = "t"\nargs = ["run"]\n'
+                         'stdout_contains = ["MARKER"]\n'},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("AUDIT OK", out)
+        self.assertIn("claims demanded of the case files: 1", out)
+
     def test_file_with_no_path_attribute_is_unaffected(self):
         # Purely additive: a file that never used #[path] at all must audit
         # identically to before this fix.
@@ -959,8 +993,10 @@ class Bug8Round2_PlainModAndNestedResolution(unittest.TestCase):
         # A file that (nonsensically, but this is a regex-driven tool, not
         # a compiler) declares a plain `mod` with its own name, pointing
         # back at itself via #[path]. Must terminate, not loop forever.
-        old_source = '#[path = "old.rs"]\nmod old;\n#[test]\nfn t() { assert!(true); }\n'
-        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        old_source = ('#[path = "old.rs"]\nmod old;\n#[test]\n'
+                      'fn t() { assert!(stdout.contains("MARKER")); }\n')
+        toml_source = ('[[case]]\nname = "t"\nargs = ["run"]\n'
+                       'stdout_contains = ["MARKER"]\n')
         rc, out = _run_audit(old_source, {"new.toml": toml_source})
         self.assertEqual(rc, 0, out)
         self.assertIn("AUDIT OK", out)
@@ -1083,9 +1119,10 @@ class Bug8Round3_MutationHardening(unittest.TestCase):
         old_source = (
             '//! See also its sibling `mod ghost;` for context.\n'
             '#[test]\n'
-            'fn t() { assert!(true); }\n'
+            'fn t() { assert!(stdout.contains("MARKER")); }\n'
         )
-        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        toml_source = ('[[case]]\nname = "t"\nargs = ["run"]\n'
+                       'stdout_contains = ["MARKER"]\n')
         rc, out = _run_audit(old_source, {"new.toml": toml_source})
         self.assertEqual(rc, 0, out)
         self.assertNotIn("does not exist", out)
@@ -1095,9 +1132,10 @@ class Bug8Round3_MutationHardening(unittest.TestCase):
         old_source = (
             '/// mentions `mod ghost;` in its own doc text\n'
             '#[test]\n'
-            'fn t() { assert!(true); }\n'
+            'fn t() { assert!(stdout.contains("MARKER")); }\n'
         )
-        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        toml_source = ('[[case]]\nname = "t"\nargs = ["run"]\n'
+                       'stdout_contains = ["MARKER"]\n')
         rc, out = _run_audit(old_source, {"new.toml": toml_source})
         self.assertEqual(rc, 0, out)
         self.assertNotIn("does not exist", out)
@@ -1107,9 +1145,10 @@ class Bug8Round3_MutationHardening(unittest.TestCase):
         old_source = (
             '/* mod ghost; */\n'
             '#[test]\n'
-            'fn t() { assert!(true); }\n'
+            'fn t() { assert!(stdout.contains("MARKER")); }\n'
         )
-        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        toml_source = ('[[case]]\nname = "t"\nargs = ["run"]\n'
+                       'stdout_contains = ["MARKER"]\n')
         rc, out = _run_audit(old_source, {"new.toml": toml_source})
         self.assertEqual(rc, 0, out)
         self.assertNotIn("does not exist", out)
@@ -1246,10 +1285,11 @@ class Bug8Round3_MutationHardening(unittest.TestCase):
         # somehow spelled "sub" + "mod ghost;".
         old_source = (
             '#[test]\n'
-            'fn t() { assert!(true); }\n'
+            'fn t() { assert!(stdout.contains("MARKER")); }\n'
             'fn submod_ghost_helper() {}\n'
         )
-        toml_source = '[[case]]\nname = "t"\nargs = ["run"]\n'
+        toml_source = ('[[case]]\nname = "t"\nargs = ["run"]\n'
+                       'stdout_contains = ["MARKER"]\n')
         rc, out = _run_audit(old_source, {"new.toml": toml_source})
         self.assertEqual(rc, 0, out)
         self.assertNotIn("does not exist", out)
@@ -1263,10 +1303,13 @@ class Bug8Round3_MutationHardening(unittest.TestCase):
         # every hop without `.resolve()`. Must terminate on the first
         # semantic repeat (a handful of iterations), not after path-length
         # limits start making `is_file()` false naturally.
-        old_source = 'mod sub;\n#[test]\nfn t() { assert!(true); }\n'
+        old_source = ('mod sub;\n#[test]\n'
+                      'fn t() { assert!(stdout.contains("MARKER")); }\n')
         sub_source = '#[path = "../sub/mod.rs"]\nmod sub;\n'
         rc, out = _run_audit(
-            old_source, {"new.toml": '[[case]]\nname = "t"\nargs = ["run"]\n'},
+            old_source,
+            {"new.toml": '[[case]]\nname = "t"\nargs = ["run"]\n'
+                         'stdout_contains = ["MARKER"]\n'},
             extra_files={"sub/mod.rs": sub_source},
         )
         self.assertEqual(rc, 0, out)
@@ -2860,8 +2903,19 @@ class Bug9_UnreferencedConstantFalseGreen(unittest.TestCase):
         # for a case file that HAS a dead constant; asserting there are none
         # is what makes "nothing moved" survive an unrelated edit, and it
         # fails loudly the day a new one is written.
-        cases = sorted((_REPO_ROOT / "crates/kali_cli/tests/cases").glob("*/*.toml"))
-        self.assertGreater(len(cases), 200, "corpus not found where expected")
+        root = _REPO_ROOT / "crates/kali_cli/tests/cases"
+        cases = sorted(root.glob("*/*.toml"))
+        # Derived, not pinned at a round number that expires. Two independent
+        # facts, neither of which is a magic constant: the corpus exists at
+        # all, and this census's `*/*.toml` pattern reaches every case file
+        # in it -- so a case file added at any other nesting depth fails here
+        # rather than being silently excluded from the population the
+        # assertion below is made over.
+        self.assertTrue(cases, f"corpus not found under {root}")
+        self.assertEqual(
+            len(cases), len(sorted(root.rglob("*.toml"))),
+            "`*/*.toml` no longer reaches every case file; this census would "
+            "be made over a subset of the corpus")
         dead = []
         for path in cases:
             doc = tomllib.loads(path.read_text())

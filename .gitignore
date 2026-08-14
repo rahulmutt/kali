@@ -44,3 +44,10 @@ crates/kali_cli/tests/fixtures/.kali-cache/
 # follows -- means a stray can never be committed. The runners refuse to start
 # when one is already present, so it also cannot be silently inherited.
 crates/kali_cli/tests/zz_*.rs
+
+# CPython bytecode caches. The migration gates are Python: `test-gate.sh
+# --gates-only` and every `tools/migration/gen_task19_batch*.py` import
+# sibling modules, so running the gates locally leaves `__pycache__/` beside
+# tracked scripts. It is build output, never a source of truth.
+__pycache__/
+*.pyc
