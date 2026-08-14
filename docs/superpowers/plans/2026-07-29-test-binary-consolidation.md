@@ -3752,6 +3752,22 @@ black-box tests.
 
 - [ ] **Step 5: Run, audit everything, then delete**
 
+> **Superseded — do not run the deletion loop below.** The stem-suffix match
+> (`case "$stem" in *"$b")`) is a name scan, not a classifier: every stem ending
+> in `runtime` matches `cases/switch/runtime.toml`. Measured against the
+> deletion commit's parent and recorded in `t19_deletion_classify.py`'s
+> docstring, the scan names 8 sources that no case file claims —
+> `binary_stdout_runtime`, `imperative_core_runtime`, and all six
+> `clbg_*_runtime` benchmark targets — and only a printed
+> `AUDITS INCOMPLETE — do not delete` sits between that
+> mis-mapping and the unconditional `git rm` loop directly beneath it, which
+> would have deleted live, unmigrated coverage. Task 19 used
+> `tools/migration/t19_deletion_classify.py` instead: it resolves each case
+> file's own `Migrated from` line to partition every on-disk
+> `crates/kali_cli/tests/*.rs` into DELETE / RETAINED / NOT MIGRATED, and hard-stops
+> on an unparsed claim or an ambiguous audit result rather than guessing. The
+> commands below are kept as the record of what was planned.
+
 ```bash
 cd /workspace
 cargo test -p kali_cli --test cases 2>&1 | tail -5

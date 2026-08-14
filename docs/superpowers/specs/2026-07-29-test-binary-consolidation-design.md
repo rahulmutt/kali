@@ -183,15 +183,32 @@ move with their modules, per the repository's stated convention.
 
 ### 4.4 The four tests that link the runtime or the CLI library
 
-`schema_validation` uses `kali_cli::{build, output}` only to assert over the JSON
-output envelope. Switch it to invoke the `kali` binary as a subprocess, making
-it black-box like its 324 siblings; it drops to ~10 MB.
+This section originally proposed switching `schema_validation` to invoke the
+`kali` binary as a subprocess, making it black-box like its 324 siblings and
+dropping it to ~10 MB, on the premise that it used `kali_cli::{build, output}`
+only to assert over the JSON output envelope. **That premise was wrong and the
+conversion was not made.** All 11 of its tests call the validator functions
+directly — `output::validate_envelope_value`,
+`output::validate_package_audit_payload_value`,
+`output::validate_package_effects_payload_value`,
+`build::validate_build_result_value` — on hand-constructed values, most of them
+malformed on purpose (backwards diagnostic spans, duplicate primary-artifact
+roles, whitespace-padded hashes, unexpected keys) to prove the validator rejects
+them. No CLI subcommand accepts arbitrary or malformed JSON, and the CLI's own
+emitters cannot produce those shapes by construction, so none of the 11
+assertions can be driven through a subprocess without weakening what it proves.
+Adding a CLI validation entry point for external input would mean editing
+`crates/kali_cli/src/**`, which Phase 1 forbids. The file was moved wholesale
+into the consolidated in-process target instead, with no assertion, test body or
+test name changed; `crates/kali_cli/tests/inprocess/schema_validation.rs` still
+opens with `use kali_cli::{build, output};` today (§9, deviation 6).
 
 The other three cannot be made thin — they need `RuntimeCtx` or
 `browser/execute.rs` (see §1.1). Instead of three ~450 MB binaries, **consolidate
 them into a single `tests/inprocess.rs` target** that `mod`-includes the three
 existing files. Linking wasmtime once instead of three times is the entire point;
-their contents are unchanged.
+their contents are unchanged. As built, that target `mod`-includes four files,
+`schema_validation` being the fourth.
 
 `release_constant_condition_loop` and `release_mutated_binding_specialization`
 additionally use `kali_cli::{build, ApiSurface}`, which is irrelevant to their
@@ -594,9 +611,19 @@ family's migration is revertible as one commit.
 
 ### 6.3 CI surface
 
-Unchanged in shape. `cargo test -p kali_cli` runs everything.
-`mise run browser-smoke` still points at `--test browser_cdp_smoke`.
-`mise run determinism` is untouched.
+The test surface itself is unchanged in shape: `cargo test -p kali_cli` runs
+everything, `mise run browser-smoke` still points at `--test browser_cdp_smoke`,
+and `mise run determinism` is untouched.
+
+One job was added, so this section's original "unchanged in shape" is no longer
+true of the workflow as a whole. `.github/workflows/ci.yml` gained a
+`migration-gates` job that checks out with `fetch-depth: 0` and runs
+`bash scripts/test-gate.sh --gates-only`, the opt-in flag that runs the 14
+migration gates listed in that script. The job has no build step and declares no
+`needs:`; two of the 14 gates — `tools/migration/gen_task19_batch4.py` and
+`gen_task19_batch5.py` — run the compiled `kali` binary and fail loudly when it
+is absent, `gen_task19_batch4.py` by raising `GenError("the U2 policy control
+cannot run: no kali binary")`. See §9, deviation 7.
 
 ## 7) Expected outcome
 
@@ -733,6 +760,33 @@ lines that remain.
    twelve; `stdout_count`, `stderr`, `json_null` and `json_count` were each added
    during migration because a real source assertion had no expressible form
    without them. Their doc comments in `model.rs` record which one.
+6. **`schema_validation` did not become a subprocess test.** §4.4 prescribed
+   converting it to invoke the `kali` binary; Task 7 found the premise false and
+   folded the file into the `inprocess` target unchanged instead. All 11 tests
+   call `output::validate_envelope_value`,
+   `output::validate_package_audit_payload_value`,
+   `output::validate_package_effects_payload_value` and
+   `build::validate_build_result_value` directly on deliberately-malformed
+   hand-constructed values; no CLI subcommand accepts arbitrary JSON, the
+   emitters cannot produce those shapes, and adding an entry point would have
+   required editing `crates/kali_cli/src/**`, which Phase 1 forbids. So the
+   fallback was not merely easier, it was the only compliant path.
+   `crates/kali_cli/tests/inprocess/schema_validation.rs` still names
+   `kali_cli::{build, output}`, and `inprocess` therefore carries four suites,
+   not three. The reasoning was recorded in Task 7's amended message, which
+   lived in git-ignored scratch and does not ship; it is restated here in full
+   rather than cited to a path a clean checkout cannot resolve. §4.4 has been
+   corrected.
+7. **CI gained a job; §6.3's "unchanged in shape" no longer holds.**
+   `.github/workflows/ci.yml` has a `migration-gates` job — checkout with
+   `fetch-depth: 0` (needed because `citation_sweep.sh` resolves a deleted
+   source's citations against a historical blob), then
+   `bash scripts/test-gate.sh --gates-only`. A bare `scripts/test-gate.sh` is
+   unchanged from base; the 14 gates are reachable only through the flag. The
+   job runs no build and declares no `needs:`, while two of the 14 gates,
+   `tools/migration/gen_task19_batch4.py` and `gen_task19_batch5.py`, invoke the
+   compiled `kali` binary and fail rather than skip when it is absent. §6.3 has
+   been corrected to describe the job as it stands.
 
 ### What the audit gate (§6.2) does and does not guarantee
 
