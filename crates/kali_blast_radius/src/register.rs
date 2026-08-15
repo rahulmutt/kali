@@ -52,7 +52,7 @@ pub fn parse_register(markdown: &str) -> Result<Vec<RegisterEntry>, String> {
         // and R-50 is the sole `### R-` header outside §2's tier headings. Once a non-tier
         // `## ` heading appears after we've seen a tier header, subsequent `### R-` entries
         // are outside the tier table and must be skipped.
-        if line.starts_with("## ") && tier.is_some() && !matches!(tier_of_header(line), Some(_)) {
+        if line.starts_with("## ") && tier.is_some() && tier_of_header(line).is_none() {
             in_section_2 = false;
             continue;
         }
