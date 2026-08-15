@@ -116,6 +116,65 @@ fn the_shipped_corpus_matches_its_manifest() {
     verify_manifest(root, &manifest).expect("the shipped corpus matches its manifest");
 }
 
+/// The corpus was frozen at these exact values on 2026-08-15 (Task 12).
+///
+/// Everything downstream cites `FROZEN_CORPUS_HASH`, so it is a published
+/// constant, not an implementation detail.
+const FROZEN_FILE_COUNT: usize = 177;
+const FROZEN_ANCHOR_COUNT: usize = 137;
+const FROZEN_EXTENSION_COUNT: usize = 40;
+const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f";
+
+#[test]
+fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {
+    // `the_shipped_corpus_matches_its_manifest` proves the manifest and the
+    // directory agree with each other. It cannot notice them being changed
+    // *together*: delete programs, re-run the generator, and a self-consistent
+    // manifest with a different hash verifies happily. That is exactly the
+    // post-hoc corpus edit the freeze exists to prevent, so the frozen numbers
+    // are pinned here as constants.
+    //
+    // If this test fails, the corpus changed after the freeze. The fix is not
+    // to update these constants in passing: §4.3 requires a separate,
+    // explicitly-justified commit that says why the corpus moved, and the
+    // published ranking's `corpus_hash` must be republished with it.
+    let root = std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tools/blast-radius/corpus"
+    ));
+    let text = std::fs::read_to_string(root.join("manifest.json")).expect("manifest is readable");
+    let manifest = parse_manifest(&text).expect("manifest parses");
+
+    assert_eq!(
+        manifest.files.len(),
+        FROZEN_FILE_COUNT,
+        "the frozen corpus holds {FROZEN_FILE_COUNT} files; changing that needs its own \
+         justified commit"
+    );
+    let anchor = manifest
+        .files
+        .iter()
+        .filter(|file| file.stratum == "anchor")
+        .count();
+    let extension = manifest
+        .files
+        .iter()
+        .filter(|file| file.stratum == "extension")
+        .count();
+    assert_eq!(
+        (anchor, extension),
+        (FROZEN_ANCHOR_COUNT, FROZEN_EXTENSION_COUNT),
+        "the frozen strata are {FROZEN_ANCHOR_COUNT} anchor and {FROZEN_EXTENSION_COUNT} \
+         extension programs; a total that still adds up does not make a swap between strata \
+         acceptable"
+    );
+    assert_eq!(
+        manifest.corpus_hash, FROZEN_CORPUS_HASH,
+        "the frozen corpus_hash is the token every downstream result cites; changing it needs \
+         its own justified commit"
+    );
+}
+
 #[test]
 fn every_frozen_anchor_file_has_committed_provenance() {
     // `manifest.json` records path and hash but not where a program came from,
@@ -180,7 +239,10 @@ fn every_frozen_anchor_file_has_committed_provenance() {
         "the provenance table and the frozen anchor list different programs"
     );
     assert!(
-        manifest.files.iter().any(|file| file.stratum == "extension"),
+        manifest
+            .files
+            .iter()
+            .any(|file| file.stratum == "extension"),
         "the frozen corpus has lost its extension stratum -- the anchor alone \
          cannot carry an accept rate that means anything"
     );
