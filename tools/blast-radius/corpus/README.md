@@ -141,6 +141,48 @@ as frequencies:
   `accumulator <<= 6` (`base64_encode.js:34`), so removing the six would lower
   the count without zeroing it.
 
+## Four pairs of programs are byte-identical
+
+Four pairs of anchor programs have identical bytes, so four of the 177 files are
+second copies of a program already in the corpus:
+
+| kept under both names | bytes |
+|---|---|
+| `anchor/runtime_string_building_01.js` ≡ `anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_03.js` | `let n = 7; console.log("n=" + n);` |
+| `anchor/runtime_string_building_02.js` ≡ `anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_04.js` | `let n = 7; let m = 16; console.log("Pfannkuchen(" + n + ") = " + m);` |
+| `anchor/loops_iterate_02.js` ≡ `anchor/integer_programs_are_unchanged_by_repr_plumbing.js` | a `for` loop summing `0..4` |
+| `anchor/loops_iterate_06.js` ≡ `anchor/strict_equality_operators_parse_and_compute_07.js` | a `while` loop with `if (i === 3) continue;` |
+
+**They are faithful, and the corpus is not changed.** Each pair is two distinct
+`run_js` call sites in `imperative_core_runtime.rs` that happen to assert the
+same program under two different test names — the suite really does commit kali
+to that program twice, and the extraction is verbatim, so deduplicating here
+would make the corpus disagree with its source. Spec §4.3 forbids adjusting the
+corpus once scores are visible in any case. What the duplication may not do is
+go undisclosed, so its effect is quantified rather than asserted to be small.
+
+**The effect on the counts.** Run the 37 matchers over the four redundant
+copies: three of them match **nothing at all**, and the fourth
+(`loops_iterate_06.js`'s twin) matches exactly **one** site, of
+`equalityOrNullishWithNullLikeOperand` — **R-08**. So the whole double-count in
+the whole measurement is *one site*: 2 of R-08's 15 reachable (and 2 of its 14
+anchor-stratum raw) is one program counted twice. Every other entry's count is
+untouched, in both the raw and the reachable columns.
+
+**No band moves.** R-08 is assigned to cluster **G4 — there is no value distinct
+from the scalar `0`**, whose co-member R-21 has no syntactic predicate at all.
+G4 therefore has no frequency: it is published as `n/a — uncountable member` and
+sits in band 1 by non-comparability rather than by measurement. R-08's count is
+not an input to any band, so correcting the double-count would move nothing in
+the ranking's §2.
+
+**What it does touch** is the population totals, which count files: 177 programs
+and 127 accepted include all eight of these files (every one is accepted by
+`kali check`). Deduplicated, the same corpus would be 173 programs / 123
+accepted and the anchor 133 / 122. The published figures are the ones the frozen
+manifest describes and are left as measured; a reader comparing this corpus to
+another should know it holds 173 distinct programs under 177 names.
+
 ## Findings about predicates, not about the corpus
 
 Five countable predicates in `../predicates.json` have no occurrence in the
