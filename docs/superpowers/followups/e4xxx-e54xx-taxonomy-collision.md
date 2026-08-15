@@ -26,12 +26,29 @@ is real, but it is implemented as `E4001` (`EFFECT_NOT_PERMITTED`,
 `crates/kali_error/src/_error_codes.rs:81`, value `4001`), emitted from
 `crates/kali_sandbox/src/diagnostics.rs:22,34` and referenced in
 `crates/kali_runtime/src/host/enforce.rs:12`. `E4002`
-(`API_CALL_NOT_PERMITTED`, `_error_codes.rs:82`) is the same kind of denial
-for host APIs rather than effects.
+(`API_CALL_NOT_PERMITTED`, `_error_codes.rs:82`) would be the same kind of
+denial for host APIs rather than effects **if it were reachable** — by name
+and numeric band, not by traced behaviour; see the dead-code note below.
 
 So the spec's own two families disagree with the code on which numeric range
 owns "an effect the sandbox refuses": the spec says `E54xx`, the code says
 `E40xx`.
+
+## Separate finding: `E4002` looks unreachable today
+
+`grep -rn "API_CALL_NOT_PERMITTED" crates/ --include=*.rs` returns exactly
+one hit: the constant's own definition at
+`crates/kali_error/src/_error_codes.rs:82`. No call site in `crates/`
+constructs a diagnostic with it — not even one shared with `E4001`'s
+emitters. So as of this task, `E4002` appears to be dead code: a reserved
+error code with no path that produces it. A maintainer should either wire up
+an emitter for it (if "host API not permitted" is meant to be distinguished
+from "effect not permitted" going forward) or remove the constant if the
+distinction isn't needed. This task does not resolve that question — it
+only records the finding — and the "same kind of denial as `E4001`" reading
+used elsewhere in this document and in `verdict.rs`/`specs/15-errors.md` is
+inference from the constant's name and band, conditioned on it becoming
+reachable, not a claim about current behaviour.
 
 ## Why this is out of scope for Task 4
 
@@ -50,9 +67,11 @@ must not touch `is_documented_code`'s behavior or any emitted code.
 `crates/kali_blast_radius/src/verdict.rs`'s `is_documented_code` treats all
 of `E4xxx` as undocumented (so `classify` returns `FL_INTERNAL` for it). That
 is correct for `E4003`/`E4201` (genuinely internal) but arguably wrong for
-`E4001`/`E4002`: those are policy denials, i.e. honest refusals in the same
-sense as `E5506`, and a stricter classifier might want to score them as
-`FAIL_CLOSED` rather than `FL_INTERNAL`.
+`E4001`, a traced policy denial (an honest refusal in the same sense as
+`E5506`) that a stricter classifier might want to score as `FAIL_CLOSED`
+rather than `FL_INTERNAL`. `E4002` has no emitter today (see above), so this
+concern for it is conditional on it becoming reachable, not a present
+misclassification.
 
 This is left as-is (see the doc comment on `is_documented_code`) because no
 register entry measured by this project (`docs/superpowers/followups/kali-silent-miscompile-register.md`)
@@ -64,6 +83,6 @@ grep -in "capability\|E4001\|E4002\|sandbox polic" docs/superpowers/followups/ka
 
 which finds no register row about an effect/capability denial. So no
 recorded verdict depends on this today. If a future register entry adds a
-case that trips `E4001`/`E4002`, this classifier will misclassify it as
-`FL_INTERNAL` and should be revisited alongside resolving the spec
-collision above.
+case that trips `E4001` (or `E4002`, should it become reachable), this
+classifier will misclassify it as `FL_INTERNAL` and should be revisited
+alongside resolving the spec collision above.

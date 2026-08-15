@@ -80,8 +80,11 @@ Range clarification:
     `E0xxx`: they report that kali failed, not that the user asked for
     something unavailable. Neither must ever be read as an honest
     availability denial — that is `E5506`'s job.
-  - `E4001` and `E4002` are **policy denials**: an effect or host API the
-    sandbox policy refuses. That is an honest denial, not kali failing.
+  - `E4001` is a **policy denial**: an effect the sandbox policy refuses.
+    That is an honest denial, not kali failing. `E4002` (`API_CALL_NOT_PERMITTED`)
+    has no emitter in `crates/` today — by name and numeric band it would be
+    the same kind of policy denial as `E4001` if it becomes reachable, but
+    that is inference from the constant, not traced behaviour.
   - Tooling that separates honest denials from internal failures must not
     treat `E4xxx` as a single class.
 - Kali intentionally uses both `E54xx` and `E9xxx` in the broader sandbox/effect story.

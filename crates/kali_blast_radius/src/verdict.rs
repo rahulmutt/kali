@@ -53,12 +53,14 @@ impl Verdict {
 /// `E4xxx` is documented in `specs/15-errors.md` as `kali_runtime`'s
 /// runtime-error family, but that family is MIXED, not uniformly internal:
 /// `E4003` (fuel/resource-limit trap) and `E4201` (wasm translation failure)
-/// are internal like `E0xxx`, but `E4001`/`E4002` are sandbox-policy denials
-/// -- an honest refusal, not kali failing. This function still returns
-/// `false` for every `E4xxx` code, including `E4001`/`E4002`: that is a
-/// known, deliberate limitation, not an oversight. No register entry
-/// measured by this project exercises a sandbox-effect denial, so no
-/// recorded verdict depends on it today. See
+/// are internal like `E0xxx`, but `E4001` is a sandbox-policy denial -- an
+/// honest refusal, not kali failing. `E4002` has no emitter in `crates/`
+/// today; by name and band it would be the same kind of denial as `E4001`
+/// if it becomes reachable, but that is inference, not traced behaviour.
+/// This function still returns `false` for every `E4xxx` code, including
+/// `E4001`/`E4002`: that is a known, deliberate limitation, not an
+/// oversight. No register entry measured by this project exercises a
+/// sandbox-effect denial, so no recorded verdict depends on it today. See
 /// `docs/superpowers/followups/e4xxx-e54xx-taxonomy-collision.md`.
 pub fn is_documented_code(code: &str) -> bool {
     let Some(digits) = code.strip_prefix('E') else {
