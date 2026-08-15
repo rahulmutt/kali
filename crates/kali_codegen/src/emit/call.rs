@@ -1693,14 +1693,10 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 };
             };
-            let Some(key) = self.render_static_value(key_id) else {
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            };
-
-            let Some(has_own) = self.static_object_has_own(object_id, &key) else {
+            // The probe key is NOT rendered here: `static_object_has_own` owns
+            // deriving it, so that the probe and the stored keys it is compared
+            // against are produced by one function rather than two.
+            let Some(has_own) = self.static_object_has_own(object_id, key_id) else {
                 // Placeholder backstop: `Object.hasOwn` folds only when the
                 // receiver's own-key set is statically provable (object literal,
                 // `Object.fromEntries` of literal entries, or a materialized

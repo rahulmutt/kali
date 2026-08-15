@@ -1,5 +1,6 @@
 //! Host environment intrinsic call recognition and code emission (console, env, process, semver).
 use crate::*;
+use kali_common::js_number::format_js_number;
 
 /// Stage P5 T-new-C (review M-2): the SINGLE list of event constructor names the
 /// marker lane recognizes. Both sides of the lane read it — the ADMIT recognizer
@@ -723,8 +724,42 @@ impl<'a> FunctionEmitter<'a> {
                 Some("null") => Some("null".to_string()),
                 Some("undefined") => Some("undefined".to_string()),
                 Some(text) => {
-                    if parse_number_literal(text).is_some() {
+                    // A BigInt literal keeps its own `n`-suffixed digit text:
+                    // JS prints every digit, and an `f64` cannot hold them
+                    // (`123456789012345678901234567890n` would come back as
+                    // `1.2345678901234568e+29`). Text is the only faithful
+                    // rendering, so BigInts stay off the float formatter.
+                    //
+                    // MIRROR: the unary `+`/`-` arm below makes the same
+                    // BigInt/i64/f64 decision in a different shape. Change one
+                    // and change the other -- `EVENT_CTORS` above records this
+                    // repo's history of hand-mirrored predicates failing open
+                    // when only one side was updated.
+                    //
+                    // KNOWN LIMITATION: the guard is TEXTUAL and the text it
+                    // sees has already lost its type, so it cannot tell the
+                    // BigInt `42n` from the string `"42n"` once delimiters are
+                    // stripped downstream (`console.log(-"42n")` renders
+                    // `-42n`; node says `NaN`). Both the old and the new answer
+                    // are wrong there, so narrowing the guard would swap one
+                    // wrong answer for another rather than fix anything; the
+                    // type-blindness is `render_static_value`'s, not this
+                    // guard's.
+                    if is_bigint_literal_text(text) {
                         Some(text.to_string())
+                    } else if let Some(value) = parse_numeric_literal_value(text) {
+                        // Render through the SAME formatter the host and the
+                        // dynamic lanes use. The text reaching here is NOT the
+                        // program's source text: `kali_hir`'s `lower_literal_value`
+                        // already rewrote it with Rust's `Display for f64`, which
+                        // never uses exponential notation, so `1e-7` arrives as
+                        // "0.0000001" and `1e21` as "1000000000000000000000".
+                        // Re-parsing and re-rendering recovers JS notation, which
+                        // is why `console.log(1e-7)` printed `0.0000001` while
+                        // `var y = 1e-7; console.log(y)` and `"v=" + 1e-7` both
+                        // printed `1e-7` -- R-32's small-magnitude half, and the
+                        // fourth of the four renderers this project collapses.
+                        Some(format_js_number(value))
                     } else {
                         Some(strip_string_delimiters(text).to_string())
                     }
@@ -794,6 +829,16 @@ impl<'a> FunctionEmitter<'a> {
                     if let Some(number) = parse_number_literal(text) {
                         return Some(number.to_string());
                     }
+                    // THIRD numeric site in this function, and the one still on
+                    // Rust's spelling: it returns the text verbatim, so a
+                    // childless `Value` whose text is `0.0000001` renders that,
+                    // where the `Literal` arm above and the unary arm below
+                    // would both render `1e-7`. Left as-is because no program
+                    // has been found that reaches it with a magnitude past
+                    // either threshold (a numeric `Value` text is a global name
+                    // or an already-folded integer); the asymmetry is recorded
+                    // here so the next reader does not have to rediscover that
+                    // one function has three numeric renderings.
                     if parse_numeric_literal_value(text).is_some() {
                         return Some(text.to_string());
                     }
@@ -804,20 +849,61 @@ impl<'a> FunctionEmitter<'a> {
                 } else if node.children.len() == 1
                     && matches!(node.text.as_deref(), Some("+") | Some("-"))
                 {
+                    let negate = node.text.as_deref() == Some("-");
                     let rendered = self.render_static_value(node.children[0])?;
+
+                    // MIRROR of the `Literal` arm's numeric branch above: same
+                    // BigInt / i64 / f64 decision, different shape because this
+                    // one carries a sign. Keep the two in step.
+                    //
+                    // A BigInt operand negates TEXTUALLY. The `f64` fall-through
+                    // below already corrupted the ones too big for an `i64`
+                    // (`-123456789012345678901234567890n` rendered as
+                    // `-123456789012345680000000000000`), and the `i64` branch
+                    // silently dropped the `n` that says it is a BigInt at all.
+                    // The operand may itself already carry a sign, since this arm
+                    // recurses into itself for `- -42n`.
+                    let (operand_is_negative, digits) = match rendered.strip_prefix('-') {
+                        Some(unsigned) => (true, unsigned),
+                        None => (false, rendered.as_str()),
+                    };
+                    if is_bigint_literal_text(digits) {
+                        // BigInt has no negative zero -- JS prints `0n` for
+                        // `-0n` -- so the sign is suppressed on all-zero digits
+                        // rather than producing a `-0n` no JS engine can print.
+                        // Static `Map`/`Set` keys are compared as these texts
+                        // too (`collections.rs`), where SameValueZero requires
+                        // `-0n` and `0n` to be ONE key; that half is currently
+                        // theoretical, since a static `Map`/`Set` lookup on such
+                        // a key folds to the placeholder `0` before key identity
+                        // is consulted. The console rendering above stands on
+                        // its own.
+                        let is_zero = digits.bytes().all(|byte| byte == b'0' || byte == b'n');
+                        return Some(if !is_zero && operand_is_negative != negate {
+                            format!("-{digits}")
+                        } else {
+                            digits.to_string()
+                        });
+                    }
+
                     if let Some(value) = parse_number_literal(&rendered) {
-                        Some(if node.text.as_deref() == Some("-") {
+                        // An `i64` never crosses either exponential threshold
+                        // (|i64::MAX| < 1e19 < 1e21), so plain digits ARE what JS
+                        // prints; this branch needs no formatter.
+                        Some(if negate {
                             (-value).to_string()
                         } else {
                             value.to_string()
                         })
                     } else {
+                        // Everything else goes through the one shared formatter,
+                        // exactly as the `Literal` arm above does. Rust's
+                        // `Display for f64` here is why `console.log(-1e-7)`
+                        // printed `-0.0000001` after the positive twin was fixed:
+                        // the SIGN of a literal decided whether it rendered like
+                        // JavaScript or like Rust.
                         let value = parse_numeric_literal_value(&rendered)?;
-                        Some(if node.text.as_deref() == Some("-") {
-                            (-value).to_string()
-                        } else {
-                            value.to_string()
-                        })
+                        Some(format_js_number(if negate { -value } else { value }))
                     }
                 } else if node.text.as_deref().is_some_and(|text| text == "length") {
                     if self.is_process_argv(node.children[0]) {
