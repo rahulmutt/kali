@@ -1,0 +1,223 @@
+# Tier 3 of the register's §2 -- "silently wrong control flow (value otherwise
+# intact)" -- re-measured at HEAD.
+#
+# Spec: docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md §7.
+# Register: docs/superpowers/followups/kali-silent-miscompile-register.md §2,
+# `## Tier 3`, enumerated with the task brief's command.
+#
+# ---------------------------------------------------------------------------
+# COVERAGE -- THIS FILE IS COMPLETE FOR TIER 3.
+#
+# Tier 3 holds TWO entries: R-29 and R-54. BOTH ARE COVERED HERE, in FOUR
+# cases. Nothing in Tier 3 is left unauthored.
+#
+# Every entry is measured in BOTH scopes -- module scope and in-function --
+# because top-level and in-function are different programs in kali and several
+# known defects appear at one scope only. NO SCOPE IS MOOT FOR EITHER ENTRY IN
+# THIS FILE, so there are no exemptions to name: both carry both scopes.
+#
+#   entry  lane  module-scope case                   in-function case
+#   -----  ----  ---------------------------------  --------------------------
+#   R-29   --    r29_..._module_scope               r29_..._in_function
+#   R-54   --    r54_..._module_scope               r54_..._in_function
+#
+# NEITHER entry is split into lanes: as of `61c2d48ea9` (2026-07-29) each
+# states exactly one repro and exactly one class, so the tier2 file's lane rule
+# (a)/(b)/(c) never fires here.
+#
+# If you append: keep the cases in entry order, and put new `[source]` keys in
+# the single `[source]` table below. TOML forbids reopening `[source]` once the
+# `[[case]]` array has begun, so keys go mid-file and cases go at the end.
+#
+# ---------------------------------------------------------------------------
+# WHERE THE PROGRAMS COME FROM, AND WHAT SCAFFOLDING WAS ADDED.
+#
+# Every `[source]` below is the register entry's OWN minimal repro from §2 as
+# of `61c2d48ea9` (2026-07-29), copied verbatim. The register's repro is the
+# measurement's provenance; a repro invented here would measure a construct no
+# entry ever recorded. Every register quotation and citation in this file is
+# anchored to that same commit, so none of them can rot when the register is
+# next edited.
+#
+# ONE kind of scaffolding was added, and it is the only one:
+#
+# 1. THE IN-FUNCTION SCOPE. At that commit both entries state their repro at
+#    module scope. Each `*_function.js` below is the SAME repro, unchanged,
+#    wrapped in `function main() { ... }` with a trailing `main();`, its lines
+#    indented by two spaces and nothing else touched -- not a declaration, not
+#    a log, not a keyword. That wrapper is the whole of the in-function scope
+#    and is the only difference between the two programs of a pair.
+#
+# NO OTHER SCAFFOLDING WAS ADDED. Neither entry states its repro as a bare
+# expression, so no `console.log` was wrapped around anything here: R-29's
+# repro carries its own `console.log("r=" + x)` and R-54's carries its own two
+# `console.log` lines.
+#
+# NO REPRO WAS REDUCED. Where the register calls a half of a repro
+# load-bearing, that half is here:
+#   - R-54 keeps `default: g = 5;` and the trailing `console.log("g=" + g)`.
+#     The register says so in as many words: "`g=5` is the load-bearing half of
+#     the repro. `v=d2` alone would be consistent with 'the second `default`
+#     replaced the first'. `g=5` proves both bodies ran, merged into a single
+#     clause -- so this is not a selection difference, it is two clauses
+#     becoming one." It also keeps the `case 1: return "one";` arm, which is
+#     the sibling clause whose stop set the entry's mechanism note contrasts
+#     against the `default` arm's.
+#
+# ---------------------------------------------------------------------------
+# INTENTIONAL OVERLAP WITH `oracle/classifier_ground_truth.toml`.
+#
+# That file already carries R-54's module-scope program, byte for byte, as its
+# ACCEPTS_INVALID ground-truth fixture, and its own header instructs a Task 7-9
+# author to "author R-07, R-09, R-13, R-20 and R-54 in both scopes as usual and
+# treat the overlap with this file as intentional duplication, not as coverage
+# already banked". This file does that. The two cases are not redundant: that
+# one exists to pin the CLASS (if it fails, every verdict in this directory is
+# suspect), this one exists to pin the ENTRY in both scopes, and the register
+# regeneration keys its rows on `register_entry`.
+#
+# ---------------------------------------------------------------------------
+# WHAT THE RE-MEASUREMENT FOUND, 2026-08-15, commit `61aa9043b3`, node v26.7.0.
+#
+#   entry  scope      register class     measured class    moved?
+#   -----  ---------  -----------------  ----------------  --------------------
+#   R-29   module     silent             accepts_invalid   RECLASSIFIED
+#   R-29   function   silent             accepts_invalid   RECLASSIFIED
+#   R-54   module     accepts_invalid    accepts_invalid   same
+#   R-54   function   accepts_invalid    accepts_invalid   same
+#
+# R-29's two cases are the only reconciliation in this file, and the behaviour
+# did NOT move -- the register's §0.2 SPELLING of it is what does not survive
+# translation into this project's eight-class taxonomy. Both R-29 cases record
+# that in full; read either one before touching the row. The short form:
+# §0.2 spells R-29 "**SILENT (node throws)**", but `silent` in this taxonomy
+# means BOTH engines exit 0 with differing stdout, and "node throws" says node
+# does not exit 0. The pair (kali exits 0, node refuses) is `accepts_invalid`
+# by construction, and the register's own §2 R-54 body says R-29 "is the same
+# class" as R-54 -- which §0.2 spells ACCEPTS-INVALID. So the two register
+# statements about R-29 disagree with each other, and the measurement agrees
+# with the one that is expressible.
+#
+# The two scopes agreed on the class for BOTH entries. For NEITHER entry is
+# that agreement a confirmation of a recorded in-function observation:
+# as of `61c2d48ea9`, R-29 carries `Verification: sweep-only (both scopes)`
+# with no sweep ids mapped to it, and R-54 carries
+# `Verification: CONFIRMED-BY-CONTROLLER` with no scope note at all. Neither
+# line is attached to the individual repro measured here, so reading either as
+# an in-function observation of THIS program would be an assumption. It is not
+# made: the expected class was set to the entry's recorded class on the
+# assumption that the scopes agree, precisely so that a disagreement would
+# surface as a red case rather than as an unmeasured gap.
+#
+# ---------------------------------------------------------------------------
+# HOW TO READ A RED RUN HERE.
+#
+# Each `verdict` below is the class this task MEASURED at HEAD. A future red
+# run therefore means the entry has moved since 2026-08-15 -- which is data for
+# the next regeneration of §0.2, not a defect in the case.
+#
+# BOTH entries in this file are `accepts_invalid`: kali runs a program node
+# refuses. The two ways such a case can go green-to-red are worth naming, since
+# they are opposite findings. If kali starts refusing too, the class becomes
+# `both_reject` and the defect is FIXED in the only sense available to an entry
+# whose subject is invalid JS. If node stops refusing, the class becomes
+# `fixed` or `silent` and the finding is about node, not kali -- check the node
+# version in the failure report before touching anything in this repository.
+
+[source]
+"r29_module.js" = """const x = 1; x = 2; console.log("r=" + x);
+"""
+"r29_function.js" = """function main() {
+  const x = 1; x = 2; console.log("r=" + x);
+}
+main();
+"""
+"r54_module.js" = """var g = 0;
+function s(x) {
+  switch (x) {
+    case 1: return "one";
+    default: g = 5;
+    default: return "d2";
+  }
+}
+console.log("v=" + s(9));
+console.log("g=" + g);
+"""
+"r54_function.js" = """function main() {
+  var g = 0;
+  function s(x) {
+    switch (x) {
+      case 1: return "one";
+      default: g = 5;
+      default: return "d2";
+    }
+  }
+  console.log("v=" + s(9));
+  console.log("g=" + g);
+}
+main();
+"""
+
+[[case]]
+name = "r29_assignment_to_a_const_is_ignored_module_scope"
+kind = "oracle"
+register_entry = "R-29"
+program = "r29_module.js"
+verdict = "accepts_invalid"
+rationale = """R-29, module scope. The register's repro verbatim and complete: `const x = 1; x = 2; console.log("r=" + x);`. It is a runnable program as stated, carrying its own `console.log`, so nothing was added to it.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9` (2026-07-29), §2's R-29 records node raising `TypeError: Assignment to constant variable.` (exit 1) against kali printing `r=1` (exit 0), and §0.2's row spells that "**SILENT (node throws)**".
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: ACCEPTS_INVALID, SUPERSEDING the SILENT the row spells. kali prints `r=1` at exit 0 with empty stderr; node prints nothing and exits 1 with `TypeError: Assignment to constant variable.` Both halves of the register's own recorded behaviour reproduce exactly -- the write is still discarded, the read still yields the pre-assignment value, and there is still no diagnostic -- so THE ENTRY HAS NOT MOVED. What moved is only the name of its class.
+
+WHY THE CLASS NAME CHANGED, IN FULL, BECAUSE IT IS A RECLASSIFICATION AND NOT A RE-MEASUREMENT. `silent` in this project's taxonomy is defined as both engines exiting 0 with differing stdout; the pair (kali exits 0, node refuses) is `accepts_invalid` by construction, and no case can assert `silent` for a program node refuses. §0.2's row for R-29 therefore names a class its own parenthetical rules out. The register is not confused about the behaviour, only about the label: as of `61c2d48ea9`, §2's R-54 body files that entry "alongside R-29 (assignment to a `const` is silently ignored where node throws), which is the same class: kali is permissive where node refuses" -- and §0.2 spells R-54's class ACCEPTS-INVALID. Two register statements about R-29's class, one expressible and one not; this case records the expressible one. The §0.2 regeneration should rewrite the row rather than re-derive it.
+
+WHAT THIS DOES NOT ESTABLISH. `accepts_invalid` says node refused and kali did not; it does not by itself say kali produced the pre-assignment value rather than some other wrong value, because `classify` never compares stdout when one side refuses. That `r=1` is what kali prints is a hand observation recorded above, not something this case's class can carry. The register's own severity note ("the write is *discarded* rather than misapplied, which is the safer of the two failure directions") rests on that observation, so a reader re-deriving the severity must re-run the program, not read the verdict."""
+
+[[case]]
+name = "r29_assignment_to_a_const_is_ignored_in_function"
+kind = "oracle"
+register_entry = "R-29"
+program = "r29_function.js"
+verdict = "accepts_invalid"
+rationale = """R-29, in-function scope. The module-scope repro verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
+
+The scope matters for this entry specifically: at module scope node's `TypeError` is raised while the module body is executing, and inside a function it is raised inside a call frame. Both are runtime errors rather than early errors, so node exits 1 either way, but the two are different programs on kali's side and the register never measured this one.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2's R-29 carries `Verification: sweep-only (both scopes)`. That line names no sweep id and is mapped to no individual bullet, so treating it as an in-function observation OF THIS PROGRAM would be an assumption; it is not made. The expected class was set to the entry's own recorded class on the assumption that the scopes agree, precisely so a disagreement would surface as a red case.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: ACCEPTS_INVALID, SUPERSEDING the SILENT §0.2's row spells (see the module-scope case for why that spelling is not expressible in this taxonomy; the reclassification is identical here and is not a second finding). kali prints `r=1` at exit 0; node prints nothing and exits 1 with `TypeError: Assignment to constant variable.`, raised at `main` rather than at module top level. The scopes agree, and for this entry that agreement is a NEW observation rather than a confirmation."""
+
+[[case]]
+name = "r54_a_second_default_clause_is_absorbed_module_scope"
+kind = "oracle"
+register_entry = "R-54"
+program = "r54_module.js"
+verdict = "accepts_invalid"
+rationale = """R-54, module scope. The register's §2 repro verbatim, `case 1:` arm and `g` discriminator included.
+
+BOTH HALVES ARE LOAD-BEARING and both are here. As of `61c2d48ea9` the register says so in as many words: "**`g=5` is the load-bearing half of the repro.** `v=d2` alone would be consistent with 'the second `default` replaced the first'. `g=5` proves **both bodies ran, merged into a single clause**". A form printing only `v=` would still measure ACCEPTS_INVALID and would still be green while no longer observing the mechanism this entry is about.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "**ACCEPTS-INVALID (Tier 3)**" and §2 records kali `v=d2` / `g=5` at exit 0 against node refusing the whole file with `SyntaxError: More than one default clause in switch statement` (exit 1), nothing executed.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: ACCEPTS_INVALID, unchanged -- no reconciliation. kali prints `v=d2` then `g=5` at exit 0 with empty stderr; node prints nothing and exits 1 with the SyntaxError above. Both halves reproduce exactly as recorded, so the clauses are still MERGING rather than replacing and the entry is unfixed.
+
+This program is byte-identical to `oracle/classifier_ground_truth.toml`'s `accepts_invalid.js`, deliberately: that file's own header instructs Tasks 7-9 to author R-54 in both scopes anyway and to treat the overlap as intentional duplication. That case pins the CLASS -- it is the only construct in the directory that reaches `classify`'s `(false, true)` arm -- and this one pins the ENTRY, which the §0.2 regeneration keys on `register_entry`.
+
+WHAT THIS DOES NOT ESTABLISH. It measures the two-`default` shape only. The entry's further consequence -- that `switch_plan`'s "more than one `default` clause" denial at `crates/kali_codegen/src/emit/switch.rs:105` is unreachable dead code -- is a claim about a code path, and no oracle case can observe an unreachable one. It is cited here as the register's statement as of `61c2d48ea9`, not asserted."""
+
+[[case]]
+name = "r54_a_second_default_clause_is_absorbed_in_function"
+kind = "oracle"
+register_entry = "R-54"
+program = "r54_function.js"
+verdict = "accepts_invalid"
+rationale = """R-54, in-function scope. The module-scope repro verbatim -- `case 1:` arm, `g = 5` and both logs included -- inside `function main() { ... }` with a trailing `main();`, so `g` and `s` become locals of `main` and the switch sits two function levels deep instead of one.
+
+This is the scope this entry was owed. As of `61c2d48ea9` its `Verification` line reads `CONFIRMED-BY-CONTROLLER` and names no scope, and the only previously authored case for it -- `oracle/classifier_ground_truth.toml`'s -- is the module-scope program. So R-54 had exactly one measured scope before this case, and this is the second.
+
+Expected verdict set from the register's recorded status: ACCEPTS-INVALID, as for the module scope. The entry's mechanism note predicts scope-independence -- the defect is a missing `Default` member in `parse_switch_statement`'s `default`-arm stop set (`crates/kali_parser/src/statement.rs:561-564`, as cited by the register at that commit), and a parser stop set does not consult the scope it is parsing in -- so the scopes were expected to agree.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: ACCEPTS_INVALID, unchanged -- no reconciliation. kali prints `v=d2` then `g=5` at exit 0; node prints nothing and exits 1 with `SyntaxError: More than one default clause in switch statement`. The scopes agree, and `g=5` survives the wrapper, so the two clause bodies still merge when the switch is nested one level deeper.
+
+Two limits on what that agreement is worth. It is consistent with the register's traced parser-layer mechanism but does not prove it -- an oracle case observes the two engines' behaviour, not which stop set consumed which token. And node's refusal is a PARSE-time refusal of the whole file, so it is scope-insensitive by construction on node's side; the only side whose scope-independence this case actually observes is kali's."""
