@@ -70,7 +70,7 @@ test("functionWithDefaultParameter counts declarations and expressions, not arro
   assert.equal(count("functionWithDefaultParameter", `function f(a, b) { return a + b; }`), 0);
 });
 
-test("callThroughNonConstFunctionBinding counts let/var/param/alias callees only", () => {
+test("callThroughNonConstFunctionBinding counts every callee but a declaration or a const function literal", () => {
   const src = `
     function g() { return 1; }
     const h = function () { return 2; };
