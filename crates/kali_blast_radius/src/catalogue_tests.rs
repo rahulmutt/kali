@@ -34,6 +34,43 @@ fn an_uncountable_entry_with_an_empty_reason_is_rejected() {
     assert!(error.contains("R-16"), "error names the entry: {error}");
 }
 
+/// A record that claims both kinds at once has not decided which it is, and
+/// whichever half the parser silently ignored would be an unreviewed judgment.
+#[test]
+fn a_countable_entry_that_also_sets_a_reason_is_rejected() {
+    let json = r#"{"entries":[{"id":"R-13","kind":"countable","matcher":"m",
+                   "description":"d","reason":"and also uncountable"}]}"#;
+    let error = parse_catalogue(json).expect_err("a record cannot be both kinds");
+    assert!(error.contains("R-13"), "error names the entry: {error}");
+    assert!(
+        error.contains("reason"),
+        "error names the offending field: {error}"
+    );
+}
+
+#[test]
+fn an_uncountable_entry_that_also_sets_a_matcher_is_rejected() {
+    let json = r#"{"entries":[{"id":"R-21","kind":"uncountable","reason":"r","matcher":"m"}]}"#;
+    let error = parse_catalogue(json).expect_err("an uncountable cannot name a matcher");
+    assert!(error.contains("R-21"), "error names the entry: {error}");
+    assert!(
+        error.contains("matcher"),
+        "error names the offending field: {error}"
+    );
+}
+
+/// A typo'd key must fail the load rather than produce a record that measures
+/// nothing -- `matchers` here would leave the entry with no matcher at all.
+#[test]
+fn an_unknown_field_is_rejected_rather_than_ignored() {
+    let json = r#"{"entries":[{"id":"R-13","kind":"countable","matchers":"m","description":"d"}]}"#;
+    let error = parse_catalogue(json).expect_err("an unknown field must fail the load");
+    assert!(
+        error.contains("matchers"),
+        "error names the unknown field: {error}"
+    );
+}
+
 #[test]
 fn completeness_rejects_a_register_entry_with_no_catalogue_record() {
     let register = vec![
@@ -85,8 +122,12 @@ fn the_shipped_catalogue_covers_the_real_register_exactly() {
     let register = parse_register(&register_text).expect("register parses");
     let catalogue = parse_catalogue(&catalogue_text).expect("catalogue parses");
     check_completeness(&register, &catalogue).expect("catalogue covers the register exactly");
-    assert!(
-        !catalogue.is_empty(),
-        "an empty catalogue must not report completeness -- that is a ran-nothing-green"
+    assert_eq!(
+        catalogue.len(),
+        41,
+        "expected exactly 41 catalogue records (§2's tier-ranked total from the register's \
+         numbering note, R-50 excluded); this count must be updated deliberately when §2 gains \
+         an entry, and a 0 here would be a ran-nothing-green, got {}",
+        catalogue.len()
     );
 }
