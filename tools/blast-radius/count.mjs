@@ -244,10 +244,20 @@ const entries = catalogue.entries.map((entry) => {
 
   const upperBound = UPPER_BOUNDS[entry.id] ? { ...UPPER_BOUNDS[entry.id] } : null;
   if (upperBound && BREAKDOWNS[entry.id]) {
+    // Per stratum as well as pooled, for the same reason the counts are: a
+    // pooled breakdown cannot answer "which stratum are the register-shaped
+    // sites in?", and for R-13 that question is the difference between a
+    // number about real programs and a number about test snippets.
     upperBound.breakdown = {
       of: BREAKDOWNS[entry.id].of,
       raw: totals.pooled.breakdownRaw[entry.id],
       reachable: totals.pooled.breakdownReachable[entry.id],
+      strata: Object.fromEntries(
+        strata.map((stratum) => [
+          stratum,
+          { raw: totals[stratum].breakdownRaw[entry.id], reachable: totals[stratum].breakdownReachable[entry.id] },
+        ]),
+      ),
     };
   }
 

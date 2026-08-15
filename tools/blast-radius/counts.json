@@ -397,6 +397,36 @@
             "objectLiteralReceiver": 2,
             "arrayLikeReceiver": 26,
             "storeTarget": 18
+          },
+          "strata": {
+            "anchor": {
+              "raw": {
+                "total": 47,
+                "objectLiteralReceiver": 0,
+                "arrayLikeReceiver": 27,
+                "storeTarget": 20
+              },
+              "reachable": {
+                "total": 43,
+                "objectLiteralReceiver": 0,
+                "arrayLikeReceiver": 26,
+                "storeTarget": 18
+              }
+            },
+            "extension": {
+              "raw": {
+                "total": 255,
+                "objectLiteralReceiver": 56,
+                "arrayLikeReceiver": 18,
+                "storeTarget": 47
+              },
+              "reachable": {
+                "total": 2,
+                "objectLiteralReceiver": 2,
+                "arrayLikeReceiver": 0,
+                "storeTarget": 0
+              }
+            }
           }
         }
       },

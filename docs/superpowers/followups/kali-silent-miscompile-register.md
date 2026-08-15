@@ -130,9 +130,11 @@ That would be a confident wrong answer, so it is not given here. Measured at
   corpus, so the ranking is reproducible rather than argued); (ii) re-run the four surface
   sweeps at the current HEAD to refresh every §0.2 verdict, since entries have demonstrably
   moved in both directions; (iii) *then* rank. Until (i)-(iii) are done the honest statement
-  is the one made here: **the frontier is unranked, and it is somewhere in
+  is the one made here: ~~**the frontier is unranked, and it is somewhere in
   {R-10, R-13, R-14, R-31, and the rest of the pre-existing SILENT set} — not in
-  {R-51, R-52, R-53}.**
+  {R-51, R-52, R-53}.**~~ **STRUCK 2026-08-15 — (i), (ii) and (iii) are all done; see the
+  third amendment below. The exclusion of {R-51, R-52, R-53} did NOT survive the
+  measurement: both R-51 and R-52 are in the measured band 1 of the reachable axis.**
 
 **3. R-53 is WIDER than its §0.2 headline: `let` is affected, not only `var`.** Measured at
 `64438bf0ef`, switch-free: `for (let v of [1,2,3,4]) { console.log("iter=" + v); s = s + v; }`
@@ -144,6 +146,44 @@ silent surface is precisely *for-of over an **array literal** with a **`var` or 
 loop variable*. This matters beyond bookkeeping: it is why this branch's own fail-closed
 message names `const` explicitly (see §7.11's note) — recommending a bare "`for...of`" would
 have routed users out of an honest denial and into R-53.
+
+**Amendment 2026-08-15 — THE FRONTIER IS NOW RANKED.** The 2026-07-29 amendment's point 2
+said the frontier was unranked and named the three things that would settle it: an
+operational definition of blast radius, a re-measurement of every §0.2 verdict, and then a
+ranking. All three are done.
+
+- The definition is `docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md` §3:
+  the pair `(tier, reachable_frequency)`, where frequency is counted only over corpus
+  programs kali accepts.
+- §0.2 was regenerated 2026-08-15 from live cases under
+  `crates/kali_cli/tests/cases/oracle/`, measured at `4cfa218814`.
+- The ranking is `docs/superpowers/followups/blast-radius-ranking.md`, added 2026-08-15.
+
+~~the frontier is unranked, and it is somewhere in {R-10, R-13, R-14, R-31, and the rest of
+the pre-existing SILENT set}~~ — superseded. The measured band 1 is in the ranking document;
+that document, not this paragraph, is authoritative.
+
+**Two corrections this amendment owes the paragraph above, both of them against it.**
+
+1. **The "not in {R-51, R-52, R-53}" half did not survive.** On the ranking's reachable axis
+   R-51 and R-52 are both in band 1 — not because they are frequent (both count **0**
+   reachable, and both are `present-but-unreachable`) but because they are the only Tier-1
+   clusters left, and no Tier-2 cluster dominates a Tier-1 one at any frequency. That is the
+   Pareto definition working, and it is exactly the kind of result an argued frontier
+   produces the wrong answer to.
+2. **Of the four entries this paragraph nominated, three are off the measured frontier.**
+   Bands are over *clusters*, so read each nominee through its cluster: R-13 → **G3**, band
+   2; R-14 → the escape/provenance-loss pair with R-48, band 3; R-10 → **G7**, band 4. Only
+   R-31 is in a band-1 cluster (**G8**), and G8 is there on R-30's 57 and R-23's tier, not on
+   R-31's own count of 2. R-13's number in particular does not mean what it looks like: the
+   ranking's §3.2 shows only 2 of its 45 reachable sites have the receiver shape R-13's own
+   repro describes. The nomination was a reasonable guess and the measurement disagrees with
+   it, which is the whole reason the measurement was built.
+
+**Read the ranking's §1.1 before its bands.** `kali check` accepts **1 of the 40** corpus
+programs written to do jobs rather than to probe the compiler (2.5%), so 126 of the 127
+reachable programs are anchor micro-snippets and every reachable frequency is, in substance,
+a frequency over test snippets. That is a finding about kali, not a defect of the corpus.
 
 ### 0.2 Current status of every register entry
 

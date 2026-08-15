@@ -18,6 +18,8 @@ npm ci                           # exact versions from package-lock.json
 node --test                      # the matcher tests
 node accepts.mjs                 # writes accepts.json
 node count.mjs                   # reads accepts.json, writes counts.json
+cd ../..
+cargo run -p kali_blast_radius --example rank   # the ranking's sections 2-5
 ```
 
 **Order matters.** `count.mjs` consumes `accepts.json` to compute the reachable
@@ -27,6 +29,13 @@ different `corpus_hash`.
 `accepts.json` and `counts.json` are **committed outputs**. They are the
 published numbers; the ranking cites them, and a reader can diff them against a
 re-run.
+
+The `rank` example reads `counts.json`, `accepts.json`, `clusters.json` and the
+register, runs `aggregate`/`band` from `crates/kali_blast_radius`, and prints
+sections 2-5 of `docs/superpowers/followups/blast-radius-ranking.md`. That
+region of the ranking is its stdout verbatim, between two HTML-comment markers,
+so re-running it and diffing is how a reader checks that no figure there was
+typed by hand.
 
 ## Why acorn and not `kali_parser`
 
@@ -57,6 +66,7 @@ from.
 | `corpus.mjs` | Freeze verification and kali-binary resolution, shared by both tools. |
 | `accepts.mjs` / `count.mjs` | The two tools. |
 | `accepts.json` / `counts.json` | Committed outputs. |
+| `clusters.json` | The root-cause cluster assignment used by the ranking. Every entry carries the register's own §2 `Root-cause group:` line verbatim, plus the second reading where the register names one. Assignment data, not a measurement. |
 
 ## The four rules these tools enforce on themselves
 
@@ -126,6 +136,13 @@ R-13 repro is an *object* read with a variable key. `upperBound.breakdown` gives
 the split of the same 302 sites: 56 have an object-literal receiver, 45 an
 array-like one, and **67 are store targets rather than reads**. Do not present
 the total as "how often R-13's defect is triggered".
+
+`upperBound.breakdown.strata` splits the same breakdown per stratum, added
+2026-08-15 for the ranking. A pooled breakdown cannot answer *which* stratum the
+register-shaped sites are in, and for R-13 that is the whole question: the
+object-literal-receiver share of the reachable sites is **0** in the anchor and
+**2** in the extension, so every reachable anchor site is a shape the register's
+repro does not describe.
 
 ### Two counts rest on an interpretation — `entries[].alternateReading`
 
