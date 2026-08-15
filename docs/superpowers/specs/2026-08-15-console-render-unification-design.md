@@ -226,19 +226,41 @@ construction rather than by mirroring.
 - `intrinsics/host.rs`: `render_static_value`'s numeric Literal arm uses
   `format_js_number(parse_number_literal(text))` instead of `text.to_string()`.
 
-**`kali_runtime_contract`** — the browser mirror, three lines:
+**The JS import mirrors — there are four of them, not one.**
+`emit_boolean_as_string`'s doc (`emit/operators.rs:1797`) states the constraint
+that this project must obey, and states why it was avoided last time:
+
+> adding an import would have to be mirrored across the four hand-maintained
+> `kali:rt` JS import lists (host + browser bundle glue) or the browser lane
+> fails with a `LinkError`.
+
+The four are `crates/kali_runtime_contract/src/browser/harness.rs:398` and
+`:964`, and `crates/kali_cli/src/bin/cmd_build.rs:1722` and `:2229`. With the
+wasmtime host that is **five registration points for one import**, and missing
+any of the four JS ones is a `LinkError` in the browser lane rather than a wrong
+answer.
+
+The addition is identical at all four, because every mirror already has both
+helpers (`formatConsoleValue` at `harness.rs:180`/`:755` and
+`cmd_build.rs:1895`/`:2402`; `allocGuestString` at `harness.rs:120`/`:640` and
+`cmd_build.rs:1916`/`:2423`):
 
 ```js
-value_to_string(val) {
-  return allocGuestString(new TextEncoder().encode(formatConsoleValue(val)));
-}
+value_to_string(value) {
+  return allocGuestString(new TextEncoder().encode(formatConsoleValue(value)));
+},
 ```
 
-`allocGuestString` (`browser/harness.rs:120`) and `formatConsoleValue` (`:180`)
-already exist. Note that the harness's `console_warn` already emits **no**
-`[warn] ` prefix, so R-33's fix makes kali's two hosts *agree* rather than
-diverge further — the prefix is an inconsistency between kali's own runtimes
-before it is a divergence from node.
+Note that **no** JS mirror emits the `[warn] ` prefix — it exists only in the
+wasmtime host. So R-33's fix makes kali's own runtimes *agree* rather than
+diverge further; the prefix is an internal inconsistency before it is a
+divergence from node.
+
+This is also the strongest argument for the design: `emit_boolean_as_string`
+chose a `Select` over interned constants specifically to avoid paying this
+five-point cost. That was right for a boolean, which has two possible strings.
+It is not available for `value_to_string`, whose whole purpose is to consult
+runtime state. The cost is paid once, here.
 
 ## 5) Three things that must not be lost
 
@@ -385,10 +407,14 @@ end.
   unsettled.
 - **R-32's `1e21` half** — the value never reaches `float_to_string` in any lane,
   and in concat position it emits invalid wasm (`error[E4201]`). **This needs its
-  own register entry**: it is a hard failure on valid JavaScript, which is R-50's
-  category, not a silent miscompile. Filing it is a deliverable of Task 1, so the
-  finding is not lost in this spec's prose. Its verdict class is not `SILENT` and
-  it does not belong in the ranking's SILENT set.
+  own register entry, filed under the register's §7 "Fail-loudly-but-wrong
+  defects (not silent — recorded for completeness)"** — R-50's home, and the
+  correct one for two reasons: it is a hard failure on valid JavaScript rather
+  than a silent miscompile, and an entry there carries no §0.2 row, so it needs
+  no oracle case and cannot trip
+  `every_zero_two_row_is_the_class_set_its_live_cases_assert`. Filing it is a
+  deliverable of Task 1, so the finding is not lost in this spec's prose. It does
+  not belong in the ranking's SILENT set.
 - **R-34** — the register states in terms that it does not close with R-30.
 - **The `+` and template-literal lanes** — untouched, terminal arm and taint
   alike (§5.2). Note this is *not* filed as an easy follow-up: routing them
@@ -462,8 +488,14 @@ them as an oracle case at the project's own HEAD before any code changes.
    parameter and the arm; both console lanes route through it with
    `sink = Console`, taint-exempt per §5.1 and §5.1.1.
 6. **The static fold's Literal arm.**
-7. **`[warn] `** — delete the prefix, update the three runtime-smoke assertions
-   that pin it.
+7. **`[warn] `** — delete the prefix, update the four assertions that pin it:
+   `kali_cli/tests/runtime_smoke/run.rs:11010` and `:12802`,
+   `kali_cli/tests/runtime_smoke/test.rs:11180`, and
+   `kali_runtime/src/execute_tests/host_env.rs:32`. The `[warn] ` strings in
+   `kali_case_runner/src/steps_tests.rs` and `kali_blast_radius/src/verdict_tests.rs`
+   are **simulated kali output feeding classifier fixtures, not assertions about
+   kali**, and must be left alone — changing them would silently weaken the
+   classifier's own tests.
 8. **Regenerate** `blast-radius-ranking.md`, and amend the register's §0.2 rows
    for R-30, R-32 and R-33 with the commit they were re-measured at.
 
