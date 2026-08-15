@@ -6,30 +6,33 @@
 # `## Tier 2`, enumerated with the task brief's command.
 #
 # ---------------------------------------------------------------------------
-# COVERAGE SO FAR -- READ THIS BEFORE APPENDING.
+# COVERAGE -- THIS FILE IS COMPLETE FOR TIER 2.
 #
 # Tier 2 holds TWENTY-SIX entries: R-06, R-07, R-08, R-09, R-10, R-11, R-12,
 # R-13, R-14, R-15, R-16, R-17, R-18, R-19, R-20, R-21, R-22, R-23, R-24, R-25,
 # R-26, R-27, R-28, R-47, R-48, R-53.
 #
-# THIS FILE CURRENTLY COVERS THE FIRST TWELVE: R-06, R-07, R-08, R-09, R-10,
-# R-11, R-12, R-13, R-14, R-15, R-16, R-17.
+# ALL TWENTY-SIX ARE COVERED HERE, in NINETY cases. Nothing in Tier 2 is left
+# unauthored. The file was written in two passes -- R-06..R-17 (thirty-four
+# cases, 2026-08-15, `2a49fa1f3f`) and R-18..R-53 (fifty-six cases, 2026-08-15,
+# `36f9c814a2`) -- and the two passes' measurement summaries are kept separate
+# below because they were taken at different commits.
 #
-# The remaining fourteen -- R-18, R-19, R-20, R-21, R-22, R-23, R-24, R-25,
-# R-26, R-27, R-28, R-47, R-48, R-53 -- are NOT YET AUTHORED and are being
-# appended by a second author. Extend the covered list above rather than
-# guessing at it, keep the cases in entry order, and put new `[source]` keys in
-# the single `[source]` table below.
+# If you append: keep the cases in entry order, and put new `[source]` keys in
+# the single `[source]` table below. TOML forbids reopening `[source]` once the
+# `[[case]]` array has begun, so keys go mid-file and cases go at the end.
 #
 # ---------------------------------------------------------------------------
-# THE TWELVE ENTRIES, AND THE THIRTY-FOUR CASES.
+# THE TWENTY-SIX ENTRIES, AND THE NINETY CASES.
 #
 # Every entry is measured in BOTH scopes -- module scope and in-function --
 # because top-level and in-function are different programs in kali and several
 # known defects appear at one scope only. NO SCOPE IS MOOT FOR ANY ENTRY IN
-# THIS HALF, so there are no exemptions to name: all twelve carry both.
+# THIS FILE, so there are no exemptions to name: all twenty-six carry both.
 #
-# Five entries carry MORE than two cases, because the register records more
+# Ten entries carry MORE than two cases -- R-06, R-08, R-09, R-13 from the first
+# pass and R-19, R-21, R-25, R-28, R-47, R-53 from the second -- because the
+# register records more
 # than one class or more than one labelled repro for them. A single case cannot
 # hold two classes, and collapsing a multi-lane entry to one lane would record a
 # verdict the register itself does not claim.
@@ -53,9 +56,40 @@
 #   R-15   --                         r15_..._module_scope   r15_..._in_function
 #   R-16   --                         r16_..._module_scope   r16_..._in_function
 #   R-17   --                         r17_..._module_scope   r17_..._in_function
+#   R-18   --                         r18_..._module_scope   r18_..._in_function
+#   R-19   `String(x)`                r19s_..._module_scope  r19s_..._in_function
+#   R-19   `.toString()`              r19t_..._module_scope  r19t_..._in_function
+#   R-20   --                         r20_..._module_scope   r20_..._in_function
+#   R-21   `null` binding             r21bn_..._module_scope r21bn_..._in_function
+#   R-21   `undefined` binding        r21bu_..._module_scope r21bu_..._in_function
+#   R-21   concat                     r21c_..._module_scope  r21c_..._in_function
+#   R-21   void return                r21v_..._module_scope  r21v_..._in_function
+#   R-21   arithmetic                 r21a_..._module_scope  r21a_..._in_function
+#   R-21   absent field, `const` rcvr r21f_..._module_scope  r21f_..._in_function
+#   R-21   absent field, `let` rcvr   r21fl_..._module_scope r21fl_..._in_function
+#   R-21   out-of-bounds array read   r21o_..._module_scope  r21o_..._in_function
+#   R-22   --                         r22_..._module_scope   r22_..._in_function
+#   R-23   --                         r23_..._module_scope   r23_..._in_function
+#   R-24   --                         r24_..._module_scope   r24_..._in_function
+#   R-25   `.length`/index fold       r25i_..._module_scope  r25i_..._in_function
+#   R-25   `console.log` residual     r25l_..._module_scope  r25l_..._in_function
+#   R-26   --                         r26_..._module_scope   r26_..._in_function
+#   R-27   --                         r27_..._module_scope   r27_..._in_function
+#   R-28   value half                 r28v_..._module_scope  r28v_..._in_function
+#   R-28   rendering half             r28r_..._module_scope  r28r_..._in_function
+#   R-47   `let` array binding        r47l_..._module_scope  r47l_..._in_function
+#   R-47   `var` array binding        r47v_..._module_scope  r47v_..._in_function
+#   R-47   `const` array binding      r47c_..._module_scope  r47c_..._in_function
+#   R-48   --                         r48_..._module_scope   r48_..._in_function
+#   R-53   `var` loop variable        r53v_..._module_scope  r53v_..._in_function
+#   R-53   `let` loop variable        r53l_..._module_scope  r53l_..._in_function
+#   R-53   `const` loop variable      r53c_..._module_scope  r53c_..._in_function
 #
-# WHY THOSE FIVE ARE SPLIT (each is the register's own construct, not this
-# author's invention):
+# (The first pass's header said "Five entries" here; the correct count for that
+# pass is FOUR -- R-06, R-08, R-09 and R-13 -- and it is corrected in passing.)
+#
+# WHY THOSE TEN ARE SPLIT (each is the register's own construct, not this
+# author's invention). The four from the R-06..R-17 pass:
 #
 #   - R-06 -- as of `61c2d48ea9`, §0.2's row for it reads "object *declarator
 #     init* FIXED / R-06-R2 reassignment still SILENT / arrays SILENT", and §2's
@@ -79,15 +113,55 @@
 #   - R-06/R-08/R-09/R-13 are all in the register's own words; nothing here
 #     splits an entry the register states as one lane.
 #
+# THE SIX FROM THE R-18..R-53 PASS. The rule applied, stated once so a reader can
+# check it: a lane gets its own pair of cases when the register states, for that
+# shape, BOTH a runnable repro AND a class that DIFFERS from the entry's headline
+# class; or when the register states it as a separately named/dated repro
+# program of its own, even at the same class. Nothing was split on this author's
+# judgement of what would be interesting.
+#
+#   - R-19 -- as of `61c2d48ea9`, §0.2's row is literally two classes in one
+#     cell: "**FIXED (String) / FAIL-CLOSED (toString)**". Two lanes.
+#   - R-21 -- §2 states its repros as a bulleted list under one "**Repros**, all
+#     exit 0" heading, and the entry's own blast-radius note says the paths are
+#     believed INDEPENDENT ("each absent path is an independent uninitialized
+#     default rather than one modelled `undefined`"). Six of those bullets/paths
+#     are distinct programs; a seventh lane exists because two of §0.2's own
+#     statements about this entry disagree (see the R-21 note further down), and
+#     an eighth because the binding bullet's two fragments CANNOT be one program
+#     -- concatenating `var x=null; …` and `var x=undefined; …` is rejected
+#     `error[E3101]: duplicate binding 'x'`, which would have measured
+#     redeclaration instead of `undefined` rendering. EIGHT lanes.
+#   - R-25 -- as of `61c2d48ea9`, §0.2's row is again two classes in one cell:
+#     "**FAIL-CLOSED (idx/len) / SILENT (console.log)**", and §2 states the
+#     second as a named RESIDUAL of the 2026-07-20 partial close. Two lanes.
+#   - R-28 -- §2 labels a `Repro` (`p15_negzero.js`, the value half) and a
+#     separate "**Rendering half**" bullet, over two different programs, and its
+#     Severity line gives them two different severities ("silent-wrong-value
+#     (value half); rendering-only (log half)"). Two lanes.
+#   - R-47 -- §2 states "**The three declarator lanes differ, and only `let` is
+#     silent**" and then gives a class per lane: `let` SILENT, `var` FAIL-CLOSED
+#     with the E5506 text quoted, `const` CORRECT. Three declared classes for one
+#     entry id -- the same shape as R-06's split. Three lanes.
+#   - R-53 -- §2 states the `var` repro, a dated 2026-07-29 WIDENING with its own
+#     four-element `let` fixture, and a "**Control -- `const` is correct**" on the
+#     byte-identical fixture. Two classes (SILENT for `var`/`let`, correct for
+#     `const`) and three named programs. Three lanes. R-53's fourth documented
+#     shape -- for-of over a BINDING iterable rather than an array literal,
+#     recorded fail-closed E5506 -- is not given a lane here because R-47's `var`
+#     lane in this same file already measures exactly that construct.
+#
 # ---------------------------------------------------------------------------
 # WHERE THE PROGRAMS COME FROM, AND WHAT SCAFFOLDING WAS ADDED.
 #
 # Every `[source]` below is the register entry's OWN minimal repro from §2 as of
 # `61c2d48ea9` (2026-07-29), copied verbatim. Every register quotation and
 # citation in this file is anchored to that same commit, so none of them can rot
-# when the register is next edited.
+# when the register is next edited. ONE program in this file is NOT a register
+# repro -- `r21fl_*.js`, which changes one token of one -- and it says so in its
+# own rationale, in this list, and in the R-21 note further down.
 #
-# Four kinds of scaffolding were added, all disclosed again in the individual
+# EIGHT kinds of scaffolding were added, all disclosed again in the individual
 # rationales:
 #
 # 1. THE MISSING SCOPE. Where the register states its repro at module scope, the
@@ -97,10 +171,15 @@
 #    `*_module.js` twin is that repro's body lifted out of its wrapper and
 #    nothing else -- the mirror-image operation. Nothing inside is edited: not a
 #    declaration, not a log, not a keyword.
-# 2. A `console.log` ON A BARE EXPRESSION. Three of R-06's lanes are stated as
+# 2. A `console.log` ON A BARE EXPRESSION. Several repros are stated as
 #    expression fragments with an arrow to the value (`var o={f:1}; o={f:2};
 #    o.f` -> `0`). The only addition is the `console.log(…)` that makes the read
-#    observable; no value, name or operator was changed. Named in each case.
+#    observable; no value, name or operator was changed. Named in each case. It
+#    applies to TWO of R-06's three lanes -- `R-06-R2` and `R-06-R3`; `r06a`'s
+#    repro already carries its own `console.log` and needed nothing -- and also
+#    to R-17's two bullets (register:1858, register:1861 are bare concat
+#    expressions), R-19's `.toString()` lane, R-21's arithmetic lane and all
+#    three of its absent-read lanes, and R-28's value half.
 # 3. R-09's HANG FORM is stated as a bare `for` statement with no `s`
 #    declaration and no log. The scaffolding added (`let s = 0`, a
 #    `console.log("s=" + s)`, and the `function t() { … } t()` its sibling repro
@@ -111,6 +190,30 @@
 #    Repro B ("stale read") as top level, so each scope gets the register's own
 #    repro for that scope and NEITHER is wrapped or unwrapped. That is a
 #    stronger provenance than manufacturing the missing scope would have been.
+# 5. TWO FRAGMENTS COMBINED INTO ONE PROGRAM, where the register states them
+#    over an identical binding or as one bullet: R-17's `.join()` and
+#    element-read consumers over one `const a=["p","q"]`; R-19's four
+#    `.toString()` spellings; and R-21's concat bullet (two fragments) and
+#    void-return bullet (two consumers over the register's one `function f(){}`).
+#    Nothing was renamed, re-valued or reordered. R-21's BINDING bullet is the
+#    one place this was tried and had to be abandoned: its two fragments both
+#    declare `x`, and kali rejects the concatenation `error[E3101]: duplicate
+#    binding 'x'`, so that bullet is two lanes instead.
+# 6. A DECLARATOR SUBSTITUTED, where the register itself states the lane by its
+#    declarator. R-47's `var` and `const` lanes are §2's own repro with `let`
+#    replaced by the declarator whose class that lane names; R-53's `const` lane
+#    is what §2 calls "the byte-identical fixture with `for (const v of
+#    [1,2,3])`". In both entries the register states a class for each declarator,
+#    so the substitution is the register's own construct rather than a variant
+#    invented here.
+# 7. A BINDING BORROWED FROM THE ENTRY'S OWN REPRO. R-25's `console.log([...a])`
+#    residual is stated presupposing an `a`; the `const a=[1,2];` that precedes
+#    it is lifted from the same entry's `Repro` line, not written fresh.
+# 8. THE ONE PROGRAM THAT IS NOT A REGISTER REPRO: `r21fl_*.js` is §2's own
+#    absent-field repro with the RECEIVER'S DECLARATOR changed from `const` to
+#    `let` and nothing else. It exists to locate a fail-closed lane §0.1's
+#    amendment asserts and §0.2's row denies; see the R-21 note further down.
+#    Its own rationale says in as many words that it is not verbatim.
 #
 # NO REPRO WAS REDUCED. Where the register calls a half of a repro load-bearing,
 # that half is here:
@@ -130,6 +233,28 @@
 #     would have confounded the write half with the read half.
 #   - R-17 keeps both the `.join()` and the element-read consumers of the SAME
 #     `const a=["p","q"]` binding, which is how §2 states them.
+#   - R-18 keeps all FOUR lines of `p20_lit_or.js`. §2's own claim is that cases
+#     1 and 2 leak a handle AND that "case 3 additionally has the truthiness
+#     backwards" -- two different defects in one repro -- and case 4 is the
+#     correct control that shows it is not `&&` as a whole. One line would have
+#     measured one of the three.
+#   - R-19's `.toString()` lane keeps all four spellings §2 lists under "Same for
+#     the method form" (`(42)`, `(1.5)`, a `var`-bound number, a `var`-bound
+#     string), because the entry's claim for that lane is TOTALITY.
+#   - R-24 keeps the `isFrozen` read as well as the write read-back, and keeps
+#     the bind-then-freeze order. §2's PROBE CAVEAT is explicit that the
+#     freeze-in-the-initializer spelling HIDES the defect, so reordering those
+#     two statements would have turned a red measurement green for an unrelated
+#     reason.
+#   - R-25's fold lane keeps both the `.length` read and the index read, which is
+#     how §2 states the repro and which matches §0.2's "(idx/len)" naming.
+#   - R-27 keeps the `bump()` call and the `n` counter. §2's finding is not only
+#     that the sequence value is lost but that "the side effect fires exactly
+#     once"; dropping `n` would have lost half of it.
+#   - R-53's `var` and `let` lanes keep the per-iteration `console.log` AND the
+#     running sum. §2 says the correct trip count with a wrong bound value is
+#     precisely what makes this Tier 2 rather than Tier 1, and only the
+#     per-iteration log shows the trip count.
 #
 # ---------------------------------------------------------------------------
 # WHAT THE RE-MEASUREMENT FOUND, 2026-08-15, commit `2a49fa1f3f`, node v26.7.0.
@@ -193,17 +318,149 @@
 # subcommand. The amendment's frontier stands.
 #
 # ---------------------------------------------------------------------------
+# WHAT THE SECOND PASS FOUND, 2026-08-15, commit `36f9c814a2`, node v26.7.0.
+#
+# ALL FIFTY-SIX of the R-18..R-53 cases came back the class the register records,
+# so NO case in this pass needed its verdict changed and there is no superseded
+# class to name anywhere below. Summary:
+#
+#   entry  lane                  scope      register class  measured     moved?
+#   -----  --------------------  ---------  --------------  -----------  ------
+#   R-18   --                    module     silent          silent       same
+#   R-18   --                    function   silent          silent       same
+#   R-19   `String(x)`           module     fixed           fixed        same
+#   R-19   `String(x)`           function   fixed           fixed        same
+#   R-19   `.toString()`         module     fail_closed     fail_closed  same
+#   R-19   `.toString()`         function   fail_closed     fail_closed  same
+#   R-20   --                    module     fail_closed     fail_closed  same
+#   R-20   --                    function   fail_closed     fail_closed  same
+#   R-21   `null` binding        module     silent          silent       same
+#   R-21   `null` binding        function   silent          silent       same
+#   R-21   `undefined` binding   module     silent          silent       same
+#   R-21   `undefined` binding   function   silent          silent       same
+#   R-21   concat                module     silent          silent       same
+#   R-21   concat                function   silent          silent       same
+#   R-21   void return           module     silent          silent       same
+#   R-21   void return           function   silent          silent       same
+#   R-21   arithmetic            module     silent          silent       same
+#   R-21   arithmetic            function   silent          silent       same
+#   R-21   absent fld, `const`   module     silent          silent       same
+#   R-21   absent fld, `const`   function   silent          silent       same
+#   R-21   absent fld, `let`     module     fail_closed*    fail_closed  same
+#   R-21   absent fld, `let`     function   fail_closed*    fail_closed  same
+#   R-21   oob array read        module     silent          silent       same
+#   R-21   oob array read        function   silent          silent       same
+#   R-22   --                    module     silent          silent       same
+#   R-22   --                    function   silent          silent       same
+#   R-23   --                    module     silent          silent       same
+#   R-23   --                    function   silent          silent       same
+#   R-24   --                    module     silent          silent       same
+#   R-24   --                    function   silent          silent       same
+#   R-25   `.length`/index fold  module     fail_closed     fail_closed  same
+#   R-25   `.length`/index fold  function   fail_closed     fail_closed  same
+#   R-25   `console.log` resid.  module     silent          silent       same
+#   R-25   `console.log` resid.  function   silent          silent       same
+#   R-26   --                    module     silent          silent       same
+#   R-26   --                    function   silent          silent       same
+#   R-27   --                    module     silent          silent       same
+#   R-27   --                    function   silent          silent       same
+#   R-28   value half            module     silent          silent       same
+#   R-28   value half            function   silent          silent       same
+#   R-28   rendering half        module     silent          silent       same
+#   R-28   rendering half        function   silent          silent       same
+#   R-47   `let` binding         module     silent          silent       same
+#   R-47   `let` binding         function   silent          silent       same
+#   R-47   `var` binding         module     fail_closed     fail_closed  same
+#   R-47   `var` binding         function   fail_closed     fail_closed  same
+#   R-47   `const` binding       module     fixed           fixed        same
+#   R-47   `const` binding       function   fixed           fixed        same
+#   R-48   --                    module     silent          silent       same
+#   R-48   --                    function   silent          silent       same
+#   R-53   `var` loop variable   module     silent          silent       same
+#   R-53   `var` loop variable   function   silent          silent       same
+#   R-53   `let` loop variable   module     silent          silent       same
+#   R-53   `let` loop variable   function   silent          silent       same
+#   R-53   `const` loop variable module     fixed           fixed        same
+#   R-53   `const` loop variable function   fixed           fixed        same
+#
+# * R-21's `let`-receiver lane is the one row whose "register class" is not from
+#   §0.2. §0.2's R-21 row says SILENT for every form; §0.1's 2026-07-29 amendment
+#   says this lane fails closed. The expected class for that row is the
+#   amendment's. See the note immediately below.
+#
+# The two scopes agreed on the class for EVERY entry and every lane in this pass
+# -- twenty-eight pairs, twenty-eight agreements. For EIGHT entries that
+# agreement is a genuinely NEW observation rather than a confirmation, because as
+# of `61c2d48ea9` the register has no in-function measurement of them to inherit:
+#
+#   R-18, R-20, R-22, R-23, R-25  `Verification: sweep-only-top-level-only`
+#   R-24                          `CONFIRMED-BY-CONTROLLER`, no `Scopes` line
+#   R-28                          `sweep-only (top level; … both scopes are
+#                                 EXPECTED)` -- expected is not measured
+#   R-53                          `CONFIRMED-BY-CONTROLLER`, no `Scopes` line
+#
+# R-21 is a partial ninth: its Verification line reads "both scopes for D-A-6 and
+# D-C-7; top level only for D-D-12's out-of-bounds cases and D-A-11", so the
+# out-of-bounds lane's in-function agreement is new while the binding, concat and
+# void-return lanes' is a confirmation. The remaining five -- R-19 ("in every
+# scope"), R-26 ("both scopes, plus via bindings and parameters"), R-27 ("top
+# level + one in-function sighting"), R-47 (`Scopes affected: both`, with its own
+# in-function witness) and R-48 (`Scopes affected: both, measured`) -- were
+# already recorded in both scopes and this pass confirms them. Every in-function
+# case whose class had to be assumed rather than inherited says so in its own
+# rationale.
+#
+# ---------------------------------------------------------------------------
+# R-21: WHAT THE FLAGGED "ALREADY MOVED" LANE ACTUALLY IS.
+#
+# The plan flagged R-21 as an entry that has already moved and told this author
+# to expect a reconciliation. There is a real disagreement inside the register,
+# but it does NOT move the entry's own repro, and the reconciliation is a
+# discriminator rather than a changed verdict. As of `61c2d48ea9`:
+#
+#   - §0.2's R-21 row records SILENT and says "all forms (`null`/`undefined`/
+#     absent field/void call/template) render `0`/`false`".
+#   - §0.1's 2026-07-29 amendment says the opposite for one of those forms: "at
+#     least one has already moved -- R-21's absent-field lane (`o.b` for
+#     undeclared `b`) now **fails closed** `E5506 unknown field 'b' on
+#     fixed-shape object` at `64438bf0ef`, where §0.2 still records it SILENT."
+#     The amendment does not state the receiver's declarator.
+#
+# Measured at `36f9c814a2` against node v26.7.0, BOTH are right about different
+# programs, and the discriminator is THE RECEIVER'S DECLARATOR KIND:
+#
+#   const o={a:1}; console.log("z="+o.z);   ->  kali `z=0` exit 0   SILENT
+#   let   o={a:1}; console.log("z="+o.z);   ->  kali E5506 exit 1   FAIL_CLOSED
+#   var   o={a:1}; console.log("z="+o.z);   ->  kali E5506 exit 1   FAIL_CLOSED
+#
+# §2 states the absent-field repro with a `const` receiver, and at that receiver
+# it is still SILENT -- so §0.2's row is correct for the register's own repro and
+# the entry has NOT moved on it. `r21f_*` measures that. `r21fl_*` is the same
+# program with `const` replaced by `let` and nothing else, and it pins the
+# fail-closed lane the amendment describes. It is the only source in this file
+# that is not a register repro; it is here because reporting "the amendment's
+# claim could not be located" would have been worse than measuring it with one
+# disclosed token changed.
+#
+# A §0.2 regenerated from these measurements should split R-21's absent-field
+# form by receiver declarator rather than record one class for it.
+#
+# ---------------------------------------------------------------------------
 # HOW TO READ A RED RUN HERE.
 #
-# Each `verdict` below is the class this task MEASURED at HEAD. The two cases
-# whose measured class differs from the register's say so in their rationale,
-# name the class superseded, and give the date, commit and node version of the
-# re-measurement. A future red run therefore means the entry has moved AGAIN
-# since 2026-08-15 -- data for the next regeneration of §0.2, not a defect in
-# the case.
+# Each `verdict` below is the class this file MEASURED at HEAD -- `2a49fa1f3f`
+# for R-06..R-17, `36f9c814a2` for R-18..R-53. The two cases whose measured class
+# differs from the register's (both in the first pass, both R-08's `===` lane)
+# say so in their rationale, name the class superseded, and give the date, commit
+# and node version of the re-measurement. No case in the second pass moved, so
+# none of them names a superseded class. A future red run therefore means the
+# entry has moved AGAIN since 2026-08-15 -- data for the next regeneration of
+# §0.2, not a defect in the case.
 #
-# The sibling `oracle/classifier_ground_truth.toml` pins all eight verdict
-# classes against constructs whose behaviour is independently known. If cases
+# As of `c4f665e5f5` the sibling `oracle/classifier_ground_truth.toml` pins all
+# eight verdict classes against constructs whose behaviour is independently
+# known -- that is a citation of that file at that commit, not a claim about its
+# present-tense contents, exactly as every register citation here is. If cases
 # here go red at the same time as cases there, read that file first: a
 # mislabelling classifier invalidates every verdict in this one.
 #
@@ -387,6 +644,262 @@ console.log("0=" + a[0]);
 }
 main();
 """
+"r18_module.js" = """console.log("1=" + ("" || 7));
+console.log("2=" + ("hi" || 7));
+console.log("3=" + ("" && 7));
+console.log("4=" + ("hi" && 7));
+"""
+"r18_function.js" = """function main() {
+  console.log("1=" + ("" || 7));
+  console.log("2=" + ("hi" || 7));
+  console.log("3=" + ("" && 7));
+  console.log("4=" + ("hi" && 7));
+}
+main();
+"""
+"r19s_module.js" = """console.log(String(42));
+"""
+"r19s_function.js" = """function main() {
+  console.log(String(42));
+}
+main();
+"""
+"r19t_module.js" = """console.log((42).toString());
+console.log((1.5).toString());
+var n=42; console.log(n.toString());
+var s="hi"; console.log(s.toString());
+"""
+"r19t_function.js" = """function main() {
+  console.log((42).toString());
+  console.log((1.5).toString());
+  var n=42; console.log(n.toString());
+  var s="hi"; console.log(s.toString());
+}
+main();
+"""
+"r20_module.js" = """const o={f:1}; console.log(JSON.stringify(o));
+"""
+"r20_function.js" = """function main() {
+  const o={f:1}; console.log(JSON.stringify(o));
+}
+main();
+"""
+"r21bn_module.js" = """var x=null; console.log(x);
+"""
+"r21bn_function.js" = """function main() {
+  var x=null; console.log(x);
+}
+main();
+"""
+"r21bu_module.js" = """var x=undefined; console.log(x);
+"""
+"r21bu_function.js" = """function main() {
+  var x=undefined; console.log(x);
+}
+main();
+"""
+"r21c_module.js" = """console.log("v=" + null);
+console.log("v=" + undefined);
+"""
+"r21c_function.js" = """function main() {
+  console.log("v=" + null);
+  console.log("v=" + undefined);
+}
+main();
+"""
+"r21v_module.js" = """function f(){}
+console.log("r=" + f());
+console.log(f());
+"""
+"r21v_function.js" = """function main() {
+  function f(){}
+  console.log("r=" + f());
+  console.log(f());
+}
+main();
+"""
+"r21a_module.js" = """console.log(undefined + 1);
+"""
+"r21a_function.js" = """function main() {
+  console.log(undefined + 1);
+}
+main();
+"""
+"r21f_module.js" = """const o={a:1}; console.log("z="+o.z);
+"""
+"r21f_function.js" = """function main() {
+  const o={a:1}; console.log("z="+o.z);
+}
+main();
+"""
+"r21fl_module.js" = """let o={a:1}; console.log("z="+o.z);
+"""
+"r21fl_function.js" = """function main() {
+  let o={a:1}; console.log("z="+o.z);
+}
+main();
+"""
+"r21o_module.js" = """const a=[1,2]; console.log("oob="+a[5]);
+"""
+"r21o_function.js" = """function main() {
+  const a=[1,2]; console.log("oob="+a[5]);
+}
+main();
+"""
+"r22_module.js" = """console.log("v=" + (1=="1"));
+"""
+"r22_function.js" = """function main() {
+  console.log("v=" + (1=="1"));
+}
+main();
+"""
+"r23_module.js" = """var b=true; console.log(typeof b);
+"""
+"r23_function.js" = """function main() {
+  var b=true; console.log(typeof b);
+}
+main();
+"""
+"r24_module.js" = """const o={x:1}; Object.freeze(o); o.x=99;
+console.log("x="+o.x); console.log("isFrozen="+Object.isFrozen(o));
+"""
+"r24_function.js" = """function main() {
+  const o={x:1}; Object.freeze(o); o.x=99;
+  console.log("x="+o.x); console.log("isFrozen="+Object.isFrozen(o));
+}
+main();
+"""
+"r25i_module.js" = """const a=[1,2]; const b=[...a]; console.log("len="+b.length); console.log("0="+b[0]);
+"""
+"r25i_function.js" = """function main() {
+  const a=[1,2]; const b=[...a]; console.log("len="+b.length); console.log("0="+b[0]);
+}
+main();
+"""
+"r25l_module.js" = """const a=[1,2]; console.log([...a]);
+"""
+"r25l_function.js" = """function main() {
+  const a=[1,2]; console.log([...a]);
+}
+main();
+"""
+"r26_module.js" = """console.log(+"abc");
+"""
+"r26_function.js" = """function main() {
+  console.log(+"abc");
+}
+main();
+"""
+"r27_module.js" = """let n = 0;
+function bump() { n = n + 1; return 5; }
+let a = (1, 2);   console.log("a=" + a);
+let b = (bump(), 7); console.log("b=" + b);
+console.log("n=" + n);
+"""
+"r27_function.js" = """function main() {
+  let n = 0;
+  function bump() { n = n + 1; return 5; }
+  let a = (1, 2);   console.log("a=" + a);
+  let b = (bump(), 7); console.log("b=" + b);
+  console.log("n=" + n);
+}
+main();
+"""
+"r28v_module.js" = """let mz = -0;
+console.log(1/mz);
+"""
+"r28v_function.js" = """function main() {
+  let mz = -0;
+  console.log(1/mz);
+}
+main();
+"""
+"r28r_module.js" = """console.log(-0);
+"""
+"r28r_function.js" = """function main() {
+  console.log(-0);
+}
+main();
+"""
+"r47l_module.js" = """let a=[1,2,3]; for (const x of a) console.log(x);
+"""
+"r47l_function.js" = """function main() {
+  let a=[1,2,3]; for (const x of a) console.log(x);
+}
+main();
+"""
+"r47v_module.js" = """var a=[1,2,3]; for (const x of a) console.log(x);
+"""
+"r47v_function.js" = """function main() {
+  var a=[1,2,3]; for (const x of a) console.log(x);
+}
+main();
+"""
+"r47c_module.js" = """const a=[1,2,3]; for (const x of a) console.log(x);
+"""
+"r47c_function.js" = """function main() {
+  const a=[1,2,3]; for (const x of a) console.log(x);
+}
+main();
+"""
+"r48_module.js" = """let o={a:6}; o.a=[1,2]; console.log(o.a);
+"""
+"r48_function.js" = """function main() {
+  let o={a:6}; o.a=[1,2]; console.log(o.a);
+}
+main();
+"""
+"r53v_module.js" = """var t = 0;
+for (var v of [1, 2, 3]) {
+  console.log("iter=" + v);
+  t = t + v;
+}
+console.log("t=" + t);
+"""
+"r53v_function.js" = """function main() {
+  var t = 0;
+  for (var v of [1, 2, 3]) {
+    console.log("iter=" + v);
+    t = t + v;
+  }
+  console.log("t=" + t);
+}
+main();
+"""
+"r53l_module.js" = """var s = 0;
+for (let v of [1, 2, 3, 4]) {
+  console.log("iter=" + v);
+  s = s + v;
+}
+console.log("s=" + s);
+"""
+"r53l_function.js" = """function main() {
+  var s = 0;
+  for (let v of [1, 2, 3, 4]) {
+    console.log("iter=" + v);
+    s = s + v;
+  }
+  console.log("s=" + s);
+}
+main();
+"""
+"r53c_module.js" = """var t = 0;
+for (const v of [1, 2, 3]) {
+  console.log("iter=" + v);
+  t = t + v;
+}
+console.log("t=" + t);
+"""
+"r53c_function.js" = """function main() {
+  var t = 0;
+  for (const v of [1, 2, 3]) {
+    console.log("iter=" + v);
+    t = t + v;
+  }
+  console.log("t=" + t);
+}
+main();
+"""
 
 [[case]]
 name = "r06a_object_declarator_initializer_module_scope"
@@ -498,7 +1011,7 @@ Expected verdict set from the register's recorded status: FIXED, as for the modu
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `a=2 b=1` at exit 0; node prints `a=2 b=1` at exit 0. Under the defect kali printed `a=2 b=2` -- the swap's temporary read back the post-swap value of `a` -- which would classify SILENT.
 
-This program is BYTE-IDENTICAL to `fixed_r07.js` in `oracle/classifier_ground_truth.toml`, which pins the FIXED class on it, and that overlap is intentional rather than redundant. That file needs one program per verdict class in whatever scope the register states it; this file needs R-07 in both scopes. Both files measure the same construct for different reasons, and neither can be deleted without losing what the other is for.
+As of `c4f665e5f5` this program is BYTE-IDENTICAL to `fixed_r07.js` in `oracle/classifier_ground_truth.toml`, which pins the FIXED class on it, and that overlap is intentional rather than redundant. That file needs one program per verdict class in whatever scope the register states it; this file needs R-07 in both scopes. Both files measure the same construct for different reasons, and neither can be deleted without losing what the other is for.
 
 This case measures Repro A only. R-07's four other labelled repros -- C (`const` over a reassigned param), D (loop-carried temp), E (side effects scale with read count), F (shape survey) -- are different programs and are NOT what this case observes; §0.2's "all 6 shapes match" is the register's claim at `61c2d48ea9`, not this case's."""
 
@@ -614,7 +1127,7 @@ Expected verdict set from the register's recorded status: FL_INTERNAL, as for th
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: FL_INTERNAL, unchanged -- no reconciliation. kali exits 1 with empty stdout and the same `error[E4003]: CPU fuel budget exhausted: …`; node prints `s=4` at exit 0. Identical to the module scope.
 
-This program is BYTE-IDENTICAL to `fl_internal.js` in `oracle/classifier_ground_truth.toml`. The duplication is intentional and neither copy is redundant: that one holds the FL_INTERNAL class pinned even if R-09 is fixed and this one goes red, and this one carries R-09's scope coverage even if the class pin is retargeted at some other construct."""
+As of `c4f665e5f5` this program is BYTE-IDENTICAL to `fl_internal.js` in `oracle/classifier_ground_truth.toml`. The duplication is intentional and neither copy is redundant: that one holds the FL_INTERNAL class pinned even if R-09 is fixed and this one goes red, and this one carries R-09's scope coverage even if the class pin is retargeted at some other construct."""
 
 [[case]]
 name = "r10_block_scope_shadowing_module_scope"
@@ -752,7 +1265,7 @@ rationale = """R-13, WRITE lane, in-function scope. The module-scope repro verba
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope. §2 names both an in-function and a top-level fixture for this repro but records one pair of values for both, so the expected class was set on the assumption that the scopes agree, precisely so a disagreement would show up as a red case rather than as an unmeasured gap.
 
-RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `dot=2` at exit 0; node prints `dot=8` at exit 0. The scopes do agree, which is a new observation here: the register recorded one measurement covering two named fixtures rather than one measurement per scope."""
+RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `dot=2` at exit 0; node prints `dot=8` at exit 0. Identical to the module scope, which CONFIRMS rather than adds to the register: as of `61c2d48ea9`, §2's R-13 already records `Scopes affected: both` and names an in-function fixture (`o12_computed_write.js`) alongside the top-level one (`o15_computed_write_top.js`) for this same repro. R-15 is the only entry in the R-06..R-17 pass for which the scopes agreeing is a genuinely NEW observation."""
 
 [[case]]
 name = "r14_returned_array_reads_zeros_module_scope"
@@ -840,7 +1353,9 @@ kind = "oracle"
 register_entry = "R-17"
 program = "r17_module.js"
 verdict = "silent"
-rationale = """R-17, module scope. §2's first two `Repros` verbatim, over the SAME `const a=["p","q"]` binding the register states for both: the `.join()` consumer (`g18`, `g21`) and the element-read consumer (`g23`), each in concat position. They are combined into one program because the register states them over an identical binding; nothing was renamed or re-valued.
+rationale = """R-17, module scope. §2's first two `Repros`, over the SAME `const a=["p","q"]` binding the register states for both: the `.join()` consumer (`g18`, `g21`) and the element-read consumer (`g23`), each in concat position.
+
+SCAFFOLDING -- TWO ADDITIONS, NEITHER OF THEM VERBATIM. (a) The register states each of these two bullets as a BARE CONCAT EXPRESSION with an arrow to the value -- `const a=["p","q"]; "j=" + a.join("-")` and `const a=["p","q"]; "0=" + a[0]` -- so a `console.log(…)` was wrapped around each concat to make it observable. (b) The two bullets are stated over an identical binding, so they are combined into ONE program with a single `const a=["p","q"];` rather than duplicated. Nothing was renamed, re-valued or reordered, and no operator was changed; but this program is the register's two fragments plus two `console.log`s, not a repro the register states as a runnable file.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `j=p-q` against kali `j=-9223354427488862205`, and node `0=p` against kali `0=-9223354444668731391`, all exit 0; §0.2's row reads "R-17 string handles escape as ints | **SILENT** | join/element/Object.keys concat lanes". SILENT.
 
@@ -854,10 +1369,800 @@ kind = "oracle"
 register_entry = "R-17"
 program = "r17_function.js"
 verdict = "silent"
-rationale = """R-17, in-function scope. The module-scope program verbatim inside `function main() { … }` with a trailing `main();`.
+rationale = """R-17, in-function scope. The module-scope program -- the register's two fragments, its two added `console.log`s and its single shared binding, all as described in the module-scope case's SCAFFOLDING note -- unchanged inside `function main() { … }` with a trailing `main();`.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-17 records `Verification: sweep-only (D-D-5/6/8 both scopes; D-D-11 top level only)`, and both bullets measured here are in the both-scopes group.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `j=-9223354427488862205` then `0=-9223354444668731391` at exit 0; node prints `j=p-q` then `0=p` at exit 0. Byte-identical to the module scope, handle bit patterns included.
 
 One nuance the register records for this scope is NOT contradicted by this green: as of `61c2d48ea9` §2 says of the element read that "in-function the same value is correct when it reaches `console.log` directly; only concat is wrong." This program uses the concat position in both scopes, which is the wrong-in-both-scopes lane. The direct-argument position is a different program and is not measured here."""
+
+[[case]]
+name = "r18_string_literal_logical_operand_leaks_handle_module_scope"
+kind = "oracle"
+register_entry = "R-18"
+program = "r18_module.js"
+verdict = "silent"
+rationale = """R-18, module scope. §2's `Repro` (`p20_lit_or.js`) verbatim, all four lines -- a complete runnable program as the register states it, with nothing added. Two `||` cases and two `&&` cases, each with a string LITERAL as the left operand and each consumed in concat position.
+
+ALL FOUR LINES ARE LOAD-BEARING AND ARE KEPT. As of `61c2d48ea9` the register's claim for this entry is not one defect but two plus a control: lines 1 and 2 "leak a tagged string handle into numeric position", line 3 "additionally has the truthiness backwards" (`"" && 7` should short-circuit to the empty string and instead yields `7`), and line 4 is the case that comes out right, which is what makes this a hole in a guard rather than `&&`/`||` being broken outright. Any shorter program measures one of the three.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "R-18 string literal `&&`/`||` leaks handle | **SILENT** | + case-3 truthiness also backwards", and §2 records both engines at exit 0. SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `1=-9223354436078796800`, `2=-9223354427488862206`, `3=7`, `4=7` at exit 0 with empty stderr; node prints `1=7`, `2=hi`, `3=` (an empty tail), `4=7` at exit 0. Both leaked handles match the register's recorded bit patterns digit for digit, and case 3's inverted truthiness reproduces exactly.
+
+This case measures the LITERAL-operand lane only. The entry's own contrast -- the same expression through a VARIABLE (`let s = ""; s || 7`), which the register records failing closed `E5506` -- is a different program and is NOT what this case observes; the guard-hole claim is the register's at `61c2d48ea9`, not this case's. Nor does this case touch the entry's "important non-finding" (30 short-circuit shapes re-affirmed sound)."""
+
+[[case]]
+name = "r18_string_literal_logical_operand_leaks_handle_in_function"
+kind = "oracle"
+register_entry = "R-18"
+program = "r18_function.js"
+verdict = "silent"
+rationale = """R-18, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();` -- the wrapper is the only addition.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-18 carries `Verification: sweep-only-top-level-only` and has no `Scopes affected` line, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree, precisely so a disagreement would surface as a red case rather than as an unmeasured gap.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `1=-9223354436078796800`, `2=-9223354427488862206`, `3=7`, `4=7` at exit 0; node prints `1=7`, `2=hi`, `3=`, `4=7` at exit 0. Byte-identical to the module scope, handle bit patterns included, so the leak does not depend on the wrapper and the entry can stop carrying `sweep-only-top-level-only` for this repro."""
+
+[[case]]
+name = "r19s_string_conversion_of_a_number_literal_module_scope"
+kind = "oracle"
+register_entry = "R-19"
+program = "r19s_module.js"
+verdict = "fixed"
+rationale = """R-19, `String(x)` LANE, module scope. §2's `Repro` verbatim and complete: `console.log(String(42));`.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row is two classes in one cell -- "R-19 `String(x)` / `.toString()` -> 0 | **FIXED (String) / FAIL-CLOSED (toString)** | Stage P5 gain: `String()` of a proven scalar/string now COMPUTES (var-bound too, un-poisons concat); `String(null/undefined)` and `.toString()` fail closed. No silent path." `String(42)` is a proven scalar, so this lane's expected class is FIXED.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FIXED, as recorded -- no reconciliation. kali prints `42` at exit 0 with empty stderr; node prints `42` at exit 0. Under the original defect this printed `0` at exit 0, which would classify SILENT.
+
+WHAT THIS CASE DOES AND DOES NOT MEASURE, WHICH MATTERS UNUSUALLY MUCH HERE. It measures `String()` of one numeric literal. The register's totality list for the original defect had eleven inputs, and §0.2 records that two of them -- `String(null)` and `String(undefined)` -- now FAIL CLOSED rather than compute, which is a different class from this one and would need its own case. This case does not claim them. It also does not rest on `.length`: as of `61c2d48ea9` §2 records a "near-miss trap worth recording" in which `String(42).length` printed `2` and looked like evidence the call worked while `String("hello").length` and `String(12345).length` also printed `2`, and warns that "any future `String() works` claim resting on `.length` is invalid". This case reads the converted value itself, which is the read that trap defeats. The two named residuals `globalThis.String(x)` and `globalThis["String"](x)`, recorded silent-`0`, are different programs and are not measured here."""
+
+[[case]]
+name = "r19s_string_conversion_of_a_number_literal_in_function"
+kind = "oracle"
+register_entry = "R-19"
+program = "r19s_function.js"
+verdict = "fixed"
+rationale = """R-19, `String(x)` LANE, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: FIXED, as for the module scope. As of `61c2d48ea9`, §2's R-19 carries `Verification: sweep-only (both scopes, both sweeps)` and its own title says "in every scope", so the scopes were expected to agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FIXED, as recorded -- no reconciliation. kali prints `42` at exit 0; node prints `42` at exit 0. Identical to the module scope.
+
+Worth keeping green rather than deleting: the original defect returned a plausible `0` at exit 0 for every input, so a regression here is silent by construction and would corrupt any measurement in this directory that formats a value before comparing it."""
+
+[[case]]
+name = "r19t_tostring_method_form_module_scope"
+kind = "oracle"
+register_entry = "R-19"
+program = "r19t_module.js"
+verdict = "fail_closed"
+rationale = """R-19, `.toString()` LANE, module scope. §2's four method-form spellings, from the "Total, not partial" bullet: `(42).toString()`, `(1.5).toString()`, `var n=42; n.toString()`, `var s="hi"; s.toString()`.
+
+SCAFFOLDING -- TWO ADDITIONS. (a) The register states each of the four as a bare expression with an arrow to the value (`(42).toString()`->0), so a `console.log(…)` was wrapped around each to make it a runnable program. (b) The four fragments are combined into one program because the register states them as one bullet asserting one claim; the `var n` and `var s` declarations are the register's own and are unchanged. No value, name or operator was changed.
+
+ALL FOUR SPELLINGS ARE KEPT. The entry's claim for this lane is TOTALITY -- a receiver-kind sweep over an integer literal, a float literal, a `var`-bound number and a `var`-bound string -- and one spelling would have measured one receiver kind while the rationale spoke about four.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row says "FAIL-CLOSED (toString)" and "`String(null/undefined)` and `.toString()` fail closed. No silent path"; §2's `STATUS 2026-07-20` records `x.toString()` closed by the Stream-A value-builtin deny-set. FAIL_CLOSED.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with EMPTY STDOUT and, on stderr, one `error[E5506]: calling 'toString' is unavailable in the current phase: it is a recognized builtin with no implemented lowering, so evaluating it would silently return 0; use explicit literals or the later compatibility path …` per spelling -- four of them, so no receiver kind slips past the deny-set. node prints `42`, `1.5`, `42`, `hi` at exit 0. `E5506` is inside the documented `E55xx` range, so a documented refusal against a clean node run classifies FAIL_CLOSED.
+
+The diagnostic's own text -- "would silently return 0" -- names the defect this lane used to be, which is why the entry is filed in Tier 2 at all. This case measures the four method-form spellings only; the computed spelling `n["toString"]()` the register also records closed is a different program and is not measured here."""
+
+[[case]]
+name = "r19t_tostring_method_form_in_function"
+kind = "oracle"
+register_entry = "R-19"
+program = "r19t_function.js"
+verdict = "fail_closed"
+rationale = """R-19, `.toString()` LANE, in-function scope. The module-scope program -- the register's four fragments and the four added `console.log`s described in that case's SCAFFOLDING note -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: FAIL_CLOSED, as for the module scope, on §2's `Verification: sweep-only (both scopes, both sweeps)`.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with empty stdout and the same `error[E5506]: calling 'toString' is unavailable in the current phase: …` word for word, once per spelling; node prints `42`, `1.5`, `42`, `hi` at exit 0. Identical to the module scope, so the deny-set is not scope-keyed."""
+
+[[case]]
+name = "r20_json_stringify_module_scope"
+kind = "oracle"
+register_entry = "R-20"
+program = "r20_module.js"
+verdict = "fail_closed"
+rationale = """R-20, module scope. §2's `Repro` verbatim and complete: `const o={f:1}; console.log(JSON.stringify(o));`.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "R-20 `JSON.stringify` -> 0 | **FAIL-CLOSED** | E5506", and §2's `STATUS 2026-07-20` records the canonical spelling closed by the Stream-A deny-set. FAIL_CLOSED.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with empty stdout and `error[E5506]: calling 'stringify' is unavailable in the current phase: it is a recognized builtin with no implemented lowering, so evaluating it would silently return 0; use explicit literals or the later compatibility path …`; node prints `{"f":1}` at exit 0. `E5506` is inside the documented `E55xx` range, so this classifies FAIL_CLOSED.
+
+The register's own cosmetic note is confirmed in passing: as of `61c2d48ea9` §2 says "the E5506 message names the callee `stringify` (not `JSON.stringify`) -- cosmetic", and that is exactly the text measured here.
+
+This case measures the canonical receiver spelling only. The named residual R-A4-3 -- an ALIASED receiver, `const j = JSON; j.stringify(o)`, which the register records escaping the receiver gate and returning a silent `0` at exit 0 -- is a different program, a different class, and is NOT what this case observes. A reader must not take this green as `JSON.stringify` being safe in every spelling."""
+
+[[case]]
+name = "r20_json_stringify_in_function"
+kind = "oracle"
+register_entry = "R-20"
+program = "r20_function.js"
+verdict = "fail_closed"
+rationale = """R-20, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-20 carries `Verification: sweep-only-top-level-only` and has no `Scopes affected` line, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded FAIL-CLOSED on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with empty stdout and the same `error[E5506]: calling 'stringify' is unavailable in the current phase: …`; node prints `{"f":1}` at exit 0. Identical to the module scope, so the deny-set is not scope-keyed and the entry can stop carrying `sweep-only-top-level-only` for this repro."""
+
+[[case]]
+name = "r21bn_null_through_a_binding_module_scope"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21bn_module.js"
+verdict = "silent"
+rationale = """R-21, `null`-BINDING lane, module scope. §2's binding bullet, first fragment, verbatim and complete: `var x=null; console.log(x)`.
+
+WHY THIS BULLET IS TWO LANES RATHER THAN ONE PROGRAM. The register states the binding bullet as two fragments, `var x=null; console.log(x)` and `var x=undefined; console.log(x)`. They cannot be concatenated into one program: kali rejects the result with `error[E3101]: duplicate binding 'x'` (measured by hand at `36f9c814a2`), so a combined case would have measured redeclaration handling instead of `undefined` rendering. Renaming one binding would have edited a register repro. Two lanes is the only option that leaves both fragments intact.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `null` against kali `0` at exit 0, and §0.2's row reads "R-21 no `undefined` value | **SILENT** | all forms (`null`/`undefined`/absent field/void call/template) render `0`/`false`". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0 with empty stderr; node prints `null` at exit 0.
+
+The entry's own control -- `console.log(null)` in DIRECT LITERAL position, which the register records as CORRECT -- is a different program and is NOT what this case observes. That control is why the entry is about the binding path rather than about `null` itself."""
+
+[[case]]
+name = "r21bn_null_through_a_binding_in_function"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21bn_function.js"
+verdict = "silent"
+rationale = """R-21, `null`-BINDING lane, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-21 carries `Verification: sweep-only (both scopes for D-A-6 and D-C-7; top level only for D-D-12's out-of-bounds cases and D-A-11)`, and the binding bullet is in the both-scopes group.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `null` at exit 0. Identical to the module scope."""
+
+[[case]]
+name = "r21bu_undefined_through_a_binding_module_scope"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21bu_module.js"
+verdict = "silent"
+rationale = """R-21, `undefined`-BINDING lane, module scope. §2's binding bullet, second fragment, verbatim and complete: `var x=undefined; console.log(x)`. See the `r21bn` case for why the bullet's two fragments are two programs rather than one.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `undefined` against kali `0` at exit 0. SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0 with empty stderr; node prints `undefined` at exit 0.
+
+This lane is one half of the register's sharpest observation about this entry, and the two halves are deliberately measurable side by side: through a BINDING, `undefined` renders `0` (here); in CONCAT position it renders `false` (the `r21c` case). As of `61c2d48ea9` §2 calls that "two different wrong answers for one value" and reads it as evidence that each absent path is an independent uninitialized default rather than one modelled `undefined`. Neither case asserts that mechanism; between them they measure the two renderings it is inferred from."""
+
+[[case]]
+name = "r21bu_undefined_through_a_binding_in_function"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21bu_function.js"
+verdict = "silent"
+rationale = """R-21, `undefined`-BINDING lane, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope -- the binding bullet is in §2's both-scopes verification group.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `undefined` at exit 0. Identical to the module scope."""
+
+[[case]]
+name = "r21c_null_and_undefined_in_concat_module_scope"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21c_module.js"
+verdict = "silent"
+rationale = """R-21, CONCAT lane, module scope. §2's concat bullet, both fragments: `console.log("v=" + null)` and `console.log("v=" + undefined)`.
+
+SCAFFOLDING: the two fragments are combined into one program. They are stated as one bullet making one claim and they declare nothing, so unlike the binding bullet they compose without collision. Nothing was renamed, re-valued or reordered, and each fragment already carries its own `console.log`.
+
+BOTH FRAGMENTS ARE LOAD-BEARING AND ARE KEPT. The register's claim here is not that concat is wrong but that it is wrong INCONSISTENTLY -- `null` concatenates as `0` and `undefined` as `false`, which §2 calls "two different wrong answers for one value" as of `61c2d48ea9`. One fragment alone would have measured one wrong answer and lost the finding.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `v=null` / `v=undefined` against kali `v=0` / `v=false`, all exit 0. SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `v=0` then `v=false` at exit 0 with empty stderr; node prints `v=null` then `v=undefined` at exit 0. The inconsistency reproduces exactly: the same value renders two different ways depending on which path reaches the sink.
+
+The entry's template-literal form, which §0.2's row also names, is a different program and is NOT what this case observes."""
+
+[[case]]
+name = "r21c_null_and_undefined_in_concat_in_function"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21c_function.js"
+verdict = "silent"
+rationale = """R-21, CONCAT lane, in-function scope. The module-scope program -- the register's two fragments combined as described in that case's SCAFFOLDING note -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope; the concat bullet is in §2's both-scopes verification group.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `v=0` then `v=false` at exit 0; node prints `v=null` then `v=undefined` at exit 0. Identical to the module scope, so the split between the two wrong renderings is not scope-dependent."""
+
+[[case]]
+name = "r21v_void_return_value_module_scope"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21v_module.js"
+verdict = "silent"
+rationale = """R-21, VOID-RETURN lane, module scope. §2's void-return bullet, both fragments: `function f(){} console.log("r=" + f())` and the bare `console.log(f())`.
+
+SCAFFOLDING: the two fragments are combined into one program over the register's own single `function f(){}` declaration, which the bullet states once and uses for both. Nothing was renamed, re-valued or reordered.
+
+BOTH CONSUMERS ARE LOAD-BEARING AND ARE KEPT. The bullet states the concat consumer and the direct-log consumer separately with their own recorded values (`r=0` and `0`), and R-21's other bullets show these two sinks disagreeing about the same value, so measuring one would not have licensed a statement about the other.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `r=undefined` and `undefined` against kali `r=0` and `0`, exit 0. SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `r=0` then `0` at exit 0 with empty stderr; node prints `r=undefined` then `undefined` at exit 0. Here the two sinks agree with each other and both are wrong.
+
+This is the shape the register's blast-radius note singles out: "function returned nothing prints `0`" is dangerous precisely because `0` is a legitimate value a reader accepts without suspicion. The bullet's other stated form -- a function falling off the end of a NOT-TAKEN `if` -- is a different program and is not measured here. Nor is the entry's "important nuance", that `f() === undefined` COMPARES correctly while rendering collapses; that is the register's observation at `61c2d48ea9` and this case does not re-establish it."""
+
+[[case]]
+name = "r21v_void_return_value_in_function"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21v_function.js"
+verdict = "silent"
+rationale = """R-21, VOID-RETURN lane, in-function scope. The module-scope program -- both consumers over the register's single `function f(){}` -- unchanged inside `function main() { … }` with a trailing `main();`; `f` moves inside the wrapper with it and is called from there.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope; the void-return bullet is in §2's both-scopes verification group.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `r=0` then `0` at exit 0; node prints `r=undefined` then `undefined` at exit 0. Identical to the module scope, including the nesting of `f` inside `main`, so the collapse is not a property of the module-level call graph."""
+
+[[case]]
+name = "r21a_undefined_in_arithmetic_module_scope"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21a_module.js"
+verdict = "silent"
+rationale = """R-21, ARITHMETIC lane, module scope. §2's arithmetic bullet: `undefined + 1` -> `1` (node `NaN`).
+
+SCAFFOLDING: the register states this as a bare expression with an arrow to the value, so a `console.log(…)` was added around it and nothing else. The operand, the operator and the addend are the register's.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `NaN` against kali `1`, exit 0, and §0.2's row ends "`undefined+1`->1". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `1` at exit 0 with empty stderr; node prints `NaN` at exit 0.
+
+WHY THIS LANE IS SEPARATE FROM THE RENDERING LANES. The register is explicit that this rung is wrong while its neighbour is right: `null + 1` -> `1` is CORRECT per JS, "so it is specifically the `undefined`->number rung that is wrong". That makes this a coercion defect rather than another rendering defect, and it is the shape the blast-radius note calls the nastiest -- a missing value contributes `0` to a sum instead of poisoning it to `NaN`, so the error never surfaces. The `null + 1` control is a different program and is not measured here."""
+
+[[case]]
+name = "r21a_undefined_in_arithmetic_in_function"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21a_function.js"
+verdict = "silent"
+rationale = """R-21, ARITHMETIC lane, in-function scope. The module-scope program -- the register's expression plus the added `console.log` described in that case's SCAFFOLDING note -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. §2's Verification line does not say which sweep the arithmetic bullet came from, so the expected class was set on the assumption that the scopes agree, precisely so a disagreement would surface as a red case rather than as an unmeasured gap.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `1` at exit 0; node prints `NaN` at exit 0. Identical to the module scope."""
+
+[[case]]
+name = "r21f_absent_object_field_const_receiver_module_scope"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21f_module.js"
+verdict = "silent"
+rationale = """R-21, ABSENT-FIELD lane with a `const` RECEIVER, module scope. §2's absent-reads bullet, first path: `const o={a:1}; "z="+o.z` -> `z=0` (node `undefined`).
+
+SCAFFOLDING: the register states this path as a bare concat expression with an arrow to the value, so a `console.log(…)` was wrapped around it. The receiver, its single field, the absent field name and the concat prefix are all the register's.
+
+Expected verdict set from the register's recorded status. This is the one lane in this file where two register sections disagree, and the expected class was taken from §0.2's row: as of `61c2d48ea9` it reads "**SILENT** | all forms (`null`/`undefined`/absent field/void call/template) render `0`/`false`". §0.1's 2026-07-29 amendment says the opposite of this lane -- that it "now **fails closed** `E5506 unknown field 'b' on fixed-shape object` at `64438bf0ef`" -- but states the lane as "`o.b` for undeclared `b`" WITHOUT a receiver declarator, so it does not name the program §2 states. SILENT was the expectation for §2's own program.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded in §0.2 -- no reconciliation, and the entry has NOT moved on its own repro. kali prints `z=0` at exit 0 with empty stderr; node prints `z=undefined` at exit 0.
+
+THE RECONCILIATION IS A DISCRIMINATOR, NOT A CHANGED VERDICT. Both register sections are right about different programs, and the discriminator is the RECEIVER'S DECLARATOR KIND. Measured by hand at this same commit and node version while checking this case: `const o={a:1}; console.log("z="+o.z)` prints `z=0` at exit 0 (this case); `let o={a:1}; …` and `var o={a:1}; …` both exit 1 with `error[E5506]: unknown field 'z' on fixed-shape object Binding("_start", "o")`. §2 states the repro with `const`, so §0.2's SILENT row describes it correctly; the amendment's fail-closed lane is real but reachable only from a `let`/`var` receiver, and the `r21fl_*` cases in this file pin it. A §0.2 regenerated from these measurements should split this form by receiver declarator rather than record one class for it.
+
+The bullet's third path -- an out-of-bounds GROWABLE read, recorded `0` -- is not measured anywhere in this file: the register states it in prose with no code, and inventing a fixture for it would have manufactured provenance. That sub-shape is uncovered and this case does not claim it."""
+
+[[case]]
+name = "r21f_absent_object_field_const_receiver_in_function"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21f_function.js"
+verdict = "silent"
+rationale = """R-21, ABSENT-FIELD lane with a `const` RECEIVER, in-function scope. The module-scope program -- the register's fragment plus the added `console.log` -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from §0.2's SILENT row, as for the module scope. As of `61c2d48ea9`, §2's Verification line puts only "D-D-12's out-of-bounds cases and D-A-11" in the top-level-only group, so the missing-field path is in the both-scopes group and the scopes were expected to agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `z=0` at exit 0; node prints `z=undefined` at exit 0. Identical to the module scope, so the `const`-receiver silence is not scope-dependent."""
+
+[[case]]
+name = "r21fl_absent_object_field_let_receiver_module_scope"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21fl_module.js"
+verdict = "fail_closed"
+rationale = """R-21, ABSENT-FIELD lane with a `let` RECEIVER, module scope.
+
+THIS PROGRAM IS NOT A REGISTER REPRO, AND IT IS THE ONLY ONE IN THIS FILE THAT IS NOT. It is §2's absent-field repro with ONE TOKEN CHANGED: the receiver's declarator, `const` -> `let`. Nothing else differs -- same field, same absent field name, same concat prefix, same added `console.log`. It is here because two register sections disagree about this lane and the disagreement could not otherwise be located: as of `61c2d48ea9`, §0.2's R-21 row records SILENT for the absent-field form while §0.1's 2026-07-29 amendment records it "now **fails closed** `E5506 unknown field 'b' on fixed-shape object` at `64438bf0ef`, where §0.2 still records it SILENT" -- and the amendment does not state a declarator. Reporting the amendment's claim as unlocatable would have been worse than measuring it with one disclosed substitution.
+
+Expected verdict set from §0.1's amendment (NOT from §0.2, which is the other side of the disagreement): FAIL_CLOSED.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, matching the amendment -- no reconciliation. kali exits 1 with empty stdout and `error[E5506]: unknown field 'z' on fixed-shape object Binding("_start", "o")`; node prints `z=undefined` at exit 0. `E5506` is inside the documented `E55xx` range, so this classifies FAIL_CLOSED. A `var` receiver was measured by hand at the same commit and behaves identically to `let`.
+
+WHAT THE PAIR OF LANES ESTABLISHES, AND WHAT IT DOES NOT. Together with `r21f_*` this shows the absent-field form is FAIL_CLOSED from a `let` or `var` receiver and SILENT from a `const` one, at this commit, for this field shape. It does NOT establish why, does not claim the split is the same at other object shapes, and does not extend to R-21's other bullets, each of which has its own lane in this file."""
+
+[[case]]
+name = "r21fl_absent_object_field_let_receiver_in_function"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21fl_function.js"
+verdict = "fail_closed"
+rationale = """R-21, ABSENT-FIELD lane with a `let` RECEIVER, in-function scope. The module-scope program -- itself the one non-verbatim source in this file, disclosed in full in the module-scope case -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from §0.1's amendment: FAIL_CLOSED, as for the module scope. The amendment states no scope, so the expected class was set on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, matching the amendment -- no reconciliation. kali exits 1 with empty stdout and `error[E5506]: unknown field 'z' on fixed-shape object Binding("main", "o")`; node prints `z=undefined` at exit 0. The message differs from the module scope's in ONE respect and it is not the class: the binding is reported as `Binding("main", "o")` rather than `Binding("_start", "o")`, which is the enclosing function's name and confirms the refusal is raised at the same site in both scopes."""
+
+[[case]]
+name = "r21o_out_of_bounds_literal_array_read_module_scope"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21o_module.js"
+verdict = "silent"
+rationale = """R-21, OUT-OF-BOUNDS ARRAY-READ lane, module scope. §2's absent-reads bullet, second path: `const a=[1,2]; "oob="+a[5]` -> `oob=false` (node `undefined`).
+
+SCAFFOLDING: the register states this path as a bare concat expression with an arrow to the value, so a `console.log(…)` was wrapped around it and nothing else changed.
+
+WHY THIS PATH IS ITS OWN LANE RATHER THAN SHARING ONE WITH THE MISSING FIELD. The register groups the two under one bullet, but they no longer share a class: the missing-field path fails closed from a `let`/`var` receiver (see `r21fl_*`) while this one is silent, and a single program containing both would have been refused whole, masking whichever line ran second. Splitting is what keeps this path observable at all.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `undefined` against kali `oob=false` at exit 0, and §0.2's row covers it under "all forms … render `0`/`false`". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `oob=false` at exit 0 with empty stderr; node prints `oob=undefined` at exit 0. The `false` rendering is the register's third distinct wrong answer for an absent value in this entry -- `0` through a binding, `0` at a missing field, `false` out of bounds -- and it reproduces exactly.
+
+This case measures the LITERAL-array path. The bullet's growable-array path, recorded `0`, is stated in prose with no code and is not measured anywhere in this file; that sub-shape is uncovered and this case does not claim it."""
+
+[[case]]
+name = "r21o_out_of_bounds_literal_array_read_in_function"
+kind = "oracle"
+register_entry = "R-21"
+program = "r21o_function.js"
+verdict = "silent"
+rationale = """R-21, OUT-OF-BOUNDS ARRAY-READ lane, in-function scope. The module-scope program -- the register's fragment plus the added `console.log` -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS PATH. As of `61c2d48ea9`, §2's Verification line puts "D-D-12's out-of-bounds cases" explicitly in the TOP-LEVEL-ONLY group, so the register had no in-function observation of this path to inherit -- unlike R-21's binding, concat and void-return lanes. The expected class was set to SILENT on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `oob=false` at exit 0; node prints `oob=undefined` at exit 0. Identical to the module scope, including the `false` rendering, so this path can stop carrying the top-level-only qualification."""
+
+[[case]]
+name = "r22_loose_equality_across_types_module_scope"
+kind = "oracle"
+register_entry = "R-22"
+program = "r22_module.js"
+verdict = "silent"
+rationale = """R-22, module scope. §2's `Repro` verbatim and complete: `console.log("v=" + (1=="1"));`.
+
+THE CONCAT POSITION IS LOAD-BEARING AND IS KEPT. As of `61c2d48ea9` the register says why in as many words: "Concat position used deliberately, since direct-log boolean rendering is separately broken (R-30)." Logging the comparison directly would have confounded this entry with R-30 and made a red case unattributable.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `v=true` against kali `v=false` at exit 0, and §0.2's row reads "R-22 `==` cross-type coercion | **SILENT (num<->str)** | `1=="1"`->false; `"1"==true`->fail-closed; `1==true`/`null==undefined`/`1==1.0` correct". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `v=false` at exit 0 with empty stderr; node prints `v=true` at exit 0.
+
+This case measures the number-to-string rung in ONE operand order. §2 records the mirrored order (`"1"==1`) as also `false`, and §0.2 records three neighbouring shapes with two different other classes -- `"1"==true` FAIL-CLOSED, and `1==true` / `null==undefined` / `1==1.0` correct. All of those are different programs and are NOT what this case observes; the register's conclusion that "the table is not simply absent; it is the number/string coercion rung that is missing" is its claim at `61c2d48ea9`, not this case's."""
+
+[[case]]
+name = "r22_loose_equality_across_types_in_function"
+kind = "oracle"
+register_entry = "R-22"
+program = "r22_function.js"
+verdict = "silent"
+rationale = """R-22, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-22 carries `Verification: sweep-only-top-level-only` and has no `Scopes affected` line, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `v=false` at exit 0; node prints `v=true` at exit 0. Identical to the module scope, so the missing coercion rung is scope-independent and the entry can stop carrying `sweep-only-top-level-only` for this repro."""
+
+[[case]]
+name = "r23_typeof_of_a_binding_module_scope"
+kind = "oracle"
+register_entry = "R-23"
+program = "r23_module.js"
+verdict = "silent"
+rationale = """R-23, module scope. §2's `Repro` verbatim and complete: `var b=true; console.log(typeof b);` -- `typeof` applied to a BINDING rather than to a bare literal, which is the distinction the entry is about.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `boolean` against kali `0` at exit 0, and §0.2's row reads "R-23 `typeof` non-literal | **SILENT** | any binding/expression ->0; literal correct". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0 with empty stderr; node prints `boolean` at exit 0. Not the string `"0"` and not the string `"undefined"` -- a number where node produces a type name, which is what makes `typeof x === "string"` dispatch silently never match.
+
+This case measures the `var`-bound boolean shape only. The entry's four correct literal controls (`typeof true`/`1`/`"a"`/`undefined`) and its other wrong shapes -- an object binding, a function binding, a parenthesised comparison, the concat position, and the void-call result the register says yields "the *number* rendering, not even the string `undefined`" -- are different programs and are NOT what this case observes. Nor does this case speak to the entry's mechanism note about a reverted `typeof` codegen flip; that is a history question the register raises at `61c2d48ea9` and no oracle case can answer."""
+
+[[case]]
+name = "r23_typeof_of_a_binding_in_function"
+kind = "oracle"
+register_entry = "R-23"
+program = "r23_function.js"
+verdict = "silent"
+rationale = """R-23, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-23 carries `Verification: sweep-only-top-level-only` and has no `Scopes affected` line, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `boolean` at exit 0. Identical to the module scope, so the entry can stop carrying `sweep-only-top-level-only` for this repro."""
+
+[[case]]
+name = "r24_object_freeze_is_ignored_module_scope"
+kind = "oracle"
+register_entry = "R-24"
+program = "r24_module.js"
+verdict = "silent"
+rationale = """R-24, module scope. §2's `Repro` (`scratchpad/consolidate/fz1.js`) verbatim and complete, both lines: bind, freeze, write, then read back the written field AND read `Object.isFrozen`.
+
+THE BIND-THEN-FREEZE ORDER IS LOAD-BEARING AND IS KEPT, AND SO IS THE `isFrozen` READ. As of `61c2d48ea9` the register attaches a PROBE CAVEAT to this entry in as many words: the weaker spelling `const o=Object.freeze({x:1}); o.x=99;` makes both engines print `x=1` and "reports a match while the defect is live", because the object literal folds and the write is dropped for unrelated reasons. "Any future `Object.freeze` verification must bind first and freeze second." Reordering those two statements would have turned this case green for a reason that has nothing to do with freezing. The `isFrozen` read is kept because the entry's claim is two-part -- the write goes through AND the frozen-ness query itself reports `0`.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `x=1` / `isFrozen=true` against kali `x=99` / `isFrozen=0`, both exit 0; §0.2's row reads "R-24 `Object.freeze` no-op | **SILENT** | write goes through; `isFrozen`->0"; and §2's `STATUS 2026-07-20` records the close attempt DEFERRED with "R-24 STAYS OPEN". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `x=99` then `isFrozen=0` at exit 0 with empty stderr; node prints `x=1` then `isFrozen=true` at exit 0. Both halves reproduce.
+
+This case measures the `fz1.js` shape. The `fz2.js` probe the register calls MISLEADING is deliberately NOT in this file: it agrees on both engines and would classify FIXED, recording a green for an entry the register says is open. If a future author adds it, it must carry the caveat with it."""
+
+[[case]]
+name = "r24_object_freeze_is_ignored_in_function"
+kind = "oracle"
+register_entry = "R-24"
+program = "r24_function.js"
+verdict = "silent"
+rationale = """R-24, in-function scope. The module-scope repro verbatim -- bind-then-freeze order and `isFrozen` read included -- inside `function main() { … }` with a trailing `main();`.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-24 is `CONFIRMED-BY-CONTROLLER` but carries no `Scopes affected` line at all, and its repro is stated at module scope, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `x=99` then `isFrozen=0` at exit 0; node prints `x=1` then `isFrozen=true` at exit 0. Identical to the module scope. That is a new datum for the entry: the freeze is ignored in both scopes, so the missing write barrier is not a module-level-only gap."""
+
+[[case]]
+name = "r25i_array_spread_length_and_index_fold_module_scope"
+kind = "oracle"
+register_entry = "R-25"
+program = "r25i_module.js"
+verdict = "fail_closed"
+rationale = """R-25, `.length`/INDEX-FOLD lane, module scope. §2's `Repro` (`m06_spread_arr.js`) verbatim and complete: spread a plain array-literal binding into a new array, then read the copy's `.length` and its element 0.
+
+BOTH READS ARE LOAD-BEARING AND ARE KEPT. The entry's original wrong answer was a PAIR -- `len=1` and `0=0` -- and §0.2 names this lane by both consumers ("FAIL-CLOSED (idx/len)"), so a program with one read would have measured half the lane.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row is two classes in one cell -- "R-25 array spread `[...a]` | **FAIL-CLOSED (idx/len) / SILENT (console.log)** | `b.length`/`b[i]` E5506; `console.log([...a])`->0 residual still silent" -- and §2's `STATUS 2026-07-20` records the `.length` fold and the numeric-index fold newly failing closed. FAIL_CLOSED for this lane.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with empty stdout; node prints `len=2` then `0=1` at exit 0. kali's stderr carries `warning[E8001]: unsupported unary operator 'spread'` and then TWO refusals, one per consumer. The first: `error[E5506]: array spread [...x] is unavailable in the current phase: kali has no spread-expansion lowering, so the spread would be silently counted as one element; use explicit elements or the later compatibility path`. The second is the same message with the index consumer named instead -- "so indexing a spread literal would silently read the wrong element". The `E8001` line is a WARNING, not an `error[…]`, so it does not affect the class; the first `error[` code on stderr is `E5506`, inside the documented `E55xx` range, and a documented refusal against a clean node run classifies FAIL_CLOSED.
+
+Both diagnostics describe the silent miscompile they replaced -- "silently counted as one element", "silently read the wrong element" -- which is the `len=1` / `0=0` pair §2 recorded. This case measures the two guarded fold sites only; the entry's `new Map([...a])` / `new Set([...a])` residuals, recorded `size=0` at exit 0, are different programs and are NOT what this case observes."""
+
+[[case]]
+name = "r25i_array_spread_length_and_index_fold_in_function"
+kind = "oracle"
+register_entry = "R-25"
+program = "r25i_function.js"
+verdict = "fail_closed"
+rationale = """R-25, `.length`/INDEX-FOLD lane, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-25 carries `Verification: sweep-only-top-level-only` and has no `Scopes affected` line, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded FAIL-CLOSED on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with empty stdout and the same `warning[E8001]` plus two `error[E5506]` refusals word for word; node prints `len=2` then `0=1` at exit 0. Identical to the module scope, so the guarded fold sites are not scope-keyed."""
+
+[[case]]
+name = "r25l_array_spread_console_log_residual_module_scope"
+kind = "oracle"
+register_entry = "R-25"
+program = "r25l_module.js"
+verdict = "silent"
+rationale = """R-25, `console.log` RESIDUAL lane, module scope. §2's named residual of the 2026-07-20 partial close: `console.log([...a])` -> `0` at exit 0 (node `[ 1, 2 ]`).
+
+SCAFFOLDING: the residual is stated presupposing an `a`, so the `const a=[1,2];` that precedes it here is lifted from THIS SAME ENTRY's own `Repro` line rather than written fresh. Nothing else was added; the residual's own `console.log` is the register's.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row says "SILENT (console.log)" and "`console.log([...a])`->0 residual still silent", and §2 records the residual as "pre-existing, NOT closed" with the mechanism named -- `array_literal_contains_spread` is consulted at only about four of about thirty `is_array_literal` consumers. SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0 with empty stderr; node prints `[ 1, 2 ]` at exit 0.
+
+THIS LANE IS THE POINT OF SPLITTING R-25. Its sibling lane in this file refuses the same spread at exit 1; this one accepts it and prints a plausible `0`. That is the register's own "denylist of shapes leaks" pattern made measurable: the guard was added per-site, so whether the same construct is honest or silent depends on which consumer reaches it. Collapsing R-25 to one case would have recorded whichever consumer was written down and hidden the other."""
+
+[[case]]
+name = "r25l_array_spread_console_log_residual_in_function"
+kind = "oracle"
+register_entry = "R-25"
+program = "r25l_function.js"
+verdict = "silent"
+rationale = """R-25, `console.log` RESIDUAL lane, in-function scope. The module-scope program -- the residual plus the borrowed `const a=[1,2];` described in that case's SCAFFOLDING note -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. §2's R-25 is `sweep-only-top-level-only`, so the class was set on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `[ 1, 2 ]` at exit 0. Identical to the module scope, so the unguarded consumer is unguarded in both scopes."""
+
+[[case]]
+name = "r26_unary_plus_on_a_non_numeric_string_module_scope"
+kind = "oracle"
+register_entry = "R-26"
+program = "r26_module.js"
+verdict = "silent"
+rationale = """R-26, module scope. §2's `Repro` verbatim and complete: `console.log(+"abc");`.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `NaN` against kali `5451` at exit 0, and §0.2's row reads "R-26 unary `+` on non-numeric string | **SILENT** | `+"abc"`->garbage int; `+"42"`->42 ok". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `5451` at exit 0 with empty stderr; node prints `NaN` at exit 0. `5451` is digit for digit what the register recorded, and it is exactly what its stated arithmetic model predicts -- an unvalidated accumulator over the bytes, 49*100 + 50*10 + 51.
+
+This case measures ONE input. The register's evidence for the mechanism is a six-row table (`+"a"`->49, `+"abc"`->5451, `+"12x"`->192, `+" "`->-16, `+"  7  "`->-175476, `+"0x10"`->7210) plus five correct controls (`+"42"`, `+"-5"`, `+"1.5"`, `+""`, `+true`); those are different programs and are NOT what this case observes. In particular this case does NOT measure the whitespace shape, which is the one the entry's blast-radius note calls dangerous for `+process.argv[2]` -- leading or trailing whitespace alone producing a large negative integer that flows into loop bounds. That sub-shape is uncovered here."""
+
+[[case]]
+name = "r26_unary_plus_on_a_non_numeric_string_in_function"
+kind = "oracle"
+register_entry = "R-26"
+program = "r26_function.js"
+verdict = "silent"
+rationale = """R-26, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-26 carries `Verification: sweep-only (both scopes, plus via bindings and parameters)`, so the scopes were expected to agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `5451` at exit 0; node prints `NaN` at exit 0. Identical to the module scope, confirming the register's both-scopes verification. The binding and parameter routes it also names are different programs and are not measured here."""
+
+[[case]]
+name = "r27_comma_operator_value_module_scope"
+kind = "oracle"
+register_entry = "R-27"
+program = "r27_module.js"
+verdict = "silent"
+rationale = """R-27, module scope. §2's `Repro` (`p39_comma.js`) verbatim and complete, all five lines -- a plain sequence expression `(1, 2)`, a sequence expression whose first operand is a CALL with a side effect, and a read-back of the side effect's counter.
+
+THE `bump()` CALL AND THE `n` COUNTER ARE LOAD-BEARING AND ARE KEPT. As of `61c2d48ea9` the register's finding is two-part: the sequence's VALUE is lost, but "the side effect fires exactly once". Without the counter this program would measure only the lost value and could not distinguish "the sequence expression is dropped" from "the sequence expression is evaluated and its result discarded" -- which is precisely the entry's mechanism hypothesis (emitted as a statement sequence with `want_value=false`).
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `a=2` / `b=7` / `n=1` against kali `a=0` / `b=0` / `n=1`, exit 0, and §0.2's row reads "R-27 comma operator -> 0 | **SILENT** | value lost; side effect fires once". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `a=0`, `b=0`, `n=1` at exit 0 with empty stderr; node prints `a=2`, `b=7`, `n=1` at exit 0. All three lines match the register digit for digit, including the agreement on `n=1`: the side effect still fires exactly once and only the value is lost.
+
+This case does not measure the `for (i = 0, j = n; …)` header shape the entry's blast-radius note names as the common real-world occurrence; that is a different program and is uncovered here."""
+
+[[case]]
+name = "r27_comma_operator_value_in_function"
+kind = "oracle"
+register_entry = "R-27"
+program = "r27_function.js"
+verdict = "silent"
+rationale = """R-27, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`; `bump` and the counter `n` move inside the wrapper with it.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-27 carries `Verification: sweep-only (top level + one in-function sighting)`, so there was an in-function observation to inherit, though a thinner one than the top-level record.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `a=0`, `b=0`, `n=1` at exit 0; node prints `a=2`, `b=7`, `n=1` at exit 0. Identical to the module scope, so the in-function sighting is now a full measurement rather than a sighting."""
+
+[[case]]
+name = "r28v_negative_zero_reciprocal_module_scope"
+kind = "oracle"
+register_entry = "R-28"
+program = "r28v_module.js"
+verdict = "silent"
+rationale = """R-28, VALUE half, module scope. §2's `Repro` (`p15_negzero.js`): `let mz = -0; 1/mz` -> node `-Infinity`, kali `Infinity`.
+
+SCAFFOLDING: the register states the repro as a binding followed by a bare expression with an arrow to the value, so a `console.log(…)` was wrapped around `1/mz`. The binding, the literal and the division are the register's.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "R-28 `-0` | **SILENT** | `1/-0`->Infinity (node -Infinity)", and §2's Severity line calls the value half "silent-wrong-value". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `Infinity` at exit 0 with empty stderr; node prints `-Infinity` at exit 0. The sign is lost before the division, consistent with the register's hypothesis that `-0` folds to the integer `0`; the hypothesis itself is the register's at `61c2d48ea9` and this case does not establish it.
+
+This case measures the `let`-bound spelling. §2 records two further spellings with the same outcome -- `let z=0; let mz2=-z; 1/mz2`, and the literal `1/-0` -- and two correct controls, `Object.is(-0, 0)` -> `false` and `0 * -1` -> `0`. Those are different programs and are NOT what this case observes."""
+
+[[case]]
+name = "r28v_negative_zero_reciprocal_in_function"
+kind = "oracle"
+register_entry = "R-28"
+program = "r28v_function.js"
+verdict = "silent"
+rationale = """R-28, VALUE half, in-function scope. The module-scope program -- the register's binding and expression plus the added `console.log` -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-28 carries `Verification: sweep-only (top level; the mechanism is representational so both scopes are expected)`. EXPECTED is not MEASURED, so the register had no in-function observation to inherit and the expected class was set to SILENT on the register's stated expectation.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `Infinity` at exit 0; node prints `-Infinity` at exit 0. Identical to the module scope, which turns the register's "both scopes are expected" into a measurement for this repro."""
+
+[[case]]
+name = "r28r_negative_zero_direct_log_module_scope"
+kind = "oracle"
+register_entry = "R-28"
+program = "r28r_module.js"
+verdict = "silent"
+rationale = """R-28, RENDERING half, module scope. §2's "Rendering half" bullet verbatim and complete: `console.log(-0)` -> kali `0`, node `-0`.
+
+WHY THIS HALF IS A SEPARATE LANE. §2 states it as its own bullet over its own program, and the entry's Severity line gives the two halves DIFFERENT severities: "silent-wrong-value (value half); rendering-only (log half)". One case cannot carry two severities, and the halves exercise different paths -- the value half loses the sign before an arithmetic operation, this one loses it at the inspect sink.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `-0` against kali `0` at exit 0; §0.2 gives R-28 one row, SILENT. SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0 with empty stderr; node prints `-0` at exit 0.
+
+The entry's own neighbouring control is NOT measured here and must not be inferred from this case: `console.log("v=" + (-0))` prints `v=0` on BOTH engines and is CORRECT, because `String(-0)` is `"0"` in JS. Only the direct-log inspect path differs. A future author adding the concat form would be adding a case that classifies FIXED, and it would not be evidence about this one."""
+
+[[case]]
+name = "r28r_negative_zero_direct_log_in_function"
+kind = "oracle"
+register_entry = "R-28"
+program = "r28r_function.js"
+verdict = "silent"
+rationale = """R-28, RENDERING half, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope, on §2's stated expectation that a representational mechanism affects both scopes -- an expectation, not a prior measurement.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `-0` at exit 0. Identical to the module scope."""
+
+[[case]]
+name = "r47l_for_of_over_a_let_array_binding_module_scope"
+kind = "oracle"
+register_entry = "R-47"
+program = "r47l_module.js"
+verdict = "silent"
+rationale = """R-47, `let` LANE, module scope. §2's `Repro (module scope)` verbatim and complete: `let a=[1,2,3]; for (const x of a) console.log(x);`. This is the entry's headline shape -- a `let`-declared array binding iterated with `for..of`.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records kali printing one line, the letter `a`, against node's `1` `2` `3`, at exit 0 with no diagnostic; the lane list says "`let a=[1,2,3]` -> **SILENT**"; and §0.2's row reads "R-47 `for..of` over a `let` array iterates the binding's NAME | **SILENT**". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints a single line, `a`, at exit 0 with empty stderr; node prints `1`, `2`, `3` at exit 0. The identifier's own text is still the iterand, and the trip count still follows the identifier's LENGTH rather than the array's.
+
+This case measures the one-character binding name only. The register's name-length/trip-count correspondence -- `let zz=[1,2,3]` printing `z` twice, `let a=[10,20]` printing `a` once -- rests on further programs that are NOT measured here; the correspondence is the register's observation at `61c2d48ea9`. What this case does establish is the entry's most deceptive property, which §2 calls out directly: the loop body genuinely runs, exit is 0, and the output is plausible-looking data rather than a `0` or an empty result."""
+
+[[case]]
+name = "r47l_for_of_over_a_let_array_binding_in_function"
+kind = "oracle"
+register_entry = "R-47"
+program = "r47l_function.js"
+verdict = "silent"
+rationale = """R-47, `let` LANE, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-47 records `Scopes affected: both` and gives its own in-function witness, `function f(){ let a=[1,2,3]; for (const x of a) console.log(x); } f();`, which it says "prints `a`, identically to the module-scope form". This case uses the file's uniform `main()` wrapper rather than the register's `f()`, so that the only difference between it and its module-scope twin is the wrapper.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints a single line, `a`, at exit 0; node prints `1`, `2`, `3` at exit 0. Identical to the module scope, confirming `Scopes affected: both`.
+
+Note what the identical output means for the mechanism claim: the iterand is the ARRAY binding's name, `a`, and it does not become the wrapper's name or change length when the program is nested."""
+
+[[case]]
+name = "r47v_for_of_over_a_var_array_binding_module_scope"
+kind = "oracle"
+register_entry = "R-47"
+program = "r47v_module.js"
+verdict = "fail_closed"
+rationale = """R-47, `var` LANE, module scope.
+
+SCAFFOLDING -- A DECLARATOR SUBSTITUTED. This program is §2's own repro with `let` replaced by `var`, which is how the register itself states the lane: as of `61c2d48ea9` §2 says "**The three declarator lanes differ, and only `let` is silent**" and then gives the lane as "`var a=[1,2,3]` -> **FAIL-CLOSED**" with its `E5506` text quoted in full. The register declares a class per declarator, so the substitution is the register's construct rather than a variant invented here. Nothing else differs from the `let` lane's program.
+
+Expected verdict set from the register's recorded status: FAIL_CLOSED.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with empty stdout and `error[E5506]: for-of array iteration lowering is unavailable unless the iterable is a literal array or supported string iterable with literal elements and the loop target is a variable declaration or simple identifier binding; use a supported loop form or the later compatibility path`, which is the register's quoted text word for word; node prints `1`, `2`, `3` at exit 0. `E5506` is inside the documented `E55xx` range, so this classifies FAIL_CLOSED.
+
+WHY THIS LANE EARNS A CASE IN A SILENT-MISCOMPILE FILE. It is the boundary of the `let` lane, and the diagnostic's own wording -- "literal array or supported string iterable" -- names exactly the two lanes whose confusion produces the silent one. It also covers R-53's fourth documented shape: R-53 records that for-of over a BINDING iterable rather than an array literal fails closed `E5506`, and this program is that shape. If this lane ever goes SILENT, R-47's blast radius has widened to `var` and R-53's bound on the iterable axis has been lost, in one measurement."""
+
+[[case]]
+name = "r47v_for_of_over_a_var_array_binding_in_function"
+kind = "oracle"
+register_entry = "R-47"
+program = "r47v_function.js"
+verdict = "fail_closed"
+rationale = """R-47, `var` LANE, in-function scope. The module-scope program -- §2's repro with the declarator substituted as disclosed there -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: FAIL_CLOSED, as for the module scope. §2's `Scopes affected: both` is stated for the entry as a whole; its in-function witness is given for the `let` lane, so the expected class for this lane at this scope was set on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with empty stdout and the same `error[E5506]: for-of array iteration lowering is unavailable …` word for word; node prints `1`, `2`, `3` at exit 0. Identical to the module scope, so the admittance test is not scope-keyed even though it is declarator-keyed."""
+
+[[case]]
+name = "r47c_for_of_over_a_const_array_binding_module_scope"
+kind = "oracle"
+register_entry = "R-47"
+program = "r47c_module.js"
+verdict = "fixed"
+rationale = """R-47, `const` LANE, module scope.
+
+SCAFFOLDING -- A DECLARATOR SUBSTITUTED, exactly as for the `var` lane: §2's own repro with `let` replaced by `const`, which is how the register states this lane -- "`const a=[1,2,3]` -> **CORRECT**, `1` `2` `3`". Nothing else differs.
+
+Expected verdict set from the register's recorded status: CORRECT, which is FIXED in this file's vocabulary.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FIXED, as recorded -- no reconciliation. kali prints `1`, `2`, `3` at exit 0 with empty stderr; node prints `1`, `2`, `3` at exit 0.
+
+WHY A CORRECT LANE IS WORTH A CASE. It is the entry's discriminator. R-47's three declarator lanes carry three different classes over one construct that differs by a single keyword, and this is the lane that proves the defect is the DECLARATOR rather than `for..of` or array literals. It is also the lane a user is most likely to be standing on: `const` is the idiomatic spelling, so this green is what keeps R-47's blast radius at "high" rather than "total". If it ever goes red the entry has stopped being about declarator kind."""
+
+[[case]]
+name = "r47c_for_of_over_a_const_array_binding_in_function"
+kind = "oracle"
+register_entry = "R-47"
+program = "r47c_function.js"
+verdict = "fixed"
+rationale = """R-47, `const` LANE, in-function scope. The module-scope program -- §2's repro with the declarator substituted as disclosed there -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: FIXED, as for the module scope, on §2's `Scopes affected: both`.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FIXED, as recorded -- no reconciliation. kali prints `1`, `2`, `3` at exit 0; node prints `1`, `2`, `3` at exit 0. Identical to the module scope."""
+
+[[case]]
+name = "r48_array_stored_into_an_i64_object_field_module_scope"
+kind = "oracle"
+register_entry = "R-48"
+program = "r48_module.js"
+verdict = "silent"
+rationale = """R-48, module scope. §2's `Repro` verbatim and complete: `let o={a:6}; o.a=[1,2]; console.log(o.a);` -- a field initialized to a numeric literal, then overwritten with an array, then read back.
+
+THE NUMERIC-LITERAL INITIALIZER IS LOAD-BEARING AND IS KEPT. As of `61c2d48ea9` the entry's mechanism hypothesis is that the field's repr is fixed at `Repr::I64` BY that initializer and the later array store neither widens it nor fails closed. A field initialized to anything else would be a different program, and the entry's title names the `I64` typing explicitly.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `[ 1, 2 ]` against kali `0` at exit 0 with no diagnostic, the entry is `CONFIRMED-BY-CONTROLLER` on a freshly-built binary at `372a3f440`, and §0.2's row reads "R-48 array stored into an `I64` object field reads `0` | **SILENT**". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0 with empty stderr; node prints `[ 1, 2 ]` at exit 0. The store still vanishes and the slot still reads its zero.
+
+This case measures the direct-literal store with a `let` receiver. The entry's two controls -- the ALIASED store (`let b=[1,2]; o.a=b`) and the `const` receiver, both of which the register records behaving identically -- are different programs and are NOT what this case observes. The register's conclusion that "the declarator kind is not the discriminator here; the field's already-inferred scalar repr is" is its claim at `61c2d48ea9`, not this case's."""
+
+[[case]]
+name = "r48_array_stored_into_an_i64_object_field_in_function"
+kind = "oracle"
+register_entry = "R-48"
+program = "r48_function.js"
+verdict = "silent"
+rationale = """R-48, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-48 records `Scopes affected: both, measured`, with its own in-function witness `function f(){ let o={a:6}; o.a=[1,2]; return o.a; } f()` -> `0`. This case uses the file's uniform `main()` wrapper and a `console.log` sink rather than the register's `return`, so that the only difference between it and its module-scope twin is the wrapper; the register's return-valued witness is a different program and is not what this case observes.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `[ 1, 2 ]` at exit 0. Identical to the module scope, confirming `Scopes affected: both, measured`.
+
+A note for the ranking, since R-48 sits in the same escape/provenance-loss family as R-14: the two are NOT the same measurement. R-14 loses an array across a RETURN; this one loses it into a FIELD, with no call boundary anywhere in the program. Both are in this file and both still measure SILENT."""
+
+[[case]]
+name = "r53v_for_of_var_loop_variable_module_scope"
+kind = "oracle"
+register_entry = "R-53"
+program = "r53v_module.js"
+verdict = "silent"
+rationale = """R-53, `var` LOOP-VARIABLE lane, module scope. §2's `Repro` verbatim and complete, all six lines: a `var` loop variable over an array LITERAL, with a per-iteration `console.log` and a running sum.
+
+THE PER-ITERATION LOG AND THE SUM ARE BOTH LOAD-BEARING AND ARE KEPT. As of `61c2d48ea9` the register's central claim for this entry is that "the trip count is CORRECT -- three iterations -- and only the bound value is lost", and that this is "what makes it Tier 2 rather than Tier 1". Only the per-iteration log shows the trip count; only the sum shows the arithmetic consequence. A shortened repro would have measured a wrong value while losing the finding that the loop structure is intact.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `iter=1` / `iter=2` / `iter=3` / `t=6` against kali `iter=0` / `iter=0` / `iter=0` / `t=0`, both at exit 0 with no diagnostic; the entry is `CONFIRMED-BY-CONTROLLER` at `58234e87c7`; and §0.2's row reads "**SILENT (Tier 2)**". SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0`, `iter=0`, `iter=0`, `t=0` at exit 0 with empty stderr; node prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0. Three iterations on both engines: the trip count is still correct and still only the bound value is lost.
+
+THE PROBE-DESIGN CONSEQUENCE THIS CASE PINS. §2 says at length that `for (var v of […])` "must NOT be used as a faithful-loop control", because a fixture asserting "the loop ran three times" passes while a fixture asserting a sum gets a plausible `0`. This case measures both assertions at once, which is why it is the shape that keeps that warning honest. This case does not measure R-53's bound on the ITERABLE axis; R-47's `var` lane in this file measures that construct."""
+
+[[case]]
+name = "r53v_for_of_var_loop_variable_in_function"
+kind = "oracle"
+register_entry = "R-53"
+program = "r53v_function.js"
+verdict = "silent"
+rationale = """R-53, `var` LOOP-VARIABLE lane, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-53 is `CONFIRMED-BY-CONTROLLER` at `58234e87c7` against node v26.5.0 but carries no `Scopes affected` line at all, and both its fixtures are stated at module scope, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0`, `iter=0`, `iter=0`, `t=0` at exit 0; node prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0. Identical to the module scope, so the probe-design warning applies in both scopes rather than only at top level."""
+
+[[case]]
+name = "r53l_for_of_let_loop_variable_module_scope"
+kind = "oracle"
+register_entry = "R-53"
+program = "r53l_module.js"
+verdict = "silent"
+rationale = """R-53, `let` LOOP-VARIABLE lane, module scope. §2's `WIDENED 2026-07-29 (64438bf0ef, fix wave item 1)` fixture verbatim and complete -- a separate, separately dated program from the entry's original repro, with a FOUR-element literal and its own sum.
+
+WHY THIS LANE HAS ITS OWN CASE EVEN THOUGH IT SHARES THE `var` LANE'S CLASS. The register states it as its own dated measurement over its own fixture, and it exists because the original entry got the boundary wrong: as of `61c2d48ea9` §2 says the entry "probed `var` and `const` only and left `let` untested, which made the headline read as if `let` were on the correct side. It is not." Folding this into the `var` lane would re-create exactly the gap the widening was written to close.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `iter=1` / `iter=2` / `iter=3` / `iter=4` / `s=10` against kali `iter=0` x4 / `s=0`, both exit 0, no diagnostic. SILENT.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0`, `iter=0`, `iter=0`, `iter=0`, `s=0` at exit 0 with empty stderr; node prints `iter=1`, `iter=2`, `iter=3`, `iter=4`, `s=10` at exit 0. Four iterations on both engines, so the trip count is correct here too and the widening still holds at HEAD.
+
+This is the half of R-53 that carries its blast radius. §2's own revision says the original "`var` is the transpiled-output spelling" reasoning understated the entry because `for (let x of …)` is also idiomatic modern JS and is also silent, and this case is what that revision rests on."""
+
+[[case]]
+name = "r53l_for_of_let_loop_variable_in_function"
+kind = "oracle"
+register_entry = "R-53"
+program = "r53l_function.js"
+verdict = "silent"
+rationale = """R-53, `let` LOOP-VARIABLE lane, in-function scope. The module-scope widening fixture verbatim inside `function main() { … }` with a trailing `main();`.
+
+THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. §2's R-53 carries no `Scopes affected` line as of `61c2d48ea9`, and the widening explicitly records itself as "measured switch-free at `64438bf0ef` against node v26.5.0" with the fixture at module scope. The expected class was set to SILENT on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0` four times then `s=0` at exit 0; node prints `iter=1` through `iter=4` then `s=10` at exit 0. Identical to the module scope."""
+
+[[case]]
+name = "r53c_for_of_const_loop_variable_module_scope"
+kind = "oracle"
+register_entry = "R-53"
+program = "r53c_module.js"
+verdict = "fixed"
+rationale = """R-53, `const` LOOP-VARIABLE lane, module scope.
+
+SCAFFOLDING -- A DECLARATOR SUBSTITUTED. This program is §2's `var` repro with the loop variable's declarator changed to `const`, which is precisely how the register states this lane: as of `61c2d48ea9` it says "**Control -- `const` is correct.** The byte-identical fixture with `for (const v of [1,2,3])` gives `iter=1` / `iter=2` / `iter=3` / `t=6` on **both** engines." The register declares the class for this declarator, so the substitution is the register's construct rather than a variant invented here. Nothing else differs, including the `var t = 0;` accumulator, which the register leaves as it is.
+
+Expected verdict set from the register's recorded status: CORRECT on both engines, which is FIXED in this file's vocabulary.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FIXED, as recorded -- no reconciliation. kali prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0 with empty stderr; node prints the same four lines at exit 0.
+
+WHY A CORRECT LANE IS WORTH A CASE. §2 uses it to conclude "this is the loop variable's **declarator kind**, not `for…of` and not array literals", and §7-era probe design depends on it: the register's recommended faithful-loop control is `for (const v of …)`, so if this lane ever goes red, an instrument this project relies on has become unusable and R-53 has stopped being about declarator kind. Note also that R-47 and R-53 assign OPPOSITE classes to `var` -- fail-closed there, silent here -- so a reader cannot generalise either entry's declarator story to the other; §2's own comparison table says so."""
+
+[[case]]
+name = "r53c_for_of_const_loop_variable_in_function"
+kind = "oracle"
+register_entry = "R-53"
+program = "r53c_function.js"
+verdict = "fixed"
+rationale = """R-53, `const` LOOP-VARIABLE lane, in-function scope. The module-scope program -- §2's repro with the loop variable's declarator substituted as disclosed there -- unchanged inside `function main() { … }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: FIXED, as for the module scope. §2 carries no `Scopes affected` line for R-53, so the class was set on the assumption that the scopes agree.
+
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FIXED, as recorded -- no reconciliation. kali prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0; node prints the same four lines at exit 0. Identical to the module scope, so the correct lane is correct in both scopes -- which is what licenses `for (const v of …)` as a faithful-loop control in-function as well as at top level."""
