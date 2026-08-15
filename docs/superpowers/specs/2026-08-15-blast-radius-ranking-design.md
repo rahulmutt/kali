@@ -238,7 +238,7 @@ A fourth step kind, `oracle`, joins `cli`, `file_json` and
 `node` over one source, captures `(stdout, stderr, exit)` from both, and derives
 a verdict class:
 
-| kali | node | stdout | verdict |
+| kali | node | observed stream | verdict |
 |---|---|---|---|
 | exit 0 | exit 0 | equal | `FIXED` |
 | exit 0 | exit 0 | differs | `SILENT` |
@@ -248,6 +248,50 @@ a verdict class:
 | exit ≠0 | exit ≠0 | — | `BOTH_REJECT` |
 | either side exceeds the timeout | — | — | `TIMEOUT` |
 | two runs of the same side disagree | — | — | `NONDETERMINISTIC` |
+
+**Amended 2026-08-15 (Task 9).** The third column read `stdout` until this date,
+and the two `exit 0`/`exit 0` rows compared stdout specifically. It now reads
+**the observed stream**, which a case selects with an `oracle`-only
+`observe = "stdout" | "stderr"` field and which **defaults to `stdout`**. The
+default is what every case written before the amendment relies on, so no
+already-recorded verdict changes meaning; `classify(kali, node)` remains exactly
+`classify_observing(kali, node, Stdout)`.
+
+**Why the selector exists.** A rendering defect does not have to land on stdout.
+Register entry **R-33** — `console.warn` injects a `[warn] ` prefix node does not
+emit — renders its *entire* divergence on **stderr**, and a stdout-only
+comparison of that program sees two empty stdouts and two zero exits and returns
+`FIXED` while the defect is live. That is the most damaging output this
+instrument can produce: §0.2 is regenerated from these verdicts, so a false
+`FIXED` would have retired a live entry from the damage set and from the
+published ranking — the exact failure this document exists to end. The stream a
+case compares is therefore something the case *states*, not something the
+classifier assumes.
+
+Two invariants keep the selector honest, and both are pinned by unit tests in
+`kali_blast_radius`:
+
+- **Error-code detection always reads `stderr`**, regardless of what is being
+  observed. A refusal is diagnosed from the diagnostic, and a kali that fails
+  closed writes `error[Ennnn]` to stderr whichever stream the case is comparing.
+  Reading the code off the observed stream would let an `observe = "stderr"`
+  case flip `FAIL_CLOSED` to `FL_INTERNAL` by accident of where a program's own
+  output landed.
+- **Only the two `exit 0`/`exit 0` rows consult the selected stream.** The
+  `FAIL_CLOSED`, `FL_INTERNAL`, `ACCEPTS_INVALID`, `BOTH_REJECT`, `TIMEOUT` and
+  `NONDETERMINISTIC` arms are unaffected: refusal is decided by the exit code, a
+  hang is not an observation on any stream, and the self-agreement check compares
+  each side's exit code, stdout *and* stderr — so a side that is unstable on the
+  stream a case is *not* observing still ranks `NONDETERMINISTIC`.
+
+**Four cases in `cases/oracle/` set `observe = "stderr"`, and all four are
+R-33**: its `console.warn` pair in both scopes, and its `console.error` **control**
+pair. The control lane is worth naming rather than assuming. Observed on stdout
+its `FIXED` was a comparison of *two empty strings*, which could not have
+distinguished a correct `console.error` from a broken one; observed on stderr the
+two engines' streams are genuinely compared, and the register's control claim has
+a real control behind it. Every other oracle case renders through `console.log`,
+which is stdout on both engines, and leaves `observe` unset.
 
 An oracle case's source is the register entry's own **minimal repro** from §2 —
 not a corpus program. The corpus and the oracle fixtures are disjoint
