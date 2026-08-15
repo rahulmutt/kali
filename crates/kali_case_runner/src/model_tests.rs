@@ -1099,3 +1099,31 @@ verdict = "silent"
         "error names the field: {error}"
     );
 }
+
+// A zero budget times out on the first poll no matter what the program does,
+// so a case pairing it with `verdict = "timeout"` would pass having measured
+// nothing. The upper bound keeps the deadline arithmetic (`Instant::now() +
+// Duration`) far from overflow, which panics rather than erroring.
+#[test]
+fn an_oracle_step_with_an_unusable_timeout_is_rejected() {
+    for budget in ["0", "3600001"] {
+        let text = format!(
+            r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+timeout_ms = {budget}
+"#
+        );
+        let error = parse_case_file(&text)
+            .err()
+            .unwrap_or_else(|| panic!("`timeout_ms = {budget}` must be rejected"));
+        assert!(
+            error.contains("timeout_ms"),
+            "error names the field: {error}"
+        );
+    }
+}

@@ -5,6 +5,7 @@ use crate::assertions::{check, check_json, Captured};
 use crate::expand::Trial;
 use crate::model::{Step, StepKind};
 use kali_blast_radius::{classify, runs_agree, Run, Verdict};
+use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -159,14 +160,25 @@ pub const ORACLE_DEFAULT_TIMEOUT_MS: u64 = 30_000;
 /// How often the wait loop wakes to check whether the child has exited.
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
-/// Run `command` to completion or kill it at `budget`.
+/// Run `command` with `env` applied, to completion or killed at `budget`.
+///
+/// `env` is applied here rather than by each caller for the same reason
+/// `capture` applies it: two call sites that each spell the loop out drift
+/// apart, and the one that drifts loses the step's `env` silently.
 ///
 /// stdout and stderr are drained on their own threads. That is not an
 /// optimisation: a child writing past the pipe buffer (64 KiB on Linux) blocks
 /// on the write until someone reads, so a single-threaded "wait then read"
 /// turns any chatty program into a false `TIMEOUT`. R-09's runaway loops make
 /// chatty-and-slow a shape this project measures routinely.
-pub fn run_with_timeout(mut command: Command, budget: Duration) -> Result<Run, String> {
+pub fn run_with_timeout(
+    mut command: Command,
+    env: &BTreeMap<String, String>,
+    budget: Duration,
+) -> Result<Run, String> {
+    for (key, value) in env {
+        command.env(key, value);
+    }
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -190,18 +202,36 @@ pub fn run_with_timeout(mut command: Command, budget: Duration) -> Result<Run, S
     let deadline = Instant::now() + budget;
     let mut timed_out = false;
     let status = loop {
-        match child
-            .try_wait()
-            .map_err(|error| format!("wait failed: {error}"))?
-        {
-            Some(status) => break Some(status),
-            None if Instant::now() >= deadline => {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status),
+            Ok(None) if Instant::now() >= deadline => {
+                // Kills the direct child only. A grandchild that inherited the
+                // pipe write ends keeps them open, so the joins below can block
+                // past the budget with nothing to interrupt them -- "never call
+                // a hang green" inverted into an unbounded hang. Closing it
+                // needs the child put in its own process group at spawn
+                // (`CommandExt::process_group`) and the group killed here;
+                // deliberately out of scope for this task, and none of the
+                // programs this runner measures today fork. Recorded so the
+                // next reader does not have to rediscover it.
                 let _ = child.kill();
                 let _ = child.wait();
                 timed_out = true;
                 break None;
             }
-            None => std::thread::sleep(POLL_INTERVAL),
+            Ok(None) => std::thread::sleep(POLL_INTERVAL),
+            // The one path that would otherwise abandon state this function
+            // created: two reader threads are live and the child is still
+            // running. Kill it so the pipes close, join them, and only then
+            // report -- a detached thread on an orphaned child outlives the
+            // trial that made it.
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = stdout_reader.join();
+                let _ = stderr_reader.join();
+                return Err(format!("wait failed: {error}"));
+            }
         }
     };
 
@@ -218,6 +248,42 @@ pub fn run_with_timeout(mut command: Command, budget: Duration) -> Result<Run, S
         stderr: String::from_utf8_lossy(&stderr).into_owned(),
         timed_out,
     })
+}
+
+/// The verdict class four runs -- two per engine -- rank to.
+///
+/// Extracted from `run_oracle` because it is the whole measurement: it is the
+/// only part of the oracle path that can be tested without a `kali` binary and
+/// a `node`, and while it was inline it was untested and wrong (it inspected
+/// only each side's *first* run).
+///
+/// The order is the ranking, strongest evidence of an unusable measurement
+/// first:
+///
+/// 1. A hang on ANY of the four runs is `TIMEOUT`. A side that settles once
+///    and hangs once has not been measured; calling that `NONDETERMINISTIC`
+///    would rank a hang below a disagreement, which is exactly backwards --
+///    the disagreement is a real observation, the hang is the absence of one.
+/// 2. A side that disagrees with itself is `NONDETERMINISTIC`: whichever
+///    answer came out first is not reproducible, so no class derived from it
+///    can be either.
+/// 3. Otherwise both sides are stable and `classify` reads the pair.
+fn rank(kali_a: &Run, kali_b: &Run, node_a: &Run, node_b: &Run) -> Verdict {
+    if kali_a.timed_out || kali_b.timed_out || node_a.timed_out || node_b.timed_out {
+        return Verdict::Timeout;
+    }
+    if !runs_agree(kali_a, kali_b) || !runs_agree(node_a, node_b) {
+        return Verdict::Nondeterministic;
+    }
+    classify(kali_a, node_a)
+}
+
+/// One side's captured run, rendered for a mismatch report.
+fn describe_run(label: &str, run: &Run) -> String {
+    format!(
+        "  {label}: exit {:?} timed_out {} stdout {:?} stderr {:?}\n",
+        run.code, run.timed_out, run.stdout, run.stderr
+    )
 }
 
 /// The node binary the oracle uses. `KALI_ORACLE_NODE` overrides it so a
@@ -246,18 +312,12 @@ fn run_oracle(config: &RunnerConfig, dir: &Path, step: &Step) -> Result<(), Stri
     let kali_run = || {
         let mut command = Command::new(&config.kali_bin);
         command.current_dir(dir).args(["run", program]);
-        for (key, value) in &step.env {
-            command.env(key, value);
-        }
-        run_with_timeout(command, budget)
+        run_with_timeout(command, &step.env, budget)
     };
     let node_run = || {
         let mut command = Command::new(oracle_node());
         command.current_dir(dir).arg(program);
-        for (key, value) in &step.env {
-            command.env(key, value);
-        }
-        run_with_timeout(command, budget)
+        run_with_timeout(command, &step.env, budget)
     };
 
     // Both sides run twice. A verdict derived from a single run of a
@@ -269,31 +329,30 @@ fn run_oracle(config: &RunnerConfig, dir: &Path, step: &Step) -> Result<(), Stri
     let node_a = node_run()?;
     let node_b = node_run()?;
 
-    let actual = if kali_a.timed_out || node_a.timed_out {
-        Verdict::Timeout
-    } else if !runs_agree(&kali_a, &kali_b) || !runs_agree(&node_a, &node_b) {
-        Verdict::Nondeterministic
-    } else {
-        classify(&kali_a, &node_a)
-    };
-
+    let actual = rank(&kali_a, &kali_b, &node_a, &node_b);
     if actual == expected {
         return Ok(());
     }
-    Err(format!(
-        "verdict mismatch for {entry}: expected `{}`, measured `{}`\n  \
-         kali: exit {:?} stdout {:?} stderr {:?}\n  \
-         node: exit {:?} stdout {:?} stderr {:?}",
-        expected.as_str(),
-        actual.as_str(),
-        kali_a.code,
-        kali_a.stdout,
-        kali_a.stderr,
-        node_a.code,
-        node_a.stdout,
-        node_a.stderr,
+
+    let mut detail = format!(
+        "verdict mismatch for {entry}: expected `{expected}`, measured `{actual}`\n{kali}{node}",
         entry = step.register_entry.as_deref().unwrap_or("<no entry>"),
-    ))
+        expected = expected.as_str(),
+        actual = actual.as_str(),
+        kali = describe_run("kali", &kali_a),
+        node = describe_run("node", &node_a),
+    );
+    // For these two classes the second pair of runs *is* the evidence: a
+    // NONDETERMINISTIC verdict is a statement about how the two runs of a side
+    // differ, and a TIMEOUT can be carried entirely by a b-run while both
+    // a-runs look ordinary. Printing only the a-runs would leave the reader
+    // unable to see why the class was assigned. Other classes are decided by
+    // the a-runs alone, so the b-runs are noise there.
+    if matches!(actual, Verdict::Nondeterministic | Verdict::Timeout) {
+        detail.push_str(&describe_run("kali (2nd run)", &kali_b));
+        detail.push_str(&describe_run("node (2nd run)", &node_b));
+    }
+    Err(detail)
 }
 
 /// Reject a trial-relative path that would escape the trial's temp dir: an

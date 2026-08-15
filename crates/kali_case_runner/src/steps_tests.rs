@@ -579,8 +579,12 @@ exit = "success"
 fn a_timeout_is_reported_as_a_timeout_not_a_hang() {
     let mut command = std::process::Command::new("sleep");
     command.arg("30");
-    let run = crate::steps::run_with_timeout(command, std::time::Duration::from_millis(100))
-        .expect("spawns");
+    let run = crate::steps::run_with_timeout(
+        command,
+        &BTreeMap::new(),
+        std::time::Duration::from_millis(100),
+    )
+    .expect("spawns");
     assert!(run.timed_out, "a killed process must report timed_out");
 }
 
@@ -590,8 +594,12 @@ fn a_fast_process_is_captured_whole() {
     command
         .arg("-c")
         .arg("printf 'out'; printf 'err' 1>&2; exit 3");
-    let run = crate::steps::run_with_timeout(command, std::time::Duration::from_secs(10))
-        .expect("spawns");
+    let run = crate::steps::run_with_timeout(
+        command,
+        &BTreeMap::new(),
+        std::time::Duration::from_secs(10),
+    )
+    .expect("spawns");
     assert!(!run.timed_out);
     assert_eq!(run.code, Some(3));
     assert_eq!(run.stdout, "out");
@@ -605,8 +613,12 @@ fn a_large_output_does_not_deadlock_on_the_pipe_buffer() {
     // working program into a false TIMEOUT verdict.
     let mut command = std::process::Command::new("sh");
     command.arg("-c").arg("yes x | head -c 400000");
-    let run = crate::steps::run_with_timeout(command, std::time::Duration::from_secs(30))
-        .expect("spawns");
+    let run = crate::steps::run_with_timeout(
+        command,
+        &BTreeMap::new(),
+        std::time::Duration::from_secs(30),
+    )
+    .expect("spawns");
     assert!(!run.timed_out, "large output must not be read as a hang");
     assert_eq!(run.stdout.len(), 400_000);
 }
@@ -637,4 +649,109 @@ verdict = "silent"
     let trials = expand("blast/r13", &file).expect("expand");
     let err = run_trial(&config_for(bin), &trials[0]).expect_err("must fail");
     assert!(err.contains("r13.js"), "must name the program: {err}");
+}
+
+/// A run that settled: `code`, `stdout`, nothing on stderr.
+fn settled(code: i32, stdout: &str) -> Run {
+    Run {
+        code: Some(code),
+        stdout: stdout.to_string(),
+        stderr: String::new(),
+        timed_out: false,
+    }
+}
+
+/// A run that was killed at its budget.
+fn hung() -> Run {
+    Run {
+        code: None,
+        stdout: String::new(),
+        stderr: String::new(),
+        timed_out: true,
+    }
+}
+
+// A hang on ANY of the four runs outranks every other class. The b-runs are
+// the ones that matter here: a side that settles on run 1 and hangs on run 2
+// used to fall through to `runs_agree` (false whenever either run timed out)
+// and be recorded as NONDETERMINISTIC -- the wrong class for exactly the case
+// the ranking exists to order.
+#[test]
+fn a_hang_on_any_of_the_four_runs_ranks_as_timeout() {
+    for position in ["kali_a", "kali_b", "node_a", "node_b"] {
+        let mut quad = [
+            settled(0, "1\n"),
+            settled(0, "1\n"),
+            settled(0, "1\n"),
+            settled(0, "1\n"),
+        ];
+        let index = ["kali_a", "kali_b", "node_a", "node_b"]
+            .iter()
+            .position(|name| *name == position)
+            .expect("known position");
+        quad[index] = hung();
+        assert_eq!(
+            rank(&quad[0], &quad[1], &quad[2], &quad[3]),
+            Verdict::Timeout,
+            "a hang on {position} must outrank every other class"
+        );
+    }
+}
+
+#[test]
+fn a_side_that_disagrees_with_itself_ranks_as_nondeterministic() {
+    assert_eq!(
+        rank(
+            &settled(0, "1\n"),
+            &settled(0, "2\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n")
+        ),
+        Verdict::Nondeterministic,
+        "kali disagreeing with itself"
+    );
+    assert_eq!(
+        rank(
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            &settled(0, "2\n")
+        ),
+        Verdict::Nondeterministic,
+        "node disagreeing with itself"
+    );
+}
+
+#[test]
+fn four_agreeing_runs_rank_by_classify() {
+    assert_eq!(
+        rank(
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n")
+        ),
+        Verdict::Fixed,
+        "same output on both engines"
+    );
+    assert_eq!(
+        rank(
+            &settled(0, "0.5\n"),
+            &settled(0, "0.5\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n")
+        ),
+        Verdict::Silent,
+        "both accept, outputs differ"
+    );
+}
+
+#[test]
+fn env_passed_to_run_with_timeout_reaches_the_child() {
+    let mut command = std::process::Command::new("sh");
+    command.arg("-c").arg("printf '%s' \"$ORACLE_TEST_KEY\"");
+    let env = BTreeMap::from([("ORACLE_TEST_KEY".to_string(), "seen".to_string())]);
+    let run = crate::steps::run_with_timeout(command, &env, std::time::Duration::from_secs(10))
+        .expect("spawns");
+    assert_eq!(run.stdout, "seen");
 }

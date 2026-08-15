@@ -301,6 +301,22 @@ fn count_bound(
     }
 }
 
+/// The largest `timeout_ms` an `oracle` step may declare, one hour.
+///
+/// Two things it closes, both of which are a case that asserts nothing:
+///
+/// - `timeout_ms = 0` kills the child at the first poll whatever it was doing,
+///   so a case pairing it with `verdict = "timeout"` passes having measured
+///   nothing at all -- ran-nothing-green through the front door.
+/// - A budget near `u64::MAX` overflows `Instant::now() + Duration` in
+///   `steps::run_with_timeout`, which *panics* rather than erroring, taking
+///   the whole test process with it. Bounding the value at parse time is what
+///   makes that arithmetic total; the bound is an hour rather than the largest
+///   safe `Duration` because no honest measurement of a single source file
+///   runs for an hour, and the cost of being wrong about that is one case
+///   author reading one error message.
+const ORACLE_MAX_TIMEOUT_MS: u64 = 60 * 60 * 1_000;
+
 /// An empty needle is rejected rather than evaluated. Rust's `str::matches`
 /// yields `haystack.chars().count() + 1` matches for `""` (one at every
 /// character boundary, including both ends), which is a number no case author
@@ -438,8 +454,9 @@ pub struct Step {
     pub program: Option<String>,
     /// `oracle` only: the verdict class the run must produce.
     pub verdict: Option<kali_blast_radius::Verdict>,
-    /// `oracle` only: per-run wall-clock budget. Defaults to
-    /// `steps::ORACLE_DEFAULT_TIMEOUT_MS` when unset.
+    /// `oracle` only: per-run wall-clock budget, between 1 and
+    /// `ORACLE_MAX_TIMEOUT_MS`. Defaults to `steps::ORACLE_DEFAULT_TIMEOUT_MS`
+    /// when unset.
     pub timeout_ms: Option<u64>,
 }
 
@@ -647,6 +664,14 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
                     "case `{case_name}`: an `oracle` step requires `verdict` -- without it the \
                      step runs both engines and asserts nothing"
                 ));
+            }
+            if let Some(budget) = raw.timeout_ms {
+                if budget == 0 || budget > ORACLE_MAX_TIMEOUT_MS {
+                    return Err(format!(
+                        "case `{case_name}`: `timeout_ms = {budget}` is not a usable budget -- \
+                         set it between 1 and {ORACLE_MAX_TIMEOUT_MS}"
+                    ));
+                }
             }
             // An oracle step asserts a derived class, never raw output. A
             // process-output assertion on it would parse clean and never be
