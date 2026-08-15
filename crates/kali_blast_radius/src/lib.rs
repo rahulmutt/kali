@@ -17,6 +17,9 @@ pub use manifest::{
 mod register;
 pub use register::{parse_register, RegisterEntry};
 
+mod score;
+pub use score::{aggregate, band, dominates, Cluster, ScoredEntry};
+
 mod verdict;
 pub use verdict::{
     classify, classify_observing, is_documented_code, runs_agree, ObservedStream, Run, Verdict,
