@@ -965,7 +965,7 @@ name = "r30f_string_result_reassigned_binding_multi_arg_module_scope"
 kind = "oracle"
 register_entry = "R-30"
 program = "r30f_module.js"
-verdict = "fail_closed"
+verdict = "fixed"
 rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, MULTI-argument sink, module scope. The pair to `r30e`: the identical binding, module-scope program, differing only in argument count at the sink (`console.log("x", s)` instead of `console.log(s)`).
 
 WHY IT EXISTS. `string_result_render_taint`'s own doc (`crates/kali_codegen/src/emit/call.rs:4729-4732`) lists its sinks as "`+`, template literal, multi-arg console via `emit_as_string`, or arithmetic operator lowering". So today kali gives two different answers for the SAME value depending on how many arguments the call has: `console.log(s)` prints (`r30e`, taint-exempt), `console.log("x", s)` fails closed `E5506` (this case, tainted). That is G8's own pattern -- two sinks, two answers -- one level down inside console itself (design spec §5.1.1).
@@ -974,17 +974,25 @@ EXPECTED TO MOVE. This case is authored `fail_closed` to pin the CURRENT behavio
 
 The widening is safe on the same grounds as the design's §3.1: `value_to_string` renders the handle that the taint existed to keep away from `int_to_string`, so on the console path the hazard the deny guarded is gone rather than merely tolerated.
 
-MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FAIL_CLOSED. kali exits nonzero (exit 1) with `error[E5506]: rendering a String() result bound to a variable (let/var/const) or returned from a function is unavailable in the current phase: kali seeds no string representation for it, so the tagged string handle would print as raw integer bits instead of the text; use the String() call inline at the render site (fail-closed; correct-output support is follow-up F-newB-1)`; node prints `x 42` at exit 0."""
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FAIL_CLOSED. kali exits nonzero (exit 1) with `error[E5506]: rendering a String() result bound to a variable (let/var/const) or returned from a function is unavailable in the current phase: kali seeds no string representation for it, so the tagged string handle would print as raw integer bits instead of the text; use the String() call inline at the render site (fail-closed; correct-output support is follow-up F-newB-1)`; node prints `x 42` at exit 0.
+
+MOVED 2026-08-15 by the console-render-unification project, deliberately and as its only behavior widening (spec §5.1.1). Both console lanes now take `StringSink::Console`, whose terminal arm is `value_to_string` and which skips the `string_result_render_taint` deny. Nothing about the taint predicate changed: this program's reassigned binding (`let s = 0n; s = String(42n);`) still makes `string_result_render_taint(s)` true, and the `+`/template-literal sinks still deny on it under `StringSink::Concat`. What changed is that the console sink no longer asks -- `value_to_string` decodes the tagged handle at run time, so the hazard the deny guarded (the handle's raw bits through `int_to_string`) cannot arise on this arm. kali now prints `x 42`, matching node. The two console lanes agree with each other for the first time: before this commit this same reassigned binding printed at the single-argument sink (`r30e`) and failed closed at the multi-argument one, differing only by argument count.
+
+MEASURED 2026-08-15 after the flip against node v26.7.0: FIXED. kali prints `x 42` at exit 0; node prints `x 42` at exit 0."""
 
 [[case]]
 name = "r30f_string_result_reassigned_binding_multi_arg_in_function"
 kind = "oracle"
 register_entry = "R-30"
 program = "r30f_function.js"
-verdict = "fail_closed"
+verdict = "fixed"
 rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, MULTI-argument sink, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`. See the module-scope case for why the lane exists and why it is expected to move to `fixed` in this project.
 
-MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FAIL_CLOSED, matching the module scope. kali exits nonzero (exit 1) with the same `E5506` `STRING_RESULT_RENDER_DENY` message; node prints `x 42` at exit 0."""
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FAIL_CLOSED, matching the module scope. kali exits nonzero (exit 1) with the same `E5506` `STRING_RESULT_RENDER_DENY` message; node prints `x 42` at exit 0.
+
+MOVED 2026-08-15 by the console-render-unification project, with the module-scope case and for the same reason: both console lanes now take `StringSink::Console`, whose terminal arm is `value_to_string` and which skips the `string_result_render_taint` deny. The reassigned binding still trips the taint predicate and the `+`/template-literal sinks still deny on it; the console sink no longer consults it. See the module-scope case for the full argument.
+
+MEASURED 2026-08-15 after the flip against node v26.7.0: FIXED, matching the module scope. kali prints `x 42` at exit 0; node prints `x 42` at exit 0."""
 
 [[case]]
 name = "r30g_string_result_proven_binding_single_arg_module_scope"

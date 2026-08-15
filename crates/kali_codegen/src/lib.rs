@@ -82,11 +82,8 @@ const STRING_CONCAT_ARENA_IMPORT_INDEX: u32 = 21;
 // function-index base move uniformly by +1, and both are referenced solely
 // through the `COVERAGE_HIT_IMPORT_INDEX` / `FUNCTION_INDEX_OFFSET` constants
 // below (recomputed here), so the shift is mechanical and behavior-neutral --
-// the same precedent `string_concat_arena` set immediately above. Registered
-// but not yet wired into the ladder -- consumed by Task 5, which emits the
-// `Call` and is the point at which the `#[allow(dead_code)]` below should be
-// removed.
-#[allow(dead_code)]
+// the same precedent `string_concat_arena` set immediately above. The terminal
+// arm of `emit_as_string` under `StringSink::Console` -- both console lanes.
 const VALUE_TO_STRING_IMPORT_INDEX: u32 = 22;
 const COVERAGE_HIT_IMPORT_INDEX: u32 = 23;
 const FUNCTION_INDEX_OFFSET: u32 = 23;

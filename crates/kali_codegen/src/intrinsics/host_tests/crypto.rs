@@ -135,19 +135,31 @@ fn crypto_get_random_values_result_length_reads_the_buffer_length_header() {
         "{} ",
         printed.split_whitespace().collect::<Vec<_>>().join(" ")
     );
-    // `call 1` is the `kali:rt` `console_log` import (index 1).
+    // `call 1` is the `kali:rt` `console_log` import (index 1); `call 22` is
+    // `value_to_string`, the terminal arm the single-argument console lane
+    // acquired when it started sharing `emit_as_string` under
+    // `StringSink::Console` (console-render-unification). It sits between the
+    // length load and the console call on both reads; it renders the loaded
+    // integer exactly as the host used to render the raw i64 it was handed, so
+    // this is a shape change to the pin, not to what the pin establishes.
     assert!(
         normalized.contains("import \"kali:rt\" \"console_log\" (func (;1;)"),
         "console_log is no longer import index 1; re-anchor this pin: {printed}"
     );
+    assert!(
+        normalized.contains("import \"kali:rt\" \"value_to_string\" (func (;22;)"),
+        "value_to_string is no longer import index 22; re-anchor this pin: {printed}"
+    );
     assert_eq!(
-        normalized.matches("i32.wrap_i64 i64.load call 1 ").count(),
+        normalized
+            .matches("i32.wrap_i64 i64.load call 22 call 1 ")
+            .count(),
         2,
         "expected `.length` and `.byteLength` to each load the i64 length header \
          at +0 of the result handle: {printed}"
     );
     assert!(
-        !normalized.contains("i64.const 0 call 1 "),
+        !normalized.contains("i64.const 0 call 22 call 1 "),
         "a console.log argument regressed to the baked silent zero: {printed}"
     );
 }
