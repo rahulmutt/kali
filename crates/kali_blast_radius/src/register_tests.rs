@@ -77,6 +77,46 @@ fn entries_after_a_non_tier_section_heading_are_skipped() {
     );
 }
 
+/// The register already writes `R-06-R2` / `R-06-R3` in its prose, so this
+/// header shape is one naming convention away from being live. It used to
+/// parse the number as `06-R2`, fail the all-digits check, return `None`, and
+/// the entry vanished -- no error, a register that still parsed, and one fewer
+/// entry in every count downstream.
+#[test]
+fn a_header_whose_id_does_not_parse_is_an_error_not_a_silent_drop() {
+    for malformed in [
+        "## Tier 1 — x\n\n### R-01: fine\n\n### R-06-R2: whole-object reassignment\n",
+        "## Tier 1 — x\n\n### R-01: fine\n\n### R-:  no number at all\n",
+        "## Tier 1 — x\n\n### R-01: fine\n\n### R-7a: a typo'd suffix\n",
+    ] {
+        let error = parse_register(malformed)
+            .expect_err("an unreadable id must not be dropped without a word");
+        assert!(
+            error.contains("### R-"),
+            "error quotes the offending header: {error}"
+        );
+    }
+}
+
+/// The same shape outside §2 is still an error. Ignoring it because of where
+/// it sits would be the silent drop under another name -- and §2's bound is
+/// itself derived from headings, so a parser that trusts it to excuse an
+/// unreadable header is trusting the thing that may have moved.
+#[test]
+fn an_unreadable_header_outside_section_2_is_still_an_error() {
+    let sample = "\
+## Tier 1 — x
+
+### R-01: in tier 1
+
+## Some other section
+
+### R-06-R2: discussed in prose, not a tier-ranked entry
+";
+    let error = parse_register(sample).expect_err("an unreadable id anywhere must be reported");
+    assert!(error.contains("R-06-R2"), "error names it: {error}");
+}
+
 #[test]
 fn parses_the_real_register_and_finds_all_four_tiers() {
     let text = std::fs::read_to_string(concat!(
