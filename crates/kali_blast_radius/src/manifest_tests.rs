@@ -125,6 +125,25 @@ const FROZEN_ANCHOR_COUNT: usize = 137;
 const FROZEN_EXTENSION_COUNT: usize = 40;
 const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f";
 
+/// The other half of the same freeze, pinned the same way.
+///
+/// Spec §4.3 freezes `predicates.json` alongside the corpus, and
+/// `corpus/README.md` says so in the same sentence -- but only the corpus half
+/// was mechanical. The catalogue was checked for COMPLETENESS (41 records ↔ 41
+/// entries, matcher names agreeing with `matchers.mjs`), which is silent about
+/// *which* matcher an entry maps to: swap R-13's matcher for R-14's and every
+/// completeness check stays green while both counts change.
+///
+/// `matchers.mjs` is pinned beside it because the catalogue only NAMES the
+/// counting semantics; the semantics themselves are the matcher bodies. A
+/// count is a function of (corpus, matcher body), so pinning the map without
+/// the territory leaves the arithmetic behind every published frequency
+/// unpinned.
+const FROZEN_PREDICATES_SHA256: &str =
+    "ec732d1cb40a7821c4ea6b52c912d4186f6f038e720a3fd0d5dc1c7961f19a71";
+const FROZEN_MATCHERS_SHA256: &str =
+    "145ed84ee755f96e2e5fa66d5c3a2b641de8a9c5a67c072019b88249fdf30028";
+
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {
     // `the_shipped_corpus_matches_its_manifest` proves the manifest and the
@@ -173,6 +192,33 @@ fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {
         "the frozen corpus_hash is the token every downstream result cites; changing it needs \
          its own justified commit"
     );
+}
+
+#[test]
+fn the_frozen_catalogue_and_its_matchers_are_the_ones_the_counts_were_taken_with() {
+    // If this fails, `predicates.json` or `matchers.mjs` moved after the
+    // freeze. The fix is not to update the constant in passing: §4.3 requires
+    // a separate, explicitly-justified commit that says why the instrument
+    // moved, and `counts.json` and the published ranking must be regenerated
+    // with it -- a changed matcher body changes every figure downstream of it
+    // while every completeness check stays green.
+    let tools = std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tools/blast-radius"
+    ));
+    for (file, frozen) in [
+        ("predicates.json", FROZEN_PREDICATES_SHA256),
+        ("matchers.mjs", FROZEN_MATCHERS_SHA256),
+    ] {
+        let bytes = std::fs::read(tools.join(file))
+            .unwrap_or_else(|error| panic!("{file} is readable: {error}"));
+        assert_eq!(
+            sha256_of(&bytes),
+            frozen,
+            "{file} is not the file the published counts were taken with; changing it needs \
+             its own justified commit, and `counts.json` regenerated with it"
+        );
+    }
 }
 
 #[test]
