@@ -57,6 +57,27 @@ fn a_duplicate_entry_id_is_an_error() {
 }
 
 #[test]
+fn entries_after_a_non_tier_section_heading_are_skipped() {
+    let sample = "\
+## Tier 1 — silently drops code or output
+
+### R-01: in tier 1
+
+## Some other section
+
+### R-50: not in section 2, must be skipped
+";
+    let entries = parse_register(sample).expect("sample with non-tier heading parses");
+    assert_eq!(entries.len(), 1, "R-50 outside §2 must be skipped");
+    assert_eq!(entries[0].id, "R-01");
+    assert_eq!(entries[0].tier, 1);
+    assert!(
+        !entries.iter().any(|e| e.id == "R-50"),
+        "R-50 appeared after a non-tier heading and must not be parsed"
+    );
+}
+
+#[test]
 fn parses_the_real_register_and_finds_all_four_tiers() {
     let text = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -64,10 +85,17 @@ fn parses_the_real_register_and_finds_all_four_tiers() {
     ))
     .expect("the register is readable");
     let entries = parse_register(&text).expect("the real register parses");
-    assert!(
-        entries.len() >= 40,
-        "expected the register's ~42 entries, got {}",
+    assert_eq!(
+        entries.len(),
+        41,
+        "expected exactly 41 tier-ranked entries (§2's total from the register's numbering note); \
+         this count must be updated deliberately when §2 gains an entry, got {}",
         entries.len()
+    );
+    assert!(
+        !entries.iter().any(|e| e.id == "R-50"),
+        "R-50 is filed in §7, not §2, because it is not a silent miscompile — \
+         kali exits nonzero with a diagnostic — and must not be parsed as a tier-ranked entry"
     );
     for tier in 1..=4u8 {
         assert!(

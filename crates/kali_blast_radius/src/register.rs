@@ -37,15 +37,32 @@ fn entry_of_header(line: &str) -> Option<(String, String)> {
 pub fn parse_register(markdown: &str) -> Result<Vec<RegisterEntry>, String> {
     let mut entries: Vec<RegisterEntry> = Vec::new();
     let mut tier: Option<u8> = None;
+    let mut in_section_2 = true;
 
     for line in markdown.lines() {
         if let Some(found) = tier_of_header(line) {
             tier = Some(found);
+            in_section_2 = true;
+            continue;
+        }
+        // If we see a non-tier `## ` heading after the tier section has started, we've left §2.
+        // R-50 is filed in §7 because it is not a silent miscompile — kali exits nonzero
+        // with a diagnostic — and tiering it would rank a fail-loudly defect as rendering-only
+        // damage. The register's numbering note states that §2 holds 41 tier-ranked entries,
+        // and R-50 is the sole `### R-` header outside §2's tier headings. Once a non-tier
+        // `## ` heading appears after we've seen a tier header, subsequent `### R-` entries
+        // are outside the tier table and must be skipped.
+        if line.starts_with("## ") && tier.is_some() && !matches!(tier_of_header(line), Some(_)) {
+            in_section_2 = false;
             continue;
         }
         let Some((id, title)) = entry_of_header(line) else {
             continue;
         };
+        // Skip entries that appear outside §2 (after a non-tier `## ` heading).
+        if !in_section_2 {
+            continue;
+        }
         let Some(tier) = tier else {
             return Err(format!(
                 "entry `{id}` appears before any `## Tier N` header -- it has no tier, and \
