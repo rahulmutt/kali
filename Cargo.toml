@@ -9,6 +9,7 @@ members = [
     "crates/kali_types",
     "crates/kali_test_support",
     "crates/kali_case_runner",
+    "crates/kali_blast_radius",
     "crates/kali_hir",
     "crates/kali_mir",
     "crates/kali_lir",
@@ -46,6 +47,7 @@ kali_ast = { path = "crates/kali_ast" }
 kali_types = { path = "crates/kali_types" }
 kali_test_support = { path = "crates/kali_test_support" }
 kali_case_runner = { path = "crates/kali_case_runner" }
+kali_blast_radius = { path = "crates/kali_blast_radius" }
 kali_hir = { path = "crates/kali_hir" }
 kali_mir = { path = "crates/kali_mir" }
 kali_lir = { path = "crates/kali_lir" }
