@@ -52,8 +52,98 @@ pub fn corpus_hash(files: &[ManifestFile]) -> String {
     sha256_of(lines.join("\n").as_bytes())
 }
 
+/// Structural checks that must hold of any manifest before its `corpus_hash`
+/// means anything.
+///
+/// `corpus_hash` joins `"{stratum} {path} {sha256}"` records with `\n`, with no
+/// escaping. That encoding is only injective if no field can contain a space or
+/// a newline -- otherwise two different corpora hash alike. A demonstrated
+/// collision: `[{anchor, x.js, <h1>}, {anchor, y.js, <h2>}]` digests the same as
+/// the single file `{anchor, "x.js <h1>\nanchor y.js", <h2>}`, whose path is a
+/// legal filename ending in `.js`, so `collect_js` would find it on disk and
+/// `verify_manifest` would pass in both directions. Reaching it takes a
+/// deliberately hostile filename -- but the freeze exists so a reader need not
+/// trust that someone would have noticed, so the ambiguity is rejected here
+/// rather than argued to be unreachable.
+fn validate_manifest(manifest: &Manifest) -> Result<(), String> {
+    // A corpus of nothing must never read as frozen: every rate over it would
+    // be 0/0, and every predicate would score identically.
+    if manifest.files.is_empty() {
+        return Err("manifest lists no files -- an empty corpus is not a freeze".to_string());
+    }
+
+    let mut seen: Vec<&str> = Vec::with_capacity(manifest.files.len());
+    for file in &manifest.files {
+        check_token("path", &file.path)?;
+        check_token("stratum", &file.stratum)?;
+
+        if file.sha256.len() != 64
+            || !file
+                .sha256
+                .bytes()
+                .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            return Err(format!(
+                "`{}` has sha256 `{}`, which is not 64 lowercase hex digits",
+                file.path, file.sha256
+            ));
+        }
+
+        // The stratum is not free-form annotation: §4.1 requires accept rates
+        // and counts be reported per stratum and never pooled, so a file under
+        // `anchor/` labelled `extension` would silently move a program between
+        // the two reported populations.
+        let segment = file.path.split('/').next().unwrap_or_default();
+        if segment != file.stratum || segment == file.path {
+            return Err(format!(
+                "`{}` is labelled stratum `{}`, which is not its leading path segment",
+                file.path, file.stratum
+            ));
+        }
+
+        if seen.contains(&file.path.as_str()) {
+            return Err(format!(
+                "`{}` is listed twice -- the counter would count it twice",
+                file.path
+            ));
+        }
+        seen.push(&file.path);
+    }
+
+    // The freeze token itself. Without this the manifest can carry any
+    // `corpus_hash` at all and still verify clean, and the published ranking
+    // would stamp that value as the provenance of what it measured.
+    let recomputed = corpus_hash(&manifest.files);
+    if manifest.corpus_hash != recomputed {
+        return Err(format!(
+            "recorded corpus_hash {} does not match its own file list ({recomputed})",
+            manifest.corpus_hash
+        ));
+    }
+    Ok(())
+}
+
+/// No whitespace, no control characters, not empty -- see `validate_manifest`.
+fn check_token(field: &str, value: &str) -> Result<(), String> {
+    if value.is_empty() {
+        return Err(format!("a manifest entry has an empty `{field}`"));
+    }
+    if let Some(bad) = value
+        .chars()
+        .find(|c| c.is_whitespace() || c.is_control() || *c == '\u{fffd}')
+    {
+        return Err(format!(
+            "`{field}` `{value}` contains {bad:?}, which the corpus_hash encoding cannot separate"
+        ));
+    }
+    Ok(())
+}
+
 pub fn parse_manifest(json: &str) -> Result<Manifest, String> {
-    serde_json::from_str(json).map_err(|error| format!("manifest is not valid json: {error}"))
+    let manifest: Manifest = serde_json::from_str(json)
+        .map_err(|error| format!("manifest is not valid json: {error}"))?;
+    validate_manifest(&manifest)?;
+    Ok(manifest)
 }
 
 /// Every manifest file exists with the recorded hash, and no `.js` file under
@@ -62,7 +152,13 @@ pub fn parse_manifest(json: &str) -> Result<Manifest, String> {
 /// Both directions are required. Checking only the recorded files would let an
 /// untracked program be added to the corpus and counted while the frozen hash
 /// still verified.
+///
+/// `validate_manifest` runs first, so a manifest reaching the on-disk checks is
+/// already non-empty, unambiguously encoded, and self-consistent with its own
+/// `corpus_hash`.
 pub fn verify_manifest(root: &Path, manifest: &Manifest) -> Result<(), String> {
+    validate_manifest(manifest)?;
+
     for file in &manifest.files {
         let full = root.join(&file.path);
         let bytes = std::fs::read(&full).map_err(|error| {

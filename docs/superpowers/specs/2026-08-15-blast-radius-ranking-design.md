@@ -193,6 +193,51 @@ anchor is accepted at essentially 100% by construction — it is a set of passin
 tests. A pooled rate would inherit that and mean nothing. The extension's accept
 rate is the informative number.
 
+**Amended 2026-08-15 (Task 11).** Two statements above are superseded by the
+anchor that was actually extracted and frozen. They are left in place and
+corrected here rather than rewritten, so the estimate and the outcome can be
+compared. The frozen anchor is **137 programs**, `corpus_hash`
+`a99ef712c8db18fbe7d9f7fab1ffb4361b999cada02273f77070e35d4a32cd11`.
+
+- *"These live today as **inline string fixtures inside Rust test files**"* —
+  true of the 131 `imperative_core_runtime.rs` programs, **wrong for five of the
+  six CLBG programs**, and the difference matters because a reader auditing the
+  published `corpus_hash` would look in the wrong place. fannkuch-redux, fasta,
+  mandelbrot, nbody and spectral-norm are **vendored fixture files** at
+  `crates/kali_cli/tests/fixtures/benchmarks/<name>-benchmark-v1.ts`; the
+  `clbg_*_runtime.rs` tests load them with `fixture(..)` and hold no literal at
+  all (`grep -c 'r#"'` over the six returns `1, 0, 0, 0, 0, 0`). They carry a
+  `.ts` extension but hold no type annotations, so they went into the corpus as
+  `.js` unchanged. Only **binary-trees** has an inline literal, and that one is
+  a parameterised `format!` template at `n=10`, not a fixed program — so the
+  corpus carries the vendored `n=21` fixture the acceptance gate actually runs.
+  The `imperative_core_runtime.rs` half is as described, with one wrinkle worth
+  recording: those literals are ordinary escaped `"..."`, not `r#"..."#`, and
+  lean on Rust's `\`-newline continuation, so they cannot be lifted with a
+  regex. Provenance for all 137 is committed at
+  `tools/blast-radius/anchor-provenance.json`, and both the extractor and an
+  independent rustc-based verifier are committed under `tools/blast-radius/`.
+- *"The anchor is accepted at essentially 100% by construction — it is a set of
+  passing tests"* — **false as built, and §4.2 is why.** 13 of the 131
+  `imperative_core_runtime.rs` programs come from `run_js_expect_failure` call
+  sites: the suite commits kali to **rejecting** them (E3200 / E5506 gates).
+  Dropping them would have been curation by acceptance, which §4.2 forbids in
+  load-bearing terms, so they are in the corpus and the anchor's accept rate is
+  **124/137 = 90.5%**, not ~100%. §4.2 wins over this sentence. The correction
+  is recorded **now**, before any counting, because §4.3 forbids adjusting the
+  framing once scores exist — otherwise the first reader to see 90.5% would
+  reasonably take it for a corpus defect rather than the designed consequence of
+  §4.2. What survives of the original claim is its purpose: the anchor's accept
+  rate is still uninformative (it is fixed by which tests exist, not by
+  anything the ranking measures), pooling it with the extension's would still
+  destroy the only informative number, and the ban on pooling therefore still
+  stands.
+- **Extended, not superseded (2026-08-15, coordinator ruling).** §4.1 requires
+  accept *rates* be reported per stratum and never pooled but says nothing about
+  construct *counts*. Counts are reported **per stratum as well as pooled**, for
+  the same reason: the anchor is 4.4% of programs but 56.7% of corpus bytes, so
+  a pooled count alone hides which stratum a frequency came from.
+
 ### 4.2 Curate by intent, never by acceptance
 
 A program earns its place because it is what someone would plausibly write to do

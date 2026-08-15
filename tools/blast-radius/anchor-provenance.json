@@ -1,0 +1,1098 @@
+[
+  {
+    "file": "array_element_alias_mutation_is_shared.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_element_alias_mutation_is_shared",
+    "line": 722,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_fill_initializes_all_elements_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_fill_initializes_all_elements",
+    "line": 416,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_fill_initializes_all_elements_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_fill_initializes_all_elements",
+    "line": 421,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_fill_initializes_all_elements_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_fill_initializes_all_elements",
+    "line": 428,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_length_reads_header_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_length_reads_header",
+    "line": 402,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_length_reads_header_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_length_reads_header",
+    "line": 407,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_of_object_literals_reads_and_writes.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_of_object_literals_reads_and_writes",
+    "line": 712,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_param_length_only_receiver_is_array.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_param_length_only_receiver_is_array",
+    "line": 535,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_param_store_with_call_rhs_across_two_calls.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_param_store_with_call_rhs_across_two_calls",
+    "line": 504,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_param_store_with_float_call_rhs.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_param_store_with_float_call_rhs",
+    "line": 522,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_params_float_fill_interproc_spectral_norm_shape.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_params_float_fill_interproc_spectral_norm_shape",
+    "line": 489,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_params_float_round_trip.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_params_float_round_trip",
+    "line": 479,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_params_float_store_across_call.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_params_float_store_across_call",
+    "line": 470,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_params_int_length_loop_sum.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_params_int_length_loop_sum",
+    "line": 461,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_params_int_read_across_call.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_params_int_read_across_call",
+    "line": 451,
+    "helper": "run_js"
+  },
+  {
+    "file": "array_params_int_store_across_call.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "array_params_int_store_across_call",
+    "line": 440,
+    "helper": "run_js"
+  },
+  {
+    "file": "catch_param_shadows_module_const.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "catch_param_shadows_module_const",
+    "line": 853,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "clbg_binary_trees.js",
+    "origin": "clbg-fixture",
+    "source": "crates/kali_cli/tests/fixtures/benchmarks/binary-trees-benchmark-v1.ts",
+    "test_fn": null,
+    "line": null,
+    "helper": null
+  },
+  {
+    "file": "clbg_fannkuch.js",
+    "origin": "clbg-fixture",
+    "source": "crates/kali_cli/tests/fixtures/benchmarks/fannkuch-redux-benchmark-v1.ts",
+    "test_fn": null,
+    "line": null,
+    "helper": null
+  },
+  {
+    "file": "clbg_fasta.js",
+    "origin": "clbg-fixture",
+    "source": "crates/kali_cli/tests/fixtures/benchmarks/fasta-benchmark-v1.ts",
+    "test_fn": null,
+    "line": null,
+    "helper": null
+  },
+  {
+    "file": "clbg_mandelbrot.js",
+    "origin": "clbg-fixture",
+    "source": "crates/kali_cli/tests/fixtures/benchmarks/mandelbrot-benchmark-v1.ts",
+    "test_fn": null,
+    "line": null,
+    "helper": null
+  },
+  {
+    "file": "clbg_nbody.js",
+    "origin": "clbg-fixture",
+    "source": "crates/kali_cli/tests/fixtures/benchmarks/nbody-benchmark-v1.ts",
+    "test_fn": null,
+    "line": null,
+    "helper": null
+  },
+  {
+    "file": "clbg_spectral_norm.js",
+    "origin": "clbg-fixture",
+    "source": "crates/kali_cli/tests/fixtures/benchmarks/spectral-norm-benchmark-v1.ts",
+    "test_fn": null,
+    "line": null,
+    "helper": null
+  },
+  {
+    "file": "computed_array_subscripts_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "computed_array_subscripts",
+    "line": 273,
+    "helper": "run_js"
+  },
+  {
+    "file": "computed_array_subscripts_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "computed_array_subscripts",
+    "line": 278,
+    "helper": "run_js"
+  },
+  {
+    "file": "computed_array_subscripts_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "computed_array_subscripts",
+    "line": 283,
+    "helper": "run_js"
+  },
+  {
+    "file": "computed_array_subscripts_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "computed_array_subscripts",
+    "line": 288,
+    "helper": "run_js"
+  },
+  {
+    "file": "computed_array_subscripts_05.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "computed_array_subscripts",
+    "line": 293,
+    "helper": "run_js"
+  },
+  {
+    "file": "console_log_of_object_reference_is_rejected.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "console_log_of_object_reference_is_rejected",
+    "line": 766,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "exponent_notation_literals_run_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "exponent_notation_literals_run",
+    "line": 617,
+    "helper": "run_js"
+  },
+  {
+    "file": "exponent_notation_literals_run_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "exponent_notation_literals_run",
+    "line": 618,
+    "helper": "run_js"
+  },
+  {
+    "file": "exponent_notation_literals_run_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "exponent_notation_literals_run",
+    "line": 619,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_arithmetic_distinguishes_from_integer_division_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_arithmetic_distinguishes_from_integer_division",
+    "line": 357,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_arithmetic_distinguishes_from_integer_division_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_arithmetic_distinguishes_from_integer_division",
+    "line": 359,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_arithmetic_distinguishes_from_integer_division_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_arithmetic_distinguishes_from_integer_division",
+    "line": 361,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_arithmetic_distinguishes_from_integer_division_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_arithmetic_distinguishes_from_integer_division",
+    "line": 364,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_arrays_store_and_load_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_arrays_store_and_load",
+    "line": 382,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_arrays_store_and_load_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_arrays_store_and_load",
+    "line": 388,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_arrays_store_and_load_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_arrays_store_and_load",
+    "line": 394,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_local_init_and_reassign_promote_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_local_init_and_reassign_promote",
+    "line": 336,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_local_init_and_reassign_promote_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_local_init_and_reassign_promote",
+    "line": 342,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_local_init_and_reassign_promote_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_local_init_and_reassign_promote",
+    "line": 348,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_scalar_arithmetic_observed_via_comparison_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_scalar_arithmetic_observed_via_comparison",
+    "line": 315,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_scalar_arithmetic_observed_via_comparison_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_scalar_arithmetic_observed_via_comparison",
+    "line": 316,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_scalar_arithmetic_observed_via_comparison_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_scalar_arithmetic_observed_via_comparison",
+    "line": 318,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_scalar_arithmetic_observed_via_comparison_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_scalar_arithmetic_observed_via_comparison",
+    "line": 320,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_scalar_arithmetic_observed_via_comparison_05.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_scalar_arithmetic_observed_via_comparison",
+    "line": 323,
+    "helper": "run_js"
+  },
+  {
+    "file": "f64_scalar_arithmetic_observed_via_comparison_06.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "f64_scalar_arithmetic_observed_via_comparison",
+    "line": 328,
+    "helper": "run_js"
+  },
+  {
+    "file": "factory_array_advance_shape_miniature.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "factory_array_advance_shape_miniature",
+    "line": 739,
+    "helper": "run_js"
+  },
+  {
+    "file": "factory_returned_objects_are_distinct_instances.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "factory_returned_objects_are_distinct_instances",
+    "line": 755,
+    "helper": "run_js"
+  },
+  {
+    "file": "float_literals_emit_as_f64_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "float_literals_emit_as_f64",
+    "line": 548,
+    "helper": "run_js"
+  },
+  {
+    "file": "float_literals_emit_as_f64_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "float_literals_emit_as_f64",
+    "line": 549,
+    "helper": "run_js"
+  },
+  {
+    "file": "float_literals_emit_as_f64_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "float_literals_emit_as_f64",
+    "line": 551,
+    "helper": "run_js"
+  },
+  {
+    "file": "float_literals_emit_as_f64_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "float_literals_emit_as_f64",
+    "line": 552,
+    "helper": "run_js"
+  },
+  {
+    "file": "float_literals_emit_as_f64_05.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "float_literals_emit_as_f64",
+    "line": 554,
+    "helper": "run_js"
+  },
+  {
+    "file": "float_literals_emit_as_f64_06.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "float_literals_emit_as_f64",
+    "line": 555,
+    "helper": "run_js"
+  },
+  {
+    "file": "float_literals_emit_as_f64_07.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "float_literals_emit_as_f64",
+    "line": 557,
+    "helper": "run_js"
+  },
+  {
+    "file": "float_literals_emit_as_f64_08.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "float_literals_emit_as_f64",
+    "line": 558,
+    "helper": "run_js"
+  },
+  {
+    "file": "for_of_loop_var_shadows_module_const.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "for_of_loop_var_shadows_module_const",
+    "line": 833,
+    "helper": "run_js"
+  },
+  {
+    "file": "functions_return_computed_values_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "functions_return_computed_values",
+    "line": 160,
+    "helper": "run_js"
+  },
+  {
+    "file": "functions_return_computed_values_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "functions_return_computed_values",
+    "line": 164,
+    "helper": "run_js"
+  },
+  {
+    "file": "functions_return_computed_values_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "functions_return_computed_values",
+    "line": 168,
+    "helper": "run_js"
+  },
+  {
+    "file": "heavy_loop_runs_under_raised_default_fuel_budget.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "heavy_loop_runs_under_raised_default_fuel_budget",
+    "line": 605,
+    "helper": "run_js"
+  },
+  {
+    "file": "impure_module_const_read_from_function_is_rejected.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "impure_module_const_read_from_function_is_rejected",
+    "line": 874,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "integer_arrays_read_write_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "integer_arrays_read_write",
+    "line": 234,
+    "helper": "run_js"
+  },
+  {
+    "file": "integer_arrays_read_write_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "integer_arrays_read_write",
+    "line": 239,
+    "helper": "run_js"
+  },
+  {
+    "file": "integer_arrays_read_write_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "integer_arrays_read_write",
+    "line": 244,
+    "helper": "run_js"
+  },
+  {
+    "file": "integer_object_field_round_trip.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "integer_object_field_round_trip",
+    "line": 703,
+    "helper": "run_js"
+  },
+  {
+    "file": "integer_programs_are_unchanged_by_repr_plumbing.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "integer_programs_are_unchanged_by_repr_plumbing",
+    "line": 373,
+    "helper": "run_js"
+  },
+  {
+    "file": "literal_rooted_concatenation_and_integer_addition_stay_supported_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "literal_rooted_concatenation_and_integer_addition_stay_supported",
+    "line": 128,
+    "helper": "run_js"
+  },
+  {
+    "file": "literal_rooted_concatenation_and_integer_addition_stay_supported_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "literal_rooted_concatenation_and_integer_addition_stay_supported",
+    "line": 129,
+    "helper": "run_js"
+  },
+  {
+    "file": "literal_rooted_concatenation_and_integer_addition_stay_supported_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "literal_rooted_concatenation_and_integer_addition_stay_supported",
+    "line": 130,
+    "helper": "run_js"
+  },
+  {
+    "file": "literal_rooted_concatenation_and_integer_addition_stay_supported_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "literal_rooted_concatenation_and_integer_addition_stay_supported",
+    "line": 132,
+    "helper": "run_js"
+  },
+  {
+    "file": "literal_rooted_concatenation_and_integer_addition_stay_supported_05.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "literal_rooted_concatenation_and_integer_addition_stay_supported",
+    "line": 143,
+    "helper": "run_js"
+  },
+  {
+    "file": "locally_written_structural_object_literal_is_rejected.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "locally_written_structural_object_literal_is_rejected",
+    "line": 640,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "loops_iterate_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "loops_iterate",
+    "line": 189,
+    "helper": "run_js"
+  },
+  {
+    "file": "loops_iterate_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "loops_iterate",
+    "line": 195,
+    "helper": "run_js"
+  },
+  {
+    "file": "loops_iterate_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "loops_iterate",
+    "line": 200,
+    "helper": "run_js"
+  },
+  {
+    "file": "loops_iterate_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "loops_iterate",
+    "line": 205,
+    "helper": "run_js"
+  },
+  {
+    "file": "loops_iterate_05.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "loops_iterate",
+    "line": 211,
+    "helper": "run_js"
+  },
+  {
+    "file": "loops_iterate_06.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "loops_iterate",
+    "line": 218,
+    "helper": "run_js"
+  },
+  {
+    "file": "loops_iterate_07.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "loops_iterate",
+    "line": 225,
+    "helper": "run_js"
+  },
+  {
+    "file": "math_sqrt_runtime_f64_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "math_sqrt_runtime_f64",
+    "line": 564,
+    "helper": "run_js"
+  },
+  {
+    "file": "math_sqrt_runtime_f64_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "math_sqrt_runtime_f64",
+    "line": 565,
+    "helper": "run_js"
+  },
+  {
+    "file": "math_sqrt_runtime_f64_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "math_sqrt_runtime_f64",
+    "line": 567,
+    "helper": "run_js"
+  },
+  {
+    "file": "math_sqrt_runtime_f64_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "math_sqrt_runtime_f64",
+    "line": 570,
+    "helper": "run_js"
+  },
+  {
+    "file": "mixed_string_number_bindings_are_rejected_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "mixed_string_number_bindings_are_rejected",
+    "line": 108,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "mixed_string_number_bindings_are_rejected_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "mixed_string_number_bindings_are_rejected",
+    "line": 111,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "mixed_string_number_bindings_are_rejected_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "mixed_string_number_bindings_are_rejected",
+    "line": 117,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "module_consts_read_from_functions_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "module_consts_read_from_functions",
+    "line": 803,
+    "helper": "run_js"
+  },
+  {
+    "file": "module_consts_read_from_functions_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "module_consts_read_from_functions",
+    "line": 808,
+    "helper": "run_js"
+  },
+  {
+    "file": "module_consts_read_from_functions_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "module_consts_read_from_functions",
+    "line": 814,
+    "helper": "run_js"
+  },
+  {
+    "file": "module_let_read_from_function_is_supported.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "module_let_read_from_function_is_supported",
+    "line": 866,
+    "helper": "run_js"
+  },
+  {
+    "file": "mutable_locals_round_trip_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "mutable_locals_round_trip",
+    "line": 175,
+    "helper": "run_js"
+  },
+  {
+    "file": "mutable_locals_round_trip_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "mutable_locals_round_trip",
+    "line": 176,
+    "helper": "run_js"
+  },
+  {
+    "file": "mutable_locals_round_trip_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "mutable_locals_round_trip",
+    "line": 177,
+    "helper": "run_js"
+  },
+  {
+    "file": "mutable_locals_round_trip_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "mutable_locals_round_trip",
+    "line": 179,
+    "helper": "run_js"
+  },
+  {
+    "file": "object_field_read_through_alias.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "object_field_read_through_alias",
+    "line": 694,
+    "helper": "run_js"
+  },
+  {
+    "file": "object_field_write_and_read_round_trip.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "object_field_write_and_read_round_trip",
+    "line": 685,
+    "helper": "run_js"
+  },
+  {
+    "file": "object_in_arithmetic_is_rejected.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "object_in_arithmetic_is_rejected",
+    "line": 773,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "object_literal_direct_argument_is_rejected.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "object_literal_direct_argument_is_rejected",
+    "line": 786,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "object_reference_reassignment_still_compiles.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "object_reference_reassignment_still_compiles",
+    "line": 795,
+    "helper": "run_js"
+  },
+  {
+    "file": "object_shape_mismatch_is_rejected.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "object_shape_mismatch_is_rejected",
+    "line": 625,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "objects_cross_function_boundaries.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "objects_cross_function_boundaries",
+    "line": 730,
+    "helper": "run_js"
+  },
+  {
+    "file": "relational_operators_compute_booleans_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "relational_operators_compute_booleans",
+    "line": 150,
+    "helper": "run_js"
+  },
+  {
+    "file": "relational_operators_compute_booleans_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "relational_operators_compute_booleans",
+    "line": 151,
+    "helper": "run_js"
+  },
+  {
+    "file": "relational_operators_compute_booleans_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "relational_operators_compute_booleans",
+    "line": 152,
+    "helper": "run_js"
+  },
+  {
+    "file": "relational_operators_compute_booleans_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "relational_operators_compute_booleans",
+    "line": 153,
+    "helper": "run_js"
+  },
+  {
+    "file": "relational_operators_compute_booleans_05.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "relational_operators_compute_booleans",
+    "line": 154,
+    "helper": "run_js"
+  },
+  {
+    "file": "runtime_string_building_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "runtime_string_building",
+    "line": 300,
+    "helper": "run_js"
+  },
+  {
+    "file": "runtime_string_building_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "runtime_string_building",
+    "line": 302,
+    "helper": "run_js"
+  },
+  {
+    "file": "runtime_string_building_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "runtime_string_building",
+    "line": 307,
+    "helper": "run_js"
+  },
+  {
+    "file": "shadowing_local_wins_over_module_const.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "shadowing_local_wins_over_module_const",
+    "line": 823,
+    "helper": "run_js"
+  },
+  {
+    "file": "strict_equality_operators_parse_and_compute_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "strict_equality_operators_parse_and_compute",
+    "line": 252,
+    "helper": "run_js"
+  },
+  {
+    "file": "strict_equality_operators_parse_and_compute_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "strict_equality_operators_parse_and_compute",
+    "line": 253,
+    "helper": "run_js"
+  },
+  {
+    "file": "strict_equality_operators_parse_and_compute_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "strict_equality_operators_parse_and_compute",
+    "line": 254,
+    "helper": "run_js"
+  },
+  {
+    "file": "strict_equality_operators_parse_and_compute_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "strict_equality_operators_parse_and_compute",
+    "line": 256,
+    "helper": "run_js"
+  },
+  {
+    "file": "strict_equality_operators_parse_and_compute_05.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "strict_equality_operators_parse_and_compute",
+    "line": 257,
+    "helper": "run_js"
+  },
+  {
+    "file": "strict_equality_operators_parse_and_compute_06.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "strict_equality_operators_parse_and_compute",
+    "line": 260,
+    "helper": "run_js"
+  },
+  {
+    "file": "strict_equality_operators_parse_and_compute_07.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "strict_equality_operators_parse_and_compute",
+    "line": 264,
+    "helper": "run_js"
+  },
+  {
+    "file": "string_typed_variable_plus_operands_flow_at_runtime_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "string_typed_variable_plus_operands_flow_at_runtime",
+    "line": 69,
+    "helper": "run_js"
+  },
+  {
+    "file": "string_typed_variable_plus_operands_flow_at_runtime_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "string_typed_variable_plus_operands_flow_at_runtime",
+    "line": 71,
+    "helper": "run_js"
+  },
+  {
+    "file": "string_typed_variable_plus_operands_flow_at_runtime_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "string_typed_variable_plus_operands_flow_at_runtime",
+    "line": 74,
+    "helper": "run_js"
+  },
+  {
+    "file": "string_typed_variable_plus_operands_flow_at_runtime_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "string_typed_variable_plus_operands_flow_at_runtime",
+    "line": 78,
+    "helper": "run_js"
+  },
+  {
+    "file": "string_typed_variable_plus_operands_flow_at_runtime_05.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "string_typed_variable_plus_operands_flow_at_runtime",
+    "line": 80,
+    "helper": "run_js"
+  },
+  {
+    "file": "string_typed_variable_plus_operands_flow_at_runtime_06.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "string_typed_variable_plus_operands_flow_at_runtime",
+    "line": 83,
+    "helper": "run_js"
+  },
+  {
+    "file": "string_typed_variable_plus_operands_flow_at_runtime_07.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "string_typed_variable_plus_operands_flow_at_runtime",
+    "line": 89,
+    "helper": "run_js"
+  },
+  {
+    "file": "string_typed_variable_plus_operands_flow_at_runtime_08.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "string_typed_variable_plus_operands_flow_at_runtime",
+    "line": 93,
+    "helper": "run_js"
+  },
+  {
+    "file": "structural_object_literal_passed_as_call_argument_is_rejected.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "structural_object_literal_passed_as_call_argument_is_rejected",
+    "line": 655,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "to_fixed_formats_floats_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "to_fixed_formats_floats",
+    "line": 577,
+    "helper": "run_js"
+  },
+  {
+    "file": "to_fixed_formats_floats_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "to_fixed_formats_floats",
+    "line": 578,
+    "helper": "run_js"
+  },
+  {
+    "file": "to_fixed_formats_floats_03.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "to_fixed_formats_floats",
+    "line": 580,
+    "helper": "run_js"
+  },
+  {
+    "file": "to_fixed_formats_floats_04.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "to_fixed_formats_floats",
+    "line": 584,
+    "helper": "run_js"
+  },
+  {
+    "file": "to_fixed_formats_floats_05.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "to_fixed_formats_floats",
+    "line": 587,
+    "helper": "run_js"
+  },
+  {
+    "file": "unknown_field_read_is_fold_first_until_materialized_01.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "unknown_field_read_is_fold_first_until_materialized",
+    "line": 670,
+    "helper": "run_js"
+  },
+  {
+    "file": "unknown_field_read_is_fold_first_until_materialized_02.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "unknown_field_read_is_fold_first_until_materialized",
+    "line": 675,
+    "helper": "run_js_expect_failure"
+  },
+  {
+    "file": "unknown_field_write_is_rejected.js",
+    "origin": "inline-rust-literal",
+    "source": "crates/kali_cli/tests/imperative_core_runtime.rs",
+    "test_fn": "unknown_field_write_is_rejected",
+    "line": 779,
+    "helper": "run_js_expect_failure"
+  }
+]
