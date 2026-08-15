@@ -108,6 +108,7 @@ pub enum StepKind {
     Cli,
     FileJson,
     BrowserBundleHarness,
+    Oracle,
 }
 
 impl StepKind {
@@ -118,6 +119,7 @@ impl StepKind {
             StepKind::Cli => "cli",
             StepKind::FileJson => "file_json",
             StepKind::BrowserBundleHarness => "browser_bundle_harness",
+            StepKind::Oracle => "oracle",
         }
     }
 }
@@ -148,6 +150,38 @@ impl Exit {
 pub enum ExitStatusWord {
     Success,
     Failure,
+}
+
+/// `verdict = "silent"` in a case file. A thin serde front for
+/// `kali_blast_radius::Verdict`, which is a plain enum in a leaf crate with no
+/// serde dependency of its own.
+#[derive(Debug, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+enum RawVerdict {
+    Fixed,
+    Silent,
+    FailClosed,
+    FlInternal,
+    AcceptsInvalid,
+    BothReject,
+    Timeout,
+    Nondeterministic,
+}
+
+impl From<RawVerdict> for kali_blast_radius::Verdict {
+    fn from(raw: RawVerdict) -> Self {
+        use kali_blast_radius::Verdict as V;
+        match raw {
+            RawVerdict::Fixed => V::Fixed,
+            RawVerdict::Silent => V::Silent,
+            RawVerdict::FailClosed => V::FailClosed,
+            RawVerdict::FlInternal => V::FlInternal,
+            RawVerdict::AcceptsInvalid => V::AcceptsInvalid,
+            RawVerdict::BothReject => V::BothReject,
+            RawVerdict::Timeout => V::Timeout,
+            RawVerdict::Nondeterministic => V::Nondeterministic,
+        }
+    }
 }
 
 // The two raw count-claim tables. `at_least` and `exact` are both `Option`
@@ -287,7 +321,8 @@ fn count_needle(needle: String, case_name: &str, key: &str) -> Result<String, St
 // `kind` is `Option` here, not defaulted straight to `StepKind::Cli` the way
 // the public `Step` below has it. `finalize_step` is what applies the
 // default -- and only when no kind-specific field (`path`/`fields`/
-// `entry`/`body`) is present. That distinction is what turns "a step sets
+// `entry`/`body`/`register_entry`/`program`/`verdict`/`timeout_ms`) is
+// present. That distinction is what turns "a step sets
 // `entry`/`body` but forgot `kind = \"browser_bundle_harness\"`" into a hard
 // error instead of a silently-misinterpreted `cli` step: see `finalize_step`.
 #[derive(Debug, Deserialize)]
@@ -329,6 +364,14 @@ struct RawStep {
     entry: Option<String>,
     #[serde(default)]
     body: Option<String>,
+    #[serde(default)]
+    register_entry: Option<String>,
+    #[serde(default)]
+    program: Option<String>,
+    #[serde(default)]
+    verdict: Option<RawVerdict>,
+    #[serde(default)]
+    timeout_ms: Option<u64>,
 }
 
 #[derive(Debug)]
@@ -388,6 +431,16 @@ pub struct Step {
     pub entry: Option<String>,
     /// `browser_bundle_harness` only.
     pub body: Option<String>,
+    /// `oracle` only: the register entry this case re-measures (`"R-13"`).
+    /// Required, because an unattributed verdict cannot regenerate §0.2.
+    pub register_entry: Option<String>,
+    /// `oracle` only: the `[source]` key both engines run.
+    pub program: Option<String>,
+    /// `oracle` only: the verdict class the run must produce.
+    pub verdict: Option<kali_blast_radius::Verdict>,
+    /// `oracle` only: per-run wall-clock budget. Defaults to
+    /// `steps::ORACLE_DEFAULT_TIMEOUT_MS` when unset.
+    pub timeout_ms: Option<u64>,
 }
 
 /// Resolves a `RawStep`'s effective `kind` and rejects fields that don't
@@ -400,8 +453,10 @@ pub struct Step {
 ///   `exit`, or other process-output assertions: the step never runs a
 ///   process, so those assertions would never be evaluated -- parses clean,
 ///   asserts nothing, exactly the degradation this format exists to close.
-/// - A step setting `entry`/`body` (`browser_bundle_harness`-only fields)
-///   or `path`/`fields` (`file_json`-only fields) without an explicit
+/// - A step setting `entry`/`body` (`browser_bundle_harness`-only fields),
+///   `path`/`fields` (`file_json`-only fields), or
+///   `register_entry`/`program`/`verdict`/`timeout_ms` (`oracle`-only
+///   fields) without an explicit
 ///   `kind`: `kind` defaults to `cli`, so a forgotten `kind =
 ///   "browser_bundle_harness"` silently becomes a `cli` step that ignores
 ///   `entry`/`body` entirely. `kind` therefore only defaults to `cli` when
@@ -409,13 +464,24 @@ pub struct Step {
 fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
     let wants_file_json = raw.path.is_some() || raw.fields.is_some();
     let wants_browser = raw.entry.is_some() || raw.body.is_some();
+    let wants_oracle = raw.register_entry.is_some()
+        || raw.program.is_some()
+        || raw.verdict.is_some()
+        || raw.timeout_ms.is_some();
 
     let kind = match raw.kind {
         Some(kind) => kind,
-        None if wants_file_json && wants_browser => {
+        None if [wants_file_json, wants_browser, wants_oracle]
+            .iter()
+            .filter(|wants| **wants)
+            .count()
+            > 1 =>
+        {
             return Err(format!(
-                "case `{case_name}`: step sets both `path`/`fields` (file_json-only) and \
-                 `entry`/`body` (browser_bundle_harness-only) without an explicit `kind`"
+                "case `{case_name}`: step sets fields belonging to more than one kind \
+                 (`path`/`fields` are file_json-only, `entry`/`body` are \
+                 browser_bundle_harness-only, `register_entry`/`program`/`verdict`/`timeout_ms` \
+                 are oracle-only) without an explicit `kind`"
             ));
         }
         None if wants_file_json => {
@@ -432,6 +498,13 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
                  kind-specific field is set"
             ));
         }
+        None if wants_oracle => {
+            return Err(format!(
+                "case `{case_name}`: step sets `register_entry`, `program`, `verdict` or \
+                 `timeout_ms`, which requires an explicit `kind = \"oracle\"` -- `kind` only \
+                 defaults to `cli` when no kind-specific field is set"
+            ));
+        }
         None => StepKind::default(),
     };
 
@@ -442,7 +515,10 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
     // `file_json` reads a file off disk and never runs anything, so none of
     // that applies to it. `args` is `cli`-only (it's the argv passed to
     // `kali`). `path`/`fields` are `file_json`-only; `entry`/`body` are
-    // `browser_bundle_harness`-only.
+    // `browser_bundle_harness`-only;
+    // `register_entry`/`program`/`verdict`/`timeout_ms` are `oracle`-only.
+    // `oracle` runs two processes but asserts only the verdict class derived
+    // from them, so every raw-output assertion is inapplicable to it too.
     let mut inapplicable: Vec<&'static str> = Vec::new();
     match kind {
         StepKind::Cli => {
@@ -457,6 +533,18 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             }
             if raw.body.is_some() {
                 inapplicable.push("body");
+            }
+            if raw.register_entry.is_some() {
+                inapplicable.push("register_entry");
+            }
+            if raw.program.is_some() {
+                inapplicable.push("program");
+            }
+            if raw.verdict.is_some() {
+                inapplicable.push("verdict");
+            }
+            if raw.timeout_ms.is_some() {
+                inapplicable.push("timeout_ms");
             }
         }
         StepKind::FileJson => {
@@ -505,6 +593,18 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             if raw.body.is_some() {
                 inapplicable.push("body");
             }
+            if raw.register_entry.is_some() {
+                inapplicable.push("register_entry");
+            }
+            if raw.program.is_some() {
+                inapplicable.push("program");
+            }
+            if raw.verdict.is_some() {
+                inapplicable.push("verdict");
+            }
+            if raw.timeout_ms.is_some() {
+                inapplicable.push("timeout_ms");
+            }
         }
         StepKind::BrowserBundleHarness => {
             if !raw.args.is_empty() {
@@ -515,6 +615,89 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             }
             if raw.fields.is_some() {
                 inapplicable.push("fields");
+            }
+            if raw.register_entry.is_some() {
+                inapplicable.push("register_entry");
+            }
+            if raw.program.is_some() {
+                inapplicable.push("program");
+            }
+            if raw.verdict.is_some() {
+                inapplicable.push("verdict");
+            }
+            if raw.timeout_ms.is_some() {
+                inapplicable.push("timeout_ms");
+            }
+        }
+        StepKind::Oracle => {
+            if raw.register_entry.is_none() {
+                return Err(format!(
+                    "case `{case_name}`: an `oracle` step requires `register_entry` -- a verdict \
+                     that names no entry cannot regenerate the register's §0.2"
+                ));
+            }
+            if raw.program.is_none() {
+                return Err(format!(
+                    "case `{case_name}`: an `oracle` step requires `program` -- the `[source]` \
+                     key both engines run"
+                ));
+            }
+            if raw.verdict.is_none() {
+                return Err(format!(
+                    "case `{case_name}`: an `oracle` step requires `verdict` -- without it the \
+                     step runs both engines and asserts nothing"
+                ));
+            }
+            // An oracle step asserts a derived class, never raw output. A
+            // process-output assertion on it would parse clean and never be
+            // evaluated -- the exact degradation this format exists to close.
+            if !raw.args.is_empty() {
+                inapplicable.push("args");
+            }
+            if raw.exit.is_some() {
+                inapplicable.push("exit");
+            }
+            if raw.stdout.is_some() {
+                inapplicable.push("stdout");
+            }
+            if !raw.stdout_contains.is_empty() {
+                inapplicable.push("stdout_contains");
+            }
+            if !raw.stdout_absent.is_empty() {
+                inapplicable.push("stdout_absent");
+            }
+            if !raw.stdout_count.is_empty() {
+                inapplicable.push("stdout_count");
+            }
+            if raw.stderr.is_some() {
+                inapplicable.push("stderr");
+            }
+            if !raw.stderr_contains.is_empty() {
+                inapplicable.push("stderr_contains");
+            }
+            if !raw.stderr_absent.is_empty() {
+                inapplicable.push("stderr_absent");
+            }
+            if raw.json.is_some() {
+                inapplicable.push("json");
+            }
+            if !raw.json_null.is_empty() {
+                inapplicable.push("json_null");
+            }
+            if !raw.json_count.is_empty() {
+                inapplicable.push("json_count");
+            }
+            if raw.path.is_some() {
+                inapplicable.push("path");
+            }
+            if raw.fields.is_some() {
+                inapplicable.push("fields");
+            }
+            if raw.entry.is_some() {
+                inapplicable.push("entry");
+            }
+            if raw.body.is_some() {
+                inapplicable.push("body");
             }
         }
     }
@@ -602,6 +785,10 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
         fields: raw.fields,
         entry: raw.entry,
         body: raw.body,
+        register_entry: raw.register_entry,
+        program: raw.program,
+        verdict: raw.verdict.map(Into::into),
+        timeout_ms: raw.timeout_ms,
     })
 }
 
@@ -658,6 +845,8 @@ fn collect_step_placeholders(step: &Step, out: &mut std::collections::BTreeSet<S
         &step.path,
         &step.entry,
         &step.body,
+        &step.register_entry,
+        &step.program,
     ]
     .into_iter()
     .flatten()

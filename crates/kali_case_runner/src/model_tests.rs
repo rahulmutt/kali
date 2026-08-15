@@ -567,13 +567,32 @@ fields.ok = true
     assert!(err.contains("kind"), "error must explain: {err}");
 }
 
+// A step carrying two kinds' worth of fields has no kind to default to, and
+// the message must say so rather than naming whichever one happens to be
+// checked first. `path` is file_json-only; `verdict` is oracle-only.
+#[test]
+fn a_step_mixing_two_kinds_worth_of_fields_without_an_explicit_kind_is_a_hard_error() {
+    let text = r#"
+[[case]]
+name = "c"
+path = "o.json"
+verdict = "silent"
+"#;
+    let err = parse_case_file(text).expect_err("must reject a two-kind step without a kind");
+    assert!(
+        err.contains("more than one kind"),
+        "error must explain: {err}"
+    );
+}
+
 // The manual conversion (`toml::Value::Table(rest).try_into::<RawStep>()`)
 // is hand-written, unlike everything else in this module, so it carries its
 // own risk: a converter that silently drops a field would make every case
 // file that relies on that field assert nothing, which is the exact class
-// of bug this whole format exists to prevent. These three tests pin every
-// one of `Step`'s eighteen fields through the inline (flatten + manual
-// convert) path, split one case per `kind` since `finalize_step` now
+// of bug this whole format exists to prevent. These three tests, plus
+// `an_oracle_step_parses_its_four_fields` below, pin every one of `Step`'s
+// twenty-two fields through the inline (flatten + manual convert) path,
+// split one case per `kind` since `finalize_step` now
 // rejects kind-inapplicable fields -- a single case can no longer carry
 // every field the way the original all-in-one version did.
 #[test]
@@ -954,6 +973,14 @@ fn a_reference_from_any_substituted_field_counts() {
             "body",
             "  kind = \"browser_bundle_harness\"\n  entry = \"a\"\n  body = \"${P}\"\n  exit = \"success\"",
         ),
+        (
+            "register_entry",
+            "  kind = \"oracle\"\n  register_entry = \"${P}\"\n  program = \"r.js\"\n  verdict = \"silent\"",
+        ),
+        (
+            "program",
+            "  kind = \"oracle\"\n  register_entry = \"R-1\"\n  program = \"${P}.js\"\n  verdict = \"silent\"",
+        ),
     ] {
         let text =
             format!("[constants]\nP = \"v\"\n\n[[case]]\nname = \"c\"\n\n  [[case.step]]\n{snippet}\n");
@@ -991,4 +1018,84 @@ args = ["run", "app.ts"]
 exit = "success"
 "#;
     parse_case_file(text).expect("`${dollar}` is a reference");
+}
+
+#[test]
+fn an_oracle_step_parses_its_four_fields() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+timeout_ms = 5000
+"#;
+    let file = parse_case_file(text).expect("parses");
+    let step = file.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(step.kind, StepKind::Oracle);
+    assert_eq!(step.register_entry.as_deref(), Some("R-13"));
+    assert_eq!(step.program.as_deref(), Some("r13.js"));
+    assert_eq!(step.verdict, Some(kali_blast_radius::Verdict::Silent));
+    assert_eq!(step.timeout_ms, Some(5000));
+}
+
+#[test]
+fn oracle_fields_without_an_explicit_kind_are_rejected() {
+    // Same rule browser_bundle_harness follows: a forgotten `kind` must not
+    // silently become a `cli` step that ignores the fields entirely.
+    let text = r#"
+[[case]]
+name = "c"
+program = "r13.js"
+verdict = "silent"
+"#;
+    let error = parse_case_file(text).expect_err("must demand an explicit kind");
+    assert!(error.contains("oracle"), "error names the kind: {error}");
+}
+
+#[test]
+fn an_oracle_step_declaring_stdout_assertions_is_rejected() {
+    // An oracle step asserts a derived class. A `stdout` claim on it would
+    // never be evaluated -- parses clean, asserts nothing.
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+stdout = "1\n"
+"#;
+    let error = parse_case_file(text).expect_err("must reject inapplicable assertions");
+    assert!(error.contains("stdout"), "error names the field: {error}");
+}
+
+#[test]
+fn an_oracle_step_missing_verdict_is_rejected() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+"#;
+    let error = parse_case_file(text).expect_err("a case with no verdict asserts nothing");
+    assert!(error.contains("verdict"), "error names the field: {error}");
+}
+
+#[test]
+fn an_oracle_step_missing_register_entry_is_rejected() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+program = "r13.js"
+verdict = "silent"
+"#;
+    let error = parse_case_file(text).expect_err("an unattributed verdict cannot regenerate §0.2");
+    assert!(
+        error.contains("register_entry"),
+        "error names the field: {error}"
+    );
 }

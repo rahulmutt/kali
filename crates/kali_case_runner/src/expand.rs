@@ -146,6 +146,12 @@ fn substitute_step(step: &Step, bindings: &BTreeMap<String, String>) -> Result<S
         fields: opt_value(&step.fields)?,
         entry: opt(&step.entry)?,
         body: opt(&step.body)?,
+        register_entry: opt(&step.register_entry)?,
+        program: opt(&step.program)?,
+        // `verdict` and `timeout_ms` carry no text, exactly like `exit` and a
+        // count claim's `bound`.
+        verdict: step.verdict,
+        timeout_ms: step.timeout_ms,
     })
 }
 

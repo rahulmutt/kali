@@ -294,6 +294,11 @@ pub fn run_trial(config: &RunnerConfig, trial: &Trial) -> Result<(), String> {
             StepKind::Cli => run_cli(config, dir.path(), step),
             StepKind::FileJson => run_file_json(dir.path(), step),
             StepKind::BrowserBundleHarness => run_browser_bundle_harness(dir.path(), step),
+            // Execution lands in the next commit. The arm exists now only
+            // because `match step.kind` must be exhaustive, and it fails
+            // rather than passing: a step kind that runs nothing must never
+            // report green.
+            StepKind::Oracle => Err("oracle steps are not runnable yet".to_string()),
         };
         if let Err(detail) = result {
             let mut message = format!("step {} ({:?}) failed\n", index + 1, step.kind);

@@ -1409,6 +1409,7 @@ dependencies = [
 name = "kali_case_runner"
 version = "0.1.0"
 dependencies = [
+ "kali_blast_radius",
  "kali_runtime_contract",
  "libtest-mimic",
  "serde",
