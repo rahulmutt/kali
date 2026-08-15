@@ -15,7 +15,6 @@ wasmtime = { workspace = true }
 reqwest = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }
-ryu-js = { workspace = true }
 tempfile = { workspace = true }
 
 [dev-dependencies]

@@ -1,5 +1,6 @@
 //! Default host-import registration (`kali:rt` namespace) for the wasmtime linker.
 use crate::*;
+use kali_common::js_number::format_js_number;
 
 pub(crate) fn register_default_host_imports(
     linker: &mut Linker<KaliHostState>,
@@ -972,25 +973,3 @@ pub(crate) fn register_default_host_imports(
 
     Ok(())
 }
-
-/// JS `String(number)` semantics: `NaN`, `Infinity`, `-Infinity`, `0` for
-/// ±0, and the ECMA-262 Number-to-String algorithm (via `ryu-js`) for every
-/// other double — byte-identical to the JS glue mirrors' native
-/// `String(value)`, including exponent notation for |x| >= 1e21 and
-/// magnitudes below 1e-6.
-fn format_js_number(value: f64) -> String {
-    if value.is_nan() {
-        return "NaN".to_owned();
-    }
-    if value.is_infinite() {
-        return if value > 0.0 { "Infinity" } else { "-Infinity" }.to_owned();
-    }
-    if value == 0.0 {
-        return "0".to_owned();
-    }
-    ryu_js::Buffer::new().format_finite(value).to_owned()
-}
-
-#[cfg(test)]
-#[path = "imports_default_tests.rs"]
-mod imports_default_tests;

@@ -1488,6 +1488,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "once_cell",
+ "ryu-js",
  "serde",
 ]
 
@@ -1628,7 +1629,6 @@ dependencies = [
  "kali_sandbox",
  "kali_test_support",
  "reqwest",
- "ryu-js",
  "serde_json",
  "tempfile",
  "url",
