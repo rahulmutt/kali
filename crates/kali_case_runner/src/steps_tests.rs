@@ -574,3 +574,267 @@ exit = "success"
         "crates/kali_cli/tests/cases/browser/y.toml"
     );
 }
+
+#[test]
+fn a_timeout_is_reported_as_a_timeout_not_a_hang() {
+    let mut command = std::process::Command::new("sleep");
+    command.arg("30");
+    let run = crate::steps::run_with_timeout(
+        command,
+        &BTreeMap::new(),
+        std::time::Duration::from_millis(100),
+    )
+    .expect("spawns");
+    assert!(run.timed_out, "a killed process must report timed_out");
+}
+
+#[test]
+fn a_fast_process_is_captured_whole() {
+    let mut command = std::process::Command::new("sh");
+    command
+        .arg("-c")
+        .arg("printf 'out'; printf 'err' 1>&2; exit 3");
+    let run = crate::steps::run_with_timeout(
+        command,
+        &BTreeMap::new(),
+        std::time::Duration::from_secs(10),
+    )
+    .expect("spawns");
+    assert!(!run.timed_out);
+    assert_eq!(run.code, Some(3));
+    assert_eq!(run.stdout, "out");
+    assert_eq!(run.stderr, "err");
+}
+
+#[test]
+fn a_large_output_does_not_deadlock_on_the_pipe_buffer() {
+    // Without concurrent draining, a child writing more than the pipe buffer
+    // (64 KiB on Linux) blocks forever and the timeout fires -- turning a
+    // working program into a false TIMEOUT verdict.
+    let mut command = std::process::Command::new("sh");
+    command.arg("-c").arg("yes x | head -c 400000");
+    let run = crate::steps::run_with_timeout(
+        command,
+        &BTreeMap::new(),
+        std::time::Duration::from_secs(30),
+    )
+    .expect("spawns");
+    assert!(!run.timed_out, "large output must not be read as a hang");
+    assert_eq!(run.stdout.len(), 400_000);
+}
+
+// Also the one test that drives an `oracle` step through the whole
+// parse -> expand -> `run_trial` dispatch path, which is why it is worth
+// having even though it never reaches either engine: if expansion dropped
+// `program` or `verdict`, the step would fail with "oracle step requires
+// ..." instead and this assertion would catch it.
+#[test]
+fn an_oracle_step_naming_a_program_no_source_wrote_is_a_hard_error() {
+    // Two engines run against a missing file would agree that both failed and
+    // pass as BOTH_REJECT having measured nothing. The step is refused before
+    // either side spawns.
+    let home = tempfile::tempdir().expect("tempdir");
+    let bin = stub_bin(home.path(), "exit 0\n");
+    let file = parse_case_file(
+        r#"
+[[case]]
+name = "missing"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+"#,
+    )
+    .expect("parse");
+    let trials = expand("blast/r13", &file).expect("expand");
+    let err = run_trial(&config_for(bin), &trials[0]).expect_err("must fail");
+    assert!(err.contains("r13.js"), "must name the program: {err}");
+}
+
+/// The node version travels with every mismatch report, so it must always be
+/// *something*: an unreadable `--version` degrades to a named unknown rather
+/// than to an empty string a reader would mistake for a missing field, and it
+/// must never fail the run.
+#[test]
+fn the_oracle_node_version_is_always_reportable() {
+    let version = oracle_node_version();
+    assert!(
+        !version.is_empty(),
+        "an empty version reads as a missing field rather than as an unread one"
+    );
+    assert!(
+        !version.contains('\n'),
+        "the version is one line of a mismatch report: {version:?}"
+    );
+}
+
+/// A run that settled: `code`, `stdout`, nothing on stderr.
+fn settled(code: i32, stdout: &str) -> Run {
+    Run {
+        code: Some(code),
+        stdout: stdout.to_string(),
+        stderr: String::new(),
+        timed_out: false,
+    }
+}
+
+/// A run that was killed at its budget.
+fn hung() -> Run {
+    Run {
+        code: None,
+        stdout: String::new(),
+        stderr: String::new(),
+        timed_out: true,
+    }
+}
+
+// A hang on ANY of the four runs outranks every other class. The b-runs are
+// the ones that matter here: a side that settles on run 1 and hangs on run 2
+// used to fall through to `runs_agree` (false whenever either run timed out)
+// and be recorded as NONDETERMINISTIC -- the wrong class for exactly the case
+// the ranking exists to order.
+#[test]
+fn a_hang_on_any_of_the_four_runs_ranks_as_timeout() {
+    for position in ["kali_a", "kali_b", "node_a", "node_b"] {
+        let mut quad = [
+            settled(0, "1\n"),
+            settled(0, "1\n"),
+            settled(0, "1\n"),
+            settled(0, "1\n"),
+        ];
+        let index = ["kali_a", "kali_b", "node_a", "node_b"]
+            .iter()
+            .position(|name| *name == position)
+            .expect("known position");
+        quad[index] = hung();
+        assert_eq!(
+            rank(
+                &quad[0],
+                &quad[1],
+                &quad[2],
+                &quad[3],
+                ObservedStream::default()
+            ),
+            Verdict::Timeout,
+            "a hang on {position} must outrank every other class"
+        );
+    }
+}
+
+#[test]
+fn a_side_that_disagrees_with_itself_ranks_as_nondeterministic() {
+    assert_eq!(
+        rank(
+            &settled(0, "1\n"),
+            &settled(0, "2\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            ObservedStream::default()
+        ),
+        Verdict::Nondeterministic,
+        "kali disagreeing with itself"
+    );
+    assert_eq!(
+        rank(
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            &settled(0, "2\n"),
+            ObservedStream::default()
+        ),
+        Verdict::Nondeterministic,
+        "node disagreeing with itself"
+    );
+}
+
+#[test]
+fn four_agreeing_runs_rank_by_classify() {
+    assert_eq!(
+        rank(
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            ObservedStream::default()
+        ),
+        Verdict::Fixed,
+        "same output on both engines"
+    );
+    assert_eq!(
+        rank(
+            &settled(0, "0.5\n"),
+            &settled(0, "0.5\n"),
+            &settled(0, "1\n"),
+            &settled(0, "1\n"),
+            ObservedStream::default()
+        ),
+        Verdict::Silent,
+        "both accept, outputs differ"
+    );
+}
+
+// The observed stream must actually reach `classify` through `rank`. This is
+// the wiring test for it: four runs that AGREE on stdout (both empty) and
+// DIFFER on stderr -- R-33's exact shape, `console.warn` prefixing on kali and
+// not on node. Observed on stdout the pair is FIXED, which is what silently
+// retired a live defect; observed on stderr it is SILENT.
+#[test]
+fn rank_consults_the_observed_stream() {
+    let on_stderr = |text: &str| Run {
+        code: Some(0),
+        stdout: String::new(),
+        stderr: text.to_string(),
+        timed_out: false,
+    };
+    let kali = on_stderr("[warn] hi\n");
+    let node = on_stderr("hi\n");
+    assert_eq!(
+        rank(&kali, &kali, &node, &node, ObservedStream::Stderr),
+        Verdict::Silent,
+        "the divergence is on stderr and the case says to observe it"
+    );
+    assert_eq!(
+        rank(&kali, &kali, &node, &node, ObservedStream::Stdout),
+        Verdict::Fixed,
+        "the same four runs, observed on the stream that carries nothing"
+    );
+}
+
+// `observe` must not reach the self-agreement check. A side that varies on the
+// UNOBSERVED stream has still not been shown to be stable, and recording a
+// class for it would be the unreproducible measurement this ranking exists to
+// end.
+#[test]
+fn a_side_varying_on_the_unobserved_stream_still_ranks_nondeterministic() {
+    let a = Run {
+        code: Some(0),
+        stdout: "same\n".into(),
+        stderr: "run 1\n".into(),
+        timed_out: false,
+    };
+    let b = Run {
+        stderr: "run 2\n".into(),
+        ..Run {
+            code: Some(0),
+            stdout: "same\n".into(),
+            stderr: String::new(),
+            timed_out: false,
+        }
+    };
+    let node = settled(0, "same\n");
+    assert_eq!(
+        rank(&a, &b, &node, &node, ObservedStream::Stdout),
+        Verdict::Nondeterministic,
+        "kali's stderr varies; stdout is what is observed, and it still does not classify"
+    );
+}
+
+#[test]
+fn env_passed_to_run_with_timeout_reaches_the_child() {
+    let mut command = std::process::Command::new("sh");
+    command.arg("-c").arg("printf '%s' \"$ORACLE_TEST_KEY\"");
+    let env = BTreeMap::from([("ORACLE_TEST_KEY".to_string(), "seen".to_string())]);
+    let run = crate::steps::run_with_timeout(command, &env, std::time::Duration::from_secs(10))
+        .expect("spawns");
+    assert_eq!(run.stdout, "seen");
+}

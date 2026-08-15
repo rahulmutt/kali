@@ -49,6 +49,12 @@ the baseline is stated as the commit, and the section is **superseded for R-11 b
 which closed it. Rows and bullets re-measured after `62d786e74` name the commit they were
 measured on (`372a3f440`) inline.
 
+**Regeneration 2026-08-15.** §0.2 is no longer a hand-maintained table. It is
+generated from the oracle cases under `crates/kali_cli/tests/cases/oracle/`,
+which assert a derived verdict class and therefore fail when an entry moves.
+Where this section's prose and §0.2 disagree about a class, **§0.2 wins** — it
+is measured and this prose is not.
+
 ### 0.1 Headline
 
 The register's own top priority — the **Group-1 evidence-corrupting defects
@@ -124,9 +130,13 @@ That would be a confident wrong answer, so it is not given here. Measured at
   corpus, so the ranking is reproducible rather than argued); (ii) re-run the four surface
   sweeps at the current HEAD to refresh every §0.2 verdict, since entries have demonstrably
   moved in both directions; (iii) *then* rank. Until (i)-(iii) are done the honest statement
-  is the one made here: **the frontier is unranked, and it is somewhere in
+  is the one made here: ~~**the frontier is unranked, and it is somewhere in
   {R-10, R-13, R-14, R-31, and the rest of the pre-existing SILENT set} — not in
-  {R-51, R-52, R-53}.**
+  {R-51, R-52, R-53}.**~~ **STRUCK 2026-08-15 — (i), (ii) and (iii) are all done; see the
+  third amendment below. The exclusion of {R-51, R-52, R-53} did NOT survive the
+  measurement, and it failed on ALL THREE names: R-51 and R-52 are in the reachable axis's
+  band 1 on tier, and R-53 is in it too, through its cluster G4. None of the three is there
+  on frequency — all three count 0 reachable. The amendment below gives the three routes.**
 
 **3. R-53 is WIDER than its §0.2 headline: `let` is affected, not only `var`.** Measured at
 `64438bf0ef`, switch-free: `for (let v of [1,2,3,4]) { console.log("iter=" + v); s = s + v; }`
@@ -139,77 +149,189 @@ loop variable*. This matters beyond bookkeeping: it is why this branch's own fai
 message names `const` explicitly (see §7.11's note) — recommending a bare "`for...of`" would
 have routed users out of an honest denial and into R-53.
 
+**Amendment 2026-08-15 — THE FRONTIER IS NOW RANKED.** The 2026-07-29 amendment's point 2
+said the frontier was unranked and named the three things that would settle it: an
+operational definition of blast radius, a re-measurement of every §0.2 verdict, and then a
+ranking. All three are done.
+
+- The definition is `docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md` §3:
+  the pair `(tier, reachable_frequency)`, where frequency is counted only over corpus
+  programs kali accepts.
+- §0.2 was regenerated 2026-08-15 from live cases under
+  `crates/kali_cli/tests/cases/oracle/`, measured at `4cfa218814`.
+- The ranking is `docs/superpowers/followups/blast-radius-ranking.md`, added 2026-08-15.
+
+~~the frontier is unranked, and it is somewhere in {R-10, R-13, R-14, R-31, and the rest of
+the pre-existing SILENT set}~~ — superseded. The measured band 1 is in the ranking document;
+that document, not this paragraph, is authoritative.
+
+**Two corrections this amendment owes the paragraph above, both of them against it.**
+
+1. **The "not in {R-51, R-52, R-53}" half did not survive — on all three names.** On the
+   ranking's reachable axis, **R-51** (cluster G2) and **R-52** are both in band 1, not
+   because they are frequent — both count **0** reachable and both are
+   `present-but-unreachable` — but because they are the only Tier-1 clusters left, and no
+   Tier-2 cluster dominates a Tier-1 one at any frequency. **R-53** is in band 1 as well, by
+   a third route: its cluster **G4** contains R-21, which has no predicate at all, so G4 has
+   no frequency and cannot be dominated. R-53's own reachable count is also 0. None of the
+   three is on the frontier because it turned out to be common; all three are there because
+   a partial order over a thin measurement leaves them uncompared. That is the Pareto
+   definition working, and it is exactly the kind of result an argued frontier gets wrong.
+2. **Of the four entries this paragraph nominated, three are off the measured frontier.**
+   Bands are over *clusters*, so read each nominee through its cluster: R-13 → **G3**, band
+   2; R-14 → the escape/provenance-loss pair with R-48, band 3; R-10 → **G7**, band 4. Only
+   R-31 is in a band-1 cluster (**G8**), and G8 is there on R-30's 57 and R-23's tier, not on
+   R-31's own count of 2. R-13's number in particular does not mean what it looks like: the
+   ranking's §3.2 shows only 2 of its 45 reachable sites have the receiver shape R-13's own
+   repro describes. The nomination was a reasonable guess and the measurement disagrees with
+   it, which is the whole reason the measurement was built.
+
+**Read the ranking's §1.1 before its bands.** `kali check` accepts **1 of the 40** corpus
+programs written to do jobs rather than to probe the compiler (2.5%), so 126 of the 127
+reachable programs are anchor micro-snippets and every reachable frequency is, in substance,
+a frequency over test snippets. That is a finding about kali, not a defect of the corpus.
+
 ### 0.2 Current status of every register entry
+
+**Regenerated 2026-08-15.** Every row below is produced from the oracle cases in
+`crates/kali_cli/tests/cases/oracle/`, measured at commit `4cfa218814` against
+`node v26.7.0`. A row is not prose a reader must re-derive: it is the verdict
+a live case asserts, and a change of class is a red test. The prior table was
+dated 2026-07-24 / `62d786e74` and had been stale for weeks — see §1 of
+`docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md`.
 
 FIXED = kali matches node, exit 0. FAIL-CLOSED = honest Enn nonzero (acceptable —
 not a silent defect). SILENT = exit 0, no diagnostic, wrong (the dangerous class).
 FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
+*(This paragraph is the register's older hyphenated spelling of four of the eight
+classes below — `FAIL-CLOSED` is `FAIL_CLOSED` and `FL-INTERNAL` is `FL_INTERNAL`.
+It is kept because it is where those four are defined; it is not a complete list,
+and the classifier's vocabulary is the one the table uses.)*
 
-| entry | 2026-07-24 status | note |
+Verdict classes are the classifier's, defined in
+`crates/kali_blast_radius/src/verdict.rs`: `FIXED`, `SILENT`, `FAIL_CLOSED`,
+`FL_INTERNAL`, `ACCEPTS_INVALID`, `BOTH_REJECT`, `TIMEOUT`, `NONDETERMINISTIC`.
+
+**How to read a row.** Rows are ordered by entry number, which is the extraction's
+order, not the 2026-07-24 table's. The status column names **lanes**, and each lane
+name is the `rNN…` prefix of the cases that assert it: every lane below is measured
+by **two** cases, module scope and in-function, and **the two scopes agreed on the
+class for every lane of every entry** — there is no entry in this table whose class
+depends on scope. Five entries (R-07, R-09, R-13, R-20, R-54) carry an additional
+case in `classifier_ground_truth.toml`, which measures the classifier on that
+entry's own repro; those cases agree with the tier files. **143 cases back the 41
+rows.** The oracle directory holds 147; the other four carry
+`register_entry = "GROUND-TRUTH"`, measure the classifier rather than any entry,
+and are therefore attributable to no row — `agree.js`, `both_reject.js`,
+`hang.js` and `nondeterministic.js`. A reader auditing the mapping should expect
+those four to be unattributed, and should treat any *other* unattributed case as
+a defect.
+
+| entry | status measured 2026-08-15 at `4cfa218814` | note |
 |---|---|---|
-| R-01 default param truncates module | **FAIL-CLOSED** | E5506 "default parameter is not supported", all forms; no truncation. |
-| R-02 call through fn value → 0 | **FAIL-CLOSED** | every broken lane now E5506 (the recommended G2 interim fix); callee never runs, but honestly. Supported set unchanged (direct call, const-arrow/fnlit, IIFE, sibling capture). |
-| R-03 forEach / expr-arrow filter | **FAIL-CLOSED** | E5506 via first-class-fn-value guard; `reduce`/`map` unchanged. |
-| R-04 console drops later args | **FIXED** | all sinks, both scopes; multi-arg now routes booleans through `emit_as_string` correctly. |
-| R-05 object-literal method / `this` → 0 | **FAIL-CLOSED** | `const o={m(){return 7;}}; o.m()` → **`E3100` "undefined identifier 'm'"** (not E5506 as first recorded — code corrected 2026-07-25 on `372a3f440`; fail-loud either way, so the verdict class is unchanged). BUT class-method `this.field` REGRESSED to SILENT — see **R-36**. |
-| R-06 var/let composite init | **object *declarator init* FIXED / R-06-R2 reassignment still SILENT / arrays SILENT** | objects-half closed PR #26 covers the **declarator initializer only**. Whole-object *reassignment* (`let o={a:6}; o={a:9}; o.a`→`0`, node `9`) is **R-06-R2**, still silent. Arrays-half is **R-06-R3**, still silent; `let` measures identical to `var` on both (see below). |
-| R-07 `const` is not a binding | **FIXED** | all 6 shapes (swap/stale/param/double-read/loop-carry) match; `const` is a real binding now. |
-| R-08 `===`/`!==`/`==`/`!=` half | **FIXED** | conflation cases all correct; null-guard now fail-closed. |
-| R-08 `??` half | **SILENT** | `let a=0; a??9`→9, param/var/call-return all →9/10. `0??9` & `const c=0;c??9` match. Residual-3 `f(false)===0`→111 also silent. Unchanged. |
-| R-09 `continue` skips for-update | **SILENT (+ hang)** | skip-ahead form silent-wrong; `i%2` form now **FL-INTERNAL E4003** (infinite loop → fuel trap). **Evidence widened 2026-07-28 on `5c9bbd051`** (R-35 stage, fix round 1): the hang is **not** specific to `let`/`i++`, to a `%` test, or to any nesting. It reproduces with `var` + `i = i + 1`, with a bare un-nested `if (i === 1) continue;`, with an `if`/`else` block, and with the `continue` inside a **`switch` clause** — 7 fixtures, both scopes, every one `E4003`. **R-09 is the owning ID for the switch-clause `continue` hang**; it is *not* an R-35 defect and no `switch` allowlist can fix it. See §2's R-09 entry and `r35-switch-boundary-rederived.md` "Cell 13 — corrected". **Evidence widened again 2026-07-29 on `58234e87c7`** (R-35 close-out): the entry's "Not affected" line was wrong in **two** directions and is corrected in §2. **`do`/`while` IS affected** (`continue` branches to the loop top, skipping the BOTTOM-placed test → `E4003`), and **`for…in` IS affected** and was missing from the line entirely (→ `E4003`). The genuinely faithful forms, re-measured switch-free, are **`while`**, **`for…of`**, and a **C-style `for` with NO update clause** — those three only. |
-| R-10 block-scope shadowing | **SILENT** | 5/5 shapes alias the outer binding. Unchanged. |
-| R-11 bitwise compound assign | **CLOSED 2026-07-25** (`28f18b3ff`, post-dating this section's `62d786e74` baseline) | see §2's R-11 entry. Re-measured on merged `main` `372a3f440`: `let n=6; n&=3`→`2` ✓, `n\|=8`→`14` ✓, `let o={a:6}; o.a&=3`→`2` ✓ (`var` receiver identical); array-elem `a[0]&=3` (`const` and `let` alike) and computed `o[k]&=3` → honest **E5506**. The row's old "SILENT — 48/48 / bypasses the E5506 their `+=` sibling honors" is false in all four of its sub-claims. The `&=`/`+=` relation is now **INVERTED** on the object-field lane: `o.a &= 3` lowers → `2` while `o.a += 1` → E5506 — see §3's G3 edit. |
-| R-12 alias defeats array-store guard | **SILENT** | both scopes. The discriminator is **SCOPE, not declarator kind**: module-scope un-aliased is also SILENT (`const a=[1,2]; a[0]=7; a[0]`→`1`, node `7`); only **in-function** un-aliased fails closed E5506, and there `const`/`let`/`var` alike do. Corrected 2026-07-25 on `372a3f440`. |
-| R-13 computed var-key get/set | **SILENT** | read →0, write vanishes; literal-key control correct. |
-| R-14 returned array reads zeros | **SILENT** | + the "object-return is correct" control has FLIPPED (`f().a`→0) — now **R-44**; arrays broken even when bound. |
-| R-15 `.split()` result | **SILENT** | element-read shape → len 0 + garbage handle; `.length`-only folds correctly. |
-| R-16 per-method string repr leak | **SILENT** | slice/charAt/toUpperCase/repeat leak the raw handle in concat; wider method set added below (was N4). |
-| R-17 string handles escape as ints | **SILENT** | join/element/Object.keys concat lanes. |
-| R-18 string literal `&&`/`\|\|` leaks handle | **SILENT** | + case-3 truthiness also backwards. |
-| R-19 `String(x)` / `.toString()` → 0 | **FIXED (String) / FAIL-CLOSED (toString)** | Stage P5 gain: `String()` of a proven scalar/string now COMPUTES (var-bound too, un-poisons concat); `String(null/undefined)` and `.toString()` fail closed. No silent path. |
-| R-20 `JSON.stringify` → 0 | **FAIL-CLOSED** | E5506. |
-| R-21 no `undefined` value | **SILENT** | all forms (`null`/`undefined`/absent field/void call/template) render `0`/`false`; `undefined+1`→1. |
-| R-22 `==` cross-type coercion | **SILENT (num↔str)** | `1=="1"`→false; `"1"==true`→fail-closed; `1==true`/`null==undefined`/`1==1.0` correct. |
-| R-23 `typeof` non-literal | **SILENT** | any binding/expression →0; literal correct. |
-| R-24 `Object.freeze` no-op | **SILENT** | write goes through; `isFrozen`→0. |
-| R-25 array spread `[...a]` | **FAIL-CLOSED (idx/len) / SILENT (console.log)** | `b.length`/`b[i]` E5506; `console.log([...a])`→0 residual still silent. |
-| R-26 unary `+` on non-numeric string | **SILENT** | `+"abc"`→garbage int; `+"42"`→42 ok. |
-| R-27 comma operator → 0 | **SILENT** | value lost; side effect fires once. |
-| R-28 `-0` | **SILENT** | `1/-0`→Infinity (node -Infinity). |
-| R-29 assign to `const` | **SILENT (node throws)** | write discarded, exit 0; no const-write guard. |
-| R-30 booleans render 1/0 in direct log | **SILENT (single-arg direct only)** | multi-arg + concat + `const b` now correct (R-04 fix); narrowed. |
-| R-31 log array→len / object→0 | **SILENT** | array→length, object→0, concat/template→0. |
-| R-32 no exponential notation | **SILENT** | `1e21`/`1e-7` direct wrong; concat path correct. |
-| R-33 `console.warn` `[warn]` prefix | **SILENT/WARN** | prefix persists; `console.error` correct. |
-| R-34 bool user-fn renders 1/0 (concat & multi-arg) | **SILENT** | live; concat AND multi-arg both `1`. |
-| R-47 `for..of` over a `let` array iterates the binding's NAME | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let a=[1,2,3]; for (const x of a) log(x)` prints `a` (node `1 2 3`); `var` fails closed E5506, `const` is correct. Exit 0, plausible-looking output — see §2. |
-| R-48 array stored into an `I64` object field reads `0` | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let o={a:6}; o.a=[1,2]; o.a`→`0` (node `[ 1, 2 ]`); `const` receiver identical. See §2. |
-| R-35 `switch` selects the wrong clause | **CLOSED-BY-ALLOWLIST 2026-07-29** (branch `r35-switch-lowering`) — the admitted set is **FIXED**, everything else is **FAIL-CLOSED** (`E5506`); **no silent lane remains** | Codegen half closed by the R-35 Stage 2 allowlist. **ADMITTED and correct:** a proven i64-scalar or proven-string discriminant; numeric-literal (incl. unary `+`/`-`) or string-literal case tests **in the discriminant's own domain**; clauses terminated by `return`, unlabeled `break`, or unlabeled `continue` under a **faithful** enclosing loop; runs of empty non-`default` clauses grouping onto the next terminated clause; zero or one `default`, **last only**; both scopes; nesting inside loops and inside other switches. **RESIDUAL FAIL-CLOSED (`E5506`, honest, not silent) — the full list is §7.11:** true fallthrough; `let`/`const` in a clause body; non-literal or cross-domain case tests; float/boolean/object/array/unknown discriminants; `continue` with **no** enclosing loop; `continue` under an **unfaithful** enclosing loop (`UNFAITHFUL_CONTINUE`); a `default` that is **not last** (`DEFAULT_NOT_LAST`); a `default` grouped with a preceding empty `case` (`DEFAULT_CANNOT_GROUP`); a trailing empty clause with no body to group onto (`TRAILING_EMPTY_GROUP`); an **empty switch** `switch (x) {}` — **valid JS**, node exits 0, denied with `"a switch with no clauses"` (added to the residual set 2026-07-29, `64438bf0ef`, fix wave item 2; see §7.11 row 14); `throw` as a terminator (deferred, not denied on principle). **Read §7.11 before extending** — it also records the two accepted regressions and three standing couplings. The pre-fix measurement is preserved here for the historical record: **re-measured 2026-07-28 on `5c9bbd051`** (branch `r35-switch-lowering`, post parser containment), superseding both the `62d786e74` row and §0.3's original boundary. 32-cell matrix, both scopes: **22 SILENT, 2 FAIL-CLOSED, 6 FL-INTERNAL, 2 CORRECT** (corrected in fix round 1 from 24/2/4/2; cell 13 is R-09, see that entry). `switch` lowers as `if (discriminant) { clause-1 } else { clause-2 }` — case tests are never consulted, clauses beyond the second are never emitted, and the wrong clause's **side effects run**. String discriminants are always truthy so they always take clause 1. Full matrix: `r35-switch-boundary-rederived.md`. |
-| R-51 optional call `s?.(x)` returns `0` and never runs the callee | **SILENT (Tier 1)** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `function s(x){return x;} s?.(7)` → `w=0`, node `w=7`; a side-effect counter in the callee stays `0` where node reads `1`, so the body **never runs**. Exit 0, **no diagnostic on `kali run` and none on `kali build`** — completely silent, not a warning. The non-optional control `s(7)` is correct on both engines, so the defect is the optional-call route specifically. Carries a **standing coupling warning to R-35's parameter proof** — see §2's R-51 entry and §7.11. |
-| R-52 `for`-clause arity misclassification (omitted clauses) | **SILENT (Tier 1) + FL-INTERNAL** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. The HIR omits absent `for` clauses and codegen classifies the survivors **by count**, so any `for` with an omitted clause and a present later one is misread. `for (var i = 0; ;) { … }` **skips the entire loop** (kali prints only `s=0`, exit 0, no diagnostic; node prints six `iter=` lines and `s=15`) — the `var i = 0` DECLARATION is used as the loop test and is falsy. `for (init; ; update)` **drops the first iteration** (silent, exit 0). `for (; test; update)` **runs away to `E4003`** (loud). Distinct from R-09, which is about update PLACEMENT, not clause identification. Carries a **standing coupling to `continue_is_faithful`** — see §2's R-52 entry. |
-| R-53 `for (var v of […])` — **and `for (let v of […])`** — binds every element to `0` | **SILENT (Tier 2)** | **WIDENED 2026-07-29 (`64438bf0ef`, fix wave item 1): `let` is affected too, not only `var`** — measured switch-free, `for (let v of [1,2,3,4])` → kali `iter=0` ×4 / `s=0`, node `iter=1..4` / `s=10`, exit 0 both sides. The silent lane is bounded on the other axis: over a **binding** iterable rather than an array literal, kali fails closed `E5506`. So the silent surface is *for-of over an **array literal** with a **`var` or `let`** loop variable*; `const` is correct. See §0.1's 2026-07-29 amendment, point 3. ORIGINAL ENTRY: added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `for (var v of [1,2,3]) { log("iter="+v); t=t+v; }` → kali `iter=0` ×3 and `t=0`, node `iter=1/2/3` and `t=6`. Exit 0, no diagnostic, no `break`/`continue`/`switch` involved. **`const` is correct** on the identical fixture. Distinct from R-47 (`for..of` over a `let`-declared array BINDING iterates the binding's NAME) — this is the loop VARIABLE's declarator kind over an array LITERAL. Consequence for probe design: **`for (var v of …)` must not be used as a faithful-loop control.** |
-| R-54 a second `default` clause is absorbed into the first (node: `SyntaxError`) | **ACCEPTS-INVALID (Tier 3)** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `parse_switch_statement`'s **`default`** arm stops its statement loop on `Case \| RightBrace` only — `Default` is **missing from the stop set**, where the sibling **`case`** arm at `crates/kali_parser/src/statement.rs:536-541` correctly stops on `Case \| Default \| RightBrace`. A second `default` and everything after it is therefore swallowed into the FIRST `default`'s consequent, and **both bodies run merged**: `default: g = 5; default: return "d2";` → kali `v=d2` / `g=5` (exit 0); node refuses the whole file with `SyntaxError: More than one default clause in switch statement` (exit 1). Cluster **G1**, in the **same function as R-49** and independent of it. Makes `switch_plan`'s `"more than one \`default\` clause"` denial (`crates/kali_codegen/src/emit/switch.rs:105`) **unreachable dead code**. Only invalid JS is affected. |
-| R-49 `parse_switch_statement` reparented every post-switch statement to module scope | **CLOSED 2026-07-28** (`9db9150c0`, branch `r35-switch-lowering`) | Tier 1, cluster **G1**, higher severity than R-35 and a different layer. The clause loop inspected `RightBrace` without consuming it, so the enclosing block parser took that brace as its own closer. Decisive repro: a function that is **never called** still ran its post-switch assignment at module load — `g=99` where node prints `g=0`. **Unique** such site in the parser. See §2. |
+| R-01 default param truncates module | **FAIL_CLOSED** (both scopes) | E5506 "a default parameter is not supported", all forms; no truncation. Class unchanged since the 2026-07-24 row — this is the first time a case has held it. kali's stdout is empty where node prints `A`/`B`, so nothing is truncated *and* nothing is printed. |
+| R-02 call through fn value → 0 | **FAIL_CLOSED** (both scopes) | every broken lane E5506 (the recommended G2 interim fix); callee never runs, but honestly. Supported set unchanged (direct call, const-arrow/fnlit, IIFE, sibling capture). The refusal is preceded by a `warning[E3100] undefined identifier … lowered through a zero placeholder compatibility fallback` — a warning, not the verdict. |
+| R-03 forEach / expr-arrow filter | **FAIL_CLOSED** (both scopes) | E5506 via the first-class-fn-value guard; the diagnostic text is word for word R-02's and R-05's, differing only in the quoted callee. `reduce`/`map` are a different program and are not what this row measures. |
+| R-04 console drops later args | **FIXED** (both scopes) | all sinks, both scopes; multi-arg routes booleans through `emit_as_string` correctly. The case measures one cell of R-04's boundary (a `var` reference in the middle position); five further boundary shapes were re-measured by hand at `4cfa218814` and **all agreed with node**, so the entry is fixed, not merely the cell. |
+| R-05 object-literal method / `this` → 0 | **FAIL_CLOSED** (both scopes) | ~~`E3100` "undefined identifier 'm'"~~ — at `4cfa218814` the §2 repro refuses with the same `E5506` first-class-callee message R-02 and R-03 produce; fail-loud either way, so the verdict class is unchanged. BUT class-method `this.field` is a different program: it is **R-36**, has no case here, and this row does not speak for it. |
+| R-06 var/let composite init | **FIXED** (declarator-init lane `r06a`) / **SILENT** (whole-object reassignment `r06b`, R-06-R2) / **SILENT** (array elements `r06c`, R-06-R3) | objects-half closed PR #26 covers the **declarator initializer only**. Whole-object *reassignment* (`var o={f:1}; o={f:2}; o.f`→`0`, node `2`) is **R-06-R2**, still silent. Arrays-half is **R-06-R3**, still silent; both elements of `var a=[7,9]` read `0`. The three lanes are three programs and get three cases; the entry is not fixed. |
+| R-07 `const` is not a binding | **FIXED** (both scopes) | `const` is a real binding now. The two scopes use the register's own two repros (Repro A "classic swap" in-function, Repro B "stale read" at module scope) rather than one repro wrapped twice; a third case in `classifier_ground_truth.toml` pins the FIXED class on Repro A. Under the defect these printed a plausible wrong answer at exit 0, so a regression would classify SILENT and name R-07. |
+| R-08 `===`/`!==`/`==`/`!=` half | **FAIL_CLOSED** (`r08eq`, both scopes) | ~~FIXED — conflation cases all correct; null-guard now fail-closed~~ **CHANGED at this regeneration: FIXED → FAIL_CLOSED.** The move is narrower than the class name suggests and must not be read as a regression: the repro's first three comparisons still agree with node, and the whole program now exits 1 only because its **fourth** comparison (a `let`-bound `0` against `null`) is refused with `E5506 operator '===' cannot be decided here`. One refused comparison takes the program's verdict; the three conflation cases are unaffected. |
+| R-08 `??` half | **SILENT** (`r08nc`, both scopes) | `let a=0; a??9`→9, and the `var`, parameter and call-return operands all →9/10 against node's `0`. All four operand kinds reproduce digit for digit. Unchanged — this half is untouched by the `===` half's move. |
+| R-09 `continue` skips for-update | **SILENT** (skip-ahead form `r09s`) / **FL_INTERNAL** (hang form `r09h`, `E4003` fuel trap) | two lanes of one entry, not a contradiction: the skip-ahead form is silent-wrong (kali `s=13`, node `s=10`, exit 0 both) and the `i%2` form runs away to `E4003`. `E4003` is documented as *internal*, so it is FL_INTERNAL and not an honest denial. The evidence-widening recorded on this row in 2026-07 stands and is not re-measured here: as of `61c2d48ea9` the register records the hang as independent of `let`/`var`, of `%`, and of nesting, reproducing under `do`/`while` and `for…in`, with `while`, `for…of` and a C-style `for` with no update clause the only faithful forms. **R-09 is the owning ID for the switch-clause `continue` hang**; it is *not* an R-35 defect and no `switch` allowlist can fix it. See §2's R-09 entry and `r35-switch-boundary-rederived.md`. |
+| R-10 block-scope shadowing | **SILENT** (both scopes) | the inner declaration still aliases the outer binding: kali `r=2`, node `r=1`, exit 0. One of the three frontier candidates, and still silent at `4cfa218814`. |
+| R-11 bitwise compound assign | **FIXED** (local-scalar lane, both scopes) | ~~CLOSED 2026-07-25 (`28f18b3ff`)~~ — the class is now stated in the classifier's vocabulary rather than as a project event: **FIXED**. All six operators match (`and=2 or=14 xor=7 shl=24 shr=3 ushr=3`). **This case measures the local-scalar lane only** — the entry's own repro. R-11's guard-bypass shapes (object field, array element, parameter) are different programs with no case here, and as of `61c2d48ea9` §2 records some of them refusing with `E5506`; this row does not speak for them. The `&=`/`+=` relation is **INVERTED** on the object-field lane — as of `61c2d48ea9`, `o.a &= 3` lowers to `2` while `o.a += 1` refuses with `E5506`; see §3's G3 edit. |
+| R-12 alias defeats array-store guard | **SILENT** (both scopes) | the store vanishes and the read-back through the alias reports the pre-store value (kali `b0=1`, node `b0=7`). The discriminator is **SCOPE, not declarator kind**, per the 2026-07-25 correction on `372a3f440`; both scopes measure SILENT here because both cases carry the alias. |
+| R-13 computed var-key get/set | **SILENT** (read `r13r`) / **SILENT** (write `r13w`), both scopes | read →`v=0` where node reads `2`; write vanishes (kali `dot=2`, node `dot=8`). Two repros, two lanes, one class. A third case in `classifier_ground_truth.toml` pins the SILENT class on the read repro. One of the three frontier candidates, and still silent at `4cfa218814`. |
+| R-14 returned array reads zeros | **SILENT** (both scopes) | kali `r=0`, node `r=1`, exit 0. One of the three frontier candidates, and still silent at `4cfa218814`. The "object-return is correct" control that FLIPPED is **R-44**, a different entry with no case here. Arrays are broken even when bound, not only when indexed off the call expression. |
+| R-15 `.split()` result | **SILENT** (both scopes) | element-read shape → `len=0` plus a leaked handle (`1=-9223354418898927615`, node `1=b`). The `STATUS 2026-07-20` partial closure added the *runtime* `.split()` fallback to the deny-set; the register's own repro binds a string **literal**, so it reaches the preserved static-ASCII fold lane and the deny-set never sees it. Partial closure, live defect. |
+| R-16 per-method string repr leak | **SILENT** (both scopes) | `.slice()`/`.charAt()`/`.toUpperCase()`/`.repeat()` leak the raw handle in concat position (kali `c=-9223354388834156541`, node `c=hel`). The handle's bit pattern is allocation-dependent and differs from the one recorded in 2026-07; the two kali runs of the case agree with each other, so the pair does not rank NONDETERMINISTIC. |
+| R-17 string handles escape as ints | **SILENT** (both scopes) | join/element/`Object.keys` concat lanes; both handles match the recorded bit patterns digit for digit and both consumers still leak, so neither lane was closed and neither masks the other. |
+| R-18 string literal `&&`/`\|\|` leaks handle | **SILENT** (both scopes) | two leaked handles plus case-3's inverted truthiness, all four lines reproducing exactly as recorded. |
+| R-19 `String(x)` / `.toString()` → 0 | **FIXED** (`String()` lane `r19s`) / **FAIL_CLOSED** (`.toString()` lane `r19t`), both scopes | Stage P5 gain: `String()` of a proven scalar/string COMPUTES (var-bound too, un-poisons concat); all four `.toString()` spellings fail closed with `E5506`, one refusal each, so no receiver kind slips past the deny-set. No silent path. **§2's own STATUS line contradicts this row about the `String(x)` lane; HEAD agrees with the row, not with §2** — as of `61c2d48ea9`, §2 is the stale text. |
+| R-20 `JSON.stringify` → 0 | **FAIL_CLOSED** (both scopes) | `E5506`; the message names the callee `stringify` rather than `JSON.stringify`, which the register already recorded as cosmetic and which is confirmed here. A second case in `classifier_ground_truth.toml` pins the FAIL_CLOSED class on the same repro. **§2's section TITLE is stale** — as of `61c2d48ea9` it still reads "silently returns 0 for every input" while its own `STATUS 2026-07-20` line and this row say fail-closed; HEAD confirms the STATUS line. The residual aliased-receiver lane (`const j = JSON; j.stringify(o)`) is a different program with no case here. |
+| R-21 no `undefined` value | **FAIL_CLOSED** (absent field, `let`/`var` receiver — `r21fl`) / **SILENT** (all seven other lanes: `r21bn`, `r21bu`, `r21c`, `r21v`, `r21a`, `r21f`, `r21o`), both scopes | ~~SILENT, all forms~~ — the absent-field read moved to `E5506 unknown field` by `64438bf0ef`; §0.2 recorded SILENT until this regeneration. **The discriminator is the RECEIVER'S DECLARATOR KIND, and §2's own repro takes the silent side:** `const o={a:1}; "z="+o.z` → `z=0` at exit 0 (`r21f`, SILENT), while the identical program with a `let` or `var` receiver refuses (`r21fl`, FAIL_CLOSED). That is a lane discriminator, not a move of the entry — eight lanes across sixteen cases, and seven of them are still silent (`null`/`undefined` through a binding, concat, void return, `undefined+1`→1, out-of-bounds literal array read →`false`). |
+| R-22 `==` cross-type coercion | **SILENT** (both scopes) | `1=="1"`→`false`, node `true`. `"1"==true` fails closed and `1==true`/`null==undefined`/`1==1.0` are correct; those are different programs and are not what this row measures. |
+| R-23 `typeof` non-literal | **SILENT** (both scopes) | any binding/expression → `0` — a *number* where node produces `boolean`, not the string `"0"` and not `"undefined"`, which is why `typeof x === "string"` dispatch silently never matches. Literal control correct. |
+| R-24 `Object.freeze` no-op | **SILENT** (both scopes) | the write goes through (kali `x=99`, node `x=1`) and `isFrozen`→`0` where node prints `true`. Both halves reproduce. |
+| R-25 array spread `[...a]` | **FAIL_CLOSED** (`.length`/index-fold lane `r25i`) / **SILENT** (`console.log` residual `r25l`), both scopes | `b.length`/`b[i]` → `E5506`, one refusal per consumer, behind a `warning[E8001] unsupported unary operator 'spread'`; `console.log([...a])`→`0` (node `[ 1, 2 ]`) is the named residual of the 2026-07-20 partial close and is still silent. |
+| R-26 unary `+` on non-numeric string | **SILENT** (both scopes) | `+"abc"`→`5451`, node `NaN` — digit for digit the register's recorded value, and exactly what an unvalidated byte accumulator predicts (49·100 + 50·10 + 51). `+"42"`→42 is a different program. |
+| R-27 comma operator → 0 | **SILENT** (both scopes) | value lost (`a=0`, `b=0` against node's `a=2`, `b=7`); the side effect still fires exactly once — both engines agree on `n=1`, so only the value is lost. |
+| R-28 `-0` | **SILENT** (reciprocal `r28v`) / **SILENT** (direct log `r28r`), both scopes | `1/-0`→`Infinity` (node `-Infinity`) and `console.log(-0)`→`0` (node `-0`). Two lanes, one class. The "`-0` folds to the integer `0`" mechanism is the register's hypothesis as of `61c2d48ea9`; these cases record the divergence, not the mechanism. |
+| R-29 assign to `const` | **ACCEPTS_INVALID** (both scopes) | ~~SILENT (node throws)~~ **RECLASSIFIED at this regeneration: SILENT → ACCEPTS_INVALID. The entry did not move; only the name of its class did.** kali prints `r=1` at exit 0 with no diagnostic; node exits 1 with `TypeError: Assignment to constant variable.` — kali accepting a program node refuses is ACCEPTS_INVALID by definition, and the old row's own parenthetical "(node throws)" ruled out the class the row named. §2's R-54 already files R-29 as "the same class" as R-54, which this table spells ACCEPTS-INVALID. Write still discarded, no const-write guard: the defect is unchanged and unfixed. |
+| R-30 booleans render 1/0 in direct log | **SILENT** (`var` binding `r30a`; `const` object field `r30c`) / **FIXED** (`const` scalar `r30b`; concat and template `r30d`), both scopes | narrowed by the R-04 fix and narrowed again by the 2026-07-19 correction: among plain bindings only `var` is still wrong (`console.log(b)`→`1`, node `true`), `const` **object fields** remain wrong, and the concat/template sinks are correct for operands kali can prove. Four lanes, two classes. The two FIXED lanes are the entry's own declared controls — **they do not retire the entry**. |
+| R-31 log array→len / object→0 | **SILENT** (direct log `r31a`) / **SILENT** (concat `r31b`), both scopes | direct: array→`2` (its length — a deceptive answer for a 2-element array), object→`0`, against node's `[ 1, 2 ]` and `{ f: 1 }`. Concat: both collapse to `v=0` against node's `v=1,2` and `v=[object Object]`. Two sinks, two lanes, because node renders differently on each. Both silent. |
+| R-32 no exponential notation | **SILENT** (past-threshold direct log `r32a`) / **FIXED** (just-inside `r32b`; concat `r32c`), both scopes | `1e21`/`1e100`/`1e-7` render as expanded digits in the direct-log sink where node uses exponential; `1e20`/`1e-6` are correct, pinning the boundary exactly, and the concat path implements the small-number threshold the direct-log path does not. Two independent formatters, and they still disagree. |
+| R-33 `console.warn` `[warn]` prefix | **SILENT** (`console.warn` lane `r33a`, observed on **stderr**) / **FIXED** (`console.error` control `r33b`, also stderr), both scopes | ~~SILENT/WARN~~ — the class is `SILENT`; the prefix persists (kali `[warn] hi`, node `hi`, exit 0 both) and `console.error` is correct. **Both lanes are measured on stderr, which is where `console.warn` renders**; an earlier stdout-only reading of this entry measured FIXED by comparing two empty strings, and that FIXED was an artifact of the observed stream, not a fix. The four R-33 cases are the only ones in the oracle directory that set `observe = "stderr"`. The cases compare whole streams; that the difference is *exactly* the `[warn] ` prefix is the hand observation, not something the class alone establishes. |
+| R-34 bool user-fn renders 1/0 (concat & multi-arg) | **SILENT** (both scopes) | live; concat AND multi-arg both render `1` where node renders `true` — all three lines of the repro diverge, so both named lanes are still broken. |
+| R-47 `for..of` over a `let` array iterates the binding's NAME | **SILENT** (`let` lane `r47l`) / **FAIL_CLOSED** (`var` lane `r47v`) / **FIXED** (`const` lane `r47c`), both scopes | added 2026-07-25, originally measured on `372a3f440`. `let a=[1,2,3]; for (const x of a) log(x)` still prints the single line `a` (node `1 2 3`) — the identifier's own text is the iterand and the trip count follows the identifier's LENGTH. `var` refuses with the `E5506` for-of-iteration message word for word; `const` matches node. **The `const` lane's FIXED is a LANE result the entry itself declares as its control — it does not retire R-47.** |
+| R-48 array stored into an `I64` object field reads `0` | **SILENT** (both scopes) | added 2026-07-25, originally measured on `372a3f440`. `o.a=[1,2]; o.a`→`0` (node `[ 1, 2 ]`); the store still vanishes and the slot still reads its zero. |
+| R-49 `parse_switch_statement` reparented every post-switch statement to module scope | **FAIL_CLOSED** (by R-35's switch allowlist, not R-49's defect), both scopes | ~~CLOSED 2026-07-28 (`9db9150c0`) — Tier 1, cluster **G1**~~ — the closure stands; what changed is the measured class. **CHANGED at this regeneration: FIXED/CLOSED → FAIL_CLOSED, AND NOT BY THIS ENTRY'S GATE.** The reparenting defect is not back. The decisive repro's discriminant is a parameter, and it is now refused *before execution* by **R-35's switch-lowering allowlist** — ``E5506: this `switch` is not in the supported lowering set (the discriminant is not a proven integer or string)`` — which names R-35's admitted set, not R-49's defect. Verified by hand at `4cfa218814`: the identical program with a locally-bound `var x = 1;` discriminant compiles and prints `g=0`, so **the containment property still holds wherever the switch is admitted**. Two case names in `tier1.toml` promise "containment"; those cases observe a refusal that happens first, and this row is written from the verdict and the rationale, not from the names. |
+| R-51 optional call `s?.(x)` returns `0` and never runs the callee | **SILENT** (both scopes) | added 2026-07-29, originally measured on `58234e87c7`. `s?.(7)` → `w=0` (node `w=7`) and a side-effect counter in the callee stays `0` where node reads `1`, so the body still never runs. Exit 0, empty stderr — completely silent. The non-optional control `s(7)` is correct, so the defect is the optional-call route specifically. Carries a **standing coupling warning to R-35's parameter proof** — see §2's R-51 entry and §7.11. **One of only two Tier-1 entries still measuring SILENT at `4cfa218814`; the other is R-52.** |
+| R-52 `for`-clause arity misclassification (omitted clauses) | **SILENT** (Repro A `r52a`; Repro B `r52b`) / **FL_INTERNAL** (Repro C `r52c`, `E4003`), both scopes | added 2026-07-29, originally measured on `58234e87c7`. Three labelled repros, three declared severities, three lanes — collapsing them would record one class for an entry the register itself records as carrying three. A: `for (var i = 0; ;)` skips the loop entirely (kali `s=0`; node six `iter=` lines and `s=15`). B: `for (init; ; update)` drops iteration zero and **the sums still agree**, which is why the per-iteration log is load-bearing. C: `for (; test; update)` runs away to `E4003` after ~1.36M lines in ~2.7s, reproducibly (two kali runs compared byte for byte, so the pair does not rank NONDETERMINISTIC). Distinct from R-09, which is about update PLACEMENT, not clause identification. Carries a **standing coupling to `continue_is_faithful`** — see §2's R-52 entry. |
+| R-53 `for (var v of […])` — **and `for (let v of […])`** — binds every element to `0` | **SILENT** (`var` loop variable `r53v`; `let` loop variable `r53l`) / **FIXED** (`const` loop variable `r53c`), both scopes | the 2026-07-29 widening holds at `4cfa218814`: `let` is affected as well as `var`, measured on the entry's own separately-dated four-element fixture. In every silent lane **the trip count is correct and only the bound value is lost** (`iter=0` ×3 or ×4, `t=0`/`s=0`, against node's `1..3`/`t=6` and `1..4`/`s=10`). The silent surface remains *for-of over an **array literal** with a **`var` or `let`** loop variable*; over a binding iterable kali refuses. **The `const` lane's FIXED is a LANE result the entry itself declares as its control — it does not retire R-53.** Distinct from **R-47**, which is `for..of` over a `let`-declared array BINDING iterating the binding's NAME; this is the loop VARIABLE's declarator kind over an array LITERAL. Consequence for probe design is unchanged: `for (var v of …)` must not be used as a faithful-loop control. |
+| R-54 a second `default` clause is absorbed into the first (node: `SyntaxError`) | **ACCEPTS_INVALID** (both scopes) | added 2026-07-29, originally measured on `58234e87c7`. Both halves still reproduce: kali prints `v=d2` **and** `g=5` at exit 0, so the clauses are still MERGING rather than replacing; node refuses the whole file with `SyntaxError: More than one default clause in switch statement` at exit 1. `g=5` is the load-bearing half — `v=d2` alone would be consistent with replacement. A second case in `classifier_ground_truth.toml` pins the ACCEPTS_INVALID class on the same repro. Only invalid JS is affected. Cluster **G1**, same function as R-49 and independent of it. |
 
-**Net:** of the register's ~29 silent-class entries, the sweep confirms **FIXED/fail-closed: R-01, R-02, R-03, R-04, R-05, R-07, R-08(=== half), R-19, R-20**, plus **R-11, CLOSED after this section's baseline** (`28f18b3ff`); **still SILENT: R-06-R2, R-06-R3, R-08(?? half), R-09, R-10, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25(residual), R-26, R-27, R-28, R-29, R-30, R-31, R-32, R-33, R-34.** Added post-sweep 2026-07-25 and also **SILENT: R-47, R-48.**
+**Two entries a reader may look for and not find.** Neither is a §2 entry, so
+neither has an oracle case, and a row with no case behind it is what this
+regeneration exists to eliminate. **R-35 was a row here and is not one now. R-50
+never was one, and is named here so a reader does not go looking for it.**
 
-**Update 2026-07-29 (R-35 close-out, branch `r35-switch-lowering`).** Two changes to the
-sentence above, recorded here rather than rewritten into it so the sweep's own record stays
-legible:
+- **R-35 `switch` selects the wrong clause** — closed by allowlist 2026-07-29
+  (`64438bf0ef`). Its authoritative boundary is **§7.11**: the admitted set, the
+  fourteen-item fail-closed residual, two accepted regressions, three standing
+  couplings. It was never §0.2's to summarise and the prior row said so itself.
+  R-35's allowlist is, however, the gate that now refuses R-49's repro — see that
+  row.
+- **R-50** — filed in **§7** as a fail-loudly defect, not a §2 entry.
 
-- **R-35 leaves the silent class.** Its admitted set is FIXED and everything else is honest
-  `E5506`. It is the second Tier-1 entry (after R-49) closed by this project. Its residual
-  is FAIL-CLOSED, which this register counts as *acceptable*, not as a defect — but the
-  residual is a real limit on what kali compiles, and it is enumerated in **§7.11**, which
-  is the authoritative list. Neither this row nor §0.3's bullet is.
-- **Three new SILENT entries came out of the close-out's own probing: R-51, R-52, R-53.**
-  None of them involves `switch`. All three were found while building switch-free
-  **controls** for the loop-faithfulness and escape-analysis questions R-35 raised — the
-  recurring pattern this register documents: *the control is where the new defect lives.*
-  All three have a correct sibling form (`s(x)` for R-51, a full four-clause `for` for
-  R-52, `const` for R-53). R-52 and R-53 additionally **invalidate probe shapes**:
-  `for (init; ;)` runs zero iterations and `for (var v of …)` yields all-zero elements, so
-  a fixture built on either measures nothing while *looking* like it passed.
+**Net, measured 2026-08-15 at `4cfa218814` against `node v26.7.0`.** Of the 41 §2
+entries, **29 carry at least one SILENT lane** and **12 carry none**:
+
+- **No silent lane (12):** R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20,
+  R-29, R-49, R-54.
+- **At least one silent lane (29):** R-06, R-08, R-09, R-10, R-12, R-13, R-14,
+  R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25, R-26, R-27, R-28, R-30,
+  R-31, R-32, R-33, R-34, R-47, R-48, R-51, R-52, R-53.
+- **Tier 1's silent population is 2** — R-51 and R-52 — down from the eight
+  entries Tier 1 holds. R-01, R-02, R-03 and R-05 fail closed; R-04 is fixed;
+  R-49 fails closed by R-35's gate.
+- **Movement since the 2026-07-24 net:** R-29 leaves the silent set (reclassified
+  ACCEPTS_INVALID, same behaviour), taking the count from 30 entries to 29.
+  R-08's `===` half and R-21's absent-field-with-`let`-receiver lane moved to
+  FAIL_CLOSED; both entries still carry silent lanes and neither is retired.
+
+**The 2026-07-24 sweep's own net is preserved below, unrewritten,** because it is
+that sweep's record and the table above supersedes it rather than editing it. It
+is dated `62d786e74` and must not be read as current.
+
+> **Net (2026-07-24 sweep, `62d786e74` — SUPERSEDED by the table above):** of the
+> register's ~29 silent-class entries, the sweep confirms **FIXED/fail-closed:
+> R-01, R-02, R-03, R-04, R-05, R-07, R-08(=== half), R-19, R-20**, plus **R-11,
+> CLOSED after this section's baseline** (`28f18b3ff`); **still SILENT: R-06-R2,
+> R-06-R3, R-08(?? half), R-09, R-10, R-12, R-13, R-14, R-15, R-16, R-17, R-18,
+> R-21, R-22, R-23, R-24, R-25(residual), R-26, R-27, R-28, R-29, R-30, R-31,
+> R-32, R-33, R-34.** Added post-sweep 2026-07-25 and also **SILENT: R-47, R-48.**
+>
+> **Update 2026-07-29 (R-35 close-out, branch `r35-switch-lowering`).** Two changes
+> to the sentence above, recorded here rather than rewritten into it so the sweep's
+> own record stays legible:
+>
+> - **R-35 leaves the silent class.** Its admitted set is FIXED and everything else
+>   is honest `E5506`. It is the second Tier-1 entry (after R-49) closed by this
+>   project. Its residual is FAIL-CLOSED, which this register counts as
+>   *acceptable*, not as a defect — but the residual is a real limit on what kali
+>   compiles, and it is enumerated in **§7.11**, which is the authoritative list.
+>   Neither this row nor §0.3's bullet is.
+> - **Three new SILENT entries came out of the close-out's own probing: R-51, R-52,
+>   R-53.** None of them involves `switch`. All three were found while building
+>   switch-free **controls** for the loop-faithfulness and escape-analysis questions
+>   R-35 raised — the recurring pattern this register documents: *the control is
+>   where the new defect lives.* All three have a correct sibling form (`s(x)` for
+>   R-51, a full four-clause `for` for R-52, `const` for R-53). R-52 and R-53
+>   additionally **invalidate probe shapes**: `for (init; ;)` runs zero iterations
+>   and `for (var v of …)` yields all-zero elements, so a fixture built on either
+>   measures nothing while *looking* like it passed.
 
 ### 0.3 NEW silent miscompiles found this re-derivation (exit 0, no diagnostic, wrong)
 

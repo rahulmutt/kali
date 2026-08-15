@@ -1,0 +1,524 @@
+use super::*;
+
+/// A per-process, per-call-unique scratch directory. The brief's tests used
+/// fixed names under `std::env::temp_dir()`; two concurrent runs of this test
+/// binary (two shells, or a CI job sharing a machine) would then race on the
+/// same directory and flake. Uniqueness must not rest on the wall clock alone
+/// -- a coarse `SystemTime` can hand two threads the same nanosecond -- so a
+/// process-wide counter carries it, mirroring the precedent in
+/// `crates/kali_cli/tests/clbg_binary_trees_runtime.rs`.
+fn scratch_dir(label: &str) -> std::path::PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let dir =
+        std::env::temp_dir().join(format!("blast-radius-{label}-{}-{seq}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    dir
+}
+
+#[test]
+fn the_corpus_hash_is_order_independent_and_content_sensitive() {
+    let a = ManifestFile {
+        path: "b.js".into(),
+        stratum: "anchor".into(),
+        sha256: "22".into(),
+    };
+    let b = ManifestFile {
+        path: "a.js".into(),
+        stratum: "anchor".into(),
+        sha256: "11".into(),
+    };
+    let forward = corpus_hash(&[a.clone(), b.clone()]);
+    let reversed = corpus_hash(&[b.clone(), a.clone()]);
+    assert_eq!(forward, reversed, "hash must not depend on listing order");
+
+    let changed = ManifestFile {
+        sha256: "33".into(),
+        ..a
+    };
+    assert_ne!(
+        forward,
+        corpus_hash(&[changed, b]),
+        "a changed file must change the corpus hash"
+    );
+}
+
+#[test]
+fn verify_rejects_a_file_whose_content_changed() {
+    let dir = scratch_dir("manifest-test");
+    std::fs::create_dir_all(dir.join("anchor")).expect("mkdir");
+    std::fs::write(dir.join("anchor/x.js"), "console.log(1);\n").expect("write");
+
+    let good = ManifestFile {
+        path: "anchor/x.js".into(),
+        stratum: "anchor".into(),
+        sha256: sha256_of("console.log(1);\n".as_bytes()),
+    };
+    let manifest = Manifest {
+        corpus_hash: corpus_hash(std::slice::from_ref(&good)),
+        files: vec![good],
+    };
+    verify_manifest(&dir, &manifest).expect("an unmodified corpus verifies");
+
+    std::fs::write(dir.join("anchor/x.js"), "console.log(2);\n").expect("write");
+    let error = verify_manifest(&dir, &manifest).expect_err("a modified corpus must not verify");
+    assert!(
+        error.contains("anchor/x.js"),
+        "error names the file: {error}"
+    );
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn verify_rejects_an_untracked_file_in_the_corpus() {
+    // A file present on disk but absent from the manifest would be counted by
+    // the counter while the frozen hash still looked unchanged -- the exact
+    // post-hoc corpus edit the freeze rule exists to prevent.
+    let dir = scratch_dir("untracked-test");
+    std::fs::create_dir_all(dir.join("anchor")).expect("mkdir");
+    std::fs::write(dir.join("anchor/x.js"), "console.log(1);\n").expect("write");
+    std::fs::write(dir.join("anchor/sneaky.js"), "console.log(2);\n").expect("write");
+
+    let tracked = ManifestFile {
+        path: "anchor/x.js".into(),
+        stratum: "anchor".into(),
+        sha256: sha256_of("console.log(1);\n".as_bytes()),
+    };
+    let manifest = Manifest {
+        corpus_hash: corpus_hash(std::slice::from_ref(&tracked)),
+        files: vec![tracked],
+    };
+    let error = verify_manifest(&dir, &manifest).expect_err("an untracked file must not verify");
+    assert!(error.contains("sneaky.js"), "error names the file: {error}");
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn the_shipped_corpus_matches_its_manifest() {
+    let root = std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tools/blast-radius/corpus"
+    ));
+    let text = std::fs::read_to_string(root.join("manifest.json")).expect("manifest is readable");
+    let manifest = parse_manifest(&text).expect("manifest parses");
+    assert!(
+        !manifest.files.is_empty(),
+        "an empty manifest must not verify as frozen"
+    );
+    assert_eq!(
+        manifest.corpus_hash,
+        corpus_hash(&manifest.files),
+        "the recorded corpus hash does not match its own file list"
+    );
+    verify_manifest(root, &manifest).expect("the shipped corpus matches its manifest");
+}
+
+/// The corpus was frozen at these exact values on 2026-08-15 (Task 12).
+///
+/// Everything downstream cites `FROZEN_CORPUS_HASH`, so it is a published
+/// constant, not an implementation detail.
+const FROZEN_FILE_COUNT: usize = 177;
+const FROZEN_ANCHOR_COUNT: usize = 137;
+const FROZEN_EXTENSION_COUNT: usize = 40;
+const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f";
+
+/// The other half of the same freeze, pinned the same way.
+///
+/// Spec §4.3 freezes `predicates.json` alongside the corpus, and
+/// `corpus/README.md` says so in the same sentence -- but only the corpus half
+/// was mechanical. The catalogue was checked for COMPLETENESS (41 records ↔ 41
+/// entries, matcher names agreeing with `matchers.mjs`), which is silent about
+/// *which* matcher an entry maps to: swap R-13's matcher for R-14's and every
+/// completeness check stays green while both counts change.
+///
+/// `matchers.mjs` is pinned beside it because the catalogue only NAMES the
+/// counting semantics; the semantics themselves are the matcher bodies. A
+/// count is a function of (corpus, matcher body), so pinning the map without
+/// the territory leaves the arithmetic behind every published frequency
+/// unpinned.
+const FROZEN_PREDICATES_SHA256: &str =
+    "ec732d1cb40a7821c4ea6b52c912d4186f6f038e720a3fd0d5dc1c7961f19a71";
+const FROZEN_MATCHERS_SHA256: &str =
+    "145ed84ee755f96e2e5fa66d5c3a2b641de8a9c5a67c072019b88249fdf30028";
+
+#[test]
+fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {
+    // `the_shipped_corpus_matches_its_manifest` proves the manifest and the
+    // directory agree with each other. It cannot notice them being changed
+    // *together*: delete programs, re-run the generator, and a self-consistent
+    // manifest with a different hash verifies happily. That is exactly the
+    // post-hoc corpus edit the freeze exists to prevent, so the frozen numbers
+    // are pinned here as constants.
+    //
+    // If this test fails, the corpus changed after the freeze. The fix is not
+    // to update these constants in passing: §4.3 requires a separate,
+    // explicitly-justified commit that says why the corpus moved, and the
+    // published ranking's `corpus_hash` must be republished with it.
+    let root = std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tools/blast-radius/corpus"
+    ));
+    let text = std::fs::read_to_string(root.join("manifest.json")).expect("manifest is readable");
+    let manifest = parse_manifest(&text).expect("manifest parses");
+
+    assert_eq!(
+        manifest.files.len(),
+        FROZEN_FILE_COUNT,
+        "the frozen corpus holds {FROZEN_FILE_COUNT} files; changing that needs its own \
+         justified commit"
+    );
+    let anchor = manifest
+        .files
+        .iter()
+        .filter(|file| file.stratum == "anchor")
+        .count();
+    let extension = manifest
+        .files
+        .iter()
+        .filter(|file| file.stratum == "extension")
+        .count();
+    assert_eq!(
+        (anchor, extension),
+        (FROZEN_ANCHOR_COUNT, FROZEN_EXTENSION_COUNT),
+        "the frozen strata are {FROZEN_ANCHOR_COUNT} anchor and {FROZEN_EXTENSION_COUNT} \
+         extension programs; a total that still adds up does not make a swap between strata \
+         acceptable"
+    );
+    assert_eq!(
+        manifest.corpus_hash, FROZEN_CORPUS_HASH,
+        "the frozen corpus_hash is the token every downstream result cites; changing it needs \
+         its own justified commit"
+    );
+}
+
+#[test]
+fn the_frozen_catalogue_and_its_matchers_are_the_ones_the_counts_were_taken_with() {
+    // If this fails, `predicates.json` or `matchers.mjs` moved after the
+    // freeze. The fix is not to update the constant in passing: §4.3 requires
+    // a separate, explicitly-justified commit that says why the instrument
+    // moved, and `counts.json` and the published ranking must be regenerated
+    // with it -- a changed matcher body changes every figure downstream of it
+    // while every completeness check stays green.
+    let tools = std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tools/blast-radius"
+    ));
+    for (file, frozen) in [
+        ("predicates.json", FROZEN_PREDICATES_SHA256),
+        ("matchers.mjs", FROZEN_MATCHERS_SHA256),
+    ] {
+        let bytes = std::fs::read(tools.join(file))
+            .unwrap_or_else(|error| panic!("{file} is readable: {error}"));
+        assert_eq!(
+            sha256_of(&bytes),
+            frozen,
+            "{file} is not the file the published counts were taken with; changing it needs \
+             its own justified commit, and `counts.json` regenerated with it"
+        );
+    }
+}
+
+#[test]
+fn every_frozen_anchor_file_has_committed_provenance() {
+    // `manifest.json` records path and hash but not where a program came from,
+    // so a reader holding the published corpus_hash cannot audit what was
+    // measured from it alone. `anchor-provenance.json` closes that, and this
+    // pins the two together so the audit path cannot rot: it is regenerated by
+    // `tools/blast-radius/extract_anchor_corpus.py --write-provenance`.
+    //
+    // Scoped to the `anchor` stratum, because provenance means "the upstream
+    // fixture this was extracted from" and only the anchor has one. The
+    // extension programs were written for this measurement, so their audit
+    // trail is `corpus/README.md`'s curation rule plus the commit that froze
+    // them -- not an extraction source. Both directions still hold for the
+    // anchor: no anchor file without a provenance row, no provenance row
+    // without an anchor file.
+    let tools = std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tools/blast-radius"
+    ));
+    let manifest = parse_manifest(
+        &std::fs::read_to_string(tools.join("corpus/manifest.json")).expect("manifest is readable"),
+    )
+    .expect("manifest parses");
+    let provenance: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(tools.join("anchor-provenance.json"))
+            .expect("provenance is readable"),
+    )
+    .expect("provenance parses");
+    let rows = provenance.as_array().expect("provenance is an array");
+    assert!(
+        !rows.is_empty(),
+        "an empty provenance table records nothing"
+    );
+
+    for row in rows {
+        let source = row["source"].as_str().expect("every row names its source");
+        assert!(
+            tools.join("../..").join(source).exists(),
+            "provenance names a source that does not exist: {source}"
+        );
+    }
+
+    let mut recorded: Vec<&str> = rows
+        .iter()
+        .map(|row| row["file"].as_str().expect("every row names its file"))
+        .collect();
+    recorded.sort_unstable();
+    let mut frozen: Vec<&str> = manifest
+        .files
+        .iter()
+        .filter(|file| file.stratum == "anchor")
+        .map(|file| {
+            file.path
+                .split('/')
+                .next_back()
+                .expect("a manifest path has a last segment")
+        })
+        .collect();
+    frozen.sort_unstable();
+    assert_eq!(
+        recorded, frozen,
+        "the provenance table and the frozen anchor list different programs"
+    );
+    assert!(
+        manifest
+            .files
+            .iter()
+            .any(|file| file.stratum == "extension"),
+        "the frozen corpus has lost its extension stratum -- the anchor alone \
+         cannot carry an accept rate that means anything"
+    );
+}
+
+// --- The freeze token must not be ambiguous, unchecked, or empty. -----------
+
+/// 64 lowercase hex digits, distinct per `seed`, so a fixture manifest can be
+/// built without hashing a real file.
+fn digest(seed: u8) -> String {
+    sha256_of(&[seed])
+}
+
+fn manifest_json(files: &[(&str, &str, String)]) -> String {
+    let entries: Vec<ManifestFile> = files
+        .iter()
+        .map(|(path, stratum, sha)| ManifestFile {
+            path: (*path).into(),
+            stratum: (*stratum).into(),
+            sha256: sha.clone(),
+        })
+        .collect();
+    // Built through `serde_json` rather than `format!`, so control characters
+    // and quotes are encoded as JSON demands and the parser sees exactly the
+    // bytes the fixture intends.
+    let body: Vec<serde_json::Value> = entries
+        .iter()
+        .map(|file| {
+            serde_json::json!({
+                "path": file.path,
+                "stratum": file.stratum,
+                "sha256": file.sha256,
+            })
+        })
+        .collect();
+    serde_json::json!({ "corpus_hash": corpus_hash(&entries), "files": body }).to_string()
+}
+
+#[test]
+fn the_demonstrated_corpus_hash_collision_is_rejected_at_parse_time() {
+    // `corpus_hash` joins "{stratum} {path} {sha256}" records with '\n' and
+    // escapes nothing, so the encoding is only injective while no field can
+    // hold a space or a newline. Two honest files collide with one file whose
+    // *name* replays the separator bytes -- and that name is a legal filename
+    // ending in `.js`, so `collect_js` finds it and both directions of
+    // `verify_manifest` pass. Reaching it needs a hostile filename; the freeze
+    // is worth nothing if it relies on a reviewer noticing that.
+    let (h1, h2) = (digest(1), digest(2));
+    let honest = manifest_json(&[
+        ("anchor/x.js", "anchor", h1.clone()),
+        ("anchor/y.js", "anchor", h2.clone()),
+    ]);
+    let smuggled = format!("anchor/x.js {h1}\nanchor anchor/y.js");
+    let collision = manifest_json(&[(&smuggled, "anchor", h2)]);
+
+    // The collision is real: the two manifests are different corpora (two
+    // files versus one) with byte-identical freeze tokens.
+    let of = |text: &str| {
+        let value: serde_json::Value = serde_json::from_str(text).expect("json");
+        value["corpus_hash"].as_str().expect("hash").to_string()
+    };
+    assert_eq!(
+        of(&honest),
+        of(&collision),
+        "the collision this test exists to close must actually collide"
+    );
+
+    parse_manifest(&honest).expect("the honest two-file manifest still parses");
+    let error = parse_manifest(&collision).expect_err("the colliding manifest must be rejected");
+    assert!(
+        error.contains("path") && error.contains("corpus_hash encoding"),
+        "error explains the ambiguity: {error}"
+    );
+}
+
+#[test]
+fn parse_rejects_whitespace_control_and_empty_tokens() {
+    // Every one of these is a field the `corpus_hash` encoding cannot separate
+    // from its neighbours, so none may reach the digest.
+    for (label, path, stratum, expected) in [
+        (
+            "space in path",
+            "anchor/a b.js",
+            "anchor",
+            "corpus_hash encoding",
+        ),
+        (
+            "newline in path",
+            "anchor/a\nb.js",
+            "anchor",
+            "corpus_hash encoding",
+        ),
+        (
+            "tab in path",
+            "anchor/a\tb.js",
+            "anchor",
+            "corpus_hash encoding",
+        ),
+        (
+            "nul in path",
+            "anchor/a\0b.js",
+            "anchor",
+            "corpus_hash encoding",
+        ),
+        (
+            "space in stratum",
+            "anchor/a.js",
+            "anch or",
+            "corpus_hash encoding",
+        ),
+        ("empty path", "", "anchor", "empty `path`"),
+        ("empty stratum", "anchor/a.js", "", "empty `stratum`"),
+    ] {
+        let json = manifest_json(&[(path, stratum, digest(1))]);
+        let error = parse_manifest(&json).expect_err(label);
+        assert!(error.contains(expected), "{label}: {error}");
+    }
+}
+
+#[test]
+fn parse_rejects_a_sha256_that_is_not_64_lowercase_hex() {
+    for (label, sha) in [
+        ("too short", "abc123".to_string()),
+        ("uppercase", digest(1).to_uppercase()),
+        ("non-hex", "z".repeat(64)),
+        ("too long", format!("{}0", digest(1))),
+        ("empty", String::new()),
+    ] {
+        let json = manifest_json(&[("anchor/a.js", "anchor", sha)]);
+        let error = parse_manifest(&json).expect_err("must be rejected");
+        assert!(
+            error.contains("64 lowercase hex digits"),
+            "{label}: {error}"
+        );
+    }
+}
+
+#[test]
+fn parse_rejects_a_stratum_that_is_not_the_leading_path_segment() {
+    // Accept rates and counts are reported per stratum and never pooled, so a
+    // mislabelled file silently moves a program between the two populations.
+    let error = parse_manifest(&manifest_json(&[("anchor/a.js", "extension", digest(1))]))
+        .expect_err("a mislabelled stratum must be rejected");
+    assert!(
+        error.contains("leading path segment"),
+        "error explains the mismatch: {error}"
+    );
+
+    let error = parse_manifest(&manifest_json(&[("a.js", "a.js", digest(1))]))
+        .expect_err("a file outside any stratum directory must be rejected");
+    assert!(
+        error.contains("leading path segment"),
+        "error explains the mismatch: {error}"
+    );
+}
+
+#[test]
+fn parse_rejects_a_path_listed_twice() {
+    // A duplicate entry verifies clean against disk -- the same file is read
+    // and hashed twice -- but the counter would count the program twice.
+    let error = parse_manifest(&manifest_json(&[
+        ("anchor/a.js", "anchor", digest(1)),
+        ("anchor/a.js", "anchor", digest(1)),
+    ]))
+    .expect_err("a duplicate path must be rejected");
+    assert!(error.contains("listed twice"), "error names it: {error}");
+}
+
+#[test]
+fn parse_rejects_an_empty_file_list() {
+    let error = parse_manifest("{\"corpus_hash\": \"\", \"files\": []}")
+        .expect_err("an empty corpus must not read as frozen");
+    assert!(
+        error.contains("empty corpus is not a freeze"),
+        "error says why: {error}"
+    );
+}
+
+#[test]
+fn verify_rejects_a_manifest_whose_recorded_corpus_hash_is_wrong() {
+    // The freeze token is the whole provenance claim of the published ranking.
+    // A manifest that agrees with disk in both directions but carries the wrong
+    // corpus_hash would stamp a value that measured something else.
+    let dir = scratch_dir("wrong-hash-test");
+    std::fs::create_dir_all(dir.join("anchor")).expect("mkdir");
+    std::fs::write(dir.join("anchor/x.js"), "console.log(1);\n").expect("write");
+
+    let file = ManifestFile {
+        path: "anchor/x.js".into(),
+        stratum: "anchor".into(),
+        sha256: sha256_of("console.log(1);\n".as_bytes()),
+    };
+    let honest = Manifest {
+        corpus_hash: corpus_hash(std::slice::from_ref(&file)),
+        files: vec![file.clone()],
+    };
+    verify_manifest(&dir, &honest).expect("the honest manifest verifies");
+
+    let lying = Manifest {
+        corpus_hash: digest(9),
+        files: vec![file],
+    };
+    let error =
+        verify_manifest(&dir, &lying).expect_err("a wrong freeze token must not verify clean");
+    assert!(
+        error.contains("does not match its own file list"),
+        "error names the freeze token: {error}"
+    );
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn verify_rejects_an_empty_manifest_over_an_empty_directory() {
+    // Both directions of the on-disk check are vacuously satisfied here: no
+    // recorded file is missing, and no untracked file is present. Without the
+    // non-empty guard *inside* `verify_manifest`, a corpus of nothing verifies
+    // as frozen -- ran-nothing-green at the level of the instrument itself.
+    let dir = scratch_dir("empty-corpus-test");
+    std::fs::create_dir_all(&dir).expect("mkdir");
+
+    let empty = Manifest {
+        corpus_hash: corpus_hash(&[]),
+        files: Vec::new(),
+    };
+    let error = verify_manifest(&dir, &empty).expect_err("an empty corpus must not verify");
+    assert!(
+        error.contains("empty corpus is not a freeze"),
+        "error says why: {error}"
+    );
+
+    std::fs::remove_dir_all(&dir).expect("cleanup");
+}

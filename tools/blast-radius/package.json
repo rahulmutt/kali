@@ -1,0 +1,17 @@
+{
+  "name": "kali-blast-radius",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Counts each register defect's triggering construct over the frozen corpus, with acorn rather than kali's own parser.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "accepts": "node accepts.mjs",
+    "count": "node count.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "acorn": "8.18.0",
+    "acorn-walk": "8.3.5"
+  }
+}

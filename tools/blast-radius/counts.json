@@ -1,0 +1,887 @@
+{
+  "corpusHash": "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f",
+  "nodeVersion": "v26.7.0",
+  "acornVersion": "8.18.0",
+  "programs": {
+    "pooled": {
+      "programs": 177,
+      "accepted": 127
+    },
+    "anchor": {
+      "programs": 137,
+      "accepted": 126
+    },
+    "extension": {
+      "programs": 40,
+      "accepted": 1
+    }
+  },
+  "population": {
+    "reachableColumn": "127 of 177 programs are reachable, and 126 of those 127 are ANCHOR programs -- a stratum that is 131 micro-snippets written to probe compiler behaviour plus 6 real CLBG programs. Every reachable ranking is therefore, in substance, a ranking over test snippets. Read the per-entry `strata` split before treating any reachable figure as a frequency in real code.",
+    "extensionStratum": "1/40 extension programs are accepted (2.5%). The extension is the stratum written to do jobs rather than to probe the compiler, so almost everything it measures about real programs lands in the RAW column only. Its accept rate is a finding in its own right, not a defect of the corpus: curation was independent of acceptance.",
+    "dialect": "The extension is written in the project's imperative-core dialect: no regex, no destructuring, no template literals, no `??`, no class/Map/Set/async. See corpus/README.md for which counts that biases and in which direction. A frequency here is a frequency in *programs of that dialect*, not in JavaScript generally."
+  },
+  "zeroKinds": {
+    "structurally-uncountable": "The construct cannot appear in any conforming corpus program. Not a frequency; must not be ranked against measured frequencies.",
+    "unsampled": "Countable and legal, but absent from this corpus. An ordinary zero over this population: it says nothing about a larger or differently-shaped one.",
+    "present-but-unreachable": "raw > 0 and reachable = 0: the construct DOES occur, but every program carrying it is rejected by kali as a whole. This is the most misreadable of the three. It does NOT mean the construct is rare, and it does NOT mean kali fails closed on this construct -- the carrying program was usually rejected for an unrelated reason elsewhere in the file."
+  },
+  "structurallyUncountable": {
+    "R-29": "An assignment to a `const` binding is a TypeError at run time, so no program that runs clean under node can execute one; the construct and this corpus's runnability requirement are mutually exclusive (corpus/README.md). This zero is not a frequency and must never be ranked as one."
+  },
+  "entries": [
+    {
+      "id": "R-01",
+      "matcher": "functionWithDefaultParameter",
+      "raw": 18,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 18,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-02",
+      "matcher": "callThroughNonConstFunctionBinding",
+      "raw": 2,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 2,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": {
+        "publishedReading": "the complement clause -- any resolved binding that is neither a function declaration nor a `const` bound DIRECTLY to a function literal",
+        "alternateReading": "the role list read as exhaustive -- a `let`/`var` binding, a parameter, or a `const` whose initializer is an identifier",
+        "whyPublishedReadingWasChosen": "the register's broken list (register:616-627) includes 'a function RETURNED from a function and called' (`const f = mk(); f()`), a `const` bound to neither a name nor a function literal, which the role list does not name; and the record's exclusion clause says a `const` bound DIRECTLY to a function literal, an adverb that only does work if the rest of the `const` family is counted.",
+        "published": {
+          "raw": 2,
+          "reachable": 0
+        },
+        "alternate": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "alternateStrata": {
+          "anchor": {
+            "raw": 0,
+            "reachable": 0
+          },
+          "extension": {
+            "raw": 0,
+            "reachable": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "R-03",
+      "matcher": "forEachOrExpressionBodiedFilterCall",
+      "raw": 15,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 15,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-04",
+      "matcher": "consoleCallWithNonLiteralArgument",
+      "raw": 112,
+      "reachable": 5,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 112,
+          "reachable": 5
+        }
+      },
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-05",
+      "matcher": "objectLiteralFunctionProperty",
+      "raw": 6,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 6,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-49",
+      "matcher": "statementAfterSwitchInNestedBlock",
+      "raw": 2,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 2,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-51",
+      "matcher": "optionalCallExpression",
+      "raw": 3,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 3,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-52",
+      "matcher": "forWithMisclassifiedClauseArity",
+      "raw": 5,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 5,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-06",
+      "matcher": "nonConstObjectOrArrayLiteralInitializer",
+      "raw": 6,
+      "reachable": 1,
+      "strata": {
+        "anchor": {
+          "raw": 4,
+          "reachable": 1
+        },
+        "extension": {
+          "raw": 2,
+          "reachable": 0
+        }
+      },
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-07",
+      "matcher": "constWithNonLiteralInitializer",
+      "raw": 449,
+      "reachable": 82,
+      "strata": {
+        "anchor": {
+          "raw": 82,
+          "reachable": 78
+        },
+        "extension": {
+          "raw": 367,
+          "reachable": 4
+        }
+      },
+      "zero": null,
+      "upperBound": {
+        "disclosedInRecord": false,
+        "note": "The published count uses the record's main clause ('is not a literal'). Its appositive dash-list, read as exhaustive, gives a materially different number and a different rank -- see `alternateReading`. Independently of that choice, this count is broad by construction: in the corpus's dialect nearly every `const` has a non-literal initializer."
+      },
+      "alternateReading": {
+        "publishedReading": "the main clause -- a `const` declarator whose initializer is not a literal",
+        "alternateReading": "the appositive dash-list read as exhaustive -- an identifier, binary, unary, conditional, member or call expression only (`parenthesized` is unmatchable: acorn emits no ParenthesizedExpression without `preserveParens`)",
+        "whyPublishedReadingWasChosen": "the main clause governs and the appositive illustrates; the register bounds the damage the other way round -- 'a `const` bound to a literal is correct' (register:1048-1049) -- and its Repro F is titled a shape SURVEY, not a closed list. But the disputed forms (`new`, object literal, array literal) are named in neither the record's list nor the register's survey, so the choice is an interpretation and is disclosed as one.",
+        "published": {
+          "raw": 449,
+          "reachable": 82
+        },
+        "alternate": {
+          "raw": 286,
+          "reachable": 43
+        },
+        "alternateStrata": {
+          "anchor": {
+            "raw": 40,
+            "reachable": 40
+          },
+          "extension": {
+            "raw": 246,
+            "reachable": 3
+          }
+        }
+      }
+    },
+    {
+      "id": "R-08",
+      "matcher": "equalityOrNullishWithNullLikeOperand",
+      "raw": 95,
+      "reachable": 15,
+      "strata": {
+        "anchor": {
+          "raw": 14,
+          "reachable": 14
+        },
+        "extension": {
+          "raw": 81,
+          "reachable": 1
+        }
+      },
+      "zero": null,
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the 2026-07-19 fix closed the provable majority, and the surviving residuals are gated on the compiler failing to prove the other operand's type class -- a compiler-internal decision the AST cannot see. Note also that the `??` half of the predicate is unsampled: the corpus dialect contains no `??` at all (corpus/README.md), so this count carries no evidence about nullish coalescing."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-09",
+      "matcher": "continueInUnfaithfulLoop",
+      "raw": 16,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 16,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-10",
+      "matcher": "shadowingBlockDeclaration",
+      "raw": 11,
+      "reachable": 1,
+      "strata": {
+        "anchor": {
+          "raw": 1,
+          "reachable": 1
+        },
+        "extension": {
+          "raw": 10,
+          "reachable": 0
+        }
+      },
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-11",
+      "matcher": "bitwiseCompoundAssignment",
+      "raw": 10,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 10,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-12",
+      "matcher": "silentArrayElementStore",
+      "raw": 3,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 3,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-13",
+      "matcher": "computedMemberNonLiteralKey",
+      "raw": 302,
+      "reachable": 45,
+      "strata": {
+        "anchor": {
+          "raw": 47,
+          "reachable": 43
+        },
+        "extension": {
+          "raw": 255,
+          "reachable": 2
+        }
+      },
+      "zero": null,
+      "upperBound": {
+        "disclosedInRecord": false,
+        "note": "Upper bound NOT disclosed by the record. The record is 'computed member access whose key expression is not a literal', with no qualifying clause, so ordinary array indexing `a[i]` counts -- and array indexing demonstrably works (much of the anchor stratum depends on it). The register's R-13 repro is an OBJECT read with a variable key. See `breakdown`: only the object-literal-receiver share is the register's shape, and `storeTarget` counts the write half, which the register treats as the worse half but which is a different site class from a read. Do not present this total as 'how often R-13's defect is triggered'.",
+        "breakdown": {
+          "of": "the same sites `computedMemberNonLiteralKey` counts, classified by receiver and by position",
+          "raw": {
+            "total": 302,
+            "objectLiteralReceiver": 56,
+            "arrayLikeReceiver": 45,
+            "storeTarget": 67
+          },
+          "reachable": {
+            "total": 45,
+            "objectLiteralReceiver": 2,
+            "arrayLikeReceiver": 26,
+            "storeTarget": 18
+          },
+          "strata": {
+            "anchor": {
+              "raw": {
+                "total": 47,
+                "objectLiteralReceiver": 0,
+                "arrayLikeReceiver": 27,
+                "storeTarget": 20
+              },
+              "reachable": {
+                "total": 43,
+                "objectLiteralReceiver": 0,
+                "arrayLikeReceiver": 26,
+                "storeTarget": 18
+              }
+            },
+            "extension": {
+              "raw": {
+                "total": 255,
+                "objectLiteralReceiver": 56,
+                "arrayLikeReceiver": 18,
+                "storeTarget": 47
+              },
+              "reachable": {
+                "total": 2,
+                "objectLiteralReceiver": 2,
+                "arrayLikeReceiver": 0,
+                "storeTarget": 0
+              }
+            }
+          }
+        }
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-14",
+      "matcher": "memberReadOnCallResult",
+      "raw": 99,
+      "reachable": 11,
+      "strata": {
+        "anchor": {
+          "raw": 8,
+          "reachable": 7
+        },
+        "extension": {
+          "raw": 91,
+          "reachable": 4
+        }
+      },
+      "zero": null,
+      "upperBound": {
+        "disclosedInRecord": false,
+        "note": "Upper bound NOT disclosed by the record. 'A member or computed read applied directly to a call expression's result' also matches `\"a,b\".split(\",\")[0]` and `s.slice(1).length`, while the register's repro is specifically an ARRAY returned from a function reading back as zeros."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-15",
+      "matcher": "staticSplitElementInConcatPosition",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-16",
+      "matcher": "stringMethodResultInConcatPosition",
+      "raw": 6,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 6,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the AST cannot see that the receiver is a runtime string. A `.slice(...)` on an array in a `+` position is counted here and is not this defect."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-17",
+      "matcher": null,
+      "raw": null,
+      "reachable": null,
+      "strata": null,
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-18",
+      "matcher": "stringLiteralLogicalOperand",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-19",
+      "matcher": "stringConversionCall",
+      "raw": 27,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 27,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-20",
+      "matcher": "jsonStringifyCall",
+      "raw": 4,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 4,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-21",
+      "matcher": null,
+      "raw": null,
+      "reachable": null,
+      "strata": null,
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-22",
+      "matcher": null,
+      "raw": null,
+      "reachable": null,
+      "strata": null,
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-23",
+      "matcher": "typeofNonLiteralOperand",
+      "raw": 3,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 3,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-24",
+      "matcher": "objectFreezeOnBoundIdentifier",
+      "raw": 2,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 2,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-25",
+      "matcher": "arraySpreadElement",
+      "raw": 1,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 1,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-26",
+      "matcher": "unaryPlusOnNonNumericOperand",
+      "raw": 12,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 1,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 11,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the defect needs the operand to hold a non-numeric string at run time. `+\"42\"`, `+\"-5\"`, `+\"1.5\"`, `+\"\"` and `+true` are correct in kali and are counted here anyway, because the record lists a string literal among the counted shapes."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-27",
+      "matcher": "sequenceExpression",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-28",
+      "matcher": "negativeZeroLiteral",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-47",
+      "matcher": "forOfOverLetArrayBinding",
+      "raw": 1,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 1,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-48",
+      "matcher": "arrayStoreIntoScalarObjectField",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-53",
+      "matcher": "forOfVarOrLetOverArrayLiteral",
+      "raw": 1,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 1,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-29",
+      "matcher": "assignmentToConstBinding",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "structurally-uncountable",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-54",
+      "matcher": null,
+      "raw": null,
+      "reachable": null,
+      "strata": null,
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-30",
+      "matcher": "consoleLogOfNonInlineBooleanProducer",
+      "raw": 73,
+      "reachable": 57,
+      "strata": {
+        "anchor": {
+          "raw": 61,
+          "reachable": 57
+        },
+        "extension": {
+          "raw": 12,
+          "reachable": 0
+        }
+      },
+      "zero": null,
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: for the call, parameter, `var`-binding and object-field producers the AST cannot see whether the value is actually a boolean. The literal-selecting `??` is not among them. Read the per-stratum split before this total: the anchor's share is almost entirely `console.log(<comparison>)` in `f64_*` micro-snippets that observe floating-point arithmetic through a comparison -- a test idiom, not a program idiom."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-31",
+      "matcher": "consoleLogOfArrayOrObjectValue",
+      "raw": 3,
+      "reachable": 2,
+      "strata": {
+        "anchor": {
+          "raw": 2,
+          "reachable": 2
+        },
+        "extension": {
+          "raw": 1,
+          "reachable": 0
+        }
+      },
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-32",
+      "matcher": "numericLiteralOutsideExponentThresholds",
+      "raw": 6,
+      "reachable": 5,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 6,
+          "reachable": 5
+        }
+      },
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-33",
+      "matcher": "consoleWarnCall",
+      "raw": 17,
+      "reachable": 1,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 17,
+          "reachable": 1
+        }
+      },
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-34",
+      "matcher": "booleanReturningFunctionCallInStringPosition",
+      "raw": 4,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 4,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": null,
+      "alternateReading": null
+    }
+  ]
+}

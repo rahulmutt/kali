@@ -1,0 +1,16 @@
+[package]
+name = "kali_blast_radius"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+# Tests only: `oracle_tests.rs` reads `crates/kali_cli/tests/cases/oracle/*.toml`
+# to hold the register's §0.2 to the classes its live cases assert. The shipped
+# library stays free of it -- nothing in the crate's own API reads TOML.
+toml = { workspace = true }

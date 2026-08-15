@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+kali_blast_radius = { workspace = true }
 kali_runtime_contract = { workspace = true }
 libtest-mimic = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

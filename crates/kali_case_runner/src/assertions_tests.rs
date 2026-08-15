@@ -22,6 +22,11 @@ fn blank_step() -> Step {
         fields: None,
         entry: None,
         body: None,
+        register_entry: None,
+        program: None,
+        verdict: None,
+        timeout_ms: None,
+        observe: None,
     }
 }
 

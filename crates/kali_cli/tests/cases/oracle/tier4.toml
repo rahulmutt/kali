@@ -1,0 +1,863 @@
+# Tier 4 of the register's §2 -- "rendering-only (the in-memory value is
+# correct)" -- re-measured at HEAD.
+#
+# Spec: docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md §7.
+# Register: docs/superpowers/followups/kali-silent-miscompile-register.md §2,
+# `## Tier 4`, enumerated with the task brief's command.
+#
+# ---------------------------------------------------------------------------
+# COVERAGE -- THIS FILE IS COMPLETE FOR TIER 4.
+#
+# Tier 4 holds FIVE entries: R-30, R-31, R-32, R-33, R-34. ALL FIVE ARE COVERED
+# HERE, in TWENTY-FOUR cases. Nothing in Tier 4 is left unauthored.
+#
+# Every entry is measured in BOTH scopes -- module scope and in-function --
+# because top-level and in-function are different programs in kali and several
+# known defects appear at one scope only. NO SCOPE IS MOOT FOR ANY ENTRY IN
+# THIS FILE, so there are no exemptions to name: all five carry both scopes on
+# every lane.
+#
+# If you append: keep the cases in entry order, and put new `[source]` keys in
+# the single `[source]` table below. TOML forbids reopening `[source]` once the
+# `[[case]]` array has begun, so keys go mid-file and cases go at the end.
+#
+# ---------------------------------------------------------------------------
+# THE FIVE ENTRIES, THE TWELVE LANES, AND THE TWENTY-FOUR CASES.
+#
+#   entry  lane                           module-scope case      in-function case
+#   -----  -----------------------------  ---------------------  --------------------
+#   R-30   `var` binding, direct log      r30a_..._module_scope  r30a_..._in_function
+#   R-30   `const` scalar, direct log     r30b_..._module_scope  r30b_..._in_function
+#   R-30   `const` object field, direct   r30c_..._module_scope  r30c_..._in_function
+#   R-30   concat + template              r30d_..._module_scope  r30d_..._in_function
+#   R-31   direct log                     r31a_..._module_scope  r31a_..._in_function
+#   R-31   concat                         r31b_..._module_scope  r31b_..._in_function
+#   R-32   direct log, past a threshold   r32a_..._module_scope  r32a_..._in_function
+#   R-32   direct log, just inside        r32b_..._module_scope  r32b_..._in_function
+#   R-32   concat                         r32c_..._module_scope  r32c_..._in_function
+#   R-33   `console.warn`                 r33a_..._module_scope  r33a_..._in_function
+#   R-33   `console.error` control        r33b_..._module_scope  r33b_..._in_function
+#   R-34   --                             r34_..._module_scope   r34_..._in_function
+#
+# WHY THE LANES. Tier 4 is the rendering tier, and what distinguishes one of its
+# lanes from another is THE SINK A VALUE PRINTS THROUGH -- a direct
+# `console.log` argument, a `+` concatenation, a template hole, a
+# multi-argument `console.log`, `console.warn`. Three of these five entries
+# state, in their own §2 body as of `61c2d48ea9` (2026-07-29), that one sink is
+# WRONG and another sink is RIGHT:
+#
+#   - R-30 -- "the concat and template paths are already **FIXED** for operands
+#     `static_equality_class`/`is_string_valued`/`is_float_valued` can prove"
+#     while "it does not cover the **direct `console.log` argument position**
+#     for any operand". Two classes, two sinks. Its 2026-07-19 correction adds a
+#     THIRD declared class at the direct sink -- plain `const` scalars now
+#     render correctly while plain `var` bindings still do not -- and keeps
+#     `const` OBJECT FIELDS listed as "a separate, still-broken shape
+#     (re-verified: kali `1`, node `true`)". Four lanes.
+#   - R-32 -- "**Two independent number formatters exist and they disagree.**
+#     `console.log(1e-7)` prints `0.0000001` but `console.log("v=" + 1e-7)`
+#     prints `v=1e-7`, which *matches* node." Two classes on the SAME literal,
+#     separated only by the sink. Plus the entry's own boundary claim, "the
+#     just-inside cases are correct, pinning the boundary exactly", which is a
+#     third declared class at the direct sink. Three lanes.
+#   - R-33 -- "`console.error("hi")` is correct (no prefix)" against
+#     `console.warn`'s prefix. Two classes, two sinks. Two lanes.
+#
+# R-31 is split for the same reason at one remove: its Repro states the direct
+# sink ("node `[ 1, 2 ]`, kali `2`") and then states the concat sink separately
+# ("In concat position both collapse too"), with DIFFERENT expected node output
+# on each (`[ 1, 2 ]` vs `1,2`; `{ f: 1 }` vs `[object Object]`). Both lanes
+# carry the same class, so this split is not forced by a class disagreement --
+# it is forced by the brief's own rule that a Tier-4 case must print through the
+# exact sink the register names, and by the fact that a program combining them
+# would report one class for two sinks the entry deliberately distinguishes.
+#
+# R-34 is NOT split. Its §2 states a single labelled `Repro` block, "verified
+# verbatim on a freshly built binary (2026-07-19)", which already contains all
+# three of its sinks (concat, multi-argument `console.log`, and a second concat
+# over a different callee) at one class. Splitting it would have been this
+# author's invention; keeping it whole is the register's own construct.
+#
+# NOTHING HERE IS SPLIT ON THIS AUTHOR'S JUDGEMENT OF WHAT WOULD BE
+# INTERESTING. Every lane traces to a sentence in the entry's own §2 body at
+# `61c2d48ea9`, quoted in that lane's rationale.
+#
+# ---------------------------------------------------------------------------
+# THE SINK EVERY CASE PRINTS THROUGH, AND WHERE THE REGISTER NAMES IT.
+#
+# This table exists because a Tier-4 case that concatenates where the register
+# logged directly measures a DIFFERENT LANE and would disagree with §0.2 for the
+# wrong reason. Each row is the sink the program below actually uses, and the
+# register text that names it.
+#
+#   lane   sink in the program        register text naming that sink
+#   -----  -------------------------  ----------------------------------------
+#   r30a   console.log(b)             "`var b=true; console.log(b)` prints `1`"
+#   r30b   console.log(b)             "`const b = true; console.log(b)` now
+#                                      prints `true` correctly"
+#   r30c   console.log(o.f)           "`const o = {f: true}; console.log(o.f)`
+#                                      ... (re-verified: kali `1`, node `true`)"
+#   r30d   console.log("v=" + ...)    "`"v=" + (1<2)` -> `v=true` ok,
+#          and console.log(`${...}`)   `` `${1<2}` `` -> `true` ok,
+#                                      `"v="+o.f` -> `v=true` ok,
+#                                      `"v="+a[0]` -> `v=true` ok"
+#   r31a   console.log(a) / (o)       "`const a=[1,2]; console.log(a);` -> node
+#                                      `[ 1, 2 ]`, kali `2` ...
+#                                      `const o={f:1}; console.log(o)` -> `0`"
+#   r31b   console.log("v="+a) / +o   "In concat position both collapse too:
+#                                      `"v="+a` -> `v=0` (node `v=1,2`),
+#                                      `"v="+o` -> `v=0` (node
+#                                      `v=[object Object]`)"
+#   r32a   console.log(<number>)      "`console.log(1e21);` -> node `1e+21`,
+#                                      kali `1000000000000000000000`"
+#   r32b   console.log(<number>)      same sink; "the just-inside cases are
+#                                      correct ... `1e20` -> ... ok and
+#                                      `1e-6` -> `0.000001` ok"
+#   r32c   console.log("v=" + 1e-7)   "`console.log("v=" + 1e-7)` prints
+#                                      `v=1e-7`, which *matches* node"
+#   r33a   console.warn("hi")         "`console.warn("hi");` -> node `hi`,
+#          [observe = "stderr"]        kali `[warn] hi`"
+#   r33b   console.error("hi")        "`console.error("hi")` is correct (no
+#          [observe = "stderr"]        prefix)"
+#   r34    "a:" + f(), and            the entry's own labelled `Repro` block,
+#          console.log("a:", f())     all three lines, verbatim
+#
+# NO CASE IN THIS FILE PRINTS THROUGH A SINK ITS LANE'S REGISTER TEXT DOES NOT
+# NAME. Where a fragment is stated as a bare value with an arrow rather than as
+# a call, the sink taken is the one the SAME ENTRY's own `Repro` line uses, and
+# that inference is disclosed in scaffolding item 3 below and in the case.
+#
+# THE SINK ALSO DECIDES WHICH STREAM CARRIES THE OBSERVATION, and a case must
+# say so when it is not stdout. R-33's two lanes are the only ones here that
+# render on STDERR -- `console.warn` and `console.error` both write there on
+# both engines -- so both carry `observe = "stderr"`. Every other case in this
+# file leaves `observe` unset, which is stdout.
+#
+# THIS IS THE SWEEP, AND IT IS COMPLETE FOR THIS FILE AND FOR TIER 3. Working
+# from the table above: every other lane's sink is a `console.log`, direct or
+# through `+`, and `console.log` is stdout on both engines. Tier 3's two
+# entries (R-29, R-54) are both `console.log` as well. `grep` over
+# `cases/oracle/*.toml` finds `console.warn`/`console.error` in no `[source]`
+# body outside R-33's four programs. So `observe = "stderr"` belongs on exactly
+# four cases in the directory, and they are the four below.
+#
+# WHY IT MATTERS, IN ONE SENTENCE, BECAUSE IT COST A FALSE GREEN. Compared on
+# stdout, both R-33 lanes are two empty strings against two empty strings --
+# FIXED -- so a live defect read as fixed and would have been retired from the
+# damage set by the §0.2 regeneration. See `r33a`'s rationale.
+#
+# ---------------------------------------------------------------------------
+# WHERE THE PROGRAMS COME FROM, AND WHAT SCAFFOLDING WAS ADDED.
+#
+# Every `[source]` below is built from the register entry's OWN minimal repro
+# and boundary fragments in §2 as of `61c2d48ea9` (2026-07-29). Every register
+# quotation and citation in this file is anchored to that same commit, so none
+# of them can rot when the register is next edited. No program here is a
+# construct this author invented: every line traces to a fragment quoted in its
+# case's rationale.
+#
+# FIVE kinds of scaffolding were added, all disclosed again in the individual
+# rationales:
+#
+# 1. THE IN-FUNCTION SCOPE. Every `*_function.js` is the module-scope program
+#    UNCHANGED inside `function main() { ... }` with a trailing `main();`, its
+#    lines indented by two spaces. Nothing inside is edited: not a declaration,
+#    not a log, not a literal, not a keyword. (In `r34_function.js` the repro's
+#    interior blank line is left blank rather than indented to two spaces of
+#    trailing whitespace. That is whitespace outside any token and changes no
+#    program text.)
+# 2. A `console.log` ON A BARE FRAGMENT. Several boundary fragments are stated
+#    as an expression with an arrow to its rendering (`"v=" + (1<2)` ->
+#    `v=true`), not as a call. The only addition is the `console.log(...)` that
+#    makes the rendering observable; no value, name, operator or literal was
+#    changed. It applies to all four fragments of `r30d`, both fragments of
+#    `r31b`, three of the four fragments of `r32a` and both of `r32b`.
+# 3. THE SINK FOR A FRAGMENT THAT DOES NOT RESTATE ONE. `r32a`'s `1e100` and
+#    24-digit-literal fragments and `r32b`'s `1e20`/`1e-6` fragments are stated
+#    as values with arrows inside a bullet about the direct-log defect, and do
+#    not restate their sink. The sink used is `console.log(<number>)`, taken
+#    from THE SAME ENTRY's own `Repro` line (`console.log(1e21);`) and
+#    corroborated by its later bullet, which writes `console.log(1e-7)` out in
+#    full and contrasts it with `console.log("v=" + 1e-7)`. That is the entry's
+#    own sink, but for `1e100`, the 24-digit literal, `1e20` and `1e-6` the
+#    attribution is INFERENCE FROM CONTEXT rather than a restated call, and it
+#    is recorded as such here and in the two cases.
+# 4. FRAGMENTS COMBINED INTO ONE PROGRAM, where the register states them in one
+#    bullet at one class: `r30d` (four), `r31a` (two), `r31b` (two), `r32a`
+#    (four) and `r32b` (two). Nothing was renamed, re-valued or reordered.
+#    Each fragment was ALSO run alone by hand at `61aa9043b3` -- as its own
+#    one- or two-line program, carrying only the binding it presupposes -- and
+#    every one of the fourteen produced, alone, the same divergence (or the
+#    same agreement) it produces inside the combined program. So no fragment's
+#    result is masked by a sibling's, which is the specific risk combining
+#    runs: a single refusal anywhere in a program takes the whole program to
+#    one class and would hide every other fragment in it.
+# 5. A BINDING BORROWED FROM THE ENTRY'S OWN TEXT. `r30d` needs an `o` and an
+#    `a` for its `"v="+o.f` and `"v="+a[0]` fragments. `const o = {f: true};`
+#    is the entry's own binding from its 2026-07-19 correction bullet, and
+#    `const a = [true, false];` is the entry's own array from its `Confounder
+#    recorded` bullet with the declarator that bullet names ("sweep A's first
+#    pass used `var o={f:true}` / `var a=[true,false]` ... Re-run with `const`,
+#    every one of those shapes is correct"). `r31b`'s `const a=[1,2];` and
+#    `const o={f:1};` are lifted from R-31's own `Repro` line, which is where
+#    the `"v="+a` / `"v="+o` fragments presuppose them from.
+#
+# NO REPRO WAS REDUCED.
+#   - R-34 keeps ALL THREE log lines of its `Repro` block and both callees. The
+#     entry's claim is that the defect is present in the concat lane AND the
+#     multi-argument console lane AND for a second, differently-shaped callee
+#     (`function f(){return 1<2;}`), and it keeps the block's inline comments,
+#     which are the register's own per-line expected outputs.
+#   - R-30's concat lane keeps all four of its fragments, including the
+#     template-hole one. The entry's claim for that lane is a boundary
+#     ("`static_equality_class`/`is_string_valued`/`is_float_valued` can
+#     prove"), and one fragment would have measured one operand kind.
+#   - R-32's direct-log lane keeps all four wrong-direction fragments. The
+#     entry's claim is "**Both thresholds missing, in both directions**", and
+#     `1e21` alone shows one threshold in one direction.
+#   - R-31's two lanes each keep BOTH the array and the object fragment, which
+#     is how §2 states them and how §0.2's note names them ("array->length,
+#     object->0, concat/template->0").
+#
+# ---------------------------------------------------------------------------
+# WHAT R-30 IS, AND WHAT THESE FOUR LANES DO NOT COVER.
+#
+# R-30's §2 body at `61c2d48ea9` is headed "**Wider than 'computed'**" and
+# enumerates a PRODUCER SET for the direct-log sink: comparisons, `!`/`!!`,
+# `&&`/`||` results, function returns, parameters, ternary results, `const`
+# object fields, plain `var` bindings, and a literal-selecting `??` in
+# single-argument `console.log` position only. This file measures THREE of
+# those producers -- a plain `var` binding (`r30a`), a `const` object field
+# (`r30c`), and comparisons through the concat sink (`r30d`) -- plus the plain
+# `const` scalar the entry's own correction removed from the set (`r30b`).
+#
+# THE OTHER PRODUCERS ARE NOT MEASURED HERE, and no case claims them. The
+# reason is the same for each: the register states them as a LIST OF PRODUCER
+# KINDS, not as runnable fragments, so a program for `!`/`!!`, `&&`/`||`, a
+# ternary, a parameter or a literal-selecting `??` at the direct sink would be
+# a repro this author invented. The one `??` example the entry does write out,
+# `"w:" + (Number.isInteger(5) ?? 9)`, is explicitly NOT this entry's -- the
+# round-4 scope correction assigns it to R-08 residual 6 and says it "does
+# **not** close when this entry (R-30) closes". It is therefore not a
+# substitute, and is not used.
+#
+# ---------------------------------------------------------------------------
+# WHAT THE RE-MEASUREMENT FOUND, 2026-08-15, commit `61aa9043b3`, node v26.7.0.
+#
+#   entry  lane                  scope     register class  measured class  moved?
+#   -----  --------------------  --------  --------------  --------------  ------
+#   R-30   `var`, direct         module    silent          silent          same
+#   R-30   `var`, direct         function  silent          silent          same
+#   R-30   `const`, direct       module    fixed           fixed           same
+#   R-30   `const`, direct       function  fixed           fixed           same
+#   R-30   `const` field, direct module    silent          silent          same
+#   R-30   `const` field, direct function  silent          silent          same
+#   R-30   concat + template     module    fixed           fixed           same
+#   R-30   concat + template     function  fixed           fixed           same
+#   R-31   direct                module    silent          silent          same
+#   R-31   direct                function  silent          silent          same
+#   R-31   concat                module    silent          silent          same
+#   R-31   concat                function  silent          silent          same
+#   R-32   past a threshold      module    silent          silent          same
+#   R-32   past a threshold      function  silent          silent          same
+#   R-32   just inside           module    fixed           fixed           same
+#   R-32   just inside           function  fixed           fixed           same
+#   R-32   concat                module    fixed           fixed           same
+#   R-32   concat                function  fixed           fixed           same
+#   R-33   `console.warn`*       module    silent          silent          same
+#   R-33   `console.warn`*       function  silent          silent          same
+#   R-33   `console.error`*      module    fixed           fixed           same
+#   R-33   `console.error`*      function  fixed           fixed           same
+#   R-34   --                    module    silent          silent          same
+#   R-34   --                    function  silent          silent          same
+#
+# EVERY LANE IN THIS FILE MEASURES THE CLASS THE REGISTER RECORDS. There is no
+# reconciliation left in it.
+#
+# * THE FOUR R-33 CASES OBSERVE STDERR, AND THAT IS WHY THEY AGREE WITH THE
+#   REGISTER. Compared on stdout -- which is what every oracle case did before
+#   `observe` existed -- all four are two empty strings against two empty
+#   strings, so all four classified FIXED and the `console.warn` pair reported
+#   a live defect as fixed. That reading was an artifact of the instrument, not
+#   a measurement of kali: `console.warn` and `console.error` write to STDERR
+#   on both engines, and `classify` compared STDOUT only. The instrument was
+#   corrected rather than annotated -- `classify_observing` takes an
+#   `ObservedStream` (`crates/kali_blast_radius/src/verdict.rs`) and a case
+#   declares it with `observe` -- and with stderr observed, kali's `[warn] hi`
+#   against node's `hi` is SILENT, exactly what §0.2 records. The false-green
+#   history is kept in `r33a`'s rationale deliberately: it is the one mistake
+#   in this file that a future author is most likely to repeat.
+#
+# The two scopes agreed on the class for EVERY entry and EVERY lane -- twelve
+# pairs, twelve agreements. For THREE entries that agreement is a genuinely new
+# observation rather than a confirmation: as of `61c2d48ea9`, R-31 and R-33
+# both carry `Verification: sweep-only-top-level-only`, and R-34 carries
+# "probed directly on a freshly built binary, this round (05255c2bc). Not yet
+# swept" with no scope note at all, so the register had no in-function
+# measurement of any of the three. R-30 and R-32 carry `Verification:
+# sweep-only (both scopes)`, but that line names no sweep id and is mapped to
+# no individual bullet, so reading it as an in-function observation of any ONE
+# of their lanes would be an assumption; it is not made, and each in-function
+# case says so.
+#
+# ---------------------------------------------------------------------------
+# HOW TO READ A RED RUN HERE.
+#
+# Each `verdict` below is the class this task MEASURED at HEAD. A future red
+# run means the entry has moved since 2026-08-15 -- data for the next
+# regeneration of §0.2, not a defect in the case.
+#
+# TEN of the twenty-four cases are `fixed`, covering FIVE of the twelve lanes:
+# R-30's `const`-scalar and concat/template lanes, R-32's just-inside and
+# concat lanes, and R-33's `console.error` control. A LANE-LEVEL `fixed` IS NOT
+# AN ENTRY-LEVEL `fixed`. R-30, R-32 and R-33 are all still live defects at
+# this commit, and each has a `silent` lane in this same file to prove it. The
+# regeneration keys its rows on `register_entry`, so a row built by taking any
+# one green case as its entry's verdict would record three fixed entries none
+# of which is fixed. Every `fixed` case below says this in its own rationale.
+#
+# The other fourteen cases are `silent`.
+
+# ---------------------------------------------------------------------------
+# THE ONE RUNNER COLLISION IN THIS FILE, AND WHY THE CONSTANT BELOW EXISTS.
+#
+# R-30's concat/template lane needs the register's own template-hole fragment,
+# `` `${1<2}` ``. JavaScript's template-hole syntax and the case runner's
+# `${...}` substitution syntax are the same three characters, so a `[source]`
+# body containing `${1<2}` is read by the runner as a placeholder reference and
+# the whole file fails to expand with
+# `unresolved placeholder `${1<2}``. That is the runner working as designed --
+# `expand::substitute` errors on any survivor precisely so a `${...}` can never
+# silently reach a comparison -- and there is no escape form.
+#
+# The fragment is NOT dropped: dropping it would reduce the register's repro,
+# and this lane's whole claim is a boundary over operand kinds of which the
+# template hole is one. Instead the collision is resolved with a constant that
+# substitutes to its own reference, which works because `expand::substitute`
+# is SINGLE-PASS over the bindings -- a documented property, stated in
+# `model.rs`'s `referenced_placeholders` doc comment ("`substitute` is
+# single-pass over `file.constants`, so `A = "x"` / `B = "${A}"` leaves a
+# literal `${A}` in the output"). So `${1<2}` in a source body is replaced by
+# the four-character text `${1<2}`, the emitted `.js` file carries the
+# register's fragment character for character, and nothing is re-scanned.
+#
+# It is a workaround, and it is written down here rather than left to be
+# rediscovered. The constant is referenced (twice, by the two `r30d` sources),
+# so the dead-constant guard is satisfied. If the runner ever grows a real
+# escape form, replace this and delete this block.
+#
+# VERIFIED, because a green case would NOT have proved it. If the substitution
+# had collapsed `${1<2}` to the text `1<2`, the emitted line would be
+# `console.log(`1<2`)`, which prints the string `1<2` on BOTH engines and would
+# still classify FIXED -- the workaround failing would have looked exactly like
+# the workaround working. So it was checked directly at `61aa9043b3` by forcing
+# a mismatch report out of the `r30d` module-scope case and reading node's
+# captured stdout: line 2 is `true`, not `1<2`. The template hole reached node
+# intact.
+#
+# This is not scaffolding and is not listed as such below: it adds nothing to
+# any program and changes no character of one. It exists so that the emitted
+# `.js` matches the register's fragment exactly.
+
+[constants]
+"1<2" = "${1<2}"
+
+[source]
+"r30a_module.js" = """var b=true; console.log(b)
+"""
+"r30a_function.js" = """function main() {
+  var b=true; console.log(b)
+}
+main();
+"""
+"r30b_module.js" = """const b = true; console.log(b)
+"""
+"r30b_function.js" = """function main() {
+  const b = true; console.log(b)
+}
+main();
+"""
+"r30c_module.js" = """const o = {f: true}; console.log(o.f)
+"""
+"r30c_function.js" = """function main() {
+  const o = {f: true}; console.log(o.f)
+}
+main();
+"""
+"r30d_module.js" = """const o = {f: true};
+const a = [true, false];
+console.log("v=" + (1<2));
+console.log(`${1<2}`);
+console.log("v="+o.f);
+console.log("v="+a[0]);
+"""
+"r30d_function.js" = """function main() {
+  const o = {f: true};
+  const a = [true, false];
+  console.log("v=" + (1<2));
+  console.log(`${1<2}`);
+  console.log("v="+o.f);
+  console.log("v="+a[0]);
+}
+main();
+"""
+"r31a_module.js" = """const a=[1,2]; console.log(a);
+const o={f:1}; console.log(o)
+"""
+"r31a_function.js" = """function main() {
+  const a=[1,2]; console.log(a);
+  const o={f:1}; console.log(o)
+}
+main();
+"""
+"r31b_module.js" = """const a=[1,2];
+const o={f:1};
+console.log("v="+a);
+console.log("v="+o);
+"""
+"r31b_function.js" = """function main() {
+  const a=[1,2];
+  const o={f:1};
+  console.log("v="+a);
+  console.log("v="+o);
+}
+main();
+"""
+"r32a_module.js" = """console.log(1e21);
+console.log(1e100);
+console.log(123456789012345678901234.0);
+console.log(1e-7);
+"""
+"r32a_function.js" = """function main() {
+  console.log(1e21);
+  console.log(1e100);
+  console.log(123456789012345678901234.0);
+  console.log(1e-7);
+}
+main();
+"""
+"r32b_module.js" = """console.log(1e20);
+console.log(1e-6);
+"""
+"r32b_function.js" = """function main() {
+  console.log(1e20);
+  console.log(1e-6);
+}
+main();
+"""
+"r32c_module.js" = """console.log("v=" + 1e-7)
+"""
+"r32c_function.js" = """function main() {
+  console.log("v=" + 1e-7)
+}
+main();
+"""
+"r33a_module.js" = """console.warn("hi");
+"""
+"r33a_function.js" = """function main() {
+  console.warn("hi");
+}
+main();
+"""
+"r33b_module.js" = """console.error("hi")
+"""
+"r33b_function.js" = """function main() {
+  console.error("hi")
+}
+main();
+"""
+"r34_module.js" = """function isEven(n) { return n % 2 === 0; }
+console.log("a:" + isEven(4));   // kali a:1,  node a:true
+console.log("a:", isEven(4));    // kali a: 1, node a: true
+
+function f(){return 1<2;}
+console.log("v=" + f());         // kali v=1,  node v=true
+"""
+"r34_function.js" = """function main() {
+  function isEven(n) { return n % 2 === 0; }
+  console.log("a:" + isEven(4));   // kali a:1,  node a:true
+  console.log("a:", isEven(4));    // kali a: 1, node a: true
+
+  function f(){return 1<2;}
+  console.log("v=" + f());         // kali v=1,  node v=true
+}
+main();
+"""
+
+[[case]]
+name = "r30a_var_bound_boolean_in_direct_log_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30a_module.js"
+verdict = "silent"
+rationale = """R-30, plain-`var`-binding lane, module scope. SINK: a single-argument direct `console.log(b)`, which is the sink this entry is named for ("Computed booleans render `1`/`0` in direct `console.log` argument position"). The program is the entry's own fragment verbatim -- as of `61c2d48ea9` (2026-07-29), §2's "Wider than 'computed'" paragraph opens "a plain binding to a literal is already affected -- `var b=true; console.log(b)` prints `1`" -- and it is a complete runnable program as stated, so nothing was added.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "**SILENT (single-arg direct only)**" and this fragment is the entry's own illustration of it. Both engines exit 0, stdout differs, which is SILENT.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `1` at exit 0 with empty stderr; node prints `true` at exit 0. The rendering is still the raw bit pattern.
+
+WHAT THIS CASE DOES AND DOES NOT ESTABLISH. It measures ONE producer -- a plain `var` binding of a boolean literal -- at ONE sink. R-30's producer set at that commit has nine members (comparisons, `!`/`!!`, `&&`/`||`, function returns, parameters, ternaries, `const` object fields, plain `var` bindings, and a literal-selecting `??` at the single-argument sink). Three of them are measured in this file, and `r30c` is the other direct-sink one. The rest are stated in the register as producer KINDS rather than as runnable fragments, so they are not measured here and this case asserts nothing about them: see the file header. It also asserts nothing about truthiness, which the entry records as correct throughout -- `classify` compares rendered stdout, and a case cannot separate a rendering defect from a value defect. The entry's Tier-4 placement rests on that separation and this case does not re-establish it."""
+
+[[case]]
+name = "r30a_var_bound_boolean_in_direct_log_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30a_function.js"
+verdict = "silent"
+rationale = """R-30, plain-`var`-binding lane, in-function scope. The module-scope fragment verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9` the entry carries `Verification: sweep-only (both scopes)`, but that line names no sweep id and is mapped to no individual bullet, so treating it as an in-function observation OF THIS FRAGMENT would be an assumption; it is not made. The expected class was set on the assumption that the scopes agree, precisely so a disagreement would surface as a red case.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `1` at exit 0; node prints `true` at exit 0. Byte-identical to the module scope, so the direct-log sink renders a `var`-bound boolean the same way at either scope."""
+
+[[case]]
+name = "r30b_const_bound_boolean_in_direct_log_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30b_module.js"
+verdict = "fixed"
+rationale = """R-30, plain-`const`-scalar lane, module scope. SINK: the same single-argument direct `console.log(b)` as `r30a`; the ONLY difference between the two programs is the declarator. That is the entry's own distinction, not this author's: as of `61c2d48ea9`, §2's bullet "Corrected 2026-07-19 (stale in the over-claim direction)" states that the producer list "used to also name plain `const` bindings, but `const b = true; console.log(b)` now prints `true` correctly (re-verified on a freshly built binary) -- the `e4b5f7138` fix's binding-chain resolution reaches a plain `const` scalar. Only `var` is still wrong among plain bindings". The program is that fragment verbatim.
+
+Expected verdict set from the register's recorded status: FIXED. The correction bullet declares this shape correct, which is both engines exiting 0 with identical stdout.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `true` at exit 0; node prints `true` at exit 0.
+
+THIS IS A LANE-LEVEL `fixed` AND MUST NOT BE READ AS R-30 BEING FIXED. R-30 is live at this commit: its `var` lane (`r30a`) and its `const`-object-field lane (`r30c`) both measure SILENT in this same file, at this same sink, at this same commit. The §0.2 regeneration keys its rows on `register_entry`, so a row that took this case as R-30's verdict would record a fixed entry that is not fixed.
+
+Why the lane is worth a case at all: it is the declarator boundary the register corrected ITSELF on, having over-claimed `const` as broken. A pair with `r30a` pins that boundary from both sides, so a regression that re-broke plain `const` scalars -- or a fix that quietly repaired plain `var` -- shows up as a moved boundary rather than as silence."""
+
+[[case]]
+name = "r30b_const_bound_boolean_in_direct_log_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30b_function.js"
+verdict = "fixed"
+rationale = """R-30, plain-`const`-scalar lane, in-function scope. The module-scope fragment verbatim inside `function main() { ... }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: FIXED, as for the module scope. The `sweep-only (both scopes)` Verification line is mapped to no individual bullet, so it is not read as an in-function observation of this fragment; the expected class assumes the scopes agree so that a disagreement goes red.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `true` at exit 0; node prints `true` at exit 0. The scopes agree, and for this lane that agreement is a new observation.
+
+A LANE-LEVEL `fixed` IS NOT AN ENTRY-LEVEL `fixed`: see the module-scope case. R-30's `var` and `const`-object-field lanes measure SILENT in this file at this commit, in this same scope."""
+
+[[case]]
+name = "r30c_const_object_field_boolean_in_direct_log_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30c_module.js"
+verdict = "silent"
+rationale = """R-30, `const`-object-field lane, module scope. SINK: single-argument direct `console.log(o.f)`. The program is the entry's own fragment verbatim: as of `61c2d48ea9`, the same 2026-07-19 correction bullet that removed plain `const` scalars from the producer set keeps this shape in it -- "`const` **object fields** (`const o = {f: true}; console.log(o.f)`) are a separate, still-broken shape (re-verified: kali `1`, node `true`) and remain correctly listed above".
+
+Expected verdict set from the register's recorded status: SILENT. The bullet declares the shape still broken with both renderings written out, which is both engines exiting 0 with differing stdout.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `1` at exit 0 with empty stderr; node prints `true` at exit 0 -- exactly the two renderings the register re-verified.
+
+This lane is what makes the `r30b` pair readable. The two programs differ in the producer only (a `const` SCALAR against a `const` OBJECT FIELD), both at the same direct sink, and they measure different classes -- so the boundary the correction bullet drew is a boundary about the producer, not about the declarator alone. That is what these two cases jointly show; neither shows it alone.
+
+WHAT THIS DOES NOT ESTABLISH: the same limits as `r30a`. One producer, one sink, nothing about the other members of R-30's producer set, and nothing about truthiness."""
+
+[[case]]
+name = "r30c_const_object_field_boolean_in_direct_log_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30c_function.js"
+verdict = "silent"
+rationale = """R-30, `const`-object-field lane, in-function scope. The module-scope fragment verbatim inside `function main() { ... }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. The entry's `sweep-only (both scopes)` line is mapped to no individual bullet and is not read as an in-function observation of this fragment.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `1` at exit 0; node prints `true` at exit 0. Identical to the module scope."""
+
+[[case]]
+name = "r30d_provable_booleans_in_concat_and_template_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30d_module.js"
+verdict = "fixed"
+rationale = """R-30, concat-and-template lane, module scope. SINKS: `+` concatenation into a `console.log`, and a template hole -- the two sinks the entry declares ALREADY CORRECT, as against the direct-log sink the other three R-30 lanes measure. As of `61c2d48ea9`, §2's "Narrower than 'everywhere'" paragraph states it: "the concat and template paths are already **FIXED for operands `static_equality_class`/`is_string_valued`/`is_float_valued` can prove** -- `"v=" + (1<2)` -> `v=true` ok, `` `${1<2}` `` -> `true` ok, `"v="+o.f` -> `v=true` ok, `"v="+a[0]` -> `v=true` ok."
+
+SCAFFOLDING, DISCLOSED. The four fragments are stated as bare expressions with arrows, so a `console.log(...)` was wrapped around each; nothing else about them was changed. Note that the register's own spacing is MIXED across the four and is reproduced as written rather than normalised: register:2444-2445 writes `"v=" + (1<2)` with spaces around the `+` and `"v="+o.f` / `"v="+a[0]` without them. An earlier draft of this program spaced all three alike. Whitespace between tokens cannot change either engine's behaviour, but it sat under a claim that nothing about the fragments was changed, so the register's characters are restored. (The template-hole fragment also collides with the case runner's own `${...}` substitution syntax, which is resolved by the `[constants]` entry above WITHOUT altering the program -- the emitted file carries `` `${1<2}` `` character for character, verified by reading node's captured stdout out of a forced mismatch report. See the header block that declares the constant.) THIS PROGRAM IS THEREFORE NOT VERBATIM in the sense the other R-30 cases are. Two bindings were also needed, and both are the entry's own: `const o = {f: true};` is from its 2026-07-19 correction bullet, and `const a = [true, false];` is the array from its `Confounder recorded` bullet carrying the declarator that bullet names ("sweep A's first pass used `var o={f:true}` / `var a=[true,false]` ... Re-run with `const`, every one of those shapes is correct"). All four fragments are kept because the entry's claim for this lane is a BOUNDARY over operand kinds, and one fragment would have measured one kind. Each was also run alone by hand at this commit and each agreed with node alone, so no fragment's result is masked by a sibling's.
+
+Expected verdict set from the register's recorded status: FIXED -- the paragraph declares these four correct, and §0.2's note agrees ("multi-arg + concat + `const b` now correct (R-04 fix); narrowed").
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `v=true`, `true`, `v=true`, `v=true` at exit 0; node prints the same four lines at exit 0.
+
+THIS IS A LANE-LEVEL `fixed` AND MUST NOT BE READ AS R-30 BEING FIXED -- the entry's defect is at the direct-log sink, which `r30a` and `r30c` measure SILENT in this same file at this same commit. What this case pins is the entry's own NARROWING claim: that the concat and template paths are not the hole. If it ever goes red, the entry got WIDER, which is a different and more serious finding than the entry moving.
+
+WHAT THIS DOES NOT ESTABLISH. It covers the four operand kinds the register wrote out (a comparison in concat, a comparison in a template hole, a `const` object field, a `const` array element) and no others. The register's own round-4 and round-5 corrections record that the concat lane has TWO further holes that these four fragments do not reach -- R-08 residual 6 (a `??` over an unprovable boolean-returning call) and R-34 (an ordinary user function's boolean return, no `??` required) -- and both are explicitly stated there as NOT owned by R-30. R-34's is measured in this file, and it is SILENT. So "the concat path is fixed" is true only for the operands this lane names, and this case asserts nothing wider."""
+
+[[case]]
+name = "r30d_provable_booleans_in_concat_and_template_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30d_function.js"
+verdict = "fixed"
+rationale = """R-30, concat-and-template lane, in-function scope. The module-scope program verbatim -- both bindings and all four wrapped fragments -- inside `function main() { ... }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: FIXED, as for the module scope. The entry's `sweep-only (both scopes)` line is mapped to no individual bullet and is not read as an in-function observation of these fragments.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `v=true`, `true`, `v=true`, `v=true` at exit 0; node prints the same. The scopes agree.
+
+The same two warnings as the module-scope case apply and are not repeated here: this is a LANE-LEVEL `fixed` on a live entry, and it covers only the four operand kinds the register wrote out. See that case's rationale. The scaffolding is identical to it plus the wrapper."""
+
+[[case]]
+name = "r31a_direct_log_of_an_array_and_an_object_module_scope"
+kind = "oracle"
+register_entry = "R-31"
+program = "r31a_module.js"
+verdict = "silent"
+rationale = """R-31, direct-log lane, module scope. SINK: a single-argument direct `console.log(a)` / `console.log(o)`, which is the sink the entry is named for ("`console.log` of an array prints its length; of an object prints `0`"). The program is the entry's `Repro` line's two fragments verbatim -- as of `61c2d48ea9`, "`const a=[1,2]; console.log(a);` -> node `[ 1, 2 ]`, kali `2` (exit 0) -- the length, an especially deceptive answer for a 2-element array of small numbers. `const o={f:1}; console.log(o)` -> `0`" -- combined into one program because the register states them in one `Repro` bullet at one class. Both are kept because §0.2's note names both ("array->length, object->0"). Each was also run alone by hand at this commit and diverged alone.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "**SILENT**". Both engines exit 0, stdout differs.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `2` then `0` at exit 0 with empty stderr; node prints `[ 1, 2 ]` then `{ f: 1 }` at exit 0. Both renderings are exactly what the register records, including the deceptive `2`.
+
+One detail the register does not state and this case does not assert: node's object rendering here is `{ f: 1 }`, which §0.2's own 2026-07-24 sweep bullet also records for a different object. The entry's `Repro` line gives node's array output but writes kali's object output only, so the `{ f: 1 }` side of the comparison is a hand observation recorded here, not a register quotation.
+
+WHAT THIS DOES NOT ESTABLISH: the concat sink, which is R-31's other lane and is measured separately in this file as `r31b`. A program combining them would have reported one class for two sinks this entry deliberately distinguishes."""
+
+[[case]]
+name = "r31a_direct_log_of_an_array_and_an_object_in_function"
+kind = "oracle"
+register_entry = "R-31"
+program = "r31a_function.js"
+verdict = "silent"
+rationale = """R-31, direct-log lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`.
+
+This scope had never been measured for this entry: as of `61c2d48ea9`, §2's R-31 carries `Verification: sweep-only-top-level-only`, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree, precisely so that a disagreement would show up as a red case rather than as an unmeasured gap.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `2` then `0` at exit 0; node prints `[ 1, 2 ]` then `{ f: 1 }` at exit 0. The scopes agree, and that agreement is the new observation this case adds -- the entry was `top-level-only` before it.
+
+Worth noting for a reader who expects an array in a function to fail closed: it does not here. R-12 records that an in-function array-ELEMENT store fails closed `E5506`, but this program only logs the array as a whole and never indexes or writes it, so no such guard is reached and the comparison is a rendering comparison, as the entry intends."""
+
+[[case]]
+name = "r31b_concat_of_an_array_and_an_object_module_scope"
+kind = "oracle"
+register_entry = "R-31"
+program = "r31b_module.js"
+verdict = "silent"
+rationale = """R-31, concat lane, module scope. SINK: `+` concatenation into a `console.log` -- a DIFFERENT sink from `r31a`'s, and the entry states it separately: as of `61c2d48ea9`, "In concat position both collapse too: `"v="+a` -> `v=0` (node `v=1,2`), `"v="+o` -> `v=0` (node `v=[object Object]`)." The node renderings differ from the direct sink's on both operands (`1,2` against `[ 1, 2 ]`; `[object Object]` against `{ f: 1 }`), which is why the two sinks get two lanes rather than one program.
+
+SCAFFOLDING, DISCLOSED. The two fragments are stated as bare expressions with arrows, so a `console.log(...)` was wrapped around each; nothing else about them was changed. THIS PROGRAM IS THEREFORE NOT VERBATIM. The `const a=[1,2];` and `const o={f:1};` bindings are lifted from this same entry's `Repro` line, which is where these fragments presuppose them from -- they were not written fresh. Both fragments are kept, and each was also run alone by hand at this commit and diverged alone.
+
+Expected verdict set from the register's recorded status: SILENT. §0.2's note spells this lane out as part of the row ("concat/template->0").
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `v=0` then `v=0` at exit 0 with empty stderr; node prints `v=1,2` then `v=[object Object]` at exit 0. Exactly the four renderings the register records.
+
+This lane is the one place in Tier 4 where the concat sink is NOT the correct one. R-30 and R-32 both record concat as already correct and this file measures both of those lanes FIXED; R-31 records concat as collapsing too, and this case measures it SILENT. So "the concat path is right" is an entry-by-entry fact, not a property of the formatter, and a reader must not carry it across entries.
+
+WHAT THIS DOES NOT ESTABLISH: §0.2's note says "concat/template->0" but the register writes out only the two CONCAT fragments. No template-hole fragment is stated for this entry, so none is measured here, and this case says nothing about `` `${a}` ``."""
+
+[[case]]
+name = "r31b_concat_of_an_array_and_an_object_in_function"
+kind = "oracle"
+register_entry = "R-31"
+program = "r31b_function.js"
+verdict = "silent"
+rationale = """R-31, concat lane, in-function scope. The module-scope program verbatim -- both bindings and both wrapped fragments -- inside `function main() { ... }` with a trailing `main();`.
+
+This scope had never been measured for this entry: `Verification: sweep-only-top-level-only` as of `61c2d48ea9`. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree, so that a disagreement would go red.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `v=0` then `v=0` at exit 0; node prints `v=1,2` then `v=[object Object]` at exit 0. The scopes agree, which is a new observation for this entry. The scaffolding is the module-scope case's plus the wrapper."""
+
+[[case]]
+name = "r32a_direct_log_past_the_exponential_thresholds_module_scope"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32a_module.js"
+verdict = "silent"
+rationale = """R-32, past-a-threshold lane, module scope. SINK: a single-argument direct `console.log(<number>)`, which is the entry's own `Repro` sink and the one its "two formatters" bullet names as the wrong one.
+
+The first line is the entry's labelled `Repro` verbatim -- as of `61c2d48ea9`, "`console.log(1e21);` -> node `1e+21`, kali `1000000000000000000000` (exit 0)". The other three lines are the fragments of its next bullet, "**Both thresholds missing, in both directions**: `1e100` -> 101 literal digits; `123456789012345678901234.0` -> `123456789012345690000000` (node `1.2345678901234569e+23`); `1e-7` -> `0.0000001` (node `1e-7`)". All four are kept because the entry's claim for this lane is exactly that both thresholds are missing in both directions, and `1e21` alone shows one threshold in one direction.
+
+SCAFFOLDING, DISCLOSED, IN TWO PARTS. (1) The three bullet fragments are stated as values with arrows, so a `console.log(...)` was wrapped around each; no literal or digit was changed. THIS PROGRAM IS THEREFORE NOT VERBATIM past its first line. (2) The bullet does not restate a sink. The sink used is the entry's own -- taken from its `Repro` line above and corroborated by its later bullet, which writes `console.log(1e-7)` out in full and contrasts it with `console.log("v=" + 1e-7)` -- but for `1e100` and the 24-digit literal that attribution is INFERENCE FROM CONTEXT, not a restated call, and this case does not claim otherwise. Each of the four fragments was also run alone by hand at this commit and diverged alone, so no fragment's result is masked by a sibling's.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "**SILENT**" with the note "`1e21`/`1e-7` direct wrong; concat path correct". Both engines exit 0, stdout differs.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `1000000000000000000000`, then 101 literal digits, then `123456789012345690000000`, then `0.0000001`, all at exit 0 with empty stderr; node prints `1e+21`, `1e+100`, `1.2345678901234569e+23`, `1e-7` at exit 0. Every one of the four renderings is character-for-character what the register recorded, on both engines.
+
+WHAT THIS DOES NOT ESTABLISH. It shows the four literals the register wrote out and nothing about any other magnitude. In particular the entry's claim that "magnitude handling is right; only the switch to exponent form is absent" is a claim about the VALUE, and a rendering comparison cannot separate a value defect from a rendering one -- the 24-digit line is suggestive (kali's digits carry the same `...4569` rounding node's mantissa does) but this case does not assert it. The boundary claim is the `r32b` lane's."""
+
+[[case]]
+name = "r32a_direct_log_past_the_exponential_thresholds_in_function"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32a_function.js"
+verdict = "silent"
+rationale = """R-32, past-a-threshold lane, in-function scope. The module-scope program verbatim -- all four logs -- inside `function main() { ... }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9` the entry carries `Verification: sweep-only (both scopes)`, but that line names no sweep id and is mapped to no individual bullet, so treating it as an in-function observation of these fragments would be an assumption; it is not made.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints the same four wrong renderings as at module scope and node the same four right ones, all at exit 0. The scopes agree, so the direct-log number formatter is scope-independent for these four literals. The scaffolding is the module-scope case's plus the wrapper."""
+
+[[case]]
+name = "r32b_direct_log_just_inside_the_thresholds_module_scope"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32b_module.js"
+verdict = "fixed"
+rationale = """R-32, just-inside lane, module scope. SINK: the SAME direct `console.log(<number>)` as `r32a`; the only difference between the two programs is which side of the threshold the literals sit on. That is the entry's own construct: as of `61c2d48ea9`, "The just-inside cases are correct, pinning the boundary exactly: `1e20` -> `100000000000000000000` ok and `1e-6` -> `0.000001` ok."
+
+SCAFFOLDING, DISCLOSED, exactly as for `r32a`: both fragments are stated as values with arrows, so a `console.log(...)` was wrapped around each, and the sink is inferred from the entry's own `Repro` line rather than restated in the bullet. NOT VERBATIM in that respect.
+
+Expected verdict set from the register's recorded status: FIXED -- the bullet declares both correct, which is both engines exiting 0 with identical stdout.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `100000000000000000000` then `0.000001` at exit 0; node prints the same two lines at exit 0.
+
+THIS IS A LANE-LEVEL `fixed` AND MUST NOT BE READ AS R-32 BEING FIXED. R-32 is live at this commit -- `r32a`, the same sink one power of ten away, measures SILENT in this same file. The regeneration keys its rows on `register_entry`.
+
+What the pair is FOR is the boundary. `r32a` and `r32b` are the same sink over four wrong literals and two right ones, and together they bracket both thresholds from both sides. A fix that moved a threshold rather than implementing one would leave `r32a` red and this case green, or the reverse, and either is a legible finding that neither case gives alone."""
+
+[[case]]
+name = "r32b_direct_log_just_inside_the_thresholds_in_function"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32b_function.js"
+verdict = "fixed"
+rationale = """R-32, just-inside lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: FIXED, as for the module scope. The entry's `sweep-only (both scopes)` line is mapped to no individual bullet and is not read as an in-function observation of these fragments.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `100000000000000000000` then `0.000001` at exit 0; node prints the same. The scopes agree, so the boundary sits at the same place in both.
+
+A LANE-LEVEL `fixed` IS NOT AN ENTRY-LEVEL `fixed`: see the module-scope case. The scaffolding is that case's plus the wrapper."""
+
+[[case]]
+name = "r32c_concat_of_a_small_number_module_scope"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32c_module.js"
+verdict = "fixed"
+rationale = """R-32, concat lane, module scope. SINK: `+` concatenation into a `console.log`. The program is the entry's own call verbatim, written out in full in §2 as of `61c2d48ea9`: "**Two independent number formatters exist and they disagree.** `console.log(1e-7)` prints `0.0000001` but `console.log("v=" + 1e-7)` prints `v=1e-7`, which *matches* node. The concat path implements the small-number threshold and the direct-log path does not." Nothing was added -- this fragment is stated as a call, unlike the bullet fragments `r32a` and `r32b` wrap, and it is reproduced character for character INCLUDING the absence of a trailing semicolon (register:2497 writes `console.log("v=" + 1e-7)` inside a sentence, with no `;`). An earlier draft added one; it was found by the same pass that found `r33b`'s and is corrected for the same reason.
+
+Expected verdict set from the register's recorded status: FIXED -- the register says this spelling matches node, and §0.2's note says "concat path correct".
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `v=1e-7` at exit 0; node prints `v=1e-7` at exit 0.
+
+THIS IS THE HALF OF THE ENTRY'S CLAIM A GREEN CASE CAN CARRY, AND IT IS NOT AN ENTRY-LEVEL `fixed`. The claim is that TWO formatters exist and disagree, and it takes two cases to show a disagreement: this one and `r32a`, whose fourth line is the identical literal `1e-7` through the direct sink and which measures SILENT at this same commit. Read together they show one literal rendering two ways in one binary. Read alone, this case shows only that the concat path is right for `1e-7`.
+
+The register's recommendation that "any fix should unify them rather than patch one, or they will keep drifting" is quoted here as the register's statement, not asserted -- a verdict class cannot support a recommendation about how to fix anything."""
+
+[[case]]
+name = "r32c_concat_of_a_small_number_in_function"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32c_function.js"
+verdict = "fixed"
+rationale = """R-32, concat lane, in-function scope. The module-scope call verbatim inside `function main() { ... }` with a trailing `main();`.
+
+Expected verdict set from the register's recorded status: FIXED, as for the module scope. The entry's `sweep-only (both scopes)` line is mapped to no individual bullet and is not read as an in-function observation of this call.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `v=1e-7` at exit 0; node prints `v=1e-7` at exit 0. The scopes agree, so the two formatters disagree with each other identically at either scope: `r32a`'s in-function case measures the same literal SILENT through the direct sink.
+
+A LANE-LEVEL `fixed` IS NOT AN ENTRY-LEVEL `fixed`: see the module-scope case."""
+
+[[case]]
+name = "r33a_console_warn_prefix_module_scope"
+kind = "oracle"
+register_entry = "R-33"
+program = "r33a_module.js"
+verdict = "silent"
+observe = "stderr"
+rationale = """R-33, `console.warn` lane, module scope. SINK: `console.warn("hi")`, which is the whole of the entry. The program is its `Repro` verbatim and complete -- as of `61c2d48ea9` (2026-07-29), "`console.warn("hi");` -> node `hi`, kali `[warn] hi` (exit 0)". Nothing was added.
+
+OBSERVED STREAM: `stderr`. R-33's damage renders on stderr -- `console.warn` writes there on both engines -- so stderr is the stream that carries the observation, and `observe = "stderr"` is how the case says so. R-33 is the ONLY entry in either the tier-3 or the tier-4 file that needs it, and it needs it on BOTH of its lanes: `observe = "stderr"` is set on FOUR cases -- this one, its in-function twin, and the two `console.error` control cases, which render on stderr for the same reason. Every case outside R-33 leaves `observe` unset and compares stdout, which is where every other entry in both files renders. (An earlier draft of this paragraph said this was the only lane that set it and that every other case in the file left it unset. Both were wrong, and they were wrong because they were written before the sweep that found the control lane; they are corrected here rather than quietly, because this rationale is the file's designated warning to the next author and a warning that misstates its own file is worth less than none.)
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "**SILENT/WARN**" with the note "prefix persists; `console.error` correct". Both engines exit 0 and their output differs, which is SILENT.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, matching the register -- no reconciliation. kali exits 0 printing nothing to stdout and `[warn] hi` to stderr; node exits 0 printing nothing to stdout and `hi` to stderr. The prefix is still there, in both scopes, exactly as recorded.
+
+WHY THIS CASE READ `fixed` BEFORE `observe` EXISTED, PRESERVED AS A WARNING. When first authored this case had no way to name its stream, so it compared stdout like every other case: two EMPTY stdouts and two zero exits, which `classify` calls FIXED. The measurement was correct about what it compared and told a lie about the entry -- a green case for a live defect, which would have retired R-33 from the damage set and from the ranking when §0.2 was regenerated from these verdicts. The instrument, not the entry, was the thing that had moved. The fix was to teach `classify` which stream carries the observation (`ObservedStream` in `crates/kali_blast_radius/src/verdict.rs`, `observe` in the case format) rather than to record `fixed` with a prose warning attached to it, because a warning only works on a reader who reads it.
+
+THE GENERAL LESSON FOR THE NEXT AUTHOR. Before writing an oracle case, ask which stream the register's own repro renders its divergence on. If it is not stdout, `observe` must say so -- otherwise the case compares two empty strings, passes, and asserts nothing. `console.warn` and `console.error` are the two sinks in this corpus that do this; there may be others in entries nobody has authored yet.
+
+WHAT THIS DOES NOT ESTABLISH. It compares whole stderr streams, so it shows the two engines' stderr differs -- it does not isolate WHICH bytes differ, and the class alone would not distinguish the `[warn] ` prefix from any other stderr divergence. That the difference is exactly the prefix is the hand observation quoted above. An oracle step permits no process-output assertion, so pinning the bytes needs an ordinary `run` case elsewhere in `crates/kali_cli/tests/cases/`; that is still worth having and is still not done here."""
+
+[[case]]
+name = "r33a_console_warn_prefix_in_function"
+kind = "oracle"
+register_entry = "R-33"
+program = "r33a_function.js"
+verdict = "silent"
+observe = "stderr"
+rationale = """R-33, `console.warn` lane, in-function scope. The `Repro` verbatim inside `function main() { ... }` with a trailing `main();`.
+
+OBSERVED STREAM: `stderr`, for the reason given in full in the module-scope case -- `console.warn` renders on stderr, so stdout carries nothing to compare.
+
+This scope had never been measured for this entry: as of `61c2d48ea9`, §2's R-33 carries `Verification: sweep-only-top-level-only`. The expected class was set to the entry's recorded SILENT/WARN on the assumption that the scopes agree, so that a disagreement would go red.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, matching the register -- no reconciliation. kali exits 0 with empty stdout and `[warn] hi` on stderr; node exits 0 with empty stdout and `hi` on stderr. Byte-identical to the module scope on both engines, so the prefix is scope-independent -- and that agreement is a new observation, since the entry was `top-level-only` before this case.
+
+Unlike the module-scope case, this scope agreement is a real one rather than a formality. Before `observe` existed both cases returned FIXED for a reason that had nothing to do with the scope (a lane whose output never reaches stdout compares equal at any scope), so the pair could not have disagreed and the agreement was worth nothing. Observing stderr, the two scopes are genuinely compared and genuinely agree."""
+
+[[case]]
+name = "r33b_console_error_has_no_prefix_module_scope"
+kind = "oracle"
+register_entry = "R-33"
+program = "r33b_module.js"
+verdict = "fixed"
+observe = "stderr"
+rationale = """R-33, `console.error` control lane, module scope. SINK: `console.error("hi")`. The program is the entry's own control fragment verbatim -- as of `61c2d48ea9`, "`console.error("hi")` is correct (no prefix)" -- which is what makes the entry a `warn`-specific claim rather than a claim about every stderr sink.
+
+OBSERVED STREAM: `stderr`. `console.error` renders on stderr on both engines exactly as `console.warn` does, so this lane needs `observe` for the same reason its sibling does. It was found by the sweep that followed the `r33a` fix rather than by the original authoring pass, and it is the only other LANE in either file that needed it -- two lanes, four cases, since this one's in-function twin needs it too.
+
+SOURCE: `console.error("hi")`, with NO trailing semicolon, because that is how §2 writes it (register:2511-2512, "`console.error("hi")` is correct (no prefix)"). An earlier draft added one. It could not have changed the behaviour, but it sat under a claim that nothing else was changed, and a "verbatim" that is not verbatim is the failure this file spends its header guarding against.
+
+Expected verdict set from the register's recorded status: FIXED. The entry declares this shape correct.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali exits 0 with `hi` on stderr; node exits 0 with `hi` on stderr, byte-identical.
+
+THIS IS NOW A REAL CONTROL, WHICH IT WAS NOT BEFORE. Observing stdout, this case reached FIXED by comparing two empty strings -- the same empty comparison that made `r33a` falsely green -- so it could not have told a correct `console.error` from a broken one. Observing stderr, the class is earned: the two engines' stderr is compared and found equal. The pair `r33a`/`r33b` therefore now contrasts a broken sink against a working one on the same stream, which is what the register's own control claim asserts and what the other paired lanes in this file (`r30a`/`r30b`, `r32a`/`r32b`) do for stdout.
+
+A LANE-LEVEL `fixed` IS NOT AN ENTRY-LEVEL `fixed`. R-33 is live at this commit -- its `console.warn` lane measures SILENT in this same file. The regeneration keys its rows on `register_entry`, so a row built from this case alone would record a fixed entry that is not fixed.
+
+WHAT THIS DOES NOT ESTABLISH. It shows the two stderr streams are equal for this one call; it does not show that no OTHER console sink carries a prefix, and it says nothing about `console.info`, `console.debug` or any sink the register does not name for this entry."""
+
+[[case]]
+name = "r33b_console_error_has_no_prefix_in_function"
+kind = "oracle"
+register_entry = "R-33"
+program = "r33b_function.js"
+verdict = "fixed"
+observe = "stderr"
+rationale = """R-33, `console.error` control lane, in-function scope. The control fragment verbatim inside `function main() { ... }` with a trailing `main();`.
+
+OBSERVED STREAM: `stderr`, as for the module scope -- see that case.
+
+This scope had never been measured for this entry: `Verification: sweep-only-top-level-only` as of `61c2d48ea9`. The expected class was set to the entry's recorded correct-control status on the assumption that the scopes agree.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali exits 0 with `hi` on stderr; node exits 0 with `hi` on stderr. The scopes agree, and the agreement is a real comparison rather than two empty strings matching.
+
+A LANE-LEVEL `fixed` IS NOT AN ENTRY-LEVEL `fixed`: see the module-scope case, and see `r33a`, which measures SILENT at this same scope and commit."""
+
+[[case]]
+name = "r34_boolean_returning_user_function_in_concat_and_multi_arg_module_scope"
+kind = "oracle"
+register_entry = "R-34"
+program = "r34_module.js"
+verdict = "silent"
+rationale = """R-34, module scope. SINKS: `+` concatenation into a `console.log`, and a MULTI-ARGUMENT `console.log("a:", isEven(4))` -- both of them, in the entry's own single repro, because the entry's title names both ("renders `1`/`0` in the string-concat and multi-argument `console.log` lanes -- no `??` required").
+
+The program is §2's labelled `Repro` block verbatim, all three log lines, both callees, and the register's own inline expected-output comments kept as written ("// kali a:1,  node a:true"). As of `61c2d48ea9` that block is introduced "**Repro**, verified verbatim on a freshly built binary (2026-07-19)", so it is a program the register ran, not a fragment. Nothing was added and nothing was removed: the second callee `function f(){return 1<2;}` is kept because the entry's claim is about ordinary user functions generally rather than about `isEven`, and the multi-argument line is kept because it is one of the two lanes the title names.
+
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "**SILENT**" with the note "live; concat AND multi-arg both `1`". Both engines exit 0, stdout differs.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `a:1`, `a: 1`, `v=1` at exit 0 with empty stderr; node prints `a:true`, `a: true`, `v=true` at exit 0. All three lines diverge, on both engines exactly as the register's inline comments predict -- so both named lanes are still broken and R-34 is live.
+
+WHAT THIS CASE DOES AND DOES NOT ESTABLISH. It establishes the divergence on these three lines. It does NOT establish the entry's traced mechanism -- that `crates/kali_codegen/src/emit/call.rs`'s generic resolved-call path produces `ValueShape::Unknown` for every user function because `kali_common::Repr` has no `Boolean` variant -- which is a source claim an oracle case cannot reach; the register's trace is cited here, not confirmed. It also does not establish the entry's SEPARATENESS claims (distinct from R-08 residual 6, distinct from R-30, not G8), which are claims about code sites. What it does contribute to those is one directly observable fact: there is no `??` anywhere in this program, so whatever produces `1` here is not `??`'s fallback discarding a shape, which is residual 6's stated mechanism. And the neighbouring `r30d` case in this file measures the plain concat sink FIXED for a comparison operand at this same commit, so the concat lane is not uniformly broken -- the difference between the two programs is the producer, which is what R-34 says it is.
+
+Truthiness is untested here and the entry's Tier-4 placement rests on it ("Truthiness and branch selection are unaffected -- `if (isEven(4)) ...` takes the correct branch"). That is the register's observation as of `61c2d48ea9`; a rendering comparison cannot separate a rendering defect from a value defect, so this case does not re-establish the placement."""
+
+[[case]]
+name = "r34_boolean_returning_user_function_in_concat_and_multi_arg_in_function"
+kind = "oracle"
+register_entry = "R-34"
+program = "r34_function.js"
+verdict = "silent"
+rationale = """R-34, in-function scope. The `Repro` block verbatim -- three logs, both callees, the register's inline comments -- inside `function main() { ... }` with a trailing `main();`, so both callees become nested function declarations. The repro's interior blank line is left blank rather than indented; that is whitespace outside any token.
+
+This scope had never been measured for this entry. As of `61c2d48ea9`, R-34's `Verification` line reads "probed directly on a freshly built binary, this round (05255c2bc). **Not yet swept**", and it carries no scope note at all, so the register had no in-function observation to inherit and no `Scopes affected` line to read one from. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree, precisely so a disagreement would show as a red case rather than as an unmeasured gap.
+
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `a:1`, `a: 1`, `v=1` at exit 0; node prints `a:true`, `a: true`, `v=true` at exit 0. Byte-identical to the module scope on both engines.
+
+That agreement is this case's whole contribution, and it is a NEW observation: R-34 now has a measured in-function scope, and a nested boolean-returning callee renders exactly as a top-level one does. It is consistent with the register's traced mechanism, which is a property of a call-emission site rather than of a scope, but consistency is not proof and this case does not assert the mechanism."""

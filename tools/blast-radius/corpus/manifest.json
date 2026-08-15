@@ -1,0 +1,890 @@
+{
+  "corpus_hash": "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f",
+  "files": [
+    {
+      "path": "anchor/array_element_alias_mutation_is_shared.js",
+      "stratum": "anchor",
+      "sha256": "569145b6c5874a48782b6a62f569734ff1014b8fae31f91eb0f376039e3af438"
+    },
+    {
+      "path": "anchor/array_fill_initializes_all_elements_01.js",
+      "stratum": "anchor",
+      "sha256": "7a010555a5a0504dfdc1836d5c6bea19d0f1d0e7450a4132a323c37d5d0676d3"
+    },
+    {
+      "path": "anchor/array_fill_initializes_all_elements_02.js",
+      "stratum": "anchor",
+      "sha256": "8f184ba8df586d1879e0d540e85289121b792c9f69724da4e19b76581f1990a8"
+    },
+    {
+      "path": "anchor/array_fill_initializes_all_elements_03.js",
+      "stratum": "anchor",
+      "sha256": "89c3ff90b3f225711637cf7ae3ef448eb96900515b5381ce0693d603a38ed040"
+    },
+    {
+      "path": "anchor/array_length_reads_header_01.js",
+      "stratum": "anchor",
+      "sha256": "813383df45781b35b4578a652298b2b02b4681be5b8f58cdf2c9670f06d430b7"
+    },
+    {
+      "path": "anchor/array_length_reads_header_02.js",
+      "stratum": "anchor",
+      "sha256": "509f7b4bb80ad7a517e2aa848fd59fde807d05d39aee3ce5f7d7905273749ee4"
+    },
+    {
+      "path": "anchor/array_of_object_literals_reads_and_writes.js",
+      "stratum": "anchor",
+      "sha256": "7cb95147d0e6517d1be2cd3d09268ecd2e0153575b872906f7b36640bd68950a"
+    },
+    {
+      "path": "anchor/array_param_length_only_receiver_is_array.js",
+      "stratum": "anchor",
+      "sha256": "cbd60c132341fe47f232e393f1484ea3b5032fcd0878de00c42c5b6e0fb4ddad"
+    },
+    {
+      "path": "anchor/array_param_store_with_call_rhs_across_two_calls.js",
+      "stratum": "anchor",
+      "sha256": "eb85631002825377b7d5884e57db55f8c6994cf8410bce12b5891a15c602a895"
+    },
+    {
+      "path": "anchor/array_param_store_with_float_call_rhs.js",
+      "stratum": "anchor",
+      "sha256": "34a2a3b63c2aa1199d76ad9e7c64a7f7a8bf81ab56b3c2d8abb115ce6b4f53b2"
+    },
+    {
+      "path": "anchor/array_params_float_fill_interproc_spectral_norm_shape.js",
+      "stratum": "anchor",
+      "sha256": "d215eae1663dffa464ec4144f5a32a4649b770cbfd18fb8809dc640d265773ed"
+    },
+    {
+      "path": "anchor/array_params_float_round_trip.js",
+      "stratum": "anchor",
+      "sha256": "4238883c8e5fed8e25128b1f5c0ca56d46b24c3d37d742799230d541d4a151c0"
+    },
+    {
+      "path": "anchor/array_params_float_store_across_call.js",
+      "stratum": "anchor",
+      "sha256": "ff9845b515d3a962b2cc52d7ac392932afa2f0060c08c743203d4be638c4ffe5"
+    },
+    {
+      "path": "anchor/array_params_int_length_loop_sum.js",
+      "stratum": "anchor",
+      "sha256": "cf376e7f499e7161ee7424c47b58e518710abcfcf5ea6b00bd342a9b96b82dec"
+    },
+    {
+      "path": "anchor/array_params_int_read_across_call.js",
+      "stratum": "anchor",
+      "sha256": "5c4e2bbdc0afa83fe5e86cb0fd7e175f1383b15d361e354d3cf0748e1424640d"
+    },
+    {
+      "path": "anchor/array_params_int_store_across_call.js",
+      "stratum": "anchor",
+      "sha256": "a76fedc5bcf1b5032ef3f874f4b9a22a65ad6c919d9a7ddd959dfe1947679b1b"
+    },
+    {
+      "path": "anchor/catch_param_shadows_module_const.js",
+      "stratum": "anchor",
+      "sha256": "ef5d3ed265ae6cd33ed9162b679d49a109cecee5bf2c8f8b9490bd98fc8727bb"
+    },
+    {
+      "path": "anchor/clbg_binary_trees.js",
+      "stratum": "anchor",
+      "sha256": "bca86a0e7afb45d092a5e237564baccb478e3beea9b332d7971c8ace8b388d36"
+    },
+    {
+      "path": "anchor/clbg_fannkuch.js",
+      "stratum": "anchor",
+      "sha256": "18aab710f701865c1ea6f021d0a01dbf29aab6d78f34d57c9f0741aa03ffde16"
+    },
+    {
+      "path": "anchor/clbg_fasta.js",
+      "stratum": "anchor",
+      "sha256": "66cea09e1e3e7ee23792dee729871713e6570d44fe046caf030bc4533c58b4ee"
+    },
+    {
+      "path": "anchor/clbg_mandelbrot.js",
+      "stratum": "anchor",
+      "sha256": "d6f32171bfe3eda40627b33c1dc85f3aa312f70b09ee11e9809c9522a3e23cd4"
+    },
+    {
+      "path": "anchor/clbg_nbody.js",
+      "stratum": "anchor",
+      "sha256": "47511350a11ba89c76a4157839c13661f0b756edfd32efdb2d25651b145f2621"
+    },
+    {
+      "path": "anchor/clbg_spectral_norm.js",
+      "stratum": "anchor",
+      "sha256": "bb80ec551efcddef51c963e8ba0d571b9ff4237eb0f4885614a186f085bf5e52"
+    },
+    {
+      "path": "anchor/computed_array_subscripts_01.js",
+      "stratum": "anchor",
+      "sha256": "0d798bd25fe0e721c01f49c11f04ddf436f8097b5310d5f752d69f8c6da07aee"
+    },
+    {
+      "path": "anchor/computed_array_subscripts_02.js",
+      "stratum": "anchor",
+      "sha256": "2bf2cfdd72ab350854de9de8534249104f8a7c4299aba716ed28f6e437d4dfb3"
+    },
+    {
+      "path": "anchor/computed_array_subscripts_03.js",
+      "stratum": "anchor",
+      "sha256": "09e19ae95f6f910ee144679fd933c5eecdb10afc9ce5f17c6f23622cfb0df673"
+    },
+    {
+      "path": "anchor/computed_array_subscripts_04.js",
+      "stratum": "anchor",
+      "sha256": "a0468347bfb2bc068ec4ca92c04cd5e347280c6fcfe464d4954ece9a64d970ec"
+    },
+    {
+      "path": "anchor/computed_array_subscripts_05.js",
+      "stratum": "anchor",
+      "sha256": "f54a9c179197d9d4010ffb9a7d0d5927c81586910f3fc35086783174f957421a"
+    },
+    {
+      "path": "anchor/console_log_of_object_reference_is_rejected.js",
+      "stratum": "anchor",
+      "sha256": "caeee6e985db4ab55f6f8136fb4bcedb9fd12db16764e19e0a15747fe551196b"
+    },
+    {
+      "path": "anchor/exponent_notation_literals_run_01.js",
+      "stratum": "anchor",
+      "sha256": "4a3377be24394c1958b8bf45945324b180301972abfd403c8b15875aa0aa859b"
+    },
+    {
+      "path": "anchor/exponent_notation_literals_run_02.js",
+      "stratum": "anchor",
+      "sha256": "5bc969b6c76c08f2ec3a506a629b217db032f9f98cbd90105ae8f21f3e05528e"
+    },
+    {
+      "path": "anchor/exponent_notation_literals_run_03.js",
+      "stratum": "anchor",
+      "sha256": "c66ae3b4775bfd831258dc62abe14e19e22c8eeb996c0479304169fb4607c26b"
+    },
+    {
+      "path": "anchor/f64_arithmetic_distinguishes_from_integer_division_01.js",
+      "stratum": "anchor",
+      "sha256": "4de1a09572eb4fe1ad478acdd393075a8b2f5907384881df82eecf46e19d6942"
+    },
+    {
+      "path": "anchor/f64_arithmetic_distinguishes_from_integer_division_02.js",
+      "stratum": "anchor",
+      "sha256": "d1c96c227587f8b3c7fdee207c7bb7746cfd25e74b22c41d4fe5fd578e161ce5"
+    },
+    {
+      "path": "anchor/f64_arithmetic_distinguishes_from_integer_division_03.js",
+      "stratum": "anchor",
+      "sha256": "3b53964936bd5db5e6bc5926ea6953ab4f6736dfcb81564d0d50780c0a26733a"
+    },
+    {
+      "path": "anchor/f64_arithmetic_distinguishes_from_integer_division_04.js",
+      "stratum": "anchor",
+      "sha256": "b1bd56776a9b9e2233192419ee88a0af78195f5c2be8826f74864839b61add44"
+    },
+    {
+      "path": "anchor/f64_arrays_store_and_load_01.js",
+      "stratum": "anchor",
+      "sha256": "ea4c3705caadb20382715c602ccb7bedb0488f35d533378049da634847eb8871"
+    },
+    {
+      "path": "anchor/f64_arrays_store_and_load_02.js",
+      "stratum": "anchor",
+      "sha256": "ecc10e8a6adf55b3a25e9cfa5bf5c3e9bc218a2b5e7d05f822b2e92a8a22c5d0"
+    },
+    {
+      "path": "anchor/f64_arrays_store_and_load_03.js",
+      "stratum": "anchor",
+      "sha256": "535ece08fa88dca9ddea73acaefada09b07ff56d2d45a278e4238cb03e984e9e"
+    },
+    {
+      "path": "anchor/f64_local_init_and_reassign_promote_01.js",
+      "stratum": "anchor",
+      "sha256": "8888de79b23dbfc47e3b09e374a476976a9e67df070f563ec7e5d2b971f6fc74"
+    },
+    {
+      "path": "anchor/f64_local_init_and_reassign_promote_02.js",
+      "stratum": "anchor",
+      "sha256": "28bc648abacac800b5440b0f63a5386ef6023f60553a8380c7480724666f672b"
+    },
+    {
+      "path": "anchor/f64_local_init_and_reassign_promote_03.js",
+      "stratum": "anchor",
+      "sha256": "eee40e25e105efa9fd1b0069f851b739734fe83c6f45334d568ed13025d98380"
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_01.js",
+      "stratum": "anchor",
+      "sha256": "bf957d71beb5958384cc2f1ca26959dce7e8758ca9951000384466a5a73422b6"
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_02.js",
+      "stratum": "anchor",
+      "sha256": "99c04062572688ace7a6b49792c8d11c3658c45be2404de041a59efcdfe55bf0"
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_03.js",
+      "stratum": "anchor",
+      "sha256": "02110879e9cbb6d5a7cfbe017532f0b009bbbb289651064bbbe1ad183daa3a17"
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_04.js",
+      "stratum": "anchor",
+      "sha256": "d4c81547db2b2df857f87448446e1cfb564fc7ebd4efc9f773ef2ede0c3810d9"
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_05.js",
+      "stratum": "anchor",
+      "sha256": "4e2f77b5ac73bdae1c70e68d3e74660004337afe7b58a6b0a4dfab32a0b1d077"
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_06.js",
+      "stratum": "anchor",
+      "sha256": "a97f7af5020ceb86358554086ce6dc626b508be258ce568c400b5ee1765409c3"
+    },
+    {
+      "path": "anchor/factory_array_advance_shape_miniature.js",
+      "stratum": "anchor",
+      "sha256": "c647577390826d59668e8c10de51e5f2866a1c054fe9cf700c4fa502c02cb518"
+    },
+    {
+      "path": "anchor/factory_returned_objects_are_distinct_instances.js",
+      "stratum": "anchor",
+      "sha256": "a04dfc0eafeee5a5153127fda25d5ad8cd0a846bae011a69f7802a0b0f497fe0"
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_01.js",
+      "stratum": "anchor",
+      "sha256": "a57a050976f5c1ae37d4aa8115b801aa9ce799a549237fa94d2c4a1519fe8129"
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_02.js",
+      "stratum": "anchor",
+      "sha256": "80f96dc04db64c691a8c8983d5c9d64ff4f8438e1592dd88648beb3a5d57b86d"
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_03.js",
+      "stratum": "anchor",
+      "sha256": "d717717d477be7c9d78dbf17915a5918745c78da3cfec9033cff2e18191d8085"
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_04.js",
+      "stratum": "anchor",
+      "sha256": "ef60f220f97eaf1eca6a1823cdf5f8e58fe3ca03d97f3a9984576424d8ba38a9"
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_05.js",
+      "stratum": "anchor",
+      "sha256": "55caaacaa811fb319f7675c6e549ceedcbe4a0b5d3938de47bee6a3e91fb5fa5"
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_06.js",
+      "stratum": "anchor",
+      "sha256": "b8f03b34d23ca0d7bce472fe354be71d0cf330c803754535a2bf7e9f1519aee8"
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_07.js",
+      "stratum": "anchor",
+      "sha256": "57994a4ace0961ad2b76d0a724251685fb36dc464504c9ef8cf42b534d46eda3"
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_08.js",
+      "stratum": "anchor",
+      "sha256": "2bf8b125d15a71b5fa79fe710cae0db911a71e65891e270bca1d4eb5dd785288"
+    },
+    {
+      "path": "anchor/for_of_loop_var_shadows_module_const.js",
+      "stratum": "anchor",
+      "sha256": "f3e3dffaedb15de893be6a268ec00ce5cbe558f51e631ebe3a3e7df5d844e340"
+    },
+    {
+      "path": "anchor/functions_return_computed_values_01.js",
+      "stratum": "anchor",
+      "sha256": "871a60c82b749e890ad8060f057116d6ba2525b5abcc075e80930fb2bcf41ecf"
+    },
+    {
+      "path": "anchor/functions_return_computed_values_02.js",
+      "stratum": "anchor",
+      "sha256": "161ef237b1be58f93b04cdf65436faa23b1b23fab617dadbe850bb975fe85824"
+    },
+    {
+      "path": "anchor/functions_return_computed_values_03.js",
+      "stratum": "anchor",
+      "sha256": "965277ea25b344e51d4e1f94eaa0f35797dbf18a8bad0875bde5026aaf5c9027"
+    },
+    {
+      "path": "anchor/heavy_loop_runs_under_raised_default_fuel_budget.js",
+      "stratum": "anchor",
+      "sha256": "6dc5893f4506936f80b341f72cf814c9b371ab2fb651dc0f1aa82b3f7882b347"
+    },
+    {
+      "path": "anchor/impure_module_const_read_from_function_is_rejected.js",
+      "stratum": "anchor",
+      "sha256": "0e85366d56fdf3e19238933b92504471690947a1baa6ce6349e37ee87586450f"
+    },
+    {
+      "path": "anchor/integer_arrays_read_write_01.js",
+      "stratum": "anchor",
+      "sha256": "a5553b324c22c35a09a99e82df63621dcdff47a844a144efed3f2a9ed817e5ed"
+    },
+    {
+      "path": "anchor/integer_arrays_read_write_02.js",
+      "stratum": "anchor",
+      "sha256": "5d452e3f39fc98bc50d09a0795a71dd3350d154be81fd7d0da819196f374bd76"
+    },
+    {
+      "path": "anchor/integer_arrays_read_write_03.js",
+      "stratum": "anchor",
+      "sha256": "4dc18d930a5ffd34db0bc75210508889695cf7e92532005b26497b126f59f130"
+    },
+    {
+      "path": "anchor/integer_object_field_round_trip.js",
+      "stratum": "anchor",
+      "sha256": "973a347944f3d74430f2e654ab2073cf44a6e0ef7232f8611048a306962dfbc6"
+    },
+    {
+      "path": "anchor/integer_programs_are_unchanged_by_repr_plumbing.js",
+      "stratum": "anchor",
+      "sha256": "07e0835c0429a9d97804318aef262140df949c9e6fe923945740a2b35fd59a47"
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_01.js",
+      "stratum": "anchor",
+      "sha256": "51afeb6d9abf47c84716dc19f42a5caf0a38b2279932fb19c01451f1a7f26e0f"
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_02.js",
+      "stratum": "anchor",
+      "sha256": "064bb243c58cb67b72bdb8ccd005d3ae09b25c2fff73fb3b96d9bbc21c2f7361"
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_03.js",
+      "stratum": "anchor",
+      "sha256": "f8900300bbe90fcd7b9c33e055243fe65c4f4b9492a3caff9acb5ecec487b8e9"
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_04.js",
+      "stratum": "anchor",
+      "sha256": "816d18adaba3f2857d6b089e68131367f41056095fd54d0f913034c5f228d00e"
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_05.js",
+      "stratum": "anchor",
+      "sha256": "790439a32d8d2b62cf26720e0ae14c6dc83ea9a3211705a839d65f74bfbd1418"
+    },
+    {
+      "path": "anchor/locally_written_structural_object_literal_is_rejected.js",
+      "stratum": "anchor",
+      "sha256": "f558f30a3af2eb75f21cb75d1ae19be51f91b9838e3b997944849f9bf56c5e0a"
+    },
+    {
+      "path": "anchor/loops_iterate_01.js",
+      "stratum": "anchor",
+      "sha256": "81b416a8be28a232e97fe4f50fe7b8f835c98bd2c2ffe98f0d21f7e8ca17ca88"
+    },
+    {
+      "path": "anchor/loops_iterate_02.js",
+      "stratum": "anchor",
+      "sha256": "07e0835c0429a9d97804318aef262140df949c9e6fe923945740a2b35fd59a47"
+    },
+    {
+      "path": "anchor/loops_iterate_03.js",
+      "stratum": "anchor",
+      "sha256": "3b97a4cd96fdb4a22c25e469065ca2f17a950a3fe9c9b3e7b281b24a5cc10100"
+    },
+    {
+      "path": "anchor/loops_iterate_04.js",
+      "stratum": "anchor",
+      "sha256": "0a56d0a5f8c84183dda7c91123adf86df7e33d522acae41650cea4b44e4201cf"
+    },
+    {
+      "path": "anchor/loops_iterate_05.js",
+      "stratum": "anchor",
+      "sha256": "6fbb77318175daf865e4f2fb85208181af3d32ff5a0e724cf40b8a6df98d1dfd"
+    },
+    {
+      "path": "anchor/loops_iterate_06.js",
+      "stratum": "anchor",
+      "sha256": "2df028cb49a92a7cc5cf35ba5f86775d4e1d77971448fc04471dc8976de75061"
+    },
+    {
+      "path": "anchor/loops_iterate_07.js",
+      "stratum": "anchor",
+      "sha256": "953348b692d58ae42de9c43869c2f4c54d773bdf1e1100a990b93c0a473dc331"
+    },
+    {
+      "path": "anchor/math_sqrt_runtime_f64_01.js",
+      "stratum": "anchor",
+      "sha256": "38337a24d3355b1361866f2fef19f0cc607e41b467977c2bb40dde95c8ebabe7"
+    },
+    {
+      "path": "anchor/math_sqrt_runtime_f64_02.js",
+      "stratum": "anchor",
+      "sha256": "7552a730a95e3ff506af32ee5968f81eb3d82024c95ffc7b86268d57a5480721"
+    },
+    {
+      "path": "anchor/math_sqrt_runtime_f64_03.js",
+      "stratum": "anchor",
+      "sha256": "401f105b0f0b055e4b9dc0c12ddeac187ca12840e590ce56c176053b4978bbf3"
+    },
+    {
+      "path": "anchor/math_sqrt_runtime_f64_04.js",
+      "stratum": "anchor",
+      "sha256": "52cff25d132418eb86b143ea32406badb0570cf33787b2a120d1cbfda7b3b9cc"
+    },
+    {
+      "path": "anchor/mixed_string_number_bindings_are_rejected_01.js",
+      "stratum": "anchor",
+      "sha256": "48cdded2fbbb205b9ca4a4c9457200cf6ccc4ff5e6fc01ddab0f58e19b8f944d"
+    },
+    {
+      "path": "anchor/mixed_string_number_bindings_are_rejected_02.js",
+      "stratum": "anchor",
+      "sha256": "aef6a590684ffdc688ce57a3e094b4894cd1d60698af21bd87ad83f62553c152"
+    },
+    {
+      "path": "anchor/mixed_string_number_bindings_are_rejected_03.js",
+      "stratum": "anchor",
+      "sha256": "b6e3067cc327cef118e0dcfe3217e856b4a3aa1034366c3aa2098a28170ebbb6"
+    },
+    {
+      "path": "anchor/module_consts_read_from_functions_01.js",
+      "stratum": "anchor",
+      "sha256": "e6cb3cf0cb221735b30798e522a13949602988b7fd1253ba85521c65484fec5a"
+    },
+    {
+      "path": "anchor/module_consts_read_from_functions_02.js",
+      "stratum": "anchor",
+      "sha256": "35ef8bd784b24f4eb625550c01060ed1294db94609ff10695bc3689321088a43"
+    },
+    {
+      "path": "anchor/module_consts_read_from_functions_03.js",
+      "stratum": "anchor",
+      "sha256": "df8c76ba3307429115c0ec0cd2d8766cccc5af33ed049682825f59ce38535fdd"
+    },
+    {
+      "path": "anchor/module_let_read_from_function_is_supported.js",
+      "stratum": "anchor",
+      "sha256": "b3dbb1cf24df2db1eb8e46723fddc787791507fa31ebe5bdcdda68161159c3f2"
+    },
+    {
+      "path": "anchor/mutable_locals_round_trip_01.js",
+      "stratum": "anchor",
+      "sha256": "f971095ab30f528f56352e4f102f42ba45a98941d88f4a9a93628118261bdb73"
+    },
+    {
+      "path": "anchor/mutable_locals_round_trip_02.js",
+      "stratum": "anchor",
+      "sha256": "261f476917e96c734c7df4908970b810354ba17c15c308568ccd564d2c9d6e3b"
+    },
+    {
+      "path": "anchor/mutable_locals_round_trip_03.js",
+      "stratum": "anchor",
+      "sha256": "e4f722ea4b38b10f7849c6601eb4e2306a06df9411d06b371e30778f27df856a"
+    },
+    {
+      "path": "anchor/mutable_locals_round_trip_04.js",
+      "stratum": "anchor",
+      "sha256": "991264bfd0155ba2a61629e2ae259e0fac954c52cc7ee2d55d843149434ceb7b"
+    },
+    {
+      "path": "anchor/object_field_read_through_alias.js",
+      "stratum": "anchor",
+      "sha256": "b7d01ff4926108dfd82e83a32c2578535a36b5ff275daed81d17371c93188d66"
+    },
+    {
+      "path": "anchor/object_field_write_and_read_round_trip.js",
+      "stratum": "anchor",
+      "sha256": "fa0aa1fbaee1e198815d0aeb9d671aa126862517be302215f4a2821ddcdcbf5b"
+    },
+    {
+      "path": "anchor/object_in_arithmetic_is_rejected.js",
+      "stratum": "anchor",
+      "sha256": "54dd1bc35af903c5c4137cb24a15969646d27c1041fc3fd609066019fe9d5d47"
+    },
+    {
+      "path": "anchor/object_literal_direct_argument_is_rejected.js",
+      "stratum": "anchor",
+      "sha256": "9ba0fb709f1bd388e14e619676b9e8226f0342baffa2ee6110c414bccf7fea9d"
+    },
+    {
+      "path": "anchor/object_reference_reassignment_still_compiles.js",
+      "stratum": "anchor",
+      "sha256": "4e7ab635cecb98a8cb17c308ce06e5ac13b61d804296bfc690774e14288ba4c5"
+    },
+    {
+      "path": "anchor/object_shape_mismatch_is_rejected.js",
+      "stratum": "anchor",
+      "sha256": "b94a7af57ebc86a832573e41c2520fe3c25c3354e1f59a27e62247fed9e6f29f"
+    },
+    {
+      "path": "anchor/objects_cross_function_boundaries.js",
+      "stratum": "anchor",
+      "sha256": "025fc450ff96ef40b4d83cfc0ee57065f602302c501f74b616bc3c61c6a44c71"
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_01.js",
+      "stratum": "anchor",
+      "sha256": "9ecfc92bb0e84c9981ea923c7e2fe4567fd3324dad6f207792e1cd825a95987d"
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_02.js",
+      "stratum": "anchor",
+      "sha256": "edf0b9fd56cfe8cfecd1f0e4143c79e5af7a1438e91f4d1c8337f4fa4eb52d25"
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_03.js",
+      "stratum": "anchor",
+      "sha256": "f54018db2a81595c1101f0d993ab5bec26a9094de70ecedfde8edc2a01f66cb6"
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_04.js",
+      "stratum": "anchor",
+      "sha256": "ecb2ea34c8fe5cbd07a4299cbbaab1bbdf3ec836f22702d9b4b07400b0358697"
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_05.js",
+      "stratum": "anchor",
+      "sha256": "a96eb23e236961c803858d2a15b528c2a90cdfe0a192858d93d5025243833513"
+    },
+    {
+      "path": "anchor/runtime_string_building_01.js",
+      "stratum": "anchor",
+      "sha256": "f8900300bbe90fcd7b9c33e055243fe65c4f4b9492a3caff9acb5ecec487b8e9"
+    },
+    {
+      "path": "anchor/runtime_string_building_02.js",
+      "stratum": "anchor",
+      "sha256": "816d18adaba3f2857d6b089e68131367f41056095fd54d0f913034c5f228d00e"
+    },
+    {
+      "path": "anchor/runtime_string_building_03.js",
+      "stratum": "anchor",
+      "sha256": "749518e9efc4a3286135daf9a2011ab36d03d3e24b414fbecc59fcf9fdcab17c"
+    },
+    {
+      "path": "anchor/shadowing_local_wins_over_module_const.js",
+      "stratum": "anchor",
+      "sha256": "1ad0e3ee3b96320ca2feb137df355df6fd067773c45fb6e2ac910dfb1d88cdbc"
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_01.js",
+      "stratum": "anchor",
+      "sha256": "6f8bbef85fad964b7ad9d57da8fff7c5bda41eaaa9ba1b09138e3cbf7039b45b"
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_02.js",
+      "stratum": "anchor",
+      "sha256": "945a4d90d7af17e150e375eae13c12f5d41a9f88480275e4177ce1cd74b279b5"
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_03.js",
+      "stratum": "anchor",
+      "sha256": "69c2b84a069e54bd8e6f5118f7ff1de1a03377cc4ee7915df30e8950e2e89780"
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_04.js",
+      "stratum": "anchor",
+      "sha256": "d61c4eadad125be6eba76eeaffb53f205625e4815d86735ddef869caa0cdbc2e"
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_05.js",
+      "stratum": "anchor",
+      "sha256": "15a105aaaa4559d39dfd40ce57472fc175a0681f8e50f0c5dc1ba59ecd296bbf"
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_06.js",
+      "stratum": "anchor",
+      "sha256": "1ecfd1cb7792a55ca462b59086a2f1c19e50e9ac6e3194d9e7a9dcd177c26a4e"
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_07.js",
+      "stratum": "anchor",
+      "sha256": "2df028cb49a92a7cc5cf35ba5f86775d4e1d77971448fc04471dc8976de75061"
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_01.js",
+      "stratum": "anchor",
+      "sha256": "ae44fc049d5afdd952f28a2f0a2296be27b6cd5d16174ce862231a519cd2cd91"
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_02.js",
+      "stratum": "anchor",
+      "sha256": "3ca6d4791807dca7e77cd40c29f25dc9de39866679e47e8883d852bb0e5c6082"
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_03.js",
+      "stratum": "anchor",
+      "sha256": "9ccd9d21b8b10906458e0330875d9c13979af6003d5ebccab0100d0379f4ac54"
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_04.js",
+      "stratum": "anchor",
+      "sha256": "95c55967f3601be3f51c7ee6d24f07aa74f9d9fcb0ae5952bc8b7c3d8cbea49d"
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_05.js",
+      "stratum": "anchor",
+      "sha256": "87a2e0870ee5405fdaeb1d6f0436e4eb3522a93f95dd18edf7bf6184e9c2d27d"
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_06.js",
+      "stratum": "anchor",
+      "sha256": "eea162dc722a45d35c1b0a7de277357689c3eb1e996350e412d47ffff8da810e"
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_07.js",
+      "stratum": "anchor",
+      "sha256": "4950e48d97040674a13b73a94fcc7b58476ae95bb1651f733918cc20c8bd851d"
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_08.js",
+      "stratum": "anchor",
+      "sha256": "b54da2a8263ac3b2d467f0e101c2227a3d9b02f8235df65ad0ecc30a56403d1e"
+    },
+    {
+      "path": "anchor/structural_object_literal_passed_as_call_argument_is_rejected.js",
+      "stratum": "anchor",
+      "sha256": "d8d777145b64137f0ebcefcde635b8c3a2677f98e94bea0445591226301fee0f"
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_01.js",
+      "stratum": "anchor",
+      "sha256": "f4fcc369508799c3713e9128b1d1ead116fbb028f229c024f7dd93b5a0913f8c"
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_02.js",
+      "stratum": "anchor",
+      "sha256": "830a13aa219ae75abcf67768b4c0c891280841a471701cc2f21540a8cf090071"
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_03.js",
+      "stratum": "anchor",
+      "sha256": "74b68f6646d9b267da9490e7137273daa7be4b53d2be008d5d3eabfc4ffb6efd"
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_04.js",
+      "stratum": "anchor",
+      "sha256": "7452dd4bf848547a0bc93b71089f07a61fd31ddb7c57af841482b770a9570d06"
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_05.js",
+      "stratum": "anchor",
+      "sha256": "d208934f119ab1d58f034287bbac3e3ffdab27f886111dfe9b3cb37bd53b2032"
+    },
+    {
+      "path": "anchor/unknown_field_read_is_fold_first_until_materialized_01.js",
+      "stratum": "anchor",
+      "sha256": "b841b141f1cd149861f78b8caef88773311bf566653f8c1dd4e2fa0ba919247c"
+    },
+    {
+      "path": "anchor/unknown_field_read_is_fold_first_until_materialized_02.js",
+      "stratum": "anchor",
+      "sha256": "140a68c3555fce06c0a30c4f632a4f45a114ab96765c8b093d394c22ebc5e0a3"
+    },
+    {
+      "path": "anchor/unknown_field_write_is_rejected.js",
+      "stratum": "anchor",
+      "sha256": "1fa478791e16ca4a394851139bcad682dae412f37088aec5299c4ce726ad365a"
+    },
+    {
+      "path": "extension/argv_stats.js",
+      "stratum": "extension",
+      "sha256": "f48ec48b0cc1485ad0fbaff766006edeb8f0be26050b099d82017634040b3b46"
+    },
+    {
+      "path": "extension/base64_encode.js",
+      "stratum": "extension",
+      "sha256": "ffa33dd210b6eab9f22e20c33091602eb52feb1c8d3cf9bfe61b6253b5db26c9"
+    },
+    {
+      "path": "extension/build_report_json.js",
+      "stratum": "extension",
+      "sha256": "fb2962b560a3b72ff8fbe3df6d6063fb8e7a89b1b16a4f109779b4ee57d2c516"
+    },
+    {
+      "path": "extension/crc32_checksum.js",
+      "stratum": "extension",
+      "sha256": "05d0a33c7eb8e49556c0fa3f8ee39e93eda4d56df508c36569398eba12a827d7"
+    },
+    {
+      "path": "extension/csv_column_summary.js",
+      "stratum": "extension",
+      "sha256": "2b4d9550aa5b277b8db28984f1e9d6e1f9ca96ee0c897439b5c59eea1a70e021"
+    },
+    {
+      "path": "extension/diff_lines.js",
+      "stratum": "extension",
+      "sha256": "a7e2fee3e2b9fdf1142d6e34f6152b0a77df86a004df6961afae99d92abf22be"
+    },
+    {
+      "path": "extension/duration_format.js",
+      "stratum": "extension",
+      "sha256": "187c8bd961c9e81a3c78c2cf5ef788e56543a53c8aa31aa6583cdb0b42855aef"
+    },
+    {
+      "path": "extension/event_dispatcher.js",
+      "stratum": "extension",
+      "sha256": "db272e80d5af4abbf272934f1bbe23fe30ab5b42e22d4b3bf1803c5cea34c14c"
+    },
+    {
+      "path": "extension/expression_evaluator.js",
+      "stratum": "extension",
+      "sha256": "f3f808921c40623912a0fd47d8fe88e6c64b502c491acf00824f040cfc990db2"
+    },
+    {
+      "path": "extension/flood_fill_grid.js",
+      "stratum": "extension",
+      "sha256": "f500ca09f1a5c53a7d84fc7ee682870978d5d901ddb1d93812075588fc1cf17b"
+    },
+    {
+      "path": "extension/group_by_department.js",
+      "stratum": "extension",
+      "sha256": "03e7fa5adfcb083917e28499e08ae269b3bb186f77d94094ccfc3e0b3b3312f5"
+    },
+    {
+      "path": "extension/heat_diffusion_1d.js",
+      "stratum": "extension",
+      "sha256": "fde575589f4c991c332291402bbadee5de987c4dc3efa5d12402ec0d51b87b83"
+    },
+    {
+      "path": "extension/hex_dump.js",
+      "stratum": "extension",
+      "sha256": "4a6240d0ded8c974c004a528f6d3979d1c53d70820149454dbe0a66e708a634e"
+    },
+    {
+      "path": "extension/histogram_bars.js",
+      "stratum": "extension",
+      "sha256": "f40c3b6951c58c3a8bc75a4880d7ab2645544103f1d085fb3791cd89cbe6e49c"
+    },
+    {
+      "path": "extension/identifier_casing.js",
+      "stratum": "extension",
+      "sha256": "7f90dda55f8a735d2bdabb31513dce881e517dd379b67438dd9afc0a1727d3ef"
+    },
+    {
+      "path": "extension/ini_config.js",
+      "stratum": "extension",
+      "sha256": "e1e794b56841b144325728e48dee7027ec02f2c9d275c03bc7d0a141f0ff32d6"
+    },
+    {
+      "path": "extension/inventory_ledger.js",
+      "stratum": "extension",
+      "sha256": "c98df83524e370b8406008f763f2ad7caa73d4e2107538cf9ee4c3f796782e6a"
+    },
+    {
+      "path": "extension/join_orders.js",
+      "stratum": "extension",
+      "sha256": "ee8b7f1aa1406ec64e25f3cc12d3d7bea36425aac5ca92d8a9695f2ffafb068b"
+    },
+    {
+      "path": "extension/loan_schedule.js",
+      "stratum": "extension",
+      "sha256": "50cfe492f5fb0de46fdf6a6898179976891b3da512b941fefc6023444e0131da"
+    },
+    {
+      "path": "extension/logistic_map.js",
+      "stratum": "extension",
+      "sha256": "c571dfa93a0da0e411680aa1c0a458f66312f29155174f1a70c1006ab828426a"
+    },
+    {
+      "path": "extension/markdown_toc.js",
+      "stratum": "extension",
+      "sha256": "061def8746f066392f1ffd80b1e4dcb80ad8757ae8d3937e8bada5f9f8b475e9"
+    },
+    {
+      "path": "extension/matrix_ops.js",
+      "stratum": "extension",
+      "sha256": "da1cb98dc204dc266cfda795902aa0d0505d9bdcd82acf754999b868d3608766"
+    },
+    {
+      "path": "extension/moving_average.js",
+      "stratum": "extension",
+      "sha256": "426edf02160fc82c7f2893af249b1b03612031e2b369487c96517e7b96740fe6"
+    },
+    {
+      "path": "extension/paginate_results.js",
+      "stratum": "extension",
+      "sha256": "fbdcde4020a7dc31f621b7f3868b8afa429cad163ea1fb3c95548658fa6858c0"
+    },
+    {
+      "path": "extension/path_normalize.js",
+      "stratum": "extension",
+      "sha256": "225336399b92826e0e125d406d88a66c178b39145d8b3ebc3379faa1823b3585"
+    },
+    {
+      "path": "extension/permission_flags.js",
+      "stratum": "extension",
+      "sha256": "2b6208c3fc3f86480a0e9fbd4ec5bfa0cec892a481b92dca57bc73514d4b6ec9"
+    },
+    {
+      "path": "extension/pivot_sales.js",
+      "stratum": "extension",
+      "sha256": "26fd4b3936bf604e31ae0ccf1f82d0588f3ad1d72b0d9c954ea11eb7a04f6dfb"
+    },
+    {
+      "path": "extension/prime_sieve.js",
+      "stratum": "extension",
+      "sha256": "4a8535bd81b94367375e0be0606528a1861db716f5b8c97b8870b22b6fe3b926"
+    },
+    {
+      "path": "extension/projectile_drag.js",
+      "stratum": "extension",
+      "sha256": "93644087188414495cac0edecc0698c09c00bcdf75d80d4e2d51f36b1b480f9e"
+    },
+    {
+      "path": "extension/query_string.js",
+      "stratum": "extension",
+      "sha256": "3f93968c3e7a6d016cbf4680d703cb290b47518a532f1c792d0788409f157e4b"
+    },
+    {
+      "path": "extension/reverse_words.js",
+      "stratum": "extension",
+      "sha256": "d0c14fbca727528d92e8f6b6d1a0cc5012bc49915ae219952a236d593d82617b"
+    },
+    {
+      "path": "extension/rle_codec.js",
+      "stratum": "extension",
+      "sha256": "562699579c549b60fdf9079b40fc1eaa9b8ffb55ceff561cc4c8a3829077aad6"
+    },
+    {
+      "path": "extension/semver_compare.js",
+      "stratum": "extension",
+      "sha256": "e73a72362edab8d1d61cd6c92ff4db6cc4e13149dc870885c45503c2d2d2bf2e"
+    },
+    {
+      "path": "extension/task_queue.js",
+      "stratum": "extension",
+      "sha256": "3ea8a6b180b9d28dd6bc448dc55737084582f40fccd797f855fb84529a1ec068"
+    },
+    {
+      "path": "extension/template_render.js",
+      "stratum": "extension",
+      "sha256": "a03fcc9595c0b762706a303df2ebf025c2b5e48f41de13838d39f81853251747"
+    },
+    {
+      "path": "extension/turnstile_fsm.js",
+      "stratum": "extension",
+      "sha256": "2d53ba43c78f1e6553d5c9ff43460275e13f9b51aa40f3f6ff81493d995c782b"
+    },
+    {
+      "path": "extension/unit_conversions.js",
+      "stratum": "extension",
+      "sha256": "ef3ebb29085a49895a9cffbb0cde1e56580e756d7a4687e59e2a8de1b7d94f10"
+    },
+    {
+      "path": "extension/validate_signup.js",
+      "stratum": "extension",
+      "sha256": "53b5656c65d6c0f3cf6dc521d4fed11d3590c2106e575616e76ac24b311165f9"
+    },
+    {
+      "path": "extension/word_frequency.js",
+      "stratum": "extension",
+      "sha256": "6579f073de2159b0362db53b3d4c4a0be2bdbe46b7392a2afc244887a8ecd465"
+    },
+    {
+      "path": "extension/wrap_paragraph.js",
+      "stratum": "extension",
+      "sha256": "631c7b8471d3a5c5a20219a3c0104d6dfaf4fcf93fa399150a2ea8f03ffadeed"
+    }
+  ]
+}

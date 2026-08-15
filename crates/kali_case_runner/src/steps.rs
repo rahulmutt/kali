@@ -4,8 +4,12 @@
 use crate::assertions::{check, check_json, Captured};
 use crate::expand::Trial;
 use crate::model::{Step, StepKind};
+use kali_blast_radius::{classify_observing, runs_agree, ObservedStream, Run, Verdict};
+use std::collections::BTreeMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 pub struct RunnerConfig {
     pub kali_bin: PathBuf,
@@ -143,6 +147,264 @@ fn run_browser_bundle_harness(dir: &Path, step: &Step) -> Result<(), String> {
     command.current_dir(dir).args(&parts).arg(&harness_path);
     let captured = capture(command, step)?;
     check(step, &captured)
+}
+
+/// Per-run wall-clock budget when a case does not set `timeout_ms`.
+///
+/// Generous on purpose: the cost of a too-short budget is a false `TIMEOUT`
+/// verdict recorded against a working program, which corrupts the very table
+/// this project exists to make trustworthy. The cost of a long one is a slow
+/// failing case.
+pub const ORACLE_DEFAULT_TIMEOUT_MS: u64 = 30_000;
+
+/// How often the wait loop wakes to check whether the child has exited.
+const POLL_INTERVAL: Duration = Duration::from_millis(10);
+
+/// Run `command` with `env` applied, to completion or killed at `budget`.
+///
+/// `env` is applied here rather than by each caller for the same reason
+/// `capture` applies it: two call sites that each spell the loop out drift
+/// apart, and the one that drifts loses the step's `env` silently.
+///
+/// stdout and stderr are drained on their own threads. That is not an
+/// optimisation: a child writing past the pipe buffer (64 KiB on Linux) blocks
+/// on the write until someone reads, so a single-threaded "wait then read"
+/// turns any chatty program into a false `TIMEOUT`. R-09's runaway loops make
+/// chatty-and-slow a shape this project measures routinely.
+pub fn run_with_timeout(
+    mut command: Command,
+    env: &BTreeMap<String, String>,
+    budget: Duration,
+) -> Result<Run, String> {
+    for (key, value) in env {
+        command.env(key, value);
+    }
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = retry_on_etxtbsy(|| command.spawn())
+        .map_err(|error| format!("failed to spawn: {error}"))?;
+
+    let mut stdout_pipe = child.stdout.take().ok_or("no stdout pipe")?;
+    let mut stderr_pipe = child.stderr.take().ok_or("no stderr pipe")?;
+    let stdout_reader = std::thread::spawn(move || {
+        let mut buffer = Vec::new();
+        let _ = stdout_pipe.read_to_end(&mut buffer);
+        buffer
+    });
+    let stderr_reader = std::thread::spawn(move || {
+        let mut buffer = Vec::new();
+        let _ = stderr_pipe.read_to_end(&mut buffer);
+        buffer
+    });
+
+    let deadline = Instant::now() + budget;
+    let mut timed_out = false;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status),
+            Ok(None) if Instant::now() >= deadline => {
+                // Kills the direct child only. A grandchild that inherited the
+                // pipe write ends keeps them open, so the joins below can block
+                // past the budget with nothing to interrupt them -- "never call
+                // a hang green" inverted into an unbounded hang. Closing it
+                // needs the child put in its own process group at spawn
+                // (`CommandExt::process_group`) and the group killed here;
+                // deliberately out of scope for this task, and none of the
+                // programs this runner measures today fork. Recorded so the
+                // next reader does not have to rediscover it.
+                let _ = child.kill();
+                let _ = child.wait();
+                timed_out = true;
+                break None;
+            }
+            Ok(None) => std::thread::sleep(POLL_INTERVAL),
+            // The one path that would otherwise abandon state this function
+            // created: two reader threads are live and the child is still
+            // running. Kill it so the pipes close, join them, and only then
+            // report -- a detached thread on an orphaned child outlives the
+            // trial that made it.
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = stdout_reader.join();
+                let _ = stderr_reader.join();
+                return Err(format!("wait failed: {error}"));
+            }
+        }
+    };
+
+    let stdout = stdout_reader
+        .join()
+        .map_err(|_| "stdout reader panicked".to_string())?;
+    let stderr = stderr_reader
+        .join()
+        .map_err(|_| "stderr reader panicked".to_string())?;
+
+    Ok(Run {
+        code: status.and_then(|status| status.code()),
+        stdout: String::from_utf8_lossy(&stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&stderr).into_owned(),
+        timed_out,
+    })
+}
+
+/// The verdict class four runs -- two per engine -- rank to.
+///
+/// Extracted from `run_oracle` because it is the whole measurement: it is the
+/// only part of the oracle path that can be tested without a `kali` binary and
+/// a `node`, and while it was inline it was untested and wrong (it inspected
+/// only each side's *first* run).
+///
+/// The order is the ranking, strongest evidence of an unusable measurement
+/// first:
+///
+/// 1. A hang on ANY of the four runs is `TIMEOUT`. A side that settles once
+///    and hangs once has not been measured; calling that `NONDETERMINISTIC`
+///    would rank a hang below a disagreement, which is exactly backwards --
+///    the disagreement is a real observation, the hang is the absence of one.
+/// 2. A side that disagrees with itself is `NONDETERMINISTIC`: whichever
+///    answer came out first is not reproducible, so no class derived from it
+///    can be either.
+/// 3. Otherwise both sides are stable and `classify` reads the pair, on the
+///    stream the case says carries the observation (`observe`, default
+///    stdout).
+///
+/// `observe` reaches step 3 ONLY. Steps 1 and 2 are unchanged by it and must
+/// stay that way: a hang is not an observation on any stream, and
+/// `runs_agree` compares each side's exit code, stdout AND stderr, so a side
+/// that varies on the stream the case is NOT observing still ranks
+/// NONDETERMINISTIC. That is deliberate -- a program with an unstable
+/// unobserved stream has not been shown to be stable, and recording a class
+/// for it would be the reproducibility failure this ranking exists to end.
+fn rank(
+    kali_a: &Run,
+    kali_b: &Run,
+    node_a: &Run,
+    node_b: &Run,
+    observe: ObservedStream,
+) -> Verdict {
+    if kali_a.timed_out || kali_b.timed_out || node_a.timed_out || node_b.timed_out {
+        return Verdict::Timeout;
+    }
+    if !runs_agree(kali_a, kali_b) || !runs_agree(node_a, node_b) {
+        return Verdict::Nondeterministic;
+    }
+    classify_observing(kali_a, node_a, observe)
+}
+
+/// One side's captured run, rendered for a mismatch report.
+fn describe_run(label: &str, run: &Run) -> String {
+    format!(
+        "  {label}: exit {:?} timed_out {} stdout {:?} stderr {:?}\n",
+        run.code, run.timed_out, run.stdout, run.stderr
+    )
+}
+
+/// The node binary the oracle uses. `KALI_ORACLE_NODE` overrides it so a
+/// pinned build can be pointed at without touching any do-not-modify file.
+fn oracle_node() -> String {
+    std::env::var("KALI_ORACLE_NODE").unwrap_or_else(|_| "node".to_string())
+}
+
+/// The oracle node's own `--version`, captured once per process.
+///
+/// WHY IT IS IN EVERY MISMATCH REPORT. §0.2's verdicts are stamped against
+/// `node v26.7.0`, and CI runs `node-version: latest` -- the version pin the
+/// design spec called for was never built. So when an oracle case goes red the
+/// two hypotheses a reader has to separate are "node changed under us" and
+/// "kali regressed", and the report printed exit codes and both streams but
+/// never the one fact that tells them apart.
+///
+/// A version that cannot be read is not a failure: the run reports what it has
+/// and says so. Refusing to run the suite because `--version` did not answer
+/// would turn a diagnostic aid into a new way for the gate to fail.
+fn oracle_node_version() -> &'static str {
+    static VERSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    VERSION.get_or_init(|| {
+        retry_on_etxtbsy(|| Command::new(oracle_node()).arg("--version").output())
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+            .filter(|version| !version.is_empty())
+            .unwrap_or_else(|| "unknown (`--version` could not be read)".to_string())
+    })
+}
+
+fn run_oracle(config: &RunnerConfig, dir: &Path, step: &Step) -> Result<(), String> {
+    let program = step
+        .program
+        .as_deref()
+        .ok_or("oracle step requires `program`")?;
+    let expected = step.verdict.ok_or("oracle step requires `verdict`")?;
+    validate_source_key(program)?;
+    if !dir.join(program).exists() {
+        // A case naming a `[source]` key that does not exist would otherwise
+        // run two engines against a missing file, agree that both failed, and
+        // pass as BOTH_REJECT having measured nothing.
+        return Err(format!(
+            "oracle step names `program = \"{program}\"`, which no `[source]` key wrote"
+        ));
+    }
+    let budget = Duration::from_millis(step.timeout_ms.unwrap_or(ORACLE_DEFAULT_TIMEOUT_MS));
+
+    let kali_run = || {
+        let mut command = Command::new(&config.kali_bin);
+        command.current_dir(dir).args(["run", program]);
+        run_with_timeout(command, &step.env, budget)
+    };
+    let node_run = || {
+        let mut command = Command::new(oracle_node());
+        command.current_dir(dir).arg(program);
+        run_with_timeout(command, &step.env, budget)
+    };
+
+    // Both sides run twice. A verdict derived from a single run of a
+    // nondeterministic program records whichever answer happened to come out
+    // first, which is a measurement that cannot be reproduced -- the failure
+    // this whole project is correcting.
+    let kali_a = kali_run()?;
+    let kali_b = kali_run()?;
+    let node_a = node_run()?;
+    let node_b = node_run()?;
+
+    let actual = rank(
+        &kali_a,
+        &kali_b,
+        &node_a,
+        &node_b,
+        step.observe.unwrap_or_default(),
+    );
+    if actual == expected {
+        return Ok(());
+    }
+
+    // The observed stream is named in the message because it decides which
+    // half of each `describe_run` line the reader should be comparing: on an
+    // `observe = "stderr"` case the two stdouts are typically both empty, and
+    // a reader who assumed stdout would conclude the runs agreed.
+    let mut detail = format!(
+        "verdict mismatch for {entry} (observing {observed}, node {version}): expected `{expected}`, measured `{actual}`\n{kali}{node}",
+        entry = step.register_entry.as_deref().unwrap_or("<no entry>"),
+        expected = expected.as_str(),
+        actual = actual.as_str(),
+        observed = step.observe.unwrap_or_default().as_str(),
+        version = oracle_node_version(),
+        kali = describe_run("kali", &kali_a),
+        node = describe_run("node", &node_a),
+    );
+    // For these two classes the second pair of runs *is* the evidence: a
+    // NONDETERMINISTIC verdict is a statement about how the two runs of a side
+    // differ, and a TIMEOUT can be carried entirely by a b-run while both
+    // a-runs look ordinary. Printing only the a-runs would leave the reader
+    // unable to see why the class was assigned. Other classes are decided by
+    // the a-runs alone, so the b-runs are noise there.
+    if matches!(actual, Verdict::Nondeterministic | Verdict::Timeout) {
+        detail.push_str(&describe_run("kali (2nd run)", &kali_b));
+        detail.push_str(&describe_run("node (2nd run)", &node_b));
+    }
+    Err(detail)
 }
 
 /// Reject a trial-relative path that would escape the trial's temp dir: an
@@ -294,6 +556,7 @@ pub fn run_trial(config: &RunnerConfig, trial: &Trial) -> Result<(), String> {
             StepKind::Cli => run_cli(config, dir.path(), step),
             StepKind::FileJson => run_file_json(dir.path(), step),
             StepKind::BrowserBundleHarness => run_browser_bundle_harness(dir.path(), step),
+            StepKind::Oracle => run_oracle(config, dir.path(), step),
         };
         if let Err(detail) = result {
             let mut message = format!("step {} ({:?}) failed\n", index + 1, step.kind);

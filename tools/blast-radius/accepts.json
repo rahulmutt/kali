@@ -1,0 +1,902 @@
+{
+  "corpusHash": "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f",
+  "kaliBinary": "/workspace/.cache/cargo-target/debug/kali",
+  "kaliVersion": "kali 0.1.0",
+  "rates": {
+    "anchor": {
+      "accepted": 126,
+      "total": 137
+    },
+    "extension": {
+      "accepted": 1,
+      "total": 40
+    }
+  },
+  "programs": [
+    {
+      "path": "anchor/array_element_alias_mutation_is_shared.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_fill_initializes_all_elements_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_fill_initializes_all_elements_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_fill_initializes_all_elements_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_length_reads_header_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_length_reads_header_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_of_object_literals_reads_and_writes.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_param_length_only_receiver_is_array.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_param_store_with_call_rhs_across_two_calls.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_param_store_with_float_call_rhs.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_params_float_fill_interproc_spectral_norm_shape.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_params_float_round_trip.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_params_float_store_across_call.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_params_int_length_loop_sum.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_params_int_read_across_call.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/array_params_int_store_across_call.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/catch_param_shadows_module_const.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/clbg_binary_trees.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/clbg_fannkuch.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/clbg_fasta.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/clbg_mandelbrot.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/clbg_nbody.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/clbg_spectral_norm.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/computed_array_subscripts_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/computed_array_subscripts_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/computed_array_subscripts_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/computed_array_subscripts_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/computed_array_subscripts_05.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/console_log_of_object_reference_is_rejected.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/exponent_notation_literals_run_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/exponent_notation_literals_run_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/exponent_notation_literals_run_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_arithmetic_distinguishes_from_integer_division_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_arithmetic_distinguishes_from_integer_division_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_arithmetic_distinguishes_from_integer_division_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_arithmetic_distinguishes_from_integer_division_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_arrays_store_and_load_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_arrays_store_and_load_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_arrays_store_and_load_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_local_init_and_reassign_promote_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_local_init_and_reassign_promote_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_local_init_and_reassign_promote_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_05.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/f64_scalar_arithmetic_observed_via_comparison_06.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/factory_array_advance_shape_miniature.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/factory_returned_objects_are_distinct_instances.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_05.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_06.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_07.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/float_literals_emit_as_f64_08.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/for_of_loop_var_shadows_module_const.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/functions_return_computed_values_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/functions_return_computed_values_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/functions_return_computed_values_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/heavy_loop_runs_under_raised_default_fuel_budget.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/impure_module_const_read_from_function_is_rejected.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/integer_arrays_read_write_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/integer_arrays_read_write_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/integer_arrays_read_write_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/integer_object_field_round_trip.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/integer_programs_are_unchanged_by_repr_plumbing.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/literal_rooted_concatenation_and_integer_addition_stay_supported_05.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/locally_written_structural_object_literal_is_rejected.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/loops_iterate_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/loops_iterate_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/loops_iterate_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/loops_iterate_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/loops_iterate_05.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/loops_iterate_06.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/loops_iterate_07.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/math_sqrt_runtime_f64_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/math_sqrt_runtime_f64_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/math_sqrt_runtime_f64_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/math_sqrt_runtime_f64_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/mixed_string_number_bindings_are_rejected_01.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/mixed_string_number_bindings_are_rejected_02.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/mixed_string_number_bindings_are_rejected_03.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/module_consts_read_from_functions_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/module_consts_read_from_functions_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/module_consts_read_from_functions_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/module_let_read_from_function_is_supported.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/mutable_locals_round_trip_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/mutable_locals_round_trip_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/mutable_locals_round_trip_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/mutable_locals_round_trip_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/object_field_read_through_alias.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/object_field_write_and_read_round_trip.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/object_in_arithmetic_is_rejected.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/object_literal_direct_argument_is_rejected.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/object_reference_reassignment_still_compiles.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/object_shape_mismatch_is_rejected.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/objects_cross_function_boundaries.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/relational_operators_compute_booleans_05.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/runtime_string_building_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/runtime_string_building_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/runtime_string_building_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/shadowing_local_wins_over_module_const.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_05.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_06.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/strict_equality_operators_parse_and_compute_07.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_05.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_06.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_07.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/string_typed_variable_plus_operands_flow_at_runtime_08.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/structural_object_literal_passed_as_call_argument_is_rejected.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_02.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_03.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_04.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/to_fixed_formats_floats_05.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/unknown_field_read_is_fold_first_until_materialized_01.js",
+      "stratum": "anchor",
+      "accepted": true
+    },
+    {
+      "path": "anchor/unknown_field_read_is_fold_first_until_materialized_02.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "anchor/unknown_field_write_is_rejected.js",
+      "stratum": "anchor",
+      "accepted": false
+    },
+    {
+      "path": "extension/argv_stats.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/base64_encode.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/build_report_json.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/crc32_checksum.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/csv_column_summary.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/diff_lines.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/duration_format.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/event_dispatcher.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/expression_evaluator.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/flood_fill_grid.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/group_by_department.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/heat_diffusion_1d.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/hex_dump.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/histogram_bars.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/identifier_casing.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/ini_config.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/inventory_ledger.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/join_orders.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/loan_schedule.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/logistic_map.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/markdown_toc.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/matrix_ops.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/moving_average.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/paginate_results.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/path_normalize.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/permission_flags.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/pivot_sales.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/prime_sieve.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/projectile_drag.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/query_string.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/reverse_words.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/rle_codec.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/semver_compare.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/task_queue.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/template_render.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/turnstile_fsm.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/unit_conversions.js",
+      "stratum": "extension",
+      "accepted": true
+    },
+    {
+      "path": "extension/validate_signup.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/word_frequency.js",
+      "stratum": "extension",
+      "accepted": false
+    },
+    {
+      "path": "extension/wrap_paragraph.js",
+      "stratum": "extension",
+      "accepted": false
+    }
+  ]
+}

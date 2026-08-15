@@ -146,6 +146,16 @@ fn substitute_step(step: &Step, bindings: &BTreeMap<String, String>) -> Result<S
         fields: opt_value(&step.fields)?,
         entry: opt(&step.entry)?,
         body: opt(&step.body)?,
+        register_entry: opt(&step.register_entry)?,
+        program: opt(&step.program)?,
+        // `verdict`, `timeout_ms` and `observe` carry no text, exactly like
+        // `exit` and a count claim's `bound`. They are still listed here
+        // rather than left to a `..step` rest pattern: this function rebuilds
+        // every `Step` field by field, so a field omitted here is silently
+        // dropped from every trial and its feature quietly stops working.
+        verdict: step.verdict,
+        timeout_ms: step.timeout_ms,
+        observe: step.observe,
     })
 }
 

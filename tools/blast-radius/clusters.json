@@ -1,0 +1,310 @@
+{
+  "note": [
+    "Cluster assignment for the blast-radius ranking (design spec §8.2). A cluster is a ROOT",
+    "CAUSE -- the unit a fix actually ships in -- not a topic. Every assignment below is taken",
+    "from the register's own `**Root-cause group**:` line on that entry in §2, quoted verbatim",
+    "in `registerSource`. Nothing here is a fresh diagnosis; §3 states plainly that grouping",
+    "errors are cheap to make and expensive to act on, so this file makes them arguable instead",
+    "of implicit.",
+    "",
+    "PARTITION RULE. `aggregate` sums a cluster over its members, so an entry in two clusters",
+    "would be counted twice. Where the register names two groups for one entry it names them in",
+    "order (`G5 + G3`, `G8 / G4`); the FIRST is taken as the assignment and the second is carried",
+    "in `alternate` and printed beside the entry. Where the register says `Recorded as Gn`, that",
+    "is the assignment.",
+    "",
+    "WHOLE-ENTRY RULE. Counts are per entry, not per lane, so a cluster sum attributes an",
+    "entry's WHOLE frequency to one cluster even where the register splits the entry across two",
+    "by lane (R-23, R-28). This is a known over-attribution and is disclosed in the ranking.",
+    "",
+    "ONLY SILENT ENTRIES APPEAR HERE (spec §8.1). The ranking's generator fails if this file",
+    "assigns an entry the regenerated §0.2 does not measure SILENT, or omits one it does."
+  ],
+  "clusters": [
+    {
+      "name": "G2 — call lowering: unresolvable callee folds to constant `0`",
+      "origin": "register §3",
+      "why": "§3's own header. Its other members (R-02, R-05, R-03) all measure FAIL_CLOSED at `4cfa218814` and do not enter the ranking; R-51 is the cluster's whole silent surface."
+    },
+    {
+      "name": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them",
+      "origin": "register §3",
+      "why": "§3's own header. §3 states this cluster asserts NO SHARED CODE PATH -- it is a shape of mistake, six independent instances. Its sum is therefore a sum over a pattern, not over a fix unit, and must not be read as 'one allowlist closes this many sites'."
+    },
+    {
+      "name": "G4 — there is no value distinct from the scalar `0`",
+      "origin": "register §3",
+      "why": "§3's own header."
+    },
+    {
+      "name": "G5 — a string handle reaches a consumer that never proved it was a string",
+      "origin": "register §3",
+      "why": "§3's own header."
+    },
+    {
+      "name": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed",
+      "origin": "register §3",
+      "why": "§3's own header."
+    },
+    {
+      "name": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost",
+      "origin": "register §3",
+      "why": "§3's own header. §3 calls R-10's placement 'the weakest in this document'; it is kept because the register makes it, not because this measurement confirms it."
+    },
+    {
+      "name": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
+      "origin": "register §3",
+      "why": "§3's own header."
+    },
+    {
+      "name": "N1 — escape/provenance loss",
+      "origin": "named here from §2",
+      "why": "§2's R-48 line names the family and its co-member: 'unclustered (escape/provenance-loss family, with R-14)'. §3 has no such cluster, so the NAME is new here; the membership claim is the register's."
+    },
+    {
+      "name": "R-09 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered (isolated lowering bug)'."
+    },
+    {
+      "name": "R-22 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered (missing coercion-table rung; *not* G4 -- the special-case table is present, one rung is absent)'. The exclusion from G4 is explicit and is honoured."
+    },
+    {
+      "name": "R-26 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered (missing range guard in one lowering)'."
+    },
+    {
+      "name": "R-27 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered'."
+    },
+    {
+      "name": "R-28 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered'. §3 lists R-28's RENDERING half in G8 and its VALUE half as unclustered; §2's per-entry line is unqualified, and splitting a per-entry count across two clusters is not possible, so the entry stays whole and unclustered."
+    },
+    {
+      "name": "R-34 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'not G8 (see below) -- currently unclustered'. §3's G8 member list still names R-34; §2's entry line refuses the membership in its own words and is the later, more specific statement."
+    },
+    {
+      "name": "R-47 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered. It has **G3**'s shape ... with a **G7** flavour ... It is deliberately *not* added to G3's member list'."
+    },
+    {
+      "name": "R-52 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered (an isolated lowering/emit contract mismatch)'."
+    }
+  ],
+  "assignments": [
+    {
+      "id": "R-06",
+      "cluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost",
+      "registerSource": "G7 (binding storage: `const` inlined, non-`const` composite initializers lost).",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-08",
+      "cluster": "G4 — there is no value distinct from the scalar `0`",
+      "registerSource": "G4 (no value distinct from scalar `0`).",
+      "alternate": "§3's G3 member list also names R-08's `??` half. G3 asserts no shared code path, so the mechanism cluster is taken.",
+      "alternateCluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them"
+    },
+    {
+      "id": "R-09",
+      "cluster": "R-09 (unclustered)",
+      "registerSource": "unclustered (isolated lowering bug).",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-10",
+      "cluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost",
+      "registerSource": "G7.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-12",
+      "cluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them",
+      "registerSource": "G3.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-13",
+      "cluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them",
+      "registerSource": "G3.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-14",
+      "cluster": "N1 — escape/provenance loss",
+      "registerSource": "unclustered (arena/escape suspicion, untraced).",
+      "alternate": "Paired with R-48 by §2's R-48 line, not by R-14's own.",
+      "alternateCluster": null
+    },
+    {
+      "id": "R-15",
+      "cluster": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed",
+      "registerSource": "G6 (unimplemented builtin folds to a default instead of failing closed).",
+      "alternate": "§3's G5 also claims R-15's element half, and §0.2 records the live lane as the leaked handle -- the G5 shape -- with the G6 runtime lane deny-set-closed. §2's per-entry line says G6 and is followed.",
+      "alternateCluster": "G5 — a string handle reaches a consumer that never proved it was a string"
+    },
+    {
+      "id": "R-16",
+      "cluster": "G5 — a string handle reaches a consumer that never proved it was a string",
+      "registerSource": "G5 (string handle reaches a consumer that never proved it was a string).",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-17",
+      "cluster": "G5 — a string handle reaches a consumer that never proved it was a string",
+      "registerSource": "G5.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-18",
+      "cluster": "G5 — a string handle reaches a consumer that never proved it was a string",
+      "registerSource": "G5 + G3 (it is a hole in an existing guard).",
+      "alternate": "G3, named second by the register.",
+      "alternateCluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them"
+    },
+    {
+      "id": "R-21",
+      "cluster": "G4 — there is no value distinct from the scalar `0`",
+      "registerSource": "G4.",
+      "alternate": "§3's G8 also names R-21's rendering divergence (`\"v=\"+undefined` vs `console.log(x)` giving two different wrong answers).",
+      "alternateCluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters"
+    },
+    {
+      "id": "R-22",
+      "cluster": "R-22 (unclustered)",
+      "registerSource": "unclustered (missing coercion-table rung; *not* G4 -- the special-case table is present, one rung is absent).",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-23",
+      "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
+      "registerSource": "G8 (per-sink rendering) / G4.",
+      "alternate": "G4, named second by the register. Contested: §0.2's row stresses that `typeof x` yields a NUMBER, which breaks `typeof x === \"string\"` dispatch -- a value defect, not only a rendering one. The ranking reports a sensitivity check for moving it.",
+      "alternateCluster": "G4 — there is no value distinct from the scalar `0`"
+    },
+    {
+      "id": "R-24",
+      "cluster": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed",
+      "registerSource": "G6.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-25",
+      "cluster": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed",
+      "registerSource": "G6.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-26",
+      "cluster": "R-26 (unclustered)",
+      "registerSource": "unclustered (missing range guard in one lowering).",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-27",
+      "cluster": "R-27 (unclustered)",
+      "registerSource": "unclustered.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-28",
+      "cluster": "R-28 (unclustered)",
+      "registerSource": "unclustered.",
+      "alternate": "§3's G8 member list names R-28's rendering half; §3's own Unclustered line names its value half. Both lanes measure SILENT, and the count is per entry.",
+      "alternateCluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters"
+    },
+    {
+      "id": "R-30",
+      "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
+      "registerSource": "G8.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-31",
+      "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
+      "registerSource": "G8.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-32",
+      "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
+      "registerSource": "G8.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-33",
+      "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
+      "registerSource": "G8.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-34",
+      "cluster": "R-34 (unclustered)",
+      "registerSource": "not G8 (see below) -- currently unclustered.",
+      "alternate": "§3's G8 member list still names R-34; §2's own entry refuses it.",
+      "alternateCluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters"
+    },
+    {
+      "id": "R-47",
+      "cluster": "R-47 (unclustered)",
+      "registerSource": "unclustered. It has **G3**'s shape ... with a **G7** flavour ... deliberately *not* added to G3's member list.",
+      "alternate": "G3 by shape, G7 by discriminator -- both named and both declined by the register.",
+      "alternateCluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them"
+    },
+    {
+      "id": "R-48",
+      "cluster": "N1 — escape/provenance loss",
+      "registerSource": "unclustered (escape/provenance-loss family, with R-14).",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-51",
+      "cluster": "G2 — call lowering: unresolvable callee folds to constant `0`",
+      "registerSource": "G2 (call lowering: unresolvable callee folds to constant `0`) -- ... Recorded as G2 by symptom; the mechanism is named below.",
+      "alternate": "By symptom only: the route is the optional-chain lowering, not an unresolvable callee.",
+      "alternateCluster": null
+    },
+    {
+      "id": "R-52",
+      "cluster": "R-52 (unclustered)",
+      "registerSource": "unclustered (an isolated lowering/emit contract mismatch), but it is a textbook instance of the pattern §3's G-clusters keep circling.",
+      "alternate": null,
+      "alternateCluster": null
+    },
+    {
+      "id": "R-53",
+      "cluster": "G4 — there is no value distinct from the scalar `0`",
+      "registerSource": "G4 (there is no value distinct from the scalar `0`) by symptom; plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4.",
+      "alternate": "G7, named and declined by the register.",
+      "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
+    }
+  ]
+}

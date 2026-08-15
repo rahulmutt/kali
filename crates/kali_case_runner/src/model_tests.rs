@@ -567,13 +567,32 @@ fields.ok = true
     assert!(err.contains("kind"), "error must explain: {err}");
 }
 
+// A step carrying two kinds' worth of fields has no kind to default to, and
+// the message must say so rather than naming whichever one happens to be
+// checked first. `path` is file_json-only; `verdict` is oracle-only.
+#[test]
+fn a_step_mixing_two_kinds_worth_of_fields_without_an_explicit_kind_is_a_hard_error() {
+    let text = r#"
+[[case]]
+name = "c"
+path = "o.json"
+verdict = "silent"
+"#;
+    let err = parse_case_file(text).expect_err("must reject a two-kind step without a kind");
+    assert!(
+        err.contains("more than one kind"),
+        "error must explain: {err}"
+    );
+}
+
 // The manual conversion (`toml::Value::Table(rest).try_into::<RawStep>()`)
 // is hand-written, unlike everything else in this module, so it carries its
 // own risk: a converter that silently drops a field would make every case
 // file that relies on that field assert nothing, which is the exact class
-// of bug this whole format exists to prevent. These three tests pin every
-// one of `Step`'s eighteen fields through the inline (flatten + manual
-// convert) path, split one case per `kind` since `finalize_step` now
+// of bug this whole format exists to prevent. These three tests, plus
+// `an_oracle_step_parses_its_four_fields` below, pin every one of `Step`'s
+// twenty-two fields through the inline (flatten + manual convert) path,
+// split one case per `kind` since `finalize_step` now
 // rejects kind-inapplicable fields -- a single case can no longer carry
 // every field the way the original all-in-one version did.
 #[test]
@@ -954,6 +973,14 @@ fn a_reference_from_any_substituted_field_counts() {
             "body",
             "  kind = \"browser_bundle_harness\"\n  entry = \"a\"\n  body = \"${P}\"\n  exit = \"success\"",
         ),
+        (
+            "register_entry",
+            "  kind = \"oracle\"\n  register_entry = \"${P}\"\n  program = \"r.js\"\n  verdict = \"silent\"",
+        ),
+        (
+            "program",
+            "  kind = \"oracle\"\n  register_entry = \"R-1\"\n  program = \"${P}.js\"\n  verdict = \"silent\"",
+        ),
     ] {
         let text =
             format!("[constants]\nP = \"v\"\n\n[[case]]\nname = \"c\"\n\n  [[case.step]]\n{snippet}\n");
@@ -991,4 +1018,233 @@ args = ["run", "app.ts"]
 exit = "success"
 "#;
     parse_case_file(text).expect("`${dollar}` is a reference");
+}
+
+#[test]
+fn an_oracle_step_parses_its_five_fields() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+timeout_ms = 5000
+observe = "stderr"
+"#;
+    let file = parse_case_file(text).expect("parses");
+    let step = file.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(step.kind, StepKind::Oracle);
+    assert_eq!(step.register_entry.as_deref(), Some("R-13"));
+    assert_eq!(step.program.as_deref(), Some("r13.js"));
+    assert_eq!(step.verdict, Some(kali_blast_radius::Verdict::Silent));
+    assert_eq!(step.timeout_ms, Some(5000));
+    assert_eq!(
+        step.observe,
+        Some(kali_blast_radius::ObservedStream::Stderr)
+    );
+}
+
+// `observe` is optional and defaults to stdout, which is what every case
+// written before it existed relies on. It must parse as ABSENT rather than as
+// a stdout default baked in at parse time: `run_oracle` applies the default,
+// and a `Some(Stdout)` here would be indistinguishable from a case that asked
+// for stdout on purpose.
+#[test]
+fn an_oracle_step_without_observe_leaves_it_unset() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+"#;
+    let file = parse_case_file(text).expect("parses");
+    let step = file.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(step.observe, None);
+    assert_eq!(
+        step.observe.unwrap_or_default(),
+        kali_blast_radius::ObservedStream::Stdout,
+        "the default `run_oracle` applies"
+    );
+}
+
+#[test]
+fn observe_parses_stdout_too_and_rejects_any_other_word() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+observe = "stdout"
+"#;
+    let file = parse_case_file(text).expect("parses");
+    let step = file.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(
+        step.observe,
+        Some(kali_blast_radius::ObservedStream::Stdout)
+    );
+
+    // There are exactly two streams. A third word must be a parse error and
+    // not a silent fallback to stdout, which would be a case measuring a
+    // stream it did not ask for.
+    let bad = text.replace(r#"observe = "stdout""#, r#"observe = "both""#);
+    parse_case_file(&bad).expect_err("`observe = \"both\"` is not a stream");
+}
+
+// `observe` is oracle-only, exactly like `register_entry`/`program`/
+// `verdict`/`timeout_ms`. On any other kind it would parse clean and never be
+// read -- the degradation this format exists to close.
+#[test]
+fn observe_on_a_non_oracle_step_is_rejected() {
+    let cases = [
+        (
+            "cli",
+            r#"
+[[case]]
+name = "c"
+kind = "cli"
+args = ["run", "app.ts"]
+exit = "success"
+observe = "stderr"
+"#,
+        ),
+        (
+            "file_json",
+            r#"
+[[case]]
+name = "c"
+kind = "file_json"
+path = "out.json"
+fields = { a = 1 }
+observe = "stderr"
+"#,
+        ),
+        (
+            "browser_bundle_harness",
+            r#"
+[[case]]
+name = "c"
+kind = "browser_bundle_harness"
+entry = "app.ts"
+body = "run();"
+exit = "success"
+observe = "stderr"
+"#,
+        ),
+    ];
+    for (kind, text) in cases {
+        let error = parse_case_file(text)
+            .err()
+            .unwrap_or_else(|| panic!("`observe` must be rejected on a `{kind}` step"));
+        assert!(
+            error.contains("observe"),
+            "error names the field on {kind}: {error}"
+        );
+    }
+}
+
+// And without an explicit `kind`, `observe` alone must demand one rather than
+// defaulting to `cli` and being silently discarded -- the same rule the other
+// four oracle fields follow.
+#[test]
+fn observe_without_an_explicit_kind_is_rejected() {
+    let text = r#"
+[[case]]
+name = "c"
+observe = "stderr"
+"#;
+    let error = parse_case_file(text).expect_err("must demand an explicit kind");
+    assert!(error.contains("oracle"), "error names the kind: {error}");
+}
+
+#[test]
+fn oracle_fields_without_an_explicit_kind_are_rejected() {
+    // Same rule browser_bundle_harness follows: a forgotten `kind` must not
+    // silently become a `cli` step that ignores the fields entirely.
+    let text = r#"
+[[case]]
+name = "c"
+program = "r13.js"
+verdict = "silent"
+"#;
+    let error = parse_case_file(text).expect_err("must demand an explicit kind");
+    assert!(error.contains("oracle"), "error names the kind: {error}");
+}
+
+#[test]
+fn an_oracle_step_declaring_stdout_assertions_is_rejected() {
+    // An oracle step asserts a derived class. A `stdout` claim on it would
+    // never be evaluated -- parses clean, asserts nothing.
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+stdout = "1\n"
+"#;
+    let error = parse_case_file(text).expect_err("must reject inapplicable assertions");
+    assert!(error.contains("stdout"), "error names the field: {error}");
+}
+
+#[test]
+fn an_oracle_step_missing_verdict_is_rejected() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+"#;
+    let error = parse_case_file(text).expect_err("a case with no verdict asserts nothing");
+    assert!(error.contains("verdict"), "error names the field: {error}");
+}
+
+#[test]
+fn an_oracle_step_missing_register_entry_is_rejected() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+program = "r13.js"
+verdict = "silent"
+"#;
+    let error = parse_case_file(text).expect_err("an unattributed verdict cannot regenerate §0.2");
+    assert!(
+        error.contains("register_entry"),
+        "error names the field: {error}"
+    );
+}
+
+// A zero budget times out on the first poll no matter what the program does,
+// so a case pairing it with `verdict = "timeout"` would pass having measured
+// nothing. The upper bound keeps the deadline arithmetic (`Instant::now() +
+// Duration`) far from overflow, which panics rather than erroring.
+#[test]
+fn an_oracle_step_with_an_unusable_timeout_is_rejected() {
+    for budget in ["0", "3600001"] {
+        let text = format!(
+            r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+timeout_ms = {budget}
+"#
+        );
+        let error = parse_case_file(&text)
+            .err()
+            .unwrap_or_else(|| panic!("`timeout_ms = {budget}` must be rejected"));
+        assert!(
+            error.contains("timeout_ms"),
+            "error names the field: {error}"
+        );
+    }
 }

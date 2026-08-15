@@ -55,6 +55,7 @@ Expanded public ranges used in schema v1:
 | Range | Category |
 |-------|----------|
 | E0xxx | Internal compiler errors |
+| E4xxx | Runtime errors raised by the execution engine (`kali_runtime`) — a mixed family; see clarification below |
 | E51xx | Type errors |
 | E52xx | Syntax errors |
 | E53xx | Name resolution errors |
@@ -69,6 +70,23 @@ Expanded public ranges used in schema v1:
 | W3xxx | Performance warnings |
 
 Range clarification:
+- `E4xxx` is `kali_runtime`'s runtime-error family, in three numeric bands
+  (`crates/kali_error/src/_error_codes.rs:78`-`93`): `E4000`-`E4099`
+  execution/sandbox errors, `E4100`-`E4199` runtime type errors, and
+  `E4200`-`E4299` I/O and host errors. The family is **mixed**, not
+  uniformly internal:
+  - `E4003` (a resource-limit/fuel trap) and `E4201` (a wasm module
+    load/translation failure) are **internal**, in the same sense as
+    `E0xxx`: they report that kali failed, not that the user asked for
+    something unavailable. Neither must ever be read as an honest
+    availability denial — that is `E5506`'s job.
+  - `E4001` is a **policy denial**: an effect the sandbox policy refuses.
+    That is an honest denial, not kali failing. `E4002` (`API_CALL_NOT_PERMITTED`)
+    has no emitter in `crates/` today — by name and numeric band it would be
+    the same kind of policy denial as `E4001` if it becomes reachable, but
+    that is inference from the constant, not traced behaviour.
+  - Tooling that separates honest denials from internal failures must not
+    treat `E4xxx` as a single class.
 - Kali intentionally uses both `E54xx` and `E9xxx` in the broader sandbox/effect story.
 - `E54xx` is the runtime/effect-semantics side (for example a capability use denied during execution).
 - `E9xxx` is the policy-validation side (for example compile-time inferred-effect-vs-policy rejection on sandbox-attached `check` / `build`).

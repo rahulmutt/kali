@@ -1389,6 +1389,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kali_blast_radius"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "toml",
+]
+
+[[package]]
 name = "kali_capi"
 version = "0.1.0"
 dependencies = [
@@ -1400,6 +1410,7 @@ dependencies = [
 name = "kali_case_runner"
 version = "0.1.0"
 dependencies = [
+ "kali_blast_radius",
  "kali_runtime_contract",
  "libtest-mimic",
  "serde",
