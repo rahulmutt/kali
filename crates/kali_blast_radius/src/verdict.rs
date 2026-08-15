@@ -50,9 +50,16 @@ impl Verdict {
 /// `E50xx` and `E56xx`-`E59xx` are not. The 6-9 families are documented as
 /// complete ranges: `E6xxx`, `E7xxx`, `E8xxx`, `E9xxx`.
 ///
-/// `E4xxx` is documented in `specs/15-errors.md` as an INTERNAL family (wasm
-/// translation and execution-engine failures), alongside `E0xxx`. Neither is
-/// an honest availability denial, so neither counts as documented here.
+/// `E4xxx` is documented in `specs/15-errors.md` as `kali_runtime`'s
+/// runtime-error family, but that family is MIXED, not uniformly internal:
+/// `E4003` (fuel/resource-limit trap) and `E4201` (wasm translation failure)
+/// are internal like `E0xxx`, but `E4001`/`E4002` are sandbox-policy denials
+/// -- an honest refusal, not kali failing. This function still returns
+/// `false` for every `E4xxx` code, including `E4001`/`E4002`: that is a
+/// known, deliberate limitation, not an oversight. No register entry
+/// measured by this project exercises a sandbox-effect denial, so no
+/// recorded verdict depends on it today. See
+/// `docs/superpowers/followups/e4xxx-e54xx-taxonomy-collision.md`.
 pub fn is_documented_code(code: &str) -> bool {
     let Some(digits) = code.strip_prefix('E') else {
         return false;

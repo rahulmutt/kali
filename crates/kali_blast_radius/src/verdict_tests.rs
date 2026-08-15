@@ -53,7 +53,8 @@ fn an_internal_e0xxx_against_a_working_node_is_fl_internal() {
 fn the_internal_e4xxx_family_is_fl_internal() {
     // E4003 (fuel trap) and E4201 (wasm translation) are the internal E4xxx
     // family -- documented as internal in specs/15-errors.md, never an honest
-    // denial. See spec §7.1.
+    // denial. See design spec §7.1
+    // (docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md).
     assert_eq!(
         classify(&failed(1, "error[E4003]: trap"), &ok("x\n")),
         Verdict::FlInternal
