@@ -1,0 +1,199 @@
+# Ground truth for the oracle classifier.
+#
+# These cases do NOT re-measure register entries -- they check that the
+# classifier assigns the class the construct is known to produce. If one of
+# these fails, every verdict in `oracle/` is suspect, so this file is the first
+# thing to read on a red run.
+#
+# Spec: docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md §10.
+#
+# ---------------------------------------------------------------------------
+# Coverage: all EIGHT verdict classes, one case each.
+#
+#   fixed            GROUND-TRUTH   agree.js
+#   silent           R-13           silent.js
+#   fail_closed      R-20           fail_closed.js
+#   fl_internal      R-09           fl_internal.js
+#   accepts_invalid  R-54           accepts_invalid.js
+#   both_reject      GROUND-TRUTH   both_reject.js
+#   timeout          GROUND-TRUTH   hang.js
+#   nondeterministic GROUND-TRUTH   nondeterministic.js
+#
+# Spec §10 names six of these explicitly. `both_reject` is added here because
+# it is the eighth arm of `classify` and leaving it unpinned would leave the
+# one arm that a *broken measurement* most resembles untested: a source file
+# that never got written makes both engines fail, and "both failed" is exactly
+# what BOTH_REJECT looks like. `run_oracle` guards that specific confusion by
+# hard-erroring on a `program` no `[source]` key wrote; this case pins the
+# legitimate side of the same shape.
+#
+# Every construct below was measured by hand at commit `9a39a2c1f8` against
+# `node v26.7.0` before it was written down, and every verdict here is the
+# class that was measured, not the class the register predicted. Divergences
+# are recorded in the individual rationales.
+#
+# ---------------------------------------------------------------------------
+# What the NONDETERMINISTIC case does and does not establish.
+#
+# The brief anticipated that this class might not be reachable at all, because
+# a program whose output varies is likely to be one kali refuses. Measured,
+# that is half true and the half that is true does not block the case: kali
+# does refuse `Math.random()` (E5506) -- but it refuses it *identically on both
+# runs*, while node prints a different double each time. `rank` checks BOTH
+# sides for self-agreement, so node's variance alone is enough to produce
+# NONDETERMINISTIC, and the class is genuinely measurable.
+#
+# The honest limit: this exercises the NODE arm of the self-agreement check
+# only. No construct was found that makes KALI disagree with itself -- the two
+# obvious candidates are deterministic on kali for opposite reasons
+# (`Date.now()` is silently miscompiled to a constant `0`; `Math.random` and
+# `process.hrtime` are refused outright). The kali arm of `runs_agree` remains
+# covered by `kali_blast_radius`'s unit tests alone. That is a real gap, stated
+# rather than papered over with a case that pretends to close it.
+
+[source]
+"agree.js" = """console.log("7");
+"""
+"accepts_invalid.js" = """function s(x) {
+switch (x) {
+default: return "d1";
+default: return "d2";
+}
+}
+console.log("v=" + s(1));
+"""
+"silent.js" = """var o = {a:1,b:2}; var k = "a"; console.log("read=" + o[k]);
+"""
+"fail_closed.js" = """const o = {f:1};
+console.log(JSON.stringify(o));
+"""
+"fl_internal.js" = """function t() {
+let s = 0;
+for (let i = 0; i < 5; i++) { if (i % 2 === 0) { continue; } s = s + i; }
+console.log("s=" + s);
+}
+t();
+"""
+"both_reject.js" = """function s(x) {
+switch (x) {
+case 1: return "one";
+console.log("v=" + s(1));
+"""
+"hang.js" = """var n = 0;
+while (true) { n = n + 1; }
+"""
+"nondeterministic.js" = """console.log("r=" + Math.random());
+"""
+
+[[case]]
+name = "matching_output_on_both_engines_classifies_as_fixed"
+kind = "oracle"
+register_entry = "GROUND-TRUTH"
+program = "agree.js"
+verdict = "fixed"
+rationale = """A bare `console.log` of a string literal is the simplest program both engines agree on. If this does not classify FIXED, the classifier's equality path or the capture path is broken, and no other verdict in this directory can be trusted.
+
+This case is deliberately NOT a register entry: it measures the instrument, not kali.
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `7` exit 0, node `7` exit 0."""
+
+[[case]]
+name = "a_second_default_clause_classifies_as_accepts_invalid"
+kind = "oracle"
+register_entry = "R-54"
+program = "accepts_invalid.js"
+verdict = "accepts_invalid"
+rationale = """R-54: `parse_switch_statement`'s `default` arm omits `Default` from its stop set, so a second `default` is absorbed into the first and both bodies run merged. node refuses the whole file with `SyntaxError: More than one default clause in switch statement` (exit 1) while kali exits 0.
+
+This is the only verdict class where node refuses and kali does not, so it is the only case that exercises the `(false, true)` arm of `classify`. (The `both_reject` case below also has node refusing, but kali refuses with it, which is the `(true, true)` arm.) It doubles as R-54's re-measurement.
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `v=d1` exit 0, node exit 1 with the SyntaxError above. R-54 still reproduces; the class the register records (kali accepts what node refuses) is the class measured. Note the reduced repro used here prints `v=d1` rather than the register's `v=d2`/`g=5`, because it drops the `case 1:` arm and the `g` side-effect discriminator that prove *merging* rather than *replacement*. Those discriminators are R-54's evidence, not the classifier's; what this case needs is only the (kali exit 0, node exit != 0) shape, and the fuller repro is preserved in the register entry."""
+
+[[case]]
+name = "a_variable_computed_key_read_classifies_as_silent"
+kind = "oracle"
+register_entry = "R-13"
+program = "silent.js"
+verdict = "silent"
+rationale = """R-13: computed member access with the key held in an ordinary variable reads back `0` instead of the stored value. Both engines exit 0 and their stdout differs, which is the definition of SILENT -- the class this whole project exists to rank, and the one a broken classifier would most damagingly mislabel as FIXED.
+
+This is the only case that exercises the stdout-inequality branch of `classify`'s `(false, false)` arm; the `fixed` case above exercises the equality branch, so the two together pin both sides of that comparison.
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `read=0` exit 0, node `read=1` exit 0. Matches the register: §0.2's table row records R-13 SILENT, and §0.2's 2026-07-29 `64438bf0ef` amendment records it with this exact repro and these exact two strings."""
+
+[[case]]
+name = "json_stringify_classifies_as_fail_closed"
+kind = "oracle"
+register_entry = "R-20"
+program = "fail_closed.js"
+verdict = "fail_closed"
+rationale = """R-20: `JSON.stringify` has no lowering. It used to fold to a silent `0`; the Stream-A deny-set closed the canonical spelling to an honest `E5506` refusal, which the register's `STATUS 2026-07-20` line records. `E5506` is inside `specs/15-errors.md`'s documented `E55xx` range, so `classify` must call this FAIL_CLOSED and not FL_INTERNAL.
+
+Paired with the `fl_internal` case below, this pins the *documented-code* discrimination in `classify`'s `(true, false)` arm: both cases have kali exiting nonzero against a node that exits 0, and the only thing separating their classes is whether the emitted code is in the public range registry. A classifier that ignored the code entirely would still pass one of the two, so neither case is redundant.
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali exit 1, stderr `error[E5506]: calling 'stringify' is unavailable in the current phase: ...`; node `{"f":1}` exit 0.
+
+Reconciliation note: R-20's *headline* still reads "silently returns 0 for every input", which would be SILENT. That headline is superseded in place by the entry's own `STATUS 2026-07-20` line, and the measured class agrees with the STATUS line, not the headline. The register text is stale, not wrong about behaviour; recorded here so Task 10's regeneration rewrites the headline rather than re-deriving it. The residual aliased-receiver lane (`const j = JSON; j.stringify(o)`) is a different program and is NOT what this case measures."""
+
+[[case]]
+name = "the_continue_hang_classifies_as_fl_internal"
+kind = "oracle"
+register_entry = "R-09"
+program = "fl_internal.js"
+verdict = "fl_internal"
+rationale = """R-09: `continue` inside a C-style `for` skips the update expression, so the loop never advances and runs away until the fuel guard trips with `error[E4003]: CPU fuel budget exhausted`. `E4003` is NOT in `specs/15-errors.md`'s range registry -- the table has no `E4xxx` row at all -- so `classify` calls it FL_INTERNAL. Spec §7.1 records that this is the right verdict for the wrong reason and carries a sub-task to document the family; when that lands, this case is the one that will go red, which is the point of pinning it.
+
+The program is the register's own recorded hang repro (`for (let i=0; i<5; i++) { if (i%2===0) continue; s = s + i; }`), placed in the in-function scope the entry's sibling repro uses and with the `continue` braced. Neither change is load-bearing -- the register widened this entry twice in 2026-07 and recorded that the hang is specific to neither scope, neither binding form nor any block shape -- but it is a reduction of the entry's text, not a transcription of it, and should be read as such.
+
+The trap is instruction-counted, not wall-clock: it fires in ~20ms despite the message's "~60s-equivalent" wording, so no `timeout_ms` is needed and the default 30s budget is never approached.
+
+R-09 has TWO manifestations and this case measures one of them. The hang lane is the FL_INTERNAL one; the entry's *silent* lane is a different program (`i < 6` with `if (i === 2) { i++; continue; }`, kali `s=13` vs node `s=10`, both exit 0) and would classify SILENT. Which is why §0.2's net still lists R-09 under "still SILENT" while this case asserts FL_INTERNAL -- they are not in conflict, they are two lanes of one entry. Tasks 7-9 need both; this file needs the FL_INTERNAL one, because it is the only construct here that produces an undocumented error code.
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali exit 1, empty stdout, stderr `error[E4003]: CPU fuel budget exhausted: ...`; node `s=4` exit 0. Matches the register's hang form. (The silent lane was measured at the same commit and also still reproduces, `s=13` / `s=10`; it is recorded here rather than pinned, since one class gets one case.)"""
+
+[[case]]
+name = "an_unterminated_switch_classifies_as_both_reject"
+kind = "oracle"
+register_entry = "GROUND-TRUTH"
+program = "both_reject.js"
+verdict = "both_reject"
+rationale = """A `switch` whose braces are never closed is invalid JavaScript by inspection, so both engines must refuse it: kali `error[E2000]: expected RightBrace but found end of input` (exit 1), node `SyntaxError` (exit 1). That is `classify`'s `(true, true)` arm, the eighth class and the only one no other case here reaches.
+
+Deliberately NOT a register entry, and deliberately a *different* malformation from R-54's: R-54 is the case where kali fails to refuse invalid input, so an author reading these two side by side can see that kali's parser does reject the shapes it has a stop condition for, and that R-54 is a specific missing stop-set member rather than a blanket fail-open.
+
+Why it is worth a case at all: BOTH_REJECT is the class a *broken measurement* imitates. A `program` whose source was never written makes both engines fail to start, which looks identical to both engines refusing. `run_oracle` closes that specific hole by hard-erroring on a `program` no `[source]` key wrote; this case pins the legitimate side so that guard is not the only thing standing between "both refused" and "nothing ran".
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali exit 1 (`E2000`), node exit 1 (`SyntaxError: Unexpected end of input`)."""
+
+[[case]]
+name = "an_unbounded_silent_loop_classifies_as_timeout"
+kind = "oracle"
+register_entry = "GROUND-TRUTH"
+program = "hang.js"
+verdict = "timeout"
+timeout_ms = 2000
+rationale = """`while (true) { n = n + 1; }` prints nothing and never returns. node runs it until the budget kills it; kali does not hang, because its fuel guard trips first (`E4003`, exit 1, in milliseconds). So this case measures a ONE-SIDED hang, which is the stronger test of the two available: TIMEOUT has to outrank whatever the settled side would otherwise have contributed.
+
+It pins the ranking, not just the class. With node killed on both of its runs, `runs_agree(node_a, node_b)` is false -- two timeouts do not agree -- so a `rank` that checked self-agreement before checking timeouts would call this NONDETERMINISTIC. It calls it TIMEOUT because the hang outranks the disagreement, and this case is what holds that order in place. §9's rule is that a hang is a verdict and is never green.
+
+`timeout_ms = 2000` keeps the case to ~4s of wall clock (node is the only side that waits, and it waits twice). A `0` would be rejected at parse time precisely so that a case cannot pass by killing a child that was doing nothing wrong.
+
+Deliberately NOT a register entry: no register entry hangs *node*, which is the side that has to hang for a one-sided TIMEOUT. R-09 is kali's hang and is already covered above as FL_INTERNAL, since kali's guard makes it settle.
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali exit 1 with `E4003` in ~20ms; node still running at 3s, killed."""
+
+[[case]]
+name = "output_that_varies_between_runs_classifies_as_nondeterministic"
+kind = "oracle"
+register_entry = "GROUND-TRUTH"
+program = "nondeterministic.js"
+verdict = "nondeterministic"
+rationale = """`Math.random()` prints a different double on every node run, so node's two runs disagree with each other and no class derived from either is reproducible. `rank` therefore refuses to classify and returns NONDETERMINISTIC. Two runs colliding on the same 53-bit double is not a flake this fixture can realistically draw.
+
+kali is stable here, and refuses: `error[E5506]: Math.random is unavailable in the current phase` on both runs. That is what makes the case a clean test of the self-agreement check rather than of `classify` -- if the check were removed, this pair (kali refuses with a documented code, node exits 0) would classify FAIL_CLOSED off node's first run, silently recording a verdict about a program that has no stable behaviour to record. That is the exact failure §9 names.
+
+WHAT THIS DOES NOT ESTABLISH: only the node arm of `runs_agree`. No construct was found that makes kali disagree with itself -- see the file header. The kali arm stays covered by `kali_blast_radius`'s unit tests.
+
+Deliberately NOT a register entry: the register has no nondeterministic entry, and inventing one would be inventing a defect.
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `error[E5506]` exit 1 on both runs; node `r=0.05144929999526959` then `r=0.3547929190036909`, exit 0 both times."""
