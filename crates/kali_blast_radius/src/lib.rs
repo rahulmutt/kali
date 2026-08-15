@@ -9,6 +9,11 @@
 mod catalogue;
 pub use catalogue::{check_completeness, parse_catalogue, CatalogueEntry, Predicate};
 
+mod manifest;
+pub use manifest::{
+    corpus_hash, parse_manifest, sha256_of, verify_manifest, Manifest, ManifestFile,
+};
+
 mod register;
 pub use register::{parse_register, RegisterEntry};
 
