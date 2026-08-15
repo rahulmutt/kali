@@ -55,6 +55,7 @@ Expanded public ranges used in schema v1:
 | Range | Category |
 |-------|----------|
 | E0xxx | Internal compiler errors |
+| E4xxx | Wasm translation and execution-engine failures (internal — not an availability denial) |
 | E51xx | Type errors |
 | E52xx | Syntax errors |
 | E53xx | Name resolution errors |
@@ -69,6 +70,12 @@ Expanded public ranges used in schema v1:
 | W3xxx | Performance warnings |
 
 Range clarification:
+- `E4xxx` is the wasm translation/execution-engine family (for example `E4201`
+  WebAssembly translation failure, `E4003` a fuel trap). It is **internal**, in
+  the same sense as `E0xxx`: it reports that kali failed, not that the user
+  asked for something unavailable. It must never be read as an honest
+  availability denial — that is `E5506`'s job — and tooling that separates
+  honest denials from internal failures must classify `E4xxx` with `E0xxx`.
 - Kali intentionally uses both `E54xx` and `E9xxx` in the broader sandbox/effect story.
 - `E54xx` is the runtime/effect-semantics side (for example a capability use denied during execution).
 - `E9xxx` is the policy-validation side (for example compile-time inferred-effect-vs-policy rejection on sandbox-attached `check` / `build`).

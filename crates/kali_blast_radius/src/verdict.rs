@@ -50,12 +50,9 @@ impl Verdict {
 /// `E50xx` and `E56xx`-`E59xx` are not. The 6-9 families are documented as
 /// complete ranges: `E6xxx`, `E7xxx`, `E8xxx`, `E9xxx`.
 ///
-/// `E4xxx` is deliberately NOT documented-in-spec: `E4003` (fuel trap) and
-/// `E4201` (WebAssembly translation error) are real and reachable, but the
-/// spec's range table has no `E4xxx` row at all. They therefore classify as
-/// `FL_INTERNAL` -- the right verdict, currently for the wrong reason. Task 4
-/// closes the taxonomy gap; this function is not where an exception list goes,
-/// because hiding a spec gap inside a test tool is how it stays open.
+/// `E4xxx` is documented in `specs/15-errors.md` as an INTERNAL family (wasm
+/// translation and execution-engine failures), alongside `E0xxx`. Neither is
+/// an honest availability denial, so neither counts as documented here.
 pub fn is_documented_code(code: &str) -> bool {
     let Some(digits) = code.strip_prefix('E') else {
         return false;
