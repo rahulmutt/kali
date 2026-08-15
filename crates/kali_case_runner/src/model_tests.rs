@@ -1021,7 +1021,7 @@ exit = "success"
 }
 
 #[test]
-fn an_oracle_step_parses_its_four_fields() {
+fn an_oracle_step_parses_its_five_fields() {
     let text = r#"
 [[case]]
 name = "c"
@@ -1030,6 +1030,7 @@ register_entry = "R-13"
 program = "r13.js"
 verdict = "silent"
 timeout_ms = 5000
+observe = "stderr"
 "#;
     let file = parse_case_file(text).expect("parses");
     let step = file.case[0].inline.as_ref().expect("inline step");
@@ -1038,6 +1039,126 @@ timeout_ms = 5000
     assert_eq!(step.program.as_deref(), Some("r13.js"));
     assert_eq!(step.verdict, Some(kali_blast_radius::Verdict::Silent));
     assert_eq!(step.timeout_ms, Some(5000));
+    assert_eq!(
+        step.observe,
+        Some(kali_blast_radius::ObservedStream::Stderr)
+    );
+}
+
+// `observe` is optional and defaults to stdout, which is what every case
+// written before it existed relies on. It must parse as ABSENT rather than as
+// a stdout default baked in at parse time: `run_oracle` applies the default,
+// and a `Some(Stdout)` here would be indistinguishable from a case that asked
+// for stdout on purpose.
+#[test]
+fn an_oracle_step_without_observe_leaves_it_unset() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+"#;
+    let file = parse_case_file(text).expect("parses");
+    let step = file.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(step.observe, None);
+    assert_eq!(
+        step.observe.unwrap_or_default(),
+        kali_blast_radius::ObservedStream::Stdout,
+        "the default `run_oracle` applies"
+    );
+}
+
+#[test]
+fn observe_parses_stdout_too_and_rejects_any_other_word() {
+    let text = r#"
+[[case]]
+name = "c"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+observe = "stdout"
+"#;
+    let file = parse_case_file(text).expect("parses");
+    let step = file.case[0].inline.as_ref().expect("inline step");
+    assert_eq!(
+        step.observe,
+        Some(kali_blast_radius::ObservedStream::Stdout)
+    );
+
+    // There are exactly two streams. A third word must be a parse error and
+    // not a silent fallback to stdout, which would be a case measuring a
+    // stream it did not ask for.
+    let bad = text.replace(r#"observe = "stdout""#, r#"observe = "both""#);
+    parse_case_file(&bad).expect_err("`observe = \"both\"` is not a stream");
+}
+
+// `observe` is oracle-only, exactly like `register_entry`/`program`/
+// `verdict`/`timeout_ms`. On any other kind it would parse clean and never be
+// read -- the degradation this format exists to close.
+#[test]
+fn observe_on_a_non_oracle_step_is_rejected() {
+    let cases = [
+        (
+            "cli",
+            r#"
+[[case]]
+name = "c"
+kind = "cli"
+args = ["run", "app.ts"]
+exit = "success"
+observe = "stderr"
+"#,
+        ),
+        (
+            "file_json",
+            r#"
+[[case]]
+name = "c"
+kind = "file_json"
+path = "out.json"
+fields = { a = 1 }
+observe = "stderr"
+"#,
+        ),
+        (
+            "browser_bundle_harness",
+            r#"
+[[case]]
+name = "c"
+kind = "browser_bundle_harness"
+entry = "app.ts"
+body = "run();"
+exit = "success"
+observe = "stderr"
+"#,
+        ),
+    ];
+    for (kind, text) in cases {
+        let error = parse_case_file(text)
+            .err()
+            .unwrap_or_else(|| panic!("`observe` must be rejected on a `{kind}` step"));
+        assert!(
+            error.contains("observe"),
+            "error names the field on {kind}: {error}"
+        );
+    }
+}
+
+// And without an explicit `kind`, `observe` alone must demand one rather than
+// defaulting to `cli` and being silently discarded -- the same rule the other
+// four oracle fields follow.
+#[test]
+fn observe_without_an_explicit_kind_is_rejected() {
+    let text = r#"
+[[case]]
+name = "c"
+observe = "stderr"
+"#;
+    let error = parse_case_file(text).expect_err("must demand an explicit kind");
+    assert!(error.contains("oracle"), "error names the kind: {error}");
 }
 
 #[test]

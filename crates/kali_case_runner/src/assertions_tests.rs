@@ -26,6 +26,7 @@ fn blank_step() -> Step {
         program: None,
         verdict: None,
         timeout_ms: None,
+        observe: None,
     }
 }
 

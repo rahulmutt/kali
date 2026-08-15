@@ -15,6 +15,47 @@ pub struct Run {
     pub timed_out: bool,
 }
 
+/// Which captured stream carries the observation a case is making.
+///
+/// Almost every register entry renders its damage on stdout, and that is the
+/// default. R-33 is the exception that forced this to exist: `console.warn`
+/// writes to STDERR on both engines, so a stdout-only comparison sees two
+/// empty strings, calls the pair FIXED, and retires a live defect from the
+/// damage set without ever reading the channel the defect is on. A green
+/// verdict for an unobserved defect is the single most dangerous output this
+/// instrument can produce, so the stream is now something a case states rather
+/// than something the classifier assumes.
+///
+/// This selects ONLY the both-engines-exited-0 equality comparison. It does
+/// not touch the timeout arm, the refusal arms, or error-code detection --
+/// see `classify_observing`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ObservedStream {
+    #[default]
+    Stdout,
+    Stderr,
+}
+
+impl ObservedStream {
+    /// The spelling a case file writes in `observe = "..."`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ObservedStream::Stdout => "stdout",
+            ObservedStream::Stderr => "stderr",
+        }
+    }
+}
+
+impl Run {
+    /// The stream this run is being observed on.
+    fn observed(&self, stream: ObservedStream) -> &str {
+        match stream {
+            ObservedStream::Stdout => &self.stdout,
+            ObservedStream::Stderr => &self.stderr,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
     Fixed,
@@ -104,13 +145,35 @@ pub fn runs_agree(a: &Run, b: &Run) -> bool {
     a.code == b.code && a.stdout == b.stdout && a.stderr == b.stderr
 }
 
+/// Classify a pair of runs, observing stdout.
+///
+/// Kept as the whole API's front door because it is what almost every case
+/// wants; it is exactly `classify_observing(kali, node, Stdout)`.
 pub fn classify(kali: &Run, node: &Run) -> Verdict {
+    classify_observing(kali, node, ObservedStream::Stdout)
+}
+
+/// Classify a pair of runs, observing `stream`.
+///
+/// `stream` reaches EXACTLY ONE decision: the equality test in the
+/// both-engines-exited-0 arm, which is the only place a verdict depends on
+/// what the programs printed. Everything else is deliberately stream-blind:
+///
+/// - The timeout arm never reads output at all.
+/// - Refusal is decided by the EXIT CODE, not by any stream.
+/// - Error-code detection always reads `stderr`, whatever is being observed.
+///   A refusal is diagnosed from the diagnostic, and a `kali` that fails
+///   closed writes `error[Ennnn]` to stderr regardless of which stream the
+///   case is comparing. Reading the code off the observed stream would make
+///   an `observe = "stderr"` case classify FAIL_CLOSED versus FL_INTERNAL by
+///   accident of where the program's own output landed.
+pub fn classify_observing(kali: &Run, node: &Run, stream: ObservedStream) -> Verdict {
     if kali.timed_out || node.timed_out {
         return Verdict::Timeout;
     }
     match (refused(kali), refused(node)) {
         (false, false) => {
-            if kali.stdout == node.stdout {
+            if kali.observed(stream) == node.observed(stream) {
                 Verdict::Fixed
             } else {
                 Verdict::Silent

@@ -184,6 +184,26 @@ impl From<RawVerdict> for kali_blast_radius::Verdict {
     }
 }
 
+/// `observe = "stderr"` in a case file. A thin serde front for
+/// `kali_blast_radius::ObservedStream`, for the same reason `RawVerdict`
+/// exists: that crate is a leaf with no serde dependency of its own.
+#[derive(Debug, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+enum RawObserve {
+    Stdout,
+    Stderr,
+}
+
+impl From<RawObserve> for kali_blast_radius::ObservedStream {
+    fn from(raw: RawObserve) -> Self {
+        use kali_blast_radius::ObservedStream as S;
+        match raw {
+            RawObserve::Stdout => S::Stdout,
+            RawObserve::Stderr => S::Stderr,
+        }
+    }
+}
+
 // The two raw count-claim tables. `at_least` and `exact` are both `Option`
 // here and collapsed into exactly one `CountBound` by `count_bound`: the
 // format admits no other comparison, and requiring exactly one of the two to
@@ -337,7 +357,7 @@ fn count_needle(needle: String, case_name: &str, key: &str) -> Result<String, St
 // `kind` is `Option` here, not defaulted straight to `StepKind::Cli` the way
 // the public `Step` below has it. `finalize_step` is what applies the
 // default -- and only when no kind-specific field (`path`/`fields`/
-// `entry`/`body`/`register_entry`/`program`/`verdict`/`timeout_ms`) is
+// `entry`/`body`/`register_entry`/`program`/`verdict`/`timeout_ms`/`observe`) is
 // present. That distinction is what turns "a step sets
 // `entry`/`body` but forgot `kind = \"browser_bundle_harness\"`" into a hard
 // error instead of a silently-misinterpreted `cli` step: see `finalize_step`.
@@ -388,6 +408,8 @@ struct RawStep {
     verdict: Option<RawVerdict>,
     #[serde(default)]
     timeout_ms: Option<u64>,
+    #[serde(default)]
+    observe: Option<RawObserve>,
 }
 
 #[derive(Debug)]
@@ -458,6 +480,12 @@ pub struct Step {
     /// `ORACLE_MAX_TIMEOUT_MS`. Defaults to `steps::ORACLE_DEFAULT_TIMEOUT_MS`
     /// when unset.
     pub timeout_ms: Option<u64>,
+    /// `oracle` only: which captured stream the verdict compares. Defaults to
+    /// `stdout`, which is where all but one measured register entry renders
+    /// its damage. `stderr` exists for R-33, whose whole divergence is a
+    /// `[warn] ` prefix on a stream a stdout-only comparison never reads --
+    /// that comparison calls the pair FIXED and retires a live defect.
+    pub observe: Option<kali_blast_radius::ObservedStream>,
 }
 
 /// Resolves a `RawStep`'s effective `kind` and rejects fields that don't
@@ -472,7 +500,7 @@ pub struct Step {
 ///   asserts nothing, exactly the degradation this format exists to close.
 /// - A step setting `entry`/`body` (`browser_bundle_harness`-only fields),
 ///   `path`/`fields` (`file_json`-only fields), or
-///   `register_entry`/`program`/`verdict`/`timeout_ms` (`oracle`-only
+///   `register_entry`/`program`/`verdict`/`timeout_ms`/`observe` (`oracle`-only
 ///   fields) without an explicit
 ///   `kind`: `kind` defaults to `cli`, so a forgotten `kind =
 ///   "browser_bundle_harness"` silently becomes a `cli` step that ignores
@@ -484,7 +512,8 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
     let wants_oracle = raw.register_entry.is_some()
         || raw.program.is_some()
         || raw.verdict.is_some()
-        || raw.timeout_ms.is_some();
+        || raw.timeout_ms.is_some()
+        || raw.observe.is_some();
 
     let kind = match raw.kind {
         Some(kind) => kind,
@@ -497,8 +526,9 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             return Err(format!(
                 "case `{case_name}`: step sets fields belonging to more than one kind \
                  (`path`/`fields` are file_json-only, `entry`/`body` are \
-                 browser_bundle_harness-only, `register_entry`/`program`/`verdict`/`timeout_ms` \
-                 are oracle-only) without an explicit `kind`"
+                 browser_bundle_harness-only, \
+                 `register_entry`/`program`/`verdict`/`timeout_ms`/`observe` are oracle-only) \
+                 without an explicit `kind`"
             ));
         }
         None if wants_file_json => {
@@ -517,9 +547,9 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
         }
         None if wants_oracle => {
             return Err(format!(
-                "case `{case_name}`: step sets `register_entry`, `program`, `verdict` or \
-                 `timeout_ms`, which requires an explicit `kind = \"oracle\"` -- `kind` only \
-                 defaults to `cli` when no kind-specific field is set"
+                "case `{case_name}`: step sets `register_entry`, `program`, `verdict`, \
+                 `timeout_ms` or `observe`, which requires an explicit `kind = \"oracle\"` -- \
+                 `kind` only defaults to `cli` when no kind-specific field is set"
             ));
         }
         None => StepKind::default(),
@@ -533,7 +563,7 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
     // that applies to it. `args` is `cli`-only (it's the argv passed to
     // `kali`). `path`/`fields` are `file_json`-only; `entry`/`body` are
     // `browser_bundle_harness`-only;
-    // `register_entry`/`program`/`verdict`/`timeout_ms` are `oracle`-only.
+    // `register_entry`/`program`/`verdict`/`timeout_ms`/`observe` are `oracle`-only.
     // `oracle` runs two processes but asserts only the verdict class derived
     // from them, so every raw-output assertion is inapplicable to it too.
     let mut inapplicable: Vec<&'static str> = Vec::new();
@@ -562,6 +592,9 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             }
             if raw.timeout_ms.is_some() {
                 inapplicable.push("timeout_ms");
+            }
+            if raw.observe.is_some() {
+                inapplicable.push("observe");
             }
         }
         StepKind::FileJson => {
@@ -622,6 +655,9 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             if raw.timeout_ms.is_some() {
                 inapplicable.push("timeout_ms");
             }
+            if raw.observe.is_some() {
+                inapplicable.push("observe");
+            }
         }
         StepKind::BrowserBundleHarness => {
             if !raw.args.is_empty() {
@@ -644,6 +680,9 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
             }
             if raw.timeout_ms.is_some() {
                 inapplicable.push("timeout_ms");
+            }
+            if raw.observe.is_some() {
+                inapplicable.push("observe");
             }
         }
         StepKind::Oracle => {
@@ -814,6 +853,7 @@ fn finalize_step(raw: RawStep, case_name: &str) -> Result<Step, String> {
         program: raw.program,
         verdict: raw.verdict.map(Into::into),
         timeout_ms: raw.timeout_ms,
+        observe: raw.observe.map(Into::into),
     })
 }
 
@@ -856,6 +896,10 @@ fn collect_value_placeholders(value: &toml::Value, out: &mut std::collections::B
 /// this walk turns a live binding into a falsely-reported dead one, so the
 /// two must be read together; `model_tests.rs` drives every field
 /// individually for exactly that reason.
+///
+/// The fields that carry no text are absent from both sides and stay absent:
+/// `exit`, a count claim's `bound`, `verdict`, `timeout_ms` and `observe` are
+/// enums or numbers with nothing to substitute into.
 fn collect_step_placeholders(step: &Step, out: &mut std::collections::BTreeSet<String>) {
     for value in &step.args {
         collect_placeholders(value, out);

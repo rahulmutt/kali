@@ -4,7 +4,7 @@
 use crate::assertions::{check, check_json, Captured};
 use crate::expand::Trial;
 use crate::model::{Step, StepKind};
-use kali_blast_radius::{classify, runs_agree, Run, Verdict};
+use kali_blast_radius::{classify_observing, runs_agree, ObservedStream, Run, Verdict};
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -267,15 +267,31 @@ pub fn run_with_timeout(
 /// 2. A side that disagrees with itself is `NONDETERMINISTIC`: whichever
 ///    answer came out first is not reproducible, so no class derived from it
 ///    can be either.
-/// 3. Otherwise both sides are stable and `classify` reads the pair.
-fn rank(kali_a: &Run, kali_b: &Run, node_a: &Run, node_b: &Run) -> Verdict {
+/// 3. Otherwise both sides are stable and `classify` reads the pair, on the
+///    stream the case says carries the observation (`observe`, default
+///    stdout).
+///
+/// `observe` reaches step 3 ONLY. Steps 1 and 2 are unchanged by it and must
+/// stay that way: a hang is not an observation on any stream, and
+/// `runs_agree` compares each side's exit code, stdout AND stderr, so a side
+/// that varies on the stream the case is NOT observing still ranks
+/// NONDETERMINISTIC. That is deliberate -- a program with an unstable
+/// unobserved stream has not been shown to be stable, and recording a class
+/// for it would be the reproducibility failure this ranking exists to end.
+fn rank(
+    kali_a: &Run,
+    kali_b: &Run,
+    node_a: &Run,
+    node_b: &Run,
+    observe: ObservedStream,
+) -> Verdict {
     if kali_a.timed_out || kali_b.timed_out || node_a.timed_out || node_b.timed_out {
         return Verdict::Timeout;
     }
     if !runs_agree(kali_a, kali_b) || !runs_agree(node_a, node_b) {
         return Verdict::Nondeterministic;
     }
-    classify(kali_a, node_a)
+    classify_observing(kali_a, node_a, observe)
 }
 
 /// One side's captured run, rendered for a mismatch report.
@@ -329,16 +345,27 @@ fn run_oracle(config: &RunnerConfig, dir: &Path, step: &Step) -> Result<(), Stri
     let node_a = node_run()?;
     let node_b = node_run()?;
 
-    let actual = rank(&kali_a, &kali_b, &node_a, &node_b);
+    let actual = rank(
+        &kali_a,
+        &kali_b,
+        &node_a,
+        &node_b,
+        step.observe.unwrap_or_default(),
+    );
     if actual == expected {
         return Ok(());
     }
 
+    // The observed stream is named in the message because it decides which
+    // half of each `describe_run` line the reader should be comparing: on an
+    // `observe = "stderr"` case the two stdouts are typically both empty, and
+    // a reader who assumed stdout would conclude the runs agreed.
     let mut detail = format!(
-        "verdict mismatch for {entry}: expected `{expected}`, measured `{actual}`\n{kali}{node}",
+        "verdict mismatch for {entry} (observing {observed}): expected `{expected}`, measured `{actual}`\n{kali}{node}",
         entry = step.register_entry.as_deref().unwrap_or("<no entry>"),
         expected = expected.as_str(),
         actual = actual.as_str(),
+        observed = step.observe.unwrap_or_default().as_str(),
         kali = describe_run("kali", &kali_a),
         node = describe_run("node", &node_a),
     );

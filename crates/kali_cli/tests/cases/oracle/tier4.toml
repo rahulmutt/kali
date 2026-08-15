@@ -116,9 +116,9 @@
 #   r32c   console.log("v=" + 1e-7)   "`console.log("v=" + 1e-7)` prints
 #                                      `v=1e-7`, which *matches* node"
 #   r33a   console.warn("hi")         "`console.warn("hi");` -> node `hi`,
-#                                      kali `[warn] hi`"
+#          [observe = "stderr"]        kali `[warn] hi`"
 #   r33b   console.error("hi")        "`console.error("hi")` is correct (no
-#                                      prefix)"
+#          [observe = "stderr"]        prefix)"
 #   r34    "a:" + f(), and            the entry's own labelled `Repro` block,
 #          console.log("a:", f())     all three lines, verbatim
 #
@@ -126,6 +126,25 @@
 # NAME. Where a fragment is stated as a bare value with an arrow rather than as
 # a call, the sink taken is the one the SAME ENTRY's own `Repro` line uses, and
 # that inference is disclosed in scaffolding item 3 below and in the case.
+#
+# THE SINK ALSO DECIDES WHICH STREAM CARRIES THE OBSERVATION, and a case must
+# say so when it is not stdout. R-33's two lanes are the only ones here that
+# render on STDERR -- `console.warn` and `console.error` both write there on
+# both engines -- so both carry `observe = "stderr"`. Every other case in this
+# file leaves `observe` unset, which is stdout.
+#
+# THIS IS THE SWEEP, AND IT IS COMPLETE FOR THIS FILE AND FOR TIER 3. Working
+# from the table above: every other lane's sink is a `console.log`, direct or
+# through `+`, and `console.log` is stdout on both engines. Tier 3's two
+# entries (R-29, R-54) are both `console.log` as well. `grep` over
+# `cases/oracle/*.toml` finds `console.warn`/`console.error` in no `[source]`
+# body outside R-33's four programs. So `observe = "stderr"` belongs on exactly
+# four cases in the directory, and they are the four below.
+#
+# WHY IT MATTERS, IN ONE SENTENCE, BECAUSE IT COST A FALSE GREEN. Compared on
+# stdout, both R-33 lanes are two empty strings against two empty strings --
+# FIXED -- so a live defect read as fixed and would have been retired from the
+# damage set by the §0.2 regeneration. See `r33a`'s rationale.
 #
 # ---------------------------------------------------------------------------
 # WHERE THE PROGRAMS COME FROM, AND WHAT SCAFFOLDING WAS ADDED.
@@ -245,22 +264,29 @@
 #   R-32   just inside           function  fixed           fixed           same
 #   R-32   concat                module    fixed           fixed           same
 #   R-32   concat                function  fixed           fixed           same
-#   R-33   `console.warn`        module    silent          fixed           MOVED*
-#   R-33   `console.warn`        function  silent          fixed           MOVED*
-#   R-33   `console.error`       module    fixed           fixed           same
-#   R-33   `console.error`       function  fixed           fixed           same
+#   R-33   `console.warn`*       module    silent          silent          same
+#   R-33   `console.warn`*       function  silent          silent          same
+#   R-33   `console.error`*      module    fixed           fixed           same
+#   R-33   `console.error`*      function  fixed           fixed           same
 #   R-34   --                    module    silent          silent          same
 #   R-34   --                    function  silent          silent          same
 #
-# * R-33 IS THE ONLY RECONCILIATION IN THIS FILE, AND ITS `fixed` IS AN
-#   ARTIFACT OF THE INSTRUMENT, NOT A FIX. `console.warn` writes to STDERR on
-#   both engines, and `classify` compares STDOUT only. So the two runs agree on
-#   everything the classifier looks at -- empty stdout, exit 0 -- and it returns
-#   FIXED while the divergence the entry is about sits untouched on the channel
-#   the classifier does not read. Verified by hand at `61aa9043b3`: kali's
-#   stderr is `[warn] hi`, node's is `hi`. THE PREFIX IS STILL THERE. Anything
-#   regenerating §0.2 from this directory must NOT copy `fixed` into R-33's
-#   row; read the two R-33 rationales, which say what to write instead.
+# EVERY LANE IN THIS FILE MEASURES THE CLASS THE REGISTER RECORDS. There is no
+# reconciliation left in it.
+#
+# * THE FOUR R-33 CASES OBSERVE STDERR, AND THAT IS WHY THEY AGREE WITH THE
+#   REGISTER. Compared on stdout -- which is what every oracle case did before
+#   `observe` existed -- all four are two empty strings against two empty
+#   strings, so all four classified FIXED and the `console.warn` pair reported
+#   a live defect as fixed. That reading was an artifact of the instrument, not
+#   a measurement of kali: `console.warn` and `console.error` write to STDERR
+#   on both engines, and `classify` compared STDOUT only. The instrument was
+#   corrected rather than annotated -- `classify_observing` takes an
+#   `ObservedStream` (`crates/kali_blast_radius/src/verdict.rs`) and a case
+#   declares it with `observe` -- and with stderr observed, kali's `[warn] hi`
+#   against node's `hi` is SILENT, exactly what §0.2 records. The false-green
+#   history is kept in `r33a`'s rationale deliberately: it is the one mistake
+#   in this file that a future author is most likely to repeat.
 #
 # The two scopes agreed on the class for EVERY entry and EVERY lane -- twelve
 # pairs, twelve agreements. For THREE entries that agreement is a genuinely new
@@ -275,22 +301,22 @@
 # case says so.
 #
 # ---------------------------------------------------------------------------
-# HOW TO READ A RED RUN HERE, AND THE ONE TRAP IN THIS FILE.
+# HOW TO READ A RED RUN HERE.
 #
 # Each `verdict` below is the class this task MEASURED at HEAD. A future red
 # run means the entry has moved since 2026-08-15 -- data for the next
 # regeneration of §0.2, not a defect in the case.
 #
-# TWELVE of the twenty-four cases are `fixed` -- exactly half -- and they cover
-# SIX of the twelve lanes: R-30's `const`-scalar and concat/template lanes,
-# R-32's just-inside and concat lanes, and both R-33 lanes. A LANE-LEVEL
-# `fixed` IS NOT AN ENTRY-LEVEL `fixed`. R-30, R-32 and R-33 are all still live
-# defects at this commit -- R-30's and R-32's broken lanes are in this same
-# file measuring `silent`, and R-33's `fixed` is the instrument's blindness
-# rather than any lane being right. The regeneration keys its rows on
-# `register_entry`, so a row built by taking any one green case as its entry's
-# verdict would record three fixed entries none of which is fixed. Every
-# `fixed` case below says this in its own rationale.
+# TEN of the twenty-four cases are `fixed`, covering FIVE of the twelve lanes:
+# R-30's `const`-scalar and concat/template lanes, R-32's just-inside and
+# concat lanes, and R-33's `console.error` control. A LANE-LEVEL `fixed` IS NOT
+# AN ENTRY-LEVEL `fixed`. R-30, R-32 and R-33 are all still live defects at
+# this commit, and each has a `silent` lane in this same file to prove it. The
+# regeneration keys its rows on `register_entry`, so a row built by taking any
+# one green case as its entry's verdict would record three fixed entries none
+# of which is fixed. Every `fixed` case below says this in its own rationale.
+#
+# The other fourteen cases are `silent`.
 
 # ---------------------------------------------------------------------------
 # THE ONE RUNNER COLLISION IN THIS FILE, AND WHY THE CONSTANT BELOW EXISTS.
@@ -731,36 +757,38 @@ name = "r33a_console_warn_prefix_module_scope"
 kind = "oracle"
 register_entry = "R-33"
 program = "r33a_module.js"
-verdict = "fixed"
-rationale = """R-33, `console.warn` lane, module scope. SINK: `console.warn("hi")`, which is the whole of the entry. The program is its `Repro` verbatim and complete -- as of `61c2d48ea9`, "`console.warn("hi");` -> node `hi`, kali `[warn] hi` (exit 0)". Nothing was added.
+verdict = "silent"
+observe = "stderr"
+rationale = """R-33, `console.warn` lane, module scope. SINK: `console.warn("hi")`, which is the whole of the entry. The program is its `Repro` verbatim and complete -- as of `61c2d48ea9` (2026-07-29), "`console.warn("hi");` -> node `hi`, kali `[warn] hi` (exit 0)". Nothing was added.
 
-Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "**SILENT/WARN**" with the note "prefix persists; `console.error` correct". Both engines exit 0 and their output differs, which reads as SILENT.
+OBSERVED STREAM: `stderr`, and this is the only lane in either tier-3 or tier-4 file that sets it. R-33's damage renders on stderr -- `console.warn` writes there on both engines -- so stderr is the stream that carries the observation, and `observe = "stderr"` is how the case says so. Every other case in this file leaves `observe` unset and compares stdout, which is where all the other entries render.
 
-RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, SUPERSEDING SILENT -- AND THE ENTRY IS NOT FIXED. READ THE NEXT PARAGRAPH BEFORE COPYING THIS CLASS ANYWHERE.
+Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "**SILENT/WARN**" with the note "prefix persists; `console.error` correct". Both engines exit 0 and their output differs, which is SILENT.
 
-WHY THE CLASS IS `fixed` AND WHY THAT IS AN ARTIFACT OF THE INSTRUMENT. `console.warn` writes to STDERR on both engines, and `classify` compares STDOUT only (`crates/kali_blast_radius/src/verdict.rs`: the `(false, false)` arm tests `kali.stdout == node.stdout`). Both runs produce EMPTY stdout and exit 0, so the classifier sees two identical runs and returns FIXED, having compared nothing the entry is about. Hand-verified at this same commit and node version, capturing the two streams separately: kali's stderr is `[warn] hi` and node's is `hi`. THE PREFIX IS STILL THERE. R-33 reproduces exactly as the register records it and has not moved at all.
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, matching the register -- no reconciliation. kali exits 0 printing nothing to stdout and `[warn] hi` to stderr; node exits 0 printing nothing to stdout and `hi` to stderr. The prefix is still there, in both scopes, exactly as recorded.
 
-CONSEQUENCE FOR THE §0.2 REGENERATION, STATED PLAINLY BECAUSE IT IS A TRAP. This is not a lane-level `fixed` on a live entry -- it is weaker than that. It is a case that cannot observe its entry, and the row it would generate is wrong in the most flattering possible direction. Whatever regenerates §0.2 from this directory must NOT write FIXED into R-33's row on the strength of this case; the row should keep the register's SILENT/WARN, with a note that the oracle instrument is blind to it. The oracle measures stdout, and this defect is not on stdout.
+WHY THIS CASE READ `fixed` BEFORE `observe` EXISTED, PRESERVED AS A WARNING. When first authored this case had no way to name its stream, so it compared stdout like every other case: two EMPTY stdouts and two zero exits, which `classify` calls FIXED. The measurement was correct about what it compared and told a lie about the entry -- a green case for a live defect, which would have retired R-33 from the damage set and from the ranking when §0.2 was regenerated from these verdicts. The instrument, not the entry, was the thing that had moved. The fix was to teach `classify` which stream carries the observation (`ObservedStream` in `crates/kali_blast_radius/src/verdict.rs`, `observe` in the case format) rather than to record `fixed` with a prose warning attached to it, because a warning only works on a reader who reads it.
 
-WHY THE CASE IS KEPT ANYWAY. Three reasons, none of them "it is green". It gives R-33 a row in a directory whose coverage check requires every §2 entry to have one, and its absence would have been indistinguishable from an oversight. It records the blind spot at the place a reader looking up R-33 will actually look. And it is a real, if narrow, tripwire: if kali ever routed `console.warn` to stdout -- a plausible enough change while chasing byte-for-byte acceptance, which is what the entry says this defect breaks -- kali's stdout would become `[warn] hi` against node's empty stdout and this case would go SILENT and red.
+THE GENERAL LESSON FOR THE NEXT AUTHOR. Before writing an oracle case, ask which stream the register's own repro renders its divergence on. If it is not stdout, `observe` must say so -- otherwise the case compares two empty strings, passes, and asserts nothing. `console.warn` and `console.error` are the two sinks in this corpus that do this; there may be others in entries nobody has authored yet.
 
-THE FIX FOR THE BLIND SPOT IS NOT AVAILABLE HERE. An oracle step permits no process-output assertion by construction, so this file cannot pin the stderr bytes. Pinning them needs an ordinary `run` case elsewhere in `crates/kali_cli/tests/cases/`, which is outside this task's scope and is left as a recommendation, not done."""
+WHAT THIS DOES NOT ESTABLISH. It compares whole stderr streams, so it shows the two engines' stderr differs -- it does not isolate WHICH bytes differ, and the class alone would not distinguish the `[warn] ` prefix from any other stderr divergence. That the difference is exactly the prefix is the hand observation quoted above. An oracle step permits no process-output assertion, so pinning the bytes needs an ordinary `run` case elsewhere in `crates/kali_cli/tests/cases/`; that is still worth having and is still not done here."""
 
 [[case]]
 name = "r33a_console_warn_prefix_in_function"
 kind = "oracle"
 register_entry = "R-33"
 program = "r33a_function.js"
-verdict = "fixed"
+verdict = "silent"
+observe = "stderr"
 rationale = """R-33, `console.warn` lane, in-function scope. The `Repro` verbatim inside `function main() { ... }` with a trailing `main();`.
+
+OBSERVED STREAM: `stderr`, for the reason given in full in the module-scope case -- `console.warn` renders on stderr, so stdout carries nothing to compare.
 
 This scope had never been measured for this entry: as of `61c2d48ea9`, §2's R-33 carries `Verification: sweep-only-top-level-only`. The expected class was set to the entry's recorded SILENT/WARN on the assumption that the scopes agree, so that a disagreement would go red.
 
-RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, SUPERSEDING SILENT -- for the instrument reason set out in full in the module-scope case, NOT because the entry moved. Both engines write to stderr, `classify` compares stdout only, both stdouts are empty, both exits are 0. Hand-verified at this commit: kali's stderr is `[warn] hi`, node's is `hi`, at this scope exactly as at module scope. The prefix is still there and is scope-independent.
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, matching the register -- no reconciliation. kali exits 0 with empty stdout and `[warn] hi` on stderr; node exits 0 with empty stdout and `hi` on stderr. Byte-identical to the module scope on both engines, so the prefix is scope-independent -- and that agreement is a new observation, since the entry was `top-level-only` before this case.
 
-DO NOT COPY THIS CLASS INTO §0.2's R-33 ROW. See the module-scope case, which also records why the case is kept and what would actually pin the stderr bytes.
-
-The scope agreement recorded here is worth exactly what it can be: it is an agreement about the two hand observations, since the two CASES could not have disagreed -- a lane whose output never reaches stdout returns FIXED at any scope."""
+Unlike the module-scope case, this scope agreement is a real one rather than a formality. Before `observe` existed both cases returned FIXED for a reason that had nothing to do with the scope (a lane whose output never reaches stdout compares equal at any scope), so the pair could not have disagreed and the agreement was worth nothing. Observing stderr, the two scopes are genuinely compared and genuinely agree."""
 
 [[case]]
 name = "r33b_console_error_has_no_prefix_module_scope"
@@ -768,15 +796,20 @@ kind = "oracle"
 register_entry = "R-33"
 program = "r33b_module.js"
 verdict = "fixed"
+observe = "stderr"
 rationale = """R-33, `console.error` control lane, module scope. SINK: `console.error("hi")`. The program is the entry's own control fragment verbatim -- as of `61c2d48ea9`, "`console.error("hi")` is correct (no prefix)" -- which is what makes the entry a `warn`-specific claim rather than a claim about every stderr sink.
+
+OBSERVED STREAM: `stderr`. `console.error` renders on stderr on both engines exactly as `console.warn` does, so this lane needs `observe` for the same reason its sibling does. It was found by the sweep that followed the `r33a` fix rather than by the original authoring pass, and it is the only other case in either file that needed it.
 
 Expected verdict set from the register's recorded status: FIXED. The entry declares this shape correct.
 
-RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali exits 0 with empty stdout; node exits 0 with empty stdout.
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali exits 0 with `hi` on stderr; node exits 0 with `hi` on stderr, byte-identical.
 
-WHAT THIS CASE ACTUALLY ESTABLISHES, WHICH IS LESS THAN IT LOOKS. `console.error` writes to stderr on both engines, so this FIXED is reached the same way `r33a`'s is: two empty stdouts and two zero exits, with the classifier never reading the channel the output went to. It does NOT show that kali emits `hi` without a prefix. That was hand-verified at this commit -- kali's stderr is `hi`, node's is `hi`, byte-identical -- and the hand observation is what supports the register's control claim; the verdict class does not.
+THIS IS NOW A REAL CONTROL, WHICH IT WAS NOT BEFORE. Observing stdout, this case reached FIXED by comparing two empty strings -- the same empty comparison that made `r33a` falsely green -- so it could not have told a correct `console.error` from a broken one. Observing stderr, the class is earned: the two engines' stderr is compared and found equal. The pair `r33a`/`r33b` therefore now contrasts a broken sink against a working one on the same stream, which is what the register's own control claim asserts and what the other paired lanes in this file (`r30a`/`r30b`, `r32a`/`r32b`) do for stdout.
 
-So this pair does not contrast a broken sink against a working one the way `r30a`/`r30b` or `r32a`/`r32b` do. Both R-33 cases return FIXED for the same instrument reason, and the difference between the two sinks is visible only in the hand observations recorded in these rationales. It is kept because the register declares the control lane at its own class, and because the pair does have one joint tripwire: a future kali that routed a console sink to STDOUT would be caught by whichever of the two cases corresponds to that sink -- kali's stdout would then differ from node's empty stdout and that case alone would go SILENT and red, naming the sink. Neither case can catch a change confined to stderr, which is where both sinks write today."""
+A LANE-LEVEL `fixed` IS NOT AN ENTRY-LEVEL `fixed`. R-33 is live at this commit -- its `console.warn` lane measures SILENT in this same file. The regeneration keys its rows on `register_entry`, so a row built from this case alone would record a fixed entry that is not fixed.
+
+WHAT THIS DOES NOT ESTABLISH. It shows the two stderr streams are equal for this one call; it does not show that no OTHER console sink carries a prefix, and it says nothing about `console.info`, `console.debug` or any sink the register does not name for this entry."""
 
 [[case]]
 name = "r33b_console_error_has_no_prefix_in_function"
@@ -784,13 +817,16 @@ kind = "oracle"
 register_entry = "R-33"
 program = "r33b_function.js"
 verdict = "fixed"
+observe = "stderr"
 rationale = """R-33, `console.error` control lane, in-function scope. The control fragment verbatim inside `function main() { ... }` with a trailing `main();`.
+
+OBSERVED STREAM: `stderr`, as for the module scope -- see that case.
 
 This scope had never been measured for this entry: `Verification: sweep-only-top-level-only` as of `61c2d48ea9`. The expected class was set to the entry's recorded correct-control status on the assumption that the scopes agree.
 
-RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali exits 0 with empty stdout; node exits 0 with empty stdout. Hand-verified at this commit, both stderrs are `hi`, byte-identical, at this scope as at module scope.
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali exits 0 with `hi` on stderr; node exits 0 with `hi` on stderr. The scopes agree, and the agreement is a real comparison rather than two empty strings matching.
 
-The same limit as the module-scope case applies: the class is reached without comparing stderr, so it establishes only that neither engine writes this sink to stdout. See that case's rationale."""
+A LANE-LEVEL `fixed` IS NOT AN ENTRY-LEVEL `fixed`: see the module-scope case, and see `r33a`, which measures SILENT at this same scope and commit."""
 
 [[case]]
 name = "r34_boolean_returning_user_function_in_concat_and_multi_arg_module_scope"

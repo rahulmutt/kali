@@ -13,4 +13,6 @@ mod register;
 pub use register::{parse_register, RegisterEntry};
 
 mod verdict;
-pub use verdict::{classify, is_documented_code, runs_agree, Run, Verdict};
+pub use verdict::{
+    classify, classify_observing, is_documented_code, runs_agree, ObservedStream, Run, Verdict,
+};

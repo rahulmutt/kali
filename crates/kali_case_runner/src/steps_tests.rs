@@ -691,7 +691,13 @@ fn a_hang_on_any_of_the_four_runs_ranks_as_timeout() {
             .expect("known position");
         quad[index] = hung();
         assert_eq!(
-            rank(&quad[0], &quad[1], &quad[2], &quad[3]),
+            rank(
+                &quad[0],
+                &quad[1],
+                &quad[2],
+                &quad[3],
+                ObservedStream::default()
+            ),
             Verdict::Timeout,
             "a hang on {position} must outrank every other class"
         );
@@ -705,7 +711,8 @@ fn a_side_that_disagrees_with_itself_ranks_as_nondeterministic() {
             &settled(0, "1\n"),
             &settled(0, "2\n"),
             &settled(0, "1\n"),
-            &settled(0, "1\n")
+            &settled(0, "1\n"),
+            ObservedStream::default()
         ),
         Verdict::Nondeterministic,
         "kali disagreeing with itself"
@@ -715,7 +722,8 @@ fn a_side_that_disagrees_with_itself_ranks_as_nondeterministic() {
             &settled(0, "1\n"),
             &settled(0, "1\n"),
             &settled(0, "1\n"),
-            &settled(0, "2\n")
+            &settled(0, "2\n"),
+            ObservedStream::default()
         ),
         Verdict::Nondeterministic,
         "node disagreeing with itself"
@@ -729,7 +737,8 @@ fn four_agreeing_runs_rank_by_classify() {
             &settled(0, "1\n"),
             &settled(0, "1\n"),
             &settled(0, "1\n"),
-            &settled(0, "1\n")
+            &settled(0, "1\n"),
+            ObservedStream::default()
         ),
         Verdict::Fixed,
         "same output on both engines"
@@ -739,10 +748,67 @@ fn four_agreeing_runs_rank_by_classify() {
             &settled(0, "0.5\n"),
             &settled(0, "0.5\n"),
             &settled(0, "1\n"),
-            &settled(0, "1\n")
+            &settled(0, "1\n"),
+            ObservedStream::default()
         ),
         Verdict::Silent,
         "both accept, outputs differ"
+    );
+}
+
+// The observed stream must actually reach `classify` through `rank`. This is
+// the wiring test for it: four runs that AGREE on stdout (both empty) and
+// DIFFER on stderr -- R-33's exact shape, `console.warn` prefixing on kali and
+// not on node. Observed on stdout the pair is FIXED, which is what silently
+// retired a live defect; observed on stderr it is SILENT.
+#[test]
+fn rank_consults_the_observed_stream() {
+    let on_stderr = |text: &str| Run {
+        code: Some(0),
+        stdout: String::new(),
+        stderr: text.to_string(),
+        timed_out: false,
+    };
+    let kali = on_stderr("[warn] hi\n");
+    let node = on_stderr("hi\n");
+    assert_eq!(
+        rank(&kali, &kali, &node, &node, ObservedStream::Stderr),
+        Verdict::Silent,
+        "the divergence is on stderr and the case says to observe it"
+    );
+    assert_eq!(
+        rank(&kali, &kali, &node, &node, ObservedStream::Stdout),
+        Verdict::Fixed,
+        "the same four runs, observed on the stream that carries nothing"
+    );
+}
+
+// `observe` must not reach the self-agreement check. A side that varies on the
+// UNOBSERVED stream has still not been shown to be stable, and recording a
+// class for it would be the unreproducible measurement this ranking exists to
+// end.
+#[test]
+fn a_side_varying_on_the_unobserved_stream_still_ranks_nondeterministic() {
+    let a = Run {
+        code: Some(0),
+        stdout: "same\n".into(),
+        stderr: "run 1\n".into(),
+        timed_out: false,
+    };
+    let b = Run {
+        stderr: "run 2\n".into(),
+        ..Run {
+            code: Some(0),
+            stdout: "same\n".into(),
+            stderr: String::new(),
+            timed_out: false,
+        }
+    };
+    let node = settled(0, "same\n");
+    assert_eq!(
+        rank(&a, &b, &node, &node, ObservedStream::Stdout),
+        Verdict::Nondeterministic,
+        "kali's stderr varies; stdout is what is observed, and it still does not classify"
     );
 }
 
