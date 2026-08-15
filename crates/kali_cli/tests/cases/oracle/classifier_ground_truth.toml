@@ -1,31 +1,76 @@
 # Ground truth for the oracle classifier.
 #
-# These cases do NOT re-measure register entries -- they check that the
-# classifier assigns the class the construct is known to produce. If one of
-# these fails, every verdict in `oracle/` is suspect, so this file is the first
-# thing to read on a red run.
+# Every case here exists to check that the classifier assigns the class its
+# construct is independently known to produce. If one of them fails, every
+# verdict in `oracle/` is suspect, so this file is the first thing to read on a
+# red run.
 #
 # Spec: docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md §10.
 #
 # ---------------------------------------------------------------------------
-# Coverage: all EIGHT verdict classes, one case each.
+# Coverage: all EIGHT verdict classes, and TWO KINDS OF CASE.
 #
-#   fixed            GROUND-TRUTH   agree.js
-#   silent           R-13           silent.js
-#   fail_closed      R-20           fail_closed.js
-#   fl_internal      R-09           fl_internal.js
-#   accepts_invalid  R-54           accepts_invalid.js
-#   both_reject      GROUND-TRUTH   both_reject.js
-#   timeout          GROUND-TRUTH   hang.js
-#   nondeterministic GROUND-TRUTH   nondeterministic.js
+# Read this table before reading any rationale. Four of the nine cases measure
+# only the instrument; the other five ALSO re-measure a register entry, because
+# they are built from that entry's own repro and a change in class there is a
+# change in the entry, not in the fixture.
+# The `register_entry` field says which is which, and the `GROUND-TRUTH`
+# sentinel is what marks a case as instrument-only.
 #
-# Spec §10 names six of these explicitly. `both_reject` is added here because
-# it is the eighth arm of `classify` and leaving it unpinned would leave the
-# one arm that a *broken measurement* most resembles untested: a source file
-# that never got written makes both engines fail, and "both failed" is exactly
-# what BOTH_REJECT looks like. `run_oracle` guards that specific confusion by
+#   class             entry          program               kind of case
+#   ----------------- -------------- --------------------- ------------------
+#   fixed             GROUND-TRUTH   agree.js              instrument only
+#   fixed             R-07           fixed_r07.js          ALSO re-measures R-07
+#   silent            R-13           silent.js             ALSO re-measures R-13
+#   fail_closed       R-20           fail_closed.js        ALSO re-measures R-20
+#   fl_internal       R-09           fl_internal.js        ALSO re-measures R-09
+#   accepts_invalid   R-54           accepts_invalid.js    ALSO re-measures R-54
+#   both_reject       GROUND-TRUTH   both_reject.js        instrument only
+#   timeout           GROUND-TRUTH   hang.js               instrument only
+#   nondeterministic  GROUND-TRUTH   nondeterministic.js   instrument only
+#
+# The four instrument-only constructs are NOT register entries and must not be
+# read as defect claims: `agree.js` and `both_reject.js` are programs kali gets
+# RIGHT, and `hang.js`/`nondeterministic.js` are shapes the register does not
+# record at all. Spec §7's rule -- an oracle case's source is the register
+# entry's own minimal repro -- binds the five `R-NN` cases and cannot bind
+# these, since there is no entry to take a repro from. The `R-NN` five DO obey
+# it: each carries its entry's repro from the register's §2, INCLUDING the
+# discriminators that are evidence for the entry rather than for the class --
+# R-54's `g=5` proves the clauses merged rather than replaced, and dropping it
+# would leave a case that still measures ACCEPTS_INVALID while no longer
+# observing R-54. Do not reduce them to what the class needs. Where an entry
+# records its repro as a fragment rather than a runnable program (R-09's hang
+# form is a bare `for` statement), the case says in its rationale exactly what
+# scaffolding was added.
+#
+# `fixed` gets two cases on purpose. `agree.js` is the honest floor for the
+# class -- a program so simple that a green there means the capture and equality
+# paths work at all -- and R-07 is the real fixture spec §10 names, a defect the
+# register records as having been CLOSED. If R-07 ever regresses, its case goes
+# red and `agree.js` still holds the class pinned; the trivial case alone would
+# never have caught the regression, and the R-07 case alone would have taken the
+# class down with it.
+#
+# Spec §10 names six classes explicitly. `both_reject` is added here because it
+# is the eighth arm of `classify` and leaving it unpinned would leave the one
+# arm that a *broken measurement* most resembles untested: a source file that
+# never got written makes both engines fail, and "both failed" is exactly what
+# BOTH_REJECT looks like. `run_oracle` guards that specific confusion by
 # hard-erroring on a `program` no `[source]` key wrote; this case pins the
 # legitimate side of the same shape.
+#
+# ---------------------------------------------------------------------------
+# SCOPE COVERAGE IS NOT THIS FILE'S JOB.
+#
+# Spec §7 requires every register entry to be measured in BOTH scopes -- module
+# scope and in-function are different programs in kali -- for roughly 84 cases
+# over 42 entries. That belongs to the per-tier oracle files in the next tasks,
+# not here. This file carries ONE case per verdict class, in whichever scope the
+# register's own repro uses, and stops there. A Task 7-9 author must therefore
+# author R-07, R-09, R-13, R-20 and R-54 in both scopes as usual and treat the
+# overlap with this file as intentional duplication, not as coverage already
+# banked.
 #
 # Every construct below was measured by hand at commit `9a39a2c1f8` against
 # `node v26.7.0` before it was written down, and every verdict here is the
@@ -54,13 +99,25 @@
 [source]
 "agree.js" = """console.log("7");
 """
-"accepts_invalid.js" = """function s(x) {
-switch (x) {
-default: return "d1";
-default: return "d2";
+"fixed_r07.js" = """function t() {
+  let a = 1, b = 2;
+  const tmp = a;
+  a = b;
+  b = tmp;
+  console.log("a=" + a + " b=" + b);
 }
+t();
+"""
+"accepts_invalid.js" = """var g = 0;
+function s(x) {
+  switch (x) {
+    case 1: return "one";
+    default: g = 5;
+    default: return "d2";
+  }
 }
-console.log("v=" + s(1));
+console.log("v=" + s(9));
+console.log("g=" + g);
 """
 "silent.js" = """var o = {a:1,b:2}; var k = "a"; console.log("read=" + o[k]);
 """
@@ -68,9 +125,9 @@ console.log("v=" + s(1));
 console.log(JSON.stringify(o));
 """
 "fl_internal.js" = """function t() {
-let s = 0;
-for (let i = 0; i < 5; i++) { if (i % 2 === 0) { continue; } s = s + i; }
-console.log("s=" + s);
+  let s = 0;
+  for (let i=0; i<5; i++) { if (i%2===0) continue; s = s + i; }
+  console.log("s=" + s);
 }
 t();
 """
@@ -95,7 +152,21 @@ rationale = """A bare `console.log` of a string literal is the simplest program 
 
 This case is deliberately NOT a register entry: it measures the instrument, not kali.
 
-Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `7` exit 0, node `7` exit 0."""
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `7` exit 0, node `7` exit 0.
+
+It is deliberately kept even though the R-07 case below covers the same class on a far more interesting program. The two fail for different reasons and neither subsumes the other: this one can only fail if the instrument is broken, and R-07's can fail because kali regressed. Keeping both means a regression in R-07 does not take the class pin down with it."""
+
+[[case]]
+name = "the_const_swap_r07_closed_still_classifies_as_fixed"
+kind = "oracle"
+register_entry = "R-07"
+program = "fixed_r07.js"
+verdict = "fixed"
+rationale = """R-07 was the register's CRITICAL entry -- `const` was not a binding at all, its initializer was re-emitted at every read site (`control_flow.rs:1284-1286` and `:1614-1616`, an inline re-emit with no purity gate), so a `const` read the *current* value of whatever its initializer mentioned rather than the value at binding time. §0.1 records it among the "Group-1 evidence-corrupting defects" that are resolved, and §0.2's row reads `R-07 const is not a binding | FIXED | all 6 shapes (swap/stale/param/double-read/loop-carry) match; const is a real binding now.`
+
+This is spec §10's named FIXED fixture, and the program is the register's Repro A -- the `CONFIRMED-BY-CONTROLLER` classic swap -- verbatim from §2. It is the right shape for a FIXED pin because the defect it tests for is *silent by construction*: under R-07, `const tmp = a; a = b; b = tmp;` printed `a=2 b=2` at exit 0, which is a plausible-looking answer no reader would question. A classifier that mislabelled SILENT as FIXED would let exactly this regression back in unnoticed, so pinning the class on a program that once produced it is worth more than pinning it on a program that never could.
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `a=2 b=1` exit 0, node `a=2 b=1` exit 0. FIXED, matching what the register records -- no reconciliation. Under the defect this printed kali `a=2 b=2` against node `a=2 b=1`, which would classify SILENT; that is what this case will report if R-07 ever comes back, and it will name R-07 in the failure because `register_entry` says so."""
 
 [[case]]
 name = "a_second_default_clause_classifies_as_accepts_invalid"
@@ -107,7 +178,9 @@ rationale = """R-54: `parse_switch_statement`'s `default` arm omits `Default` fr
 
 This is the only verdict class where node refuses and kali does not, so it is the only case that exercises the `(false, true)` arm of `classify`. (The `both_reject` case below also has node refusing, but kali refuses with it, which is the `(true, true)` arm.) It doubles as R-54's re-measurement.
 
-Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `v=d1` exit 0, node exit 1 with the SyntaxError above. R-54 still reproduces; the class the register records (kali accepts what node refuses) is the class measured. Note the reduced repro used here prints `v=d1` rather than the register's `v=d2`/`g=5`, because it drops the `case 1:` arm and the `g` side-effect discriminator that prove *merging* rather than *replacement*. Those discriminators are R-54's evidence, not the classifier's; what this case needs is only the (kali exit 0, node exit != 0) shape, and the fuller repro is preserved in the register entry."""
+The program is the register's §2 repro verbatim, `case 1:` arm and `g` discriminator included, because BOTH halves are load-bearing and the register says so in as many words: "`g=5` is the load-bearing half of the repro. `v=d2` alone would be consistent with 'the second `default` replaced the first'. `g=5` proves both bodies ran, merged into a single clause." A reduced form printing only `v=` would still measure ACCEPTS_INVALID, and would still be green, while quietly failing to observe the mechanism this rationale asserts -- so the reduction would cost nothing at the classifier and everything at the entry.
+
+Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `v=d2` then `g=5`, exit 0; node exit 1 with the SyntaxError above and nothing executed. Both halves reproduce exactly as the register records them, so R-54 has NOT been fixed and the mechanism is unchanged: the clauses are still merging, not replacing."""
 
 [[case]]
 name = "a_variable_computed_key_read_classifies_as_silent"
@@ -117,7 +190,7 @@ program = "silent.js"
 verdict = "silent"
 rationale = """R-13: computed member access with the key held in an ordinary variable reads back `0` instead of the stored value. Both engines exit 0 and their stdout differs, which is the definition of SILENT -- the class this whole project exists to rank, and the one a broken classifier would most damagingly mislabel as FIXED.
 
-This is the only case that exercises the stdout-inequality branch of `classify`'s `(false, false)` arm; the `fixed` case above exercises the equality branch, so the two together pin both sides of that comparison.
+This is the only case that exercises the stdout-inequality branch of `classify`'s `(false, false)` arm; the two `fixed` cases above exercise the equality branch, so they pin both sides of that comparison between them.
 
 Measured 2026-08-15 at `9a39a2c1f8` against node v26.7.0: kali `read=0` exit 0, node `read=1` exit 0. Matches the register: §0.2's table row records R-13 SILENT, and §0.2's 2026-07-29 `64438bf0ef` amendment records it with this exact repro and these exact two strings."""
 
@@ -143,7 +216,7 @@ program = "fl_internal.js"
 verdict = "fl_internal"
 rationale = """R-09: `continue` inside a C-style `for` skips the update expression, so the loop never advances and runs away until the fuel guard trips with `error[E4003]: CPU fuel budget exhausted`. `E4003` is NOT in `specs/15-errors.md`'s range registry -- the table has no `E4xxx` row at all -- so `classify` calls it FL_INTERNAL. Spec §7.1 records that this is the right verdict for the wrong reason and carries a sub-task to document the family; when that lands, this case is the one that will go red, which is the point of pinning it.
 
-The program is the register's own recorded hang repro (`for (let i=0; i<5; i++) { if (i%2===0) continue; s = s + i; }`), placed in the in-function scope the entry's sibling repro uses and with the `continue` braced. Neither change is load-bearing -- the register widened this entry twice in 2026-07 and recorded that the hang is specific to neither scope, neither binding form nor any block shape -- but it is a reduction of the entry's text, not a transcription of it, and should be read as such.
+The `for` statement is the register's recorded hang repro character for character (`for (let i=0; i<5; i++) { if (i%2===0) continue; s = s + i; }`). The register states that repro as a bare fragment with no `s` declaration and no log, so this case adds exactly the scaffolding needed to make it a runnable program: `let s = 0`, a `console.log("s=" + s)`, and the enclosing `function t() { … } t()` that the entry's sibling repro uses. Nothing else was changed, and the scaffolding is not load-bearing -- the register widened this entry twice in 2026-07 and recorded that the hang is specific to neither scope, neither binding form nor any block shape.
 
 The trap is instruction-counted, not wall-clock: it fires in ~20ms despite the message's "~60s-equivalent" wording, so no `timeout_ms` is needed and the default 30s budget is never approached.
 
