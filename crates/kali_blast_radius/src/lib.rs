@@ -21,8 +21,12 @@
 //!   genuinely new thing in this crate: nothing else here starts one, and the
 //!   sentence this doc comment used to carry ("without running a compiler or a
 //!   process") stopped being true of the crate as a whole when it landed. Its
-//!   test reads an eighth file, the published ranking, to hold it to the
-//!   generator. `ranking` lives in the library rather than in
+//!   tests read further files: the published ranking, to hold it to the
+//!   generator, and every oracle case file under
+//!   `crates/kali_cli/tests/cases/oracle/`, to hold the register's §0.2 to the
+//!   verdicts those live cases assert (`oracle_tests.rs`). Both readers use
+//!   `ranking`'s own §0.2 parser, which is why they live here.
+//!   `ranking` lives in the library rather than in
 //!   `examples/rank.rs` so that `ranking_tests` can hold the published document
 //!   to the generator; a test binary cannot invoke an example, and a freeze
 //!   nothing re-runs is the failure mode this whole project exists to remove.

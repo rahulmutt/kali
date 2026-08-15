@@ -50,6 +50,26 @@ const CLASSES: [&str; 8] = [
     "NONDETERMINISTIC",
 ];
 
+/// The verdict classes §0.2 records for each entry, as a set per entry.
+///
+/// The same parse `render` uses, exposed because a second reader needs it: the
+/// oracle-cases gate in `oracle_tests.rs` compares these sets against the
+/// classes the live cases assert. Reading §0.2 twice, with two parsers, would
+/// let the two readings disagree about what the table says.
+///
+/// `render` cannot share it: it needs the lanes in the column's own order and
+/// with repeats, because it prints them (`FIXED / SILENT / SILENT`). What the
+/// gate compares is the set. Both go through `parse_status_table`, which is the
+/// part that must not be written twice.
+#[cfg(test)]
+pub(crate) fn classes_by_entry(markdown: &str) -> BTreeMap<String, BTreeSet<String>> {
+    let mut by_entry: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for row in parse_status_table(markdown) {
+        by_entry.entry(row.id).or_default().extend(row.lanes);
+    }
+    by_entry
+}
+
 /// One §0.2 row: the entry it is about and the lane classes its status column
 /// names, in the order the column names them.
 struct Row {
@@ -1140,3 +1160,7 @@ pub fn render(root: &Path) -> String {
 #[cfg(test)]
 #[path = "ranking_tests.rs"]
 mod ranking_tests;
+
+#[cfg(test)]
+#[path = "oracle_tests.rs"]
+mod oracle_tests;
