@@ -6,5 +6,8 @@
 //! the instruments be validated before they are trusted -- see
 //! `docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md` §10.
 
+mod catalogue;
+pub use catalogue::{check_completeness, parse_catalogue, CatalogueEntry, Predicate};
+
 mod register;
 pub use register::{parse_register, RegisterEntry};
