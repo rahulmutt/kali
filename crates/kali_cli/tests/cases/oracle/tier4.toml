@@ -388,16 +388,16 @@ main();
 const a = [true, false];
 console.log("v=" + (1<2));
 console.log(`${1<2}`);
-console.log("v=" + o.f);
-console.log("v=" + a[0]);
+console.log("v="+o.f);
+console.log("v="+a[0]);
 """
 "r30d_function.js" = """function main() {
   const o = {f: true};
   const a = [true, false];
   console.log("v=" + (1<2));
   console.log(`${1<2}`);
-  console.log("v=" + o.f);
-  console.log("v=" + a[0]);
+  console.log("v="+o.f);
+  console.log("v="+a[0]);
 }
 main();
 """
@@ -445,10 +445,10 @@ console.log(1e-6);
 }
 main();
 """
-"r32c_module.js" = """console.log("v=" + 1e-7);
+"r32c_module.js" = """console.log("v=" + 1e-7)
 """
 "r32c_function.js" = """function main() {
-  console.log("v=" + 1e-7);
+  console.log("v=" + 1e-7)
 }
 main();
 """
@@ -459,10 +459,10 @@ main();
 }
 main();
 """
-"r33b_module.js" = """console.error("hi");
+"r33b_module.js" = """console.error("hi")
 """
 "r33b_function.js" = """function main() {
-  console.error("hi");
+  console.error("hi")
 }
 main();
 """
@@ -576,7 +576,7 @@ program = "r30d_module.js"
 verdict = "fixed"
 rationale = """R-30, concat-and-template lane, module scope. SINKS: `+` concatenation into a `console.log`, and a template hole -- the two sinks the entry declares ALREADY CORRECT, as against the direct-log sink the other three R-30 lanes measure. As of `61c2d48ea9`, §2's "Narrower than 'everywhere'" paragraph states it: "the concat and template paths are already **FIXED for operands `static_equality_class`/`is_string_valued`/`is_float_valued` can prove** -- `"v=" + (1<2)` -> `v=true` ok, `` `${1<2}` `` -> `true` ok, `"v="+o.f` -> `v=true` ok, `"v="+a[0]` -> `v=true` ok."
 
-SCAFFOLDING, DISCLOSED. The four fragments are stated as bare expressions with arrows, so a `console.log(...)` was wrapped around each; nothing else about them was changed. (The template-hole fragment also collides with the case runner's own `${...}` substitution syntax, which is resolved by the `[constants]` entry above WITHOUT altering the program -- the emitted file carries `` `${1<2}` `` character for character, verified by reading node's captured stdout out of a forced mismatch report. See the header block that declares the constant.) THIS PROGRAM IS THEREFORE NOT VERBATIM in the sense the other R-30 cases are. Two bindings were also needed, and both are the entry's own: `const o = {f: true};` is from its 2026-07-19 correction bullet, and `const a = [true, false];` is the array from its `Confounder recorded` bullet carrying the declarator that bullet names ("sweep A's first pass used `var o={f:true}` / `var a=[true,false]` ... Re-run with `const`, every one of those shapes is correct"). All four fragments are kept because the entry's claim for this lane is a BOUNDARY over operand kinds, and one fragment would have measured one kind. Each was also run alone by hand at this commit and each agreed with node alone, so no fragment's result is masked by a sibling's.
+SCAFFOLDING, DISCLOSED. The four fragments are stated as bare expressions with arrows, so a `console.log(...)` was wrapped around each; nothing else about them was changed. Note that the register's own spacing is MIXED across the four and is reproduced as written rather than normalised: register:2444-2445 writes `"v=" + (1<2)` with spaces around the `+` and `"v="+o.f` / `"v="+a[0]` without them. An earlier draft of this program spaced all three alike. Whitespace between tokens cannot change either engine's behaviour, but it sat under a claim that nothing about the fragments was changed, so the register's characters are restored. (The template-hole fragment also collides with the case runner's own `${...}` substitution syntax, which is resolved by the `[constants]` entry above WITHOUT altering the program -- the emitted file carries `` `${1<2}` `` character for character, verified by reading node's captured stdout out of a forced mismatch report. See the header block that declares the constant.) THIS PROGRAM IS THEREFORE NOT VERBATIM in the sense the other R-30 cases are. Two bindings were also needed, and both are the entry's own: `const o = {f: true};` is from its 2026-07-19 correction bullet, and `const a = [true, false];` is the array from its `Confounder recorded` bullet carrying the declarator that bullet names ("sweep A's first pass used `var o={f:true}` / `var a=[true,false]` ... Re-run with `const`, every one of those shapes is correct"). All four fragments are kept because the entry's claim for this lane is a BOUNDARY over operand kinds, and one fragment would have measured one kind. Each was also run alone by hand at this commit and each agreed with node alone, so no fragment's result is masked by a sibling's.
 
 Expected verdict set from the register's recorded status: FIXED -- the paragraph declares these four correct, and §0.2's note agrees ("multi-arg + concat + `const b` now correct (R-04 fix); narrowed").
 
@@ -728,7 +728,7 @@ kind = "oracle"
 register_entry = "R-32"
 program = "r32c_module.js"
 verdict = "fixed"
-rationale = """R-32, concat lane, module scope. SINK: `+` concatenation into a `console.log`. The program is the entry's own call verbatim, written out in full in §2 as of `61c2d48ea9`: "**Two independent number formatters exist and they disagree.** `console.log(1e-7)` prints `0.0000001` but `console.log("v=" + 1e-7)` prints `v=1e-7`, which *matches* node. The concat path implements the small-number threshold and the direct-log path does not." Nothing was added -- this fragment is stated as a call, unlike the bullet fragments `r32a` and `r32b` wrap.
+rationale = """R-32, concat lane, module scope. SINK: `+` concatenation into a `console.log`. The program is the entry's own call verbatim, written out in full in §2 as of `61c2d48ea9`: "**Two independent number formatters exist and they disagree.** `console.log(1e-7)` prints `0.0000001` but `console.log("v=" + 1e-7)` prints `v=1e-7`, which *matches* node. The concat path implements the small-number threshold and the direct-log path does not." Nothing was added -- this fragment is stated as a call, unlike the bullet fragments `r32a` and `r32b` wrap, and it is reproduced character for character INCLUDING the absence of a trailing semicolon (register:2497 writes `console.log("v=" + 1e-7)` inside a sentence, with no `;`). An earlier draft added one; it was found by the same pass that found `r33b`'s and is corrected for the same reason.
 
 Expected verdict set from the register's recorded status: FIXED -- the register says this spelling matches node, and §0.2's note says "concat path correct".
 
@@ -761,7 +761,7 @@ verdict = "silent"
 observe = "stderr"
 rationale = """R-33, `console.warn` lane, module scope. SINK: `console.warn("hi")`, which is the whole of the entry. The program is its `Repro` verbatim and complete -- as of `61c2d48ea9` (2026-07-29), "`console.warn("hi");` -> node `hi`, kali `[warn] hi` (exit 0)". Nothing was added.
 
-OBSERVED STREAM: `stderr`, and this is the only lane in either tier-3 or tier-4 file that sets it. R-33's damage renders on stderr -- `console.warn` writes there on both engines -- so stderr is the stream that carries the observation, and `observe = "stderr"` is how the case says so. Every other case in this file leaves `observe` unset and compares stdout, which is where all the other entries render.
+OBSERVED STREAM: `stderr`. R-33's damage renders on stderr -- `console.warn` writes there on both engines -- so stderr is the stream that carries the observation, and `observe = "stderr"` is how the case says so. R-33 is the ONLY entry in either the tier-3 or the tier-4 file that needs it, and it needs it on BOTH of its lanes: `observe = "stderr"` is set on FOUR cases -- this one, its in-function twin, and the two `console.error` control cases, which render on stderr for the same reason. Every case outside R-33 leaves `observe` unset and compares stdout, which is where every other entry in both files renders. (An earlier draft of this paragraph said this was the only lane that set it and that every other case in the file left it unset. Both were wrong, and they were wrong because they were written before the sweep that found the control lane; they are corrected here rather than quietly, because this rationale is the file's designated warning to the next author and a warning that misstates its own file is worth less than none.)
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row reads "**SILENT/WARN**" with the note "prefix persists; `console.error` correct". Both engines exit 0 and their output differs, which is SILENT.
 
@@ -799,7 +799,9 @@ verdict = "fixed"
 observe = "stderr"
 rationale = """R-33, `console.error` control lane, module scope. SINK: `console.error("hi")`. The program is the entry's own control fragment verbatim -- as of `61c2d48ea9`, "`console.error("hi")` is correct (no prefix)" -- which is what makes the entry a `warn`-specific claim rather than a claim about every stderr sink.
 
-OBSERVED STREAM: `stderr`. `console.error` renders on stderr on both engines exactly as `console.warn` does, so this lane needs `observe` for the same reason its sibling does. It was found by the sweep that followed the `r33a` fix rather than by the original authoring pass, and it is the only other case in either file that needed it.
+OBSERVED STREAM: `stderr`. `console.error` renders on stderr on both engines exactly as `console.warn` does, so this lane needs `observe` for the same reason its sibling does. It was found by the sweep that followed the `r33a` fix rather than by the original authoring pass, and it is the only other LANE in either file that needed it -- two lanes, four cases, since this one's in-function twin needs it too.
+
+SOURCE: `console.error("hi")`, with NO trailing semicolon, because that is how §2 writes it (register:2511-2512, "`console.error("hi")` is correct (no prefix)"). An earlier draft added one. It could not have changed the behaviour, but it sat under a claim that nothing else was changed, and a "verbatim" that is not verbatim is the failure this file spends its header guarding against.
 
 Expected verdict set from the register's recorded status: FIXED. The entry declares this shape correct.
 

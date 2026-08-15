@@ -402,9 +402,13 @@ worth keeping visible. What is now true:
   `:73`-`:89`), landed on this branch in three commits: `158fba9de7` added the
   row, `8c4513db5e` corrected the family claim, `5645710d85` hedged `E4002`. The
   sentence *"has **no `E4xxx` row**"* is false as of `158fba9de7`.
-- **The first option was taken, not the second.** The family is documented **as
-  internal, alongside `E0xxx`** — so `is_documented_code` deliberately still
-  returns `false` for every `E4xxx` code, and `E4003`/`E4201` classify
+- **The first option was taken, not the second.** The family is documented as a
+  **mixed** family whose `E4003`/`E4201` members are internal **in the same
+  sense as `E0xxx`** — not, as an earlier draft of this bullet said, as a family
+  that is internal throughout; see the next bullet, and `specs/15-errors.md:58`
+  and `:73`-`:89`, which say "mixed" in as many words. For the two codes this
+  project's verdicts actually depend on, that documentation is what makes
+  `is_documented_code`'s `false` the right answer: `E4003`/`E4201` classify
   `FL_INTERNAL` **for the right reason** rather than the wrong one, which is
   exactly what this section asked for. The codes were not reclassified into an
   existing range.

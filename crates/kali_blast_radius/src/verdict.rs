@@ -149,6 +149,15 @@ pub fn runs_agree(a: &Run, b: &Run) -> bool {
 ///
 /// Kept as the whole API's front door because it is what almost every case
 /// wants; it is exactly `classify_observing(kali, node, Stdout)`.
+///
+/// NOT DEAD CODE, despite having no non-test caller today -- `run_oracle` calls
+/// `classify_observing` so it can pass a case's `observe`. This function is
+/// deliberately retained as two things: the documented default entry point, and
+/// the byte-identity anchor for the stream selector. Its unit tests assert that
+/// it agrees with `classify_observing(.., Stdout)` across every arm, which is
+/// what guarantees that adding the selector changed no verdict already recorded
+/// in `cases/oracle/`. Deleting it would remove that guarantee, not just a
+/// wrapper.
 pub fn classify(kali: &Run, node: &Run) -> Verdict {
     classify_observing(kali, node, ObservedStream::Stdout)
 }
