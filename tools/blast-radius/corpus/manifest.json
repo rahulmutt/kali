@@ -1,5 +1,5 @@
 {
-  "corpus_hash": "a99ef712c8db18fbe7d9f7fab1ffb4361b999cada02273f77070e35d4a32cd11",
+  "corpus_hash": "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f",
   "files": [
     {
       "path": "anchor/array_element_alias_mutation_is_shared.js",
@@ -685,6 +685,206 @@
       "path": "anchor/unknown_field_write_is_rejected.js",
       "stratum": "anchor",
       "sha256": "1fa478791e16ca4a394851139bcad682dae412f37088aec5299c4ce726ad365a"
+    },
+    {
+      "path": "extension/argv_stats.js",
+      "stratum": "extension",
+      "sha256": "f48ec48b0cc1485ad0fbaff766006edeb8f0be26050b099d82017634040b3b46"
+    },
+    {
+      "path": "extension/base64_encode.js",
+      "stratum": "extension",
+      "sha256": "ffa33dd210b6eab9f22e20c33091602eb52feb1c8d3cf9bfe61b6253b5db26c9"
+    },
+    {
+      "path": "extension/build_report_json.js",
+      "stratum": "extension",
+      "sha256": "fb2962b560a3b72ff8fbe3df6d6063fb8e7a89b1b16a4f109779b4ee57d2c516"
+    },
+    {
+      "path": "extension/crc32_checksum.js",
+      "stratum": "extension",
+      "sha256": "05d0a33c7eb8e49556c0fa3f8ee39e93eda4d56df508c36569398eba12a827d7"
+    },
+    {
+      "path": "extension/csv_column_summary.js",
+      "stratum": "extension",
+      "sha256": "2b4d9550aa5b277b8db28984f1e9d6e1f9ca96ee0c897439b5c59eea1a70e021"
+    },
+    {
+      "path": "extension/diff_lines.js",
+      "stratum": "extension",
+      "sha256": "a7e2fee3e2b9fdf1142d6e34f6152b0a77df86a004df6961afae99d92abf22be"
+    },
+    {
+      "path": "extension/duration_format.js",
+      "stratum": "extension",
+      "sha256": "187c8bd961c9e81a3c78c2cf5ef788e56543a53c8aa31aa6583cdb0b42855aef"
+    },
+    {
+      "path": "extension/event_dispatcher.js",
+      "stratum": "extension",
+      "sha256": "db272e80d5af4abbf272934f1bbe23fe30ab5b42e22d4b3bf1803c5cea34c14c"
+    },
+    {
+      "path": "extension/expression_evaluator.js",
+      "stratum": "extension",
+      "sha256": "f3f808921c40623912a0fd47d8fe88e6c64b502c491acf00824f040cfc990db2"
+    },
+    {
+      "path": "extension/flood_fill_grid.js",
+      "stratum": "extension",
+      "sha256": "f500ca09f1a5c53a7d84fc7ee682870978d5d901ddb1d93812075588fc1cf17b"
+    },
+    {
+      "path": "extension/group_by_department.js",
+      "stratum": "extension",
+      "sha256": "03e7fa5adfcb083917e28499e08ae269b3bb186f77d94094ccfc3e0b3b3312f5"
+    },
+    {
+      "path": "extension/heat_diffusion_1d.js",
+      "stratum": "extension",
+      "sha256": "fde575589f4c991c332291402bbadee5de987c4dc3efa5d12402ec0d51b87b83"
+    },
+    {
+      "path": "extension/hex_dump.js",
+      "stratum": "extension",
+      "sha256": "4a6240d0ded8c974c004a528f6d3979d1c53d70820149454dbe0a66e708a634e"
+    },
+    {
+      "path": "extension/histogram_bars.js",
+      "stratum": "extension",
+      "sha256": "f40c3b6951c58c3a8bc75a4880d7ab2645544103f1d085fb3791cd89cbe6e49c"
+    },
+    {
+      "path": "extension/identifier_casing.js",
+      "stratum": "extension",
+      "sha256": "7f90dda55f8a735d2bdabb31513dce881e517dd379b67438dd9afc0a1727d3ef"
+    },
+    {
+      "path": "extension/ini_config.js",
+      "stratum": "extension",
+      "sha256": "e1e794b56841b144325728e48dee7027ec02f2c9d275c03bc7d0a141f0ff32d6"
+    },
+    {
+      "path": "extension/inventory_ledger.js",
+      "stratum": "extension",
+      "sha256": "c98df83524e370b8406008f763f2ad7caa73d4e2107538cf9ee4c3f796782e6a"
+    },
+    {
+      "path": "extension/join_orders.js",
+      "stratum": "extension",
+      "sha256": "ee8b7f1aa1406ec64e25f3cc12d3d7bea36425aac5ca92d8a9695f2ffafb068b"
+    },
+    {
+      "path": "extension/loan_schedule.js",
+      "stratum": "extension",
+      "sha256": "50cfe492f5fb0de46fdf6a6898179976891b3da512b941fefc6023444e0131da"
+    },
+    {
+      "path": "extension/logistic_map.js",
+      "stratum": "extension",
+      "sha256": "c571dfa93a0da0e411680aa1c0a458f66312f29155174f1a70c1006ab828426a"
+    },
+    {
+      "path": "extension/markdown_toc.js",
+      "stratum": "extension",
+      "sha256": "061def8746f066392f1ffd80b1e4dcb80ad8757ae8d3937e8bada5f9f8b475e9"
+    },
+    {
+      "path": "extension/matrix_ops.js",
+      "stratum": "extension",
+      "sha256": "da1cb98dc204dc266cfda795902aa0d0505d9bdcd82acf754999b868d3608766"
+    },
+    {
+      "path": "extension/moving_average.js",
+      "stratum": "extension",
+      "sha256": "426edf02160fc82c7f2893af249b1b03612031e2b369487c96517e7b96740fe6"
+    },
+    {
+      "path": "extension/paginate_results.js",
+      "stratum": "extension",
+      "sha256": "fbdcde4020a7dc31f621b7f3868b8afa429cad163ea1fb3c95548658fa6858c0"
+    },
+    {
+      "path": "extension/path_normalize.js",
+      "stratum": "extension",
+      "sha256": "225336399b92826e0e125d406d88a66c178b39145d8b3ebc3379faa1823b3585"
+    },
+    {
+      "path": "extension/permission_flags.js",
+      "stratum": "extension",
+      "sha256": "2b6208c3fc3f86480a0e9fbd4ec5bfa0cec892a481b92dca57bc73514d4b6ec9"
+    },
+    {
+      "path": "extension/pivot_sales.js",
+      "stratum": "extension",
+      "sha256": "26fd4b3936bf604e31ae0ccf1f82d0588f3ad1d72b0d9c954ea11eb7a04f6dfb"
+    },
+    {
+      "path": "extension/prime_sieve.js",
+      "stratum": "extension",
+      "sha256": "4a8535bd81b94367375e0be0606528a1861db716f5b8c97b8870b22b6fe3b926"
+    },
+    {
+      "path": "extension/projectile_drag.js",
+      "stratum": "extension",
+      "sha256": "93644087188414495cac0edecc0698c09c00bcdf75d80d4e2d51f36b1b480f9e"
+    },
+    {
+      "path": "extension/query_string.js",
+      "stratum": "extension",
+      "sha256": "3f93968c3e7a6d016cbf4680d703cb290b47518a532f1c792d0788409f157e4b"
+    },
+    {
+      "path": "extension/reverse_words.js",
+      "stratum": "extension",
+      "sha256": "d0c14fbca727528d92e8f6b6d1a0cc5012bc49915ae219952a236d593d82617b"
+    },
+    {
+      "path": "extension/rle_codec.js",
+      "stratum": "extension",
+      "sha256": "562699579c549b60fdf9079b40fc1eaa9b8ffb55ceff561cc4c8a3829077aad6"
+    },
+    {
+      "path": "extension/semver_compare.js",
+      "stratum": "extension",
+      "sha256": "e73a72362edab8d1d61cd6c92ff4db6cc4e13149dc870885c45503c2d2d2bf2e"
+    },
+    {
+      "path": "extension/task_queue.js",
+      "stratum": "extension",
+      "sha256": "3ea8a6b180b9d28dd6bc448dc55737084582f40fccd797f855fb84529a1ec068"
+    },
+    {
+      "path": "extension/template_render.js",
+      "stratum": "extension",
+      "sha256": "a03fcc9595c0b762706a303df2ebf025c2b5e48f41de13838d39f81853251747"
+    },
+    {
+      "path": "extension/turnstile_fsm.js",
+      "stratum": "extension",
+      "sha256": "2d53ba43c78f1e6553d5c9ff43460275e13f9b51aa40f3f6ff81493d995c782b"
+    },
+    {
+      "path": "extension/unit_conversions.js",
+      "stratum": "extension",
+      "sha256": "ef3ebb29085a49895a9cffbb0cde1e56580e756d7a4687e59e2a8de1b7d94f10"
+    },
+    {
+      "path": "extension/validate_signup.js",
+      "stratum": "extension",
+      "sha256": "53b5656c65d6c0f3cf6dc521d4fed11d3590c2106e575616e76ac24b311165f9"
+    },
+    {
+      "path": "extension/word_frequency.js",
+      "stratum": "extension",
+      "sha256": "6579f073de2159b0362db53b3d4c4a0be2bdbe46b7392a2afc244887a8ecd465"
+    },
+    {
+      "path": "extension/wrap_paragraph.js",
+      "stratum": "extension",
+      "sha256": "631c7b8471d3a5c5a20219a3c0104d6dfaf4fcf93fa399150a2ea8f03ffadeed"
     }
   ]
 }
