@@ -1,9 +1,12 @@
 //! Derive a verdict class from one kali run and one node run.
 //!
 //! The class -- not the literal output -- is what an oracle case asserts. That
-//! is the whole point: the register's §0.2 has been stale since 2026-07-24
-//! because a verdict was prose a human had to re-derive. As a class, a change
-//! is a red test.
+//! is the whole point, and the reason is historical: the register's §0.2 was
+//! stale from 2026-07-24 until `809767dc67` (2026-08-15), because a verdict was
+//! prose a human had to re-derive. §0.2 is now generated from the oracle cases
+//! under `crates/kali_cli/tests/cases/oracle/`, so the staleness that motivated
+//! this module is closed. As a class, a change is a red test -- which is what
+//! keeps it closed.
 
 /// One side's captured process result. `code` is `None` when the process was
 /// killed (timeout) or died to a signal.
