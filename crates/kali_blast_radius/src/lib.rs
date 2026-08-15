@@ -11,3 +11,6 @@ pub use catalogue::{check_completeness, parse_catalogue, CatalogueEntry, Predica
 
 mod register;
 pub use register::{parse_register, RegisterEntry};
+
+mod verdict;
+pub use verdict::{classify, is_documented_code, runs_agree, Run, Verdict};
