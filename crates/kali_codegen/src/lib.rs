@@ -64,16 +64,32 @@ const FLOAT_TO_FIXED_IMPORT_INDEX: u32 = 19;
 const FLOAT_TO_STRING_IMPORT_INDEX: u32 = 20;
 // Current-arena twin of `string_concat` (fasta Spec 7 Task 4d): allocates the
 // concat result into the resettable current arena (`__alloc`) instead of the
-// never-reset `__alloc_global`. Appended as the LAST always-present import so
-// no FIXED import index (0..=20) shifts; only the CONDITIONAL imports that
-// follow (coverage_hit, env_*, …) and the function-index base move uniformly
-// by +1, and both are referenced solely through the `COVERAGE_HIT_IMPORT_INDEX`
+// never-reset `__alloc_global`. Appended as the last always-present import
+// *at the time it was added* (see `VALUE_TO_STRING_IMPORT_INDEX` below,
+// which has since taken that spot) so no FIXED import index (0..=20)
+// shifted at the time; only the CONDITIONAL imports that follow
+// (coverage_hit, env_*, …) and the function-index base move uniformly by
+// +1, and both are referenced solely through the `COVERAGE_HIT_IMPORT_INDEX`
 // / `FUNCTION_INDEX_OFFSET` constants below (recomputed here), so the shift is
 // mechanical and behavior-neutral. Selected per concat site by
 // `FunctionEmitter::string_concat_import_index`.
 const STRING_CONCAT_ARENA_IMPORT_INDEX: u32 = 21;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 22;
-const FUNCTION_INDEX_OFFSET: u32 = 22;
+// Appended, never renumbered: these indices are positional and every emitted
+// `Call` names one by value. `value_to_string` is `(i64) -> i64`, the same
+// signature as `int_to_string`, so it reuses function type 4. Appended as the
+// LAST always-present import so no FIXED import index (0..=21) shifts; only
+// the CONDITIONAL imports that follow (coverage_hit, env_*, …) and the
+// function-index base move uniformly by +1, and both are referenced solely
+// through the `COVERAGE_HIT_IMPORT_INDEX` / `FUNCTION_INDEX_OFFSET` constants
+// below (recomputed here), so the shift is mechanical and behavior-neutral --
+// the same precedent `string_concat_arena` set immediately above. Registered
+// but not yet wired into the ladder -- consumed by Task 5, which emits the
+// `Call` and is the point at which the `#[allow(dead_code)]` below should be
+// removed.
+#[allow(dead_code)]
+const VALUE_TO_STRING_IMPORT_INDEX: u32 = 22;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 23;
+const FUNCTION_INDEX_OFFSET: u32 = 23;
 const ENV_GET_BUFFER_RESERVED: u32 = 4096;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 /// Tag bit 62 marks a GROWABLE runtime-array handle (throw-fallout Stage 4):

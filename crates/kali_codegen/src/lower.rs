@@ -1033,23 +1033,28 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "cwd", EntityType::Function(6));
     import_section.import("kali:rt", "math_clz32", EntityType::Function(4));
     import_section.import("kali:rt", "math_pow", EntityType::Function(3));
-    // Five unconditional runtime helpers occupy fixed import indices 17 through 21
+    // Six unconditional runtime helpers occupy fixed import indices 17 through 22
     // (see INT_TO_STRING_IMPORT_INDEX / STRING_CONCAT_IMPORT_INDEX /
     // FLOAT_TO_FIXED_IMPORT_INDEX / FLOAT_TO_STRING_IMPORT_INDEX /
-    // STRING_CONCAT_ARENA_IMPORT_INDEX). They are registered here, before the
-    // conditional coverage/env/process imports, so the relative bookkeeping below
-    // (all expressed against COVERAGE_HIT_IMPORT_INDEX = 22) stays consistent.
+    // STRING_CONCAT_ARENA_IMPORT_INDEX / VALUE_TO_STRING_IMPORT_INDEX). They are
+    // registered here, before the conditional coverage/env/process imports, so
+    // the relative bookkeeping below (all expressed against
+    // COVERAGE_HIT_IMPORT_INDEX = 23) stays consistent.
     // int_to_string is (i64) -> i64 (type 4); string_concat is (i64, i64) -> i64
     // (type 3); float_to_fixed is (f64, i32) -> i64 (type 8); float_to_string is
     // (f64) -> i64 (type 9). `string_concat_arena` (fasta Spec 7 Task 4d) is the
     // current-arena twin of `string_concat` and reuses its exact signature (type
-    // 3); it is appended LAST among the always-present imports so no earlier fixed
-    // import index shifts.
+    // 3). `value_to_string` is (i64) -> i64 (type 4), the same signature as
+    // int_to_string -- it is the terminal arm of `emit_as_string` for the
+    // console sink (console-render-unification spec §3/§4), registered but not
+    // yet wired into the ladder (Task 5). Each is appended LAST among the
+    // always-present imports in turn so no earlier fixed import index shifts.
     import_section.import("kali:rt", "int_to_string", EntityType::Function(4));
     import_section.import("kali:rt", "string_concat", EntityType::Function(3));
     import_section.import("kali:rt", "float_to_fixed", EntityType::Function(8));
     import_section.import("kali:rt", "float_to_string", EntityType::Function(9));
     import_section.import("kali:rt", "string_concat_arena", EntityType::Function(3));
+    import_section.import("kali:rt", "value_to_string", EntityType::Function(4));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }

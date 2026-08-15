@@ -704,6 +704,29 @@ pub(crate) fn register_default_host_imports(
         )
         .map_err(|error| host_import_error("int_to_string", error))?;
 
+    // The terminal arm of `emit_as_string` for the CONSOLE sink. Identical in
+    // behavior to what the console imports already do to a raw value -- decode a
+    // tagged string handle, else render the integer -- but it returns a guest
+    // string handle instead of writing to a stream, so codegen can put it in a
+    // ladder. That is what lets the single- and multi-argument console lanes
+    // share one renderer with the host rather than each having their own.
+    //
+    // Deliberately NOT the terminal arm for `+`/template literals:
+    // STRING_HANDLE_TAG is the sign bit, so every negative integer attempts a
+    // decode here and survives only because the bounds check fails. Widening
+    // that to the concat population is a hazard this project declines to take
+    // (spec §3.1).
+    linker
+        .func_wrap(
+            "kali:rt",
+            "value_to_string",
+            |mut caller: Caller<'_, KaliHostState>, value: i64| -> i64 {
+                let text = format_console_value(&mut caller, value);
+                alloc_guest_string(&mut caller, text.as_bytes()).unwrap_or(0)
+            },
+        )
+        .map_err(|error| host_import_error("value_to_string", error))?;
+
     linker
         .func_wrap(
             "kali:rt",
