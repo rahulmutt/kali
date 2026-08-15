@@ -14,6 +14,8 @@ pub use manifest::{
     corpus_hash, parse_manifest, sha256_of, verify_manifest, Manifest, ManifestFile,
 };
 
+pub mod ranking;
+
 mod register;
 pub use register::{parse_register, RegisterEntry};
 

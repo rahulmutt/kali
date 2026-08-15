@@ -165,12 +165,16 @@ that document, not this paragraph, is authoritative.
 
 **Two corrections this amendment owes the paragraph above, both of them against it.**
 
-1. **The "not in {R-51, R-52, R-53}" half did not survive.** On the ranking's reachable axis
-   R-51 and R-52 are both in band 1 — not because they are frequent (both count **0**
-   reachable, and both are `present-but-unreachable`) but because they are the only Tier-1
-   clusters left, and no Tier-2 cluster dominates a Tier-1 one at any frequency. That is the
-   Pareto definition working, and it is exactly the kind of result an argued frontier
-   produces the wrong answer to.
+1. **The "not in {R-51, R-52, R-53}" half did not survive — on all three names.** On the
+   ranking's reachable axis, **R-51** (cluster G2) and **R-52** are both in band 1, not
+   because they are frequent — both count **0** reachable and both are
+   `present-but-unreachable` — but because they are the only Tier-1 clusters left, and no
+   Tier-2 cluster dominates a Tier-1 one at any frequency. **R-53** is in band 1 as well, by
+   a third route: its cluster **G4** contains R-21, which has no predicate at all, so G4 has
+   no frequency and cannot be dominated. R-53's own reachable count is also 0. None of the
+   three is on the frontier because it turned out to be common; all three are there because
+   a partial order over a thin measurement leaves them uncompared. That is the Pareto
+   definition working, and it is exactly the kind of result an argued frontier gets wrong.
 2. **Of the four entries this paragraph nominated, three are off the measured frontier.**
    Bands are over *clusters*, so read each nominee through its cluster: R-13 → **G3**, band
    2; R-14 → the escape/provenance-loss pair with R-48, band 3; R-10 → **G7**, band 4. Only

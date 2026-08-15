@@ -33,9 +33,12 @@ re-run.
 The `rank` example reads `counts.json`, `accepts.json`, `clusters.json` and the
 register, runs `aggregate`/`band` from `crates/kali_blast_radius`, and prints
 sections 2-5 of `docs/superpowers/followups/blast-radius-ranking.md`. That
-region of the ranking is its stdout verbatim, between two HTML-comment markers,
-so re-running it and diffing is how a reader checks that no figure there was
-typed by hand.
+region of the ranking is its stdout verbatim, between two HTML-comment markers.
+The generation itself lives in the library (`src/ranking.rs`) rather than only in
+the example, so `cargo test -p kali_blast_radius` can hold the committed document
+to it: `spliced_document_matches_the_generator` re-renders both regions and fails
+if either has drifted, modulo the provenance table's HEAD cell, which necessarily
+records the parent of the commit that carries its own output.
 
 ## Why acorn and not `kali_parser`
 

@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/.cache/cargo-target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `4cfa218814` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `4f366ec50b` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `0a3c4ec0cb` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -100,10 +100,14 @@ register (tiers via `parse_register`, verdicts via §0.2's own generated table),
 `tools/blast-radius/counts.json`, `tools/blast-radius/clusters.json` and
 `tools/blast-radius/accepts.json`. The banding itself is `aggregate` then `band`
 from `crates/kali_blast_radius`. No figure in those sections was typed by hand,
-and the region between the markers below is the generator's stdout verbatim — a
-reviewer can re-run it and diff. The HEAD recorded above is the one generation
-ran at, which is the **parent** of the commit that adds this file. **§6 is
-authored commentary and is marked as such.**
+and the region between the markers below is the generator's stdout verbatim.
+**That is a test, not a promise:**
+`kali_blast_radius::ranking::ranking_tests::spliced_document_matches_the_generator`
+re-renders both regions and asserts they equal the committed text, modulo the
+one HEAD cell that cannot match. Edit inside the markers and `cargo test` goes
+red. The HEAD recorded above is the one generation ran at, which is the
+**parent** of the commit that adds this file. **§6 is authored commentary and is
+marked as such.**
 
 **Citation convention.** Every reference this document makes to another file —
 the register's §0.2 and §3, the design spec's §3.3/§4.3/§8.1/§8.2, the corpus
@@ -192,6 +196,8 @@ Frequency is the count over the 127 corpus programs kali accepts, of which 126 a
 | R-22 (unclustered) | 2 | n/a — uncountable member | R-22 |
 | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | 2 | 65 | R-23, R-30, R-31, R-32, R-33 |
 
+*Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested assignment and finds two that move a band 1: R-21 (both axes) and R-23 (the reachable axis, by changing G8's worst tier). Quote this table with §2.4, not on its own.*
+
 **Band 2**
 
 | cluster | worst tier | frequency | members |
@@ -242,6 +248,8 @@ The same clusters banded on the count over all 177 corpus programs, accepted or 
 | G5 — a string handle reaches a consumer that never proved it was a string | 2 | n/a — uncountable member | R-16, R-17, R-18 |
 | R-22 (unclustered) | 2 | n/a — uncountable member | R-22 |
 | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | 2 | 305 | R-12, R-13 |
+
+*Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested assignment and finds two that move a band 1: R-21 (both axes) and R-23 (the reachable axis, by changing G8's worst tier). Quote this table with §2.4, not on its own.*
 
 **Band 2**
 
@@ -350,7 +358,12 @@ Every input to §2, so a reader who disagrees with the clustering can re-band fr
 
 ### 3.1 What the SILENT filter removed, and what it cost the ranking
 
-`FIXED`, `FAIL_CLOSED`, `ACCEPTS_INVALID` and `FL_INTERNAL` are not silent damage (spec §8.1), so these 12 entries do not enter. Their counts are printed because the removal is not cosmetic: it takes the largest reachable count in the whole measurement out of the ranking.
+Spec §8.1 removes these 12 entries for **two different reasons**, and collapsing them would misdescribe 2 of them:
+
+- **Not damage** — `FIXED`, `FAIL_CLOSED`, `BOTH_REJECT`. kali either agrees with node or refuses honestly. 10 entries leave this way: R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20, R-49.
+- **Outside this ranking's question** — `ACCEPTS_INVALID`, `FL_INTERNAL`, `TIMEOUT`, `NONDETERMINISTIC`. §8.1 *reports* these in the regenerated table and keeps them out of the ranking, whose question is *what silent defect should be fixed next*. 2 entries leave this way: R-29, R-54. The distinction is not pedantic: R-29's §0.2 row records kali printing `r=1` at exit 0 with no diagnostic, which is silent by any plain reading. It is out because accepting a program node rejects is a different defect class from giving a wrong answer to a valid one — not because nothing bad happens.
+
+Their counts are printed because the removal is not cosmetic: it takes the largest reachable count in the whole measurement out of the ranking.
 
 | entry | tier | raw | reachable | §0.2 lanes |
 |---|---|---|---|---|
@@ -390,7 +403,7 @@ A count is an upper bound when the predicate admits sites the defect does not re
 
 ### 3.4 A lane result is not an entry result
 
-11 of the 29 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED); R-32 (SILENT / FIXED); R-33 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). §0.2 records why in each case — R-30's, R-47's and R-53's `const` lanes are the entries' own declared controls, R-08's `===` half fails closed while its `??` half is untouched, and R-49 (not in the ranking at all) fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
+11 of the 29 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED); R-32 (SILENT / FIXED); R-33 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). §0.2 records why in each case — R-47's and R-53's FIXED lanes are the `const` controls those entries declare for themselves, and R-30's two FIXED lanes are its `const`-scalar lane *and* its concat/template sinks, so *declared control* is the accurate description and *`const` lane* is not. R-08's `===` half fails closed while its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
 
 ## 4. The uncountable entries
 
@@ -479,6 +492,16 @@ matter how frequent, so any tier-1 cluster is in band 1 unconditionally. Both
 are `present-but-unreachable`: the construct occurs in the extension stratum and
 every carrying program is rejected as a whole.
 
+**All three of the entries §0.1 ruled out are in band-1 clusters, for three
+different reasons, and none of the three is a measured frequency.** R-51 (G2) and
+R-52 are there on tier, at frequency 0. **R-53** is there too, as a member of G4
+— but G4 is in band 1 only because R-21, its co-member, has no predicate at all,
+so G4 has no frequency to be dominated on. R-53's own reachable count is 0. The
+2026-07-29 amendment's confident *"not in {R-51, R-52, R-53}"* is wrong on all
+three names, and it is wrong in a way that should not comfort anyone: they are on
+the frontier because the frontier is a partial order over a thin measurement, not
+because they turned out to be common.
+
 A reader who wants "what should be fixed first" should read band 1 as *the set
 of candidates no other candidate beats outright*, and then use §3's table to
 choose among them on grounds the measurement does not supply — cost, confidence
@@ -526,16 +549,21 @@ construct family, most of which works.
 ### 6.5 What this ranking does not license
 
 - **It does not retire anything.** §3.4 lists the eleven ranked entries with a
-  non-SILENT lane. A lane is not an entry: R-30's, R-47's and R-53's `const`
-  lanes are the entries' own declared controls, R-08's `===` half fails closed
-  while its `??` half is untouched, and R-49 — outside the ranking entirely —
-  fails closed by *R-35's* switch allowlist rather than by any gate of its own.
+  non-SILENT lane. A lane is not an entry: R-47's and R-53's FIXED lanes are the
+  `const` controls those entries declare for themselves, R-30's two FIXED lanes
+  are its `const`-scalar lane *and* its concat/template sinks, R-08's `===` half
+  fails closed while its `??` half is **still SILENT**, and R-49 — outside the
+  ranking entirely — fails closed by *R-35's* switch allowlist rather than by any
+  gate of its own.
 - **It does not license reading a cluster sum as a fix estimate.** G3 in
   particular: the register's §3 says in terms that G3's members are *not one code
-  path* — it is a shape of mistake with six independent instances. Its 45 is a
-  sum over a pattern. G4, G5, G6, G7 and G8 are labelled inference too; only G1
-  (which contributes nothing here, having no SILENT member) and part of G7 are
-  traced in source.
+  path* — it is a shape of mistake with six independent instances. **Both of G3's
+  numbers are sums over a pattern**: the 45 that puts it in reachable band 2 and,
+  more dangerously, the **305** that leads the raw axis's band 1, of which 302 is
+  R-13's construct-family count that §3.2 takes apart. Neither is an estimate of
+  what one allowlist would close. G4, G5, G6, G7 and G8 are labelled inference
+  too; only G1 (which contributes nothing here, having no SILENT member) and part
+  of G7 are traced in source.
 - **It does not turn a zero into "rare".** Twenty entries are
   `present-but-unreachable`. Their construct occurs; the carrying program was
   rejected for something else. Fixing an unrelated defect can move several of
