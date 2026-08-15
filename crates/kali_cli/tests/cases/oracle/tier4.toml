@@ -461,6 +461,37 @@ console.log(-1234567)
 }
 main();
 """
+"r30e_module.js" = """let s = 0n;
+s = String(42n);
+console.log(s);
+"""
+"r30e_function.js" = """function main() {
+  let s = 0n;
+  s = String(42n);
+  console.log(s);
+}
+main();
+"""
+"r30f_module.js" = """let s = 0n;
+s = String(42n);
+console.log("x", s);
+"""
+"r30f_function.js" = """function main() {
+  let s = 0n;
+  s = String(42n);
+  console.log("x", s);
+}
+main();
+"""
+"r30g_module.js" = """const s = String(42n);
+console.log(s);
+"""
+"r30g_function.js" = """function main() {
+  const s = String(42n);
+  console.log(s);
+}
+main();
+"""
 "r33a_module.js" = """console.warn("hi");
 """
 "r33a_function.js" = """function main() {
@@ -898,3 +929,87 @@ rationale = """R-32, negative-integer control lane, in-function scope. The modul
 Expected verdict FIXED, as for the module scope; the expected class assumes the scopes agree so that a disagreement goes red.
 
 MEASURED 2026-08-15 at `034ab0ec94` against node v26.7.0: FIXED. Byte-identical to the module scope."""
+
+[[case]]
+name = "r30e_string_result_reassigned_binding_single_arg_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30e_module.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, single-argument sink, module scope. This lane is NOT in the register's R-30 body; it is added by the console-render-unification project (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md` §5.1) as the REGRESSION GUARD for its central risk, and filed under R-30 because it constrains the same single-argument direct-log sink `r30a`/`r30b`/`r30c` measure.
+
+WHAT IT GUARDS. `emit_console_argument` (`crates/kali_codegen/src/emit/call.rs:23`, doc at `:31-37`) is deliberately EXEMPT from `string_result_render_taint` (`call.rs:4754`): the single-argument lane hands the host a raw tagged i64 and lets the host decode the string-handle tag at runtime, so a value that carries `String()`-result provenance prints correctly even though codegen's static check denies it elsewhere. The unification (spec §5.1) routes this lane through `emit_as_string`, which DOES consult the taint (`crates/kali_codegen/src/emit/operators.rs:1826`, the check at `:1835`). Doing that without preserving the exemption converts this working program into a fail-closed `E5506` -- a regression the register would score as a new entry.
+
+THE PROGRAM REACHES THE TAINT; A `const s = String(42n)` BINDING DOES NOT. An earlier draft of this case bound `s` with a single `const` declarator, and that program never engages `string_result_render_taint` at all: `is_string_valued` (`operators.rs:978`) proves a direct `String(<bigint-literal>)` call a real string outright (`string_coercion_arg_is_proven_at_depth`'s `is_bigint_literal_valued` arm, `call.rs:3971`), and `string_result_render_taint` short-circuits `false` whenever `is_string_valued` is already true (`call.rs:4756`) -- so that program cannot guard the exemption it was written to guard; see `r30g` for that shape kept honest under its own label. This program instead REASSIGNS a plain-value `let` after a non-string initializer, which defeats `repr_infer`'s MONOMORPHIC `Repr::String` seed (`crates/kali_types/src/repr_infer.rs:1627-1676`, `resolve_string_result_taint`): the initializer write `s = 0n` is classified `string_result_binding_plain`, so `binding_is_monomorphic` is false and `s` is never seeded a proven `Repr::String` even though the reassignment write still seeds the TAINT set unconditionally. `s` therefore reaches the render sink carrying the taint and NO positive proof -- the actual F-newB-1 shape the exemption exists for.
+
+Expected verdict FIXED, and it must remain FIXED across the whole project. If this case ever reads `fail_closed`, the unification took the exemption away and the change must be reverted, not accommodated.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FIXED. kali prints `42` at exit 0; node prints `42` at exit 0. Confirmed the taint is genuinely engaged and not bypassed by re-running the emitter's own reasoning rather than assuming it: `console.log("x", s)` on this identical binding fails closed `E5506` (see `r30f`), which only happens if `string_result_render_taint(s)` is true -- so this case's FIXED result is measured against a program that the taint predicate does see, not one it never reaches.
+
+WHAT IT DOES NOT ESTABLISH. It measures one `String()`-result shape at one sink. The taint's provenance analysis is a whole-program fixpoint over bindings, reassignments and returns; this case samples it at a single point and asserts nothing about the rest."""
+
+[[case]]
+name = "r30e_string_result_reassigned_binding_single_arg_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30e_function.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, single-argument sink, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`. See the module-scope case for what it guards, why the reassignment is load-bearing, and why it must stay FIXED.
+
+The scope pair matters here beyond convention: `string_result_render_taint` keys partly on binding names and partly on callee return provenance, and those resolve differently at module scope and inside a function (`binding_is_string_result`, `call.rs:4717-4727`, checks both the `_start` scope and the enclosing function's scope). A regression that took the exemption away at one scope only would show as a split pair rather than as silence.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FIXED. kali prints `42` at exit 0; node prints `42` at exit 0. Identical to the module scope -- this project's investigation found no scope divergence on this lane."""
+
+[[case]]
+name = "r30f_string_result_reassigned_binding_multi_arg_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30f_module.js"
+verdict = "fail_closed"
+rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, MULTI-argument sink, module scope. The pair to `r30e`: the identical binding, module-scope program, differing only in argument count at the sink (`console.log("x", s)` instead of `console.log(s)`).
+
+WHY IT EXISTS. `string_result_render_taint`'s own doc (`crates/kali_codegen/src/emit/call.rs:4729-4732`) lists its sinks as "`+`, template literal, multi-arg console via `emit_as_string`, or arithmetic operator lowering". So today kali gives two different answers for the SAME value depending on how many arguments the call has: `console.log(s)` prints (`r30e`, taint-exempt), `console.log("x", s)` fails closed `E5506` (this case, tainted). That is G8's own pattern -- two sinks, two answers -- one level down inside console itself (design spec §5.1.1).
+
+EXPECTED TO MOVE. This case is authored `fail_closed` to pin the CURRENT behavior, and the console-render-unification project deliberately flips it to `fixed` (spec §5.1.1). That flip is the project's single behavior widening, and pinning it from both sides is what makes the widening legible as a decision in the diff rather than as a side effect. A reader should be able to see exactly one fail-closed disappear, on purpose.
+
+The widening is safe on the same grounds as the design's §3.1: `value_to_string` renders the handle that the taint existed to keep away from `int_to_string`, so on the console path the hazard the deny guarded is gone rather than merely tolerated.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FAIL_CLOSED. kali exits nonzero (exit 1) with `error[E5506]: rendering a String() result bound to a variable (let/var/const) or returned from a function is unavailable in the current phase: kali seeds no string representation for it, so the tagged string handle would print as raw integer bits instead of the text; use the String() call inline at the render site (fail-closed; correct-output support is follow-up F-newB-1)`; node prints `x 42` at exit 0."""
+
+[[case]]
+name = "r30f_string_result_reassigned_binding_multi_arg_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30f_function.js"
+verdict = "fail_closed"
+rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, MULTI-argument sink, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`. See the module-scope case for why the lane exists and why it is expected to move to `fixed` in this project.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FAIL_CLOSED, matching the module scope. kali exits nonzero (exit 1) with the same `E5506` `STRING_RESULT_RENDER_DENY` message; node prints `x 42` at exit 0."""
+
+[[case]]
+name = "r30g_string_result_proven_binding_single_arg_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30g_module.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result PROVEN-BINDING lane, single-argument sink, module scope. This is the program the project's own plan originally proposed for `r30e` (`const s = String(42n); console.log(s);`), kept here under an honest label after this project's investigation showed it does NOT reach `string_result_render_taint` -- see `r30e` for the reassigned-binding program that actually does.
+
+WHAT THIS CASE ACTUALLY GUARDS -- NOT THE TAINT. `const s = String(42n)` is a single-write `const`, so `resolve_string_result_taint`'s monomorphic check (`crates/kali_types/src/repr_infer.rs:1627-1676`) has nothing non-string feeding it; more directly, `is_string_valued` (`crates/kali_codegen/src/emit/operators.rs:978`) proves a direct `String(<bigint-literal>)` CALL a real string handle outright through its `String(<coercible>)` arm (`operators.rs:1130-1134`, `string_coercion_call_arg` / `string_coercion_arg_is_proven_at_depth`'s `is_bigint_literal_valued` arm at `call.rs:3971`), independent of any taint. `string_result_render_taint` (`call.rs:4754`) short-circuits `false` whenever `is_string_valued` is already true (`call.rs:4756`) -- so this program never asks the taint predicate anything, at either the single- or multi-argument sink, and could not have caught the regression `r30e` guards.
+
+WHY IT IS KEPT ANYWAY. Task 5 routes the single-argument console lane through `emit_as_string`'s ladder for the first time -- a ladder that lane has never touched. `r30e` guards the taint-deny arm of that ladder; this case guards the SEPARATE proven-String handle-passthrough arm the same ladder also has, which a value like this one reaches instead. Guarding only the tainted arm would leave the proven arm's first-ever exposure on this lane uncovered, so this case is not redundant with `r30e` even though both print `42` today -- they exercise different arms of the ladder `emit_console_argument` is about to start using. This case does NOT exercise `string_result_render_taint`, and a reader must not mistake it for the regression guard `r30e` is.
+
+Expected verdict FIXED, and expected to remain FIXED across the whole project -- unlike `r30e`, a red result here would mean the proven-string arm broke, not that a taint exemption was lost.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FIXED. kali prints `42` at exit 0; node prints `42` at exit 0.
+
+WHAT IT DOES NOT ESTABLISH. It measures one proven-string shape at one sink, and it establishes nothing about the taint boundary -- that is `r30e`'s and `r30f`'s job, not this case's."""
+
+[[case]]
+name = "r30g_string_result_proven_binding_single_arg_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30g_function.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result PROVEN-BINDING lane, single-argument sink, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`. See the module-scope case for what this case guards (the proven-String passthrough arm, not the taint) and why it is kept despite not reaching `string_result_render_taint`.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FIXED. kali prints `42` at exit 0; node prints `42` at exit 0. Identical to the module scope -- no scope divergence measured on this lane."""

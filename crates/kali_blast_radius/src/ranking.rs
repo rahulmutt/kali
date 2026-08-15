@@ -951,9 +951,10 @@ pub fn render(root: &Path) -> String {
         "### 3.4 A lane result is not an entry result\n\n{} of the {} ranked entries measure \
          something other than SILENT on at least one lane, and none of them is thereby \
          retired: {}. §0.2 records why in each case — R-47's and R-53's FIXED lanes are the \
-         `const` controls those entries declare for themselves, and R-30's two FIXED lanes are \
-         its `const`-scalar lane *and* its concat/template sinks, so *declared control* is the \
-         accurate description and *`const` lane* is not. R-08's `===` half fails closed while \
+         `const` controls those entries declare for themselves, and R-30's four FIXED lanes are \
+         its `const`-scalar lane, its concat/template sinks, a taint-reaching `String()`-result \
+         console lane, and a proven-`String()` one, so *declared control* is the accurate \
+         description and *`const` lane* is not. R-08's `===` half fails closed while \
          its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking \
          at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An \
          entry is retired when every lane moves, which is a claim no single lane can make.\n",

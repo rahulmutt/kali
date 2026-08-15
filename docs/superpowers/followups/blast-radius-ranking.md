@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/.cache/cargo-target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `4cfa218814` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `0a3c4ec0cb` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `87673202a8` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -345,7 +345,7 @@ Every input to §2, so a reader who disagrees with the clustering can re-band fr
 | R-26 | 2 | 12 | 0 | 1 / 0 | 11 / 0 | SILENT | present-but-unreachable | yes (disclosed in record) | R-26 (unclustered) |
 | R-27 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | — | R-27 (unclustered) |
 | R-28 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT / SILENT | unsampled | — | R-28 (unclustered) |
-| R-30 | 4 | 73 | 57 | 61 / 57 | 12 / 0 | SILENT / FIXED | — | yes (disclosed in record) | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
+| R-30 | 4 | 73 | 57 | 61 / 57 | 12 / 0 | SILENT / FIXED / FAIL_CLOSED | — | yes (disclosed in record) | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
 | R-31 | 4 | 3 | 2 | 2 / 2 | 1 / 0 | SILENT / SILENT | — | — | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
 | R-32 | 4 | 6 | 5 | 0 / 0 | 6 / 5 | SILENT / FIXED | — | — | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
 | R-33 | 4 | 17 | 1 | 0 / 0 | 17 / 1 | SILENT / FIXED | — | — | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
@@ -403,7 +403,7 @@ A count is an upper bound when the predicate admits sites the defect does not re
 
 ### 3.4 A lane result is not an entry result
 
-11 of the 29 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED); R-32 (SILENT / FIXED); R-33 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). §0.2 records why in each case — R-47's and R-53's FIXED lanes are the `const` controls those entries declare for themselves, and R-30's two FIXED lanes are its `const`-scalar lane *and* its concat/template sinks, so *declared control* is the accurate description and *`const` lane* is not. R-08's `===` half fails closed while its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
+11 of the 29 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED / FAIL_CLOSED); R-32 (SILENT / FIXED); R-33 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). §0.2 records why in each case — R-47's and R-53's FIXED lanes are the `const` controls those entries declare for themselves, and R-30's four FIXED lanes are its `const`-scalar lane, its concat/template sinks, a taint-reaching `String()`-result console lane, and a proven-`String()` one, so *declared control* is the accurate description and *`const` lane* is not. R-08's `===` half fails closed while its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
 
 ## 4. The uncountable entries
 
