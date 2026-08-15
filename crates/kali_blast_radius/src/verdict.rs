@@ -46,6 +46,10 @@ impl Verdict {
 /// Is `code` in `specs/15-errors.md`'s public range registry, excluding the
 /// `E0xxx` internal family?
 ///
+/// The 5-family is documented only in its tens-ranges `E51xx` through `E55xx`;
+/// `E50xx` and `E56xx`-`E59xx` are not. The 6-9 families are documented as
+/// complete ranges: `E6xxx`, `E7xxx`, `E8xxx`, `E9xxx`.
+///
 /// `E4xxx` is deliberately NOT documented-in-spec: `E4003` (fuel trap) and
 /// `E4201` (WebAssembly translation error) are real and reachable, but the
 /// spec's range table has no `E4xxx` row at all. They therefore classify as
@@ -59,7 +63,15 @@ pub fn is_documented_code(code: &str) -> bool {
     if digits.len() != 4 || !digits.chars().all(|c| c.is_ascii_digit()) {
         return false;
     }
-    matches!(digits.as_bytes()[0], b'5' | b'6' | b'7' | b'8' | b'9')
+    let first_digit = digits.as_bytes()[0];
+    if first_digit == b'5' {
+        // E5xxx: only E51xx through E55xx are documented
+        let second_digit = digits.as_bytes()[1];
+        matches!(second_digit, b'1' | b'2' | b'3' | b'4' | b'5')
+    } else {
+        // E6xxx through E9xxx are fully documented families
+        matches!(first_digit, b'6' | b'7' | b'8' | b'9')
+    }
 }
 
 /// The first `error[Ennnn]` code in a captured stderr, if any.

@@ -112,7 +112,9 @@ fn documented_ranges_follow_the_errors_spec() {
             "{code} is in the spec's public ranges"
         );
     }
-    for code in ["E0001", "E4003", "E4201", "E1000", "W3002", "nonsense"] {
+    for code in [
+        "E0001", "E4003", "E4201", "E1000", "W3002", "nonsense", "E5000", "E5099", "E5601", "E5999",
+    ] {
         assert!(
             !is_documented_code(code),
             "{code} is not a documented error code"
