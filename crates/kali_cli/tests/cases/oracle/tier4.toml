@@ -452,6 +452,15 @@ main();
 }
 main();
 """
+"r32d_module.js" = """var n = -5; console.log(n)
+console.log(-1234567)
+"""
+"r32d_function.js" = """function main() {
+  var n = -5; console.log(n)
+  console.log(-1234567)
+}
+main();
+"""
 "r33a_module.js" = """console.warn("hi");
 """
 "r33a_function.js" = """function main() {
@@ -861,3 +870,31 @@ This scope had never been measured for this entry. As of `61c2d48ea9`, R-34's `V
 RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `a:1`, `a: 1`, `v=1` at exit 0; node prints `a:true`, `a: true`, `v=true` at exit 0. Byte-identical to the module scope on both engines.
 
 That agreement is this case's whole contribution, and it is a NEW observation: R-34 now has a measured in-function scope, and a nested boolean-returning callee renders exactly as a top-level one does. It is consistent with the register's traced mechanism, which is a property of a call-emission site rather than of a scope, but consistency is not proof and this case does not assert the mechanism."""
+
+[[case]]
+name = "r32d_negative_integer_direct_log_module_scope"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32d_module.js"
+verdict = "fixed"
+rationale = """R-32, negative-integer control lane, module scope. SINK: the same single-argument direct `console.log` as `r32a`/`r32b`. This lane is NOT in the register's R-32 body; it is added by the console-render-unification project (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md` §3.1) as a CONTROL, and it is filed under R-32 because it pins a boundary of the same direct-log number sink that entry owns.
+
+WHY IT EXISTS. `STRING_HANDLE_TAG` is `0x8000_0000_0000_0000` (`crates/kali_runtime/src/host/memory.rs:291`) -- the sign bit. Every negative i64 carries it, so `format_console_value` attempts a string-handle decode on every negative integer it renders. It survives only because the decoded offset/length fail `read_guest_bytes`' bounds check and the integer fallback runs. That is correctness by bounds-check failure, and this case is what pins it: if a future representation change makes some negative integer's bit pattern decode to a valid in-bounds range, this case goes red instead of a program silently printing garbage bytes.
+
+Expected verdict FIXED: both engines exit 0 with identical stdout.
+
+MEASURED 2026-08-15 at `034ab0ec94` against node v26.7.0: FIXED. kali prints `-5` then `-1234567`; node prints the same.
+
+WHAT IT DOES NOT ESTABLISH. It measures two negative integers, not the property that no negative integer decodes in-bounds -- which is not testable by example and is recorded as an open hazard in the spec's §3.1 and §8 rather than asserted here."""
+
+[[case]]
+name = "r32d_negative_integer_direct_log_in_function"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32d_function.js"
+verdict = "fixed"
+rationale = """R-32, negative-integer control lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition. See the module-scope case for why this lane exists.
+
+Expected verdict FIXED, as for the module scope; the expected class assumes the scopes agree so that a disagreement goes red.
+
+MEASURED 2026-08-15 at `034ab0ec94` against node v26.7.0: FIXED. Byte-identical to the module scope."""

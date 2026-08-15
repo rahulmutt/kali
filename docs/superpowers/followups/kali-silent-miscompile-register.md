@@ -219,8 +219,8 @@ by **two** cases, module scope and in-function, and **the two scopes agreed on t
 class for every lane of every entry** — there is no entry in this table whose class
 depends on scope. Five entries (R-07, R-09, R-13, R-20, R-54) carry an additional
 case in `classifier_ground_truth.toml`, which measures the classifier on that
-entry's own repro; those cases agree with the tier files. **143 cases back the 41
-rows.** The oracle directory holds 147; the other four carry
+entry's own repro; those cases agree with the tier files. **145 cases back the 41
+rows.** The oracle directory holds 149; the other four carry
 `register_entry = "GROUND-TRUTH"`, measure the classifier rather than any entry,
 and are therefore attributable to no row — `agree.js`, `both_reject.js`,
 `hang.js` and `nondeterministic.js`. A reader auditing the mapping should expect
@@ -3310,6 +3310,14 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   Tier 1 and R-53 to §2's Tier 2: `grep -c "^### R-"` now returns **42** while §2 holds
   **41** tier-ranked entries (8 + 26 + 2 + 5). The difference is still exactly **1**, and it
   is still this entry — R-50 is the sole `### R-` header outside §2's tier headings.
+  **Re-counted 2026-08-15** by the console-render-unification project
+  (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md`), after
+  filing **R-55** in this same section: `grep -c "^### R-"` now returns **43** while §2
+  still holds **41** tier-ranked entries. **The difference is now 2, not 1** — the claim,
+  not only the count, has changed. The two `### R-` headers outside §2's tier headings
+  are **R-50 and R-55**, both filed in **§7**, and both for the same reason: each is
+  fail-loudly-but-wrong rather than silent, so neither belongs in §1's tier table or in
+  §2's ranking.
 - **Cross-referenced 2026-07-29** from
   `docs/superpowers/followups/r35-switch-boundary-rederived.md` ("What this matrix does NOT
   cover, and the entry that does"). That file had no reference to R-50 at all, which meant a
@@ -3369,6 +3377,72 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   forms", never as "the sequence expression is the only one".
 - **Confidence**: high on behavior (differential, both binaries, both freshly built); high on
   mechanism (the `file:line` is named and the error text matches the token exactly).
+
+---
+
+### R-55: A numeric literal at or past `1e21` never reaches the JS number formatter — expanded digits in every sink, invalid wasm in concat
+
+- **Added**: 2026-08-15, by the console-render-unification project
+  (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md` §1.3),
+  found while scoping R-32. **It is not R-32**, and the two must not be merged:
+  R-32 is a per-sink rendering divergence and closes when the sinks agree; this
+  one diverges in *every* sink, including the ones R-32 records as correct.
+- **Verification**: measured 2026-08-15 at `034ab0ec94` against `node v26.7.0`,
+  with the just-inside control that pins the boundary. `034ab0ec94` is the
+  commit whose tree this task's compiled binary was built from; none of this
+  task's own changes touch `kali_runtime`/`kali_cli` compiled source, so every
+  measurement recorded in this entry -- and in the `r32d` oracle cases --
+  reflects that same tree regardless of which later commit this prose itself
+  lands in.
+- **Repro**, three lanes, all three independently run (not two measured and one
+  inferred):
+  ```js
+  console.log(1e21);            // kali 1000000000000000000000, node 1e+21
+  var x = 1e21; console.log(x); // kali 1000000000000000000000, node 1e+21
+  console.log("v=" + 1e21);     // kali error[E4201], node v=1e+21
+  ```
+  The bound-variable line was flagged in review as unrun and therefore
+  unsupported -- the direct-log and binding lines disagree at the neighbouring
+  `1e-7` boundary (`console.log(1e-7)` prints `0.0000001`, `var y=1e-7;
+  console.log(y)` prints `1e-7`), so a reader could not assume the
+  bound-variable lane at `1e21` from the bare-literal lane alone. Neither of
+  those two `1e-7` values is a standing oracle case: no `r32*` case measures
+  the binding lane at all (`r32a`/`r32b` are both the direct-log lane's bare
+  literal, at `1e21` and `1e20`; `r32c` is the concat lane), so the pair comes
+  from this project's own Step 1 probes `a`/`b`, measured at `034ab0ec94`, not
+  from a citable case. The bound-variable line at `1e21` itself was measured
+  the same way, directly (`var x = 1e21; console.log(x);`, at `034ab0ec94`),
+  and it CONFIRMS the line as written: kali `1000000000000000000000`, node
+  `1e+21`, byte for byte what the repro claims.
+- **Why it is not a rendering defect.** `format_js_number`
+  (`crates/kali_runtime/src/host/imports_default.rs`) is `ryu_js`, which
+  implements ECMAScript `Number::toString` and therefore has **both** thresholds.
+  `1e-7` renders correctly through the binding and concat lanes, which prove the
+  formatter works. `1e21` renders wrongly through *every* lane, which proves the
+  value never reaches the formatter at all. The defect is upstream, in how the
+  literal is classified and emitted.
+- **The concat lane is the loud one.** `"v=" + 1e21` fails to produce valid wasm
+  (`error[E4201]: failed to load WASM module: failed to compile`), so this entry
+  is fail-loudly-but-wrong, not silent — which is why it is filed here and not in
+  §2, and why it carries no §0.2 row and no verdict class.
+- **Boundary, per lane, all four cells measured.** `console.log(1e20)` (direct-log)
+  and `var x=1e20; console.log(x)` (binding) both match node digit for digit
+  (`100000000000000000000`) -- for these two lanes, `1e20` is the last correct
+  value and `1e21` the first wrong one, exactly the ECMAScript exponential
+  threshold, so the classification is keyed on the right constant and applied
+  in the wrong place. **The concat lane does not share this boundary.**
+  `console.log("v=" + 1e20)` also fails to compile (`error[E4201]`, the same
+  diagnostic `1e21` produces there), while node prints
+  `v=100000000000000000000` -- so concat is already broken at `1e20` and "1e20
+  is correct in every lane" does NOT hold. This task did not probe below
+  `1e20` in concat, so the concat lane's own threshold -- if it has one, rather
+  than failing on every sufficiently-long numeric literal regardless of
+  ECMAScript's threshold -- is unestablished; only that it is broken at both
+  measured magnitudes.
+- **Not fixed by the console-render-unification project**, which states so in its
+  §8. That project makes the sinks agree; this defect is upstream of all of them.
+- **Severity**: not silent. The direct-log lane is a wrong answer at exit 0; the
+  concat lane is a hard compile failure on valid JavaScript.
 
 ---
 
