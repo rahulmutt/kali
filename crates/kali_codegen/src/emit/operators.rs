@@ -2,10 +2,13 @@ use crate::*;
 
 /// Which sink is consuming a string coercion.
 ///
-/// The first three arms of `emit_as_string` -- proven string, boolean shape,
-/// float -- are where all the repr knowledge lives and are shared by every
-/// caller. Only the TERMINAL arm differs, and it differs for a measured reason
-/// rather than a stylistic one (spec §3.1):
+/// The five pre-terminal arms of `emit_as_string` -- the USP null-sentinel
+/// materialize, proven string, emitted-shape string, boolean shape, float --
+/// are where all the repr knowledge lives and are shared by every caller. (The
+/// USP arm is the one a reader skims past: it turns a `q.get(<absent>)` `0`
+/// sentinel into the interned `"null"` handle, and it runs first, ahead of every
+/// other arm.) Only the TERMINAL arm differs, and it differs for a measured
+/// reason rather than a stylistic one (spec §3.1):
 ///
 /// - `Concat` keeps `int_to_string`, and keeps the `string_result_render_taint`
 ///   deny that protects it. Unchanged in every respect.
@@ -1862,12 +1865,25 @@ impl<'a> FunctionEmitter<'a> {
         // divergence. Fail CLOSED. Positive provenance only, so a genuine `I64`
         // (the acceptance fixture's `left`/`right` bigint params) is untouched.
         //
-        // CONSOLE IS EXEMPT, and was exempt before this ladder was shared:
+        // CONSOLE IS EXEMPT, and the exemption is half conservative and half
+        // deliberately new. Read both halves before changing this condition.
+        //
+        // The SINGLE-argument lane was exempt before this ladder was shared:
         // `emit_console_argument` used to bypass `emit_as_string` entirely and
-        // hand the host a raw tagged i64, which the host decodes correctly. The
+        // hand the host a raw tagged i64, which the host decodes correctly. That
         // exemption is what makes `console.log(s)` print for a `String()`-result
         // binding, and `r30e` is the case that keeps it honest. Applying the
         // deny here would convert working programs into E5506.
+        //
+        // The MULTI-argument lane, by contrast, WAS tainted until this ladder
+        // was shared, and un-tainting it is this project's single deliberate
+        // behavior widening (design spec §5.1.1), pinned by `r30f`:
+        // `console.log("x", s)` on that same binding used to fail closed and now
+        // prints. It is safe on the same grounds — `value_to_string` renders the
+        // handle the deny existed to keep away from `int_to_string`, so on this
+        // arm the hazard is gone rather than tolerated. `r30e` guards the
+        // conservative half and `r30f` the widened one; a change to this
+        // condition that moves either is a behavior change, not a refactor.
         if sink == StringSink::Concat && self.string_result_render_taint(id) {
             self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
             return;

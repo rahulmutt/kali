@@ -43,9 +43,16 @@ impl<'a> FunctionEmitter<'a> {
     /// string. `emit_as_string` is the shared coercion ladder (string handle
     /// passthrough, `true`/`false` for shape-`Boolean` values,
     /// `float_to_string` for floats, and the [`StringSink`]-selected terminal
-    /// arm otherwise), so console rendering agrees with `+` rendering by
-    /// construction instead of via a second hand-mirrored ladder — and, under
-    /// `StringSink::Console`, agrees with the single-argument lane too.
+    /// arm otherwise), so console rendering agrees with `+` rendering for every
+    /// value that reaches the shared arms, by construction instead of via a
+    /// second hand-mirrored ladder — and agrees with the single-argument lane
+    /// completely, since both take `StringSink::Console`.
+    ///
+    /// The agreement with `+` stops at the two places the sink chooses: the
+    /// terminal arm (`value_to_string` here, `int_to_string` there) and the
+    /// `string_result_render_taint` deny (skipped here, applied there). A
+    /// `String()`-result reassigned binding is the value that separates them —
+    /// console prints it, `+` fails closed (`r30e`/`r30f`).
     ///
     /// The object-reference rejection is duplicated from the single-argument
     /// lane deliberately: it must apply to EVERY argument position, not just
@@ -978,11 +985,27 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            // Zero- and single-argument calls keep the pre-existing lowering
-            // byte-identically: the raw tagged i64 goes to the host, which
-            // renders it. Routing them through the stringify path instead would
-            // move every single-argument `console.log` in the suite (and in the
-            // CLBG goldens) onto a different rendering seam for no benefit.
+            // The single-argument lane USED to keep the pre-existing lowering
+            // byte-identically -- the raw tagged i64 straight to the host, which
+            // rendered it -- on the grounds that moving it onto the stringify
+            // seam would change every single-argument `console.log` in the suite
+            // and in the CLBG goldens for no benefit. That reasoning is
+            // superseded: the seam moved deliberately, because the host alone
+            // CANNOT render correctly. It holds the runtime tag but no repr, so
+            // it cannot tell a boolean from an integer and printed `1` for
+            // `console.log(b)` (R-30). `emit_console_argument` now shares
+            // `emit_as_string` under `StringSink::Console`, which has the repr
+            // and, in `value_to_string`, a terminal arm that still consults the
+            // runtime tag.
+            //
+            // The cost objection the old comment raised was answered by
+            // measurement rather than dismissed. Zero-argument calls still emit
+            // the bare `i64.const 0` below, untouched. And a string-valued
+            // argument returns at the ladder's proven-string arm, ahead of the
+            // terminal arm, so it emits no new call at all -- which is what the
+            // goldens' hot single-argument logs are (fasta's `seq.substring(…)`
+            // and `line.join("")` per output line, the `.toFixed(9)` results).
+            // What did move is every argument the host was rendering blind.
             if let Some(first_arg) = args.first() {
                 self.emit_console_argument(function, *first_arg);
             } else {
