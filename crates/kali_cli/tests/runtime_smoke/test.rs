@@ -11376,7 +11376,10 @@ fn test_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("0\n1\n1\n1\n1\n1\n1"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("false\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue"),
+        "stdout: {stdout}"
+    );
 }
 
 #[test]

@@ -43,7 +43,7 @@ name = "run_supports"
 rationale = "`.some()`/`.every()` number predicates over runtime (non-statically-foldable) arrays are supported by `run`, printing each predicate's boolean result in order."
 args = ["run", "main.js"]
 exit = "success"
-stdout = "1\n0\n1\n0\n1\n1\n"
+stdout = "true\nfalse\ntrue\nfalse\ntrue\ntrue\n"
 
 [[case]]
 name = "json_run_supports"
@@ -53,7 +53,7 @@ exit = "success"
 json.schemaVersion = 1
 json.command = "run"
 json.success = true
-json.stdout = "1\n0\n1\n0\n1\n1\n"
+json.stdout = "true\nfalse\ntrue\nfalse\ntrue\ntrue\n"
 json.errors = []
 
 [[case]]
@@ -61,7 +61,7 @@ name = "test_supports"
 rationale = "The same number predicates inside a `Kali.test` block, run via `test`. The original assertion combined `starts_with` on this six-line block with a separate `contains(\"ok 1\")` check; both are subsumed by the exact `stdout` equality below (verified against the real binary -- see file header)."
 args = ["test", "smoke.test.js"]
 exit = "success"
-stdout = "1\n0\n1\n0\n1\n1\nok 1\n"
+stdout = "true\nfalse\ntrue\nfalse\ntrue\ntrue\nok 1\n"
 
 [[case]]
 name = "json_test_supports"
@@ -73,5 +73,5 @@ json.command = "test"
 json.success = true
 json.payload.passed = 1
 json.payload.failed = 0
-json.stdout = "1\n0\n1\n0\n1\n1\n"
+json.stdout = "true\nfalse\ntrue\nfalse\ntrue\ntrue\n"
 json.errors = []

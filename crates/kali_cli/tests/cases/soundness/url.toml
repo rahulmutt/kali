@@ -233,13 +233,13 @@ stdout = """7
 name = "usp_append_and_has"
 rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
 
-Dynamic booleans render `1`/`0` (the P3-ratified convention — see `soundness_abort::aborted_flag_reads_zero_then_one`; node prints true/false, a documented divergence never used in byte-for-byte acceptance). `.has` flows through the same boolean-print lane as `.aborted`, so it renders `1`/`0` too.
+Dynamic-boolean rendering, UPDATED by `console-render-unification` Task 5b: `.has` is tagged `ValueShape::Boolean` at the call site (`crates/kali_codegen/src/emit/call.rs`'s `Some("has")` arm), the same explicit-Boolean-shape pattern as `.aborted` (see `soundness_abort::signal_alias_reads_shared_cell`). The shared string-coercion ladder can now prove that shape through `console.log`, so `.has` renders `true`/`false` rather than the raw `1`/`0` i64 this case previously pinned under the P3 convention.
 
 Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
 args = ["run", "usp_append_and_has.js"]
 exit = "success"
-stdout = """1
-0
+stdout = """true
+false
 """
 
 [[case]]

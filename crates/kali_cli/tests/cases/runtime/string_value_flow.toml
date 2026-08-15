@@ -207,12 +207,18 @@ The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `as
 
 RE-PIN (throw-fallout Stage 1): `b == "xy"` on a FRESH runtime concat
 handle is now CONTENT equality via `__streq` (node: true). The old pin
-asserted the E3200 fail-closed reject that Stage 1 lifted. kali prints
-the comparison as `1` (same pre-existing boolean-print lane
-`interned_literal_equality_is_preserved` pins)."""
+asserted the E3200 fail-closed reject that Stage 1 lifted. UPDATED by
+`console-render-unification` Task 5b: kali now prints the comparison as
+`true` (same console-render lane `interned_literal_equality_is_preserved`
+pins) -- `console-render-unification` routed both console lanes through
+one shared string-coercion ladder, and an `==` comparison node's result is
+a shape the ladder can prove regardless of const-foldability, so this
+dynamic comparison now renders the JS word rather than the raw `1`/`0`
+i64. The `__streq` content-equality lane itself is unchanged; only the
+word used to print its result moved."""
 args = ["run", "concat_result_equality_compares_content.ts"]
 exit = "success"
-stdout = "1\n"
+stdout = "true\n"
 
 [[case]]
 name = "concat_result_truthiness_is_rejected"
@@ -249,10 +255,13 @@ The source asserts `out.status.success()`, pinned as `exit = "success"`. Its `as
 
 A literal-rooted string variable is an INTERNED handle: identity equality
 == value equality, so `s == "hi"` is correct on the base compiler and
-must stay correct here (only runtime-concat handles are rejected)."""
+must stay correct here (only runtime-concat handles are rejected).
+UPDATED by `console-render-unification` Task 5b: this comparison result
+now renders `true`, not `1` -- see `concat_result_equality_compares_content`'s
+doc comment for why."""
 args = ["run", "interned_literal_equality_is_preserved.ts"]
 exit = "success"
-stdout = "1\n"
+stdout = "true\n"
 
 [[case]]
 name = "mixed_literal_int_and_string_element_store_is_rejected"

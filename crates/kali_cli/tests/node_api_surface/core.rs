@@ -1337,7 +1337,11 @@ fn node_api_surface_supports_process_kill_zero_probe_in_js_ts_jsx_and_tsx_input_
                 );
                 if command == "run" {
                     let stdout = String::from_utf8_lossy(&text_output.stdout);
-                    assert!(stdout.contains("1"), "{command} stdout: {stdout}");
+                    // UPDATED by console-render-unification Task 5b: every probe in this
+                    // fixture's run source is a directly-named `process.kill(...)` call, a
+                    // shape the shared string-coercion ladder can now prove Boolean, so the
+                    // probe renders `true` rather than the raw `1` i64 this check used to see.
+                    assert!(stdout.contains("true"), "{command} stdout: {stdout}");
                 }
             }
 
@@ -1571,7 +1575,12 @@ fn node_api_surface_supports_process_kill_zero_probe_through_static_zero_aliases
                 );
                 if command == "run" {
                     let stdout = String::from_utf8_lossy(&text_output.stdout);
-                    assert!(stdout.contains("1"), "{command} stdout: {stdout}");
+                    // UPDATED by console-render-unification Task 5b: the directly-named call
+                    // targets in this fixture now render `true` (a shape the shared ladder can
+                    // prove); the six sequence-expression-selected targets (`sequenceKill` and
+                    // its aliases) are NOT a directly-provable call target and still render the
+                    // raw `0`/`1` i64 -- unaffected by this fix, same as a plain binding read.
+                    assert!(stdout.contains("true"), "{command} stdout: {stdout}");
                 }
             }
 
@@ -1691,7 +1700,11 @@ fn node_api_surface_supports_process_kill_zero_probe_object_freeze_wrappers_in_j
                 );
                 if command == "run" {
                     let stdout = String::from_utf8_lossy(&text_output.stdout);
-                    assert!(stdout.contains("1"), "{command} stdout: {stdout}");
+                    // UPDATED by console-render-unification Task 5b: every probe in this
+                    // fixture's run source is a directly-named `process.kill(...)` call, a
+                    // shape the shared string-coercion ladder can now prove Boolean, so the
+                    // probe renders `true` rather than the raw `1` i64 this check used to see.
+                    assert!(stdout.contains("true"), "{command} stdout: {stdout}");
                 }
             }
 

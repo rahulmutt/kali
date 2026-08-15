@@ -132,7 +132,7 @@ console.log("not=" + (!true));
 }
 console.log(f());
 """
-"dynamic_console_boolean_rendering_is_a_known_residual.ts" = """console.log(1 === 1);
+"dynamic_console_boolean_rendering_of_provable_shapes_is_fixed.ts" = """console.log(1 === 1);
 console.log(1 === 2);
 console.log(true && false);
 console.log(false || true);
@@ -319,27 +319,27 @@ exit = "success"
 stdout = "truefalse\n"
 
 [[case]]
-name = "dynamic_console_boolean_rendering_is_a_known_residual"
+name = "dynamic_console_boolean_rendering_of_provable_shapes_is_fixed"
 rationale = """Soundness pins for two core-operator silent miscompiles closed in the PR #16 merge-readiness batch:
 
 1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression` node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared operand pre-pass emitted BOTH operands unconditionally before combining them with a single `I64And`/`I64Or`. Branch OUTCOMES were correct (for 0/1 operands), so the defect was invisible in control-flow position and surfaced only as the right-hand operand's side effects running when JS says they must not: `if (false && boom())` still called `boom()`. The bitwise combine was also wrong in value position — `2 && 1` folded to `2 & 1 == 0` and JS's value-returning semantics (`a && b` yields `a` when `a` is falsy, else `b`) were not implemented at all. Fixed by excluding `&&`/`||` from the unconditional pre-emit and lowering each to a real `If`/`Else` over a scratch local, mirroring the `??` arm that already did this correctly.
 
 2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+` string-concat coercion) had a three-way string/float/`else`-is-an-int ladder with no boolean arm, so a boolean operand took `int_to_string` and `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL looked correct only because a separate static-render path keys on the literal text. Fixed by giving `emit_as_string` a boolean arm that selects between the interned `"true"`/`"false"` handles.
 
-Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) has the identical defect and is deliberately left alone here — fixing it invalidates ~130 existing assertions that pin the `1`/`0` rendering, which is a mass re-pin wave rather than a contained fix. It is pinned as a known residual at the bottom of this file.
+Scope note, AS OF THIS COMMIT: the SIBLING choke point (`emit_console_argument`, the dynamic `console.log` path) had the identical defect and was deliberately left alone here — fixing it would have invalidated ~130 existing assertions that pinned the `1`/`0` rendering, a mass re-pin wave rather than a contained fix. It was pinned as a known residual at the bottom of this file (see below for what has since happened to that pin).
 
 Every golden in this file was verified against node v26.
 
----- Defect 2: boolean rendering in string position ----
+---- Defect 2: boolean rendering in string position — UPDATE (console-render-unification, Task 5b) ----
 
-Documents the CURRENT (still-wrong) behavior of the sibling stringify choke point that this change deliberately does NOT touch, so the residual is pinned and visible rather than forgotten.
+This case originally documented the CURRENT-AT-THE-TIME (still-wrong) behavior of the sibling stringify choke point that PR #16 deliberately did not touch, so the residual was pinned and visible rather than forgotten: `emit_console_argument` had the same missing boolean arm as `emit_as_string`, so a boolean reaching `console.log` DYNAMICALLY printed `1`/`0` where node printed `true`/`false`.
 
-`emit_console_argument` has the same missing boolean arm as `emit_as_string`, so a boolean reaching `console.log` DYNAMICALLY still prints `1`/`0` where node prints `true`/`false`. (A bare `console.log(true)` looks correct only because `render_static_value` folds the literal text upstream.) Adding the arm is a two-line change and was verified to work — but it invalidates ~130 existing assertions across the suite that pin the `1`/`0` rendering, which is a mass re-pin wave, not part of this contained fix.
+The `console-render-unification` design subsequently deleted `emit_console_argument`'s hand-rolled body and routed BOTH console lanes through the one shared `emit_as_string` ladder (gated by a `StringSink` parameter, `Concat` vs `Console`), closing exactly the choke-point split this case's rationale predicted would need "the console.log wave" to land. All four values below are shapes the ladder can prove without a constant fold — an `===` comparison result and an `&&`/`||` result both carry a known Boolean shape at the point they reach `console.log` — so this case's own four assertions now render `true`/`false`, matching node, and the test is renamed to say so.
 
-It is also a RATIFIED CONVENTION, not merely an accident: see the comment on `aborted_flag_reads_zero_then_one` in `soundness_abort.rs` — "Dynamic booleans render 1/0 (ratified P2 convention; node prints true/false — documented divergence, never used in byte-for-byte acceptance fixtures)". Changing it therefore needs maintainer ratification, not just a re-pin wave. This commit narrows that convention to `console.log` only: booleans in string CONCATENATION are now node-correct, per the explicit scope exception. When the console.log wave lands, this test flips to `true/false`."""
-args = ["run", "dynamic_console_boolean_rendering_is_a_known_residual.ts"]
+This is NOT the same as saying dynamic boolean rendering is unconditionally fixed. `kali_common::Repr` still has no `Boolean` variant at all (`crates/kali_common/src/repr.rs`): a PLAIN BINDING READ of a boolean (`var b = true; console.log(b)`) still prints `1`, because a bare local/global read emits `ValueShape::Unknown`, not `Boolean` — there is no `is_boolean_valued` repr consult mirroring the float lane's `is_float_valued`. That general defect remains open and is out of scope here; only the shapes the ladder can already prove (comparison results, `&&`/`||` results, literals, const-folded values) moved."""
+args = ["run", "dynamic_console_boolean_rendering_of_provable_shapes_is_fixed.ts"]
 exit = "success"
-stdout = "1\n0\n0\n1\n"
+stdout = "true\nfalse\nfalse\ntrue\n"
 
 [[case]]
 name = "boolean_rendering_does_not_leak_into_numeric_lane"

@@ -53,7 +53,7 @@ name = "run_supports_object_is_through_object_freeze_same_reference_in_js_input"
 rationale = "Object.is(frozen, object) is a reference-identity check: freezing an object never changes its identity, so both the alias returned by Object.freeze and every bracket/dot spelling of Object.is must agree it's the same reference."
 args = ["run", "main.js"]
 exit = "success"
-stdout = "1\n1\n1\n1\n"
+stdout = "true\ntrue\ntrue\ntrue\n"
 
 [[case]]
 name = "json_run_supports_object_is_through_object_freeze_same_reference_in_js_input"
@@ -63,7 +63,7 @@ exit = "success"
 json.schemaVersion = 1
 json.command = "run"
 json.success = true
-json.stdout = "1\n1\n1\n1\n"
+json.stdout = "true\ntrue\ntrue\ntrue\n"
 json.errors = []
 
 [[case]]
@@ -71,21 +71,21 @@ name = "run_supports_object_is_through_object_freeze_same_reference_in_ts_input"
 rationale = "Same freeze-identity check holds across every supported source class, not just plain JS -- ts source."
 args = ["run", "main.ts"]
 exit = "success"
-stdout = "1\n1\n1\n1\n"
+stdout = "true\ntrue\ntrue\ntrue\n"
 
 [[case]]
 name = "run_supports_object_is_through_object_freeze_same_reference_in_jsx_input"
 rationale = "Same freeze-identity check holds across every supported source class, not just plain JS -- jsx source."
 args = ["run", "main.jsx"]
 exit = "success"
-stdout = "1\n1\n1\n1\n"
+stdout = "true\ntrue\ntrue\ntrue\n"
 
 [[case]]
 name = "run_supports_object_is_through_object_freeze_same_reference_in_tsx_input"
 rationale = "Same freeze-identity check holds across every supported source class, not just plain JS -- tsx source."
 args = ["run", "main.tsx"]
 exit = "success"
-stdout = "1\n1\n1\n1\n"
+stdout = "true\ntrue\ntrue\ntrue\n"
 
 [[case]]
 name = "json_run_supports_object_is_through_object_freeze_same_reference_in_ts_input"
@@ -95,7 +95,7 @@ exit = "success"
 json.schemaVersion = 1
 json.command = "run"
 json.success = true
-json.stdout = "1\n1\n1\n1\n"
+json.stdout = "true\ntrue\ntrue\ntrue\n"
 json.errors = []
 
 [[case]]
@@ -106,7 +106,7 @@ exit = "success"
 json.schemaVersion = 1
 json.command = "run"
 json.success = true
-json.stdout = "1\n1\n1\n1\n"
+json.stdout = "true\ntrue\ntrue\ntrue\n"
 json.errors = []
 
 [[case]]
@@ -117,7 +117,7 @@ exit = "success"
 json.schemaVersion = 1
 json.command = "run"
 json.success = true
-json.stdout = "1\n1\n1\n1\n"
+json.stdout = "true\ntrue\ntrue\ntrue\n"
 json.errors = []
 
 [[case]]
@@ -125,7 +125,7 @@ name = "test_supports_object_is_through_object_freeze_same_reference_in_js_input
 rationale = "Same freeze-identity check, run through `Kali.test(...)` via the `test` command instead of `run`."
 args = ["test", "smoke.test.js"]
 exit = "success"
-stdout_contains = ["1\n1\n1\n", "ok 1"]
+stdout_contains = ["true\ntrue\ntrue\n", "ok 1"]
 
 [[case]]
 name = "json_test_supports_object_is_through_object_freeze_same_reference_in_js_input"
@@ -144,21 +144,21 @@ name = "test_supports_object_is_through_object_freeze_same_reference_in_ts_input
 rationale = "Same Kali.test freeze-identity check holds across every supported source class -- ts source."
 args = ["test", "smoke.test.ts"]
 exit = "success"
-stdout_contains = ["1\n1\n1\n", "ok 1"]
+stdout_contains = ["true\ntrue\ntrue\n", "ok 1"]
 
 [[case]]
 name = "test_supports_object_is_through_object_freeze_same_reference_in_jsx_input"
 rationale = "Same Kali.test freeze-identity check holds across every supported source class -- jsx source."
 args = ["test", "smoke.test.jsx"]
 exit = "success"
-stdout_contains = ["1\n1\n1\n", "ok 1"]
+stdout_contains = ["true\ntrue\ntrue\n", "ok 1"]
 
 [[case]]
 name = "test_supports_object_is_through_object_freeze_same_reference_in_tsx_input"
 rationale = "Same Kali.test freeze-identity check holds across every supported source class -- tsx source."
 args = ["test", "smoke.test.tsx"]
 exit = "success"
-stdout_contains = ["1\n1\n1\n", "ok 1"]
+stdout_contains = ["true\ntrue\ntrue\n", "ok 1"]
 
 [[case]]
 name = "json_test_supports_object_is_through_object_freeze_same_reference_in_ts_input"

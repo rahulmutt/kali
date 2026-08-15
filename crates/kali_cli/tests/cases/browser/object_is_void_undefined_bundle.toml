@@ -122,7 +122,7 @@ body = """const mod = await import(bundleJs.href);
 await mod.objectIsVoidUndefined();
 """
 exit = "success"
-stdout_contains = ["1\n1\n1\n"]
+stdout_contains = ["true\ntrue\ntrue\n"]
 
 [[case]]
 name = "json_build_emits_object_is_void_undefined"
@@ -145,4 +145,4 @@ body = """const mod = await import(bundleJs.href);
 await mod.objectIsVoidUndefined();
 """
 exit = "success"
-stdout_contains = ["1\n1\n1\n"]
+stdout_contains = ["true\ntrue\ntrue\n"]

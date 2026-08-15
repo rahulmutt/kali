@@ -662,12 +662,12 @@ rationale = """Stage P5 — String() coercion + TextEncoder/TextDecoder soundnes
 
 decode output is a normal string: CONTENT comparison + concat work.
 
-The brief's literal expectation was `"true"`; kali renders a RUNTIME comparison result as `1`/`0`, not `true`/`false` (pre-existing and unrelated to this lane — `let x='ab'; console.log(x === 'ab')` prints `1` on the parent commit too; only STATICALLY FOLDED comparisons render the JS word). Asserting `1`/`0` pins the same property the brief wanted — that the decode result takes the `__streq` content-equality lane instead of failing closed or comparing raw handles — without smuggling an unrelated console-rendering change into this task.
+The brief's literal expectation was `"true"`. At the parent commit kali rendered a RUNTIME comparison result as `1`/`0`, not `true`/`false` (`let x='ab'; console.log(x === 'ab')` printed `1` there too; only STATICALLY FOLDED comparisons rendered the JS word), so this pin was deliberately asserted as `1`/`0` to pin the same property the brief wanted — that the decode result takes the `__streq` content-equality lane instead of failing closed or comparing raw handles — without smuggling an unrelated console-rendering change into this task. `console-render-unification` subsequently routed both console lanes through one string-coercion ladder, and the shape a direct inline `===` comparison node carries (not a plain binding read of a boolean) is one the ladder can prove, so this comparison now renders `true`/`false` through `console.log`, matching the brief's original literal expectation. The `__streq` lane itself is unchanged; only the word used to print its result moved.
 
 Compile+run, assert success, return trimmed stdout."""
 args = ["run", "decode_result_is_a_real_string_streq_true.js"]
 exit = "success"
-stdout = "1\n"
+stdout = "true\n"
 
 [[case]]
 name = "decode_result_is_a_real_string_streq_false"
@@ -678,7 +678,7 @@ A decoded string compared by content (`===`) against a non-matching literal take
 Compile+run, assert success, return trimmed stdout."""
 args = ["run", "decode_result_is_a_real_string_streq_false.js"]
 exit = "success"
-stdout = "0\n"
+stdout = "false\n"
 
 [[case]]
 name = "decode_result_is_a_real_string_concat"
@@ -1352,7 +1352,7 @@ Consumers of the same `is_string_valued` proof that the widened arm also makes c
 Compile+run, assert success, return trimmed stdout."""
 args = ["run", "bare_string_call_compares_by_content_eq_true.js"]
 exit = "success"
-stdout = "1\n"
+stdout = "true\n"
 
 [[case]]
 name = "bare_string_call_compares_by_content_eq_false"
@@ -1363,7 +1363,7 @@ Consumers of the same `is_string_valued` proof that the widened arm also makes c
 Compile+run, assert success, return trimmed stdout."""
 args = ["run", "bare_string_call_compares_by_content_eq_false.js"]
 exit = "success"
-stdout = "0\n"
+stdout = "false\n"
 
 [[case]]
 name = "encode_of_string_call_on_object_field_fails_closed"

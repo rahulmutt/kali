@@ -3501,7 +3501,7 @@ fn assert_browser_runtime_object_from_entries_has_own_semantics_in_input(
     if assert_stdout {
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
-            "1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n"
+            "true\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n"
         );
     }
     assert_eq!(String::from_utf8_lossy(&output.stderr), "");
@@ -4889,11 +4889,11 @@ fn assert_object_is_same_reference_alias_chain_in_browser_harness(
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], true);
-        assert_eq!(json["stdout"], "1\n1\n1\n1\n");
+        assert_eq!(json["stdout"], "true\ntrue\ntrue\ntrue\n");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("1\n1\n1\n1"), "stdout: {stdout}");
+        assert!(stdout.contains("true\ntrue\ntrue\ntrue"), "stdout: {stdout}");
     }
 }
 

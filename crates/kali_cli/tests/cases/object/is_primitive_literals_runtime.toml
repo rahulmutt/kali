@@ -95,7 +95,7 @@ name = "run_supports_object_is_primitive_literals_in_js_input"
 rationale = "Object.is over static primitive literals (signed zero, NaN, BigInt, freeze, await, and every bracket/dot spelling of the Object.is call itself) must fold/execute to the exact ECMA-262 SameValue results at runtime."
 args = ["run", "main.js"]
 exit = "success"
-stdout = "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n"
+stdout = "false\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n"
 
 [[case]]
 name = "json_run_supports_object_is_primitive_literals_in_js_input"
@@ -105,7 +105,7 @@ exit = "success"
 json.schemaVersion = 1
 json.command = "run"
 json.success = true
-json.stdout = "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n"
+json.stdout = "false\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n"
 json.errors = []
 
 [[case]]
@@ -113,7 +113,7 @@ name = "test_supports_object_is_primitive_literals_in_js_input"
 rationale = "Same Object.is primitive-literal fold, run through `Kali.test(...)` via the `test` command instead of `run`."
 args = ["test", "smoke.test.js"]
 exit = "success"
-stdout_contains = ["0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1", "ok 1"]
+stdout_contains = ["false\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue", "ok 1"]
 
 [[case]]
 name = "json_test_supports_object_is_primitive_literals_in_js_input"
