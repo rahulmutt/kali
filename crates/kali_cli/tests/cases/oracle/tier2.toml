@@ -1408,7 +1408,7 @@ program = "r17_function.js"
 verdict = "silent"
 rationale = """R-17, in-function scope. The module-scope program -- the register's two fragments, its two added `console.log`s and its single shared binding, all as described in the module-scope case's SCAFFOLDING note -- unchanged inside `function main() { … }` with a trailing `main();`.
 
-Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-17 records `Verification: sweep-only (D-D-5/6/8 both scopes; D-D-11 top level only)`, and both bullets measured here are in the both-scopes group.
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. WHAT THE REGISTER SAYS ABOUT SCOPE HERE IS LESS THAN IT LOOKS, and an earlier draft of this rationale claimed more. As of `61c2d48ea9`, §2's R-17 records `Verification: sweep-only (D-D-5/6/8 both scopes; D-D-11 top level only)` and `Folds in: D-D-5 + D-D-6 + D-D-8 + D-D-11` -- but those four sweep ids appear NOWHERE ELSE in the register (register:1853 and register:1855 are their only occurrences), so nothing maps either of the bullets measured here, or any other bullet, to a particular id. The both-scopes half of that line therefore licenses no claim about this lane. The expected class was set on the ASSUMPTION that the scopes agree, precisely so a disagreement would surface as a red case rather than as an unmeasured gap.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `j=-9223354427488862205` then `0=-9223354444668731391` at exit 0; node prints `j=p-q` then `0=p` at exit 0. Byte-identical to the module scope, handle bit patterns included.
 
