@@ -4,8 +4,11 @@
 use crate::assertions::{check, check_json, Captured};
 use crate::expand::Trial;
 use crate::model::{Step, StepKind};
+use kali_blast_radius::{classify, runs_agree, Run, Verdict};
+use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 pub struct RunnerConfig {
     pub kali_bin: PathBuf,
@@ -143,6 +146,154 @@ fn run_browser_bundle_harness(dir: &Path, step: &Step) -> Result<(), String> {
     command.current_dir(dir).args(&parts).arg(&harness_path);
     let captured = capture(command, step)?;
     check(step, &captured)
+}
+
+/// Per-run wall-clock budget when a case does not set `timeout_ms`.
+///
+/// Generous on purpose: the cost of a too-short budget is a false `TIMEOUT`
+/// verdict recorded against a working program, which corrupts the very table
+/// this project exists to make trustworthy. The cost of a long one is a slow
+/// failing case.
+pub const ORACLE_DEFAULT_TIMEOUT_MS: u64 = 30_000;
+
+/// How often the wait loop wakes to check whether the child has exited.
+const POLL_INTERVAL: Duration = Duration::from_millis(10);
+
+/// Run `command` to completion or kill it at `budget`.
+///
+/// stdout and stderr are drained on their own threads. That is not an
+/// optimisation: a child writing past the pipe buffer (64 KiB on Linux) blocks
+/// on the write until someone reads, so a single-threaded "wait then read"
+/// turns any chatty program into a false `TIMEOUT`. R-09's runaway loops make
+/// chatty-and-slow a shape this project measures routinely.
+pub fn run_with_timeout(mut command: Command, budget: Duration) -> Result<Run, String> {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = retry_on_etxtbsy(|| command.spawn())
+        .map_err(|error| format!("failed to spawn: {error}"))?;
+
+    let mut stdout_pipe = child.stdout.take().ok_or("no stdout pipe")?;
+    let mut stderr_pipe = child.stderr.take().ok_or("no stderr pipe")?;
+    let stdout_reader = std::thread::spawn(move || {
+        let mut buffer = Vec::new();
+        let _ = stdout_pipe.read_to_end(&mut buffer);
+        buffer
+    });
+    let stderr_reader = std::thread::spawn(move || {
+        let mut buffer = Vec::new();
+        let _ = stderr_pipe.read_to_end(&mut buffer);
+        buffer
+    });
+
+    let deadline = Instant::now() + budget;
+    let mut timed_out = false;
+    let status = loop {
+        match child
+            .try_wait()
+            .map_err(|error| format!("wait failed: {error}"))?
+        {
+            Some(status) => break Some(status),
+            None if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                timed_out = true;
+                break None;
+            }
+            None => std::thread::sleep(POLL_INTERVAL),
+        }
+    };
+
+    let stdout = stdout_reader
+        .join()
+        .map_err(|_| "stdout reader panicked".to_string())?;
+    let stderr = stderr_reader
+        .join()
+        .map_err(|_| "stderr reader panicked".to_string())?;
+
+    Ok(Run {
+        code: status.and_then(|status| status.code()),
+        stdout: String::from_utf8_lossy(&stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&stderr).into_owned(),
+        timed_out,
+    })
+}
+
+/// The node binary the oracle uses. `KALI_ORACLE_NODE` overrides it so a
+/// pinned build can be pointed at without touching any do-not-modify file.
+fn oracle_node() -> String {
+    std::env::var("KALI_ORACLE_NODE").unwrap_or_else(|_| "node".to_string())
+}
+
+fn run_oracle(config: &RunnerConfig, dir: &Path, step: &Step) -> Result<(), String> {
+    let program = step
+        .program
+        .as_deref()
+        .ok_or("oracle step requires `program`")?;
+    let expected = step.verdict.ok_or("oracle step requires `verdict`")?;
+    validate_source_key(program)?;
+    if !dir.join(program).exists() {
+        // A case naming a `[source]` key that does not exist would otherwise
+        // run two engines against a missing file, agree that both failed, and
+        // pass as BOTH_REJECT having measured nothing.
+        return Err(format!(
+            "oracle step names `program = \"{program}\"`, which no `[source]` key wrote"
+        ));
+    }
+    let budget = Duration::from_millis(step.timeout_ms.unwrap_or(ORACLE_DEFAULT_TIMEOUT_MS));
+
+    let kali_run = || {
+        let mut command = Command::new(&config.kali_bin);
+        command.current_dir(dir).args(["run", program]);
+        for (key, value) in &step.env {
+            command.env(key, value);
+        }
+        run_with_timeout(command, budget)
+    };
+    let node_run = || {
+        let mut command = Command::new(oracle_node());
+        command.current_dir(dir).arg(program);
+        for (key, value) in &step.env {
+            command.env(key, value);
+        }
+        run_with_timeout(command, budget)
+    };
+
+    // Both sides run twice. A verdict derived from a single run of a
+    // nondeterministic program records whichever answer happened to come out
+    // first, which is a measurement that cannot be reproduced -- the failure
+    // this whole project is correcting.
+    let kali_a = kali_run()?;
+    let kali_b = kali_run()?;
+    let node_a = node_run()?;
+    let node_b = node_run()?;
+
+    let actual = if kali_a.timed_out || node_a.timed_out {
+        Verdict::Timeout
+    } else if !runs_agree(&kali_a, &kali_b) || !runs_agree(&node_a, &node_b) {
+        Verdict::Nondeterministic
+    } else {
+        classify(&kali_a, &node_a)
+    };
+
+    if actual == expected {
+        return Ok(());
+    }
+    Err(format!(
+        "verdict mismatch for {entry}: expected `{}`, measured `{}`\n  \
+         kali: exit {:?} stdout {:?} stderr {:?}\n  \
+         node: exit {:?} stdout {:?} stderr {:?}",
+        expected.as_str(),
+        actual.as_str(),
+        kali_a.code,
+        kali_a.stdout,
+        kali_a.stderr,
+        node_a.code,
+        node_a.stdout,
+        node_a.stderr,
+        entry = step.register_entry.as_deref().unwrap_or("<no entry>"),
+    ))
 }
 
 /// Reject a trial-relative path that would escape the trial's temp dir: an
@@ -294,11 +445,7 @@ pub fn run_trial(config: &RunnerConfig, trial: &Trial) -> Result<(), String> {
             StepKind::Cli => run_cli(config, dir.path(), step),
             StepKind::FileJson => run_file_json(dir.path(), step),
             StepKind::BrowserBundleHarness => run_browser_bundle_harness(dir.path(), step),
-            // Execution lands in the next commit. The arm exists now only
-            // because `match step.kind` must be exhaustive, and it fails
-            // rather than passing: a step kind that runs nothing must never
-            // report green.
-            StepKind::Oracle => Err("oracle steps are not runnable yet".to_string()),
+            StepKind::Oracle => run_oracle(config, dir.path(), step),
         };
         if let Err(detail) = result {
             let mut message = format!("step {} ({:?}) failed\n", index + 1, step.kind);

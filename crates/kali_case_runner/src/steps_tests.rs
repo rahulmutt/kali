@@ -574,3 +574,67 @@ exit = "success"
         "crates/kali_cli/tests/cases/browser/y.toml"
     );
 }
+
+#[test]
+fn a_timeout_is_reported_as_a_timeout_not_a_hang() {
+    let mut command = std::process::Command::new("sleep");
+    command.arg("30");
+    let run = crate::steps::run_with_timeout(command, std::time::Duration::from_millis(100))
+        .expect("spawns");
+    assert!(run.timed_out, "a killed process must report timed_out");
+}
+
+#[test]
+fn a_fast_process_is_captured_whole() {
+    let mut command = std::process::Command::new("sh");
+    command
+        .arg("-c")
+        .arg("printf 'out'; printf 'err' 1>&2; exit 3");
+    let run = crate::steps::run_with_timeout(command, std::time::Duration::from_secs(10))
+        .expect("spawns");
+    assert!(!run.timed_out);
+    assert_eq!(run.code, Some(3));
+    assert_eq!(run.stdout, "out");
+    assert_eq!(run.stderr, "err");
+}
+
+#[test]
+fn a_large_output_does_not_deadlock_on_the_pipe_buffer() {
+    // Without concurrent draining, a child writing more than the pipe buffer
+    // (64 KiB on Linux) blocks forever and the timeout fires -- turning a
+    // working program into a false TIMEOUT verdict.
+    let mut command = std::process::Command::new("sh");
+    command.arg("-c").arg("yes x | head -c 400000");
+    let run = crate::steps::run_with_timeout(command, std::time::Duration::from_secs(30))
+        .expect("spawns");
+    assert!(!run.timed_out, "large output must not be read as a hang");
+    assert_eq!(run.stdout.len(), 400_000);
+}
+
+// Also the one test that drives an `oracle` step through the whole
+// parse -> expand -> `run_trial` dispatch path, which is why it is worth
+// having even though it never reaches either engine: if expansion dropped
+// `program` or `verdict`, the step would fail with "oracle step requires
+// ..." instead and this assertion would catch it.
+#[test]
+fn an_oracle_step_naming_a_program_no_source_wrote_is_a_hard_error() {
+    // Two engines run against a missing file would agree that both failed and
+    // pass as BOTH_REJECT having measured nothing. The step is refused before
+    // either side spawns.
+    let home = tempfile::tempdir().expect("tempdir");
+    let bin = stub_bin(home.path(), "exit 0\n");
+    let file = parse_case_file(
+        r#"
+[[case]]
+name = "missing"
+kind = "oracle"
+register_entry = "R-13"
+program = "r13.js"
+verdict = "silent"
+"#,
+    )
+    .expect("parse");
+    let trials = expand("blast/r13", &file).expect("expand");
+    let err = run_trial(&config_for(bin), &trials[0]).expect_err("must fail");
+    assert!(err.contains("r13.js"), "must name the program: {err}");
+}
