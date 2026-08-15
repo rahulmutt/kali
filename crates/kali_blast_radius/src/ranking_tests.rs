@@ -53,10 +53,9 @@ fn without_head_row(text: &str) -> String {
 #[test]
 fn spliced_document_matches_the_generator() {
     let root = repo_root();
-    let document = std::fs::read_to_string(
-        root.join("docs/superpowers/followups/blast-radius-ranking.md"),
-    )
-    .expect("the ranking document is readable");
+    let document =
+        std::fs::read_to_string(root.join("docs/superpowers/followups/blast-radius-ranking.md"))
+            .expect("the ranking document is readable");
 
     let generated = render(&root);
     let (provenance, body) = generated

@@ -113,13 +113,19 @@ fn parse_status_table(markdown: &str) -> Vec<Row> {
             }
         }
         lanes.sort();
-        assert!(!lanes.is_empty(), "§0.2 row for {id} names no verdict class");
+        assert!(
+            !lanes.is_empty(),
+            "§0.2 row for {id} names no verdict class"
+        );
         rows.push(Row {
             id,
             lanes: lanes.into_iter().map(|(_, class)| class).collect(),
         });
     }
-    assert!(!rows.is_empty(), "§0.2's table shape changed -- no rows parsed");
+    assert!(
+        !rows.is_empty(),
+        "§0.2's table shape changed -- no rows parsed"
+    );
     rows
 }
 
@@ -216,7 +222,11 @@ pub fn render(root: &Path) -> String {
         counts_by_entry.insert(
             id,
             Counts {
-                raw: if uncountable { None } else { number(&entry["raw"]) },
+                raw: if uncountable {
+                    None
+                } else {
+                    number(&entry["raw"])
+                },
                 reachable: if uncountable {
                     None
                 } else {
@@ -239,7 +249,10 @@ pub fn render(root: &Path) -> String {
         .as_array()
         .expect("assignments is an array")
     {
-        let id = item["id"].as_str().expect("assignment has an id").to_string();
+        let id = item["id"]
+            .as_str()
+            .expect("assignment has an id")
+            .to_string();
         let cluster = item["cluster"].as_str().expect("cluster").to_string();
         let source = item["registerSource"].as_str().expect("source").to_string();
         let alternate = item["alternate"].as_str().map(str::to_string);
@@ -407,7 +420,10 @@ pub fn render(root: &Path) -> String {
     );
 
     // ------------------------------------------- 2.1, the assignment itself
-    let _ = writeln!(out, "### 2.1 The clusters, and where each assignment came from\n");
+    let _ = writeln!(
+        out,
+        "### 2.1 The clusters, and where each assignment came from\n"
+    );
     let _ = writeln!(
         out,
         "A cluster is a **root cause** — the unit a fix ships in — not a topic. Every \
@@ -552,16 +568,15 @@ pub fn render(root: &Path) -> String {
     // one taken, one at a time, and band 1 is recomputed. A clustering nobody
     // can move is not being defended here -- what is published is how far band
     // 1 moves when someone does.
-    let band_one_names = |input: &[(String, Vec<String>)],
-                          axis: fn(&Counts) -> Option<u64>|
-     -> BTreeSet<String> {
-        band(&aggregate(&scored(axis), input))
-            .first()
-            .expect("a non-empty band 1")
-            .iter()
-            .map(|cluster| cluster.name.clone())
-            .collect()
-    };
+    let band_one_names =
+        |input: &[(String, Vec<String>)], axis: fn(&Counts) -> Option<u64>| -> BTreeSet<String> {
+            band(&aggregate(&scored(axis), input))
+                .first()
+                .expect("a non-empty band 1")
+                .iter()
+                .map(|cluster| cluster.name.clone())
+                .collect()
+        };
     let base_reachable = band_one_names(&cluster_input, |c| c.reachable);
     let base_raw = band_one_names(&cluster_input, |c| c.raw);
     let _ = writeln!(out, "### 2.4 How much the contested assignments matter\n");
@@ -583,8 +598,11 @@ pub fn render(root: &Path) -> String {
         let moved: Vec<(String, Vec<String>)> = cluster_input
             .iter()
             .map(|(name, entries)| {
-                let mut entries: Vec<String> =
-                    entries.iter().filter(|member| *member != id).cloned().collect();
+                let mut entries: Vec<String> = entries
+                    .iter()
+                    .filter(|member| *member != id)
+                    .cloned()
+                    .collect();
                 if name == other {
                     entries.push(id.clone());
                     entries.sort();
@@ -688,10 +706,12 @@ pub fn render(root: &Path) -> String {
     // FIXED / FAIL_CLOSED / BOTH_REJECT is not damage; anything else is a class
     // §8.1 reports but does not rank.
     const NOT_DAMAGE: [&str; 3] = ["FIXED", "FAIL_CLOSED", "BOTH_REJECT"];
-    let (not_damage, outside_question): (Vec<String>, Vec<String>) = excluded
-        .iter()
-        .cloned()
-        .partition(|id| lanes_by_entry[id].iter().all(|lane| NOT_DAMAGE.contains(&lane.as_str())));
+    let (not_damage, outside_question): (Vec<String>, Vec<String>) =
+        excluded.iter().cloned().partition(|id| {
+            lanes_by_entry[id]
+                .iter()
+                .all(|lane| NOT_DAMAGE.contains(&lane.as_str()))
+        });
     let _ = writeln!(
         out,
         "Spec §8.1 removes these {} entries for **two different reasons**, and collapsing them \
@@ -827,7 +847,10 @@ pub fn render(root: &Path) -> String {
     for (label, where_) in [
         ("raw (all programs)", &breakdown["raw"]),
         ("reachable (pooled)", &breakdown["reachable"]),
-        ("reachable — anchor", &breakdown["strata"]["anchor"]["reachable"]),
+        (
+            "reachable — anchor",
+            &breakdown["strata"]["anchor"]["reachable"],
+        ),
         (
             "reachable — extension",
             &breakdown["strata"]["extension"]["reachable"],
@@ -854,7 +877,10 @@ pub fn render(root: &Path) -> String {
          not a count of how often R-13's defect is triggered.\n",
         field(&breakdown["reachable"], "total"),
         field(&breakdown["reachable"], "objectLiteralReceiver"),
-        field(&breakdown["strata"]["anchor"]["reachable"], "objectLiteralReceiver"),
+        field(
+            &breakdown["strata"]["anchor"]["reachable"],
+            "objectLiteralReceiver"
+        ),
         field(&breakdown["strata"]["anchor"]["reachable"], "total"),
         extension_accepted,
         field(&breakdown["reachable"], "storeTarget"),
@@ -944,7 +970,10 @@ pub fn render(root: &Path) -> String {
             by_tier.entry(tiers[id]).or_default().push(id.clone());
         }
     }
-    let _ = writeln!(out, "| entry | tier | in the ranking? | kind | why no count exists |");
+    let _ = writeln!(
+        out,
+        "| entry | tier | in the ranking? | kind | why no count exists |"
+    );
     let _ = writeln!(out, "|---|---|---|---|---|");
     for (id, why, in_ranking) in &uncountable {
         let kind = if structurally_uncountable.contains_key(id) {
@@ -977,10 +1006,7 @@ pub fn render(root: &Path) -> String {
         "\nThe clusters carrying them have no frequency either, which is why they sit in §2's \
          band 1 marked `n/a` — there by non-comparability, not by measurement:\n"
     );
-    for (id, _, _) in uncountable
-        .iter()
-        .filter(|(_, _, in_ranking)| *in_ranking)
-    {
+    for (id, _, _) in uncountable.iter().filter(|(_, _, in_ranking)| *in_ranking) {
         let _ = writeln!(out, "- {id} → **{}**", assignment[id].0);
     }
     let _ = writeln!(out);

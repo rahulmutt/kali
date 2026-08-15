@@ -134,7 +134,9 @@ That would be a confident wrong answer, so it is not given here. Measured at
   {R-10, R-13, R-14, R-31, and the rest of the pre-existing SILENT set} — not in
   {R-51, R-52, R-53}.**~~ **STRUCK 2026-08-15 — (i), (ii) and (iii) are all done; see the
   third amendment below. The exclusion of {R-51, R-52, R-53} did NOT survive the
-  measurement: both R-51 and R-52 are in the measured band 1 of the reachable axis.**
+  measurement, and it failed on ALL THREE names: R-51 and R-52 are in the reachable axis's
+  band 1 on tier, and R-53 is in it too, through its cluster G4. None of the three is there
+  on frequency — all three count 0 reachable. The amendment below gives the three routes.**
 
 **3. R-53 is WIDER than its §0.2 headline: `let` is affected, not only `var`.** Measured at
 `64438bf0ef`, switch-free: `for (let v of [1,2,3,4]) { console.log("iter=" + v); s = s + v; }`
