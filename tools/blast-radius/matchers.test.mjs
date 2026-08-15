@@ -7,8 +7,11 @@
 // silently counted as zero.
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
-import { countAll, MATCHERS } from "./matchers.mjs";
+import { ALTERNATE_READINGS, BREAKDOWNS, countAll, MATCHERS, parse } from "./matchers.mjs";
+
+const CATALOGUE = JSON.parse(fs.readFileSync(new URL("./predicates.json", import.meta.url), "utf8"));
 
 /** Assert one matcher's count on a source string. */
 function count(name, source) {
@@ -334,7 +337,81 @@ test("a syntax error is thrown, never silently counted as zero", () => {
   assert.throws(() => countAll(`function ( {`), /parse/i);
 });
 
-test("the module exports exactly the 37 catalogue matchers", () => {
-  // Guards against a matcher being dropped and its count silently reading zero.
-  assert.equal(Object.keys(MATCHERS).length, 37);
+test("the module exports exactly the catalogue's countable matchers, by name", () => {
+  // By NAME, in both directions: a count alone would let a rename pass, and a
+  // renamed matcher counts for no entry while its entry silently reads zero.
+  // count.mjs enforces the same agreement at measurement time; this is the
+  // same gate at test time, so a rename fails here first.
+  const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
+  const catalogueNames = countable.map((entry) => entry.matcher).sort();
+  assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
+  assert.equal(catalogueNames.length, 37);
+});
+
+test("the disclosure instruments name real entries and stay out of MATCHERS", () => {
+  // ALTERNATE_READINGS and BREAKDOWNS must never leak into MATCHERS: count.mjs
+  // requires the catalogue and MATCHERS to agree exactly in both directions,
+  // and a stray export would abort the counter.
+  const ids = new Set(CATALOGUE.entries.map((entry) => entry.id));
+  for (const [id, reading] of Object.entries(ALTERNATE_READINGS)) {
+    assert.ok(ids.has(id), `ALTERNATE_READINGS names ${id}, which is not a catalogue entry`);
+    assert.ok(reading.matcher in MATCHERS, `${id}'s alternate reading names an unknown matcher`);
+    assert.equal(typeof reading.count, "function");
+    assert.ok(!(id in MATCHERS));
+  }
+  for (const [id, breakdown] of Object.entries(BREAKDOWNS)) {
+    assert.ok(ids.has(id), `BREAKDOWNS names ${id}, which is not a catalogue entry`);
+    assert.ok(breakdown.matcher in MATCHERS, `${id}'s breakdown names an unknown matcher`);
+    assert.ok(!(id in MATCHERS));
+  }
+});
+
+test("R-07's two readings differ exactly where the record's two statements differ", () => {
+  // The published reading is the main clause; the alternate is the appositive
+  // dash-list read as exhaustive. `new`, object and array literals are the
+  // forms named in neither, and are the whole of the difference.
+  const src = `
+    const a = n;            // identifier -- both readings
+    const b = n + 1;        // binary -- both readings
+    const c = new Array(2); // NewExpression -- published only
+    const d = {k: 1};       // object literal -- published only
+    const e = [1, 2];       // array literal -- published only
+    const f = 1;            // literal -- neither reading
+  `;
+  // Published reading: every non-literal initializer.
+  assert.equal(countAll(src).constWithNonLiteralInitializer, 5);
+  // Alternate reading: the enumerated forms only.
+  assert.equal(ALTERNATE_READINGS["R-07"].count(parse(src)), 2);
+});
+
+test("R-02's alternate reading is the role list read as exhaustive", () => {
+  const src = `function g() { return 1; } const m = g(); m();`;
+  assert.equal(countAll(src).callThroughNonConstFunctionBinding, 1); // published: the complement
+  assert.equal(ALTERNATE_READINGS["R-02"].count(parse(src)), 0); // alternate: the role list
+});
+
+test("R-13's breakdown classifies receivers with real scope resolution", () => {
+  // A flat per-file name map lets a same-named parameter overwrite the
+  // declarator and silently reclassify the receiver -- which is exactly how the
+  // first hand-run of this breakdown undercounted it.
+  const src = `
+    const cfg = {a: 1};
+    var k = "a";
+    function f(cfg) { return cfg[k]; }
+    console.log(cfg[k]);
+  `;
+  const breakdown = BREAKDOWNS["R-13"].count(parse(src));
+  assert.equal(breakdown.total, 2);
+  // Only the module-scope read has an object-literal binding; the parameter
+  // read must not inherit it.
+  assert.equal(breakdown.objectLiteralReceiver, 1);
+  assert.equal(breakdown.storeTarget, 0);
+});
+
+test("R-13's breakdown counts a store target as a store, not a read", () => {
+  const src = `var a = [1]; var i = 0; a[i] = 2; console.log(a[i]);`;
+  const breakdown = BREAKDOWNS["R-13"].count(parse(src));
+  assert.equal(breakdown.total, 2);
+  assert.equal(breakdown.storeTarget, 1);
+  assert.equal(breakdown.arrayLikeReceiver, 2);
 });

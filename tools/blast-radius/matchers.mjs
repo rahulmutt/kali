@@ -949,3 +949,128 @@ export function countAll(source) {
   }
   return out;
 }
+
+// --------------------------------------------------------------------------
+// Disclosure instruments
+//
+// Neither of these is a matcher, and neither is in MATCHERS -- the
+// catalogue/matcher agreement gate in count.mjs must stay exact in both
+// directions. They exist so the caveats a reader needs in order to interpret a
+// count are DERIVED and published beside it, rather than living only in a
+// report under `.superpowers/`.
+// --------------------------------------------------------------------------
+
+/**
+ * Where a record states its shape two ways and the readings disagree on the
+ * frozen corpus, the count under the reading that was NOT published, so a
+ * consumer can see that the published figure rests on an interpretation and by
+ * how much.
+ */
+export const ALTERNATE_READINGS = {
+  "R-02": {
+    matcher: "callThroughNonConstFunctionBinding",
+    publishedReading:
+      "the complement clause -- any resolved binding that is neither a function declaration nor " +
+      "a `const` bound DIRECTLY to a function literal",
+    alternateReading:
+      "the role list read as exhaustive -- a `let`/`var` binding, a parameter, or a `const` " +
+      "whose initializer is an identifier",
+    whyPublishedReadingWasChosen:
+      "the register's broken list (register:616-627) includes 'a function RETURNED from a " +
+      "function and called' (`const f = mk(); f()`), a `const` bound to neither a name nor a " +
+      "function literal, which the role list does not name; and the record's exclusion clause " +
+      "says a `const` bound DIRECTLY to a function literal, an adverb that only does work if " +
+      "the rest of the `const` family is counted.",
+    /** The role list, read as exhaustive. */
+    count(ast) {
+      const analysis = analysisOf(ast);
+      let count = 0;
+      for (const node of analysis.of("CallExpression")) {
+        if (node.callee.type !== "Identifier") continue;
+        const binding = analysis.binding(node.callee);
+        if (!binding) continue;
+        if (binding.kind === "let" || binding.kind === "var" || binding.kind === "param") count += 1;
+        else if (binding.kind === "const" && binding.init && binding.init.type === "Identifier") count += 1;
+      }
+      return count;
+    },
+  },
+
+  "R-07": {
+    matcher: "constWithNonLiteralInitializer",
+    publishedReading:
+      "the main clause -- a `const` declarator whose initializer is not a literal",
+    alternateReading:
+      "the appositive dash-list read as exhaustive -- an identifier, binary, unary, " +
+      "conditional, member or call expression only (`parenthesized` is unmatchable: acorn " +
+      "emits no ParenthesizedExpression without `preserveParens`)",
+    whyPublishedReadingWasChosen:
+      "the main clause governs and the appositive illustrates; the register bounds the damage " +
+      "the other way round -- 'a `const` bound to a literal is correct' (register:1048-1049) -- " +
+      "and its Repro F is titled a shape SURVEY, not a closed list. But the disputed forms " +
+      "(`new`, object literal, array literal) are named in neither the record's list nor the " +
+      "register's survey, so the choice is an interpretation and is disclosed as one.",
+    /** The dash-list, read as exhaustive. */
+    count(ast) {
+      const analysis = analysisOf(ast);
+      const ENUMERATED = new Set([
+        "Identifier",
+        "BinaryExpression",
+        "UnaryExpression",
+        "ConditionalExpression",
+        "MemberExpression",
+        "CallExpression",
+      ]);
+      let count = 0;
+      for (const node of analysis.of("VariableDeclaration")) {
+        if (node.kind !== "const") continue;
+        for (const declarator of node.declarations) {
+          if (declarator.init && ENUMERATED.has(declarator.init.type)) count += 1;
+        }
+      }
+      return count;
+    },
+  },
+};
+
+/**
+ * Sub-counts that say what an undisclosed upper bound is actually made of.
+ *
+ * R-13's record is "computed member access whose key expression is not a
+ * literal", with no disclosure clause -- so ordinary array indexing `a[i]`
+ * counts, and the register's repro is an OBJECT read with a variable key. The
+ * breakdown is computed with the module's own scope resolution, not a flat
+ * per-file name map: a parameter and a module binding can share a name, and a
+ * flat map silently reclassifies the receiver.
+ */
+export const BREAKDOWNS = {
+  "R-13": {
+    matcher: "computedMemberNonLiteralKey",
+    of: "the same sites `computedMemberNonLiteralKey` counts, classified by receiver and by position",
+    count(ast) {
+      const analysis = analysisOf(ast);
+      const stores = new Set();
+      for (const node of analysis.of("AssignmentExpression")) stores.add(node.left);
+      for (const node of analysis.of("UpdateExpression")) stores.add(node.argument);
+
+      const out = { total: 0, objectLiteralReceiver: 0, arrayLikeReceiver: 0, storeTarget: 0 };
+      for (const node of analysis.of("MemberExpression")) {
+        if (!node.computed || node.property.type === "Literal") continue;
+        out.total += 1;
+        if (stores.has(node)) out.storeTarget += 1;
+        if (node.object.type !== "Identifier") continue;
+        const binding = analysis.binding(node.object);
+        const init = binding && binding.init;
+        if (!init) continue;
+        if (init.type === "ObjectExpression") out.objectLiteralReceiver += 1;
+        else if (
+          init.type === "ArrayExpression" ||
+          (init.type === "NewExpression" && init.callee.type === "Identifier" && init.callee.name === "Array")
+        ) {
+          out.arrayLikeReceiver += 1;
+        }
+      }
+      return out;
+    },
+  },
+};

@@ -91,6 +91,87 @@ Plus two gates that make a wrong number loud rather than quiet:
   parse would otherwise report "this construct does not appear here" — a
   measurement it did not make.
 
+## Reading `counts.json` — what a number does and does not mean
+
+`counts.json` is the authority for every figure below; it carries all of this as
+data, so nothing here needs retyping downstream. This section says where to look
+and why it matters.
+
+### The reachable column is an anchor-snippet column
+
+126 of the 127 reachable programs are **anchor** programs, and the anchor is 131
+micro-snippets written to probe compiler behaviour plus 6 real CLBG programs. So
+every reachable ranking is, in substance, a ranking over test snippets. The
+extension stratum — the 40 programs written to *do jobs* — is accepted **1/40 =
+2.5%**, so nearly everything it measures about real programs lands in the **raw**
+column only. Always read a per-entry `strata` split before treating a reachable
+figure as a frequency in real code. This is in `counts.json` under `population`.
+
+The accept rate is also a finding in its own right, not a defect of the corpus:
+curation was independent of acceptance, and kali was never run while the corpus
+was written.
+
+### Some counts are upper bounds — `entries[].upperBound`
+
+Four records carry an explicit upper-bound clause naming what the AST cannot see
+(**R-08**, **R-16**, **R-26**, **R-30**). Three more are upper bounds that their
+records do **not** disclose, found while implementing them (**R-13**, **R-14**,
+**R-07**). Each carries a `note` saying what it cannot see, and
+`disclosedInRecord` says which kind it is.
+
+The sharpest is **R-13**. Its record is "computed member access whose key
+expression is not a literal", with no qualifying clause, so ordinary array
+indexing `a[i]` counts — and array indexing demonstrably works. The register's
+R-13 repro is an *object* read with a variable key. `upperBound.breakdown` gives
+the split of the same 302 sites: 56 have an object-literal receiver, 45 an
+array-like one, and **67 are store targets rather than reads**. Do not present
+the total as "how often R-13's defect is triggered".
+
+### Two counts rest on an interpretation — `entries[].alternateReading`
+
+Where a record states its shape twice and the two statements disagree on this
+corpus, both numbers are published, with which one the count uses and why.
+
+| entry | published reading | alternate reading |
+|---|---|---|
+| **R-07** | main clause, "is not a literal" — **449 raw / 82 reachable** (ranks 1st) | dash-list read as exhaustive — **286 / 43** (ranks 3rd, behind R-30 and R-13) |
+| **R-02** | complement clause — **2 / 0** | role list read as exhaustive — **0 / 0** |
+
+R-07's is the consequential one: the reading decides the top of the ranking. The
+disputed sites are `new` expressions, object literals and array literals —
+forms named in neither the record's list nor the register's shape survey. The
+main clause was chosen because it governs and the appositive illustrates, and
+because the register bounds the damage the other way round ("a `const` bound to
+a literal is correct"). It is still an interpretation, and it is published as one.
+
+### Three kinds of zero — `entries[].zero`
+
+`zeroKinds` in `counts.json` carries these definitions; the classification is
+mechanical, not left to the reader.
+
+- **`structurally-uncountable`** — the construct cannot appear in any conforming
+  corpus program. **R-29 alone**: an assignment to a `const` is a runtime
+  `TypeError`, so no program that runs clean can contain one. Not a frequency;
+  must never be ranked against measured frequencies.
+- **`unsampled`** — countable and legal, but absent from this corpus: **R-15,
+  R-18, R-27, R-28, R-48**. An ordinary zero over this population, saying
+  nothing about a larger one.
+- **`present-but-unreachable`** — `raw > 0, reachable = 0`: the construct **does**
+  occur, but every program carrying it is rejected by kali as a whole. Twenty
+  entries, R-01 (18 raw / 0 reachable) among them. **This is the most
+  misreadable of the three.** It does not mean the construct is rare, and it
+  does not mean kali fails closed on that construct — the carrying program was
+  usually rejected for an unrelated reason elsewhere in the file. Given the 2.5%
+  extension accept rate, it is the common case.
+
+### The population is a dialect, not JavaScript
+
+The extension is written in the project's imperative-core dialect: no regex, no
+destructuring, no template literals, no `??`, no class/Map/Set/async. A
+frequency here is a frequency in *programs of that dialect*. `corpus/README.md`
+records which counts that biases and in which direction (R-13, R-14, R-16 and
+R-19 upward; R-08's `??` lane entirely unsampled).
+
 ## Known gap: the counter is not wired into CI
 
 `node --test` in this directory is **not** run by `scripts/test-gate.sh` or
