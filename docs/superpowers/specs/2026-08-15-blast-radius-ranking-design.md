@@ -24,6 +24,17 @@ today:
    `E5506` at `64438bf0ef`, where §0.2 still records it `SILENT`. Ranking a
    stale table is not a measurement.
 
+**Amended 2026-08-15 (Task 9).** Reason 2's *"have not been re-measured
+wholesale since"* is superseded in one direction and still stands in the other,
+and the two must not be confused. The **measurement** has now been taken: every
+one of §2's 41 entries carries a live oracle case in
+`crates/kali_cli/tests/cases/oracle/` — 147 cases, run by the existing gate,
+measured 2026-08-15 against `node v26.7.0`. The **table** has not: §0.2 itself
+is still the 2026-07-24 text, because regenerating it is the next task. So the
+sentence is false about the measurement and true about the document, and the
+original wording is left above rather than rewritten so the problem this project
+started from stays legible.
+
 The remedy §0.1 named, in order: (i) write down an operational definition of
 blast radius; (ii) re-run the four surface sweeps at current HEAD to refresh
 every §0.2 verdict; (iii) *then* rank.
@@ -48,6 +59,16 @@ The register measured against `node v26.5.0`. The current environment has
 size of that difference is unknown and currently unknowable, because nothing
 re-runs.
 
+**Amended 2026-08-15 (Task 9).** *"Nothing re-runs"* is no longer true: the
+oracle cases re-run on every `cargo test -p kali_cli --test cases`, and all 41
+of §2's entries have now been measured under `v26.7.0`. What the paragraph got
+right is that the `v26.5.0`-vs-`v26.7.0` **difference** remains unmeasured, and
+it still is — the re-measurement was taken under `v26.7.0` only, so a verdict
+that moved between the two node versions is indistinguishable here from one that
+moved because kali changed. Every case that moved says which HEAD it was
+measured at, which is what makes the kali side attributable; the node side is
+not.
+
 ## 2) Goals and non-goals
 
 **Goals**
@@ -66,6 +87,11 @@ re-runs.
 - Changing any kali compile or runtime behaviour. The one behavioural-adjacent
   item is a documentation gap in `specs/15-errors.md` (§7.1), included only
   because the verdict classifier depends on it.
+  **Amended 2026-08-15 (Task 9):** that gap is **closed** — see §7.1's own
+  amendment. The non-goal held: no kali compile or runtime behaviour was changed
+  by this project. Two changes were made to the measuring instruments
+  (`kali_blast_radius`, `kali_case_runner`), which are test-side crates and not
+  kali's compile or runtime path.
 - Ranking the fail-closed residual. §7.11 of the register enumerates what
   `switch` refuses; that is a real limit on what kali compiles, but it is not
   silent damage and it is not what this ranking orders.
@@ -319,7 +345,36 @@ pins the expected version so drift is loud rather than silent. The first run
 re-derives everything under `v26.7.0`; the register was measured under
 `v26.5.0`, and that difference is unmeasured today.
 
-### 7.1 `E4xxx` is undocumented — a dependency of the classifier
+**Amended 2026-08-15 (Task 9).** Three statements above are superseded by what
+was actually built. They are left in place and corrected here rather than
+rewritten, so the estimate and the outcome can be compared.
+
+- *"Today a verdict is prose that a human must re-derive by hand"* — no longer
+  true of §2's entries. All 41 carry cases; 143 of the directory's 147 cases are
+  entry-attributed, and the other 4 are the instrument-only ground-truth
+  fixtures. It **remains** true of §0.2 itself, which is still prose and still
+  dated 2026-07-24, until the regeneration task runs.
+- *"Roughly 84 cases (42 entries × 2), less the entries where scope is moot"* —
+  wrong in all three of its parts, and the real numbers are more interesting than
+  the estimate. §2 holds **41** entries, not 42: `R-50` is filed in the
+  register's §7 as a fail-loudly defect rather than in §2, so it is not a
+  tier-ranked entry and is deliberately outside this ranking. **No scope turned
+  out to be moot** for any entry — all 41 carry both — so nothing was subtracted.
+  And the count went **up**, not down: **147** cases, because 15 entries state
+  more than one repro or more than one declared class in their own §2 body and a
+  single case cannot hold two classes. Each tier file's header names its own
+  splits and the register sentence that forces each one.
+- *"one case pins the expected version so drift is loud rather than silent"* —
+  **this was never built.** No case runs `node --version` or asserts it; the
+  runner takes whatever `node` is on `PATH` (overridable with
+  `KALI_ORACLE_NODE`, `steps.rs`'s `oracle_node`), and the version appears only
+  as prose in case rationales, which do not execute. So node drift is currently
+  **silent**: a verdict that moved because node changed is indistinguishable from
+  one that moved because kali changed. Recorded as an unbuilt item rather than
+  quietly dropped. (The other half of that sentence — the version in every
+  generated table — is forward-looking: no table is generated yet.)
+
+### 7.1 `E4xxx` is undocumented — a dependency of the classifier — **RESOLVED 2026-08-15**
 
 The classifier must separate an honest denial from an internal failure.
 "Documented code" means present in `specs/15-errors.md`'s public range registry
@@ -337,6 +392,39 @@ carries a sub-task: either document the `E4xxx` family in `specs/15-errors.md`
 or reclassify those codes into an existing range. Encoding a hardcoded exception
 list in the runner is rejected; it would hide the taxonomy gap inside a test
 tool.
+
+**Amended 2026-08-15 (Task 9). THE SUB-TASK LANDED, AND THE TWO PARAGRAPHS
+ABOVE ARE SUPERSEDED IN FACT.** They are kept because the reasoning that chose
+the resolution is still the reasoning, and because the rejected alternative is
+worth keeping visible. What is now true:
+
+- **`specs/15-errors.md` HAS an `E4xxx` row** (`:58`, with the clarification at
+  `:73`-`:89`), landed on this branch in three commits: `158fba9de7` added the
+  row, `8c4513db5e` corrected the family claim, `5645710d85` hedged `E4002`. The
+  sentence *"has **no `E4xxx` row**"* is false as of `158fba9de7`.
+- **The first option was taken, not the second.** The family is documented **as
+  internal, alongside `E0xxx`** — so `is_documented_code` deliberately still
+  returns `false` for every `E4xxx` code, and `E4003`/`E4201` classify
+  `FL_INTERNAL` **for the right reason** rather than the wrong one, which is
+  exactly what this section asked for. The codes were not reclassified into an
+  existing range.
+- **The family turned out to be MIXED, which this section did not anticipate.**
+  `E4001` is a traced **sandbox-policy denial** — an honest refusal, not kali
+  failing — and `E4002` (`API_CALL_NOT_PERMITTED`) has **no emitter in
+  `crates/` today**, so its kind is inference from name and band rather than
+  traced behaviour. `is_documented_code` still returns `false` for both, which
+  is a known and deliberate limitation rather than an oversight: no register
+  entry measured by this project exercises a sandbox-effect denial, so no
+  recorded verdict depends on it. That is stated in the function's own doc
+  comment, and the full analysis is
+  `docs/superpowers/followups/e4xxx-e54xx-taxonomy-collision.md`.
+- **The rejected option stayed rejected.** There is no hardcoded exception list
+  in the runner. `is_documented_code` is a pure range test — `E51xx`-`E55xx`,
+  and the `E6xxx`-`E9xxx` families — with no per-code special case, so `E4xxx`
+  falls out as undocumented by the same rule that admits everything else.
+- `oracle/classifier_ground_truth.toml`'s `fl_internal` case pins the outcome:
+  it goes red if someone widens `is_documented_code` to admit `E4xxx` wholesale
+  while chasing `E4001`, which is the one plausible way to undo this.
 
 ## 8) Pipeline, scoring, and banding
 
@@ -482,6 +570,10 @@ stated openly rather than hidden inside a number.
 
 **Bulk.** Roughly 84 oracle cases need authoring. The case runner was built for
 exactly this kind of bulk, but the fixtures are still real work.
+**Amended 2026-08-15 (Task 9): the risk fired, larger than estimated, and is
+now discharged.** 147 cases were authored, not ~84 — see §7's amendment for why
+the count went up rather than down. All are written and green; nothing in the
+oracle directory is left unauthored.
 
 **Cluster assignments may not survive re-measurement.** §2's clusters are
 hand-made prose. R-21 has already moved once. If re-measurement moves enough
@@ -498,6 +590,9 @@ meaningful.
 3. **Oracle cases** — ~84 fixtures; §0.2 regenerated from the result. The
    `E4xxx` taxonomy sub-task (§7.1) lands here, since the classifier depends on
    it.
+   **Amended 2026-08-15 (Task 9):** the fixtures are **done — 147, not ~84**
+   (§7's amendment), and the `E4xxx` sub-task **landed** (§7.1's). The §0.2
+   regeneration is the one part of this step still outstanding.
 4. **Corpus** — extract the anchor from its inline Rust fixtures, curate the
    extension, freeze and hash.
 5. **Counter** — acorn matchers, known-answer tests, raw and reachable counts.
