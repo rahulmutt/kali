@@ -308,6 +308,30 @@ fn oracle_node() -> String {
     std::env::var("KALI_ORACLE_NODE").unwrap_or_else(|_| "node".to_string())
 }
 
+/// The oracle node's own `--version`, captured once per process.
+///
+/// WHY IT IS IN EVERY MISMATCH REPORT. §0.2's verdicts are stamped against
+/// `node v26.7.0`, and CI runs `node-version: latest` -- the version pin the
+/// design spec called for was never built. So when an oracle case goes red the
+/// two hypotheses a reader has to separate are "node changed under us" and
+/// "kali regressed", and the report printed exit codes and both streams but
+/// never the one fact that tells them apart.
+///
+/// A version that cannot be read is not a failure: the run reports what it has
+/// and says so. Refusing to run the suite because `--version` did not answer
+/// would turn a diagnostic aid into a new way for the gate to fail.
+fn oracle_node_version() -> &'static str {
+    static VERSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    VERSION.get_or_init(|| {
+        retry_on_etxtbsy(|| Command::new(oracle_node()).arg("--version").output())
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+            .filter(|version| !version.is_empty())
+            .unwrap_or_else(|| "unknown (`--version` could not be read)".to_string())
+    })
+}
+
 fn run_oracle(config: &RunnerConfig, dir: &Path, step: &Step) -> Result<(), String> {
     let program = step
         .program
@@ -361,11 +385,12 @@ fn run_oracle(config: &RunnerConfig, dir: &Path, step: &Step) -> Result<(), Stri
     // `observe = "stderr"` case the two stdouts are typically both empty, and
     // a reader who assumed stdout would conclude the runs agreed.
     let mut detail = format!(
-        "verdict mismatch for {entry} (observing {observed}): expected `{expected}`, measured `{actual}`\n{kali}{node}",
+        "verdict mismatch for {entry} (observing {observed}, node {version}): expected `{expected}`, measured `{actual}`\n{kali}{node}",
         entry = step.register_entry.as_deref().unwrap_or("<no entry>"),
         expected = expected.as_str(),
         actual = actual.as_str(),
         observed = step.observe.unwrap_or_default().as_str(),
+        version = oracle_node_version(),
         kali = describe_run("kali", &kali_a),
         node = describe_run("node", &node_a),
     );

@@ -651,6 +651,23 @@ verdict = "silent"
     assert!(err.contains("r13.js"), "must name the program: {err}");
 }
 
+/// The node version travels with every mismatch report, so it must always be
+/// *something*: an unreadable `--version` degrades to a named unknown rather
+/// than to an empty string a reader would mistake for a missing field, and it
+/// must never fail the run.
+#[test]
+fn the_oracle_node_version_is_always_reportable() {
+    let version = oracle_node_version();
+    assert!(
+        !version.is_empty(),
+        "an empty version reads as a missing field rather than as an unread one"
+    );
+    assert!(
+        !version.contains('\n'),
+        "the version is one line of a mismatch report: {version:?}"
+    );
+}
+
 /// A run that settled: `code`, `stdout`, nothing on stderr.
 fn settled(code: i32, stdout: &str) -> Run {
     Run {
