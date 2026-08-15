@@ -51,3 +51,8 @@ crates/kali_cli/tests/zz_*.rs
 # tracked scripts. It is build output, never a source of truth.
 __pycache__/
 *.pyc
+
+# The blast-radius counter's npm tree. `tools/blast-radius/package.json` and
+# `package-lock.json` are committed and pin acorn/acorn-walk EXACTLY, so the
+# tree is reproducible from them with `npm ci`; the tree itself is build output.
+tools/blast-radius/node_modules/

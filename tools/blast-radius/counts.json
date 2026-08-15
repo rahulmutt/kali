@@ -1,0 +1,641 @@
+{
+  "corpusHash": "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f",
+  "nodeVersion": "v26.7.0",
+  "acornVersion": "8.18.0",
+  "programs": {
+    "pooled": {
+      "programs": 177,
+      "accepted": 127
+    },
+    "anchor": {
+      "programs": 137,
+      "accepted": 126
+    },
+    "extension": {
+      "programs": 40,
+      "accepted": 1
+    }
+  },
+  "entries": [
+    {
+      "id": "R-01",
+      "matcher": "functionWithDefaultParameter",
+      "raw": 18,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 18,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-02",
+      "matcher": "callThroughNonConstFunctionBinding",
+      "raw": 2,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 2,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-03",
+      "matcher": "forEachOrExpressionBodiedFilterCall",
+      "raw": 15,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 15,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-04",
+      "matcher": "consoleCallWithNonLiteralArgument",
+      "raw": 112,
+      "reachable": 5,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 112,
+          "reachable": 5
+        }
+      }
+    },
+    {
+      "id": "R-05",
+      "matcher": "objectLiteralFunctionProperty",
+      "raw": 6,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 6,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-49",
+      "matcher": "statementAfterSwitchInNestedBlock",
+      "raw": 2,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 2,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-51",
+      "matcher": "optionalCallExpression",
+      "raw": 3,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 3,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-52",
+      "matcher": "forWithMisclassifiedClauseArity",
+      "raw": 5,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 5,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-06",
+      "matcher": "nonConstObjectOrArrayLiteralInitializer",
+      "raw": 6,
+      "reachable": 1,
+      "strata": {
+        "anchor": {
+          "raw": 4,
+          "reachable": 1
+        },
+        "extension": {
+          "raw": 2,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-07",
+      "matcher": "constWithNonLiteralInitializer",
+      "raw": 449,
+      "reachable": 82,
+      "strata": {
+        "anchor": {
+          "raw": 82,
+          "reachable": 78
+        },
+        "extension": {
+          "raw": 367,
+          "reachable": 4
+        }
+      }
+    },
+    {
+      "id": "R-08",
+      "matcher": "equalityOrNullishWithNullLikeOperand",
+      "raw": 95,
+      "reachable": 15,
+      "strata": {
+        "anchor": {
+          "raw": 14,
+          "reachable": 14
+        },
+        "extension": {
+          "raw": 81,
+          "reachable": 1
+        }
+      }
+    },
+    {
+      "id": "R-09",
+      "matcher": "continueInUnfaithfulLoop",
+      "raw": 16,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 16,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-10",
+      "matcher": "shadowingBlockDeclaration",
+      "raw": 11,
+      "reachable": 1,
+      "strata": {
+        "anchor": {
+          "raw": 1,
+          "reachable": 1
+        },
+        "extension": {
+          "raw": 10,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-11",
+      "matcher": "bitwiseCompoundAssignment",
+      "raw": 10,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 10,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-12",
+      "matcher": "silentArrayElementStore",
+      "raw": 3,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 3,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-13",
+      "matcher": "computedMemberNonLiteralKey",
+      "raw": 302,
+      "reachable": 45,
+      "strata": {
+        "anchor": {
+          "raw": 47,
+          "reachable": 43
+        },
+        "extension": {
+          "raw": 255,
+          "reachable": 2
+        }
+      }
+    },
+    {
+      "id": "R-14",
+      "matcher": "memberReadOnCallResult",
+      "raw": 99,
+      "reachable": 11,
+      "strata": {
+        "anchor": {
+          "raw": 8,
+          "reachable": 7
+        },
+        "extension": {
+          "raw": 91,
+          "reachable": 4
+        }
+      }
+    },
+    {
+      "id": "R-15",
+      "matcher": "staticSplitElementInConcatPosition",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-16",
+      "matcher": "stringMethodResultInConcatPosition",
+      "raw": 6,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 6,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-17",
+      "matcher": null,
+      "raw": null,
+      "reachable": null,
+      "strata": null
+    },
+    {
+      "id": "R-18",
+      "matcher": "stringLiteralLogicalOperand",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-19",
+      "matcher": "stringConversionCall",
+      "raw": 27,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 27,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-20",
+      "matcher": "jsonStringifyCall",
+      "raw": 4,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 4,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-21",
+      "matcher": null,
+      "raw": null,
+      "reachable": null,
+      "strata": null
+    },
+    {
+      "id": "R-22",
+      "matcher": null,
+      "raw": null,
+      "reachable": null,
+      "strata": null
+    },
+    {
+      "id": "R-23",
+      "matcher": "typeofNonLiteralOperand",
+      "raw": 3,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 3,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-24",
+      "matcher": "objectFreezeOnBoundIdentifier",
+      "raw": 2,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 2,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-25",
+      "matcher": "arraySpreadElement",
+      "raw": 1,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 1,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-26",
+      "matcher": "unaryPlusOnNonNumericOperand",
+      "raw": 12,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 1,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 11,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-27",
+      "matcher": "sequenceExpression",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-28",
+      "matcher": "negativeZeroLiteral",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-47",
+      "matcher": "forOfOverLetArrayBinding",
+      "raw": 1,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 1,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-48",
+      "matcher": "arrayStoreIntoScalarObjectField",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-53",
+      "matcher": "forOfVarOrLetOverArrayLiteral",
+      "raw": 1,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 1,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-29",
+      "matcher": "assignmentToConstBinding",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-54",
+      "matcher": null,
+      "raw": null,
+      "reachable": null,
+      "strata": null
+    },
+    {
+      "id": "R-30",
+      "matcher": "consoleLogOfNonInlineBooleanProducer",
+      "raw": 73,
+      "reachable": 57,
+      "strata": {
+        "anchor": {
+          "raw": 61,
+          "reachable": 57
+        },
+        "extension": {
+          "raw": 12,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-31",
+      "matcher": "consoleLogOfArrayOrObjectValue",
+      "raw": 3,
+      "reachable": 2,
+      "strata": {
+        "anchor": {
+          "raw": 2,
+          "reachable": 2
+        },
+        "extension": {
+          "raw": 1,
+          "reachable": 0
+        }
+      }
+    },
+    {
+      "id": "R-32",
+      "matcher": "numericLiteralOutsideExponentThresholds",
+      "raw": 6,
+      "reachable": 5,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 6,
+          "reachable": 5
+        }
+      }
+    },
+    {
+      "id": "R-33",
+      "matcher": "consoleWarnCall",
+      "raw": 17,
+      "reachable": 1,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 17,
+          "reachable": 1
+        }
+      }
+    },
+    {
+      "id": "R-34",
+      "matcher": "booleanReturningFunctionCallInStringPosition",
+      "raw": 4,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 4,
+          "reachable": 0
+        }
+      }
+    }
+  ]
+}
