@@ -214,11 +214,26 @@ impl Parser {
 /// token is not one this phase can read.
 ///
 /// The BigInt arm keeps DIGITS: `String(42n)` is `"42"`, exactly, for values
-/// with no exact `f64`.
+/// with no exact `f64`. A leading zero before another digit (`042n`) is
+/// refused, not admitted as `"042"`: JavaScript makes that a SyntaxError (the
+/// whole program fails to parse), so admitting it here would accept a program
+/// node refuses -- fail-open in the one direction this arm must not take.
+/// `0n` itself (a single `"0"`) is legal and stays admitted.
+///
+/// This phase also declines non-decimal BigInt literals (`0x2an`, `0b101n`,
+/// `0o17n`) and non-decimal numeric keys generally: the lexer that hands this
+/// function its `text` does not tokenize `0x`/`0b`/`0o` prefixes at all (a
+/// pre-existing, unrelated gap -- `0x10` lexes as the numeric literal `0`
+/// followed by the identifier `x10`, never reaching this function as one
+/// token), so hex/binary/octal keys never arrive here to be refused by name;
+/// they misparse upstream instead. Fixing that is out of this function's
+/// scope.
 fn numeric_property_name(text: &str) -> Option<PropertyName> {
     if let Some(digits) = text.strip_suffix('n') {
-        return (!digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit()))
-            .then(|| PropertyName::BigInt(digits.to_string()));
+        let is_valid_bigint_digits = !digits.is_empty()
+            && digits.bytes().all(|byte| byte.is_ascii_digit())
+            && !(digits.len() > 1 && digits.starts_with('0'));
+        return is_valid_bigint_digits.then(|| PropertyName::BigInt(digits.to_string()));
     }
     text.parse::<f64>().ok().map(PropertyName::Number)
 }

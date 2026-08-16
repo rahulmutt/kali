@@ -1713,7 +1713,7 @@ impl ReprInfer {
                 kali_ast::PropertyName::Identifier(key) | kali_ast::PropertyName::String(key) => {
                     key.clone()
                 }
-                kali_ast::PropertyName::Number(_) | kali_ast::PropertyName::BigInt(_) => {
+                kali_ast::PropertyName::Number(_) => {
                     // Honest fail-closed residue: unquoted numeric keys
                     // (`{ 1: x }`) stay off the shape lane until a fixture
                     // needs them (f64 canonicalization is its own problem).
@@ -1723,6 +1723,23 @@ impl ReprInfer {
                         slot.clone(),
                         format!(
                             "object literal for {slot:?} uses a numeric property name, which is unavailable in the current phase"
+                        ),
+                    );
+                    return;
+                }
+                kali_ast::PropertyName::BigInt(_) => {
+                    // A BigInt key is NOT a numeric property name -- `{42n:
+                    // x}`'s key is the string "42" (`String(42n)`), the same
+                    // kind of key a `Number` key would produce if this lane
+                    // admitted it. It stays off the shape lane for the same
+                    // reason `Number` does (not a field-name identifier or
+                    // string this lane extracts), not because its value is
+                    // numeric, so it gets its own, accurate message rather
+                    // than sharing `Number`'s wording.
+                    self.obj_pending_conflicts.insert(
+                        slot.clone(),
+                        format!(
+                            "object literal for {slot:?} uses a bigint property name, which is unavailable in the current phase"
                         ),
                     );
                     return;
