@@ -100,6 +100,20 @@ main();
 }
 main();
 """
+"keys_typeof_module.js" = """for (const k of Object.keys({5: 1})) console.log(typeof k);
+"""
+"keys_typeof_function.js" = """function main() {
+  for (const k of Object.keys({5: 1})) console.log(typeof k);
+}
+main();
+"""
+"keys_bigint_module.js" = """for (const k of Object.keys({42n: 1})) console.log(k, typeof k);
+"""
+"keys_bigint_function.js" = """function main() {
+  for (const k of Object.keys({42n: 1})) console.log(k, typeof k);
+}
+main();
+"""
 
 [[case]]
 name = "bigint_key_is_stored_under_zero_module_scope"
@@ -198,3 +212,49 @@ rationale = "CONTROL -- correct today and must stay correct, in function scope. 
 args = ["run", "keys_order_function.js"]
 exit = "success"
 stdout = "0\n2\nfoo\n"
+
+[[case]]
+name = "object_keys_yields_strings_not_numbers_module_scope"
+rationale = """
+TESTS-ONLY (Task 4): this case passes on arrival at this commit, and Task 4 did
+NOT change any code -- it was ordered not to conclude that from `typeof` alone,
+because `typeof` on a value bound directly to a for-of loop's key node can be
+constant-folded at compile time, which would print `string` even if the
+underlying enumeration item were still numeric. That is exactly what happens
+here: `typeof k` in this loop body IS folded away at compile time (confirmed
+by contrast -- routing the same value through a genuine non-foldable path, a
+function-parameter boundary, makes kali's runtime `typeof` operator answer `0`
+instead of `string`, but that turns out to be a separate, pre-existing,
+general defect: `typeof` on ANY runtime-string function parameter answers `0`
+in kali today, reproduced with a hardcoded `probe(x){console.log(typeof x)}
+probe(\"hello\")`, nothing to do with Object.keys or property keys).
+Because `typeof` alone cannot be trusted, the enumeration item's string-ness
+was verified through that same non-foldable function-parameter boundary using
+discriminators `typeof` cannot poison: `x.length` (a number has none) and
+strict equality both ways (`x === \"5\"` true, `x === 5` false) all agree with
+node, for `{5:1}`, `{1e-7:1}`, `{[-1e999]:1}`, and `{42n:1}` alike. node
+prints `string` for this case's probe."""
+args = ["run", "keys_typeof_module.js"]
+exit = "success"
+stdout = "string\n"
+
+[[case]]
+name = "object_keys_yields_strings_not_numbers_in_function"
+rationale = "TESTS-ONLY (Task 4), same probe in function scope; node prints `string`. See the module-scope case's rationale for why `typeof` alone was not trusted as proof and what non-foldable evidence was gathered instead before concluding no code change was needed."
+args = ["run", "keys_typeof_function.js"]
+exit = "success"
+stdout = "string\n"
+
+[[case]]
+name = "object_keys_yields_strings_for_bigint_keys_module_scope"
+rationale = "TESTS-ONLY (Task 4): a BigInt property key enumerated through Object.keys, pinned end to end through the enumeration lane for the first time -- Task 2 found BigInt key rendering unpinned anywhere, and Task 3 added only HIR-level lowering rows, not an enumeration case. `PropertyName::BigInt(\"42\")` (decimal digits, no `n` suffix) lowers to the key text `42`; node prints `42 string`, and kali agrees. Verified as genuinely string-valued (not a folded typeof) the same way as the sibling cases above: routed through a function-parameter boundary, `x.length` reads `2` and `x === \"42\"` / `x === 999` both agree with node."
+args = ["run", "keys_bigint_module.js"]
+exit = "success"
+stdout = "42 string\n"
+
+[[case]]
+name = "object_keys_yields_strings_for_bigint_keys_in_function"
+rationale = "TESTS-ONLY (Task 4), same BigInt enumeration probe in function scope; node prints `42 string` and kali agrees. See the module-scope case's rationale for the non-fold verification."
+args = ["run", "keys_bigint_function.js"]
+exit = "success"
+stdout = "42 string\n"
