@@ -133,12 +133,12 @@ fn release_folds_object_has_own_calls_through_frozen_callable_wrappers() {
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(&mut builder, "\"2\"");
+    let prop_two_key = literal(&mut builder, "2");
     let prop_two_value = literal(&mut builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(&mut builder, "\"1\"");
+    let prop_one_key = literal(&mut builder, "1");
     let prop_one_value = literal(&mut builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
     builder.node_mut(object).unwrap().children = vec![prop_b, prop_two, prop_one];
@@ -174,12 +174,12 @@ fn release_advanced_folds_object_has_own_calls_through_frozen_callable_wrappers(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(&mut builder, "\"2\"");
+    let prop_two_key = literal(&mut builder, "2");
     let prop_two_value = literal(&mut builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(&mut builder, "\"1\"");
+    let prop_one_key = literal(&mut builder, "1");
     let prop_one_value = literal(&mut builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
     builder.node_mut(object).unwrap().children = vec![prop_b, prop_two, prop_one];

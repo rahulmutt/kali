@@ -1,4 +1,5 @@
 use crate::*;
+use kali_common::js_number::format_js_number;
 
 impl Optimizer {
     pub(crate) fn optimize_constant_expression(
@@ -456,6 +457,26 @@ pub(crate) fn fold_binary(
         ("&&", left, right) => Some(ConstantValue::Boolean(left.truthy() && right.truthy())),
         ("||", left, right) => Some(ConstantValue::Boolean(left.truthy() || right.truthy())),
         _ => None,
+    }
+}
+
+/// `String(value)` for a constant used as a PROPERTY KEY.
+///
+/// Differs from `literal_text` (the literal SPELLING) in exactly the places a
+/// property name differs from a literal: a string is its own content, with no
+/// re-quoting and no re-escaping; a number is spelled the way JavaScript
+/// spells it; `-0` names the property `"0"`; and a BigInt names its digits
+/// (`String(42n)` is `"42"`).
+pub(crate) fn constant_value_property_name(value: ConstantValue) -> String {
+    match value {
+        ConstantValue::String(value) => value,
+        ConstantValue::Number(value) => format_js_number(value as f64),
+        ConstantValue::BigInt(value) => value.to_string(),
+        // `String(-0)` is "0" -- the negative zero is unobservable in a
+        // property name, and `lower_property_name` stores `{-0: 1}` as "0"
+        // through `format_js_number` too.
+        ConstantValue::NegativeZero => "0".to_string(),
+        other => literal_text(other),
     }
 }
 

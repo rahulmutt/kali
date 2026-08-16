@@ -157,12 +157,26 @@ impl Optimizer {
         canonical
     }
 
+    /// The JAVASCRIPT PROPERTY NAME a constant key expression denotes --
+    /// `String(key)` -- in the SAME currency an object-literal key slot holds
+    /// (`kali_hir`'s `lower_property_name`).
+    ///
+    /// It used to return `literal_text`, the LITERAL SPELLING: a string came
+    /// back re-quoted and re-escaped (`"a"`, seven characters for `'"x"'`).
+    /// That was a second currency, and both of its consumers had to live with
+    /// it: `fold_object_has_own_call` compared the quoted probe against a key
+    /// slot's text, and `fold_object_from_entries_call` STORED the quoted text
+    /// as a synthesized literal's key, which is why eight comparison sites
+    /// downstream stripped quotes off key text before reading it. A number is
+    /// spelled with `format_js_number` here for the same reason
+    /// `lower_property_name` and `expression_to_property_name` use it: one
+    /// formatter is what makes the agreement structural rather than lucky.
     pub(crate) fn constant_property_key(
         &self,
         program: &LirProgram,
         id: LirNodeId,
     ) -> Option<String> {
-        Some(literal_text(literal_value(program, id)?))
+        Some(constant_value_property_name(literal_value(program, id)?))
     }
 
     pub(crate) fn clone_string_literal(&self, program: &mut LirProgram, text: String) -> LirNodeId {

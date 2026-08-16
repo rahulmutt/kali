@@ -78,22 +78,32 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
+    /// The value node an object literal stores under the property name
+    /// `field`, or `None` when it has no such own property.
+    ///
+    /// BOTH sides are property names and neither is un-quoted. `field` reaches
+    /// this from a member node's text (`kali_parser`'s
+    /// `expression_to_property_name`), a `kali_types` shape field name, or a
+    /// normalized static index -- all `String(key)` -- and the stored side is a
+    /// key slot's text, which IS `String(key)` since `lower_property_name`.
+    ///
+    /// It used to strip `"` off both sides, which is a guess at the key's type
+    /// from its punctuation rather than a property-name comparison, and the
+    /// guess invented properties: `const p = {'"a"': 1}; p['a']` read `1`
+    /// where node reads `undefined`, in a program whose `Object.hasOwn(p,'a')`
+    /// -- which stopped guessing first -- already answered `false`. One
+    /// program contradicting itself is R-56's class at a second address.
     pub(crate) fn object_literal_field(&self, node: &LirNode, field: &str) -> Option<LirNodeId> {
         if !self.is_object_literal(node) {
             return None;
         }
 
-        let field = field.trim_matches('"');
         for child in &node.children {
             let property = self.node(*child);
             if property.children.len() != 2 {
                 continue;
             }
-            let key = self
-                .node(property.children[0])
-                .text
-                .as_deref()
-                .map(|value| value.trim_matches('"'))?;
+            let key = self.node(property.children[0]).text.as_deref()?;
             if key == field {
                 return property.children.get(1).copied();
             }

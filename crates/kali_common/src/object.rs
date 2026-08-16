@@ -2,15 +2,28 @@ use crate::*;
 
 /// ES own-property enumeration order key: `Some(n)` when `key` is an
 /// array-index-like string (canonical base-10, no leading zeros, `< 2^32-1`),
-/// `None` otherwise. Strips one level of `"` quoting first — LIR literal
-/// text keeps source quoting, while AST/repr key text is unquoted; both
-/// layers must classify identically (throw-fallout Stage 2, Lane B).
+/// `None` otherwise.
+///
+/// `key` is a PROPERTY NAME -- `String(key)` -- in every layer that calls
+/// this: an HIR/MIR/LIR key slot's text (`kali_hir`'s `lower_property_name`),
+/// a `kali_types` shape field name, or a codegen key table's entry. There is
+/// no second currency to reconcile, so the classification is on the name
+/// itself and nothing is stripped first.
+///
+/// It used to strip one level of `"` quoting, on the older contract that "LIR
+/// literal text keeps source quoting, while AST/repr key text is unquoted;
+/// both layers must classify identically" (throw-fallout Stage 2, Lane B).
+/// That contract died when a key slot's text became the property name: the
+/// strip then had exactly one effect left, which was to classify the STRING
+/// key `"2"` (three characters, quotes included) as the array index 2 and sort
+/// it ahead of an earlier-inserted string key. `{foo: 'b', '"2"': 'a'}`
+/// enumerated as `2, foo` where node says `foo, "2"` -- wrong text and wrong
+/// order at exit 0, R-56's collision at a second address.
 pub fn property_order_key(key: &str) -> Option<u64> {
-    let normalized = key.trim_matches('"');
-    if normalized.is_empty() || (normalized.len() > 1 && normalized.starts_with('0')) {
+    if key.is_empty() || (key.len() > 1 && key.starts_with('0')) {
         return None;
     }
-    let value = normalized.parse::<u64>().ok()?;
+    let value = key.parse::<u64>().ok()?;
     (value < u32::MAX as u64).then_some(value)
 }
 
