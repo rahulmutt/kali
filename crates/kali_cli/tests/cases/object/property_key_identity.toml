@@ -1,0 +1,169 @@
+# Pins for the property-key identity project (spec
+# docs/superpowers/specs/2026-08-16-hir-property-key-identity-design.md).
+#
+# EVERY EXPECTATION IN THIS FILE IS WRONG ON PURPOSE at the commit that adds
+# it. These cases record what kali does at `5c80f081d2` so that the fix has
+# something to turn red. The `rationale` on each says what node does and which
+# task is expected to move it; a case that moves without its task moving is a
+# surprise, which is the point.
+#
+# The two control cases at the end are the opposite: they are CORRECT today and
+# must stay correct. `{5:1}` and `{"5":1}` are the same property in JavaScript,
+# and a discriminator that separated them would fix R-56 by breaking conforming
+# programs.
+#
+# One more pair was added beyond the plan's Step 2 list: `object_keys_
+# enumeration_order_*`. The plan's spec claims Object.keys enumeration order is
+# pinned before it changes (docs/superpowers/specs/2026-08-16-hir-property-key-
+# identity-design.md:374-378, risk 4: "the ordering is pinned by cases before
+# the change so any movement is visible rather than inferred"), but the ten
+# cases above never actually exercise ordering with a mixed array-index-like
+# key and a string key. Measured against this commit, kali already agrees with
+# node, so this pair is a sixth CONTROL rather than a seventh defect: it exists
+# so that ordering movement caused by a later task's HIR key-slot collapse or
+# Object.keys rewrite is visible as a named red case rather than inferred from
+# an unrelated failure.
+
+[source]
+"bigint_module.js" = """const o = {42n: 1};
+console.log(Object.hasOwn(o, 0));
+console.log(o[0]);
+console.log(o[42]);
+"""
+"bigint_function.js" = """function main() {
+  const o = {42n: 1};
+  console.log(Object.hasOwn(o, 0));
+  console.log(o[0]);
+  console.log(o[42]);
+}
+main();
+"""
+"keys_small_module.js" = """for (const k of Object.keys({1e-7: 1})) console.log(k);
+"""
+"keys_small_function.js" = """function main() {
+  for (const k of Object.keys({1e-7: 1})) console.log(k);
+}
+main();
+"""
+"keys_extreme_module.js" = """for (const k of Object.keys({[-1e999]: 1, [1e21]: 2})) console.log(k);
+"""
+"keys_extreme_function.js" = """function main() {
+  for (const k of Object.keys({[-1e999]: 1, [1e21]: 2})) console.log(k);
+}
+main();
+"""
+"numeric_string_same_key_module.js" = """const o = {5: 1};
+const p = {"5": 1};
+console.log(Object.hasOwn(o, 5));
+console.log(Object.hasOwn(p, 5));
+console.log(Object.hasOwn(o, "5"));
+"""
+"numeric_string_same_key_function.js" = """function main() {
+  const o = {5: 1};
+  const p = {"5": 1};
+  console.log(Object.hasOwn(o, 5));
+  console.log(Object.hasOwn(p, 5));
+  console.log(Object.hasOwn(o, "5"));
+}
+main();
+"""
+"quoted_numeric_member_read_module.js" = """const q = {'"5"': 1};
+console.log(q['"5"']);
+"""
+"quoted_numeric_member_read_function.js" = """function main() {
+  const q = {'"5"': 1};
+  console.log(q['"5"']);
+}
+main();
+"""
+"keys_order_module.js" = """for (const k of Object.keys({2: 'a', foo: 'b', 0: 'c'})) console.log(k);
+"""
+"keys_order_function.js" = """function main() {
+  for (const k of Object.keys({2: 'a', foo: 'b', 0: 'c'})) console.log(k);
+}
+main();
+"""
+
+[[case]]
+name = "bigint_key_is_stored_under_zero_module_scope"
+rationale = "WRONG ON PURPOSE. node prints `false`, `undefined`, `1`: the property is `\"42\"`. kali's parser cannot read `42n` as an f64 and falls back to `unwrap_or(0.0)` (kali_parser/src/expression/object.rs:52), so the property is stored under the key `0` and a program reads a value out of a key it never wrote. Task 2 moves this to node's answer."
+args = ["run", "bigint_module.js"]
+exit = "success"
+stdout = "true\n1\n0\n"
+
+[[case]]
+name = "bigint_key_is_stored_under_zero_in_function"
+rationale = "WRONG ON PURPOSE. Same as the module-scope case, in function scope, because top-level and in-function are different programs in kali. node prints `false`, `undefined`, `1`. Task 2 moves this."
+args = ["run", "bigint_function.js"]
+exit = "success"
+stdout = "true\n1\n0\n"
+
+[[case]]
+name = "object_keys_renders_small_magnitude_key_with_rust_display_module_scope"
+rationale = "WRONG ON PURPOSE. node prints `1e-7`. kali prints `0.0000001` because HIR stores the key with Rust's `Display for f64` and the enumeration fold renders the key node through the expression renderer. Object.keys returns STRINGS, so this text propagates into comparisons and JSON round-trips. Tasks 3 and 4 move this."
+args = ["run", "keys_small_module.js"]
+exit = "success"
+stdout = "0.0000001\n"
+
+[[case]]
+name = "object_keys_renders_small_magnitude_key_with_rust_display_in_function"
+rationale = "WRONG ON PURPOSE. Same defect in function scope; node prints `1e-7`. Tasks 3 and 4 move this."
+args = ["run", "keys_small_function.js"]
+exit = "success"
+stdout = "0.0000001\n"
+
+[[case]]
+name = "object_keys_leaks_rust_infinity_spelling_module_scope"
+rationale = "WRONG ON PURPOSE, and the worst line in this file: `-inf` is not a string any JavaScript program can produce. node prints `-Infinity` then `1e+21`. Measured for the first time by this project; the follow-up file's §2.5 recorded only the 1e-7 lane. Tasks 3 and 4 move this."
+args = ["run", "keys_extreme_module.js"]
+exit = "success"
+stdout = "-inf\n1000000000000000000000\n"
+
+[[case]]
+name = "object_keys_leaks_rust_infinity_spelling_in_function"
+rationale = "WRONG ON PURPOSE. Same defect in function scope; node prints `-Infinity` then `1e+21`. Tasks 3 and 4 move this."
+args = ["run", "keys_extreme_function.js"]
+exit = "success"
+stdout = "-inf\n1000000000000000000000\n"
+
+[[case]]
+name = "numeric_and_quoted_numeric_keys_are_the_same_property_module_scope"
+rationale = "CONTROL -- correct today and must stay correct. JavaScript gives `{5:1}` and `{\"5\":1}` the same property name, and both probes agree with node at `true true true`. This case is what a discriminator that over-separates would break, so it is the guard on Task 3 rather than a target of it."
+args = ["run", "numeric_string_same_key_module.js"]
+exit = "success"
+stdout = "true\ntrue\ntrue\n"
+
+[[case]]
+name = "numeric_and_quoted_numeric_keys_are_the_same_property_in_function"
+rationale = "CONTROL -- correct today and must stay correct, in function scope. node agrees at `true true true`."
+args = ["run", "numeric_string_same_key_function.js"]
+exit = "success"
+stdout = "true\ntrue\ntrue\n"
+
+[[case]]
+name = "quoted_numeric_string_key_member_read_is_correct_module_scope"
+rationale = "CONTROL -- correct today and must stay correct. The member read of R-56's key already agrees with node (`1`); it is the two `Object.hasOwn` probes in the oracle case `r56a_quoted_numeric_string_key_module_scope` that diverge. Keeping the read pinned here means a fix that repairs the probes by breaking the read cannot pass."
+args = ["run", "quoted_numeric_member_read_module.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "quoted_numeric_string_key_member_read_is_correct_in_function"
+rationale = "CONTROL -- correct today and must stay correct, in function scope. node prints `1`."
+args = ["run", "quoted_numeric_member_read_function.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "object_keys_enumeration_order_module_scope"
+rationale = "CONTROL -- correct today and must stay correct. Enumerating `Object.keys({2: 'a', foo: 'b', 0: 'c'})`, kali and node both print `0`, `2`, `foo`: ES enumeration order puts array-index-like keys first in ascending numeric order, then string keys in insertion order, and kali gets this right today. This case is not in the plan's Step 2 list; it is added because the design's risk register (docs/superpowers/specs/2026-08-16-hir-property-key-identity-design.md:374-378) says ordering is 'pinned by cases before the change so any movement is visible rather than inferred', and none of the ten cases above actually mix an array-index-like key with a string key. No task in this plan owns changing this ordering; it is a tripwire -- if a later task's HIR key-slot collapse or Object.keys rewrite perturbs enumeration order, this case turns red on its own rather than the movement being inferred from something else."
+args = ["run", "keys_order_module.js"]
+exit = "success"
+stdout = "0\n2\nfoo\n"
+
+[[case]]
+name = "object_keys_enumeration_order_in_function"
+rationale = "CONTROL -- correct today and must stay correct, in function scope. node agrees at `0 2 foo`. Same tripwire as the module-scope case: no task in this plan owns changing this ordering."
+args = ["run", "keys_order_function.js"]
+exit = "success"
+stdout = "0\n2\nfoo\n"
