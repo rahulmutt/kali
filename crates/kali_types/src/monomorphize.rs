@@ -961,7 +961,7 @@ fn clean_shape(obj: &ObjectExpression) -> Option<ShapeTuple> {
     for prop in &obj.properties {
         let key = match &prop.key {
             PropertyName::Identifier(key) | PropertyName::String(key) => key.clone(),
-            PropertyName::Number(_) => return None,
+            PropertyName::Number(_) | PropertyName::BigInt(_) => return None,
         };
         // Honest fail-closed residue (throw-fallout Stage 2 Lane A review):
         // `__proto__` (identifier OR quoted-string form, non-computed) is

@@ -86,17 +86,17 @@ main();
 
 [[case]]
 name = "bigint_key_is_stored_under_zero_module_scope"
-rationale = "WRONG ON PURPOSE. node prints `false`, `undefined`, `1`: the property is `\"42\"`. kali's parser cannot read `42n` as an f64 and falls back to `unwrap_or(0.0)` (kali_parser/src/expression/object.rs:54), so the property is stored under the key `0` and a program reads a value out of a key it never wrote. Task 2 moves this to node's answer."
+rationale = "RE-PINNED, was wrong now differently wrong (Task 2): node prints `false`, `undefined`, `1`. kali now prints `false`, `0`, `1` -- `Object.hasOwn(o, 0)` is fixed (the parser reads `42n` as `PropertyName::BigInt(\"42\")` instead of falling back to the key `0`, so `hasOwn` and `o[42]` now agree with node), but `o[0]` reads `0` instead of `undefined`. That residual is a DIFFERENT defect -- an absent-property read returning a fabricated `0` rather than `undefined` -- not the key-identity defect this task fixes. Not chased here; see the commit message."
 args = ["run", "bigint_module.js"]
 exit = "success"
-stdout = "true\n1\n0\n"
+stdout = "false\n0\n1\n"
 
 [[case]]
 name = "bigint_key_is_stored_under_zero_in_function"
-rationale = "WRONG ON PURPOSE. Same as the module-scope case, in function scope, because top-level and in-function are different programs in kali. node prints `false`, `undefined`, `1`. Task 2 moves this."
+rationale = "RE-PINNED, was wrong now differently wrong (Task 2): same as the module-scope case, in function scope. node prints `false`, `undefined`, `1`; kali prints `false`, `0`, `1`. The key-identity part of this case is fixed; the `o[0]` residual is the same absent-property-read defect described on the module-scope case, not this task's defect."
 args = ["run", "bigint_function.js"]
 exit = "success"
-stdout = "true\n1\n0\n"
+stdout = "false\n0\n1\n"
 
 [[case]]
 name = "object_keys_renders_small_magnitude_key_with_rust_display_module_scope"

@@ -287,7 +287,7 @@ impl TypeContext {
                         PropertyName::Identifier(name) | PropertyName::String(name) => {
                             name.as_str()
                         }
-                        PropertyName::Number(_) => continue,
+                        PropertyName::Number(_) | PropertyName::BigInt(_) => continue,
                     };
 
                     if key_name != "name" {

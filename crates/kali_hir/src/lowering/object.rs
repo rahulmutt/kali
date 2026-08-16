@@ -39,6 +39,11 @@ impl HirLowerer {
                 self.builder
                     .alloc_text(HirNodeKind::Literal, None, value.clone())
             }
+            PropertyName::BigInt(digits) => {
+                // `String(42n)` is "42": the digits ARE the property name.
+                self.builder
+                    .alloc_text(HirNodeKind::Literal, None, digits.clone())
+            }
         }
     }
 }

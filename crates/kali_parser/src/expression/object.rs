@@ -48,12 +48,24 @@ impl Parser {
                     (PropertyName::String(name), self.parse_expression())
                 }
                 Some(TokenType::NumericLiteral) => {
-                    let token = self.stream.advance();
-                    let name = token
-                        .and_then(|token| token.value.parse::<f64>().ok())
-                        .unwrap_or(0.0);
+                    let text = self
+                        .stream
+                        .advance()
+                        .map(|token| token.value)
+                        .unwrap_or_default();
                     let _ = self.stream.accept(TokenType::Colon);
-                    (PropertyName::Number(name), self.parse_expression())
+                    let Some(name) = numeric_property_name(&text) else {
+                        // NOT `unwrap_or(0.0)`. Fabricating the key `0` for a literal this
+                        // parser could not read is how `{42n: 1}` came to answer
+                        // `Object.hasOwn(o, 0)` with `true` -- a program reading a value out
+                        // of a key it never wrote. If it cannot be read, it is refused.
+                        self.push_feature_unavailable(
+                            "this numeric property key is unavailable in the current phase; use a decimal or string literal key",
+                        );
+                        let _ = self.parse_expression();
+                        continue;
+                    };
+                    (name, self.parse_expression())
                 }
                 Some(TokenType::LeftBracket) => {
                     let _ = self.stream.advance();
@@ -196,6 +208,19 @@ impl Parser {
             _ => None,
         }
     }
+}
+
+/// The property name a numeric-literal key token denotes, or `None` when the
+/// token is not one this phase can read.
+///
+/// The BigInt arm keeps DIGITS: `String(42n)` is `"42"`, exactly, for values
+/// with no exact `f64`.
+fn numeric_property_name(text: &str) -> Option<PropertyName> {
+    if let Some(digits) = text.strip_suffix('n') {
+        return (!digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit()))
+            .then(|| PropertyName::BigInt(digits.to_string()));
+    }
+    text.parse::<f64>().ok().map(PropertyName::Number)
 }
 
 #[cfg(test)]

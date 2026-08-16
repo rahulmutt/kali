@@ -1713,7 +1713,7 @@ impl ReprInfer {
                 kali_ast::PropertyName::Identifier(key) | kali_ast::PropertyName::String(key) => {
                     key.clone()
                 }
-                kali_ast::PropertyName::Number(_) => {
+                kali_ast::PropertyName::Number(_) | kali_ast::PropertyName::BigInt(_) => {
                     // Honest fail-closed residue: unquoted numeric keys
                     // (`{ 1: x }`) stay off the shape lane until a fixture
                     // needs them (f64 canonicalization is its own problem).

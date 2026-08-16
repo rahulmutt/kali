@@ -2766,7 +2766,10 @@ impl TypeContext {
 
     pub(crate) fn resolve_property_name(&mut self, name: &PropertyName) {
         match name {
-            PropertyName::Identifier(_) | PropertyName::Number(_) | PropertyName::String(_) => {}
+            PropertyName::Identifier(_)
+            | PropertyName::Number(_)
+            | PropertyName::String(_)
+            | PropertyName::BigInt(_) => {}
         }
     }
 

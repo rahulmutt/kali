@@ -284,3 +284,54 @@ fn test_parse_object_literal_expression_accepts_nested_await_sequence_wrapped_co
         PropertyName::String("value".to_string())
     );
 }
+
+/// Parses `source` (an expression statement) and returns its `ObjectExpression`.
+fn parse_object_literal(source: &str) -> ObjectExpression {
+    let tokens = lex(&format!("{source};\n"));
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+    let Statement::ExpressionStatement(expr_stmt) = &output.statements[0] else {
+        panic!(
+            "Expected ExpressionStatement, got {:?}",
+            output.statements[0]
+        );
+    };
+    let Expression::ParenthesizedExpression(parenthesized) = expr_stmt.expression.as_ref() else {
+        panic!(
+            "Expected ParenthesizedExpression, got {:?}",
+            expr_stmt.expression
+        );
+    };
+    let Expression::ObjectExpression(obj) = parenthesized.expression.as_ref() else {
+        panic!(
+            "Expected ObjectExpression, got {:?}",
+            parenthesized.expression
+        );
+    };
+    obj.clone()
+}
+
+#[test]
+fn bigint_object_property_keys_keep_their_digits() {
+    let obj = parse_object_literal("({42n: 1})");
+    assert_eq!(
+        obj.properties[0].key,
+        PropertyName::BigInt("42".to_string())
+    );
+}
+
+#[test]
+fn large_bigint_object_property_keys_are_exact() {
+    // The whole reason the variant holds text: this value has no exact f64.
+    let obj = parse_object_literal("({123456789012345678901234567890n: 1})");
+    assert_eq!(
+        obj.properties[0].key,
+        PropertyName::BigInt("123456789012345678901234567890".to_string())
+    );
+}
