@@ -86,7 +86,7 @@ main();
 
 [[case]]
 name = "bigint_key_is_stored_under_zero_module_scope"
-rationale = "WRONG ON PURPOSE. node prints `false`, `undefined`, `1`: the property is `\"42\"`. kali's parser cannot read `42n` as an f64 and falls back to `unwrap_or(0.0)` (kali_parser/src/expression/object.rs:52), so the property is stored under the key `0` and a program reads a value out of a key it never wrote. Task 2 moves this to node's answer."
+rationale = "WRONG ON PURPOSE. node prints `false`, `undefined`, `1`: the property is `\"42\"`. kali's parser cannot read `42n` as an f64 and falls back to `unwrap_or(0.0)` (kali_parser/src/expression/object.rs:54), so the property is stored under the key `0` and a program reads a value out of a key it never wrote. Task 2 moves this to node's answer."
 args = ["run", "bigint_module.js"]
 exit = "success"
 stdout = "true\n1\n0\n"
