@@ -129,7 +129,7 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 ///
 /// Spec §4.3 freezes `predicates.json` alongside the corpus, and
 /// `corpus/README.md` says so in the same sentence -- but only the corpus half
-/// was mechanical. The catalogue was checked for COMPLETENESS (41 records ↔ 41
+/// was mechanical. The catalogue was checked for COMPLETENESS (42 records ↔ 42
 /// entries, matcher names agreeing with `matchers.mjs`), which is silent about
 /// *which* matcher an entry maps to: swap R-13's matcher for R-14's and every
 /// completeness check stays green while both counts change.
@@ -139,10 +139,41 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// count is a function of (corpus, matcher body), so pinning the map without
 /// the territory leaves the arithmetic behind every published frequency
 /// unpinned.
+///
+/// **Re-frozen 2026-08-16**, and this is the first time either constant has
+/// moved since the ranking project froze them. What moved and why: register
+/// entry **R-56** (§2, Tier 2 — the quoted-numeric-string-key collision) was
+/// filed, a §2 entry needs a catalogue record for `check_completeness` to pass,
+/// and the record is honestly COUNTABLE — the triggering shape is a property key
+/// spelled a particular way, which is syntax an acorn AST can see. The four
+/// existing `uncountable` reasons are **R-17, R-21, R-22 and R-54**, and none of
+/// them applies here: R-17 and R-21 are representation conditions, R-22 is a
+/// runtime-type one, and R-54's is a PARSEABILITY condition — only invalid
+/// JavaScript triggers it, so acorn rejects the shape and no conforming corpus
+/// file can carry it. `{'"5"': 1}` is legal, parseable JavaScript, so it fails
+/// every one of those tests for uncountability. A countable record names a
+/// matcher, so `matchers.mjs` gained `objectLiteralQuotedNumericStringKey`. Both
+/// files therefore moved together, by construction.
+///
+/// `counts.json` was regenerated with them (`node count.mjs`), and the diff is
+/// the evidence that this was an ADDITION and not a change: the regeneration
+/// added exactly one entry (R-56: raw 0, reachable 0, `unsampled`) and left
+/// every other entry's every field byte-identical.
+///
+/// **Why the `countable`/`uncountable` word is worth this much comment.**
+/// `score::aggregate` makes a cluster uncountable if ANY member is, and an
+/// uncountable cluster is never dominated, so it lands in band 1 by
+/// construction. Filing R-56 `uncountable` would have been strictly easier — no
+/// matcher, one frozen SHA to re-pin instead of two — and would have put a
+/// brand-new zero-frequency entry on the published frontier, with **no gate
+/// objecting**. Nothing downstream can check that an `uncountable` reason is
+/// true. The next author to add an entry faces the same incentive; the record is
+/// countable because the shape is countable, and the band placement is a
+/// consequence rather than a motive.
 const FROZEN_PREDICATES_SHA256: &str =
-    "ec732d1cb40a7821c4ea6b52c912d4186f6f038e720a3fd0d5dc1c7961f19a71";
+    "a90b2d095ca9f846ac151ee557ca99f9cc448d0eb3252f5f23ec7566dc6bf9bd";
 const FROZEN_MATCHERS_SHA256: &str =
-    "145ed84ee755f96e2e5fa66d5c3a2b641de8a9c5a67c072019b88249fdf30028";
+    "08bc1a028e74a87396b3d22eda54f7c23a23bbac206263fe32f06952dde69824";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {

@@ -89,6 +89,16 @@ const UPPER_BOUNDS = {
       "see `alternateReading`. Independently of that choice, this count is broad by construction: " +
       "in the corpus's dialect nearly every `const` has a non-literal initializer.",
   },
+  "R-56": {
+    disclosedInRecord: true,
+    note:
+      "Upper bound, per the record: the exact condition is that the key's inner text lies in " +
+      "Rust's `Display for f64` image -- what `lower_property_name` could have written -- and an " +
+      "acorn AST cannot reproduce that image. The matcher tests `Number.isFinite(Number(inner))` " +
+      "instead, which is strictly wider, so `{'\"1e21\"': 1}`, `{'\"05\"': 1}` and `{'\"5.\"': 1}` " +
+      "are counted here and are NOT this defect -- each is a string key the codegen predicate " +
+      "correctly leaves alone.",
+  },
 };
 
 /**

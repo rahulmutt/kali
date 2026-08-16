@@ -345,7 +345,23 @@ test("the module exports exactly the catalogue's countable matchers, by name", (
   const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
   const catalogueNames = countable.map((entry) => entry.matcher).sort();
   assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
-  assert.equal(catalogueNames.length, 37);
+  assert.equal(catalogueNames.length, 38);
+});
+
+test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling", () => {
+  // Positive: a string key whose own text is a quoted number -- the text HIR
+  // also writes for the numeric key `{5: 1}`. Negatives: an ordinary string key,
+  // a numeric key, a quoted NON-number, and a computed key (which never reaches
+  // the marker-carrying slot).
+  const src = `
+    var a = {'"5"': 1};      // counts
+    var b = {"\\"1.5\\"": 1}; // counts
+    var c = {"5": 1};        // ordinary string key, does not count
+    var d = {5: 1};          // numeric key, does not count
+    var e = {'"d"': 1};      // quoted non-number, does not count
+    var f = {["\\"5\\""]: 1}; // computed, does not count
+  `;
+  assert.equal(count("objectLiteralQuotedNumericStringKey", src), 2);
 });
 
 test("the disclosure instruments name real entries and stay out of MATCHERS", () => {
