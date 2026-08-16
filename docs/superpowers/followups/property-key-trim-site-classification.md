@@ -102,9 +102,10 @@ an own property, so folding an enumeration over a literal that carries one would
 emit a phantom own key. Removing a trim changes what a guard matches, so both
 were reasoned about explicitly rather than swept.
 
-**Both still catch everything they caught.** The guard compares against the
-constant `"__proto__"`, and after Task 3 every real spelling of the setter
-arrives as that exact name:
+**Both still catch everything they caught** — including against the escape
+exception of §6, which is checked rather than assumed below. The guard compares
+against the constant `"__proto__"`, and after Task 3 every real spelling of the
+setter arrives as that exact name:
 
 * `{__proto__: 1}` → `PropertyName::Identifier("__proto__")` → slot text
   `__proto__`;
@@ -122,6 +123,61 @@ eleven-character text `"__proto__"`, and the guard was swallowing it — node's
 `Object.keys({'"__proto__"': 1})` is `['"__proto__"']`, while kali at
 `f563a0ecf4` printed `__proto__`. A security carve-out was silently corrupting
 a program it was never meant to cover.
+
+### 4.1 Why §6's escape exception cannot reach these guards
+
+The list above says a key slot's text is the property name, and §6 says that is
+false for keys spelled with an escape sequence. A guard that compares a
+possibly-undecoded text against `"__proto__"` could in principle fail in two
+directions, so both were tested rather than argued:
+
+**Direction A — can a real `__proto__` key hide from the guard?** It would have
+to be spelled with an escape, so that the stored text differs from the decoded
+name `__proto__`. It cannot:
+
+* kali's lexer HARD-ERRORS on any escape outside `\\`, `\"`, `\'` and `` \` ``.
+  Measured: `const o = {"_\_proto__": 1};` gives
+  `error[E1004]: unsupported string escape sequence at position 14`, exit 1 —
+  the program does not compile, so no key reaches any guard.
+* Each of the four supported escapes decodes to `\`, `"`, `'` or `` ` ``, and
+  the name `__proto__` contains none of those characters. So a decoded name of
+  exactly `__proto__` cannot be produced by a spelling that contains an escape:
+  any such name carries at least one residual `\`, `"`, `'` or `` ` ``.
+
+Therefore a key whose property name is `__proto__` is always spelled without
+escapes, its stored text equals its name, and the guard fires.
+
+**Direction B — can the guard fire on a key that is NOT the setter?** That needs
+a stored text of exactly `__proto__` whose real name is something else. A stored
+text differs from its name only when the source spelling contained a backslash,
+and the text `__proto__` contains no backslash — so there was no escape, and
+text and name are the same. No false positive.
+
+Both guards therefore hold **in fact**, not merely by the unqualified invariant:
+the escape exception is real, and it is unreachable from this comparison in
+either direction.
+
+**A TRIPWIRE ON THE LEXER, recorded so it is not rediscovered as a
+prototype-pollution bug.** Direction A rests on the lexer's escape allowlist,
+which is checked, not assumed:
+
+```
+const o = {"__proto__": 1, a: 2};
+for (const k of Object.keys(o)) console.log(k);
+
+  kali:  error[E1004]: unsupported string escape sequence at position 13
+         error[E1004]: unsupported string escape sequence at position 19   exit 1
+  node:  a                                                                exit 0
+```
+
+`\x5f` is refused the same way. Note what node's answer says: node decodes the
+key to `__proto__`, treats it as the PROTOTYPE SETTER, and enumerates only `a`.
+So if the lexer ever grows `\u`/`\x`, that program starts compiling, its stored
+key text is the undecoded `__proto__`, the guards do not fire on it,
+and the enumeration folds a phantom `__proto__` own key — a prototype-setter
+spelling smuggled past a security carve-out. **A change that adds unicode or hex
+escapes to the lexer must move these guards onto the decoded name.** Today they
+are sound because that spelling does not compile at all.
 
 Tests: `does_not_fold_object_keys_over_a_proto_keyed_literal` (unchanged
 assertion; its fixture was corrected to spell the key slot the way the front end

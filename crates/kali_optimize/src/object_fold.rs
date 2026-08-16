@@ -155,10 +155,14 @@ impl Optimizer {
         // key slot's text IS `String(key)`, so every spelling of the prototype
         // setter -- `__proto__`, `"__proto__"`, `'__proto__'`, and a
         // `fromEntries` entry whose key constant is the string `__proto__` --
-        // arrives here as the same nine-character name. Stripping quotes first
-        // could only ever ADD matches, and the one it added was wrong: the
-        // ordinary own property `{'"__proto__"': 1}` is not a prototype setter,
-        // and declining its fold hid a real key behind a security guard.
+        // arrives here as the same nine-character name (except for keys spelled
+        // with an ESCAPE SEQUENCE, which are stored undecoded -- unreachable for
+        // this guard, see section 4 and section 6 of
+        // docs/superpowers/followups/property-key-trim-site-classification.md).
+        // Stripping quotes first could only ever ADD matches, and the one it
+        // added was wrong: the ordinary own property `{'"__proto__"': 1}` is not
+        // a prototype setter, and declining its fold hid a real key behind a
+        // security guard.
         if properties.iter().any(|(key, _)| key == "__proto__") {
             return None;
         }
@@ -741,9 +745,12 @@ impl Optimizer {
     /// `key` and the stored keys are ONE currency -- the property name. The
     /// mutation's key is a member node's text (`kali_parser`'s
     /// `expression_to_property_name`) and a stored key is a key slot's text
-    /// (`kali_hir`'s `lower_property_name`); both are `String(key)`, so the
-    /// comparisons below are direct. They used to strip quotes off both sides,
-    /// which made `delete x.a` erase the unrelated own property `'"a"'`.
+    /// (`kali_hir`'s `lower_property_name`); both are `String(key)` -- except
+    /// for a key spelled with an ESCAPE SEQUENCE, which both sides carry
+    /// undecoded and therefore still agree on (section 6 of
+    /// docs/superpowers/followups/property-key-trim-site-classification.md) --
+    /// so the comparisons below are direct. They used to strip quotes off both
+    /// sides, which made `delete x.a` erase the unrelated own property `'"a"'`.
     fn apply_timeline_mutation(
         &self,
         program: &mut LirProgram,
@@ -922,8 +929,12 @@ impl Optimizer {
         // member node's text, which `kali_parser` already reduced to
         // `String(key)`, so `x.__proto__`, `x["__proto__"]` and
         // `x['__proto__']` all arrive as the same nine-character name and all
-        // still disqualify the binding. Un-quoting first would additionally
-        // have disqualified `x['"__proto__"']`, an ordinary own property.
+        // still disqualify the binding. (A key spelled with an ESCAPE SEQUENCE
+        // arrives undecoded, but cannot decode to `__proto__` either way -- see
+        // section 4 of
+        // docs/superpowers/followups/property-key-trim-site-classification.md.)
+        // Un-quoting first would additionally have disqualified
+        // `x['"__proto__"']`, an ordinary own property.
         if let Some((base_id, key)) = self.member_mutation_base_node(program, id) {
             if let Some(base_node) = program.nodes.get(base_id.0 as usize) {
                 if let Some(base_name) = base_node.text.as_deref() {
