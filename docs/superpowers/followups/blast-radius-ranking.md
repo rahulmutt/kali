@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/.cache/cargo-target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `62b11a78c3` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `3a636f62fb` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -146,6 +146,7 @@ A cluster is a **root cause** — the unit a fix ships in — not a topic. Every
 | R-34 (unclustered) | singleton | §2: 'not G8 (see below) -- currently unclustered'. §3's G8 member list still names R-34; §2's entry line refuses the membership in its own words and is the later, more specific statement. |
 | R-47 (unclustered) | singleton | §2: 'unclustered. It has **G3**'s shape ... with a **G7** flavour ... It is deliberately *not* added to G3's member list'. |
 | R-52 (unclustered) | singleton | §2: 'unclustered (an isolated lowering/emit contract mismatch)'. |
+| R-56 (unclustered) | singleton | §2: 'unclustered. It has **G3**'s shape -- a gate keyed on one form with a sibling form slipping past into the miscompile the gate's own comment describes -- and is deliberately *not* added to G3's member list, because every G3 member has a guard that COULD be widened to cover its sibling and this one does not'. |
 
 `aggregate` sums a cluster over its members, so an entry in two clusters would be counted twice; the assignment below is a partition. Where the register names two groups it names them in order, and the first is taken. Counts are per **entry**, not per lane, so a cluster sum carries an entry's whole frequency even where the register splits that entry across two clusters by lane.
 
@@ -178,6 +179,7 @@ A cluster is a **root cause** — the unit a fix ships in — not a topic. Every
 | R-51 | 1 | G2 — call lowering: unresolvable callee folds to constant `0` | G2 (call lowering: unresolvable callee folds to constant `0`) -- ... Recorded as G2 by symptom; the mechanism is named below. | By symptom only: the route is the optional-chain lowering, not an unresolvable callee. |
 | R-52 | 1 | R-52 (unclustered) | unclustered (an isolated lowering/emit contract mismatch), but it is a textbook instance of the pattern §3's G-clusters keep circling. | — |
 | R-53 | 2 | G4 — there is no value distinct from the scalar `0` | G4 (there is no value distinct from the scalar `0`) by symptom; plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4. | G7, named and declined by the register. |
+| R-56 | 2 | R-56 (unclustered) | unclustered. It has **G3**'s shape and is deliberately *not* added to G3's member list. | G3 by shape, named and declined by the register: G3's members each have a guard that could be widened to admit the sibling form, and this one cannot -- the discriminator was discarded upstream in HIR. |
 
 ### 2.2 The reachable axis — the ranking's own definition
 
@@ -224,6 +226,7 @@ Frequency is the count over the 127 corpus programs kali accepts, of which 126 a
 | R-27 (unclustered) | 2 | 0 | R-27 |
 | R-28 (unclustered) | 2 | 0 | R-28 |
 | R-47 (unclustered) | 2 | 0 | R-47 |
+| R-56 (unclustered) | 2 | 0 | R-56 |
 
 **Band 6**
 
@@ -299,12 +302,13 @@ The same clusters banded on the count over all 177 corpus programs, accepted or 
 |---|---|---|---|
 | R-27 (unclustered) | 2 | 0 | R-27 |
 | R-28 (unclustered) | 2 | 0 | R-28 |
+| R-56 (unclustered) | 2 | 0 | R-56 |
 
 **Countable-only band 1** (the same computation with every uncountable cluster dropped rather than carried, so a reader can see the measured frontier on its own): R-52 (unclustered) (tier 1, 5); G3 — guards whose own diagnostic text names the unsoundness that leaks past them (tier 2, 305).
 
 ### 2.4 How much the contested assignments matter
 
-9 of the 27 ranked entries have a second cluster the register names with a concrete destination. Each is moved to it, alone, and both band 1s are recomputed. A clustering that cannot be argued with is not a measurement, so the argument is priced here rather than asserted away.
+10 of the 28 ranked entries have a second cluster the register names with a concrete destination. Each is moved to it, alone, and both band 1s are recomputed. A clustering that cannot be argued with is not a measurement, so the argument is priced here rather than asserted away.
 
 | entry | assigned | moved to | reachable band 1 | raw band 1 |
 |---|---|---|---|---|
@@ -317,6 +321,7 @@ The same clusters banded on the count over all 177 corpus programs, accepted or 
 | R-34 | R-34 (unclustered) | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | unchanged | unchanged |
 | R-47 | R-47 (unclustered) | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | unchanged | unchanged |
 | R-53 | G4 — there is no value distinct from the scalar `0` | G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost | unchanged | unchanged |
+| R-56 | R-56 (unclustered) | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | unchanged | unchanged |
 
 ## 3. The per-entry table
 
@@ -351,6 +356,7 @@ Every input to §2, so a reader who disagrees with the clustering can re-band fr
 | R-51 | 1 | 3 | 0 | 0 / 0 | 3 / 0 | SILENT | present-but-unreachable | — | G2 — call lowering: unresolvable callee folds to constant `0` |
 | R-52 | 1 | 5 | 0 | 0 / 0 | 5 / 0 | SILENT / FL_INTERNAL | present-but-unreachable | — | R-52 (unclustered) |
 | R-53 | 2 | 1 | 0 | 0 / 0 | 1 / 0 | SILENT / FIXED | present-but-unreachable | — | G4 — there is no value distinct from the scalar `0` |
+| R-56 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | yes (disclosed in record) | R-56 (unclustered) |
 
 ### 3.1 What the SILENT filter removed, and what it cost the ranking
 
@@ -380,7 +386,7 @@ Their counts are printed because the removal is not cosmetic: it takes the large
 
 Only 4 of the 14 removed entries have a nonzero reachable count at all: R-04 (5) and R-07 (82) and R-32 (5) and R-33 (1). The largest of them, R-07 at 82, is **the largest reachable count anywhere in `counts.json`** — larger than the largest that survives the filter (R-30 at 57). The ranking's numeric input is much thinner than the raw measurement looks.
 
-And of the 27 entries that do enter, **7 have a reachable count above zero** (R-06 = 1, R-08 = 15, R-10 = 1, R-13 = 45, R-14 = 11, R-30 = 57, R-31 = 2); 17 measure zero and 3 have no count at all. The bands below separate 16 clusters on the evidence of 7 nonzero entries.
+And of the 28 entries that do enter, **7 have a reachable count above zero** (R-06 = 1, R-08 = 15, R-10 = 1, R-13 = 45, R-14 = 11, R-30 = 57, R-31 = 2); 18 measure zero and 3 have no count at all. The bands below separate 17 clusters on the evidence of 7 nonzero entries.
 
 ### 3.2 R-13's number is not R-13's shape
 
@@ -397,11 +403,11 @@ Read down the reachable rows: of R-13's 45 reachable sites, **2 have the object-
 
 ### 3.3 Which counts are upper bounds
 
-A count is an upper bound when the predicate admits sites the defect does not reach — because the AST cannot see a runtime type, a representation, or a compiler-internal proof. 4 records disclose their own upper bound: R-08, R-16, R-26, R-30. 3 more are upper bounds their records do **not** disclose, found by this measurement: R-07 (not in the ranking), R-13, R-14. Every note is in `counts.json` under `upperBound`.
+A count is an upper bound when the predicate admits sites the defect does not reach — because the AST cannot see a runtime type, a representation, or a compiler-internal proof. 5 records disclose their own upper bound: R-08, R-16, R-26, R-30, R-56. 3 more are upper bounds their records do **not** disclose, found by this measurement: R-07 (not in the ranking), R-13, R-14. Every note is in `counts.json` under `upperBound`.
 
 ### 3.4 A lane result is not an entry result
 
-9 of the 27 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). **This list can never hold a retired entry, by construction.** It is built from the entries the SILENT filter admits, and an entry whose every lane has moved has no SILENT lane left, so it is removed by that filter before this list is assembled and leaves the ranking altogether rather than appearing here as all-FIXED. §3.1 is where such an entry surfaces. R-33 left exactly that way on 2026-08-16 — its `console.warn` lane moved and its `console.error` control was already FIXED — and it is genuinely retired. R-32 left by the same door on the same day and is **not** retired: leaving is a statement about the dangerous class, not about being fixed, and §0.2's R-32 row records the `1e21` binding and concat behaviour that still holds it open with no live case pinning it. §0.2 records why in each remaining case — R-47's and R-53's FIXED lanes are the `const` controls those entries declare for themselves. R-30's six FIXED case-lanes are of two kinds, and the difference is worth keeping: four are controls the entry declares for itself (its `const`-scalar lane, its concat/template sinks, and the taint-reaching and proven-`String()` guards at the single-argument sink), while two — its `const`-object-field lane and the taint-reaching `String()`-result lane at the MULTI-argument sink — genuinely moved on 2026-08-16. So *declared control* is the accurate description of the first four and *`const` lane* is not, and neither kind retires the entry, because its plain `var`-binding lane is still SILENT. R-08's `===` half fails closed while its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
+9 of the 28 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). **This list can never hold a retired entry, by construction.** It is built from the entries the SILENT filter admits, and an entry whose every lane has moved has no SILENT lane left, so it is removed by that filter before this list is assembled and leaves the ranking altogether rather than appearing here as all-FIXED. §3.1 is where such an entry surfaces. R-33 left exactly that way on 2026-08-16 — its `console.warn` lane moved and its `console.error` control was already FIXED — and it is genuinely retired. R-32 left by the same door on the same day and is **not** retired: leaving is a statement about the dangerous class, not about being fixed, and §0.2's R-32 row records the `1e21` binding and concat behaviour that still holds it open with no live case pinning it. §0.2 records why in each remaining case — R-47's and R-53's FIXED lanes are the `const` controls those entries declare for themselves. R-30's six FIXED case-lanes are of two kinds, and the difference is worth keeping: four are controls the entry declares for itself (its `const`-scalar lane, its concat/template sinks, and the taint-reaching and proven-`String()` guards at the single-argument sink), while two — its `const`-object-field lane and the taint-reaching `String()`-result lane at the MULTI-argument sink — genuinely moved on 2026-08-16. So *declared control* is the accurate description of the first four and *`const` lane* is not, and neither kind retires the entry, because its plain `var`-binding lane is still SILENT. R-08's `===` half fails closed while its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
 
 ## 4. The uncountable entries
 
@@ -510,6 +516,59 @@ from the regeneration:
 What did **not** happen, recorded because the project's own spec predicted it
 would: G8 does **not** lose R-30's 57, because R-30 does not retire. Any reading
 of this document that expected G8 to collapse should be discarded.
+
+**AMENDMENT 2026-08-16, at `3a636f62fb` — a SECOND regeneration on the same day,
+and the first one driven by a register entry that did not exist before.** The
+console-render-unification project's final whole-branch review found a new silent
+miscompile in the codegen predicate that project had just narrowed, and filed it
+as **R-56** (§2, Tier 2 — a string key spelled `'"5"'` is indistinguishable from
+the numeric key `5`, so `Object.hasOwn` denies a property the same program has
+just read). A §2 entry with a SILENT §0.2 row is a ranked entry, so this document
+regenerated with it. Read out of the regenerated §2 and §3, not predicted:
+
+- **Ranked entries: ~~27~~ → 28**, and **§2's clusters ~~16~~ → 17** — R-56 takes
+  a new singleton cluster `R-56 (unclustered)`. G3 is named as its shape and
+  declined, for the reason §2's entry gives, so R-56 also appears in §2.4's
+  contested-assignment table, where **both axes price the swap `unchanged`**.
+- **No band moved, on either axis.** R-56 is **countable** and measures **0
+  reachable / 0 raw** over the frozen corpus (zero-kind `unsampled`), so it lands
+  in reachable band 5 and raw band 9 among the other tier-2 zeros, and dominates
+  nothing. Band 1 is byte-identical to the block above on both axes. That is the
+  whole of the structural movement, and it is worth contrasting with the first
+  amendment's: a *fix* moved a band, and a *new defect* did not.
+- **The instrument moved, which has not happened before.** R-56's predicate is
+  new, so `predicates.json` gained a record and `matchers.mjs` gained the matcher
+  it names; both frozen SHAs in
+  `crates/kali_blast_radius/src/manifest_tests.rs` were re-pinned and
+  `counts.json` was regenerated with them. The regeneration's diff is the
+  evidence that nothing else moved: it added exactly one entry and left every
+  other entry's every field byte-identical. Per **spec §4.3** the instrument
+  change is **its own commit**, landed ahead of the finding that motivated it, so
+  a reader bisecting a moved figure lands on a commit that changes nothing but
+  the apparatus.
+- **The `countable` word in that record is load-bearing, and nothing checks it.**
+  `score::aggregate` makes a cluster uncountable if any member is, and an
+  uncountable cluster is never dominated — so filing R-56 `uncountable` would
+  have been easier (no matcher, one SHA instead of two) and would have placed a
+  brand-new zero-frequency entry in **band 1** by construction, with no gate
+  objecting. It is filed countable because its triggering shape is syntax, which
+  is the only reason available. `manifest_tests.rs`'s frozen-SHA comment carries
+  the same warning for the next author.
+- **`upperBound` disclosures: ~~4~~ → 5.** R-56's record discloses its own: the
+  exact condition is that the key's inner text lies in Rust's `Display for f64`
+  image, which an acorn AST cannot reproduce, so the matcher tests a strictly
+  wider "reads as a number" instead.
+
+**What this amendment does NOT fix, and it is the more consequential of the two
+notes on this page.** The register's §0.2 movement paragraph now discloses that
+the SILENT set excludes a **measured silent lane** — `var x = 1e21;
+console.log(x)` prints 22 digits at exit 0 and is tracked under **R-55** in §7
+*"Fail-loudly-but-wrong defects (not silent)"*, which carries no §0.2 row and
+therefore no oracle case. **This document's SILENT population is short by one
+measurable lane, and no gate can notice**, because the gate compares §0.2 rows to
+cases and that lane has neither. Splitting R-55 is filed as a follow-up in the
+register; until it happens, "28 ranked entries" is a count of what is *rowed*,
+not of what is *silent*.
 
 ### 6.1 The most important thing here is not a rank
 

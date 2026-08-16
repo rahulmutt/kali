@@ -4724,11 +4724,26 @@ impl<'a> FunctionEmitter<'a> {
                 .binding_is_string_result(&self.function_name, name)
     }
 
-    /// Stage P5 T-new-E: `id` reaches a numeric sink (`+`, template literal,
-    /// multi-arg console via `emit_as_string`, or arithmetic operator lowering)
-    /// carrying `String()`-result provenance but WITHOUT a proven `Repr::String`
-    /// — the F-newB-1 hazard. Sink sites consult this and fail CLOSED (E5506)
-    /// rather than running the tagged string handle through `int_to_string`.
+    /// Stage P5 T-new-E: `id` reaches a numeric sink carrying `String()`-result
+    /// provenance but WITHOUT a proven `Repr::String` — the F-newB-1 hazard.
+    /// Sink sites consult this and fail CLOSED (E5506) rather than running the
+    /// tagged string handle through `int_to_string`. The five consulting sites
+    /// are `emit_as_string` under `StringSink::Concat` (`+` and template
+    /// literals), `emit_binary`'s arithmetic pre-guard, `emit_numeric_operand`
+    /// (every numeric-context operand push — unary, computed index, compound
+    /// assign), `emit_update_expression` (`++`/`--`), and `emit_integer_math_arg`
+    /// (`intrinsics/number.rs`, every `Math.*` argument).
+    ///
+    /// **Console is exempt, on BOTH of its lanes** (console-render-unification
+    /// spec §5.1 and §5.1.1). `emit_as_string` takes a `StringSink`
+    /// (`emit/operators.rs:26`) and applies this deny only under
+    /// `StringSink::Concat`; under `StringSink::Console` the terminal arm is
+    /// `value_to_string`, which decodes the tagged handle at run time, so the
+    /// hazard this deny guards cannot occur there. The single-argument lane was
+    /// always exempt; the MULTI-argument lane became exempt at `8a1f5e8e2c` and
+    /// that is the project's one deliberate widening, pinned by `r30e`/`r30f` in
+    /// `crates/kali_cli/tests/cases/oracle/tier4.toml`. Do not re-add "multi-arg
+    /// console" to the sink list above without moving those two cases with it.
     ///
     /// The provenance is computed STRUCTURALLY in `repr_infer`'s whole-program
     /// taint fixpoint (`string_result_bindings` / `string_result_returns`),

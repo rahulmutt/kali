@@ -433,10 +433,20 @@ fn canonical_property_key_text_renumbers_only_hir_double_quoted_keys() {
         canonical_property_key_text("\"`7`\"", Expression)
     );
 
-    // A double-quoted key whose inner IS a number is the genuine numeric key
-    // and still renumbers -- including `{1e999: 1}`, which HIR stringifies to
-    // `inf` and JS names `Infinity`. This shape is live; the double-quote gate
-    // must not be "simplified" into breaking it.
+    // A double-quoted key whose inner IS a number renumbers -- including
+    // `{1e999: 1}`, which HIR stringifies to `inf` and JS names `Infinity`.
+    // This shape is live; the double-quote gate must not be "simplified" into
+    // breaking it.
+    //
+    // WHAT THIS INPUT IS, honestly: `"5"` in the key slot is what
+    // `lower_property_name` writes for the NUMERIC key `{5: 1}` -- and it is
+    // ALSO what that same function stores, verbatim, for the STRING key
+    // `{'"5"': 1}`, whose JS property name really is the three characters
+    // `"5"`. The two are one text by the time they reach here, so this
+    // assertion documents the MECHANISM (the double-quote marker, and what it
+    // renumbers) and not a decision the function is able to make. It is kept
+    // for that, not as evidence that a numeric key is being told apart from a
+    // string one -- it is not.
     assert_eq!(canonical_property_key_text("\"5\"", ObjectLiteralKey), "5");
     assert_eq!(
         canonical_property_key_text("\"inf\"", ObjectLiteralKey),
@@ -445,6 +455,24 @@ fn canonical_property_key_text_renumbers_only_hir_double_quoted_keys() {
     assert_eq!(
         canonical_property_key_text("\"inf\"", ObjectLiteralKey),
         canonical_property_key_text("\"Infinity\"", Expression)
+    );
+
+    // KNOWN WRONG, PINNED DELIBERATELY -- register R-56 (§2, Tier 2).
+    //
+    // For the STRING key `{'"5"': 1}` the correct canonical text is the key's
+    // own name, `"5"` WITH its quotes; the collision above makes the function
+    // answer `5` instead, which is why `Object.hasOwn({'"5"': 1}, '"5"')` folds
+    // to a diagnostic-free `false` while `o['"5"']` still finds the property.
+    // This asserts the WRONG answer on purpose, so that a future fix -- which
+    // must happen upstream, by giving HIR's key slot a Number/String
+    // discriminator rather than a quote marker -- turns this red instead of
+    // silently changing behaviour. When it does: delete this assertion, change
+    // the ambiguity note above, and close R-56.
+    assert_ne!(
+        canonical_property_key_text("\"5\"", ObjectLiteralKey),
+        "\"5\"",
+        "R-56: if this now HOLDS, the numeric/string key collision has been \
+         fixed -- update the register entry and delete this pin"
     );
 
     // One-character multi-byte keys are two BYTES but one CHAR, and must never
@@ -519,8 +547,10 @@ fn object_literal_key_renumbers_exactly_the_spellings_hir_can_write() {
     // (2) NOTHING outside the image renumbers -- each is a string key whose name
     // includes its own quotes. These are the six ways `parse_numeric_literal_value`'s
     // language is wider than `Display for f64`'s image, plus the unreachable
-    // values: exponent, sign prefix, leading zero, trailing/leading dot,
-    // `n` suffix, and the non-literal values NaN / negative.
+    // spellings: exponent, sign prefix, leading zero, trailing/leading dot,
+    // `n` suffix, and NaN / `-0`. (NOT "negative" -- negative VALUES are in the
+    // image and are generated above; it is the SPELLING `-0` that is
+    // unreachable, for the reason the comment inside the list gives.)
     for inner in [
         "1e21", "1e-7", "5e3", "5E3", // exponent: Display never emits one
         "+5",  // sign PREFIX on a positive value: Display never writes one.

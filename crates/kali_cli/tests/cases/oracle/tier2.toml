@@ -8,27 +8,29 @@
 # ---------------------------------------------------------------------------
 # COVERAGE -- THIS FILE IS COMPLETE FOR TIER 2.
 #
-# Tier 2 holds TWENTY-SIX entries: R-06, R-07, R-08, R-09, R-10, R-11, R-12,
+# Tier 2 holds TWENTY-SEVEN entries: R-06, R-07, R-08, R-09, R-10, R-11, R-12,
 # R-13, R-14, R-15, R-16, R-17, R-18, R-19, R-20, R-21, R-22, R-23, R-24, R-25,
-# R-26, R-27, R-28, R-47, R-48, R-53.
+# R-26, R-27, R-28, R-47, R-48, R-53, R-56.
 #
-# ALL TWENTY-SIX ARE COVERED HERE, in NINETY cases. Nothing in Tier 2 is left
-# unauthored. The file was written in two passes -- R-06..R-17 (thirty-four
-# cases, 2026-08-15, `2a49fa1f3f`) and R-18..R-53 (fifty-six cases, 2026-08-15,
-# `36f9c814a2`) -- and the two passes' measurement summaries are kept separate
-# below because they were taken at different commits.
+# ALL TWENTY-SEVEN ARE COVERED HERE, in NINETY-TWO cases. Nothing in Tier 2 is
+# left unauthored. The file was written in three passes -- R-06..R-17
+# (thirty-four cases, 2026-08-15, `2a49fa1f3f`), R-18..R-53 (fifty-six cases,
+# 2026-08-15, `36f9c814a2`) and R-56 (two cases, 2026-08-16, at `3a636f62fb`,
+# by the console-render-unification project's final whole-branch review) -- and
+# the passes' measurement summaries are kept separate below because they were
+# taken at different commits.
 #
 # If you append: keep the cases in entry order, and put new `[source]` keys in
 # the single `[source]` table below. TOML forbids reopening `[source]` once the
 # `[[case]]` array has begun, so keys go mid-file and cases go at the end.
 #
 # ---------------------------------------------------------------------------
-# THE TWENTY-SIX ENTRIES, AND THE NINETY CASES.
+# THE TWENTY-SEVEN ENTRIES, AND THE NINETY-TWO CASES.
 #
 # Every entry is measured in BOTH scopes -- module scope and in-function --
 # because top-level and in-function are different programs in kali and several
 # known defects appear at one scope only. NO SCOPE IS MOOT FOR ANY ENTRY IN
-# THIS FILE, so there are no exemptions to name: all twenty-six carry both.
+# THIS FILE, so there are no exemptions to name: all twenty-seven carry both.
 #
 # Ten entries carry MORE than two cases -- R-06, R-08, R-09, R-13 from the first
 # pass and R-19, R-21, R-25, R-28, R-47, R-53 from the second -- because the
@@ -84,6 +86,7 @@
 #   R-53   `var` loop variable        r53v_..._module_scope  r53v_..._in_function
 #   R-53   `let` loop variable        r53l_..._module_scope  r53l_..._in_function
 #   R-53   `const` loop variable      r53c_..._module_scope  r53c_..._in_function
+#   R-56   --                         r56a_..._module_scope  r56a_..._in_function
 #
 # (The first pass's header said "Five entries" here; the correct count for that
 # pass is FOUR -- R-06, R-08, R-09 and R-13 -- and it is corrected in passing.)
@@ -934,6 +937,19 @@ console.log("t=" + t);
     t = t + v;
   }
   console.log("t=" + t);
+}
+main();
+"""
+"r56a_module.js" = """const o = {'"5"': 1};
+console.log(o['"5"']);
+console.log(Object.hasOwn(o, '"5"'));
+console.log(Object.hasOwn(o, 5));
+"""
+"r56a_function.js" = """function main() {
+  const o = {'"5"': 1};
+  console.log(o['"5"']);
+  console.log(Object.hasOwn(o, '"5"'));
+  console.log(Object.hasOwn(o, 5));
 }
 main();
 """
@@ -2211,3 +2227,33 @@ rationale = """R-53, `const` LOOP-VARIABLE lane, in-function scope. The module-s
 Expected verdict set from the register's recorded status: FIXED, as for the module scope. §2 carries no `Scopes affected` line for R-53, so the class was set on the assumption that the scopes agree.
 
 MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FIXED, as recorded -- no reconciliation. kali prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0; node prints the same four lines at exit 0. Identical to the module scope, so the correct lane is correct in both scopes -- which is what licenses `for (const v of …)` as a faithful-loop control in-function as well as at top level."""
+
+[[case]]
+name = "r56a_quoted_numeric_string_key_module_scope"
+kind = "oracle"
+register_entry = "R-56"
+program = "r56a_module.js"
+verdict = "silent"
+rationale = """R-56, the whole entry (one lane), module scope. §2's headline `Repro` verbatim -- a `const` object literal whose single key is the STRING `'"5"'`, read once through a computed member and twice through `Object.hasOwn`, with the numeric probe `5` as the second `hasOwn`.
+
+WHY ALL THREE LINES ARE IN ONE PROGRAM. The entry's severity claim is that one run contradicts itself: line 1 finds the property and line 2 denies it. Split across two cases each line reads as an ordinary wrong answer, and the self-contradiction -- the thing that makes this worth an entry at a raw count of zero -- would be an observation in prose with nothing measuring it. Line 3 is in the same program because it is the other half of the same collision and it moves in the opposite direction, so a future fix that repairs one and not the other still turns this case red.
+
+Expected verdict set from the register's recorded status: §0.2's R-56 row and §2's entry both record SILENT in both scopes -- kali exits 0 with empty stderr and prints an answer that differs from node's -- so SILENT.
+
+MEASURED 2026-08-16 at `3a636f62fb` against node v26.7.0: SILENT, as recorded. kali prints `1`, `false`, `true` at exit 0 with empty stderr; node prints `1`, `true`, `false` at exit 0. Two of the three lines diverge and the first agrees, which is the shape the entry describes.
+
+WHAT A REGRESSION HERE WOULD MEAN, IN BOTH DIRECTIONS. If `canonical_property_key_text` ever stops renumbering a double-quoted key at all, line 3 becomes `false` (correct) and line 2 stays `false` (still wrong) -- the class stays SILENT and this case stays green while half the entry moved, so read the entry's 2x2 rather than this case's colour when judging a fix. If the entry is genuinely CLOSED -- by restoring the Number/String discriminator upstream in `kali_hir`'s `lower_property_name`, which is the only place it can be restored -- this case turns FIXED and goes red against its `silent` verdict, which is the signal to close the entry and re-derive the row.
+
+PRE-BRANCH PROVENANCE. Line 2 answered `true` (correct) at the merge base `8974cc6b57` and answers `false` here; line 3 answered `true` (wrong) at both. That comparison was taken on a binary built from `8974cc6b57` and is recorded in §2's 2x2, not by this case -- this case measures HEAD only."""
+
+[[case]]
+name = "r56a_quoted_numeric_string_key_in_function"
+kind = "oracle"
+register_entry = "R-56"
+program = "r56a_function.js"
+verdict = "silent"
+rationale = """R-56, the whole entry (one lane), in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. §2 records `both scopes`, measured rather than assumed: the fold this entry lives in (`static_object_has_own` over a `resolve_literal_aggregate`'d object literal) is scope-independent by construction, and the pair is here to hold that claim rather than to restate it.
+
+MEASURED 2026-08-16 at `3a636f62fb` against node v26.7.0: SILENT, as recorded. kali prints `1`, `false`, `true` at exit 0; node prints `1`, `true`, `false` at exit 0. Byte-identical to the module scope."""

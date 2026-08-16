@@ -111,6 +111,11 @@
       "name": "R-52 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered (an isolated lowering/emit contract mismatch)'."
+    },
+    {
+      "name": "R-56 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered. It has **G3**'s shape -- a gate keyed on one form with a sibling form slipping past into the miscompile the gate's own comment describes -- and is deliberately *not* added to G3's member list, because every G3 member has a guard that COULD be widened to cover its sibling and this one does not'."
     }
   ],
   "assignments": [
@@ -302,6 +307,13 @@
       "registerSource": "G4 (there is no value distinct from the scalar `0`) by symptom; plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4.",
       "alternate": "G7, named and declined by the register.",
       "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
+    },
+    {
+      "id": "R-56",
+      "cluster": "R-56 (unclustered)",
+      "registerSource": "unclustered. It has **G3**'s shape and is deliberately *not* added to G3's member list.",
+      "alternate": "G3 by shape, named and declined by the register: G3's members each have a guard that could be widened to admit the sibling form, and this one cannot -- the discriminator was discarded upstream in HIR.",
+      "alternateCluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them"
     }
   ]
 }

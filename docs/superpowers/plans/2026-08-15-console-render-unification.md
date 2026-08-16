@@ -1,5 +1,11 @@
 # Console Render Unification Implementation Plan
 
+> **OUTCOME 2026-08-16 (at `3a636f62fb`): this plan is NOT amended, and neither
+> is its Goal line below — the spec's `OUTCOME 2026-08-16` block at the head of
+> `docs/superpowers/specs/2026-08-15-console-render-unification-design.md` lists
+> every claim shared by the two documents that the implementation falsified,
+> R-30's retirement first among them. Read it before quoting anything here.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the rendering half of the register's G8 cluster by making every console lane render through one ladder, retiring R-30 and R-33 and closing R-08 residual 5.

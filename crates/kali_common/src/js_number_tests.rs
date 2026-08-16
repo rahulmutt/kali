@@ -48,6 +48,13 @@ fn the_formatter_is_not_what_r55_is_about() {
     // R-55 reports `console.log(1e21)` printing 22 literal digits. This asserts
     // the formatter would have rendered it correctly if it had been reached, so
     // the defect is upstream of here and this test is what pins that reasoning.
+    //
+    // Deliberately SUBSUMED by `formats_large_magnitudes_at_the_js_exponent_threshold`
+    // above, whose `assert_eq!(format_js_number(1e21), "1e+21")` implies this
+    // `assert_ne!` outright. It is kept for its NAME and this comment: they are
+    // the only place in the formatter's own tests where R-55's "the defect is
+    // upstream" argument is anchored, and a threshold test renamed or retargeted
+    // later would take the argument with it. Do not delete it as redundant.
     assert_ne!(format_js_number(1e21), "1000000000000000000000");
 }
 

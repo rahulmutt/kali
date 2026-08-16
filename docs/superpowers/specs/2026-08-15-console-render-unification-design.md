@@ -1,5 +1,54 @@
 # Console render unification — closing G8's rendering half
 
+---
+
+## OUTCOME 2026-08-16 (at `3a636f62fb`) — READ THIS BEFORE THE BODY
+
+**The body below is the design as argued on 2026-08-15 and is NOT amended.** The
+register's convention is supersede-and-strike, and a spec whose original argument
+is still readable is more useful than one silently corrected — the reasoning that
+produced a wrong prediction is the part worth keeping. This block lists every
+claim the implementation falsified, with the artifact that now holds the truth.
+Modelled on `blast-radius-ranking.md` §6's `AMENDMENT` blocks.
+
+**The one-sentence outcome.** The unification landed and R-33 retired. **R-30 did
+not retire, and was never going to on the evidence this spec had**; the ranking's
+G8 kept R-30's 57 and its band 1 place; and the half of R-32 this spec declared
+out of reach was partly closed by a change this spec did not connect to it.
+
+| where | what the body claims | what is true at `3a636f62fb`, and where it is recorded |
+|---|---|---|
+| §2 Goals | "Retire **R-30** and **R-33**, and with R-30 close **R-08 residual 5**" | **R-33 retired; R-30 did not.** R-30's plain `var`-binding lane (`r30a`) is still SILENT and holds the entry open — §0.2's R-30 row. R-08 **residual 5 did close**, but not as a consequence of R-30 retiring: it closed when the two console formatters were unified, because its `??` operand carries a proven `ValueShape::Boolean`. §2's R-30 entry states the distinction in its own words: *"closes when this entry's FIX lands" was true; "closes when this entry closes" was not.* |
+| §7 table | `r30a` (`var` binding): SILENT → **FIXED** | **Still SILENT.** `var b = true; console.log(b)` prints kali `1` / node `true` at `62b11a78c3` and at `3a636f62fb`. §0.2's R-30 row; the `r30a` cases in `tier4.toml`. |
+| §7 | "All four R-30 lanes then measure FIXED, so R-30 **retires**" | **False twice.** The lanes do not all measure FIXED (see the row above), and R-30 does not have four lanes — it has **seven**, six FIXED and one SILENT. §0.2's R-30 row enumerates them. |
+| §7.1 | "G8 loses R-30's 57, which is the bulk of its 65, so G8's position on the reachable axis moves" and "G8's membership shrinks to R-23, R-31 and R-32" | **G8 keeps the 57 and keeps reachable band 1.** Its frequency fell 65 → 59 and its membership shrank to R-23, R-30, R-31 — R-30 stayed and R-32 left, which is the opposite of the sentence's second half on both names. The ranking's §6 AMENDMENT 2026-08-16 records it and says so explicitly: *"G8 does not lose R-30's 57, because R-30 does not retire."* |
+| §8 | R-32's `1e21` half — "the value never reaches `float_to_string` in any lane … **this project cannot close it**" | **The direct-log bare-literal lane WAS closed**, by this project's own static-fold work (Task 6). `console.log(1e21)` now prints `1e+21`. The binding and concat lanes are still open. §7's R-55 entry carries the struck sentence and the per-lane re-measurement; §0.2's R-32 row carries the consequence. |
+| §1.1 | the static fold "returns the literal text verbatim" | **It never saw the literal's text.** `kali_hir`'s `lower_literal_value` (`crates/kali_hir/src/helpers.rs:8`) had already rewritten the number with Rust's `Display for f64`, so `1e-7` reached the fold as `"0.0000001"` and `1e21` as `"1000000000000000000000"`. The fix is a re-parse and re-render, which is only intelligible once that is known. Recorded in `render_static_value`'s own comment and in §7's R-55. |
+| §4 | `VALUE_TO_STRING_IMPORT_INDEX: u32 = 23` | **22.** `COVERAGE_HIT_IMPORT_INDEX` is 23; the six unconditional runtime helpers occupy 17 through 22. `crates/kali_codegen/src/lib.rs:88`. |
+| §4 | the fold uses `format_js_number(parse_number_literal(text))` | It uses **`parse_numeric_literal_value`**, behind an `is_bigint_literal_text` guard that returns a BigInt's text unchanged — the digits of a BigInt too large for an `f64` must not round-trip through one. `crates/kali_codegen/src/intrinsics/host.rs:748-765`. |
+| §7 item 1 | the guard is "a `String()`-result binding in single-argument `console.log` position" | It had to be a **REASSIGNED** binding (`let s = 0n; s = String(42n);`). The spec's proposed `const s = String(42n)` never reaches `string_result_render_taint` at all — `is_string_valued` proves a direct `String(<bigint-literal>)` call a string outright — so it could not have guarded the exemption it was written for. That program is kept under its own honest label as `r30g`; the actual guard pair is `r30e`/`r30f`. Both cases' rationales in `tier4.toml` carry the finding. |
+
+**One thing the body got right that is worth naming, because it was a prediction
+and not a hedge.** §7.1's *"The new bands are whatever the generator says — this
+spec does not predict them"* held: the bands were regenerated, not argued, and the
+regeneration is what caught the four claims above. The failure was in the
+sentences that did predict, immediately underneath it.
+
+**Two things filed after the body was written, which a reader of this spec should
+know exist.** Neither is a correction to the argument below; both are findings the
+project produced.
+
+- **R-55** (§7) — the `1e21` family this spec routed out of the SILENT set. Its
+  binding lane is still a wrong answer at exit 0 and, because §7 entries carry no
+  §0.2 row, it has no oracle case and cannot go red. §0.2's movement paragraph now
+  discloses that aggregate; splitting the entry is filed there as a follow-up.
+- **R-56** (§2, Tier 2) — a NEW silent miscompile, found in the final whole-branch
+  review by probing the double-quote gate this project narrowed. `Object.hasOwn`
+  denies a string key the same program has just read. One cell of it regressed on
+  this branch. Its 2x2, with a pre-branch column, is in §2 of the register.
+
+---
+
 ## 1) Problem
 
 `docs/superpowers/followups/blast-radius-ranking.md` is the first measured
@@ -471,6 +520,62 @@ representation change is the real fix.
 **The scoping measurements are one commit stale.** §1.3's table was taken on a
 binary dated 2026-08-14 against HEAD `8974cc6b57`. Task 1 re-takes every one of
 them as an oracle case at the project's own HEAD before any code changes.
+
+**`value_to_string` retains guest memory permanently, and the body never priced
+it. ADDED 2026-08-16, measured at `3a636f62fb`.** This risk is not a prediction:
+it is a measurement taken after the fact, recorded here because §10 is where a
+reader looks for the costs of the design and this one was missing.
+
+`value_to_string` calls `alloc_guest_string`, which routes to **`__alloc_global`
+— the never-reset arena** (`crates/kali_runtime/src/host/memory.rs:143`), not the
+resettable `__alloc` that `string_concat_arena` uses. So every non-string,
+non-float single-argument `console.log` now permanently retains guest bytes where
+before this project it allocated **none** — the single-argument lane handed the
+host a raw `i64` and the host formatted it into its own `String`.
+
+Measured with `while (i < N) { console.log(i); i = i + 1; }`, peak child RSS
+(`ru_maxrss`), the **same fixture on two binaries** — HEAD and one built from the
+merge base `8974cc6b57` — because the host's stdout buffer grows with N on both
+and a single-binary figure cannot separate the two:
+
+| N | `8974cc6b57` | `3a636f62fb` | delta |
+|---|---|---|---|
+| 100 000 | 26 664 KiB | 27 112 KiB | +448 KiB |
+| 1 000 000 | 38 440 KiB | 45 900 KiB | +7 460 KiB |
+
+Over the 100k → 1M interval the two binaries grow by 11 776 KiB and 18 788 KiB,
+so the retention this project added is **(18 788 − 11 776) KiB / 900 000 = 7.98
+bytes per log** — which is exactly `alloc_guest_string`'s `(len + 7) & !7` slot
+for a decimal string of eight bytes or fewer, i.e. the whole of the cost and
+nothing else. A single-binary reading of the same runs gives ~21 bytes/log and is
+wrong: it charges this project for the host's stdout buffer.
+
+At **N = 4 000 000 both binaries abort** on `error[E4003]` (the default CPU-fuel
+guard), at 71 476 KiB and 85 648 KiB respectively. **The abort is pre-existing and
+is not caused by this change** — the guard is on CPU, not memory, and the
+pre-branch binary reached a *higher* RSS because it got further through the loop
+per unit of fuel. Do not read the 4M row as a memory ceiling.
+
+**The consequence at exhaustion is a new silent-wrong-answer path on a lane that
+previously had none — and this paragraph is REASONED FROM SOURCE, NOT MEASURED.
+Read it as an argument, not as a row in the table above.** Every figure in the
+table was run; nothing below was. The state it describes was never reached: the
+default CPU-fuel guard fires long before guest memory is exhausted (see the 4M
+row), so producing it would need a raised `resources.maxCpuTimeMs` and a run
+nobody has done. It is written down because it is register-shaped, and it is
+labelled because a document whose value is that its claims are measured must not
+let an unmeasured one wear the same clothes.
+
+The argument is three lines of source. `value_to_string` ends in
+`alloc_guest_string(...).unwrap_or(0)` (`host/imports_default.rs:729`). Handle
+`0` has no `STRING_HANDLE_TAG`, so `decode_string_handle_bytes` returns `None`
+(`host/memory.rs:50`) and `format_console_value` falls through to
+`value.to_string()` (`host/io.rs:29`) — the string **`"0"`**. So a print-heavy
+program running long enough to exhaust guest memory would reach a state where
+`console.log(i)` prints `0` at exit 0 with no diagnostic. Bounded and extreme.
+`int_to_string`, `float_to_string` and `string_concat` share the `unwrap_or(0)`
+convention (§9), so the convention is not new — what is new is a console lane
+that reaches it.
 
 ## 11) Sequencing
 

@@ -177,7 +177,11 @@ fn static_console_fold_renders_negated_literals_like_js_and_keeps_bigints_exact(
         printed.contains("-123456789012345678901234567890n"),
         "{printed}"
     );
-    // Double negation is closed under the same arm.
+    // Double negation is closed under the same arm. NOTE: this assertion is
+    // SUBSUMED by the `-42n` one above -- `"-42n"` contains `"42n"` -- so it
+    // cannot fail while that one passes and it witnesses nothing about `- -42n`
+    // on its own. Kept as a marker that the shape is in the fixture's program;
+    // a real witness needs an assertion that can tell the two occurrences apart.
     assert!(printed.contains("42n"), "{printed}");
     // BigInt has no negative zero: JS prints `0n` for `-0n`, and static
     // `Map`/`Set` key texts must not treat `-0n` and `0n` as two keys.

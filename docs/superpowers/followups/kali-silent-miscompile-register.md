@@ -226,15 +226,18 @@ by **two** cases, module scope and in-function, and **the two scopes agreed on t
 class for every lane of every entry** — there is no entry in this table whose class
 depends on scope. Five entries (R-07, R-09, R-13, R-20, R-54) carry an additional
 case in `classifier_ground_truth.toml`, which measures the classifier on that
-entry's own repro; those cases agree with the tier files. **151 cases back the 41
-rows.** The oracle directory holds 155; the other four carry
+entry's own repro; those cases agree with the tier files. **153 cases back the 42
+rows.** ~~151 cases back the 41 rows … holds 155~~ — superseded 2026-08-16 at
+`3a636f62fb`, when the console-render-unification project's final whole-branch
+review added **R-56** with its own two-case scope pair. The oracle directory holds
+157; the other four carry
 `register_entry = "GROUND-TRUTH"`, measure the classifier rather than any entry,
 and are therefore attributable to no row — `agree.js`, `both_reject.js`,
 `hang.js` and `nondeterministic.js`. A reader auditing the mapping should expect
 those four to be unattributed, and should treat any *other* unattributed case as
 a defect.
 
-| entry | status measured at `62b11a78c3` (2026-08-16; three rows moved, the rest re-verified) | note |
+| entry | status measured at `62b11a78c3` (2026-08-16; three rows moved, the rest re-verified — except **R-56**, added 2026-08-16 at `3a636f62fb` and measured there) | note |
 |---|---|---|
 | R-01 default param truncates module | **FAIL_CLOSED** (both scopes) | E5506 "a default parameter is not supported", all forms; no truncation. Class unchanged since the 2026-07-24 row — this is the first time a case has held it. kali's stdout is empty where node prints `A`/`B`, so nothing is truncated *and* nothing is printed. |
 | R-02 call through fn value → 0 | **FAIL_CLOSED** (both scopes) | every broken lane E5506 (the recommended G2 interim fix); callee never runs, but honestly. Supported set unchanged (direct call, const-arrow/fnlit, IIFE, sibling capture). The refusal is preceded by a `warning[E3100] undefined identifier … lowered through a zero placeholder compatibility fallback` — a warning, not the verdict. |
@@ -278,6 +281,7 @@ a defect.
 | R-52 `for`-clause arity misclassification (omitted clauses) | **SILENT** (Repro A `r52a`; Repro B `r52b`) / **FL_INTERNAL** (Repro C `r52c`, `E4003`), both scopes | added 2026-07-29, originally measured on `58234e87c7`. Three labelled repros, three declared severities, three lanes — collapsing them would record one class for an entry the register itself records as carrying three. A: `for (var i = 0; ;)` skips the loop entirely (kali `s=0`; node six `iter=` lines and `s=15`). B: `for (init; ; update)` drops iteration zero and **the sums still agree**, which is why the per-iteration log is load-bearing. C: `for (; test; update)` runs away to `E4003` after ~1.36M lines in ~2.7s, reproducibly (two kali runs compared byte for byte, so the pair does not rank NONDETERMINISTIC). Distinct from R-09, which is about update PLACEMENT, not clause identification. Carries a **standing coupling to `continue_is_faithful`** — see §2's R-52 entry. |
 | R-53 `for (var v of […])` — **and `for (let v of […])`** — binds every element to `0` | **SILENT** (`var` loop variable `r53v`; `let` loop variable `r53l`) / **FIXED** (`const` loop variable `r53c`), both scopes | the 2026-07-29 widening holds at `4cfa218814`: `let` is affected as well as `var`, measured on the entry's own separately-dated four-element fixture. In every silent lane **the trip count is correct and only the bound value is lost** (`iter=0` ×3 or ×4, `t=0`/`s=0`, against node's `1..3`/`t=6` and `1..4`/`s=10`). The silent surface remains *for-of over an **array literal** with a **`var` or `let`** loop variable*; over a binding iterable kali refuses. **The `const` lane's FIXED is a LANE result the entry itself declares as its control — it does not retire R-53.** Distinct from **R-47**, which is `for..of` over a `let`-declared array BINDING iterating the binding's NAME; this is the loop VARIABLE's declarator kind over an array LITERAL. Consequence for probe design is unchanged: `for (var v of …)` must not be used as a faithful-loop control. |
 | R-54 a second `default` clause is absorbed into the first (node: `SyntaxError`) | **ACCEPTS_INVALID** (both scopes) | added 2026-07-29, originally measured on `58234e87c7`. Both halves still reproduce: kali prints `v=d2` **and** `g=5` at exit 0, so the clauses are still MERGING rather than replacing; node refuses the whole file with `SyntaxError: More than one default clause in switch statement` at exit 1. `g=5` is the load-bearing half — `v=d2` alone would be consistent with replacement. A second case in `classifier_ground_truth.toml` pins the ACCEPTS_INVALID class on the same repro. Only invalid JS is affected. Cluster **G1**, same function as R-49 and independent of it. |
+| R-56 string key `'"5"'` collides with HIR's numeric-key marker | **SILENT** (both scopes) | added 2026-08-16 by the console-render-unification project's final whole-branch review, measured at `3a636f62fb` against `node v26.7.0`. `const o = {'"5"': 1}` prints `1` for `o['"5"']` and `false` for `Object.hasOwn(o, '"5"')` in the same run at exit 0, and `true` for `Object.hasOwn(o, 5)` where node says `false`. **One cell of this REGRESSED on this branch and a different cell was FIXED by it** — see §2's 2x2, which carries all six measured values and the pre-branch column. The cause is upstream of any predicate: `lower_property_name` writes the numeric key `{5: 1}` and the string key `{'"5"': 1}` into the key slot as the SAME three characters, so the double-quote marker cannot tell them apart. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`), so it enters the ranking as a tier-2 singleton with no frequency behind it. |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
 neither has an oracle case, and a row with no case behind it is what this
@@ -293,14 +297,17 @@ never was one, and is named here so a reader does not go looking for it.**
 - **R-50** — filed in **§7** as a fail-loudly defect, not a §2 entry.
 
 **Net, re-measured 2026-08-16 at `62b11a78c3` against `node v26.7.0`**
-(~~2026-08-15 at `4cfa218814`~~). Of the 41 §2
-entries, **27 carry at least one SILENT lane** and **14 carry none**:
+(~~2026-08-15 at `4cfa218814`~~), and re-counted 2026-08-16 at `3a636f62fb` when
+R-56 was added. Of the 42 §2
+entries, **28 carry at least one SILENT lane** and **14 carry none**
+(~~41 / 27 / 14~~):
 
 - **No silent lane (14):** R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20,
   R-29, **R-32**, **R-33**, R-49, R-54. ~~(12)~~
-- **At least one silent lane (27):** R-06, R-08, R-09, R-10, R-12, R-13, R-14,
+- **At least one silent lane (28):** R-06, R-08, R-09, R-10, R-12, R-13, R-14,
   R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25, R-26, R-27, R-28, R-30,
-  R-31, R-34, R-47, R-48, R-51, R-52, R-53. ~~(29, including R-32 and R-33)~~
+  R-31, R-34, R-47, R-48, R-51, R-52, R-53, **R-56**.
+  ~~(27)~~ ~~(29, including R-32 and R-33)~~
 - **Movement 2026-08-16 (console-render-unification, at `62b11a78c3`).** R-32 and
   R-33 leave the silent set: every live lane of each measures FIXED. **R-33 is
   retired** — its only defective lane moved and its control was already FIXED.
@@ -311,6 +318,47 @@ entries, **27 carry at least one SILENT lane** and **14 carry none**:
   two departures also removed R-32 and R-33 from `tools/blast-radius/clusters.json`
   (both were **G8**), taking G8's reachable frequency from 65 to 59 and its raw
   frequency from 102 to 79; G8 keeps R-30's 57 and stays in reachable band 1.
+  - **THE SILENT SET NOW EXCLUDES A MEASURED SILENT LANE, AND THIS PARAGRAPH IS
+    WHERE THAT IS DISCLOSED** (the ranking's §6 AMENDMENT 2026-08-16 at
+    `3a636f62fb` repeats it and points back here; nowhere else states it).
+    R-32's departure above is stated per-step and each step
+    is true; the aggregate is not disclosed anywhere else, so it is disclosed
+    here. `var x = 1e21; console.log(x)` prints `1000000000000000000000` where
+    node prints `1e+21`, **at exit 0 with no diagnostic** — silent by this
+    register's own definition, measured at `62b11a78c3`, and still true at
+    `3a636f62fb`. It is tracked under **R-55**, which lives in **§7
+    "Fail-loudly-but-wrong defects (not silent)"** because its *concat* lane is a
+    hard `E4201` compile failure, and §7 entries carry no §0.2 row by design.
+    So: a lane that is silent, and is measured, sits in a section whose title
+    denies it, has no oracle case, and cannot go red. Each of those four facts is
+    disclosed at its own site — R-32's row names the behaviour, R-55's entry
+    names its own severity split and its own unpinned lanes, §7's title is
+    accurate about the entry's *loudest* lane — and no site states the sum.
+    **Consequence for the ranking: the next regeneration under-counts the SILENT
+    population by one measurable lane, and no gate will notice**, because the
+    gate compares §0.2 rows to oracle cases and this lane has neither.
+    **This is filed as a follow-up, not fixed here.** The minimal honest fix is
+    to split R-55 into its silent (binding) half and its fail-loud (concat) half,
+    give the silent half a §2 entry with a §0.2 row, a tier, a predicate record,
+    a cluster assignment and a case pair in both scopes, move the case counter
+    and regenerate the ranking. That is a project, and the controller ruling on
+    2026-08-16 was to disclose it here rather than start it at the end of a
+    branch. A reader quoting "the SILENT set" between now and that split must
+    quote this note with it.
+- **Addition 2026-08-16 (console-render-unification's final whole-branch review,
+  at `3a636f62fb`): R-56 joins the silent set**, and it is the branch's own
+  finding rather than a re-measurement of an old one. `Object.hasOwn` answers
+  `false` for a string key that exists and `true` for a numeric key that does
+  not, in a program whose member read of the same key is correct — see the row
+  above and §2's entry. **One cell of it regressed on this branch**; a different
+  cell was fixed by it, and both are measured against a binary built from the
+  merge base. R-56 is assigned to a new singleton cluster **`R-56 (unclustered)`**
+  in `tools/blast-radius/clusters.json` (G3 by shape, declined for the reason
+  §2's entry gives), and is **countable** with raw 0 / reachable 0 over the frozen
+  corpus, so it adds a tier-2 cluster with no frequency behind it and moves no
+  other cluster's band. Its predicate is new, so `tools/blast-radius/predicates.json`
+  and `matchers.mjs` were both re-frozen and `counts.json` regenerated — see the
+  ranking's §6 amendment for what that did and did not move.
 - **Tier 1's silent population is 2** — R-51 and R-52 — down from the eight
   entries Tier 1 holds. R-01, R-02, R-03 and R-05 fail closed; R-04 is fixed;
   R-49 fails closed by R-35's gate.
@@ -319,7 +367,8 @@ entries, **27 carry at least one SILENT lane** and **14 carry none**:
   R-08's `===` half and R-21's absent-field-with-`let`-receiver lane moved to
   FAIL_CLOSED; both entries still carry silent lanes and neither is retired.
   **2026-08-16 at `62b11a78c3`: R-32 and R-33 leave, taking 29 to 27** — see the
-  Movement bullet above for which of the two is retired and which is not.
+  Movement bullet above for which of the two is retired and which is not — and
+  **2026-08-16 at `3a636f62fb`: R-56 arrives, taking 27 to 28.**
 
 **The 2026-07-24 sweep's own net is preserved below, unrewritten,** because it is
 that sweep's record and the table above supersedes it rather than editing it. It
@@ -522,7 +571,7 @@ Severity split (each entry ranked at the most severe class it carries):
 | tier | class | count (historical R-01..R-34 / now) |
 |---|---|---|
 | 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 / **8** |
-| 2 | **silently produces a wrong value** | 23 / **26** |
+| 2 | **silently produces a wrong value** | 23 / **27** |
 | 3 | **silently wrong control flow only** (value otherwise intact) | 1 / **2** |
 | 4 | **rendering-only** (in-memory value is correct) | 4 (see note) / 5 |
 
@@ -560,6 +609,17 @@ had Tier 4 = R-30..R-33, exactly four entries, and no R-34 anywhere in the file;
 cell. The same applies to the "33 after deduplication" headline — correct for the 33 entries
 R-01..R-33 that existed at authoring, one short only once R-34 landed. Both are recorded rather
 than silently corrected, since the left-hand column is the historical record.
+
+**Updated 2026-08-16 (console-render-unification, final whole-branch review).** The
+right-hand column moved once more: **R-56** was added as a tier-ranked §2 **Tier 2**
+entry — the quoted-numeric-string-key collision, a new silent miscompile found by
+probing that project's own fix — so the Tier-2 cell reads **27** where it read 26, and
+the right-hand column is now **42** tier-ranked entries in §2 (8 + 27 + 2 + 5). The
+register holds **56** numbered entries in total (R-01..R-56), the other 14 being the
+un-ranked §0.3 set (R-35..R-46) plus §7's **R-50 and R-55** — R-55 having been filed in
+§7 on 2026-08-15 by the same project, which is why that "plus §7's R-50" reads short
+above. Both figures were re-counted by `### R-` headers per tier heading rather than
+incremented; see R-50's numbering note for the whole-file-versus-§2 series.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -2520,6 +2580,100 @@ tier, ordering is by blast radius.
 
 ---
 
+### R-56: A string key spelled `'"5"'` is indistinguishable from the numeric key `5`, and `Object.hasOwn` answers `false` for a property that exists
+
+- **Added**: 2026-08-16, by the **console-render-unification** project's final
+  whole-branch review, at `3a636f62fb`. Found by probing the double-quote gate that
+  project narrowed rather than by probing a feature — the control is where the new
+  defect lives, again.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured on a freshly built binary at
+  `3a636f62fb` against `node v26.7.0`, in **both** scopes (module and in-function,
+  byte-identical), with a second binary built from the pre-branch merge base
+  `8974cc6b57` and run on the identical fixtures as the comparison arm.
+- **Root-cause group**: unclustered. It has **G3**'s shape — a gate keyed on one form,
+  with a sibling form slipping past into precisely the miscompile the gate's own
+  comment describes — and it is deliberately **not** added to G3's member list: every
+  G3 member has a guard that *could* be widened to admit its sibling, and this one
+  cannot, because the discriminator the guard would need was discarded upstream in
+  HIR. Recorded as unclustered for that reason, the way R-47 is.
+- **Repro** (module scope; the in-function form is the same three statements inside
+  `function main() { … }` with a trailing `main();`, and measures identically):
+  ```js
+  const o = {'"5"': 1};
+  console.log(o['"5"']);              // kali 1      node 1      <- the key EXISTS
+  console.log(Object.hasOwn(o, '"5"')); // kali false  node true   <- and hasOwn denies it
+  console.log(Object.hasOwn(o, 5));     // kali true   node false
+  ```
+  **Exit 0, empty stderr, no diagnostic, on both engines.** The middle two lines of
+  kali's output contradict the first line of its own output, in one run.
+- **The whole `hasOwn` 2x2 plus its two member-read controls, measured — because two
+  of the four `hasOwn` cells moved on this branch, and in opposite directions.** `s` is
+  `{'"5"': 1}` (a STRING key whose name is the three characters `"5"`); `n` is `{5: 2}`
+  (the NUMERIC key `5`). All six values below were run, none inferred:
+
+  | program | node | pre-branch `8974cc6b57` | at `3a636f62fb` | |
+  |---|---|---|---|---|
+  | `s['"5"']` | `1` | `1` | `1` | correct throughout |
+  | `Object.hasOwn(s, '"5"')` | `true` | `true` | **`false`** | **REGRESSED on this branch** |
+  | `Object.hasOwn(s, 5)` | `false` | `true` | `true` | wrong before and after |
+  | `n[5]` | `2` | `2` | `2` | correct throughout |
+  | `Object.hasOwn(n, 5)` | `true` | `true` | `true` | correct throughout |
+  | `Object.hasOwn(n, '"5"')` | `false` | `true` | `false` | **fixed on this branch** |
+
+  The pre-branch column reads `true`/`false` here for legibility; the pre-branch binary
+  actually PRINTS `1`/`0` for these, because R-30's direct-log boolean rendering had not
+  yet moved. The comparison was therefore taken again through an `if`/`else` that prints
+  a word, so no cell in this table rests on reading a `1` as a `true`.
+- **Mechanism, traced.** `kali_hir`'s `lower_property_name`
+  (`crates/kali_hir/src/lowering/object.rs:20`) writes a key's text into a single slot
+  and throws the `PropertyName` variant away:
+  - `PropertyName::Number(5.0)` -> `format!("\"{}\"", "5")` = the three characters `"5"`;
+  - `PropertyName::String(v)` -> `v` verbatim, and the parser has already run
+    `unquote_string_literal`, so the source key `'"5"'` also arrives as the three
+    characters `"5"`.
+
+  The two are one text from that point on. `canonical_property_key_text`
+  (`crates/kali_codegen/src/intrinsics/object.rs`) then reads the double quote as
+  "this was a number" and renumbers, which is right for the first and renames the
+  property for the second. **No predicate downstream of that line can be correct**,
+  because the fact it would have to consult is gone; narrowing the marker (as this
+  branch did, from any quote to the double quote, which is what fixed `{"'5'": 1}` and
+  ``{"`5`": 1}``) cannot reach this case, since `"` is the marker.
+- **Why one cell regressed.** Before this branch, `static_object_has_own` compared
+  `render_static_value(key)` against `object_literal_field`, and that helper applies
+  `trim_matches('"')` to **both** sides — so both the stored key and the probe collapsed
+  to `5` and the pair matched, giving the right answer for the wrong reason. This
+  branch put both sides on `static_property_key_text`, which is the correct currency
+  and is what makes `Object.hasOwn(n, '"5"')` right for the first time; on the string
+  key it makes the two sides disagree and the answer flips to `false`. Net: the branch
+  traded one wrong cell for another on the same collision. Both are recorded above, and
+  the entry is filed for the whole collision rather than for the regressed cell.
+- **Severity**: Tier 2 — silently produces a wrong value. Not Tier 1: no statement and no
+  output line is dropped, control flow is unaffected, and the object's own member reads
+  are correct. What is wrong is one boolean, twice.
+- **Blast radius**: **narrow**, and measured as such — the frozen corpus contains
+  **zero** occurrences of the triggering key shape (`objectLiteralQuotedNumericStringKey`,
+  raw 0 / reachable 0, zero-kind `unsampled`), so it enters the ranking as a tier-2
+  cluster with no frequency behind it. A key whose own name contains double quotes is
+  rare in hand-written JavaScript. It is filed at full length anyway because of what it
+  is, not how often it fires: a program that prints a value and then denies the value
+  exists, at exit 0, is the exact shape this register was created to make un-loseable.
+- **Fix direction, and what NOT to do.** The fix is upstream: give the key slot a
+  discriminator (a distinct `HirNodeKind`, a flag, or a sigil no property name can
+  contain) so `canonical_property_key_text` can ask what the `PropertyName` was instead
+  of guessing from a quote character. **Do not** attempt a textual narrowing at the
+  codegen predicate — that is what has already been tried three times, is what the
+  predicate's own doc comment records, and cannot work for `"`.
+- **Pinned by**: two oracle cases (`r56a`, both scopes, `tier2.toml`) asserting the
+  SILENT class, and a deliberately-known-wrong unit pin in
+  `crates/kali_codegen/src/intrinsics/object_tests/has_own.rs` that goes red when the
+  collision is fixed. The predicate's doc comment cross-references this entry.
+- **Confidence**: high on behaviour (both scopes, two binaries, a 2x2 with controls,
+  node as oracle); high on mechanism (both HIR arms read in source, and the parser's
+  `unquote_string_literal` read with them).
+
+---
+
 ## Tier 3 — silently wrong control flow (value otherwise intact)
 
 ### R-29: Assignment to a `const` is silently ignored (node throws)
@@ -3621,6 +3775,17 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   are **R-50 and R-55**, both filed in **§7**, and both for the same reason: each is
   fail-loudly-but-wrong rather than silent, so neither belongs in §1's tier table or in
   §2's ranking.
+  **Re-counted 2026-08-16** by the console-render-unification project's final
+  whole-branch review, after filing **R-56** in §2's Tier 2: `grep -c "^### R-"` now
+  returns **44** while §2 holds **42** tier-ranked entries (8 + 27 + 2 + 5). Both
+  numbers were measured, not incremented. **The difference is still 2, and it is still
+  R-50 and R-55** — this addition is a §2 entry, so it moves both counts together and
+  leaves the claim untouched. §1's severity table was NOT left behind this time: its
+  Tier-2 "now" cell went 26 -> 27 in the same commit, which is the step the 2026-08-15
+  re-count above did not have to take and which is why this series exists.
+  `crates/kali_blast_radius/src/register_tests.rs` asserts the 42 and
+  `catalogue_tests.rs` asserts a matching 42 catalogue records; both point a reader
+  here for the total, so this line and those constants must move together.
 - **Cross-referenced 2026-07-29** from
   `docs/superpowers/followups/r35-switch-boundary-rederived.md` ("What this matrix does NOT
   cover, and the entry that does"). That file had no reference to R-50 at all, which meant a

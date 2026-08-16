@@ -1045,9 +1045,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // (f64) -> i64 (type 9). `string_concat_arena` (fasta Spec 7 Task 4d) is the
     // current-arena twin of `string_concat` and reuses its exact signature (type
     // 3). `value_to_string` is (i64) -> i64 (type 4), the same signature as
-    // int_to_string -- it is the terminal arm of `emit_as_string` for the
-    // console sink (console-render-unification spec §3/§4), registered but not
-    // yet wired into the ladder (Task 5). Each is appended LAST among the
+    // int_to_string — it is the terminal arm of `emit_as_string` for the
+    // console sink (console-render-unification spec §3/§4), wired into the
+    // ladder at `8a1f5e8e2c`. Each is appended LAST among the
     // always-present imports in turn so no earlier fixed import index shifts.
     import_section.import("kali:rt", "int_to_string", EntityType::Function(4));
     import_section.import("kali:rt", "string_concat", EntityType::Function(3));

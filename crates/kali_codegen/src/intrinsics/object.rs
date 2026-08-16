@@ -124,6 +124,20 @@ pub(crate) fn canonical_property_key_text(text: &str, slot: KeyTextSlot) -> Stri
         // key whose quote characters are part of the name (`{"\"d\"": 1}`), so
         // it comes back verbatim.
         //
+        // THE GATE IS STILL OPEN FOR `"` ITSELF, AND THAT IS A LIVE SILENT
+        // MISCOMPILE -- register **R-56** (§2, Tier 2). Narrowing the marker to
+        // the double quote fixed `'` and `` ` ``; it cannot fix `"`, because `"`
+        // is simultaneously HIR's marker for "this was a number". `{'"5"': 1}`
+        // and `{5: 1}` reach this function as the SAME text, so
+        // `Object.hasOwn({'"5"': 1}, '"5"')` folds to `false` and
+        // `Object.hasOwn({'"5"': 1}, 5)` to `true` -- both wrong, both at exit 0,
+        // in a program whose `o['"5"']` still reads `1`. The exact failure this
+        // paragraph says the gate exists to prevent, one quote character over.
+        // No predicate at THIS level can close it: `lower_property_name`
+        // (`crates/kali_hir/src/lowering/object.rs:20`) discards whether the
+        // `PropertyName` was `Number` or `String`, so the discriminator must be
+        // restored upstream. Do not attempt a textual fix here.
+        //
         // "IS a number" here means the INVARIANT, not a spelling: the inner must
         // be exactly what `lower_property_name` could have written
         // (`is_hir_numeric_key_spelling`). Asking `parse_numeric_literal_value`
