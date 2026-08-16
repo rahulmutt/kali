@@ -12,6 +12,14 @@ use kali_common::js_number::format_js_number;
 /// literal whose content is the key, an `n` suffix means BigInt digits, and a
 /// bare text is a number's spelling to be rendered.
 pub(crate) fn canonical_property_key_text(text: &str) -> String {
+    // NOT trimmed: whitespace in a key is never padding. `{" a ": 1}`'s key is
+    // the three-character name ` a `, and the probe `o[" a "]` must keep it.
+    //
+    // The length guard is a BYTE length while the delimiter tests below are on
+    // CHARS, which is what keeps a one-character multi-byte text such as `é`
+    // (two bytes, one char) from ever being read as quoted. Keep that pairing;
+    // the `[1..len - 1]` slices are only ever reached once both ends are known
+    // to be ASCII quotes, so they cannot split a multi-byte char.
     let long_enough = text.len() >= 2;
     let quoted = long_enough
         && matches!(
@@ -416,10 +424,22 @@ impl<'a> FunctionEmitter<'a> {
             .unwrap_or(object_id);
         let object = self.node(resolved);
         if self.is_object_literal(object) {
-            // Deliberately NOT `object_literal_field`: that helper is fed raw
-            // HIR text by every one of its other callers (member-access
-            // property names, inferred shape field names), so it is symmetric
-            // for them and must stay on the raw-text currency.
+            // Deliberately NOT `object_literal_field`: that helper compares raw
+            // texts after stripping double quotes off BOTH sides, which is a
+            // guess at the key's type from its punctuation, not a property-name
+            // comparison. This lane does not guess -- the stored side IS the
+            // property name and the probe is canonicalised into the same
+            // currency above.
+            //
+            // The claim that used to stand here -- that `object_literal_field`
+            // "is symmetric for its other callers and must stay on the raw-text
+            // currency" -- was true only while `kali_hir` and `kali_parser`
+            // spelled a number the same way. They now share `format_js_number`
+            // (`lower_property_name` and `expression_to_property_name`), so a
+            // member-access probe and the key it probes are one text by
+            // construction; the quote-stripping in that helper is a surviving
+            // remnant of the old marking convention, not a currency. It is one
+            // of the fourteen un-marking sites this project's Task 5 owns.
             return Some(object.children.iter().any(|child| {
                 let property = self.node(*child);
                 property.children.len() == 2
@@ -455,13 +475,35 @@ impl<'a> FunctionEmitter<'a> {
         // This lane compares the canonical probe against RAW interned field
         // names, which is the one place a shape's naming could still diverge
         // from the property name -- except that a shape's field names can
-        // never be numeric: an object
-        // literal with a numeric property name is rejected outright
-        // (`E5506` "object literal ... uses a numeric property name"), so it
-        // never materializes and never interns a shape. Measured: every
-        // numeric-key `hasOwn` resolves through the object-literal lane above,
-        // and forcing materialization (mutating through a function parameter)
-        // fails the compile instead of reaching here.
+        // never be numeric: an object literal with a numeric property name is
+        // rejected outright (`E5506` "object literal ... uses a numeric
+        // property name", `kali_types/src/repr_infer.rs`), so it never
+        // materializes and never interns a shape.
+        //
+        // MEASURED, with the exact programs, at the commit that wrote this:
+        //
+        //   function bump(o) { o.a = 9; }
+        //   let o = {1: 1, a: 2};
+        //   bump(o);
+        //   console.log(o.a);
+        //
+        // fails to compile: `error[E5506]: object literal for
+        // Binding("_start", "o") uses a numeric property name, which is
+        // unavailable in the current phase`, exit 1. So forcing
+        // materialization of a numeric-key literal fails the compile instead
+        // of reaching here, and every numeric-key `hasOwn` that DOES compile
+        // resolves through the object-literal lane above.
+        //
+        // The string keys that do intern are compared correctly, including
+        // numeric-LOOKING ones:
+        //
+        //   function bump(o) { o.a = 9; }
+        //   let o = {"1": 1, "1e+21": 2, a: 3};
+        //   bump(o);
+        //   Object.hasOwn(o, "1") / 1 / "1e+21" / 1e21 / "b"
+        //
+        // answers `true true true true false` at exit 0, which is node's
+        // answer byte for byte.
         if let Some(shape) = self.object_shape_of_node(resolved) {
             return Some(self.repr_table.shape_field(shape, &key).is_some());
         }

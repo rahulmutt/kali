@@ -248,4 +248,28 @@ fn probe_key_text_is_the_property_name_the_expression_denotes() {
         canonical_property_key_text("123456789012345678901234567890n"),
         "123456789012345678901234567890"
     );
+
+    // A string literal's CONTENT is the key however it is spelled: whitespace
+    // is never padding and is never trimmed, quote characters inside the
+    // content are part of the name, and the empty string is a real key. The
+    // first version of this helper trimmed and re-unquoted, which renamed
+    // `{" a ": 1}`'s key to `a` and made `Object.hasOwn(o, "a")` fold to a
+    // silent, diagnostic-free `true`.
+    assert_eq!(canonical_property_key_text("\" a \""), " a ");
+    assert_eq!(canonical_property_key_text("\"'q'\""), "'q'");
+    assert_eq!(canonical_property_key_text("'\"d\"'"), "\"d\"");
+    assert_eq!(canonical_property_key_text("\"`t`\""), "`t`");
+    assert_eq!(canonical_property_key_text("\"\""), "");
+    assert_eq!(canonical_property_key_text("\" 5 \""), " 5 ");
+    // Unquoted and not a number: left verbatim, still untrimmed.
+    assert_eq!(canonical_property_key_text(" 5 "), " 5 ");
+    assert_eq!(canonical_property_key_text(""), "");
+    assert_eq!(canonical_property_key_text(" "), " ");
+
+    // A one-character multi-byte text is two BYTES but one CHAR, and must
+    // never be read as quoted -- the byte-length guard paired with char
+    // delimiter tests is what guarantees it, and slicing it as if quoted would
+    // panic on a char boundary rather than merely answer wrongly.
+    assert_eq!(canonical_property_key_text("é"), "é");
+    assert_eq!(canonical_property_key_text("«x»"), "«x»");
 }

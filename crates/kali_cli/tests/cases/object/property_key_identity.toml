@@ -76,6 +76,23 @@ console.log(q['"5"']);
 }
 main();
 """
+"member_read_module.js" = """const a = {1e21: 1};
+console.log(a[1e21]);
+const b = {1e-7: 2};
+console.log(b[1e-7]);
+const c = {[-1e999]: 3};
+console.log(c[-1e999]);
+"""
+"member_read_function.js" = """function main() {
+  const a = {1e21: 1};
+  console.log(a[1e21]);
+  const b = {1e-7: 2};
+  console.log(b[1e-7]);
+  const c = {[-1e999]: 3};
+  console.log(c[-1e999]);
+}
+main();
+"""
 "keys_order_module.js" = """for (const k of Object.keys({2: 'a', foo: 'b', 0: 'c'})) console.log(k);
 """
 "keys_order_function.js" = """function main() {
@@ -153,6 +170,20 @@ rationale = "CONTROL -- correct today and must stay correct, in function scope. 
 args = ["run", "quoted_numeric_member_read_function.js"]
 exit = "success"
 stdout = "1\n"
+
+[[case]]
+name = "member_read_of_exponent_spelled_numeric_key_module_scope"
+rationale = "CONTROL, added by Task 3's review because nothing covered it. A member read of a numeric key whose JavaScript spelling differs from Rust's -- `1e21` (>= the 1e21 threshold), `1e-7` (< the 1e-6 threshold) and `-1e999` (overflow to -Infinity). node prints `1`, `2`, `3`; kali agrees. This is a REGRESSION GUARD with a real history: Task 3's first commit moved the stored key to `format_js_number` and left `expression_to_property_name` on `format!(\"{n:.0}\")`/`Display`, so `o[1e21]` probed for `1000000000000000000000` while the key was stored as `1e+21`, the object-literal field lookup missed, and the member read emitted a fabricated `0` at exit 0 -- in a program whose `Object.hasOwn` and `Object.keys` were both already right. The existing cases in this file exercise these keys only through `Object.keys`, which is why they did not catch it. Both formatters are `format_js_number` now; if either side ever grows a second one, this case goes red."
+args = ["run", "member_read_module.js"]
+exit = "success"
+stdout = "1\n2\n3\n"
+
+[[case]]
+name = "member_read_of_exponent_spelled_numeric_key_in_function"
+rationale = "CONTROL, added by Task 3's review. Same regression guard in function scope; node prints `1`, `2`, `3` and kali agrees."
+args = ["run", "member_read_function.js"]
+exit = "success"
+stdout = "1\n2\n3\n"
 
 [[case]]
 name = "object_keys_enumeration_order_module_scope"

@@ -75,12 +75,19 @@ fn numeric_object_property_names_lower_to_their_javascript_property_name() {
             "({123456789012345678901234567890n: 1})",
             "123456789012345678901234567890",
         ),
+        // R-56 ITSELF. The STRING key `'"5"'` names the three characters
+        // `"5"`, quotes included, and must reach codegen as exactly those --
+        // never collapsed to `5`, which is what `{5: 1}` above lowers to. This
+        // row and the `("({5: 1})", "5")` row are the whole entry: they are
+        // distinct texts now, where the marker made them one. If anyone ever
+        // re-adds marking to the `String` arm, this is the row that goes red.
+        ("({'\"5\"': 1})", "\"5\""),
     ] {
         let (program, key) = lower_first_property_key(source);
-        assert_eq!(
-            program.node(key).text.as_deref(),
-            Some(expected),
-            "source {source}"
-        );
+        let node = program.node(key);
+        // A key slot holds a Literal, not an arithmetic node: `{3: 1}`'s key is
+        // the property name `3`, not the number 3 to be computed with.
+        assert_eq!(node.kind, HirNodeKind::Literal, "source {source}");
+        assert_eq!(node.text.as_deref(), Some(expected), "source {source}");
     }
 }
