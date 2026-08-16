@@ -198,8 +198,13 @@ below is produced from the oracle cases in
 `crates/kali_cli/tests/cases/oracle/`, measured at commit `62b11a78c3` against
 `node v26.7.0`. **One row has moved since: R-56's, re-measured and RETIRED
 2026-08-16 at `12fd424897` by the hir-property-key-identity project — the whole
-oracle suite was re-run green at that commit, so every other row's class is
-re-verified there as well.** ~~`4cfa218814`~~ — superseded 2026-08-16: the
+oracle suite was re-run green *with these verdicts* against the binary built at
+that commit, so every other row's class is re-verified there as well.** (Stated
+precisely because the looser house phrasing two lines below would be false here:
+the green run is the tree at `fb38edfc25`, which carries the flipped `r56a`
+verdicts. At `12fd424897` itself the pair still asserted `silent` and the suite
+was red by exactly those two — that red is what this row was derived from.)
+~~`4cfa218814`~~ — superseded 2026-08-16: the
 console-render-unification project moved three rows (R-30, R-32, R-33), and the
 whole oracle suite was re-run green at `62b11a78c3`, which re-measures every
 OTHER row's class against node at that commit as well. What is *not* re-measured
@@ -389,18 +394,37 @@ entries, **27 carry at least one SILENT lane** and **15 carry none**
   is reflected there. Because R-56 measured **raw 0 / reachable 0**, its departure
   moves no other cluster's frequency and no band; the ranking's §6 amendment
   records what the generator actually printed.
-  - **THE `Object.keys(…)[0].length` AND ESCAPE-SEQUENCE DIVERGENCES FOUND WHILE
+  - **THE ARRAY-ELEMENT `.length` AND ESCAPE-SEQUENCE DIVERGENCES FOUND WHILE
     MEASURING THIS RETIREMENT ARE NOT R-56 AND ARE NOT FILED HERE.** Both were
-    measured at `12fd424897` and both are live: `Object.keys({abc: 1})[0].length`
-    prints `2` where node prints `3` (it fires on a plain identifier key with no
-    numeric content and no quotes, so it is not this collision), and
-    `Object.keys({"\"5\"": 1})[0]` prints `\"5\"` where node prints `"5"` —
-    the escape-sequence exception already recorded at `de87e48e8e` and in
-    `docs/superpowers/followups/property-key-trim-site-classification.md` §6,
-    which fires equally on `{"a\"b": 1}` and is a parser-decoding defect, not a
-    Number/String discriminator one. Neither is under R-56's title, neither was
-    filed by the retirement, and filing either is a decision for a human — this
-    bullet exists so a later reader does not mistake the silence for absence.
+    measured at `12fd424897` and both are live.
+    - **`.length` on a string read out of an ARRAY ELEMENT diverges.**
+      `["abc"][0].length` prints `2` where node prints `3` — **no `Object.keys`
+      and no object key anywhere in that program**, so it is not a property-key
+      phenomenon at all. `Object.keys(o)[0].length` is one spelling of it, and
+      that spelling is how this project first met it; the *iteration* lane
+      `for (const k of Object.keys(o)) k.length` is **correct** and matches node
+      (`3` for `abc`, `6` for `abcdef`). kali prints `2` for every string tried —
+      `["a"]`→`2` (node `1`), `["ab"]`→`2` (node `2`), `["abcdefghij"]`→`2` (node
+      `10`), `["x","yy"][1]`→`2` (node `2`) — so the value does not track the
+      string, and two of those four agree with node only by coincidence. **This
+      is very likely the family of R-17** (*"String handles escape as raw integers
+      from the plain-array and `Object.keys` lanes"*, group **G5**), whose repro
+      list already carries both the plain string-array element read and the
+      `Object.keys` element read, and whose `Object.keys` repro explicitly records
+      that **`k.length` is CORRECT (2)** — but that is the ARRAY's length, and the
+      string's `.length` is its untested neighbour at a different consumer
+      (`.length` rather than concat). Whether this belongs under **R-17**, under
+      **R-16** (per-method string-repr gap), or in a new entry **is a human's
+      decision and is not made here.**
+    - **`Object.keys({"\"5\"": 1})[0]`** prints `\"5\"` where node prints `"5"` —
+      the escape-sequence exception already recorded at `de87e48e8e` and in
+      `docs/superpowers/followups/property-key-trim-site-classification.md` §6,
+      which fires equally on `{"a\"b": 1}` and is a parser-decoding defect, not a
+      Number/String discriminator one.
+
+    Neither is under R-56's title, neither was filed by the retirement, and
+    filing either is a decision for a human — this bullet exists so a later
+    reader does not mistake the silence for absence.
 - **Tier 1's silent population is 2** — R-51 and R-52 — down from the eight
   entries Tier 1 holds. R-01, R-02, R-03 and R-05 fail closed; R-04 is fixed;
   R-49 fails closed by R-35's gate.
@@ -2770,20 +2794,41 @@ tier, ordering is by blast radius.
     `'"5."'`). All agreed with node. No shape under this entry's title was found still
     colliding, in either scope.
   - **Two live divergences were found while measuring this retirement and are NOT this
-    entry.** `Object.keys({abc: 1})[0].length` prints `2` where node prints `3` — it
-    fires on a plain identifier key with no quotes and no numeric content, so it is not
-    this collision. `Object.keys({"\"5\"": 1})[0]` prints `\"5\"` where node prints
-    `"5"` — that is the escape-sequence exception, already recorded at `de87e48e8e`,
-    in `crates/kali_codegen/src/intrinsics/object.rs`'s doc comment and in
-    `docs/superpowers/followups/property-key-trim-site-classification.md` §6; it fires
-    equally on `{"a\"b": 1}`, which contains no number, and its cause is the parser not
-    decoding escapes, not the Number/String discriminator. Neither is filed here.
-    Filing a register entry is a human's decision, and this bullet exists so a later
-    reader does not read the silence as absence.
+    entry.** Neither is filed here: filing a register entry is a human's decision, and
+    this bullet exists so a later reader does not read the silence as absence.
+    - **`.length` on a string read out of an ARRAY ELEMENT diverges.**
+      `["abc"][0].length` prints `2` where node prints `3`, in a program with **no
+      `Object.keys` and no object key in it at all** — so it is not a property-key
+      phenomenon, and a reader who takes it for one will open the key-lowering path
+      this entry's own closure just cleared. `Object.keys(o)[0].length` is one
+      spelling of it (and is how this project met it); the *iteration* lane
+      `for (const k of Object.keys(o)) k.length` is **correct** and matches node.
+      Measured at `12fd424897`: kali prints `2` for every string tried — `["a"]` `2`
+      vs node `1`, `["ab"]` `2` vs `2`, `["abc"]` `2` vs `3`, `["abcdefghij"]` `2` vs
+      `10`, `["x","yy"][1]` `2` vs `2` — so the value does not track the string and
+      two of those five agree only by coincidence. A direct binding read is fine
+      (`const s = "abc"; s.length` → `3` on both). **This is very likely R-17's
+      family** (**G5**, *"String handles escape as raw integers from the plain-array
+      and `Object.keys` lanes"*): R-17's repros already include both the plain
+      string-array element read and the `Object.keys` element read, and its
+      `Object.keys` repro records **"`k.length` is CORRECT (2)"** — but that is the
+      **array's** length, and the string's `.length` is the untested neighbour, the
+      same lane at a different consumer (`.length` rather than concat). Whether it
+      belongs under **R-17**, under **R-16**, or in a new entry is not decided here.
+    - **`Object.keys({"\"5\"": 1})[0]`** prints `\"5\"` where node prints
+      `"5"` — that is the escape-sequence exception, already recorded at `de87e48e8e`,
+      in `crates/kali_codegen/src/intrinsics/object.rs`'s doc comment and in
+      `docs/superpowers/followups/property-key-trim-site-classification.md` §6; it fires
+      equally on `{"a\"b": 1}`, which contains no number, and its cause is the parser not
+      decoding escapes, not the Number/String discriminator.
   - **Consequence for the ranking.** With no SILENT lane left, the row leaves the SILENT
     filter, so R-56 is removed from `tools/blast-radius/clusters.json` — **both** its
     `R-56 (unclustered)` singleton definition and its assignment, unlike R-32 and R-33
-    which were G8 members and left only an assignment behind. Because R-56 measured
+    which were G8 members and left only an assignment behind. **That divergence from
+    the R-33 precedent is forced, not chosen**: `crates/kali_blast_radius/src/ranking.rs:326`
+    asserts every declared cluster has at least one member ("an empty cluster ranks
+    nothing"), so leaving the definition behind would have made the generator refuse to
+    run. Because R-56 measured
     **raw 0 / reachable 0**, its departure moves no other cluster's frequency; the
     ranking's §6 amendment records what the generator printed rather than what was
     predicted. R-56 is still a §2 Tier-2 entry, so §1's severity table, the numbering

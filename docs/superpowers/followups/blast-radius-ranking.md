@@ -650,16 +650,30 @@ because it had gone false. Recorded here so the omission reads as a decision
 rather than an oversight.
 
 **Two live divergences were found while measuring this retirement and are NOT
-filed.** `Object.keys({abc: 1})[0].length` prints `2` where node prints `3`, and
-`Object.keys({"\"5\"": 1})[0]` prints `\"5\"` where node prints `"5"`. Neither is
-R-56 — the first fires on an unquoted identifier key with no numeric content, and
-the second is the escape-sequence exception already recorded at `de87e48e8e` and
-in `docs/superpowers/followups/property-key-trim-site-classification.md` §6,
-whose cause is the parser not decoding escapes. Both are noted in the register's
-§0.2 movement bullet and in §2's R-56 entry. **They are not in this ranking's
-figures**, because an unfiled defect has no §0.2 row, no predicate record and no
-count — which is the same structural blind spot the R-55 note above describes,
-met a second time.
+filed.** Neither is R-56.
+
+- **`.length` on a string read out of an ARRAY ELEMENT diverges.**
+  `["abc"][0].length` prints `2` where node prints `3` — a program with **no
+  `Object.keys` and no object key in it at all**, so this is not a property-key
+  phenomenon. `Object.keys(o)[0].length` is one spelling of it; the *iteration*
+  lane `for (const k of Object.keys(o)) k.length` is **correct** and matches
+  node. kali prints `2` for every string tried (`["a"]`, `["ab"]`, `["abc"]`,
+  `["abcdefghij"]`), so the value does not track the string. **This is very
+  likely the family of R-17** (**G5** — *"String handles escape as raw integers
+  from the plain-array and `Object.keys` lanes"*), the same lane at a different
+  consumer (`.length` rather than concat); R-17's `Object.keys` repro records
+  that `k.length` is correct, but that is the **array's** length. Whether it
+  belongs under R-17, under R-16, or in a new entry is a human's decision and is
+  not made here.
+- **`Object.keys({"\"5\"": 1})[0]`** prints `\"5\"` where node prints `"5"` — the
+  escape-sequence exception already recorded at `de87e48e8e` and in
+  `docs/superpowers/followups/property-key-trim-site-classification.md` §6, whose
+  cause is the parser not decoding escapes.
+
+Both are noted in the register's §0.2 movement bullet and in §2's R-56 entry.
+**They are not in this ranking's figures**, because an unfiled defect has no §0.2
+row, no predicate record and no count — which is the same structural blind spot
+the R-55 note above describes, met a second time.
 
 ### 6.1 The most important thing here is not a rank
 
