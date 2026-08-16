@@ -5,10 +5,20 @@ use crate::*;
 /// `None` otherwise.
 ///
 /// `key` is a PROPERTY NAME -- `String(key)` -- in every layer that calls
-/// this: an HIR/MIR/LIR key slot's text (`kali_hir`'s `lower_property_name`),
-/// a `kali_types` shape field name, or a codegen key table's entry. There is
-/// no second currency to reconcile, so the classification is on the name
-/// itself and nothing is stripped first.
+/// this. The callers are `sort_properties_es_order` (from
+/// `kali_types::monomorphize` and `kali_types::repr_infer`, whose names come
+/// from the AST's `PropertyName::Identifier`/`String`),
+/// `kali_optimize`'s `object_property_order_key` (an HIR/MIR/LIR key slot's
+/// text, i.e. `kali_hir`'s `lower_property_name`), and the `kali_mir` mirror of
+/// this function. There is no second currency to reconcile, so the
+/// classification is on the name itself and nothing is stripped first.
+///
+/// (One pre-existing exception to "the name", which does not affect ordering: a
+/// key whose source spelling contains an ESCAPE SEQUENCE arrives undecoded,
+/// because `kali_parser`'s `unquote_string_literal` strips delimiters without
+/// decoding. Such a key is never array-index-like either way, so it classifies
+/// `None` on both the decoded and the undecoded text. See
+/// docs/superpowers/followups/property-key-trim-site-classification.md.)
 ///
 /// It used to strip one level of `"` quoting, on the older contract that "LIR
 /// literal text keeps source quoting, while AST/repr key text is unquoted;

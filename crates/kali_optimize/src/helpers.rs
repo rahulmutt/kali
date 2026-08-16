@@ -171,6 +171,19 @@ impl Optimizer {
     /// spelled with `format_js_number` here for the same reason
     /// `lower_property_name` and `expression_to_property_name` use it: one
     /// formatter is what makes the agreement structural rather than lucky.
+    ///
+    /// ONE known gap, pre-existing on the OTHER side and not closed here:
+    /// `literal_value` decodes `\\`, `\"`, `\'` and `` \` `` (see
+    /// `parse_string_literal`), while a source key slot's text does NOT --
+    /// `kali_parser`'s `unquote_string_literal` strips the delimiters only. So
+    /// `{"a\"b": 1}` stores the six-character `a\"b` while a `fromEntries`
+    /// entry spelled the same way yields the three-character name `a"b`. This
+    /// is unobservable today (the enumeration fold re-encodes with `{:?}` and
+    /// the downstream string reader strips delimiters without decoding, so both
+    /// lanes print the same wrong `a\"b`), and it was measured identical at
+    /// `f563a0ecf4` and after. Recorded, pinned by corpus cases, and NOT fixed
+    /// here: decoding belongs to the parser. See
+    /// docs/superpowers/followups/property-key-trim-site-classification.md.
     pub(crate) fn constant_property_key(
         &self,
         program: &LirProgram,

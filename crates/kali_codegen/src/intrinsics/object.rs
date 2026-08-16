@@ -87,6 +87,13 @@ impl<'a> FunctionEmitter<'a> {
     /// normalized static index -- all `String(key)` -- and the stored side is a
     /// key slot's text, which IS `String(key)` since `lower_property_name`.
     ///
+    /// The one pre-existing exception is ESCAPE SEQUENCES: `{"a\"b": 1}` stores
+    /// the undecoded six-character text `a\"b`, and a probe written the same
+    /// way arrives undecoded too, so the two still agree with each other -- but
+    /// neither is the three-character name node uses. A probe spelled
+    /// `o['a"b']` therefore misses. Recorded and pinned, not fixed here; see
+    /// docs/superpowers/followups/property-key-trim-site-classification.md.
+    ///
     /// It used to strip `"` off both sides, which is a guess at the key's type
     /// from its punctuation rather than a property-name comparison, and the
     /// guess invented properties: `const p = {'"a"': 1}; p['a']` read `1`
@@ -428,28 +435,41 @@ impl<'a> FunctionEmitter<'a> {
         // to a wrong `false` with no diagnostic. It is true by construction
         // now -- a key-slot node's text IS the name, so the stored side only
         // reads it.
+        //
+        // ONE EXCEPTION, pre-existing and not this lane's: a key whose source
+        // spelling contains an ESCAPE SEQUENCE is stored undecoded, because
+        // `kali_parser`'s `unquote_string_literal` strips the delimiters
+        // without decoding. `{"a\"b": 1}` stores the six-character text
+        // `a\"b`, not the three-character name `a"b`. Both sides of THIS
+        // comparison carry the same undecoded text, so the fold stays
+        // self-consistent, but neither is the JavaScript property name. See
+        // docs/superpowers/followups/property-key-trim-site-classification.md
+        // section 6.
         let key = self.static_probe_key_text(key_id)?;
         let resolved = self
             .resolve_literal_aggregate(object_id)
             .unwrap_or(object_id);
         let object = self.node(resolved);
         if self.is_object_literal(object) {
-            // Deliberately NOT `object_literal_field`: that helper compares raw
-            // texts after stripping double quotes off BOTH sides, which is a
-            // guess at the key's type from its punctuation, not a property-name
-            // comparison. This lane does not guess -- the stored side IS the
-            // property name and the probe is canonicalised into the same
-            // currency above.
+            // This scan and `object_literal_field` now compare the same way --
+            // property name against property name, neither side un-quoted.
+            // (The un-quoting that helper used to do, and the reason this lane
+            // deliberately avoided it, is gone: it was one of the fourteen
+            // sites Task 5 deleted, and the comment that used to point at it
+            // here has been removed rather than left to rot.)
             //
-            // The claim that used to stand here -- that `object_literal_field`
-            // "is symmetric for its other callers and must stay on the raw-text
-            // currency" -- was true only while `kali_hir` and `kali_parser`
-            // spelled a number the same way. They now share `format_js_number`
-            // (`lower_property_name` and `expression_to_property_name`), so a
-            // member-access probe and the key it probes are one text by
-            // construction; the quote-stripping in that helper is a surviving
-            // remnant of the old marking convention, not a currency. It is one
-            // of the fourteen un-marking sites this project's Task 5 owns.
+            // ONE difference remains, and it is why this is still not a call to
+            // that helper: `object_literal_field` reads the key with
+            // `.as_deref()?`, so a TEXT-LESS key node aborts its whole scan and
+            // it reports "no such field". Here a text-less key node makes only
+            // that ONE property unmatchable and the scan continues, so a later
+            // property really holding the probed name is still found. For a
+            // `hasOwn` fold that is the difference between a wrong `false` and
+            // the right `true`, so the more conservative scan stays.
+            //
+            // If that `?` is ever softened to a skip, these two collapse into
+            // one and this should become
+            // `self.object_literal_field(object, &key).is_some()`.
             return Some(object.children.iter().any(|child| {
                 let property = self.node(*child);
                 property.children.len() == 2

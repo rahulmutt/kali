@@ -34,6 +34,16 @@
 # divergences they measure were invisible: nothing in this file exercised a
 # string key whose own content contains quote characters through the
 # ENUMERATION-order lane or the MEMBER-read lane.
+#
+# A THIRD pair was added by Task 5's review: `escaped_quote_in_a_key_is_stored_
+# undecoded_*`. It is WRONG ON PURPOSE and no task in this plan owns closing it.
+# It matters more than its size suggests, because it falsifies this project's
+# invariant as the project has been stating it: a key slot's text is the
+# property name for every shape of key EXCEPT one whose source spelling
+# contains an escape sequence, which is stored undecoded. That exception is
+# pre-existing parser behaviour (measured identical before and after Task 5),
+# and it is pinned here rather than chased because decoding belongs to the
+# parser, not to a task about comparison sites.
 
 [source]
 "bigint_module.js" = """const o = {42n: 1};
@@ -147,6 +157,19 @@ console.log(Object.hasOwn(p, 'a'));
 }
 main();
 """
+# TOML LITERAL strings ('''), not basic ones, so the JS source keeps its
+# backslash exactly as written: the key's source spelling is `"a\"b"`.
+"escaped_quote_key_module.js" = '''const o = {"a\"b": 1};
+for (const k of Object.keys(o)) console.log(k, k.length);
+console.log(o['a"b']);
+'''
+"escaped_quote_key_function.js" = '''function main() {
+  const o = {"a\"b": 1};
+  for (const k of Object.keys(o)) console.log(k, k.length);
+  console.log(o['a"b']);
+}
+main();
+'''
 
 [[case]]
 name = "bigint_key_is_stored_under_zero_module_scope"
@@ -370,3 +393,52 @@ rationale = "PINNED BY TASK 5, same three probes in function scope; node prints 
 args = ["run", "quoted_key_member_probe_function.js"]
 exit = "success"
 stdout = "1\n0\nfalse\n"
+
+[[case]]
+name = "escaped_quote_in_a_key_is_stored_undecoded_module_scope"
+rationale = """
+PINNED BY TASK 5's REVIEW. WRONG ON PURPOSE, all three answers, and NO TASK IN
+THIS PLAN OWNS CLOSING IT.
+
+node prints `a"b 3` then `1`. kali prints `a\\"b 6` then `0`, at exit 0.
+
+WHAT THIS FALSIFIES. Task 3's invariant, as this project has been stating it --
+"an HIR key-slot node's text IS the property name, `String(key)`, for every
+shape of key" -- is FALSE for any key whose source spelling contains an escape
+sequence. `kali_parser`'s `unquote_string_literal` strips the delimiters
+WITHOUT DECODING, so `{"a\\"b": 1}` stores the six-character text `a\\"b` where
+the property name is the three characters `a"b`. All three answers follow from
+that one fact: the enumerated key prints with a stray backslash, its `.length`
+is 6 rather than 3, and the member probe `o['a"b']` -- which is spelled with
+the real name -- misses the stored text entirely and falls into the
+absent-property lane's fabricated `0`.
+
+MEASURED, NOT INTRODUCED. Identical at `f563a0ecf4` (before Task 5) and after,
+verified by building both commits: `a\\"b 6` then `0` in both. Task 5 deleted
+fourteen un-quoting sites and moved one producer; none of that touches escape
+decoding, which lives in the parser. The invariant is stated with this
+exception in
+docs/superpowers/followups/property-key-trim-site-classification.md section 6
+and in the doc comments of the sites that rely on it.
+
+WHY IT IS NOT CHASED HERE. Decoding a string literal's escapes is a parser
+change with a blast radius far wider than property keys (every string literal
+in the language shares `unquote_string_literal`'s siblings). It is recorded and
+pinned so it is visible, rather than fixed opportunistically inside a task
+about comparison sites.
+
+WHAT WOULD CLOSE IT: property-key lowering decoding escape sequences, so the
+key slot holds `a"b`. When that lands, this expectation becomes
+`a"b 3\\n1\\n` and agrees with node on all three answers. Until then, a change
+that alters ANY of these three answers is a surprise this case makes visible.
+"""
+args = ["run", "escaped_quote_key_module.js"]
+exit = "success"
+stdout = "a\\\"b 6\n0\n"
+
+[[case]]
+name = "escaped_quote_in_a_key_is_stored_undecoded_in_function"
+rationale = "PINNED BY TASK 5's REVIEW, same three probes in function scope; node prints `a\"b 3` then `1`, kali prints `a\\\"b 6` then `0`. WRONG ON PURPOSE for the reason given on the module-scope case: `unquote_string_literal` strips a key's delimiters without decoding its escape sequences, so the stored key text is not the property name. Measured identical before and after Task 5; no task in this plan owns closing it."
+args = ["run", "escaped_quote_key_function.js"]
+exit = "success"
+stdout = "a\\\"b 6\n0\n"

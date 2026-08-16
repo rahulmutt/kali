@@ -14,6 +14,11 @@ promise that all fourteen fall, so each site was classified by reading its
 CALLERS and asking one question: **does the text arriving here come from a key
 slot, from a probe/rendered expression, or from both?**
 
+**Read §6 before relying on the invariant.** "A key slot's text IS the property
+name" is true for every shape of key EXCEPT one whose source spelling contains
+an escape sequence, which is stored undecoded. That exception is stated once,
+in full, in §6, and every claim elsewhere in this document is subject to it.
+
 The census is the `grep` the task brief specifies, minus `kali_fmt`:
 
 ```
@@ -50,11 +55,19 @@ discriminator where the type is known, exactly as the design says to.
 
 That producer change also fixed a live Release-mode defect that Task 3 had
 opened and nothing measured: `fold_object_has_own_call` compared the quoted
-probe text against a key slot's text, so after Task 3 every `Object.hasOwn`
-folded at `Release`/`ReleaseAdvanced` over a literal object would have answered
-`false`. The optimizer's own tests did not catch it because their fixtures still
-spelled key slots the pre-Task-3 way (`"1"`, `"2"`); those fixtures are
-corrected by this task and now model what the front end actually produces.
+probe text against a key slot's text, so after Task 3 an `Object.hasOwn` with a
+**string-literal probe** over a **source** object literal, folded at
+`Release`/`ReleaseAdvanced`, would have answered `false`. Two neighbouring
+shapes were unaffected and it is worth being precise about which: a NUMERIC
+probe was fine (`literal_text(Number(1))` is `"1"`, which already matched the
+slot text `format_js_number` stores), and a `fromEntries`-SYNTHESIZED object was
+self-consistent (both its stored keys and the probe came through
+`constant_property_key`, so they agreed with each other) — which is exactly why
+the four `from_entries` tests in this area are untouched and were green
+throughout. The optimizer's own tests did not catch the string-probe case
+because their fixtures still spelled key slots the pre-Task-3 way (`"1"`, `"2"`);
+those fixtures are corrected by this task and now model what the front end
+actually produces, and a negative assertion was added on that lane (§7).
 
 ## 3. The table
 
@@ -142,3 +155,77 @@ finds a property that does not exist), and what remains is the pre-existing
 absent-property-read defect that fabricates `0` where JavaScript has
 `undefined` — the same residual already recorded in that file for `o[0]` on the
 BigInt case. It is pinned WRONG ON PURPOSE with what would close it.
+
+## 6. The one exception to "a key slot's text is the property name"
+
+**ESCAPE SEQUENCES.** `kali_parser`'s `unquote_string_literal`
+(`crates/kali_parser/src/literal.rs:7-24`) strips a string key's delimiters
+WITHOUT decoding its escapes, so a key whose source spelling contains one is
+stored undecoded:
+
+```
+const o = {"a\"b": 1};
+for (const k of Object.keys(o)) console.log(k, k.length);
+console.log(o['a"b']);
+
+  kali:  a\"b  6   then  0      exit 0
+  node:  a"b   3   then  1      exit 0
+```
+
+The stored key slot holds the six characters `a\"b`; the property name is the
+three characters `a"b`. All three wrong answers follow from that one fact — the
+enumerated key prints a stray backslash, its `.length` is 6, and a probe written
+with the real name misses and falls into the absent-property lane's fabricated
+`0`.
+
+**This falsifies the invariant as this project has been stating it.** "An HIR
+key-slot node's text IS the property name (`String(key)`)" holds for identifier
+keys, quoted keys without escapes, numeric keys, and BigInt keys — but not for
+escaped ones. Every claim in this document, and the doc comments at the sites it
+classifies, are subject to this exception; the load-bearing ones now say so
+(`kali_common/src/object.rs`, `kali_codegen/src/intrinsics/object.rs` on both
+`object_literal_field` and `static_object_has_own`, and
+`kali_optimize/src/helpers.rs` on `constant_property_key`).
+
+**Pre-existing, and measured so.** Identical at `f563a0ecf4` and after Task 5,
+verified by building both commits in separate worktrees rather than by
+inspection. Task 5's fourteen deletions and its one producer move do not touch
+escape decoding.
+
+**There IS a producer disagreement here, and it is currently unobservable.**
+`constant_property_key` reads through `literal_value` →
+`parse_string_literal` (`crates/kali_optimize/src/constant_fold.rs`), which DOES
+decode `\\`, `\"`, `\'` and `` \` ``. So a `fromEntries` entry spelled
+`["a\"b", 1]` yields the correct three-character name while a source literal
+with the same spelling yields the six-character undecoded text. It does not show
+up today because the enumeration fold re-encodes with `format!("{:?}", …)` and
+the downstream string reader strips delimiters without decoding, so both lanes
+print the same wrong `a\"b` — measured, before and after. Note the direction:
+the `fromEntries` side is the CORRECT one and the source side is the defect.
+
+**Not fixed here, deliberately.** Decoding a key's escapes is a parser change
+whose blast radius is every string literal in the language, not a comparison
+site. It is pinned instead, in both scopes, as
+`escaped_quote_in_a_key_is_stored_undecoded_*` in
+`crates/kali_cli/tests/cases/object/property_key_identity.toml`, WRONG ON
+PURPOSE, with node's answers and what would close it. **No task in this plan
+owns closing it.**
+
+## 7. The lane the corpus cannot reach
+
+`fold_object_has_own_call` and the binding path of
+`fold_object_from_entries_call` run only at `OptimizationLevel::Release` and
+`ReleaseAdvanced` (`kali_optimize/src/driver.rs:187-189`). `kali run` is
+`BuildMode::Fast` (`kali_cli/src/lib.rs:440`) and `--release` exists only on
+`kali build`, which emits a `.wasm` the case runner does not execute. **No
+corpus case can reach that lane**, which is why Task 3's regression there
+survived a green corpus.
+
+Every assertion in `object_fold_tests/object_has_own.rs` expected `Some("true")`,
+so a regression flipping the fold to always-`true` — the mirror of the
+always-`false` one this task fixed — would have passed the whole tree. Two tests
+were added: `release_folds_object_has_own_to_false_when_the_key_is_absent`
+(`Object.hasOwn({'"a"': 1}, 'a')` must fold to `false`) and its positive control
+`release_folds_object_has_own_to_true_for_the_quoted_name_itself`. The negative
+one was mutation-checked: reverting `constant_property_key` to `literal_text`
+turns it red.

@@ -14,6 +14,13 @@
 //!   first element (`entry_*_key`) -- is an ordinary string LITERAL and keeps
 //!   its source quoting, exactly as any other string literal node does. Those
 //!   stay quoted here on purpose.
+//!
+//! One exception to the first bullet, pre-existing in the parser and pinned by
+//! corpus cases rather than fixed: a key whose source spelling contains an
+//! ESCAPE SEQUENCE is stored UNDECODED, so `{"a\"b": 1}`'s slot holds the
+//! six-character `a\"b` rather than the name `a"b`. See
+//! docs/superpowers/followups/property-key-trim-site-classification.md
+//! section 6.
 use crate::*;
 use kali_lir::{LirBuilder, LirNodeKind};
 
