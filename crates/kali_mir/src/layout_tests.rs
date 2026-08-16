@@ -47,6 +47,13 @@ fn test_object_layout_orders_integer_like_property_keys_before_string_keys() {
         panic!("expected struct layout, got {:?}", binding.layout);
     };
 
+    // RE-PINNED, was right now spelled differently: the ORDERING claim this
+    // test makes -- integer-like keys first in ascending numeric order, then
+    // string keys in insertion order -- has not moved. Only the key text has:
+    // `lower_property_name` now stores a numeric key's JavaScript property
+    // name (`1`) instead of marking it as "was a number" with a leading
+    // double quote (`"1"`). No behaviour claim changes, and node is not an
+    // oracle for a layout field name.
     let field_names: Vec<_> = fields.iter().map(|(name, _)| name.as_str()).collect();
-    assert_eq!(field_names, vec!["\"1\"", "\"2\"", "b", "a"]);
+    assert_eq!(field_names, vec!["1", "2", "b", "a"]);
 }

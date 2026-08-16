@@ -100,31 +100,31 @@ stdout = "false\n0\n1\n"
 
 [[case]]
 name = "object_keys_renders_small_magnitude_key_with_rust_display_module_scope"
-rationale = "WRONG ON PURPOSE. node prints `1e-7`. kali prints `0.0000001` because HIR stores the key with Rust's `Display for f64` and the enumeration fold renders the key node through the expression renderer. Object.keys returns STRINGS, so this text propagates into comparisons and JSON round-trips. Tasks 3 and 4 move this."
+rationale = "RE-PINNED, was wrong now RIGHT and AGREEING WITH NODE (Task 3): kali now prints `1e-7`, which is what node prints. What moved: `lower_property_name` stores the key as `format_js_number(1e-7)` instead of Rust's `Display for f64`, so the enumeration fold reads `1e-7` out of the key node rather than `0.0000001`. Task 4 was expected to own finishing this lane; Task 3's HIR change alone finished it, so Task 4 should find this case already green rather than move it again."
 args = ["run", "keys_small_module.js"]
 exit = "success"
-stdout = "0.0000001\n"
+stdout = "1e-7\n"
 
 [[case]]
 name = "object_keys_renders_small_magnitude_key_with_rust_display_in_function"
-rationale = "WRONG ON PURPOSE. Same defect in function scope; node prints `1e-7`. Tasks 3 and 4 move this."
+rationale = "RE-PINNED, was wrong now RIGHT and AGREEING WITH NODE (Task 3): same movement in function scope; kali and node both print `1e-7`. Task 4 should find this already green."
 args = ["run", "keys_small_function.js"]
 exit = "success"
-stdout = "0.0000001\n"
+stdout = "1e-7\n"
 
 [[case]]
 name = "object_keys_leaks_rust_infinity_spelling_module_scope"
-rationale = "WRONG ON PURPOSE, and the worst line in this file: `-inf` is not a string any JavaScript program can produce. node prints `-Infinity` then `1e+21`. Measured for the first time by this project; the follow-up file's §2.5 recorded only the 1e-7 lane. Tasks 3 and 4 move this."
+rationale = "RE-PINNED, was wrong now RIGHT and AGREEING WITH NODE (Task 3): kali now prints `-Infinity` then `1e+21`, matching node. The `-inf` line -- a string no JavaScript program can produce -- is gone because `lower_property_name` renders the key through `format_js_number`, which spells the infinities the way `String(number)` does. Task 4 was expected to own finishing this lane; Task 3's HIR change alone finished it, so Task 4 should find this case already green."
 args = ["run", "keys_extreme_module.js"]
 exit = "success"
-stdout = "-inf\n1000000000000000000000\n"
+stdout = "-Infinity\n1e+21\n"
 
 [[case]]
 name = "object_keys_leaks_rust_infinity_spelling_in_function"
-rationale = "WRONG ON PURPOSE. Same defect in function scope; node prints `-Infinity` then `1e+21`. Tasks 3 and 4 move this."
+rationale = "RE-PINNED, was wrong now RIGHT and AGREEING WITH NODE (Task 3): same movement in function scope; kali and node both print `-Infinity` then `1e+21`. Task 4 should find this already green."
 args = ["run", "keys_extreme_function.js"]
 exit = "success"
-stdout = "-inf\n1000000000000000000000\n"
+stdout = "-Infinity\n1e+21\n"
 
 [[case]]
 name = "numeric_and_quoted_numeric_keys_are_the_same_property_module_scope"
