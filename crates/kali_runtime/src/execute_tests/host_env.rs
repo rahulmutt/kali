@@ -29,7 +29,7 @@ fn runtime_executes_modules_with_console_host_imports() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
     assert_eq!(outcome.stdout, "1\n4\n5\n");
-    assert_eq!(outcome.stderr, "2\n[warn] 3\n");
+    assert_eq!(outcome.stderr, "2\n3\n");
 }
 
 #[test]

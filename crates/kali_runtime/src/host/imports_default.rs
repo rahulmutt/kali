@@ -51,7 +51,11 @@ pub(crate) fn register_default_host_imports(
             |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
                 enforce_operation(caller.data_mut(), HostOperation::Console)?;
                 let rendered = format_console_value(&mut caller, val);
-                append_stderr(caller.data_mut(), format!("[warn] {}", rendered));
+                // No prefix: node's `console.warn` writes the message alone, and
+                // NONE of the four JS import mirrors prefixed it either -- so
+                // this line made kali's own runtimes disagree with each other
+                // before it made kali disagree with node. R-33.
+                append_stderr(caller.data_mut(), rendered);
                 Ok(())
             },
         )

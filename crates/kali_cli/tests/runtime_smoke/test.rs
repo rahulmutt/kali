@@ -11176,8 +11176,7 @@ fn test_supports_console_level_routing_in_js_input() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stdout.contains("info"), "stdout: {stdout}");
     assert!(stdout.contains("debug"), "stdout: {stdout}");
-    assert!(stderr.contains("err"), "stderr: {stderr}");
-    assert!(stderr.contains("[warn] warn"), "stderr: {stderr}");
+    assert_eq!(stderr, "err\nwarn\n");
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
