@@ -230,7 +230,10 @@ fn probe_key_text_is_the_property_name_the_expression_denotes() {
     use super::super::canonical_property_key_text;
 
     // Numbers render as JS renders them.
-    assert_eq!(canonical_property_key_text("1000000000000000000000"), "1e+21");
+    assert_eq!(
+        canonical_property_key_text("1000000000000000000000"),
+        "1e+21"
+    );
     assert_eq!(canonical_property_key_text("0.0000001"), "1e-7");
     assert_eq!(canonical_property_key_text("5"), "5");
 

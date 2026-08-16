@@ -390,10 +390,7 @@ fn parsing_resumes_after_refusing_an_unreadable_numeric_key() {
         panic!("Expected ObjectExpression, got {init:?}");
     };
     assert_eq!(properties.len(), 1);
-    assert_eq!(
-        properties[0].key,
-        PropertyName::Identifier("a".to_string())
-    );
+    assert_eq!(properties[0].key, PropertyName::Identifier("a".to_string()));
 }
 
 #[test]
