@@ -18,7 +18,18 @@
     "by lane (R-23, R-28). This is a known over-attribution and is disclosed in the ranking.",
     "",
     "ONLY SILENT ENTRIES APPEAR HERE (spec §8.1). The ranking's generator fails if this file",
-    "assigns an entry the regenerated §0.2 does not measure SILENT, or omits one it does."
+    "assigns an entry the regenerated §0.2 does not measure SILENT, or omits one it does.",
+    "",
+    "REMOVED 2026-08-16 at `62b11a78c3` by the console-render-unification project: R-32 and",
+    "R-33, both formerly G8. Neither has a SILENT lane in §0.2 any more -- R-33's `console.warn`",
+    "prefix lane and R-32's past-threshold direct-log lane both moved to FIXED -- so the rule",
+    "in the paragraph above required their removal and the generator refused to run until it",
+    "was done. Leaving G8 with R-23, R-30 and R-31. This is a statement about the DANGEROUS",
+    "class only: R-33 is genuinely retired, but R-32 is NOT -- its §0.2 row records open",
+    "behaviour at `1e21` in the binding and concat lanes that no live oracle case pins. An",
+    "entry can leave this file without being fixed, exactly as R-01 and R-20 (FAIL_CLOSED) and",
+    "R-29 (ACCEPTS_INVALID) already do; R-04 and R-07 are absent for the opposite reason,",
+    "being FIXED."
   ],
   "clusters": [
     {
@@ -100,6 +111,11 @@
       "name": "R-52 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered (an isolated lowering/emit contract mismatch)'."
+    },
+    {
+      "name": "R-56 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered. It has **G3**'s shape -- a gate keyed on one form with a sibling form slipping past into the miscompile the gate's own comment describes -- and is deliberately *not* added to G3's member list, because every G3 member has a guard that COULD be widened to cover its sibling and this one does not'."
     }
   ],
   "assignments": [
@@ -251,20 +267,6 @@
       "alternateCluster": null
     },
     {
-      "id": "R-32",
-      "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
-      "registerSource": "G8.",
-      "alternate": null,
-      "alternateCluster": null
-    },
-    {
-      "id": "R-33",
-      "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
-      "registerSource": "G8.",
-      "alternate": null,
-      "alternateCluster": null
-    },
-    {
       "id": "R-34",
       "cluster": "R-34 (unclustered)",
       "registerSource": "not G8 (see below) -- currently unclustered.",
@@ -305,6 +307,13 @@
       "registerSource": "G4 (there is no value distinct from the scalar `0`) by symptom; plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4.",
       "alternate": "G7, named and declined by the register.",
       "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
+    },
+    {
+      "id": "R-56",
+      "cluster": "R-56 (unclustered)",
+      "registerSource": "unclustered. It has **G3**'s shape and is deliberately *not* added to G3's member list.",
+      "alternate": "G3 by shape, named and declined by the register: G3's members each have a guard that could be widened to admit the sibling form, and this one cannot -- the discriminator was discarded upstream in HIR.",
+      "alternateCluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them"
     }
   ]
 }

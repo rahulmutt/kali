@@ -54,7 +54,7 @@
 # adds is appended by the generator, and the trial pins the assembled string against the
 # real binary on every run.
 #
-# EXTRA-OK: '1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1\n' -- a deliberate live-captured exact pin. The source asserts `json["stdout"] == format!("{}\n", expected)`; the trailing newline is added by the `format!` at runtime, so the assembled string exists as no literal in the `.rs` -- only the newline-less constant does. Provenance stated exactly rather than waved at: the newline-less half is the byte-exact output of executing the real helper (asserted by the generator), and the one appended newline is the only hand-applied character -- live-verified, because the trial pins this exact string against the real binary
+# EXTRA-OK: 'true\ntrue\ntrue\nfalse\nfalse\nfalse\ntrue\nfalse\nfalse\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\n' -- a deliberate live-captured exact pin. The source asserts `json["stdout"] == format!("{}\n", expected)`; the trailing newline is added by the `format!` at runtime, so the assembled string exists as no literal in the `.rs` -- only the newline-less constant does. Provenance stated exactly rather than waved at: the newline-less half is the byte-exact output of executing the real helper (asserted by the generator), and the one appended newline is the only hand-applied character -- live-verified, because the trial pins this exact string against the real binary
 #
 # CONSEQUENCE FOR THE GATES -- `comment_coverage.py` IS EXPECTED-RED (rc=2) ON THIS PAIR,
 # AND THE RED IS THE GATE WORKING. The source carries no comment lines at all, so the
@@ -91,7 +91,7 @@ name = "run_supports_frozen_number_predicates_in_js_input"
 rationale = """Migrated from number_predicates_freeze_runtime.rs. Text-mode `run`; the source's `assert_eq!(stdout.trim(), ...)` is exact modulo trailing whitespace, so this pins the exact stdout, live-captured. Carried per rule 13 from every documented helper in this fixture's kali_common chain, derived by walking it: number_predicates_runtime_source: "Canonical runtime source text for the supported Number predicate slice." number_predicates_preamble_source: "Canonical source text for the supported Number predicate slice." number_predicates_console_log_body_source: "Canonical console-log body for the supported Number predicate slice.""""
 args = ["run", "main.js"]
 exit = "success"
-stdout = "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1\n"
+stdout = "true\ntrue\ntrue\nfalse\nfalse\nfalse\ntrue\nfalse\nfalse\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\n"
 
 [[case]]
 name = "json_run_supports_frozen_number_predicates_in_js_input"
@@ -102,7 +102,7 @@ json.schemaVersion = 1
 json.command = "run"
 json.success = true
 json.exitCode = 0
-json.stdout = "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1\n"
+json.stdout = "true\ntrue\ntrue\nfalse\nfalse\nfalse\ntrue\nfalse\nfalse\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\n"
 
 [[case]]
 name = "test_supports_frozen_number_predicates_in_js_input"

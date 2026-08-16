@@ -147,11 +147,11 @@ fn literal_rooted_concatenation_and_integer_addition_stay_supported() {
 
 #[test]
 fn relational_operators_compute_booleans() {
-    assert_eq!(run_js("console.log(3 < 5);\n"), "1\n");
-    assert_eq!(run_js("console.log(5 < 3);\n"), "0\n");
-    assert_eq!(run_js("console.log(5 > 3);\n"), "1\n");
-    assert_eq!(run_js("console.log(3 >= 3);\n"), "1\n");
-    assert_eq!(run_js("console.log(2 <= 1);\n"), "0\n");
+    assert_eq!(run_js("console.log(3 < 5);\n"), "true\n");
+    assert_eq!(run_js("console.log(5 < 3);\n"), "false\n");
+    assert_eq!(run_js("console.log(5 > 3);\n"), "true\n");
+    assert_eq!(run_js("console.log(3 >= 3);\n"), "true\n");
+    assert_eq!(run_js("console.log(2 <= 1);\n"), "false\n");
 }
 
 #[test]
@@ -249,12 +249,12 @@ fn integer_arrays_read_write() {
 #[test]
 fn strict_equality_operators_parse_and_compute() {
     // constant-fold path
-    assert_eq!(run_js("console.log(4 === 4);\n"), "1\n");
-    assert_eq!(run_js("console.log(4 === 5);\n"), "0\n");
-    assert_eq!(run_js("console.log(4 !== 5);\n"), "1\n");
+    assert_eq!(run_js("console.log(4 === 4);\n"), "true\n");
+    assert_eq!(run_js("console.log(4 === 5);\n"), "false\n");
+    assert_eq!(run_js("console.log(4 !== 5);\n"), "true\n");
     // dynamic path
-    assert_eq!(run_js("let r = 4;\nconsole.log(r === 4);\n"), "1\n");
-    assert_eq!(run_js("let r = 4;\nconsole.log(r === 5);\n"), "0\n");
+    assert_eq!(run_js("let r = 4;\nconsole.log(r === 4);\n"), "true\n");
+    assert_eq!(run_js("let r = 4;\nconsole.log(r === 5);\n"), "false\n");
     // === inside a loop condition / if (the fannkuch shape)
     assert_eq!(
         run_js("let r = 0;\nwhile (r !== 4) { r = r + 1; }\nconsole.log(r);\n"),
@@ -311,21 +311,21 @@ fn runtime_string_building() {
 
 #[test]
 fn f64_scalar_arithmetic_observed_via_comparison() {
-    // Division yields a float; 1.5 < 2 is true (=> 1).
-    assert_eq!(run_js("console.log((3 / 2) < 2);\n"), "1\n");
-    assert_eq!(run_js("console.log((3 / 2) < 1);\n"), "0\n");
+    // Division yields a float; 1.5 < 2 is true.
+    assert_eq!(run_js("console.log((3 / 2) < 2);\n"), "true\n");
+    assert_eq!(run_js("console.log((3 / 2) < 1);\n"), "false\n");
     // int promoted into a float add: 1 + 0.5 = 1.5 < 2.
-    assert_eq!(run_js("console.log((1 + 1 / 2) < 2);\n"), "1\n");
+    assert_eq!(run_js("console.log((1 + 1 / 2) < 2);\n"), "true\n");
     // f64 local round-trips through local.set/get.
-    assert_eq!(run_js("let x = 3 / 2;\nconsole.log(x < 2);\n"), "1\n");
+    assert_eq!(run_js("let x = 3 / 2;\nconsole.log(x < 2);\n"), "true\n");
     // f64-returning function + f64 param propagation across a call.
     assert_eq!(
         run_js("function half(x) { return 1 / x; }\nconsole.log(half(4) < 1);\n"),
-        "1\n"
+        "true\n"
     );
-    // (1/2)+(1/2) = 1.0 under f64 (=> 1<1 is false => 0); under i64 it is 0+0=0 (=> 0<1 => 1).
+    // (1/2)+(1/2) = 1.0 under f64 (=> 1<1 is false); under i64 it is 0+0=0 (=> 0<1 => true).
     // Discriminating assertion: FAILS under i64 lowering.
-    assert_eq!(run_js("console.log((1 / 2) + (1 / 2) < 1);\n"), "0\n");
+    assert_eq!(run_js("console.log((1 / 2) + (1 / 2) < 1);\n"), "false\n");
 }
 
 #[test]
@@ -334,19 +334,19 @@ fn f64_local_init_and_reassign_promote() {
     // float rhs: 0 promoted to 0.0, then 0.0 + 0.5 = 0.5 < 1.
     assert_eq!(
         run_js("let t = 0;\nt = t + 1 / 2;\nconsole.log(t < 1);\n"),
-        "1\n"
+        "true\n"
     );
     // Loop accumulator seeded with an integer literal: 0 + 0.5*3 = 1.5 < 2.
     assert_eq!(
         run_js(
             "let s = 0;\nfor (let i = 0; i < 3; i = i + 1) { s = s + 1 / 2; }\nconsole.log(s < 2);\n"
         ),
-        "1\n"
+        "true\n"
     );
     // f64 compound-assign: 0.5 += 0.5 = 1.0 < 2.
     assert_eq!(
         run_js("let a = 1 / 2;\na += 1 / 2;\nconsole.log(a < 2);\n"),
-        "1\n"
+        "true\n"
     );
 }
 
@@ -354,15 +354,15 @@ fn f64_local_init_and_reassign_promote() {
 fn f64_arithmetic_distinguishes_from_integer_division() {
     // These operands are chosen so i64 truncation and real f64 division DISAGREE:
     // 3/2 is 1.5 (f64) vs 1 (i64 trunc); `1.5 > 1` is true, `1 > 1` is false.
-    assert_eq!(run_js("console.log((3 / 2) > 1);\n"), "1\n");
+    assert_eq!(run_js("console.log((3 / 2) > 1);\n"), "true\n");
     // promoted int-into-float add: 1 + 0.5 = 1.5 > 1 (f64) vs 1 + 0 = 1, not > 1 (i64).
-    assert_eq!(run_js("console.log((1 + 1 / 2) > 1);\n"), "1\n");
+    assert_eq!(run_js("console.log((1 + 1 / 2) > 1);\n"), "true\n");
     // f64 local round-trip: 1.5 > 1 (f64) vs 1 > 1 (i64).
-    assert_eq!(run_js("let x = 3 / 2;\nconsole.log(x > 1);\n"), "1\n");
+    assert_eq!(run_js("let x = 3 / 2;\nconsole.log(x > 1);\n"), "true\n");
     // f64 return + f64 param across a call: half(4) = 0.25 > 0 (f64) vs 0 > 0 (i64).
     assert_eq!(
         run_js("function half(x) { return 1 / x; }\nconsole.log(half(4) > 0);\n"),
-        "1\n"
+        "true\n"
     );
 }
 
@@ -380,14 +380,14 @@ fn f64_arrays_store_and_load() {
     // a is a float array (element written from a division).
     assert_eq!(
         run_js("const a = new Array(2);\na[0] = 3 / 2;\nconsole.log(a[0] < 2);\n"),
-        "1\n"
+        "true\n"
     );
     // read-modify across elements stays float.
     assert_eq!(
         run_js(
             "const a = new Array(2);\na[0] = 1 / 2;\na[1] = a[0] + a[0];\nconsole.log(a[1] < 2);\n"
         ),
-        "1\n" // 1.0 < 2
+        "true\n" // 1.0 < 2
     );
     // integer arrays are unchanged.
     assert_eq!(
@@ -419,14 +419,14 @@ fn array_fill_initializes_all_elements() {
     // float fill: a is a float array (used in a float add), fill(1) stores 1.0.
     assert_eq!(
         run_js("const a = new Array(2).fill(1);\nconsole.log((a[0] + 1 / 2) < 2);\n"),
-        "1\n" // 1.0 + 0.5 = 1.5 < 2
+        "true\n" // 1.0 + 0.5 = 1.5 < 2
     );
     // I6-1 strengthening: genuinely gate the F64Store fill path. `a` is F64 via
-    // the `a[0] = 1/2` store; a[1] was filled with 1.0. 1.0 > 0.5 => 1. A broken
-    // or wrong-width F64 fill would leave a[1] ~0, yielding 0 > 0.5 => 0.
+    // the `a[0] = 1/2` store; a[1] was filled with 1.0. 1.0 > 0.5 => true. A broken
+    // or wrong-width F64 fill would leave a[1] ~0, yielding 0 > 0.5 => false.
     assert_eq!(
         run_js("const a = new Array(2).fill(1);\na[0] = 1 / 2;\nconsole.log(a[1] > a[0]);\n"),
-        "1\n"
+        "true\n"
     );
 }
 
@@ -468,26 +468,26 @@ fn array_params_float_store_across_call() {
     // A float store through an array param must use F64Store (was E4201 crash).
     assert_eq!(
         run_js("function store(v){v[0]=1/2;}\nconst u=new Array(3);\nstore(u);\nconsole.log(u[0] > 0);\n"),
-        "1\n"
+        "true\n"
     );
 }
 
 #[test]
 fn array_params_float_round_trip() {
-    // Float stored in one callee, read back in another: 0.5 < 1 => 1.
+    // Float stored in one callee, read back in another: 0.5 < 1 => true.
     assert_eq!(
         run_js("function store(v){v[0]=1/2;}\nfunction get(v){return v[0];}\nconst u=new Array(2);\nstore(u);\nconsole.log(get(u) < 1);\n"),
-        "1\n"
+        "true\n"
     );
 }
 
 #[test]
 fn array_params_float_fill_interproc_spectral_norm_shape() {
     // spectral-norm shape: fill(1) makes a float array, a callee overwrites [0]
-    // with 0.5; u[1] (=1.0) > u[0] (=0.5) => 1.
+    // with 0.5; u[1] (=1.0) > u[0] (=0.5) => true.
     assert_eq!(
         run_js("function store(v){v[0]=1/2;}\nconst u=new Array(3).fill(1);\nstore(u);\nconsole.log(u[1] > u[0]);\n"),
-        "1\n"
+        "true\n"
     );
 }
 
@@ -500,7 +500,7 @@ fn array_param_store_with_call_rhs_across_two_calls() {
     // making the loop condition emit `f64.lt` with an i64 `.length` operand
     // (E4201: expected f64, found i64), and `u.length` fell back to a
     // placeholder 0 so the loop never ran. Must now compute w[0]=A(0,0)=1 and
-    // copy it to v[0], so v[0] > 0 => 1.
+    // copy it to v[0], so v[0] > 0 => true.
     let source = "\
 function A(i,j){ return 1 / (i + j + 1); }\n\
 function Au(u, v) { for (let i = 0; i < u.length; i = i + 1) { v[i] = A(i, 0); } }\n\
@@ -511,21 +511,21 @@ const v = new Array(2);\n\
 const w = new Array(2);\n\
 AtAu(u, v, w);\n\
 console.log(v[0] > 0);\n";
-    assert_eq!(run_js(source), "1\n");
+    assert_eq!(run_js(source), "true\n");
 }
 
 #[test]
 fn array_param_store_with_float_call_rhs() {
     // `v[i] = <call>()` where the callee returns a float, stored into a float
     // array param. The store path must keep the call result as f64 (no bogus
-    // i64/f64 stack-type mismatch). half(0)=0.5 => u[0] < 1 => 1.
+    // i64/f64 stack-type mismatch). half(0)=0.5 => u[0] < 1 => true.
     let source = "\
 function half(i){ return 1 / (i + 2); }\n\
 function fillIt(v){ for (let i = 0; i < v.length; i = i + 1) { v[i] = half(i); } }\n\
 const u = new Array(2);\n\
 fillIt(u);\n\
 console.log(u[0] < 1);\n";
-    assert_eq!(run_js(source), "1\n");
+    assert_eq!(run_js(source), "true\n");
 }
 
 #[test]
@@ -545,14 +545,14 @@ fn float_literals_emit_as_f64() {
     // string handle. Previously these fell through the integer parser into the
     // string-interning path, producing an i64 string handle where an f64 was
     // expected (E4201: WebAssembly translation error).
-    assert_eq!(run_js("console.log(1.5 > 1);\n"), "1\n");
-    assert_eq!(run_js("console.log(0.5 < 1);\n"), "1\n");
+    assert_eq!(run_js("console.log(1.5 > 1);\n"), "true\n");
+    assert_eq!(run_js("console.log(0.5 < 1);\n"), "true\n");
     // float literal stored into an f64 local (inferred via repr inference).
-    assert_eq!(run_js("let x = 1.5;\nconsole.log(x > 1);\n"), "1\n");
-    assert_eq!(run_js("let y = 0.5;\nconsole.log(y < 1);\n"), "1\n");
+    assert_eq!(run_js("let x = 1.5;\nconsole.log(x > 1);\n"), "true\n");
+    assert_eq!(run_js("let y = 0.5;\nconsole.log(y < 1);\n"), "true\n");
     // float literal in mixed arithmetic: 1.5 + 1/2 = 2.0.
-    assert_eq!(run_js("console.log((1.5 + 1 / 2) < 3);\n"), "1\n");
-    assert_eq!(run_js("console.log((1.5 + 1 / 2) > 1);\n"), "1\n");
+    assert_eq!(run_js("console.log((1.5 + 1 / 2) < 3);\n"), "true\n");
+    assert_eq!(run_js("console.log((1.5 + 1 / 2) > 1);\n"), "true\n");
     // byte-identity guards: integer + string literals unaffected.
     assert_eq!(run_js("console.log(5);\n"), "5\n");
     assert_eq!(run_js("console.log(\"hi\");\n"), "hi\n");
@@ -561,14 +561,14 @@ fn float_literals_emit_as_f64() {
 #[test]
 fn math_sqrt_runtime_f64() {
     // non-perfect-square: was FEATURE_UNAVAILABLE, now a real f64 sqrt.
-    assert_eq!(run_js("console.log(Math.sqrt(2) < 2);\n"), "1\n"); // 1.414… < 2
-    assert_eq!(run_js("console.log(Math.sqrt(2) < 1);\n"), "0\n");
+    assert_eq!(run_js("console.log(Math.sqrt(2) < 2);\n"), "true\n"); // 1.414… < 2
+    assert_eq!(run_js("console.log(Math.sqrt(2) < 1);\n"), "false\n");
     // perfect square still constant-folds correctly.
-    assert_eq!(run_js("console.log(Math.sqrt(9) < 4);\n"), "1\n"); // 3 < 4
-                                                                   // sqrt of a computed float (the spectral-norm shape).
+    assert_eq!(run_js("console.log(Math.sqrt(9) < 4);\n"), "true\n"); // 3 < 4
+                                                                      // sqrt of a computed float (the spectral-norm shape).
     assert_eq!(
         run_js("let r = 1 / 4;\nconsole.log(Math.sqrt(r) < 1);\n"),
-        "1\n"
+        "true\n"
     ); // 0.5 < 1
 }
 

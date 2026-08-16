@@ -1,5 +1,33 @@
 use crate::*;
 
+/// Which sink is consuming a string coercion.
+///
+/// The five pre-terminal arms of `emit_as_string` -- the USP null-sentinel
+/// materialize, proven string, emitted-shape string, boolean shape, float --
+/// are where all the repr knowledge lives and are shared by every caller. (The
+/// USP arm is the one a reader skims past: it turns a `q.get(<absent>)` `0`
+/// sentinel into the interned `"null"` handle, and it runs first, ahead of every
+/// other arm.) Only the TERMINAL arm differs, and it differs for a measured
+/// reason rather than a stylistic one (spec §3.1):
+///
+/// - `Concat` keeps `int_to_string`, and keeps the `string_result_render_taint`
+///   deny that protects it. Unchanged in every respect.
+/// - `Console` uses `value_to_string`, which decodes a tagged string handle at
+///   run time, and skips the taint deny -- because the hazard the deny guards
+///   (a handle's raw bits through `int_to_string`) cannot occur on this arm.
+///
+/// `Console` is NOT a better terminal arm that `Concat` should also adopt.
+/// `STRING_HANDLE_TAG` is the sign bit, so every negative integer reaching
+/// `value_to_string` attempts a decode and survives only because the bounds
+/// check fails. Console already pays that cost today -- the host does exactly
+/// this to every console value. Extending it to `+` would widen a live hazard to
+/// a much larger population for no measured benefit.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum StringSink {
+    Concat,
+    Console,
+}
+
 impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_update_expression(
         &mut self,
@@ -1822,17 +1850,41 @@ impl<'a> FunctionEmitter<'a> {
     /// value is a handle; boolean-shaped values render as `"true"`/`"false"`;
     /// float-shaped values are stringified via `float_to_string` (JS
     /// `String(number)` semantics); otherwise the produced i64 is coerced to a
-    /// decimal-string handle via `int_to_string`.
-    pub(crate) fn emit_as_string(&mut self, function: &mut Function, id: LirNodeId) {
+    /// string handle by the terminal arm `sink` selects — see [`StringSink`].
+    pub(crate) fn emit_as_string(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+        sink: StringSink,
+    ) {
         // Stage P5 T-new-E: a `String()`-result bound to a variable or returned
         // from a function carries a real string handle in an `I64` slot
         // (`repr_infer` seeds no `Repr::String` — F-newB-1). Reaching this
-        // coercion ladder (the `+`, template-literal, and multi-arg console
-        // render path) it would fall through to `int_to_string` and print the
+        // coercion ladder it would fall through to `int_to_string` and print the
         // raw handle bits — the measured `x-9223354375949254655` silent
         // divergence. Fail CLOSED. Positive provenance only, so a genuine `I64`
         // (the acceptance fixture's `left`/`right` bigint params) is untouched.
-        if self.string_result_render_taint(id) {
+        //
+        // CONSOLE IS EXEMPT, and the exemption is half conservative and half
+        // deliberately new. Read both halves before changing this condition.
+        //
+        // The SINGLE-argument lane was exempt before this ladder was shared:
+        // `emit_console_argument` used to bypass `emit_as_string` entirely and
+        // hand the host a raw tagged i64, which the host decodes correctly. That
+        // exemption is what makes `console.log(s)` print for a `String()`-result
+        // binding, and `r30e` is the case that keeps it honest. Applying the
+        // deny here would convert working programs into E5506.
+        //
+        // The MULTI-argument lane, by contrast, WAS tainted until this ladder
+        // was shared, and un-tainting it is this project's single deliberate
+        // behavior widening (design spec §5.1.1), pinned by `r30f`:
+        // `console.log("x", s)` on that same binding used to fail closed and now
+        // prints. It is safe on the same grounds — `value_to_string` renders the
+        // handle the deny existed to keep away from `int_to_string`, so on this
+        // arm the hazard is gone rather than tolerated. `r30e` guards the
+        // conservative half and `r30f` the widened one; a change to this
+        // condition that moves either is a behavior change, not a refactor.
+        if sink == StringSink::Concat && self.string_result_render_taint(id) {
             self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
             return;
         }
@@ -1880,7 +1932,14 @@ impl<'a> FunctionEmitter<'a> {
         {
             function.instruction(&Instruction::Call(FLOAT_TO_STRING_IMPORT_INDEX));
         } else {
-            function.instruction(&Instruction::Call(INT_TO_STRING_IMPORT_INDEX));
+            match sink {
+                StringSink::Concat => {
+                    function.instruction(&Instruction::Call(INT_TO_STRING_IMPORT_INDEX));
+                }
+                StringSink::Console => {
+                    function.instruction(&Instruction::Call(VALUE_TO_STRING_IMPORT_INDEX));
+                }
+            }
         }
     }
 
@@ -2075,8 +2134,8 @@ impl<'a> FunctionEmitter<'a> {
         // Static constant folds happen earlier in LIR, so only unfolded operands
         // reach this path.
         if op == "+" && (self.is_string_valued(left) || self.is_string_valued(right)) {
-            self.emit_as_string(function, left);
-            self.emit_as_string(function, right);
+            self.emit_as_string(function, left, StringSink::Concat);
+            self.emit_as_string(function, right, StringSink::Concat);
             // Per-site arena routing (fasta Spec 7 Task 4d): select the
             // current-arena `string_concat_arena` import iff the escape gate
             // proved THIS `+` site's result iteration-local; a miss fails closed

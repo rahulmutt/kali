@@ -8,6 +8,7 @@ mod object;
 mod string;
 pub(crate) use host::{SchedulingCallback, SchedulingSurface, EVENT_CTORS};
 pub(crate) use number::{
-    is_supported_static_ascii_char_code, parse_number_literal, parse_numeric_literal_value,
+    is_bigint_literal_text, is_supported_static_ascii_char_code, parse_number_literal,
+    parse_numeric_literal_value,
 };
 pub(crate) use string::{quote_string_literal, strip_string_delimiters};

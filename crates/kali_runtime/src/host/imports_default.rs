@@ -1,5 +1,6 @@
 //! Default host-import registration (`kali:rt` namespace) for the wasmtime linker.
 use crate::*;
+use kali_common::js_number::format_js_number;
 
 pub(crate) fn register_default_host_imports(
     linker: &mut Linker<KaliHostState>,
@@ -50,7 +51,11 @@ pub(crate) fn register_default_host_imports(
             |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
                 enforce_operation(caller.data_mut(), HostOperation::Console)?;
                 let rendered = format_console_value(&mut caller, val);
-                append_stderr(caller.data_mut(), format!("[warn] {}", rendered));
+                // No prefix: node's `console.warn` writes the message alone, and
+                // NONE of the four JS import mirrors prefixed it either -- so
+                // this line made kali's own runtimes disagree with each other
+                // before it made kali disagree with node. R-33.
+                append_stderr(caller.data_mut(), rendered);
                 Ok(())
             },
         )
@@ -703,6 +708,29 @@ pub(crate) fn register_default_host_imports(
         )
         .map_err(|error| host_import_error("int_to_string", error))?;
 
+    // The terminal arm of `emit_as_string` for the CONSOLE sink. Identical in
+    // behavior to what the console imports already do to a raw value -- decode a
+    // tagged string handle, else render the integer -- but it returns a guest
+    // string handle instead of writing to a stream, so codegen can put it in a
+    // ladder. That is what lets the single- and multi-argument console lanes
+    // share one renderer with the host rather than each having their own.
+    //
+    // Deliberately NOT the terminal arm for `+`/template literals:
+    // STRING_HANDLE_TAG is the sign bit, so every negative integer attempts a
+    // decode here and survives only because the bounds check fails. Widening
+    // that to the concat population is a hazard this project declines to take
+    // (spec §3.1).
+    linker
+        .func_wrap(
+            "kali:rt",
+            "value_to_string",
+            |mut caller: Caller<'_, KaliHostState>, value: i64| -> i64 {
+                let text = format_console_value(&mut caller, value);
+                alloc_guest_string(&mut caller, text.as_bytes()).unwrap_or(0)
+            },
+        )
+        .map_err(|error| host_import_error("value_to_string", error))?;
+
     linker
         .func_wrap(
             "kali:rt",
@@ -972,25 +1000,3 @@ pub(crate) fn register_default_host_imports(
 
     Ok(())
 }
-
-/// JS `String(number)` semantics: `NaN`, `Infinity`, `-Infinity`, `0` for
-/// ±0, and the ECMA-262 Number-to-String algorithm (via `ryu-js`) for every
-/// other double — byte-identical to the JS glue mirrors' native
-/// `String(value)`, including exponent notation for |x| >= 1e21 and
-/// magnitudes below 1e-6.
-fn format_js_number(value: f64) -> String {
-    if value.is_nan() {
-        return "NaN".to_owned();
-    }
-    if value.is_infinite() {
-        return if value > 0.0 { "Infinity" } else { "-Infinity" }.to_owned();
-    }
-    if value == 0.0 {
-        return "0".to_owned();
-    }
-    ryu_js::Buffer::new().format_finite(value).to_owned()
-}
-
-#[cfg(test)]
-#[path = "imports_default_tests.rs"]
-mod imports_default_tests;

@@ -8,6 +8,17 @@ pub(crate) fn parse_number_literal(text: &str) -> Option<i64> {
     text.parse::<i64>().ok()
 }
 
+/// True when `text` is a BigInt literal's own text (`"42n"`).
+///
+/// `parse_numeric_literal_value` strips the `n` and parses as `f64`, which
+/// silently loses digits past 2^53, so every caller that renders a literal for
+/// display must keep BigInts on the text path instead.
+pub(crate) fn is_bigint_literal_text(text: &str) -> bool {
+    text.strip_suffix('n').is_some_and(|digits| {
+        !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit())
+    })
+}
+
 pub(crate) fn parse_numeric_literal_value(text: &str) -> Option<f64> {
     if let Some(stripped) = text.strip_suffix('n') {
         return stripped.parse::<f64>().ok();

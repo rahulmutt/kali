@@ -1,4 +1,11 @@
-use super::format_js_number;
+//! Threshold tests for the single JS number formatter.
+//!
+//! These pin the two ECMAScript `Number::toString` exponential thresholds from
+//! both sides. The 1e21 pair is the interesting one: the formatter is correct
+//! there, which is the evidence that R-55 (a literal at or past 1e21 rendering
+//! as expanded digits in every sink) is NOT a formatter defect but an upstream
+//! classification one. See the register's §7 R-55.
+use super::*;
 
 #[test]
 fn formats_specials_and_zero() {
@@ -34,6 +41,21 @@ fn formats_large_magnitudes_at_the_js_exponent_threshold() {
     assert_eq!(format_js_number(-1e21), "-1e+21");
     assert_eq!(format_js_number(5e-324), "5e-324");
     assert_eq!(format_js_number(f64::MAX), "1.7976931348623157e+308");
+}
+
+#[test]
+fn the_formatter_is_not_what_r55_is_about() {
+    // R-55 reports `console.log(1e21)` printing 22 literal digits. This asserts
+    // the formatter would have rendered it correctly if it had been reached, so
+    // the defect is upstream of here and this test is what pins that reasoning.
+    //
+    // Deliberately SUBSUMED by `formats_large_magnitudes_at_the_js_exponent_threshold`
+    // above, whose `assert_eq!(format_js_number(1e21), "1e+21")` implies this
+    // `assert_ne!` outright. It is kept for its NAME and this comment: they are
+    // the only place in the formatter's own tests where R-55's "the defect is
+    // upstream" argument is anchored, and a threshold test renamed or retargeted
+    // later would take the argument with it. Do not delete it as redundant.
+    assert_ne!(format_js_number(1e21), "1000000000000000000000");
 }
 
 /// Differential pin against node's native `String(value)`. Values cross the

@@ -938,6 +938,38 @@ export const MATCHERS = {
     }
     return count;
   },
+
+  // R-56: an object-literal property whose key is a STRING literal whose own
+  // text begins and ends with a double quote and whose inner text reads as a
+  // number -- `{'"5"': 1}`, `{"\"5\"": 1}`. That text is byte-identical to what
+  // `lower_property_name` writes for the NUMERIC key `{5: 1}`, which is the
+  // collision the entry is about.
+  //
+  // Upper bound, per the record: the exact condition is that the inner text lies
+  // in Rust's `Display for f64` image, which is not reproducible from an acorn
+  // AST -- `Number.isFinite(Number(inner))` is a strictly wider test, so
+  // `{'"1e21"': 1}` and `{'"05"': 1}` are counted here and are NOT this defect.
+  // The disclosure is in `count.mjs`'s UPPER_BOUNDS, beside the number.
+  //
+  // Computed keys are excluded: `{["\"5\""]: 1}` does not reach the key slot as
+  // a `PropertyName::String`, and only that slot carries the marker.
+  objectLiteralQuotedNumericStringKey(ast) {
+    const analysis = analysisOf(ast);
+    let count = 0;
+    for (const node of analysis.of("ObjectExpression")) {
+      for (const property of node.properties) {
+        if (property.type !== "Property" || property.computed) continue;
+        const key = property.key;
+        if (!isLiteral(key) || typeof key.value !== "string") continue;
+        const text = key.value;
+        if (text.length < 2 || !text.startsWith('"') || !text.endsWith('"')) continue;
+        const inner = text.slice(1, -1);
+        if (inner.trim() === "" || !Number.isFinite(Number(inner))) continue;
+        count += 1;
+      }
+    }
+    return count;
+  },
 };
 
 /** Every matcher's count for one source string. */

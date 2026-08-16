@@ -53,7 +53,7 @@ name = "run"
 rationale = "String relational operators on static ASCII literals fold at compile time, including a frozen left-hand operand."
 args = ["run", "main.js"]
 exit = "success"
-stdout = "1\n0\n1\n1\n0\n1\n"
+stdout = "true\nfalse\ntrue\ntrue\nfalse\ntrue\n"
 
 [[case]]
 name = "json_check"

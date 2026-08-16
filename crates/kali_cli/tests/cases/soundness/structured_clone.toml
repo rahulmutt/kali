@@ -320,12 +320,12 @@ DEVIATION FROM THE BRIEF, two orthogonal pre-existing limitations (documented; s
 
 1. Multi-arg `console.log`: the brief's snippet used a single `console.log(p === q, p === r)`. `crates/kali_codegen/src/emit/ call.rs`'s dynamic console lane emits only the FIRST argument and silently drops the rest (see the "Stage 4 Task 6 re-review fix" comment there) — reproduces identically with plain scalars (`console.log(1 === 1, 1 === 2)` also prints a single `1`), unrelated to objects. This test uses one `console.log` per comparison instead.
 
-2. Dynamic-boolean rendering: the brief asserted the output renders as `"true"`/`"false"` text like node. That holds ONLY for a compile-time-foldable literal (`console.log(true)` does print `"true"`, via `render_console_call`'s static lane) — a genuinely DYNAMIC boolean (the runtime lane `emit_console_argument`, which has no `ValueShape::Boolean` arm, only `Float`) prints the raw `1`/`0` i64 unconverted. This is general and pre-existing — plain scalar `let a=1,b=2; console.log(a===a); console.log(a===b);` also prints `1`/`0`, and `array_callback_number_predicates_runtime.rs` already pins this exact "1\\n0\\n..." convention as kali's accepted (if node-diverging) behavior for runtime-computed booleans. `p === q` and `p === r` are genuinely dynamic (real pointer identity, not a static fold — that IS the point of this test), so they hit this same pre-existing lane and print `1`/`0`. Fixing dynamic Boolean-to-text rendering is a general, separate, higher-blast-radius change (it would flip the expected output of every already-green test that prints a runtime comparison) — out of scope for Lane 3, which is about WHETHER the comparison is sound, not how its result is printed.
+2. Dynamic-boolean rendering (UPDATED by `console-render-unification`, Task 5b): at the time this test was written, the brief's claim that the output renders as `"true"`/`"false"` text like node held ONLY for a compile-time-foldable literal — a genuinely DYNAMIC boolean went through the runtime console lane (`emit_console_argument`, which had no `ValueShape::Boolean` arm, only `Float`) and printed the raw `1`/`0` i64 unconverted. `console-render-unification` subsequently routed both console lanes through one shared string-coercion ladder (`emit_as_string`); a `===`/`!==` comparison node's result is a shape the ladder can prove regardless of const-foldability, so `p === q` and `p === r` — genuinely dynamic, real pointer identity, not a static fold — now render as `true`/`false` through `console.log`, matching the brief's original literal expectation. This is narrower than "dynamic Boolean-to-text rendering is fixed": a plain binding read of a boolean value (`var b = true; console.log(b)`) still prints `1`, because that shape is `Unknown` to the ladder — only comparison-result and literal/const-folded shapes moved. The comparison itself was already sound before this rendering change; only the word used to print its result moved.
 
 Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
 args = ["run", "same_shape_object_identity_alias_is_true.js"]
 exit = "success"
-stdout = "1\n0\n"
+stdout = "true\nfalse\n"
 
 [[case]]
 name = "structured_clone_cross_shape_identity_fails_closed"
@@ -365,12 +365,12 @@ rationale = """Stage P2 Lane 1 (structuredClone deep-clone lane) — Task 4: fie
 
 Migration note: no `#[ignore]` attribute exists in the source as of this migration — the claim above is stale; this case is not ignored.
 
-Task 6 (Lane 3): `!==` must not be inverted relative to `===`. The brief's tests only cover `===`; this pins `!==` on the same alias/distinct pair — `p !== q` (alias) is false, `p !== r` (distinct same-shape) is true. Single-argument `console.log` per comparison, raw `0`/`1` output — see `same_shape_object_identity_alias_is_true`'s doc comment for both deviations (multi-arg console.log drop; dynamic-boolean 1/0 rendering).
+Task 6 (Lane 3): `!==` must not be inverted relative to `===`. The brief's tests only cover `===`; this pins `!==` on the same alias/distinct pair — `p !== q` (alias) is false, `p !== r` (distinct same-shape) is true. Single-argument `console.log` per comparison — see `same_shape_object_identity_alias_is_true`'s doc comment for both deviations (multi-arg console.log drop; dynamic-boolean rendering, UPDATED by `console-render-unification` Task 5b — this comparison-result shape now renders `true`/`false`, not `1`/`0`).
 
 Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
 args = ["run", "same_shape_object_identity_not_equal.js"]
 exit = "success"
-stdout = "0\n1\n"
+stdout = "false\ntrue\n"
 
 [[case]]
 name = "structured_clone_deep_clones_scalar_and_array_object"
@@ -401,12 +401,12 @@ Migration note: no `#[ignore]` attribute exists in the source as of this migrati
 
 Task 8 (Lane 2b): the clone is a DISTINCT allocation — `cloned === original` is false. `cloned.values === original.values` is likewise false (the array storage was deep-copied into a fresh handle).
 
-DEVIATION FROM THE BRIEF (documented; same two pre-existing limits as `same_shape_object_identity_alias_is_true`): dynamic booleans render as `1`/`0` (the runtime console lane has no Boolean arm), and multi-argument `console.log` drops trailing arguments — so each comparison is logged alone and the raw `0` (false) is asserted. `cloned === original` is genuine runtime pointer identity (real allocations, not a static fold), which is exactly what proves the clone is not the source object.
+DEVIATION FROM THE BRIEF (documented; same pre-existing limit as `same_shape_object_identity_alias_is_true`): multi-argument `console.log` drops trailing arguments, so each comparison is logged alone. Dynamic-boolean rendering, UPDATED by `console-render-unification` Task 5b — see `same_shape_object_identity_alias_is_true`'s doc comment: this comparison-result shape now renders `false`/`true`, not `0`/`1`, so `false` is asserted for both. `cloned === original` is genuine runtime pointer identity (real allocations, not a static fold), which is exactly what proves the clone is not the source object.
 
 Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
 args = ["run", "structured_clone_result_identity_is_false.js"]
 exit = "success"
-stdout = "0\n0\n"
+stdout = "false\nfalse\n"
 
 [[case]]
 name = "structured_clone_of_unproven_argument_fails_closed"

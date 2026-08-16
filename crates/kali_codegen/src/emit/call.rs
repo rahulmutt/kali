@@ -1,3 +1,4 @@
+use crate::emit::operators::StringSink;
 use crate::*;
 
 /// Length source for [`FunctionEmitter::emit_array_allocation_with_len`]: either
@@ -10,16 +11,13 @@ enum ArrayLen {
 
 impl<'a> FunctionEmitter<'a> {
     /// Emit `id` as a console-import argument: always leaves exactly one i64
-    /// (tagged scalar or string handle) on the stack. Float-shaped values are
-    /// stringified via the `float_to_string` host import — the i64 value
-    /// domain has no float encoding, so passing a raw f64 would emit
-    /// type-invalid wasm. Local and param reads emit shape `Unknown`, so the
-    /// repr-based `is_float_valued` is consulted as well — the same signal
-    /// the float-operand seams use. `is_float_valued` doesn't account for
-    /// string concatenation (`"v: " + x` is float-valued on its right operand
-    /// but string-shaped overall), so it is gated on `!is_string_valued(id)`
-    /// — `emit_binary`'s string-concat path already converts any float
-    /// operands internally and returns shape `String`.
+    /// (tagged scalar or string handle) on the stack.
+    ///
+    /// Shares the [`FunctionEmitter::emit_as_string`] coercion ladder with the
+    /// multi-argument lane below, under [`StringSink::Console`] — so the two
+    /// console lanes agree by construction instead of via a hand-mirrored
+    /// second ladder, and so this lane gains the ladder's repr knowledge
+    /// (a boolean renders `true`/`false`, not `1`/`0` — R-30).
     fn emit_console_argument(&mut self, function: &mut Function, id: LirNodeId) {
         if self.object_shape_of_node(id).is_some() {
             self.diagnostics.push(Diagnostic::error(
@@ -28,45 +26,33 @@ impl<'a> FunctionEmitter<'a> {
                     .to_string(),
             ));
         }
-        // Stage P5 T-new-E note: the SINGLE-argument console lane hands the host
-        // a raw tagged i64 and lets IT render — the host decodes a string-handle
-        // tag and prints the text, so `console.log(s)` for a `String()`-result
-        // binding prints correctly (measured `1` on parent, matching node) and
-        // must NOT be tainted here. The divergence is confined to the wasm
-        // `int_to_string` ladder (`+`, template literal, MULTI-arg console), which
-        // routes through `emit_as_string` — guarded there, not here.
-        let emitted = self.emit_node(function, id, true);
-        if !emitted.produced {
-            function.instruction(&Instruction::I64Const(0));
-            return;
-        }
-        // Stage-review I-5: a `q.get(k)` / `q.toString()` result may carry the
-        // `0` null-sentinel (absent key); materialize it as the interned
-        // `"null"` handle so `console.log(q.get('absent'))` prints node's
-        // `null` instead of `0`. A present value's handle passes through.
-        if self.is_usp_string_call(id) {
-            self.emit_usp_null_string_materialize(function);
-            return;
-        }
-        if matches!(emitted.shape, ValueShape::Float)
-            || (!self.is_string_valued(id) && self.is_float_valued(id))
-        {
-            function.instruction(&Instruction::Call(FLOAT_TO_STRING_IMPORT_INDEX));
-        }
+        // Was: emit a raw tagged i64 and let the HOST render it. That is why a
+        // boolean printed as `1` -- the host has the runtime tag but no repr, so
+        // it cannot tell a boolean from an integer (R-30). The ladder has the
+        // repr, and `StringSink::Console` gives it a terminal arm that consults
+        // the runtime tag, so this lane now gets both instead of one.
+        self.emit_as_string(function, id, StringSink::Console);
     }
 
     /// Emit `id` as a console-import argument coerced to a STRING handle —
     /// the multi-argument twin of [`Self::emit_console_argument`].
     ///
-    /// The single-argument lane hands the console import a raw tagged i64 and
-    /// lets the host render it. That cannot work for several arguments, because
-    /// the import takes exactly one i64: the arguments have to be joined into
+    /// Several arguments cannot be handed to the console import as raw tagged
+    /// i64s, because the import takes exactly one: they have to be joined into
     /// one handle before the call, which means each one must first become a
-    /// string. `emit_as_string` is the existing coercion ladder used by `+`
-    /// string concatenation (string handle passthrough, `true`/`false` for
-    /// shape-`Boolean` values, `float_to_string` for floats, `int_to_string`
-    /// otherwise), so multi-argument console rendering agrees with `+`
-    /// rendering by construction instead of via a second hand-mirrored ladder.
+    /// string. `emit_as_string` is the shared coercion ladder (string handle
+    /// passthrough, `true`/`false` for shape-`Boolean` values,
+    /// `float_to_string` for floats, and the [`StringSink`]-selected terminal
+    /// arm otherwise), so console rendering agrees with `+` rendering for every
+    /// value that reaches the shared arms, by construction instead of via a
+    /// second hand-mirrored ladder — and agrees with the single-argument lane
+    /// completely, since both take `StringSink::Console`.
+    ///
+    /// The agreement with `+` stops at the two places the sink chooses: the
+    /// terminal arm (`value_to_string` here, `int_to_string` there) and the
+    /// `string_result_render_taint` deny (skipped here, applied there). A
+    /// `String()`-result reassigned binding is the value that separates them —
+    /// console prints it, `+` fails closed (`r30e`/`r30f`).
     ///
     /// The object-reference rejection is duplicated from the single-argument
     /// lane deliberately: it must apply to EVERY argument position, not just
@@ -80,7 +66,7 @@ impl<'a> FunctionEmitter<'a> {
                     .to_string(),
             ));
         }
-        self.emit_as_string(function, id);
+        self.emit_as_string(function, id, StringSink::Console);
     }
 
     pub(crate) fn emit_call(
@@ -999,11 +985,27 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            // Zero- and single-argument calls keep the pre-existing lowering
-            // byte-identically: the raw tagged i64 goes to the host, which
-            // renders it. Routing them through the stringify path instead would
-            // move every single-argument `console.log` in the suite (and in the
-            // CLBG goldens) onto a different rendering seam for no benefit.
+            // The single-argument lane USED to keep the pre-existing lowering
+            // byte-identically -- the raw tagged i64 straight to the host, which
+            // rendered it -- on the grounds that moving it onto the stringify
+            // seam would change every single-argument `console.log` in the suite
+            // and in the CLBG goldens for no benefit. That reasoning is
+            // superseded: the seam moved deliberately, because the host alone
+            // CANNOT render correctly. It holds the runtime tag but no repr, so
+            // it cannot tell a boolean from an integer and printed `1` for
+            // `console.log(b)` (R-30). `emit_console_argument` now shares
+            // `emit_as_string` under `StringSink::Console`, which has the repr
+            // and, in `value_to_string`, a terminal arm that still consults the
+            // runtime tag.
+            //
+            // The cost objection the old comment raised was answered by
+            // measurement rather than dismissed. Zero-argument calls still emit
+            // the bare `i64.const 0` below, untouched. And a string-valued
+            // argument returns at the ladder's proven-string arm, ahead of the
+            // terminal arm, so it emits no new call at all -- which is what the
+            // goldens' hot single-argument logs are (fasta's `seq.substring(…)`
+            // and `line.join("")` per output line, the `.toFixed(9)` results).
+            // What did move is every argument the host was rendering blind.
             if let Some(first_arg) = args.first() {
                 self.emit_console_argument(function, *first_arg);
             } else {
@@ -1691,14 +1693,10 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 };
             };
-            let Some(key) = self.render_static_value(key_id) else {
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            };
-
-            let Some(has_own) = self.static_object_has_own(object_id, &key) else {
+            // The probe key is NOT rendered here: `static_object_has_own` owns
+            // deriving it, so that the probe and the stored keys it is compared
+            // against are produced by one function rather than two.
+            let Some(has_own) = self.static_object_has_own(object_id, key_id) else {
                 // Placeholder backstop: `Object.hasOwn` folds only when the
                 // receiver's own-key set is statically provable (object literal,
                 // `Object.fromEntries` of literal entries, or a materialized
@@ -3551,7 +3549,7 @@ impl<'a> FunctionEmitter<'a> {
                      print a raw handle or a placeholder 0 (fail-closed)",
                 );
             }
-            self.emit_as_string(function, arg);
+            self.emit_as_string(function, arg, StringSink::Concat);
             return EmittedValue {
                 produced: true,
                 shape: ValueShape::String,
@@ -4726,11 +4724,26 @@ impl<'a> FunctionEmitter<'a> {
                 .binding_is_string_result(&self.function_name, name)
     }
 
-    /// Stage P5 T-new-E: `id` reaches a numeric sink (`+`, template literal,
-    /// multi-arg console via `emit_as_string`, or arithmetic operator lowering)
-    /// carrying `String()`-result provenance but WITHOUT a proven `Repr::String`
-    /// — the F-newB-1 hazard. Sink sites consult this and fail CLOSED (E5506)
-    /// rather than running the tagged string handle through `int_to_string`.
+    /// Stage P5 T-new-E: `id` reaches a numeric sink carrying `String()`-result
+    /// provenance but WITHOUT a proven `Repr::String` — the F-newB-1 hazard.
+    /// Sink sites consult this and fail CLOSED (E5506) rather than running the
+    /// tagged string handle through `int_to_string`. The five consulting sites
+    /// are `emit_as_string` under `StringSink::Concat` (`+` and template
+    /// literals), `emit_binary`'s arithmetic pre-guard, `emit_numeric_operand`
+    /// (every numeric-context operand push — unary, computed index, compound
+    /// assign), `emit_update_expression` (`++`/`--`), and `emit_integer_math_arg`
+    /// (`intrinsics/number.rs`, every `Math.*` argument).
+    ///
+    /// **Console is exempt, on BOTH of its lanes** (console-render-unification
+    /// spec §5.1 and §5.1.1). `emit_as_string` takes a `StringSink`
+    /// (`emit/operators.rs:26`) and applies this deny only under
+    /// `StringSink::Concat`; under `StringSink::Console` the terminal arm is
+    /// `value_to_string`, which decodes the tagged handle at run time, so the
+    /// hazard this deny guards cannot occur there. The single-argument lane was
+    /// always exempt; the MULTI-argument lane became exempt at `8a1f5e8e2c` and
+    /// that is the project's one deliberate widening, pinned by `r30e`/`r30f` in
+    /// `crates/kali_cli/tests/cases/oracle/tier4.toml`. Do not re-add "multi-arg
+    /// console" to the sink list above without moving those two cases with it.
     ///
     /// The provenance is computed STRUCTURALLY in `repr_infer`'s whole-program
     /// taint fixpoint (`string_result_bindings` / `string_result_returns`),

@@ -11176,8 +11176,7 @@ fn test_supports_console_level_routing_in_js_input() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stdout.contains("info"), "stdout: {stdout}");
     assert!(stdout.contains("debug"), "stdout: {stdout}");
-    assert!(stderr.contains("err"), "stderr: {stderr}");
-    assert!(stderr.contains("[warn] warn"), "stderr: {stderr}");
+    assert_eq!(stderr, "err\nwarn\n");
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
@@ -11376,7 +11375,10 @@ fn test_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("0\n1\n1\n1\n1\n1\n1"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("false\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue"),
+        "stdout: {stdout}"
+    );
 }
 
 #[test]

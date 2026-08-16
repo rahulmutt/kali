@@ -124,8 +124,8 @@ fn the_shipped_catalogue_covers_the_real_register_exactly() {
     check_completeness(&register, &catalogue).expect("catalogue covers the register exactly");
     assert_eq!(
         catalogue.len(),
-        41,
-        "expected exactly 41 catalogue records (§2's tier-ranked total from the register's \
+        42,
+        "expected exactly 42 catalogue records (§2's tier-ranked total from the register's \
          numbering note, R-50 excluded); this count must be updated deliberately when §2 gains \
          an entry, and a 0 here would be a ran-nothing-green, got {}",
         catalogue.len()

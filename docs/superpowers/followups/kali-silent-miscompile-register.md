@@ -193,9 +193,16 @@ a frequency over test snippets. That is a finding about kali, not a defect of th
 
 ### 0.2 Current status of every register entry
 
-**Regenerated 2026-08-15.** Every row below is produced from the oracle cases in
-`crates/kali_cli/tests/cases/oracle/`, measured at commit `4cfa218814` against
-`node v26.7.0`. A row is not prose a reader must re-derive: it is the verdict
+**Regenerated 2026-08-15; every row's class re-verified 2026-08-16.** Every row
+below is produced from the oracle cases in
+`crates/kali_cli/tests/cases/oracle/`, measured at commit `62b11a78c3` against
+`node v26.7.0`. ~~`4cfa218814`~~ — superseded 2026-08-16: the
+console-render-unification project moved three rows (R-30, R-32, R-33), and the
+whole oracle suite was re-run green at `62b11a78c3`, which re-measures every
+OTHER row's class against node at that commit as well. What is *not* re-measured
+is the hand observation inside each row's note; those still date from
+`4cfa218814` and are dated in place where a later reading changed them. A row is
+not prose a reader must re-derive: it is the verdict
 a live case asserts, and a change of class is a red test. The prior table was
 dated 2026-07-24 / `62d786e74` and had been stale for weeks — see §1 of
 `docs/superpowers/specs/2026-08-15-blast-radius-ranking-design.md`.
@@ -219,15 +226,18 @@ by **two** cases, module scope and in-function, and **the two scopes agreed on t
 class for every lane of every entry** — there is no entry in this table whose class
 depends on scope. Five entries (R-07, R-09, R-13, R-20, R-54) carry an additional
 case in `classifier_ground_truth.toml`, which measures the classifier on that
-entry's own repro; those cases agree with the tier files. **143 cases back the 41
-rows.** The oracle directory holds 147; the other four carry
+entry's own repro; those cases agree with the tier files. **153 cases back the 42
+rows.** ~~151 cases back the 41 rows … holds 155~~ — superseded 2026-08-16 at
+`3a636f62fb`, when the console-render-unification project's final whole-branch
+review added **R-56** with its own two-case scope pair. The oracle directory holds
+157; the other four carry
 `register_entry = "GROUND-TRUTH"`, measure the classifier rather than any entry,
 and are therefore attributable to no row — `agree.js`, `both_reject.js`,
 `hang.js` and `nondeterministic.js`. A reader auditing the mapping should expect
 those four to be unattributed, and should treat any *other* unattributed case as
 a defect.
 
-| entry | status measured 2026-08-15 at `4cfa218814` | note |
+| entry | status measured at `62b11a78c3` (2026-08-16; three rows moved, the rest re-verified — except **R-56**, added 2026-08-16 at `3a636f62fb` and measured there) | note |
 |---|---|---|
 | R-01 default param truncates module | **FAIL_CLOSED** (both scopes) | E5506 "a default parameter is not supported", all forms; no truncation. Class unchanged since the 2026-07-24 row — this is the first time a case has held it. kali's stdout is empty where node prints `A`/`B`, so nothing is truncated *and* nothing is printed. |
 | R-02 call through fn value → 0 | **FAIL_CLOSED** (both scopes) | every broken lane E5506 (the recommended G2 interim fix); callee never runs, but honestly. Supported set unchanged (direct call, const-arrow/fnlit, IIFE, sibling capture). The refusal is preceded by a `warning[E3100] undefined identifier … lowered through a zero placeholder compatibility fallback` — a warning, not the verdict. |
@@ -259,10 +269,10 @@ a defect.
 | R-27 comma operator → 0 | **SILENT** (both scopes) | value lost (`a=0`, `b=0` against node's `a=2`, `b=7`); the side effect still fires exactly once — both engines agree on `n=1`, so only the value is lost. |
 | R-28 `-0` | **SILENT** (reciprocal `r28v`) / **SILENT** (direct log `r28r`), both scopes | `1/-0`→`Infinity` (node `-Infinity`) and `console.log(-0)`→`0` (node `-0`). Two lanes, one class. The "`-0` folds to the integer `0`" mechanism is the register's hypothesis as of `61c2d48ea9`; these cases record the divergence, not the mechanism. |
 | R-29 assign to `const` | **ACCEPTS_INVALID** (both scopes) | ~~SILENT (node throws)~~ **RECLASSIFIED at this regeneration: SILENT → ACCEPTS_INVALID. The entry did not move; only the name of its class did.** kali prints `r=1` at exit 0 with no diagnostic; node exits 1 with `TypeError: Assignment to constant variable.` — kali accepting a program node refuses is ACCEPTS_INVALID by definition, and the old row's own parenthetical "(node throws)" ruled out the class the row named. §2's R-54 already files R-29 as "the same class" as R-54, which this table spells ACCEPTS-INVALID. Write still discarded, no const-write guard: the defect is unchanged and unfixed. |
-| R-30 booleans render 1/0 in direct log | **SILENT** (`var` binding `r30a`; `const` object field `r30c`) / **FIXED** (`const` scalar `r30b`; concat and template `r30d`), both scopes | narrowed by the R-04 fix and narrowed again by the 2026-07-19 correction: among plain bindings only `var` is still wrong (`console.log(b)`→`1`, node `true`), `const` **object fields** remain wrong, and the concat/template sinks are correct for operands kali can prove. Four lanes, two classes. The two FIXED lanes are the entry's own declared controls — **they do not retire the entry**. |
+| R-30 booleans render 1/0 in direct log | **SILENT** (`var` binding `r30a`) / **FIXED** (`const` scalar `r30b`; `const` object field `r30c`; concat and template `r30d`; `String()`-result reassigned binding, single-arg `r30e` and multi-arg `r30f`; `String()`-result proven binding, single-arg `r30g`), both scopes | **RESTATED 2026-08-16 at `62b11a78c3` by the console-render-unification project; the entry is NOT retired.** Two lanes moved and one did not. `r30c` (`const` object field) moved SILENT → FIXED and `r30f` (multi-arg) moved FAIL_CLOSED → FIXED, because the project deleted `emit_console_argument`'s hand-rolled single-argument body and routed that lane through the same `emit_as_string` coercion ladder the `+` and multi-argument lanes already used. **`r30a` — a plain `var` binding read at the same sink — was re-measured at the same commit and is STILL SILENT** (kali `1`, node `true`), which is what holds the entry open. **WHAT IS PINNED BY A LIVE CASE**: seven lanes, all listed above, both scopes each. **WHAT IS NOT PINNED BY ANY CASE**: the plain-binding read in the CONCAT and TEMPLATE lanes — measured by hand at `62b11a78c3`, `var b = true; console.log("v=" + b)` prints kali `v=1` / node `v=true` and the same read in a bare template hole prints kali `1` / node `true`, both at exit 0. `r30d` looks like it covers that and does not: its four fragments are an inline comparison in concat, the same comparison in a template hole, a `const` object field and a `const` array element, every one of them inline or `const`-resolved. So the direct-log sink is **not** the entry's only hole for this producer, contrary to what the entry's own text implied; see §2's corrected **Fix-cost read**. ~~narrowed by the R-04 fix and narrowed again by the 2026-07-19 correction: among plain bindings only `var` is still wrong (`console.log(b)`→`1`, node `true`), `const` **object fields** remain wrong, and the concat/template sinks are correct for operands kali can prove.~~ — the first clause still holds, the second is superseded (`const` object fields are FIXED as of this row), and the third was always true only for the operands kali can prove and was never a statement about plain bindings. **Added 2026-08-15 by the console-render-unification project**: `r30e`/`r30f`/`r30g` pin the console-taint boundary at the direct-log sink. `r30e`/`r30f` are the actual guard pair — a `let`-bound `String()`-result value REASSIGNED after a plain initializer (`let s = 0n; s = String(42n);`) defeats `repr_infer`'s monomorphic `Repr::String` seed and so genuinely reaches `string_result_render_taint`: the single-argument sink prints correctly (taint-exempt, `r30e`) and the multi-argument sink fails closed `E5506` today (`r30f`), differing only by argument count. `r30g` keeps the project's originally-proposed `const s = String(42n)` program under an honest label after this project's investigation found that program never reaches the taint at all — `is_string_valued` proves a direct `String(<bigint-literal>)` call a string outright, independent of any taint — so `r30g` instead guards the separate proven-String handle-passthrough arm the same sink also depends on. ~~Seven lanes, three classes. The FIXED and FAIL_CLOSED lanes are declared controls and **do not retire the entry**.~~ **Superseded 2026-08-16**: seven lanes, **two** classes — `r30f`'s `E5506` was the widening the project performed, and it is FIXED now, so `FAIL_CLOSED` is gone from this row. Six of the seven lanes are FIXED and the entry is still not retired, on the strength of the one that is not. |
 | R-31 log array→len / object→0 | **SILENT** (direct log `r31a`) / **SILENT** (concat `r31b`), both scopes | direct: array→`2` (its length — a deceptive answer for a 2-element array), object→`0`, against node's `[ 1, 2 ]` and `{ f: 1 }`. Concat: both collapse to `v=0` against node's `v=1,2` and `v=[object Object]`. Two sinks, two lanes, because node renders differently on each. Both silent. |
-| R-32 no exponential notation | **SILENT** (past-threshold direct log `r32a`) / **FIXED** (just-inside `r32b`; concat `r32c`), both scopes | `1e21`/`1e100`/`1e-7` render as expanded digits in the direct-log sink where node uses exponential; `1e20`/`1e-6` are correct, pinning the boundary exactly, and the concat path implements the small-number threshold the direct-log path does not. Two independent formatters, and they still disagree. |
-| R-33 `console.warn` `[warn]` prefix | **SILENT** (`console.warn` lane `r33a`, observed on **stderr**) / **FIXED** (`console.error` control `r33b`, also stderr), both scopes | ~~SILENT/WARN~~ — the class is `SILENT`; the prefix persists (kali `[warn] hi`, node `hi`, exit 0 both) and `console.error` is correct. **Both lanes are measured on stderr, which is where `console.warn` renders**; an earlier stdout-only reading of this entry measured FIXED by comparing two empty strings, and that FIXED was an artifact of the observed stream, not a fix. The four R-33 cases are the only ones in the oracle directory that set `observe = "stderr"`. The cases compare whole streams; that the difference is *exactly* the `[warn] ` prefix is the hand observation, not something the class alone establishes. |
+| R-32 no exponential notation | **FIXED** (past-threshold bare-literal direct log `r32a`; just-inside `r32b`; concat `r32c`; negative-integer control `r32d`, whose program is a `var` binding read *and* a bare literal), both scopes | **RESTATED 2026-08-16 at `62b11a78c3` by the console-render-unification project. Every live lane is FIXED, and the entry is still NOT retired** — read the two halves of that sentence together. ~~`1e21`/`1e100`/`1e-7` render as expanded digits in the direct-log sink where node uses exponential; `1e20`/`1e-6` are correct, pinning the boundary exactly, and the concat path implements the small-number threshold the direct-log path does not. Two independent formatters, and they still disagree.~~ `r32a` moved SILENT → FIXED: `render_static_value`'s numeric arm now re-renders the literal through `kali_common::js_number::format_js_number` (`ryu-js`, which has both ECMAScript thresholds) instead of passing on the text Rust's `Display for f64` had already expanded upstream at `crates/kali_hir/src/helpers.rs:8`. Both directions moved together, so the case was not split. **WHAT IS PINNED BY A LIVE CASE**: the bare-literal direct-log lane at `1e21`/`1e100`/`1.23e23`/`1e-7` and at the just-inside `1e20`/`1e-6` controls, the concat lane at `1e-7`, and a negative-integer control that covers **both** a `var` binding read and a bare literal — four lanes, both scopes each, all FIXED. **WHAT IS NOT PINNED BY ANY CASE, AND IS STILL WRONG**: this entry's own title claims the `1e21` threshold, and at `1e21` only the bare-literal direct-log lane implements it. Measured by hand at `62b11a78c3`: `var x = 1e21; console.log(x)` prints kali `1000000000000000000000` / node `1e+21`, and `console.log("v=" + 1e21)` does not compile at all (`error[E4201]`). **No `r32*` case measures the binding lane at a magnitude past either threshold** — `r32d` measures it only at `-5`, well inside both. (Corrected 2026-08-16: an earlier draft of this row said "no `r32*` case measures the binding lane at any magnitude", which contradicted this row's own enumeration of `r32d` two sentences earlier and was simply false — `r32d_module.js` opens `var n = -5; console.log(n)`. See the note under §7's R-55, which carries the same error from the same cause.) Those two lanes are filed as **R-55** (§7), which disclaims them as not-R-32 — but the behaviour they describe is what this entry's title asserts, so retiring this row would publish "numbers now use exponential notation" while a bound `1e21` still prints 22 digits. **And the entry's OWN defect shape is newly live at `1e21`**: R-32 is defined as a per-sink divergence, and before this project the two RENDERING sinks agreed at `1e21` (direct-log and binding both printed expanded digits — which is why R-55 owns that family); at `62b11a78c3` direct-log prints `1e+21` while the binding lane prints digits, so those two now disagree where they did not before. (Narrowed 2026-08-16: an earlier draft said "all three sinks agreed … for the first time". False — the concat sink already differed at `034ab0ec94`, failing `E4201` where the other two printed digits, as R-55's own base entry records and as this commit's R-55 amendment reasserts as a severity distinction. The claim holds for the two rendering sinks only, and the non-retirement does not rest on it.) The row leaves the ranking's SILENT filter because no live lane is SILENT; that is a statement about the dangerous class, not a retirement. |
+| R-33 `console.warn` `[warn]` prefix | **FIXED** (`console.warn` lane `r33a`, observed on **stderr**; `console.error` control `r33b`, also stderr), both scopes | **RETIRED 2026-08-16 at `62b11a78c3` by the console-render-unification project — every lane of this entry moved, which is the rule §3.4 of the ranking states.** `r33a` moved SILENT → FIXED: the host's `console_warn` import (`crates/kali_runtime/src/host/imports_default.rs`) no longer prefixes the message, and both engines now write `hi` alone to stderr at exit 0. The finding worth keeping is that **none of the four JS import mirrors ever prefixed it** (`kali_runtime_contract/src/browser/harness.rs:515` and `:1088`, `kali_cli/src/bin/cmd_build.rs:1835` and `:2345`), so this line made kali's own two runtimes disagree with each other before it made kali disagree with node. **WHAT IS PINNED BY A LIVE CASE**: both lanes, both scopes, compared on stderr. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `62b11a78c3` instead: `console.warn` with two arguments, with a number, with a comparison result, and called from inside a function body — all four byte-identical to node on stderr, so no unpinned `console.warn` shape was found still carrying the prefix. The bytes themselves are pinned outside this corpus by four exact-`stderr` equality assertions. **All four required the prefixed bytes before the fix and so all four had to be edited by it; three additionally went from `contains` to exact equality** — those three each carried `contains("err")` *and* `contains("[warn] warn")`, the second of which did pin the prefix and would have failed on the corrected output, and the pair was collapsed into one `assert_eq!`. The fourth (`crates/kali_runtime/src/execute_tests/host_env.rs:32`) was already exact and was updated, not strengthened. (Corrected 2026-08-16 twice: an earlier draft said all four were strengthened; its replacement said the three `contains` checks pinned nothing about the prefix and that the old output would not have satisfied `host_env.rs:32` — both false, the latter backwards. Verified against `git show 62b11a78c3~1:<path>` at all four sites. See §2's R-33 body.) ~~SILENT/WARN — the class is `SILENT`; the prefix persists (kali `[warn] hi`, node `hi`, exit 0 both) and `console.error` is correct.~~ **Both lanes are measured on stderr, which is where `console.warn` renders**; an earlier stdout-only reading of this entry measured FIXED by comparing two empty strings, and that FIXED was an artifact of the observed stream, not a fix. The four R-33 cases are the only ones in the oracle directory that set `observe = "stderr"`. The cases compare whole streams; that the difference is *exactly* the `[warn] ` prefix is the hand observation, not something the class alone establishes. |
 | R-34 bool user-fn renders 1/0 (concat & multi-arg) | **SILENT** (both scopes) | live; concat AND multi-arg both render `1` where node renders `true` — all three lines of the repro diverge, so both named lanes are still broken. |
 | R-47 `for..of` over a `let` array iterates the binding's NAME | **SILENT** (`let` lane `r47l`) / **FAIL_CLOSED** (`var` lane `r47v`) / **FIXED** (`const` lane `r47c`), both scopes | added 2026-07-25, originally measured on `372a3f440`. `let a=[1,2,3]; for (const x of a) log(x)` still prints the single line `a` (node `1 2 3`) — the identifier's own text is the iterand and the trip count follows the identifier's LENGTH. `var` refuses with the `E5506` for-of-iteration message word for word; `const` matches node. **The `const` lane's FIXED is a LANE result the entry itself declares as its control — it does not retire R-47.** |
 | R-48 array stored into an `I64` object field reads `0` | **SILENT** (both scopes) | added 2026-07-25, originally measured on `372a3f440`. `o.a=[1,2]; o.a`→`0` (node `[ 1, 2 ]`); the store still vanishes and the slot still reads its zero. |
@@ -271,6 +281,7 @@ a defect.
 | R-52 `for`-clause arity misclassification (omitted clauses) | **SILENT** (Repro A `r52a`; Repro B `r52b`) / **FL_INTERNAL** (Repro C `r52c`, `E4003`), both scopes | added 2026-07-29, originally measured on `58234e87c7`. Three labelled repros, three declared severities, three lanes — collapsing them would record one class for an entry the register itself records as carrying three. A: `for (var i = 0; ;)` skips the loop entirely (kali `s=0`; node six `iter=` lines and `s=15`). B: `for (init; ; update)` drops iteration zero and **the sums still agree**, which is why the per-iteration log is load-bearing. C: `for (; test; update)` runs away to `E4003` after ~1.36M lines in ~2.7s, reproducibly (two kali runs compared byte for byte, so the pair does not rank NONDETERMINISTIC). Distinct from R-09, which is about update PLACEMENT, not clause identification. Carries a **standing coupling to `continue_is_faithful`** — see §2's R-52 entry. |
 | R-53 `for (var v of […])` — **and `for (let v of […])`** — binds every element to `0` | **SILENT** (`var` loop variable `r53v`; `let` loop variable `r53l`) / **FIXED** (`const` loop variable `r53c`), both scopes | the 2026-07-29 widening holds at `4cfa218814`: `let` is affected as well as `var`, measured on the entry's own separately-dated four-element fixture. In every silent lane **the trip count is correct and only the bound value is lost** (`iter=0` ×3 or ×4, `t=0`/`s=0`, against node's `1..3`/`t=6` and `1..4`/`s=10`). The silent surface remains *for-of over an **array literal** with a **`var` or `let`** loop variable*; over a binding iterable kali refuses. **The `const` lane's FIXED is a LANE result the entry itself declares as its control — it does not retire R-53.** Distinct from **R-47**, which is `for..of` over a `let`-declared array BINDING iterating the binding's NAME; this is the loop VARIABLE's declarator kind over an array LITERAL. Consequence for probe design is unchanged: `for (var v of …)` must not be used as a faithful-loop control. |
 | R-54 a second `default` clause is absorbed into the first (node: `SyntaxError`) | **ACCEPTS_INVALID** (both scopes) | added 2026-07-29, originally measured on `58234e87c7`. Both halves still reproduce: kali prints `v=d2` **and** `g=5` at exit 0, so the clauses are still MERGING rather than replacing; node refuses the whole file with `SyntaxError: More than one default clause in switch statement` at exit 1. `g=5` is the load-bearing half — `v=d2` alone would be consistent with replacement. A second case in `classifier_ground_truth.toml` pins the ACCEPTS_INVALID class on the same repro. Only invalid JS is affected. Cluster **G1**, same function as R-49 and independent of it. |
+| R-56 string key `'"5"'` collides with HIR's numeric-key marker | **SILENT** (both scopes) | added 2026-08-16 by the console-render-unification project's final whole-branch review, measured at `3a636f62fb` against `node v26.7.0`. `const o = {'"5"': 1}` prints `1` for `o['"5"']` and `false` for `Object.hasOwn(o, '"5"')` in the same run at exit 0, and `true` for `Object.hasOwn(o, 5)` where node says `false`. **One cell of this REGRESSED on this branch and a different cell was FIXED by it** — see §2's 2x2, which carries all six measured values and the pre-branch column. The cause is upstream of any predicate: `lower_property_name` writes the numeric key `{5: 1}` and the string key `{'"5"': 1}` into the key slot as the SAME three characters, so the double-quote marker cannot tell them apart. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`), so it enters the ranking as a tier-2 singleton with no frequency behind it. |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
 neither has an oracle case, and a row with no case behind it is what this
@@ -285,14 +296,69 @@ never was one, and is named here so a reader does not go looking for it.**
   row.
 - **R-50** — filed in **§7** as a fail-loudly defect, not a §2 entry.
 
-**Net, measured 2026-08-15 at `4cfa218814` against `node v26.7.0`.** Of the 41 §2
-entries, **29 carry at least one SILENT lane** and **12 carry none**:
+**Net, re-measured 2026-08-16 at `62b11a78c3` against `node v26.7.0`**
+(~~2026-08-15 at `4cfa218814`~~), and re-counted 2026-08-16 at `3a636f62fb` when
+R-56 was added. Of the 42 §2
+entries, **28 carry at least one SILENT lane** and **14 carry none**
+(~~41 / 27 / 14~~):
 
-- **No silent lane (12):** R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20,
-  R-29, R-49, R-54.
-- **At least one silent lane (29):** R-06, R-08, R-09, R-10, R-12, R-13, R-14,
+- **No silent lane (14):** R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20,
+  R-29, **R-32**, **R-33**, R-49, R-54. ~~(12)~~
+- **At least one silent lane (28):** R-06, R-08, R-09, R-10, R-12, R-13, R-14,
   R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25, R-26, R-27, R-28, R-30,
-  R-31, R-32, R-33, R-34, R-47, R-48, R-51, R-52, R-53.
+  R-31, R-34, R-47, R-48, R-51, R-52, R-53, **R-56**.
+  ~~(27)~~ ~~(29, including R-32 and R-33)~~
+- **Movement 2026-08-16 (console-render-unification, at `62b11a78c3`).** R-32 and
+  R-33 leave the silent set: every live lane of each measures FIXED. **R-33 is
+  retired** — its only defective lane moved and its control was already FIXED.
+  **R-32 is NOT retired** — leaving the silent set is a statement about the
+  dangerous class, and its row records `1e21` behaviour in the binding and concat
+  lanes that is still wrong and that no live case pins. **R-30 stays**, on its
+  plain `var`-binding lane alone, and its FAIL_CLOSED lane became FIXED. These
+  two departures also removed R-32 and R-33 from `tools/blast-radius/clusters.json`
+  (both were **G8**), taking G8's reachable frequency from 65 to 59 and its raw
+  frequency from 102 to 79; G8 keeps R-30's 57 and stays in reachable band 1.
+  - **THE SILENT SET NOW EXCLUDES A MEASURED SILENT LANE, AND THIS PARAGRAPH IS
+    WHERE THAT IS DISCLOSED** (the ranking's §6 AMENDMENT 2026-08-16 at
+    `3a636f62fb` repeats it and points back here; nowhere else states it).
+    R-32's departure above is stated per-step and each step
+    is true; the aggregate is not disclosed anywhere else, so it is disclosed
+    here. `var x = 1e21; console.log(x)` prints `1000000000000000000000` where
+    node prints `1e+21`, **at exit 0 with no diagnostic** — silent by this
+    register's own definition, measured at `62b11a78c3`, and still true at
+    `3a636f62fb`. It is tracked under **R-55**, which lives in **§7
+    "Fail-loudly-but-wrong defects (not silent)"** because its *concat* lane is a
+    hard `E4201` compile failure, and §7 entries carry no §0.2 row by design.
+    So: a lane that is silent, and is measured, sits in a section whose title
+    denies it, has no oracle case, and cannot go red. Each of those four facts is
+    disclosed at its own site — R-32's row names the behaviour, R-55's entry
+    names its own severity split and its own unpinned lanes, §7's title is
+    accurate about the entry's *loudest* lane — and no site states the sum.
+    **Consequence for the ranking: the next regeneration under-counts the SILENT
+    population by one measurable lane, and no gate will notice**, because the
+    gate compares §0.2 rows to oracle cases and this lane has neither.
+    **This is filed as a follow-up, not fixed here.** The minimal honest fix is
+    to split R-55 into its silent (binding) half and its fail-loud (concat) half,
+    give the silent half a §2 entry with a §0.2 row, a tier, a predicate record,
+    a cluster assignment and a case pair in both scopes, move the case counter
+    and regenerate the ranking. That is a project, and the controller ruling on
+    2026-08-16 was to disclose it here rather than start it at the end of a
+    branch. A reader quoting "the SILENT set" between now and that split must
+    quote this note with it.
+- **Addition 2026-08-16 (console-render-unification's final whole-branch review,
+  at `3a636f62fb`): R-56 joins the silent set**, and it is the branch's own
+  finding rather than a re-measurement of an old one. `Object.hasOwn` answers
+  `false` for a string key that exists and `true` for a numeric key that does
+  not, in a program whose member read of the same key is correct — see the row
+  above and §2's entry. **One cell of it regressed on this branch**; a different
+  cell was fixed by it, and both are measured against a binary built from the
+  merge base. R-56 is assigned to a new singleton cluster **`R-56 (unclustered)`**
+  in `tools/blast-radius/clusters.json` (G3 by shape, declined for the reason
+  §2's entry gives), and is **countable** with raw 0 / reachable 0 over the frozen
+  corpus, so it adds a tier-2 cluster with no frequency behind it and moves no
+  other cluster's band. Its predicate is new, so `tools/blast-radius/predicates.json`
+  and `matchers.mjs` were both re-frozen and `counts.json` regenerated — see the
+  ranking's §6 amendment for what that did and did not move.
 - **Tier 1's silent population is 2** — R-51 and R-52 — down from the eight
   entries Tier 1 holds. R-01, R-02, R-03 and R-05 fail closed; R-04 is fixed;
   R-49 fails closed by R-35's gate.
@@ -300,6 +366,9 @@ entries, **29 carry at least one SILENT lane** and **12 carry none**:
   ACCEPTS_INVALID, same behaviour), taking the count from 30 entries to 29.
   R-08's `===` half and R-21's absent-field-with-`let`-receiver lane moved to
   FAIL_CLOSED; both entries still carry silent lanes and neither is retired.
+  **2026-08-16 at `62b11a78c3`: R-32 and R-33 leave, taking 29 to 27** — see the
+  Movement bullet above for which of the two is retired and which is not — and
+  **2026-08-16 at `3a636f62fb`: R-56 arrives, taking 27 to 28.**
 
 **The 2026-07-24 sweep's own net is preserved below, unrewritten,** because it is
 that sweep's record and the table above supersedes it rather than editing it. It
@@ -502,7 +571,7 @@ Severity split (each entry ranked at the most severe class it carries):
 | tier | class | count (historical R-01..R-34 / now) |
 |---|---|---|
 | 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 / **8** |
-| 2 | **silently produces a wrong value** | 23 / **26** |
+| 2 | **silently produces a wrong value** | 23 / **27** |
 | 3 | **silently wrong control flow only** (value otherwise intact) | 1 / **2** |
 | 4 | **rendering-only** (in-memory value is correct) | 4 (see note) / 5 |
 
@@ -540,6 +609,17 @@ had Tier 4 = R-30..R-33, exactly four entries, and no R-34 anywhere in the file;
 cell. The same applies to the "33 after deduplication" headline — correct for the 33 entries
 R-01..R-33 that existed at authoring, one short only once R-34 landed. Both are recorded rather
 than silently corrected, since the left-hand column is the historical record.
+
+**Updated 2026-08-16 (console-render-unification, final whole-branch review).** The
+right-hand column moved once more: **R-56** was added as a tier-ranked §2 **Tier 2**
+entry — the quoted-numeric-string-key collision, a new silent miscompile found by
+probing that project's own fix — so the Tier-2 cell reads **27** where it read 26, and
+the right-hand column is now **42** tier-ranked entries in §2 (8 + 27 + 2 + 5). The
+register holds **56** numbered entries in total (R-01..R-56), the other 14 being the
+un-ranked §0.3 set (R-35..R-46) plus §7's **R-50 and R-55** — R-55 having been filed in
+§7 on 2026-08-15 by the same project, which is why that "plus §7's R-50" reads short
+above. Both figures were re-counted by `### R-` headers per tier heading rather than
+incremented; see R-50's numbering note for the whole-file-versus-§2 series.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -1428,13 +1508,51 @@ tier, ordering is by blast radius.
                                       // UNPROVABLE-operand case, which this pin does NOT cover)
      ```
      Pinned honestly (recording current WRONG behaviour, not a correctness claim) by
-     `nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual` and
+     ~~`nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual` and
      `nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual` in
-     `soundness_strict_equality.rs`. **Not fixed in this wave** — but, per the correction above,
+     `soundness_strict_equality.rs`~~ — renamed 2026-08-15 to
+     `nullish_coalescing_boolean_literal_result_renders_correctly` and
+     `nullish_coalescing_right_operand_boolean_renders_correctly`, and they now live in
+     `crates/kali_cli/tests/cases/soundness/strict_equality.toml` (`:623` and `:648`), each
+     carrying its own dated resolution note with the original rationale left intact as
+     history. ~~**Not fixed in this wave** — but, per the correction above,
      it is **not** blocked on the `Repr::Boolean`/null-axis architectural blocker that covers
-     the rest of this entry; it is blocked on R-30's own fix (unify the two console formatters).
+     the rest of this entry; it is blocked on R-30's own fix (unify the two console formatters).~~
      The note above is diagnostic (single-argument console sink lacks a `Boolean` shape arm and
      the static console folder has no `??` arm), not a repair.
+     - **CLOSED 2026-08-16 at `62b11a78c3` (console-render-unification) — ON MEASUREMENT, and
+       NOT as a consequence of R-30, which did not move.** All four of this residual's own
+       pinned programs were re-run against `node v26.7.0` and every one agrees:
+       ```
+       console.log(false ?? 9);        kali false    node false
+       console.log(true ?? 9);         kali true     node true
+       console.log(null ?? false);     kali false    node false
+       console.log(null ?? true);      kali true     node true
+       console.log("x:", false ?? 9);  kali x: false node x: false   (control, unchanged)
+       ```
+       **Read the closing condition carefully, because the residual stated it slightly wrong.**
+       This bullet predicted closure "when R-30 closes". R-30 has **not** closed: at this same
+       commit `var b = true; console.log(b)` still prints `1` where node prints `true`, and
+       R-30's own `Fix-cost read` bullet has been struck as false (see R-30, Tier 4). What
+       closed this residual is the CHANGE the bullet named, not the ENTRY it named — the two
+       console formatters were unified at `8a1f5e8e2c`, the single-argument sink now runs
+       through the same `emit_as_string` ladder as `+`, and the ladder's boolean arm honours a
+       proven-`Boolean` shape. `??`'s statically-selected operand carries exactly that shape,
+       so these four moved. R-30 needs strictly more than the unification (a `Repr::Boolean`
+       axis, for producers whose shape is never proven at all) and did not move with it. The
+       correction bullet above was right that this residual is R-30's mechanism seen through
+       `??`, and right that it is not blocked on the `Repr::Boolean`/null axis; it was wrong
+       only to equate "R-30's fix" with "R-30 closing".
+     - **NOT closed, and it is a different residual: `console.log(Number.isInteger(5) ?? 9)`
+       prints kali `1`, node `true` at this same commit** (likewise
+       `console.log(Object.is(1,1) ?? 9)`). That is **residual 6**'s shape — a `??` over a call
+       whose own emission tags `Boolean` but which `static_equality_class` cannot prove —
+       observed at the single-argument sink rather than at the concat/multi-arg sinks residual
+       6 writes out. Residual 6 is explicitly the part of family (b) that this residual's round-4
+       scope-narrowing carved out, so it is recorded here to stop a reader measuring residual 5
+       with a residual 6 program and concluding that nothing closed. Residual 6's own update
+       trigger (`??`'s runtime fallback deriving its shape from the operands it already emits)
+       has not fired and residual 6 remains **open**.
      - **Note the masking hazard this residual corrects**: the pre-existing
        `nullish_coalescing_does_not_treat_falsy_as_nullish` test's `n3` case
        (`"n3:" + (false ?? true))`) routes through string concatenation over a PROVABLE (literal)
@@ -1526,6 +1644,18 @@ tier, ordering is by blast radius.
         same `Repr::Boolean`-axis gap residuals 2-4 are blocked on, but it manifests here as a
         DIFFERENT failure mode (shape loss on a correct decision, not a wrong decision), which is
         exactly why this is tracked as its own residual rather than folded into 2-4.
+        **CROSS-REFERENCE ADDED 2026-08-16 (console-render-unification, at `62b11a78c3`) — this
+        step is right, and for weeks it contradicted Tier 4's R-30 without either passage
+        pointing at the other. R-30's `Fix-cost read` bullet asserted that the boolean repr
+        DOES exist on the concat path and that only the direct-log path lacked it, "rather than
+        a missing `Repr::Boolean` axis end to end". That bullet has been struck and replaced
+        against this step and against direct measurement; see R-30 in §2's Tier 4 for the code
+        reading and the programs. R-30 is blocked on the SAME axis gap this step describes.
+        Both passages now name each other, so a future edit that moves one and not the other is
+        visible from either side.** (The Repr variant list quoted above is also short of the
+        tree as of `62b11a78c3` — `repr.rs:18-80` additionally carries `Url`,
+        `UrlSearchParams`, `Bytes` and `Event`. The load-bearing half of the claim, that there
+        is **no `Boolean`**, is unchanged and re-verified.)
      4. Downstream, `emit_as_string` (`operators.rs:1537-1572` — the shared coercion ladder used
         by BOTH `+` string concatenation and the multi-argument console lane via
         `emit_console_argument_as_string`, `call.rs:60-69`) keys its boolean-formatting arm
@@ -2450,6 +2580,100 @@ tier, ordering is by blast radius.
 
 ---
 
+### R-56: A string key spelled `'"5"'` is indistinguishable from the numeric key `5`, and `Object.hasOwn` answers `false` for a property that exists
+
+- **Added**: 2026-08-16, by the **console-render-unification** project's final
+  whole-branch review, at `3a636f62fb`. Found by probing the double-quote gate that
+  project narrowed rather than by probing a feature — the control is where the new
+  defect lives, again.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured on a freshly built binary at
+  `3a636f62fb` against `node v26.7.0`, in **both** scopes (module and in-function,
+  byte-identical), with a second binary built from the pre-branch merge base
+  `8974cc6b57` and run on the identical fixtures as the comparison arm.
+- **Root-cause group**: unclustered. It has **G3**'s shape — a gate keyed on one form,
+  with a sibling form slipping past into precisely the miscompile the gate's own
+  comment describes — and it is deliberately **not** added to G3's member list: every
+  G3 member has a guard that *could* be widened to admit its sibling, and this one
+  cannot, because the discriminator the guard would need was discarded upstream in
+  HIR. Recorded as unclustered for that reason, the way R-47 is.
+- **Repro** (module scope; the in-function form is the same three statements inside
+  `function main() { … }` with a trailing `main();`, and measures identically):
+  ```js
+  const o = {'"5"': 1};
+  console.log(o['"5"']);              // kali 1      node 1      <- the key EXISTS
+  console.log(Object.hasOwn(o, '"5"')); // kali false  node true   <- and hasOwn denies it
+  console.log(Object.hasOwn(o, 5));     // kali true   node false
+  ```
+  **Exit 0, empty stderr, no diagnostic, on both engines.** The middle two lines of
+  kali's output contradict the first line of its own output, in one run.
+- **The whole `hasOwn` 2x2 plus its two member-read controls, measured — because two
+  of the four `hasOwn` cells moved on this branch, and in opposite directions.** `s` is
+  `{'"5"': 1}` (a STRING key whose name is the three characters `"5"`); `n` is `{5: 2}`
+  (the NUMERIC key `5`). All six values below were run, none inferred:
+
+  | program | node | pre-branch `8974cc6b57` | at `3a636f62fb` | |
+  |---|---|---|---|---|
+  | `s['"5"']` | `1` | `1` | `1` | correct throughout |
+  | `Object.hasOwn(s, '"5"')` | `true` | `true` | **`false`** | **REGRESSED on this branch** |
+  | `Object.hasOwn(s, 5)` | `false` | `true` | `true` | wrong before and after |
+  | `n[5]` | `2` | `2` | `2` | correct throughout |
+  | `Object.hasOwn(n, 5)` | `true` | `true` | `true` | correct throughout |
+  | `Object.hasOwn(n, '"5"')` | `false` | `true` | `false` | **fixed on this branch** |
+
+  The pre-branch column reads `true`/`false` here for legibility; the pre-branch binary
+  actually PRINTS `1`/`0` for these, because R-30's direct-log boolean rendering had not
+  yet moved. The comparison was therefore taken again through an `if`/`else` that prints
+  a word, so no cell in this table rests on reading a `1` as a `true`.
+- **Mechanism, traced.** `kali_hir`'s `lower_property_name`
+  (`crates/kali_hir/src/lowering/object.rs:20`) writes a key's text into a single slot
+  and throws the `PropertyName` variant away:
+  - `PropertyName::Number(5.0)` -> `format!("\"{}\"", "5")` = the three characters `"5"`;
+  - `PropertyName::String(v)` -> `v` verbatim, and the parser has already run
+    `unquote_string_literal`, so the source key `'"5"'` also arrives as the three
+    characters `"5"`.
+
+  The two are one text from that point on. `canonical_property_key_text`
+  (`crates/kali_codegen/src/intrinsics/object.rs`) then reads the double quote as
+  "this was a number" and renumbers, which is right for the first and renames the
+  property for the second. **No predicate downstream of that line can be correct**,
+  because the fact it would have to consult is gone; narrowing the marker (as this
+  branch did, from any quote to the double quote, which is what fixed `{"'5'": 1}` and
+  ``{"`5`": 1}``) cannot reach this case, since `"` is the marker.
+- **Why one cell regressed.** Before this branch, `static_object_has_own` compared
+  `render_static_value(key)` against `object_literal_field`, and that helper applies
+  `trim_matches('"')` to **both** sides — so both the stored key and the probe collapsed
+  to `5` and the pair matched, giving the right answer for the wrong reason. This
+  branch put both sides on `static_property_key_text`, which is the correct currency
+  and is what makes `Object.hasOwn(n, '"5"')` right for the first time; on the string
+  key it makes the two sides disagree and the answer flips to `false`. Net: the branch
+  traded one wrong cell for another on the same collision. Both are recorded above, and
+  the entry is filed for the whole collision rather than for the regressed cell.
+- **Severity**: Tier 2 — silently produces a wrong value. Not Tier 1: no statement and no
+  output line is dropped, control flow is unaffected, and the object's own member reads
+  are correct. What is wrong is one boolean, twice.
+- **Blast radius**: **narrow**, and measured as such — the frozen corpus contains
+  **zero** occurrences of the triggering key shape (`objectLiteralQuotedNumericStringKey`,
+  raw 0 / reachable 0, zero-kind `unsampled`), so it enters the ranking as a tier-2
+  cluster with no frequency behind it. A key whose own name contains double quotes is
+  rare in hand-written JavaScript. It is filed at full length anyway because of what it
+  is, not how often it fires: a program that prints a value and then denies the value
+  exists, at exit 0, is the exact shape this register was created to make un-loseable.
+- **Fix direction, and what NOT to do.** The fix is upstream: give the key slot a
+  discriminator (a distinct `HirNodeKind`, a flag, or a sigil no property name can
+  contain) so `canonical_property_key_text` can ask what the `PropertyName` was instead
+  of guessing from a quote character. **Do not** attempt a textual narrowing at the
+  codegen predicate — that is what has already been tried three times, is what the
+  predicate's own doc comment records, and cannot work for `"`.
+- **Pinned by**: two oracle cases (`r56a`, both scopes, `tier2.toml`) asserting the
+  SILENT class, and a deliberately-known-wrong unit pin in
+  `crates/kali_codegen/src/intrinsics/object_tests/has_own.rs` that goes red when the
+  collision is fixed. The predicate's doc comment cross-references this entry.
+- **Confidence**: high on behaviour (both scopes, two binaries, a 2x2 with controls,
+  node as oracle); high on mechanism (both HIR arms read in source, and the parser's
+  `unquote_string_literal` read with them).
+
+---
+
 ## Tier 3 — silently wrong control flow (value otherwise intact)
 
 ### R-29: Assignment to a `const` is silently ignored (node throws)
@@ -2546,8 +2770,14 @@ tier, ordering is by blast radius.
   function returns, **parameters**, ternary results, `const` object fields, plain `var`
   bindings, and `??` **in single-argument `console.log` position only** (added 2026-07-19, third
   addendum round — see R-08 residual 5: a `??` whose statically-selected result is a proven
-  boolean hits this exact sink and mechanism, and closes when this entry closes, not when R-08's
-  own `Repr::Boolean`/null-axis work lands). **Scope correction, round 4 (2026-07-19): `??` is
+  boolean hits this exact sink and mechanism, and ~~closes when this entry closes~~, not when R-08's
+  own `Repr::Boolean`/null-axis work lands. **Corrected 2026-08-16 at `62b11a78c3`: residual 5
+  CLOSED and this entry did NOT.** Both statements are measured; see residual 5's own closing
+  bullet. The `??` producer's selected operand carries a proven `ValueShape::Boolean`, so it
+  moved the moment the two console formatters were unified at `8a1f5e8e2c`; this entry's
+  remaining producers carry no proven shape at all and need the `Repr::Boolean` axis. "Closes
+  when this entry's FIX lands" was true; "closes when this entry closes" was not, because this
+  entry needs more than the fix it named). **Scope correction, round 4 (2026-07-19): `??` is
   a producer of THIS entry ONLY through the single-argument sink.** The string-concat and
   multi-argument console lanes have their OWN, independent `??`-specific loss of boolean shape
   — see R-08 residual 6 — which does **not** close when this entry (R-30) closes, because the
@@ -2559,9 +2789,43 @@ tier, ordering is by blast radius.
     to also name plain `const` bindings, but `const b = true; console.log(b)` now prints `true`
     correctly (re-verified on a freshly built binary) — the `e4b5f7138` fix's binding-chain
     resolution reaches a plain `const` scalar. Only `var` is still wrong among plain bindings;
-    `const` **object fields** (`const o = {f: true}; console.log(o.f)`) are a separate, still-
-    broken shape (re-verified: kali `1`, node `true`) and remain correctly listed above.
-- **Narrower than "everywhere"**: the concat and template paths are already **FIXED for
+    ~~`const` **object fields** (`const o = {f: true}; console.log(o.f)`) are a separate, still-
+    broken shape (re-verified: kali `1`, node `true`) and remain correctly listed above.~~
+    **Superseded 2026-08-16 — `const` object fields are FIXED**; see the producer map below.
+  - **PRODUCER MAP RE-MEASURED 2026-08-16 at `62b11a78c3` against `node v26.7.0`
+    (console-render-unification), one program per producer, direct single-argument
+    `console.log` sink throughout.** The producer set above was written as one undifferentiated
+    list; it is now two, and the boundary between them is not the one the list implies.
+    **CORRECT now** — `console.log(1<2)` → `true`; `!x` → `false`; `!!x` → `true`;
+    `const o={f:true}; console.log(o.f)` → `true` (this is the `r30c` lane, which MOVED);
+    `const a=[true,false]; console.log(a[0])` → `true`; `console.log(true)` → `true`;
+    and `&&`/`||` **when their operands are provable** (`(1<2)&&(3<4)` → `true`,
+    `true&&false` → `false`, `const a=true,b=false; a&&b` → `false`).
+    **STILL WRONG, kali `1`/`0` against node `true`/`false`, all at exit 0** —
+    a plain `var` binding (`var b=true; console.log(b)` → `1`, the `r30a` lane);
+    a plain `let` binding (`let b=true; console.log(b)` → `1`, and `"v=" + b` → `v=1`) — **a
+    shape this producer list never named, and one that falsifies the struck bullet directly
+    above it: "only `var` is still wrong among plain bindings" is false as measured; `const`
+    is the only plain binding that is right (`const b=true; console.log(b)` → `true`, still
+    confirmed). Whether `let` was ever right is not established here — only that it is wrong
+    at `62b11a78c3`;**
+    `&&`/`||` over `var`-bound operands (`var a=true,b=false; a&&b` → `0`);
+    a **function return** (`function f(){return 1<2;} console.log(f())` → `1`);
+    a **parameter** (`function g(p){console.log(p);} g(true)` → `1`);
+    and **every ternary tried**, including ones with a provable condition and literal
+    branches (`1<2 ? true : false` → `1`, `const c=true; c ? true : false` → `1`).
+    The discriminator is whether the ladder's boolean arm can see a proven
+    `ValueShape::Boolean` at the sink — not whether the producer is "computed", and not the
+    declarator kind. Everything on the wrong side of it needs the `Repr::Boolean` axis; see
+    the corrected **Fix-cost read** below.
+- **Narrower than "everywhere"** — but read the qualifier, it is load-bearing, and the
+  **Fix-cost read** below dropped it and was wrong for exactly that reason. Measured
+  2026-08-16 at `62b11a78c3`: for a plain binding read the concat and template paths are
+  **broken in the same way the direct-log path is** (`var b = true; console.log("v=" + b)` →
+  kali `v=1`, node `v=true`; the same read in a bare template hole → kali `1`, node `true`).
+  What follows is true of PROVABLE operands only, and no oracle case measures the plain
+  binding read in either of these two sinks. The concat and template paths are already
+  **FIXED for
   operands `static_equality_class`/`is_string_valued`/`is_float_valued` can prove** —
   `"v=" + (1<2)` → `v=true` ✓, `` `${1<2}` `` → `true` ✓, `"v="+o.f` → `v=true` ✓,
   `"v="+a[0]` → `v=true` ✓. The `e4b5f7138` fix covers string-conversion sites for THOSE
@@ -2585,9 +2849,65 @@ tier, ordering is by blast radius.
   return**, `??`-wrapped or not, is a further, uncovered hole (R-34).
 - **Truthiness is correct throughout** — this is a rendering defect only, not a value defect.
   `if(o.f)`, `if(a[0])`, `if(b)` and ternaries on `const`-bound booleans all branch correctly.
-- **Fix-cost read**: because concat/template already render correctly, the missing piece is
+- **Fix-cost read**: ~~because concat/template already render correctly, the missing piece is
   the direct-log argument path lacking the boolean repr the concat path already has, rather
-  than a missing `Repr::Boolean` axis end to end. Narrower than the known-defect note implies.
+  than a missing `Repr::Boolean` axis end to end. Narrower than the known-defect note implies.~~
+  **STRUCK AND REPLACED 2026-08-16, at `62b11a78c3`, by the console-render-unification
+  project. This bullet was false, and it was the premise that project was scoped on.** It is
+  kept struck rather than deleted because it is the reason a whole project was aimed at the
+  wrong half of the defect, and because it contradicted another passage of this same register
+  for weeks without anyone noticing.
+  - **It contradicted R-08 residual 6, step 3 (above, in this document).** That passage says
+    the opposite in terms: "**No equivalent axis exists for booleans**: `kali_common::Repr`
+    … — **no `Boolean`** — so a call's booleanness can ONLY ever be proven by
+    `static_equality_class`'s local, syntactic cases (i)-(iv), never by a cross-function
+    data-flow proof the way String/Float/Object are. This is the same `Repr::Boolean`-axis gap
+    residuals 2-4 are blocked on." Two bullets of one register, one saying the axis exists on
+    the concat path and one saying it does not exist at all. **R-08 residual 6 matches the
+    code; this bullet did not.** Whichever of these two a future reader lands on first now
+    points at the other.
+  - **What the code says, read at `62b11a78c3`.** `kali_common::Repr`
+    (`crates/kali_common/src/repr.rs:18-80`) has `I64`, `F64`, `Object(ShapeId)`, `String`,
+    `GrowableArrayI64`, `AbortHandle`, `Url`, `UrlSearchParams`, `Bytes`, `Event` — **no
+    `Boolean`** — and no function named `is_boolean_valued` is DEFINED anywhere under
+    `crates/`. (The identifier now occurs in prose, including this bullet and a `tier4.toml`
+    rationale, so a bare grep for the string is not the check; the check is that nothing
+    defines it.) The
+    shared coercion ladder's boolean arm (`crates/kali_codegen/src/emit/operators.rs:1926`)
+    is `emitted.produced && emitted.shape == ValueShape::Boolean`: emitted SHAPE only. The
+    float arm five lines below it (`:1931`) is
+    `matches!(emitted.shape, ValueShape::Float) || self.is_float_valued(id)` — a shape test
+    OR a repr consult. The boolean arm is missing exactly that second disjunct, and there is
+    nothing for it to consult.
+  - **The measurement that settles it.** `var b = true; console.log("v=" + b)` prints kali
+    `v=1`, node `v=true`, and the same read in a bare template hole prints kali `1`, node
+    `true` (both at exit 0, at `62b11a78c3`). **The concat and template paths are broken for
+    a plain binding read in exactly the way the direct-log path is.** They were never
+    "already correct" for this producer; they were only ever correct for operands the ladder
+    can prove, which is what the `Narrower than "everywhere"` bullet above says and what
+    `r30d` — the case the claim rested on — actually measures. `r30d` contains **no plain
+    binding read at all**: its four fragments are `(1<2)` in concat, `(1<2)` in a template
+    hole, a `const` object field and a `const` array element, every one inline or resolved
+    through a `const` chain at compile time. That case's rationale now says so in its own
+    words.
+  - **Corrected fix-cost read.** R-30 is blocked on the **same `Repr::Boolean` axis gap R-08
+    residual 6 is blocked on**, and it is not narrower than the known-defect note implies —
+    it is exactly as wide. A real fix needs a `Boolean` variant in `kali_common::Repr`, a
+    third seed set and reachability solve in `repr_infer`, a third element in every
+    `match (string, float)` pair that decides a repr, new Boolean×String and Boolean×Float
+    conflict rules, and an audit of every `Repr::` site — 600 of them at `62b11a78c3`,
+    counted by `grep -rn "Repr::" crates/ --include=*.rs`, spread over `kali_common`,
+    `kali_codegen` and `kali_types` plus three `kali_cli` test files. The
+    console-render-unification project measured all of this and declined it as a different
+    project; what it moved instead is recorded on the lanes it moved.
+  - **Why unifying the console formatters did NOT close this, even though it was the fix this
+    bullet named.** That unification shipped at `8a1f5e8e2c`: the single-argument console
+    sink now goes through the same `emit_as_string` ladder as `+`. Every producer whose shape
+    the ladder can already prove moved with it (`r30c`, and R-08 residual 5's four programs).
+    A plain binding read emits `ValueShape::Unknown`, so it falls past the boolean arm to the
+    terminal arm and renders the raw i64 — at BOTH sinks, which is why making the sinks agree
+    could not have fixed it. The two sinks agreeing is real and is what the project delivered;
+    it was never sufficient.
 - **Confounder recorded**: sweep A's first pass used `var o={f:true}` / `var a=[true,false]`
   and saw `if(o.f)` take the **else** branch, which looked like boolean value corruption. It
   was not — it was **R-06**. Re-run with `const`, every one of those shapes is correct.
@@ -2624,6 +2944,69 @@ tier, ordering is by blast radius.
   and a human reading output never notices.
 - **Confidence**: high on behavior; the `1e20`/`1e21` and `1e-6`/`1e-7` pairs bracket the
   boundary from both sides.
+- **STATUS 2026-08-16, at `62b11a78c3` (console-render-unification): the direct-log lane is
+  FIXED and the entry is NOT retired.** ~~Two independent number formatters exist and they
+  disagree~~ is superseded for the small threshold and *newly true* for the large one; the
+  bullets above are kept as the record of the tree they described.
+  - **What moved.** `render_static_value`'s numeric arm (and its sibling unary `+`/`-` arm)
+    now re-parse the literal's text with `parse_numeric_literal_value` and re-render it
+    through `kali_common::js_number::format_js_number` (`ryu-js`, which implements ECMAScript
+    `Number::toString` and therefore has both thresholds), instead of passing on text that
+    Rust's `Display for f64` had already expanded upstream at `crates/kali_hir/src/helpers.rs:8`
+    (`LiteralValue::Number(v) => v.to_string()` — `Display for f64` never emits an exponent).
+    Measured at `62b11a78c3`: `console.log(1e21)` → `1e+21`, `console.log(1e100)` → `1e+100`,
+    `console.log(123456789012345678901234.0)` → `1.2345678901234569e+23`,
+    `console.log(1e-7)` → `1e-7`, and the just-inside controls `1e20` → `100000000000000000000`
+    and `1e-6` → `0.000001` are unchanged. All match node. Pinned by `r32a` (FIXED, both
+    scopes) and `r32b`.
+  - **The "two formatters disagree" bullet, re-measured per magnitude.** At `1e-7` the sinks
+    now AGREE and all three are right: direct-log `1e-7`, binding (`var y=1e-7`) `1e-7`,
+    concat (`"v=" + 1e-7`) `v=1e-7`. That bullet's own example is closed. **At `1e21` the two
+    RENDERING sinks now DISAGREE, and they did not before this project**: direct-log prints
+    `1e+21` (right) while the binding lane `var x = 1e21; console.log(x)` prints
+    `1000000000000000000000` (wrong; node `1e+21`). Before `62b11a78c3` those two were
+    uniformly wrong, which is why **R-55** (§7) owns the `1e21` family. So this entry's
+    defining shape — a per-sink divergence — is live at `1e21` in a way it was not, as a
+    consequence of fixing one sink and not the other.
+    - **Narrowed 2026-08-16, and the narrowing matters.** An earlier draft of this bullet
+      said "all three sinks agreed … for the first time", counting concat among them. That is
+      false: the concat lane does not compile at `1e21` (`error[E4201]`) and did not at
+      `034ab0ec94` either, so it already differed from the other two before this project
+      touched anything — R-55's base entry records exactly that, and this same commit's R-55
+      amendment reasserts it as a severity distinction (a hard compile failure is not the same
+      class of wrong as a wrong rendering). The claim is true of the two rendering sinks and
+      is stated that way. **This entry's non-retirement does not rest on it** — it rests on the
+      title claiming a threshold two lanes do not implement, below.
+  - **Why it does not retire.** Every live oracle lane (`r32a`, `r32b`, `r32c`, `r32d`) reads
+    FIXED, and the row consequently leaves the ranking's SILENT filter. That is a statement
+    about the dangerous class, not a retirement: this entry's TITLE claims the `1e21`
+    threshold, two of the three lanes at `1e21` still do not implement it, and **no oracle
+    case pins either of them** — no `r32*` case measures the binding lane **at a magnitude
+    past either threshold** (`r32d`'s first line is a binding read, `var n = -5;
+    console.log(n)`, but `-5` is well inside both), and `r32c` measures concat at `1e-7`
+    only. Retiring the row would publish "numbers now
+    use exponential notation" over a tree where a bound `1e21` prints 22 digits.
+  - **Forward pointer, and it corrects an omission.** The `Repro` line above headlines
+    `console.log(1e21)`, which **R-55** also claims, and until now neither said so from this
+    side. R-55 disclaims the overlap ("It is not R-32 … R-32 is a per-sink rendering
+    divergence and closes when the sinks agree; this one diverges in *every* sink"). That
+    criterion no longer separates them cleanly, because at `1e21` the sinks no longer all
+    diverge — one of them is right. The `1e21` binding and concat lanes are tracked under
+    **R-55**; the direct-log lane at `1e21` is tracked here and is FIXED.
+  - **The concat lane's boundary is NOT the ECMAScript threshold, measured 2026-08-16.**
+    `console.log("v=" + 1e18)` prints `v=1000000000000000000` correctly and
+    `console.log("v=" + 1e19)` fails `E4201`; bisected down to adjacent measured values,
+    `"v=" + 9223372036854775000` is **correct** and `"v=" + 9223372036854776000` **fails**.
+    **The bisection stops there because those two literals are CONSECUTIVE DOUBLES**: they
+    round to `9223372036854774784` (= 2^63 − 1024) and `9223372036854775808` (= 2^63), one
+    ulp apart in that binade, so no JS number lies between them and no further probe is
+    possible. `i64::MAX` is `9223372036854775807`, which is not itself representable as a
+    double and lies strictly between the two — so the break is **pinned** to that interval
+    rather than merely bracketed, two orders of magnitude below `1e21`. What is measured is
+    the boundary's LOCATION. That the expanded decimal text is
+    being lowered as an i64 literal, and overflows there, is the obvious reading of it and is
+    NOT established here — the diagnostic carries no detail beyond
+    `failed to compile: wasm[0]::function[23]`.
 
 ### R-33: `console.warn` injects a `[warn] ` prefix node does not emit
 
@@ -2636,6 +3019,57 @@ tier, ordering is by blast radius.
   program that uses `console.warn` — and byte-for-byte acceptance is this project's primary
   correctness method.
 - **Confidence**: high.
+- **RETIRED 2026-08-16, at `62b11a78c3`, by the console-render-unification project
+  (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md`). Every lane of
+  this entry moved, which is the rule the ranking's §3.4 states — an entry retires when every
+  lane moves, not one.** The bullets above are kept as the record of the defect.
+  - **The fix.** The host's `console_warn` import
+    (`crates/kali_runtime/src/host/imports_default.rs`) prefixed the rendered message with the
+    literal `[warn] ` before writing it to stderr. The prefix was deleted; the message is now
+    written alone. Measured at `62b11a78c3` against `node v26.7.0`: `console.warn("hi")`
+    writes `hi` on stderr at exit 0 on both engines, byte for byte.
+  - **The finding worth keeping is about kali, not about node.** **None of the four JS import
+    mirrors ever prefixed it** — `crates/kali_runtime_contract/src/browser/harness.rs:515` and
+    `:1088`, `crates/kali_cli/src/bin/cmd_build.rs:1835` and `:2345`, each of them plain
+    `console.warn(formatConsoleValue(val))`. So this one line made kali's own two runtimes
+    disagree with **each other** before it made kali disagree with node, and the browser lane
+    was right the whole time. A divergence between a project's own backends is cheaper to find
+    than one against an external oracle, and nothing in this repo was looking for it.
+  - **Coverage, stated rather than assumed.** Pinned: `r33a` (the `console.warn` lane) and
+    `r33b` (the `console.error` control), both FIXED, both scopes, both compared on **stderr**
+    — this entry's four cases are the only ones in the oracle directory that set
+    `observe = "stderr"`, and a stdout-only reading of this entry once returned a meaningless
+    FIXED by comparing two empty strings. Not pinned but measured by hand at the same commit,
+    all byte-identical to node on stderr: `console.warn` with two arguments (`a b`), with a
+    number (`42`), with a comparison result (`true`), and called from inside a function body.
+    No `console.warn` shape was found that still carries the prefix, in either runtime. The
+    exact bytes are pinned outside the oracle corpus by four full `stderr` equality
+    assertions. **All four required the prefixed bytes before the fix and therefore all four
+    had to be edited by it; three of the four additionally went from `contains` to exact
+    equality.** Read against the pre-fix tree (`62b11a78c3~1`): the three CLI smoke sites
+    each carried TWO checks, `assert!(stderr.contains("err"))` **and**
+    `assert!(stderr.contains("[warn] warn"))`, and the second of those genuinely required the
+    prefix — it would have failed on the corrected output. Each pair was collapsed into one
+    `assert_eq!(stderr, "err\nwarn\n")`, which is stronger because it also pins the absence of
+    anything else on the stream (`crates/kali_cli/tests/runtime_smoke/test.rs:11179`,
+    `crates/kali_cli/tests/runtime_smoke/run.rs:11009` and `:12800`). The fourth,
+    `crates/kali_runtime/src/execute_tests/host_env.rs:32`, was already exact and read
+    `assert_eq!(outcome.stderr, "2\n[warn] 3\n")`; it now reads `"2\n3\n"`. It was
+    **updated**, not strengthened.
+    (Corrected 2026-08-16 at `62b11a78c3`, twice over, and the second error is the more
+    embarrassing. An earlier draft said the project strengthened all four. Its replacement
+    then said the three `contains` checks were ones "the old wrong output would also have
+    satisfied, so they pinned nothing about the prefix" — **false of exactly the assertion it
+    quoted**, since `contains("[warn] warn")` is the discriminating check — and said of
+    `host_env.rs:32` that "the old output would NOT have satisfied it" while quoting the old
+    assertion, which the old output satisfies verbatim; that claim was simply backwards, and
+    true only of the UPDATED assertion. Both drafts were written by reading the prose around
+    them instead of the pre-fix source. The corrected text above was written from
+    `git show 62b11a78c3~1:<path>` at each of the four sites.)
+  - **Consequence for the ranking.** With no SILENT lane left, the row leaves the SILENT
+    filter, so R-33 is removed from `tools/blast-radius/clusters.json` (it was **G8**) and no
+    longer appears in the bands. It surfaces in the ranking's §3.1 among the entries the
+    filter removed, carrying its reachable count of 1.
 
 ### R-34: A boolean-returning user function's result renders `1`/`0` in the string-concat and multi-argument `console.log` lanes — no `??` required
 
@@ -2928,6 +3362,29 @@ act on, so each cluster states plainly what would raise its confidence.
   already happened twice.
 - **Raising confidence**: locate both formatting paths and diff their case tables. If they are
   literally two functions, this cluster is proven rather than inferred.
+- **DONE 2026-08-16 at `62b11a78c3` — this cluster is now PROVEN, not inferred, and the
+  experiment above is what proved it.** They were literally two functions: the direct-log path
+  was a hand-rolled body in `emit_console_argument` (`crates/kali_codegen/src/emit/call.rs`)
+  and the concat path was `emit_as_string`
+  (`crates/kali_codegen/src/emit/operators.rs`). The console-render-unification project deleted
+  the first and routed that lane through the second, gated by a `StringSink` parameter. The
+  cluster's confidence should be read as **high** from here.
+  - **But unification was necessary and not sufficient, and the cluster's own framing hid
+    that.** "There are two renderers that have drifted" is true and was the right diagnosis for
+    R-32's small-magnitude threshold and for R-33; it is *not* the whole story for **R-30**,
+    whose remaining producers (a plain `var`/`let` binding, a function return, a parameter, a
+    ternary, `&&`/`||` over unproven operands) are wrong in **both** renderers, identically,
+    for one shared reason: neither can see a boolean it cannot prove syntactically, and
+    `kali_common::Repr` has no `Boolean` variant to consult. Measured at `62b11a78c3`:
+    `var b = true; console.log(b)` → `1` and `var b = true; console.log("v=" + b)` → `v=1`.
+    So for that producer G8's signature — "the concat path is correct and the direct-log path
+    is wrong" — was never true; the appearance of a divergence came from measuring concat with
+    provable operands only. **R-30's residue belongs to the same axis gap that blocks R-08's
+    residuals 2-4 and 6, not to G8.** It is left in G8's member list because its `const`-object
+    -field and `1`/`0`-at-one-sink history is genuinely this cluster's, and because moving an
+    entry between clusters changes the ranking's aggregate; the correction is recorded rather
+    than acted on. Members whose divergence this cluster fully explains, and which are now
+    closed by the unification: **R-33** (retired) and **R-32**'s live lanes.
 
 **Unclustered** (isolated mechanisms, no shared-root claim): R-09 (`continue` update),
 R-14 (returned array), R-22 (`==` coercion rung), R-26 (unary `+` digit accumulator),
@@ -3183,7 +3640,7 @@ applied at different sites.
 | 6 | **R-09** `continue` skips the `for` update | small | low–medium | Add a dedicated continue target before the update expression. Self-contained; `while`/`do-while`/`for…of` are already correct and give a reference lowering. |
 | 7 | **R-16** per-method string repr arms | small | low | Add the missing `Repr::String` arms in `kali_types/src/static_analysis/string.rs` for `slice`/`charAt`/`toUpperCase`/`repeat`, mirroring `substring`. **But this is the hand-mirrored-oracle hazard itself**: prefer a structural change that makes the two tables impossible to desynchronize over adding four arms that the next method will again omit. |
 | 8 | **R-24** `Object.freeze` no-op | small | low | Either implement the write barrier or fail closed on `freeze`. Failing closed is defensible and cheaper. Verify with the bind-first probe (R-24's caveat), not the folding one. |
-| 9 | **R-33, R-32, R-31, R-30** rendering divergences | small each | low | All in G8. Do **not** patch the direct-log path in isolation — R-30 and R-32 both show the two formatters have already drifted twice. Unify them, then these four are one change plus test churn. |
+| 9 | **R-33, R-32, R-31, R-30** rendering divergences | small each | low | All in G8. Do **not** patch the direct-log path in isolation — R-30 and R-32 both show the two formatters have already drifted twice. ~~Unify them, then these four are one change plus test churn.~~ **PARTIALLY DONE 2026-08-16 at `62b11a78c3` (console-render-unification), and the sizing was wrong in an instructive way.** The unification landed: the single-argument console sink now runs through the same `emit_as_string` ladder as `+`. **R-33 is RETIRED** and **R-32's live lanes are all FIXED** (though R-32 is not retired — see its §0.2 row). **R-31 is untouched** (an explicit non-goal: array/object direct log needs inspect semantics, not a shared formatter). **R-30 is NOT fixed and the "small" sizing was wrong for it**: unifying the formatters cannot help a producer whose shape is never proven, because both formatters key on the same `ValueShape` and there is no `Repr::Boolean` axis to consult — see R-30's struck **Fix-cost read**. "One change plus test churn" was right about the change and badly wrong about the churn: the ladder change alone turned 164 tests red at once, and re-pinning them took its own commit of 28 files (`03586d9e85`, +280/-238), because that many existing assertions recorded kali's old `1`/`0` rendering as expected. |
 | 10 | **R-26** unary `+` digit accumulator | small | low | Add the `0..=9` range guard, whitespace trimming, and a `NaN` path. Mechanism is fully understood (predicts six divergent outputs exactly). Note this lane is load-bearing for `+process.argv[2]`. |
 | 11 | **R-27** comma operator | small | low | Emit the last operand with `want_value=true`. |
 | 12 | **R-28** `-0` | small | low | Low priority; recorded for arithmetic-map completeness. |
@@ -3310,6 +3767,25 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   Tier 1 and R-53 to §2's Tier 2: `grep -c "^### R-"` now returns **42** while §2 holds
   **41** tier-ranked entries (8 + 26 + 2 + 5). The difference is still exactly **1**, and it
   is still this entry — R-50 is the sole `### R-` header outside §2's tier headings.
+  **Re-counted 2026-08-15** by the console-render-unification project
+  (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md`), after
+  filing **R-55** in this same section: `grep -c "^### R-"` now returns **43** while §2
+  still holds **41** tier-ranked entries. **The difference is now 2, not 1** — the claim,
+  not only the count, has changed. The two `### R-` headers outside §2's tier headings
+  are **R-50 and R-55**, both filed in **§7**, and both for the same reason: each is
+  fail-loudly-but-wrong rather than silent, so neither belongs in §1's tier table or in
+  §2's ranking.
+  **Re-counted 2026-08-16** by the console-render-unification project's final
+  whole-branch review, after filing **R-56** in §2's Tier 2: `grep -c "^### R-"` now
+  returns **44** while §2 holds **42** tier-ranked entries (8 + 27 + 2 + 5). Both
+  numbers were measured, not incremented. **The difference is still 2, and it is still
+  R-50 and R-55** — this addition is a §2 entry, so it moves both counts together and
+  leaves the claim untouched. §1's severity table was NOT left behind this time: its
+  Tier-2 "now" cell went 26 -> 27 in the same commit, which is the step the 2026-08-15
+  re-count above did not have to take and which is why this series exists.
+  `crates/kali_blast_radius/src/register_tests.rs` asserts the 42 and
+  `catalogue_tests.rs` asserts a matching 42 catalogue records; both point a reader
+  here for the total, so this line and those constants must move together.
 - **Cross-referenced 2026-07-29** from
   `docs/superpowers/followups/r35-switch-boundary-rederived.md` ("What this matrix does NOT
   cover, and the entry that does"). That file had no reference to R-50 at all, which meant a
@@ -3369,6 +3845,184 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   forms", never as "the sequence expression is the only one".
 - **Confidence**: high on behavior (differential, both binaries, both freshly built); high on
   mechanism (the `file:line` is named and the error text matches the token exactly).
+
+---
+
+### R-55: A numeric literal at or past `1e21` never reaches the JS number formatter — expanded digits in every sink, invalid wasm in concat
+
+- **Added**: 2026-08-15, by the console-render-unification project
+  (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md` §1.3),
+  found while scoping R-32. **It is not R-32**, and the two must not be merged:
+  R-32 is a per-sink rendering divergence and closes when the sinks agree; this
+  one diverges in *every* sink, including the ones R-32 records as correct.
+- **Verification**: measured 2026-08-15 at `034ab0ec94` against `node v26.7.0`,
+  with the just-inside control that pins the boundary. `034ab0ec94` is the
+  commit whose tree this task's compiled binary was built from; none of this
+  task's own changes touch `kali_runtime`/`kali_cli` compiled source, so every
+  measurement recorded in this entry -- and in the `r32d` oracle cases --
+  reflects that same tree regardless of which later commit this prose itself
+  lands in.
+- **Repro**, three lanes, all three independently run (not two measured and one
+  inferred):
+  ```js
+  console.log(1e21);            // kali 1000000000000000000000, node 1e+21
+  var x = 1e21; console.log(x); // kali 1000000000000000000000, node 1e+21
+  console.log("v=" + 1e21);     // kali error[E4201], node v=1e+21
+  ```
+  The bound-variable line was flagged in review as unrun and therefore
+  unsupported -- the direct-log and binding lines disagree at the neighbouring
+  `1e-7` boundary (`console.log(1e-7)` prints `0.0000001`, `var y=1e-7;
+  console.log(y)` prints `1e-7`), so a reader could not assume the
+  bound-variable lane at `1e21` from the bare-literal lane alone. Both `1e-7`
+  figures as recorded here come from this project's own Step 1 probes `a`/`b`,
+  measured at `034ab0ec94`, rather than being read off a case. The
+  bound-variable line at `1e21` itself was measured the same way, directly
+  (`var x = 1e21; console.log(x);`, at `034ab0ec94`), and it CONFIRMS the line
+  as written: kali `1000000000000000000000`, node `1e+21`, byte for byte what
+  the repro claims.
+  - **Two coverage claims in the paragraph above were struck 2026-08-16 at
+    `62b11a78c3`. Both were false when written, and both were written by this
+    project.**
+    - ~~"Neither of those two `1e-7` values is a standing oracle case"~~ — false
+      of the direct-log one. `r32a_module.js`'s **fourth line is
+      `console.log(1e-7);`**, and `r32a` is live in both scopes
+      (`tier4.toml:724`, `:750`). It also now reads `verdict = "fixed"`, so the
+      `0.0000001` quoted above is history rather than current behaviour. The
+      **binding** `1e-7` value is genuinely covered by no case, which is the half
+      the provenance sentence above needs.
+    - ~~"no `r32*` case measures the binding lane at all (`r32a`/`r32b` are both
+      the direct-log lane's bare literal, at `1e21` and `1e20`; `r32c` is the
+      concat lane)"~~ — that enumeration omits `r32d`, added by this same project
+      in the same task, whose first line `var n = -5; console.log(n)` IS a binding
+      read. The true statement is that **no `r32*` case measures the binding lane
+      at a magnitude past either threshold**; `r32d` covers it only at `-5`, well
+      inside both.
+  - **Root cause of the second error, named because it recurred.** "Direct log"
+    is used in two senses across this register: the loose one ("a direct
+    `console.log` call, as opposed to concat"), which is about the SINK, and the
+    strict one ("a bare literal, as opposed to a binding"), which is about the
+    PRODUCER. Under the loose sense `r32d` is a direct-log case and the struck
+    sentence reads true; under the strict sense it is a binding case and the
+    sentence is false. **The rule is scoped, not global: the strict sense governs
+    only a claim that turns on the bare-literal/binding distinction — typically a
+    sentence about which producers a case does or does not cover, as the struck
+    one was. Everywhere else "direct log" names the sink, and those uses are
+    correct as they stand.** R-30 and R-31 use the loose sense throughout and are
+    NOT relabelled by this note: R-30's §0.2 title is "booleans render 1/0 in
+    direct log" over a producer set that is mostly bindings; `r30a`
+    (`var b=true; console.log(b)`) is indexed at `tier4.toml:29` as "`var`
+    binding, direct log" and gives its SINK as "a single-argument direct
+    `console.log(b)`"; and R-31's row reads "SILENT (direct log `r31a`)" over
+    `const a=[1,2]; console.log(a)`, also a binding read. Each is accurate about
+    its sink, and none is drawing the distinction this note is about.
+- **Why it is not a rendering defect.** `format_js_number`
+  (`crates/kali_runtime/src/host/imports_default.rs`) is `ryu_js`, which
+  implements ECMAScript `Number::toString` and therefore has **both** thresholds.
+  `1e-7` renders correctly through the binding and concat lanes, which prove the
+  formatter works. `1e21` renders wrongly through *every* lane, which proves the
+  value never reaches the formatter at all. The defect is upstream, in how the
+  literal is classified and emitted.
+- **The concat lane is the loud one.** `"v=" + 1e21` fails to produce valid wasm
+  (`error[E4201]: failed to load WASM module: failed to compile`), so this entry
+  is fail-loudly-but-wrong, not silent — which is why it is filed here and not in
+  §2, and why it carries no §0.2 row and no verdict class.
+- **Boundary, per lane, all four cells measured.** `console.log(1e20)` (direct-log)
+  and `var x=1e20; console.log(x)` (binding) both match node digit for digit
+  (`100000000000000000000`) -- for these two lanes, `1e20` is the last correct
+  value and `1e21` the first wrong one, exactly the ECMAScript exponential
+  threshold, so the classification is keyed on the right constant and applied
+  in the wrong place. **The concat lane does not share this boundary.**
+  `console.log("v=" + 1e20)` also fails to compile (`error[E4201]`, the same
+  diagnostic `1e21` produces there), while node prints
+  `v=100000000000000000000` -- so concat is already broken at `1e20` and "1e20
+  is correct in every lane" does NOT hold. This task did not probe below
+  `1e20` in concat, so the concat lane's own threshold -- if it has one, rather
+  than failing on every sufficiently-long numeric literal regardless of
+  ECMAScript's threshold -- is unestablished; only that it is broken at both
+  measured magnitudes.
+- ~~**Not fixed by the console-render-unification project**, which states so in its
+  §8. That project makes the sinks agree; this defect is upstream of all of them.~~
+  **STRUCK AND REPLACED 2026-08-16, at `62b11a78c3`: the project DID fix one of the
+  three lanes.** This sentence was written at the project's Task 1, before the work
+  that falsified it, and it is kept struck because the reasoning that produced it —
+  "that project makes the sinks agree; this is upstream of all of them" — is the
+  right shape and reached the wrong conclusion for an instructive reason. The
+  project's static-fold work turned out to be upstream too, and it landed on the
+  same line.
+- **AMENDED 2026-08-16 — every lane re-measured at `62b11a78c3` against
+  `node v26.7.0`, none inferred. The section heading above is now half wrong and is
+  left unedited on purpose** (renaming a `### R-` header moves the bookkeeping the
+  R-50 numbering note tracks): "expanded digits in **every** sink" is false as of
+  this commit — the direct-log sink renders `1e+21` correctly. Read the heading as
+  "expanded digits in the binding sink, invalid wasm in concat".
+  ```js
+  console.log(1e21);            // kali 1e+21                  node 1e+21   FIXED
+  var x = 1e21; console.log(x); // kali 1000000000000000000000 node 1e+21   OPEN
+  console.log("v=" + 1e21);     // kali error[E4201] (exit 1)  node v=1e+21 OPEN
+  ```
+  - **The direct-log lane is FIXED.** The root cause is now known exactly, and it is
+    one line: `crates/kali_hir/src/helpers.rs:8`, `LiteralValue::Number(v) =>
+    v.to_string()` — Rust's `Display for f64`, which never uses exponential notation,
+    so `1e21f64.to_string()` is `"1000000000000000000000"` and the literal reaches
+    codegen already expanded. This entry's "**Why it is not a rendering defect**"
+    bullet above said the value "never reaches the formatter at all"; that was right,
+    and this is the line where it stopped being a value and became text. The project's Task 6 fix re-parses that
+    expanded text in `render_static_value`'s numeric arm and re-renders it through
+    `kali_common::js_number::format_js_number`, which recovers `1e+21`. The same
+    change is what moved R-32's `r32a` lane, and the two could not have moved
+    separately: one mechanism, two entries.
+  - **The binding lane is OPEN, measured not assumed.** `var x = 1e21; console.log(x)`
+    still prints `1000000000000000000000`. The fix is a STATIC FOLD over a bare
+    literal at the sink; a value arriving through a binding never reaches it. No
+    oracle case measures this lane **at a magnitude past either threshold**, here
+    or under R-32 — `r32d`'s first line (`var n = -5; console.log(n)`) is a binding
+    read, so the flat form of this sentence is false, and it is the same error the
+    repro note above corrects. (Narrowed 2026-08-16; the un-narrowed form shipped
+    here after being struck eighty lines earlier in this same entry.)
+  - **The concat lane is OPEN, and still `E4201`.** `console.log("v=" + 1e21)` does
+    not compile. Unchanged by this project.
+- **Boundary, reconciled 2026-08-16 — the concat lane's threshold is not
+  ECMAScript's, and this weakens one of this entry's own arguments.** The bullet
+  above concludes, for the direct-log and binding lanes, that "the classification is
+  keyed on the right constant and applied in the wrong place". Measured at
+  `62b11a78c3`, that reasoning does **not** transfer to concat, and not merely
+  because `1e20` also fails: `console.log("v=" + 1e18)` prints
+  `v=1000000000000000000` correctly while `console.log("v=" + 1e19)` fails `E4201`,
+  and bisecting down to adjacent measured values, `"v=" + 9223372036854775000` is
+  **correct** while `"v=" + 9223372036854776000` **fails**. **The bisection stops
+  there because those two literals are CONSECUTIVE DOUBLES** — they round to
+  `9223372036854774784` (= 2^63 − 1024) and `9223372036854775808` (= 2^63), one ulp
+  apart, so no JS number lies between them and no closer pair exists to probe.
+  `i64::MAX` is `9223372036854775807`, not representable as a double and lying
+  strictly between the two — so the break is **pinned** to that interval, not merely
+  bracketed, and it sits two orders of
+  magnitude below `1e21`. The concat lane is therefore not keyed on ECMAScript's
+  constant at all, in the wrong place or the right one; it is keyed on a different
+  constant entirely, and calling it a misapplied threshold mis-describes it. What is
+  measured is the boundary's LOCATION. That the expanded decimal text is being
+  lowered as an i64 literal, and overflows there, is the
+  obvious reading and is **not** established here: the diagnostic carries no detail
+  beyond `failed to compile: wasm[0]::function[23]`. This also supersedes the earlier
+  note that "this task did not probe below `1e20` in concat" — it has now been
+  probed, and the lane has a threshold; it is simply not this entry's threshold.
+- **Severity**: not silent. ~~The direct-log lane is a wrong answer at exit 0~~ — the
+  direct-log lane is fixed as of `62b11a78c3`; the **binding** lane is now the wrong
+  answer at exit 0, and the concat lane is still a hard compile failure on valid
+  JavaScript. Still filed here rather than in §2, and still carrying no §0.2 row and
+  no verdict class, because the loud lane is what fixes this entry's classification.
+- **Regression risk, per lane — and the direct-log lane IS pinned.** ~~No oracle case
+  measures any of these three lanes, so nothing in the repo will catch the direct-log
+  lane regressing back.~~ **Corrected 2026-08-16 at `62b11a78c3`: that was false, and it
+  was contradicted by the next sentence of its own bullet.** `r32a` is a live case in
+  both scopes, `verdict = "fixed"`, and its program's first line is
+  `console.log(1e21);` — and the oracle step asserts measured class == expected class
+  (`crates/kali_case_runner/src/steps.rs:379-381`), so a regression of the fold at
+  `1e21` turns `r32a` red. The lane is covered; it is simply covered **under R-32**
+  rather than under this entry, which is a bookkeeping fact and not a gap. What
+  remains genuinely unpinned is the **binding** lane and the **concat** lane at this
+  magnitude: no case in the corpus runs `var x = 1e21; console.log(x)` or
+  `console.log("v=" + 1e21)`, so if either moved — in either direction — nothing would
+  notice.
 
 ---
 

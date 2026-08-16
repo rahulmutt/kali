@@ -2,7 +2,7 @@
 # check_extra_claims.py compares this file's claim strings against the source's and fails
 # on any that appear nowhere in the .rs. The entries below are the deliberate exceptions;
 # a genuinely new one will not be on this list and will fail the gate.
-# EXTRA-OK: '0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\nbrowser object is primitive literals ok\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
+# EXTRA-OK: 'false\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\nbrowser object is primitive literals ok\n' -- live-captured exact `json.stdout` pin; source asserts `.contains` on a JSON leaf, which has no substring form, so ruling 3 requires an exact pin captured from the real binary
 # Migrated from tests/browser_object_is_primitive_literals_harness.rs.
 #   SOURCE REF: 28df9ba02962143a1fc1735e418b2f67caee8fc6
 #
@@ -151,7 +151,7 @@ rationale = """Migrated from browser_object_is_primitive_literals_harness.rs, th
 args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
-json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\nbrowser object is primitive literals ok\n", stderr = "", errors = [] }
+json = { schemaVersion = 1, command = "run", success = true, exitCode = 0, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", exitCode = 0 }, stdout = "false\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\nbrowser object is primitive literals ok\n", stderr = "", errors = [] }
 
 [[case]]
 name = "test_supports_object_is_primitive_literals_when_browser_harness_is_configured"
@@ -167,4 +167,4 @@ rationale = """Migrated from browser_object_is_primitive_literals_harness.rs, th
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${ext}"]
 env = { KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node" }
 exit = "success"
-json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\nbrowser object is primitive literals ok\n", stderr = "", errors = [] }
+json = { schemaVersion = 1, command = "test", success = true, payload = { hostContract = "browser-requested", runtimeBackend = "browser-harness", total = 1, passed = 1, failed = 0 }, stdout = "false\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\nbrowser object is primitive literals ok\n", stderr = "", errors = [] }

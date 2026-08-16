@@ -950,10 +950,25 @@ pub fn render(root: &Path) -> String {
         out,
         "### 3.4 A lane result is not an entry result\n\n{} of the {} ranked entries measure \
          something other than SILENT on at least one lane, and none of them is thereby \
-         retired: {}. §0.2 records why in each case — R-47's and R-53's FIXED lanes are the \
-         `const` controls those entries declare for themselves, and R-30's two FIXED lanes are \
-         its `const`-scalar lane *and* its concat/template sinks, so *declared control* is the \
-         accurate description and *`const` lane* is not. R-08's `===` half fails closed while \
+         retired: {}. **This list can never hold a retired entry, by construction.** It is \
+         built from the entries the SILENT filter admits, and an entry whose every lane has \
+         moved has no SILENT lane left, so it is removed by that filter before this list is \
+         assembled and leaves the ranking altogether rather than appearing here as all-FIXED. \
+         §3.1 is where such an entry surfaces. R-33 left exactly that way on 2026-08-16 — its \
+         `console.warn` lane moved and its `console.error` control was already FIXED — and it \
+         is genuinely retired. R-32 left by the same door on the same day and is **not** \
+         retired: leaving is a statement about the dangerous class, not about being fixed, and \
+         §0.2's R-32 row records the `1e21` binding and concat behaviour that still holds it \
+         open with no live case pinning it. §0.2 records why in each remaining case — R-47's \
+         and R-53's FIXED lanes are the `const` controls those entries declare for themselves. \
+         R-30's six FIXED case-lanes are of two kinds, and the difference is worth keeping: \
+         four are controls the entry declares for itself (its `const`-scalar lane, its \
+         concat/template sinks, and the taint-reaching and proven-`String()` guards at the \
+         single-argument sink), while two — its `const`-object-field lane and the \
+         taint-reaching `String()`-result lane at the MULTI-argument sink — genuinely moved on \
+         2026-08-16. So *declared control* is the accurate description of the first four and \
+         *`const` lane* is not, and neither kind retires the entry, because its plain \
+         `var`-binding lane is still SILENT. R-08's `===` half fails closed while \
          its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking \
          at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An \
          entry is retired when every lane moves, which is a claim no single lane can make.\n",

@@ -29,7 +29,7 @@ fn runtime_executes_modules_with_console_host_imports() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
     assert_eq!(outcome.stdout, "1\n4\n5\n");
-    assert_eq!(outcome.stderr, "2\n[warn] 3\n");
+    assert_eq!(outcome.stderr, "2\n3\n");
 }
 
 #[test]
@@ -435,4 +435,80 @@ fn runtime_rejects_console_calls_when_policy_denies_them() {
         .execute(&wasm)
         .expect_err("console should be denied");
     assert_eq!(diagnostics[0].code, Some(e4::EFFECT_NOT_PERMITTED as u32));
+}
+
+#[test]
+fn value_to_string_renders_a_handle_as_text_and_a_scalar_as_digits() {
+    // `value_to_string` is `format_console_value` + an allocation: it decodes a
+    // tagged string handle to its text and renders anything else as an integer,
+    // returning the result as a NEW guest string handle rather than writing to
+    // a stream. It exists so `emit_as_string` has a terminal arm that can
+    // consult runtime state, which `int_to_string` cannot -- see the
+    // console-render-unification spec §3.
+    //
+    // A bare round-trip through `console_log` cannot fail here: `console_log`
+    // already calls `format_console_value` on whatever it is handed, so
+    // `console_log(value_to_string(42))` would print "42" even if
+    // `value_to_string` were the identity function. Two extra checks make the
+    // test capable of going red when the import is broken:
+    //   - the scalar case also asserts the returned value is a TAGGED handle
+    //     (negative as i64, since STRING_HANDLE_TAG is the sign bit --
+    //     memory.rs:291) rather than 42 handed straight back;
+    //   - the handle case constructs a real string handle by hand from a
+    //     `(data ...)` segment -- STRING_HANDLE_TAG | (offset << 32) | len,
+    //     per memory.rs:45-56 -- feeds it through `value_to_string`, and
+    //     asserts the returned handle is a DIFFERENT allocation than the one
+    //     fed in, which only a real decode-then-realloc can produce.
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "value_to_string" (func $value_to_string (param i64) (result i64)))
+                (import "kali:rt" "console_log" (func $console_log (param i64)))
+                (memory (export "memory") 1)
+                (global $heap (export "__heap") (mut i32) (i32.const 1024))
+                (data (i32.const 200) "hi")
+                (func (export "_start")
+                    (local $scalar_handle i64)
+                    (local $literal_handle i64)
+                    (local $decoded_handle i64)
+
+                    ;; Scalar path: value_to_string(42) must allocate a NEW
+                    ;; tagged handle, not hand 42 straight back.
+                    i64.const 42
+                    call $value_to_string
+                    local.set $scalar_handle
+
+                    local.get $scalar_handle
+                    call $console_log
+
+                    local.get $scalar_handle
+                    i64.const 0
+                    i64.lt_s
+                    i64.extend_i32_u
+                    call $console_log
+
+                    ;; Handle path: a real tagged handle for "hi", built by
+                    ;; hand as STRING_HANDLE_TAG | (200 << 32) | 2.
+                    i64.const 0x800000c800000002
+                    local.set $literal_handle
+
+                    local.get $literal_handle
+                    call $value_to_string
+                    local.set $decoded_handle
+
+                    local.get $decoded_handle
+                    call $console_log
+
+                    local.get $decoded_handle
+                    local.get $literal_handle
+                    i64.ne
+                    i64.extend_i32_u
+                    call $console_log))
+            "#,
+    );
+
+    let runtime = RuntimeCtx::default();
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 0);
+    assert_eq!(outcome.stdout, "42\n1\nhi\n1\n");
 }

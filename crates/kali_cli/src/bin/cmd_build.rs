@@ -1722,6 +1722,9 @@ const defaultImportObject = {{
     int_to_string(value) {{
       return allocGuestString(new TextEncoder().encode(String(value)));
     }},
+    value_to_string(value) {{
+      return allocGuestString(new TextEncoder().encode(formatConsoleValue(value)));
+    }},
     string_concat(left, right) {{
       const leftBytes = decodeStringHandleBytes(left);
       const rightBytes = decodeStringHandleBytes(right);
@@ -2228,6 +2231,9 @@ const defaultImportObject = {{
     }},
     int_to_string(value) {{
       return allocGuestString(new TextEncoder().encode(String(value)));
+    }},
+    value_to_string(value) {{
+      return allocGuestString(new TextEncoder().encode(formatConsoleValue(value)));
     }},
     string_concat(left, right) {{
       const leftBytes = decodeStringHandleBytes(left);

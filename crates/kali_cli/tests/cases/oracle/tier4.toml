@@ -288,6 +288,16 @@
 #   history is kept in `r33a`'s rationale deliberately: it is the one mistake
 #   in this file that a future author is most likely to repeat.
 #
+#   UPDATED 2026-08-16 at `62b11a78c3`: R-33 is now GENUINELY fixed -- the
+#   `[warn] ` prefix was removed from the host import, both engines write `hi`
+#   alone on stderr, and `r33a` reads `fixed` in both scopes. The two FIXEDs
+#   look identical on the page and are not the same claim: the 2026-07 one
+#   compared two empty stdouts and asserted nothing, this one compares two
+#   equal stderrs and asserts everything. `observe = "stderr"` is the whole
+#   difference, and it is why this pair's `fixed` can be believed. Do not
+#   delete `observe` from these cases now that they are green -- doing so
+#   would restore the false green rather than simplify the file.
+#
 # The two scopes agreed on the class for EVERY entry and EVERY lane -- twelve
 # pairs, twelve agreements. For THREE entries that agreement is a genuinely new
 # observation rather than a confirmation: as of `61c2d48ea9`, R-31 and R-33
@@ -452,6 +462,46 @@ main();
 }
 main();
 """
+"r32d_module.js" = """var n = -5; console.log(n)
+console.log(-1234567)
+"""
+"r32d_function.js" = """function main() {
+  var n = -5; console.log(n)
+  console.log(-1234567)
+}
+main();
+"""
+"r30e_module.js" = """let s = 0n;
+s = String(42n);
+console.log(s);
+"""
+"r30e_function.js" = """function main() {
+  let s = 0n;
+  s = String(42n);
+  console.log(s);
+}
+main();
+"""
+"r30f_module.js" = """let s = 0n;
+s = String(42n);
+console.log("x", s);
+"""
+"r30f_function.js" = """function main() {
+  let s = 0n;
+  s = String(42n);
+  console.log("x", s);
+}
+main();
+"""
+"r30g_module.js" = """const s = String(42n);
+console.log(s);
+"""
+"r30g_function.js" = """function main() {
+  const s = String(42n);
+  console.log(s);
+}
+main();
+"""
 "r33a_module.js" = """console.warn("hi");
 """
 "r33a_function.js" = """function main() {
@@ -522,7 +572,7 @@ Expected verdict set from the register's recorded status: FIXED. The correction 
 
 RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `true` at exit 0; node prints `true` at exit 0.
 
-THIS IS A LANE-LEVEL `fixed` AND MUST NOT BE READ AS R-30 BEING FIXED. R-30 is live at this commit: its `var` lane (`r30a`) and its `const`-object-field lane (`r30c`) both measure SILENT in this same file, at this same sink, at this same commit. The §0.2 regeneration keys its rows on `register_entry`, so a row that took this case as R-30's verdict would record a fixed entry that is not fixed.
+THIS IS A LANE-LEVEL `fixed` AND MUST NOT BE READ AS R-30 BEING FIXED. R-30 is live at this commit: ~~its `var` lane (`r30a`) and its `const`-object-field lane (`r30c`) both measure SILENT~~ **corrected 2026-08-16 at `62b11a78c3` -- `r30c` MOVED to `fixed`, so the one remaining SILENT lane is `r30a`, the plain `var` binding, which measures SILENT** in this same file, at this same sink, at this same commit. The point the paragraph makes is unchanged and now rests on one lane rather than two, which makes it MORE fragile, not less: if `r30a` ever moved without the entry being re-examined, R-30 would leave the SILENT filter automatically. The §0.2 regeneration keys its rows on `register_entry`, so a row that took this case as R-30's verdict would record a fixed entry that is not fixed.
 
 Why the lane is worth a case at all: it is the declarator boundary the register corrected ITSELF on, having over-claimed `const` as broken. A pair with `r30a` pins that boundary from both sides, so a regression that re-broke plain `const` scalars -- or a fix that quietly repaired plain `var` -- shows up as a moved boundary rather than as silence."""
 
@@ -545,7 +595,7 @@ name = "r30c_const_object_field_boolean_in_direct_log_module_scope"
 kind = "oracle"
 register_entry = "R-30"
 program = "r30c_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-30, `const`-object-field lane, module scope. SINK: single-argument direct `console.log(o.f)`. The program is the entry's own fragment verbatim: as of `61c2d48ea9`, the same 2026-07-19 correction bullet that removed plain `const` scalars from the producer set keeps this shape in it -- "`const` **object fields** (`const o = {f: true}; console.log(o.f)`) are a separate, still-broken shape (re-verified: kali `1`, node `true`) and remain correctly listed above".
 
 Expected verdict set from the register's recorded status: SILENT. The bullet declares the shape still broken with both renderings written out, which is both engines exiting 0 with differing stdout.
@@ -554,19 +604,27 @@ RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -
 
 This lane is what makes the `r30b` pair readable. The two programs differ in the producer only (a `const` SCALAR against a `const` OBJECT FIELD), both at the same direct sink, and they measure different classes -- so the boundary the correction bullet drew is a boundary about the producer, not about the declarator alone. That is what these two cases jointly show; neither shows it alone.
 
-WHAT THIS DOES NOT ESTABLISH: the same limits as `r30a`. One producer, one sink, nothing about the other members of R-30's producer set, and nothing about truthiness."""
+WHAT THIS DOES NOT ESTABLISH: the same limits as `r30a`. One producer, one sink, nothing about the other members of R-30's producer set, and nothing about truthiness.
+
+MOVED 2026-08-16 by the console-render-unification project (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md`). RE-MEASURED at `62b11a78c3` against node v26.7.0: **FIXED**, and the verdict above is changed `silent` -> `fixed` for that reason. kali prints `true` at exit 0 with empty stderr; node prints `true` at exit 0. The two paragraphs above are left standing as the historical record of the defect; they described the tree correctly when they were written and no longer describe this one.
+
+WHAT MOVED IT. The project deleted `emit_console_argument`'s hand-rolled single-argument body and routed that lane through the same `emit_as_string` coercion ladder the `+` and multi-argument lanes already used, gated by a `StringSink::Console` vs `StringSink::Concat` parameter (Task 5, commit `8a1f5e8e2c`). That ladder's boolean arm (`crates/kali_codegen/src/emit/operators.rs:1926`) keys on `emitted.shape == ValueShape::Boolean`, and a `const`-bound object field's boolean IS a shape it can prove -- so this producer now renders the JS word at the direct sink instead of the raw i64 bit.
+
+THIS DOES NOT RETIRE R-30, AND THE CONTRAST IS THE POINT. `r30a` -- a plain `var` binding read, the same entry, the same single-argument direct sink, one producer over -- was re-measured at this same commit `62b11a78c3` and is **still SILENT** (kali `1`, node `true`). It did not move and was deliberately not flipped. The reason is structural rather than incidental: the ladder arm above keys on the EMITTED SHAPE only, a plain local/global read emits `ValueShape::Unknown`, and unlike the float arm five lines below it (`operators.rs:1931`, `matches!(emitted.shape, ValueShape::Float) || self.is_float_valued(id)`) the boolean arm has no repr consult to fall back on -- because `kali_common::Repr` has no `Boolean` variant at all and no function named `is_boolean_valued` is defined anywhere in `crates/` (the identifier appears only in prose like this paragraph, which is why a bare grep for it is not the check; the check is that nothing DEFINES it). So this case and `r30a` now measure DIFFERENT classes at the same sink, and the producer boundary they jointly draw is the boundary between shapes the ladder can prove and shapes that would need a `Repr::Boolean` axis. See §2's R-30 entry, whose fix-cost read was corrected against exactly this measurement."""
 
 [[case]]
 name = "r30c_const_object_field_boolean_in_direct_log_in_function"
 kind = "oracle"
 register_entry = "R-30"
 program = "r30c_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-30, `const`-object-field lane, in-function scope. The module-scope fragment verbatim inside `function main() { ... }` with a trailing `main();`.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope. The entry's `sweep-only (both scopes)` line is mapped to no individual bullet and is not read as an in-function observation of this fragment.
 
-RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `1` at exit 0; node prints `true` at exit 0. Identical to the module scope."""
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `1` at exit 0; node prints `true` at exit 0. Identical to the module scope.
+
+MOVED 2026-08-16 by the console-render-unification project. RE-MEASURED at `62b11a78c3` against node v26.7.0: **FIXED**, as for the module scope -- kali prints `true` at exit 0, node prints `true` at exit 0. The verdict above is changed `silent` -> `fixed`. The scopes agreed before the move and agree after it, so the ladder change is scope-independent for this producer. What moved it, and why it does not retire R-30, is in the module-scope case's rationale and is not repeated here."""
 
 [[case]]
 name = "r30d_provable_booleans_in_concat_and_template_module_scope"
@@ -582,9 +640,11 @@ Expected verdict set from the register's recorded status: FIXED -- the paragraph
 
 RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: FIXED, unchanged -- no reconciliation. kali prints `v=true`, `true`, `v=true`, `v=true` at exit 0; node prints the same four lines at exit 0.
 
-THIS IS A LANE-LEVEL `fixed` AND MUST NOT BE READ AS R-30 BEING FIXED -- the entry's defect is at the direct-log sink, which `r30a` and `r30c` measure SILENT in this same file at this same commit. What this case pins is the entry's own NARROWING claim: that the concat and template paths are not the hole. If it ever goes red, the entry got WIDER, which is a different and more serious finding than the entry moving.
+THIS IS A LANE-LEVEL `fixed` AND MUST NOT BE READ AS R-30 BEING FIXED -- the entry's defect is at the direct-log sink, which ~~`r30a` and `r30c` measure~~ **corrected 2026-08-16 at `62b11a78c3`: `r30c` MOVED to `fixed`, so `r30a` alone measures** SILENT in this same file at this same commit. What this case pins is the entry's own NARROWING claim: that the concat and template paths are not the hole. If it ever goes red, the entry got WIDER, which is a different and more serious finding than the entry moving.
 
-WHAT THIS DOES NOT ESTABLISH. It covers the four operand kinds the register wrote out (a comparison in concat, a comparison in a template hole, a `const` object field, a `const` array element) and no others. The register's own round-4 and round-5 corrections record that the concat lane has TWO further holes that these four fragments do not reach -- R-08 residual 6 (a `??` over an unprovable boolean-returning call) and R-34 (an ordinary user function's boolean return, no `??` required) -- and both are explicitly stated there as NOT owned by R-30. R-34's is measured in this file, and it is SILENT. So "the concat path is fixed" is true only for the operands this lane names, and this case asserts nothing wider."""
+WHAT THIS DOES NOT ESTABLISH. It covers the four operand kinds the register wrote out (a comparison in concat, a comparison in a template hole, a `const` object field, a `const` array element) and no others. The register's own round-4 and round-5 corrections record that the concat lane has TWO further holes that these four fragments do not reach -- R-08 residual 6 (a `??` over an unprovable boolean-returning call) and R-34 (an ordinary user function's boolean return, no `??` required) -- and both are explicitly stated there as NOT owned by R-30. R-34's is measured in this file, and it is SILENT. So "the concat path is fixed" is true only for the operands this lane names, and this case asserts nothing wider.
+
+SCOPE NARROWED 2026-08-16 (console-render-unification, Task 8), because a claim elsewhere in the register was resting on this case for more than it covers. **None of these four fragments is a PLAIN BINDING READ.** They are, in order: an inline comparison in concat; the same inline comparison in a template hole; a `const`-bound object field; a `const`-bound array element. Every one is either syntactically inline at the sink or reached through a `const` chain that resolves at compile time -- there is no `var b = true; ... b ...` anywhere in this program, at either scope. So this case cannot and does not support the unqualified reading "concat/template already render correctly", and §2's R-30 **Fix-cost read** bullet, which drew exactly that inference, has been corrected against the following direct measurement rather than against this case. MEASURED 2026-08-16 at `62b11a78c3` against node v26.7.0, by hand and not by any case in this corpus: `var b = true; console.log("v=" + b)` prints kali `v=1`, node `v=true`, both at exit 0 -- **the concat lane is broken for a plain binding read in exactly the way the direct-log lane is** (`r30a`). The template hole was measured too, not assumed: the same `var b = true` read placed in a bare template hole prints kali `1`, node `true`. No oracle case in this corpus pins that program; it is recorded here because this is the case a future reader will land on when asking whether concat is fixed, and the honest answer is "for the four operand kinds above, yes; for a plain binding read, no, and nothing here measures it"."""
 
 [[case]]
 name = "r30d_provable_booleans_in_concat_and_template_in_function"
@@ -665,7 +725,7 @@ name = "r32a_direct_log_past_the_exponential_thresholds_module_scope"
 kind = "oracle"
 register_entry = "R-32"
 program = "r32a_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-32, past-a-threshold lane, module scope. SINK: a single-argument direct `console.log(<number>)`, which is the entry's own `Repro` sink and the one its "two formatters" bullet names as the wrong one.
 
 The first line is the entry's labelled `Repro` verbatim -- as of `61c2d48ea9`, "`console.log(1e21);` -> node `1e+21`, kali `1000000000000000000000` (exit 0)". The other three lines are the fragments of its next bullet, "**Both thresholds missing, in both directions**: `1e100` -> 101 literal digits; `123456789012345678901234.0` -> `123456789012345690000000` (node `1.2345678901234569e+23`); `1e-7` -> `0.0000001` (node `1e-7`)". All four are kept because the entry's claim for this lane is exactly that both thresholds are missing in both directions, and `1e21` alone shows one threshold in one direction.
@@ -676,19 +736,29 @@ Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §
 
 RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `1000000000000000000000`, then 101 literal digits, then `123456789012345690000000`, then `0.0000001`, all at exit 0 with empty stderr; node prints `1e+21`, `1e+100`, `1.2345678901234569e+23`, `1e-7` at exit 0. Every one of the four renderings is character-for-character what the register recorded, on both engines.
 
-WHAT THIS DOES NOT ESTABLISH. It shows the four literals the register wrote out and nothing about any other magnitude. In particular the entry's claim that "magnitude handling is right; only the switch to exponent form is absent" is a claim about the VALUE, and a rendering comparison cannot separate a value defect from a rendering one -- the 24-digit line is suggestive (kali's digits carry the same `...4569` rounding node's mantissa does) but this case does not assert it. The boundary claim is the `r32b` lane's."""
+WHAT THIS DOES NOT ESTABLISH. It shows the four literals the register wrote out and nothing about any other magnitude. In particular the entry's claim that "magnitude handling is right; only the switch to exponent form is absent" is a claim about the VALUE, and a rendering comparison cannot separate a value defect from a rendering one -- the 24-digit line is suggestive (kali's digits carry the same `...4569` rounding node's mantissa does) but this case does not assert it. The boundary claim is the `r32b` lane's.
+
+MOVED 2026-08-16 by the console-render-unification project (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md`). RE-MEASURED at `62b11a78c3` against node v26.7.0: **FIXED**, and the verdict above is changed `silent` -> `fixed`. kali prints `1e+21`, `1e+100`, `1.2345678901234569e+23`, `1e-7` at exit 0 with empty stderr; node prints the same four lines at exit 0. All four are byte-identical. The paragraphs above are left standing as the historical record.
+
+BOTH THRESHOLDS MOVED, WHICH IS WHY THIS CASE WAS NOT SPLIT. The project's plan carried a conditional -- if only the small-magnitude half had moved, this case would have had to be split, because one case cannot hold two verdicts and its four lines straddle both thresholds. It was not needed: line 1 (`1e21`, large), lines 2-3 (`1e100` and the 24-digit literal, large) and line 4 (`1e-7`, small) ALL agree with node now, so the four lines still share one class and the case still measures one thing.
+
+WHAT MOVED IT, and it is a different mechanism from the one that moved `r30c`. `render_static_value`'s numeric arm re-parses the literal's already-expanded HIR text with `parse_numeric_literal_value` and re-renders it through `kali_common::js_number::format_js_number` (`ryu-js`, which implements ECMAScript `Number::toString` and therefore has both thresholds), instead of handing on the text Rust's `Display for f64` had produced (Task 6, commits `03586d9e85..f199be5112`; an earlier draft of this line pinned `951bf26b00`, which is an ORPHANED pre-amend object -- resolvable in the clone it was written in and in no other, so it violates the house rule that a measurement claim pins a commit a future reader can reach). The upstream cause was `crates/kali_hir/src/helpers.rs:8` -- `LiteralValue::Number(v) => v.to_string()` -- and Rust's `Display for f64` never emits an exponent, which is why `1e21` arrived at codegen already spelled as 22 digits. This is the DIRECT-LOG lane only: it is a static fold over a bare literal, and it does not reach a value that arrives through a binding.
+
+WHAT IS STILL OPEN AND IS PINNED BY NO CASE. R-32's own title claims the `1e21` threshold, and at `1e21` the BINDING lane is still wrong: `var x = 1e21; console.log(x)` prints kali `1000000000000000000000`, node `1e+21` (measured by hand at `62b11a78c3`). **No `r32*` case measures the binding lane AT A MAGNITUDE PAST EITHER THRESHOLD** -- and note the precision that claim needs, because a looser version of it was shipped and was false: `r32d`'s first line IS a binding read (`var n = -5; console.log(n)`), so "no `r32*` case measures the binding lane at all" is wrong. What no case covers is that lane past `1e21` or below `1e-7`, which is the only magnitude range this entry's title is about. The CONCAT lane at that magnitude does not even compile (`error[E4201]`). Both are filed as **R-55** in the register's §7. So this `fixed` is a LANE-LEVEL result on an entry whose headline constant is still not implemented in two of its three lanes -- see §0.2's R-32 row for the retirement decision and for what it turns on."""
 
 [[case]]
 name = "r32a_direct_log_past_the_exponential_thresholds_in_function"
 kind = "oracle"
 register_entry = "R-32"
 program = "r32a_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-32, past-a-threshold lane, in-function scope. The module-scope program verbatim -- all four logs -- inside `function main() { ... }` with a trailing `main();`.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9` the entry carries `Verification: sweep-only (both scopes)`, but that line names no sweep id and is mapped to no individual bullet, so treating it as an in-function observation of these fragments would be an assumption; it is not made.
 
-RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints the same four wrong renderings as at module scope and node the same four right ones, all at exit 0. The scopes agree, so the direct-log number formatter is scope-independent for these four literals. The scaffolding is the module-scope case's plus the wrapper."""
+RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints the same four wrong renderings as at module scope and node the same four right ones, all at exit 0. The scopes agree, so the direct-log number formatter is scope-independent for these four literals. The scaffolding is the module-scope case's plus the wrapper.
+
+MOVED 2026-08-16 by the console-render-unification project. RE-MEASURED at `62b11a78c3` against node v26.7.0: **FIXED**, as for the module scope -- kali prints `1e+21`, `1e+100`, `1.2345678901234569e+23`, `1e-7` at exit 0 and node prints the same four lines at exit 0. The verdict above is changed `silent` -> `fixed`. The scopes agreed before the move and agree after it, so the fold is scope-independent for these four literals in both directions. What moved it, why no split was needed, and what R-32 still has open with no case pinning it are in the module-scope case's rationale and are not repeated here."""
 
 [[case]]
 name = "r32b_direct_log_just_inside_the_thresholds_module_scope"
@@ -757,7 +827,7 @@ name = "r33a_console_warn_prefix_module_scope"
 kind = "oracle"
 register_entry = "R-33"
 program = "r33a_module.js"
-verdict = "silent"
+verdict = "fixed"
 observe = "stderr"
 rationale = """R-33, `console.warn` lane, module scope. SINK: `console.warn("hi")`, which is the whole of the entry. The program is its `Repro` verbatim and complete -- as of `61c2d48ea9` (2026-07-29), "`console.warn("hi");` -> node `hi`, kali `[warn] hi` (exit 0)". Nothing was added.
 
@@ -771,14 +841,20 @@ WHY THIS CASE READ `fixed` BEFORE `observe` EXISTED, PRESERVED AS A WARNING. Whe
 
 THE GENERAL LESSON FOR THE NEXT AUTHOR. Before writing an oracle case, ask which stream the register's own repro renders its divergence on. If it is not stdout, `observe` must say so -- otherwise the case compares two empty strings, passes, and asserts nothing. `console.warn` and `console.error` are the two sinks in this corpus that do this; there may be others in entries nobody has authored yet.
 
-WHAT THIS DOES NOT ESTABLISH. It compares whole stderr streams, so it shows the two engines' stderr differs -- it does not isolate WHICH bytes differ, and the class alone would not distinguish the `[warn] ` prefix from any other stderr divergence. That the difference is exactly the prefix is the hand observation quoted above. An oracle step permits no process-output assertion, so pinning the bytes needs an ordinary `run` case elsewhere in `crates/kali_cli/tests/cases/`; that is still worth having and is still not done here."""
+WHAT THIS DOES NOT ESTABLISH. It compares whole stderr streams, so it shows the two engines' stderr differs -- it does not isolate WHICH bytes differ, and the class alone would not distinguish the `[warn] ` prefix from any other stderr divergence. That the difference is exactly the prefix is the hand observation quoted above. An oracle step permits no process-output assertion, so pinning the bytes needs an ordinary `run` case elsewhere in `crates/kali_cli/tests/cases/`; that is still worth having and is still not done here.
+
+MOVED 2026-08-16 by the console-render-unification project (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md`). RE-MEASURED at `62b11a78c3` against node v26.7.0: **FIXED**, and the verdict above is changed `silent` -> `fixed`. Both engines exit 0 with empty stdout and `hi` on stderr -- byte-identical streams, which is FIXED under this case's own `observe = "stderr"`. The paragraphs above are left standing as the historical record of the defect and of the instrument bug that once hid it.
+
+WHAT MOVED IT. The host's `console_warn` import (`crates/kali_runtime/src/host/imports_default.rs`) prefixed the rendered message with the literal `[warn] ` before writing it to stderr; the prefix was deleted and the message is now written alone (Task 7, commit `62b11a78c3`). The finding worth keeping is that **none of the four JS import mirrors ever prefixed it** (`crates/kali_runtime_contract/src/browser/harness.rs:515` and `:1088`, `crates/kali_cli/src/bin/cmd_build.rs:1835` and `:2345`, each `console.warn(formatConsoleValue(val))`) -- so this line made kali's own two runtimes disagree with EACH OTHER before it made kali disagree with node, and the browser lane was right the whole time.
+
+THE BYTES WERE PINNED AFTER ALL, by the fix rather than by this case. The paragraph above asks for an ordinary `run` case to isolate WHICH stderr bytes differ, because a whole-stream comparison cannot. That gap is now closed from the other side: four assertions outside this corpus now compare `stderr` for exact equality, and ALL FOUR required the prefixed bytes beforehand -- so all four had to be edited by the fix, and none of them was a check the corrected output could have slipped past. Three of the four additionally went from `contains` to exact equality. Read against `62b11a78c3~1` -- and these are that revision's line numbers, not HEAD's -- each of `crates/kali_cli/tests/runtime_smoke/test.rs:11179-11180`, `crates/kali_cli/tests/runtime_smoke/run.rs:11009-11010` and `crates/kali_cli/tests/runtime_smoke/run.rs:12801-12802` carried BOTH `assert!(stderr.contains("err"))` and `assert!(stderr.contains("[warn] warn"))`, and each pair was collapsed into a single `assert_eq!(stderr, "err\\nwarn\\n")`, which is stronger because it also pins that nothing ELSE reaches the stream. (At HEAD the three collapsed assertions sit at `test.rs:11179`, `run.rs:11009` and `run.rs:12800`; an earlier draft of this sentence mixed the two revisions' numbering, citing HEAD's `:12800` inside a pre-fix reading where the pair is at `:12801-12802`.) The fourth, `crates/kali_runtime/src/execute_tests/host_env.rs:32`, was already exact -- it read `assert_eq!(outcome.stderr, "2\\n[warn] 3\\n")` and now reads `"2\\n3\\n"` -- so it was UPDATED rather than strengthened. Either way the return of the prefix now fails on the exact bytes, not merely on a stream difference."""
 
 [[case]]
 name = "r33a_console_warn_prefix_in_function"
 kind = "oracle"
 register_entry = "R-33"
 program = "r33a_function.js"
-verdict = "silent"
+verdict = "fixed"
 observe = "stderr"
 rationale = """R-33, `console.warn` lane, in-function scope. The `Repro` verbatim inside `function main() { ... }` with a trailing `main();`.
 
@@ -788,7 +864,11 @@ This scope had never been measured for this entry: as of `61c2d48ea9`, §2's R-3
 
 RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, matching the register -- no reconciliation. kali exits 0 with empty stdout and `[warn] hi` on stderr; node exits 0 with empty stdout and `hi` on stderr. Byte-identical to the module scope on both engines, so the prefix is scope-independent -- and that agreement is a new observation, since the entry was `top-level-only` before this case.
 
-Unlike the module-scope case, this scope agreement is a real one rather than a formality. Before `observe` existed both cases returned FIXED for a reason that had nothing to do with the scope (a lane whose output never reaches stdout compares equal at any scope), so the pair could not have disagreed and the agreement was worth nothing. Observing stderr, the two scopes are genuinely compared and genuinely agree."""
+Unlike the module-scope case, this scope agreement is a real one rather than a formality. Before `observe` existed both cases returned FIXED for a reason that had nothing to do with the scope (a lane whose output never reaches stdout compares equal at any scope), so the pair could not have disagreed and the agreement was worth nothing. Observing stderr, the two scopes are genuinely compared and genuinely agree.
+
+MOVED 2026-08-16 by the console-render-unification project. RE-MEASURED at `62b11a78c3` against node v26.7.0: **FIXED**, as for the module scope -- both engines exit 0 with empty stdout and `hi` on stderr. The verdict above is changed `silent` -> `fixed`. The scopes agreed before the move and agree after it. What moved it is in the module-scope case's rationale and is not repeated here.
+
+R-33 RETIRES ON THIS PAIR. It is the entry's only defective lane; `r33b` (the `console.error` control, both scopes) was already FIXED and is unchanged. Every lane of the entry now measures FIXED, which is the rule §3.4 of `docs/superpowers/followups/blast-radius-ranking.md` states -- an entry retires when EVERY lane moves, not one. Four further `console.warn` shapes beyond this pair's single string argument were measured by hand at `62b11a78c3`, plus the `console.error` control, and every one is byte-identical to node on stderr: two arguments (`a b`), a number (`42`), a comparison result (`true`), and the call inside a function body. Nothing was found that still carries the prefix, in either runtime."""
 
 [[case]]
 name = "r33b_console_error_has_no_prefix_module_scope"
@@ -861,3 +941,129 @@ This scope had never been measured for this entry. As of `61c2d48ea9`, R-34's `V
 RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `a:1`, `a: 1`, `v=1` at exit 0; node prints `a:true`, `a: true`, `v=true` at exit 0. Byte-identical to the module scope on both engines.
 
 That agreement is this case's whole contribution, and it is a NEW observation: R-34 now has a measured in-function scope, and a nested boolean-returning callee renders exactly as a top-level one does. It is consistent with the register's traced mechanism, which is a property of a call-emission site rather than of a scope, but consistency is not proof and this case does not assert the mechanism."""
+
+[[case]]
+name = "r32d_negative_integer_direct_log_module_scope"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32d_module.js"
+verdict = "fixed"
+rationale = """R-32, negative-integer control lane, module scope. SINK: the same single-argument `console.log` as `r32a`/`r32b`. PRODUCERS: two, and they are not the same lane -- line 1 (`var n = -5; console.log(n)`) is a **binding** read and line 2 (`console.log(-1234567)`) is a **bare literal**, i.e. the direct-log lane proper. (Label corrected 2026-08-16 at `62b11a78c3`: this sentence used to read "the same single-argument direct `console.log`". "Direct log" carries two senses in this corpus -- the loose one about the SINK ("not concat") and the strict one about the PRODUCER ("a bare literal, not a binding") -- and the strict sense is the one that applies HERE, because this rationale is enumerating which producers the case covers. Under it, "direct" mis-describes line 1. The strict sense is NOT global: `r30a` at `:29` and `:543`, and `r31a` at `:669`, all say "direct log" in the loose sink sense over binding reads, and all three are correct as written and are deliberately left alone. The mistake propagated into three claims that DID turn on the distinction -- §0.2's R-32 row, §2's R-32 "Why it does not retire" bullet, and R-55's repro note -- where it produced a false statement that NO `r32*` case measures the binding lane; all four are corrected together.) This lane is NOT in the register's R-32 body; it is added by the console-render-unification project (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md` §3.1) as a CONTROL, and it is filed under R-32 because it pins a boundary of the same direct-log number sink that entry owns.
+
+WHY IT EXISTS. `STRING_HANDLE_TAG` is `0x8000_0000_0000_0000` (`crates/kali_runtime/src/host/memory.rs:291`) -- the sign bit. Every negative i64 carries it, so `format_console_value` attempts a string-handle decode on every negative integer it renders. It survives only because the decoded offset/length fail `read_guest_bytes`' bounds check and the integer fallback runs. That is correctness by bounds-check failure, and this case is what pins it: if a future representation change makes some negative integer's bit pattern decode to a valid in-bounds range, this case goes red instead of a program silently printing garbage bytes.
+
+Expected verdict FIXED: both engines exit 0 with identical stdout.
+
+MEASURED 2026-08-15 at `034ab0ec94` against node v26.7.0: FIXED. kali prints `-5` then `-1234567`; node prints the same.
+
+WHAT IT DOES NOT ESTABLISH. It measures two negative integers, not the property that no negative integer decodes in-bounds -- which is not testable by example and is recorded as an open hazard in the spec's §3.1 and §8 rather than asserted here."""
+
+[[case]]
+name = "r32d_negative_integer_direct_log_in_function"
+kind = "oracle"
+register_entry = "R-32"
+program = "r32d_function.js"
+verdict = "fixed"
+rationale = """R-32, negative-integer control lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition. See the module-scope case for why this lane exists.
+
+Expected verdict FIXED, as for the module scope; the expected class assumes the scopes agree so that a disagreement goes red.
+
+MEASURED 2026-08-15 at `034ab0ec94` against node v26.7.0: FIXED. Byte-identical to the module scope."""
+
+[[case]]
+name = "r30e_string_result_reassigned_binding_single_arg_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30e_module.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, single-argument sink, module scope. This lane is NOT in the register's R-30 body; it is added by the console-render-unification project (`docs/superpowers/specs/2026-08-15-console-render-unification-design.md` §5.1) as the REGRESSION GUARD for its central risk, and filed under R-30 because it constrains the same single-argument direct-log sink `r30a`/`r30b`/`r30c` measure.
+
+WHAT IT GUARDS. `emit_console_argument` is deliberately EXEMPT from `string_result_render_taint` (`crates/kali_codegen/src/emit/call.rs:4756`), and this case exists to keep that exemption honest across a change that had every opportunity to lose it.
+
+BEFORE the unification, the exemption was structural: the single-argument lane never called `emit_as_string` at all. It handed the host a raw tagged i64 and let the host decode the string-handle tag at run time, so a value carrying `String()`-result provenance printed correctly even though codegen's static check denied it at every other sink. The risk the case was written against was that routing this lane through `emit_as_string` -- which DOES consult the taint -- would convert this working program into a fail-closed `E5506`, a regression the register would score as a new entry.
+
+AFTER the unification (commit `8a1f5e8e2c`, spec §5.1), that routing has happened: `emit_console_argument` (`call.rs:21`) now calls `emit_as_string` under `StringSink::Console`, and the exemption is no longer structural but explicit -- the deny is gated `sink == StringSink::Concat && self.string_result_render_taint(id)` (`crates/kali_codegen/src/emit/operators.rs:1887`), so the console sink short-circuits before the predicate is even consulted. The guard's job is unchanged and is now sharper: it fails the moment that condition stops naming `Concat`.
+
+THE PROGRAM REACHES THE TAINT; A `const s = String(42n)` BINDING DOES NOT. An earlier draft of this case bound `s` with a single `const` declarator, and that program never engages `string_result_render_taint` at all: `is_string_valued` (`operators.rs:978`) proves a direct `String(<bigint-literal>)` call a real string outright (`string_coercion_arg_is_proven_at_depth`'s `is_bigint_literal_valued` arm, `call.rs:3971`), and `string_result_render_taint` short-circuits `false` whenever `is_string_valued` is already true (`call.rs:4756`) -- so that program cannot guard the exemption it was written to guard; see `r30g` for that shape kept honest under its own label. This program instead REASSIGNS a plain-value `let` after a non-string initializer, which defeats `repr_infer`'s MONOMORPHIC `Repr::String` seed (`crates/kali_types/src/repr_infer.rs:1627-1678`, `resolve_string_result_taint`): the initializer write `s = 0n` is classified `string_result_binding_plain`, so `binding_is_monomorphic` is false and `s` is never seeded a proven `Repr::String` even though the reassignment write still seeds the TAINT set unconditionally. `s` therefore reaches the render sink carrying the taint and NO positive proof -- the actual F-newB-1 shape the exemption exists for.
+
+Expected verdict FIXED, and it must remain FIXED across the whole project. If this case ever reads `fail_closed`, the unification took the exemption away and the change must be reverted, not accommodated.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FIXED. kali prints `42` at exit 0; node prints `42` at exit 0. Confirmed the taint is genuinely engaged and not bypassed by re-running the emitter's own reasoning rather than assuming it: at that commit `console.log("x", s)` on this identical binding failed closed `E5506` (`r30f`), which only happens if `string_result_render_taint(s)` is true -- so this case's FIXED result is measured against a program that the taint predicate does see, not one it never reaches.
+
+RE-MEASURED 2026-08-15 at `8a1f5e8e2c` against node v26.7.0: FIXED, unchanged. kali prints `42` at exit 0; node prints `42` at exit 0 -- the exemption survived the routing, which is the whole point of this case. Note that the evidence sentence above is now HISTORY and not a live claim: `r30f` reads `fixed` at this commit, because the multi-argument lane joined the exemption as this project's one deliberate widening (§5.1.1). What is still live is the reason that sentence gave: `string_result_render_taint(s)` is still true for this binding, and `"v=" + s` still fails closed `E5506` under `StringSink::Concat`. The predicate did not move; the console sink stopped consulting it. Use the `+` sink, not `r30f`, to re-confirm that this program still reaches the taint.
+
+WHAT IT DOES NOT ESTABLISH. It measures one `String()`-result shape at one sink. The taint's provenance analysis is a whole-program fixpoint over bindings, reassignments and returns; this case samples it at a single point and asserts nothing about the rest."""
+
+[[case]]
+name = "r30e_string_result_reassigned_binding_single_arg_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30e_function.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, single-argument sink, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`. See the module-scope case for what it guards, why the reassignment is load-bearing, and why it must stay FIXED.
+
+The scope pair matters here beyond convention: `string_result_render_taint` keys partly on binding names and partly on callee return provenance, and those resolve differently at module scope and inside a function (`binding_is_string_result`, `call.rs:4717-4727`, checks both the `_start` scope and the enclosing function's scope). A regression that took the exemption away at one scope only would show as a split pair rather than as silence.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FIXED. kali prints `42` at exit 0; node prints `42` at exit 0. Identical to the module scope -- this project's investigation found no scope divergence on this lane."""
+
+[[case]]
+name = "r30f_string_result_reassigned_binding_multi_arg_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30f_module.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, MULTI-argument sink, module scope. The pair to `r30e`: the identical binding, module-scope program, differing only in argument count at the sink (`console.log("x", s)` instead of `console.log(s)`).
+
+WHY IT EXISTS. `string_result_render_taint`'s own doc listed its sinks as "`+`, template literal, multi-arg console via `emit_as_string`, or arithmetic operator lowering" -- quoted from `crates/kali_codegen/src/emit/call.rs:4729-4732` **as it read at `87673202a8`**, the commit this case was authored at. That sentence is HISTORICAL: the widening recorded below removed multi-arg console from the sink list, and the doc was corrected to say so in the 2026-08-16 fix wave, so a reader must not re-read those line numbers at HEAD and expect this quotation. So at `87673202a8` kali gave two different answers for the SAME value depending on how many arguments the call has: `console.log(s)` prints (`r30e`, taint-exempt), `console.log("x", s)` fails closed `E5506` (this case, tainted). That is G8's own pattern -- two sinks, two answers -- one level down inside console itself (design spec §5.1.1).
+
+EXPECTED TO MOVE. This case is authored `fail_closed` to pin the CURRENT behavior, and the console-render-unification project deliberately flips it to `fixed` (spec §5.1.1). That flip is the project's single behavior widening, and pinning it from both sides is what makes the widening legible as a decision in the diff rather than as a side effect. A reader should be able to see exactly one fail-closed disappear, on purpose.
+
+The widening is safe on the same grounds as the design's §3.1: `value_to_string` renders the handle that the taint existed to keep away from `int_to_string`, so on the console path the hazard the deny guarded is gone rather than merely tolerated.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FAIL_CLOSED. kali exits nonzero (exit 1) with `error[E5506]: rendering a String() result bound to a variable (let/var/const) or returned from a function is unavailable in the current phase: kali seeds no string representation for it, so the tagged string handle would print as raw integer bits instead of the text; use the String() call inline at the render site (fail-closed; correct-output support is follow-up F-newB-1)`; node prints `x 42` at exit 0.
+
+MOVED 2026-08-15 by the console-render-unification project, deliberately and as its only behavior widening (spec §5.1.1). Both console lanes now take `StringSink::Console`, whose terminal arm is `value_to_string` and which skips the `string_result_render_taint` deny. Nothing about the taint predicate changed: this program's reassigned binding (`let s = 0n; s = String(42n);`) still makes `string_result_render_taint(s)` true, and the `+`/template-literal sinks still deny on it under `StringSink::Concat`. What changed is that the console sink no longer asks -- `value_to_string` decodes the tagged handle at run time, so the hazard the deny guarded (the handle's raw bits through `int_to_string`) cannot arise on this arm. kali now prints `x 42`, matching node. The two console lanes agree with each other for the first time: before this commit this same reassigned binding printed at the single-argument sink (`r30e`) and failed closed at the multi-argument one, differing only by argument count.
+
+MEASURED 2026-08-15 after the flip against node v26.7.0: FIXED. kali prints `x 42` at exit 0; node prints `x 42` at exit 0."""
+
+[[case]]
+name = "r30f_string_result_reassigned_binding_multi_arg_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30f_function.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result REASSIGNED-BINDING lane, MULTI-argument sink, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`. See the module-scope case for why the lane exists and why it is expected to move to `fixed` in this project.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FAIL_CLOSED, matching the module scope. kali exits nonzero (exit 1) with the same `E5506` `STRING_RESULT_RENDER_DENY` message; node prints `x 42` at exit 0.
+
+MOVED 2026-08-15 by the console-render-unification project, with the module-scope case and for the same reason: both console lanes now take `StringSink::Console`, whose terminal arm is `value_to_string` and which skips the `string_result_render_taint` deny. The reassigned binding still trips the taint predicate and the `+`/template-literal sinks still deny on it; the console sink no longer consults it. See the module-scope case for the full argument.
+
+MEASURED 2026-08-15 after the flip against node v26.7.0: FIXED, matching the module scope. kali prints `x 42` at exit 0; node prints `x 42` at exit 0."""
+
+[[case]]
+name = "r30g_string_result_proven_binding_single_arg_module_scope"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30g_module.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result PROVEN-BINDING lane, single-argument sink, module scope. This is the program the project's own plan originally proposed for `r30e` (`const s = String(42n); console.log(s);`), kept here under an honest label after this project's investigation showed it does NOT reach `string_result_render_taint` -- see `r30e` for the reassigned-binding program that actually does.
+
+WHAT THIS CASE ACTUALLY GUARDS -- NOT THE TAINT. `const s = String(42n)` is a single-write `const`, so `resolve_string_result_taint`'s monomorphic check (`crates/kali_types/src/repr_infer.rs:1627-1678`) has nothing non-string feeding it; more directly, `is_string_valued` (`crates/kali_codegen/src/emit/operators.rs:978`) proves a direct `String(<bigint-literal>)` CALL a real string handle outright through its `String(<coercible>)` arm (`operators.rs:1130-1134`, `string_coercion_call_arg` / `string_coercion_arg_is_proven_at_depth`'s `is_bigint_literal_valued` arm at `call.rs:3971`), independent of any taint. `string_result_render_taint` (`call.rs:4754`) short-circuits `false` whenever `is_string_valued` is already true (`call.rs:4756`) -- so this program never asks the taint predicate anything, at either the single- or multi-argument sink, and could not have caught the regression `r30e` guards.
+
+WHY IT IS KEPT ANYWAY. Task 5 routes the single-argument console lane through `emit_as_string`'s ladder for the first time -- a ladder that lane has never touched. `r30e` guards the taint-deny arm of that ladder; this case guards the SEPARATE proven-String handle-passthrough arm the same ladder also has, which a value like this one reaches instead. Guarding only the tainted arm would leave the proven arm's first-ever exposure on this lane uncovered, so this case is not redundant with `r30e` even though both print `42` today -- they exercise different arms of the ladder `emit_console_argument` is about to start using. This case does NOT exercise `string_result_render_taint`, and a reader must not mistake it for the regression guard `r30e` is.
+
+Expected verdict FIXED, and expected to remain FIXED across the whole project -- unlike `r30e`, a red result here would mean the proven-string arm broke, not that a taint exemption was lost.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FIXED. kali prints `42` at exit 0; node prints `42` at exit 0.
+
+WHAT IT DOES NOT ESTABLISH. It measures one proven-string shape at one sink, and it establishes nothing about the taint boundary -- that is `r30e`'s and `r30f`'s job, not this case's."""
+
+[[case]]
+name = "r30g_string_result_proven_binding_single_arg_in_function"
+kind = "oracle"
+register_entry = "R-30"
+program = "r30g_function.js"
+verdict = "fixed"
+rationale = """R-30, `String()`-result PROVEN-BINDING lane, single-argument sink, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`. See the module-scope case for what this case guards (the proven-String passthrough arm, not the taint) and why it is kept despite not reaching `string_result_render_taint`.
+
+MEASURED 2026-08-15 at `87673202a8` against node v26.7.0: FIXED. kali prints `42` at exit 0; node prints `42` at exit 0. Identical to the module scope -- no scope divergence measured on this lane."""

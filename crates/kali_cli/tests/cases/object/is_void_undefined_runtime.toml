@@ -49,7 +49,7 @@ name = "run_supports_object_is_void_undefined_in_js_input"
 rationale = "Object.is(void 0, void 0), through an alias and every bracket/dot spelling of the Object.is call (including a plain local binding `same`), must all be true."
 args = ["run", "main.js"]
 exit = "success"
-stdout = "1\n1\n1\n1\n1\n1\n1\n"
+stdout = "true\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n"
 
 [[case]]
 name = "json_run_supports_object_is_void_undefined_in_js_input"
@@ -59,7 +59,7 @@ exit = "success"
 json.schemaVersion = 1
 json.command = "run"
 json.success = true
-json.stdout = "1\n1\n1\n1\n1\n1\n1\n"
+json.stdout = "true\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n"
 json.errors = []
 
 [[case]]
@@ -67,7 +67,7 @@ name = "test_supports_object_is_void_undefined_in_js_input"
 rationale = "Same void-undefined Object.is fold, run through `Kali.test(...)` via the `test` command instead of `run`."
 args = ["test", "smoke.test.js"]
 exit = "success"
-stdout_contains = ["1\n1\n1\n1\n1\n1\n1", "ok 1"]
+stdout_contains = ["true\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue", "ok 1"]
 
 [[case]]
 name = "json_test_supports_object_is_void_undefined_in_js_input"

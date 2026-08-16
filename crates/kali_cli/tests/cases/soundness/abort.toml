@@ -213,13 +213,13 @@ rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new
 
 The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
 
-Dynamic booleans render 1/0 (ratified P2 convention; node prints true/false — documented divergence, never used in byte-for-byte acceptance fixtures).
+Dynamic-boolean rendering, UPDATED by `console-render-unification` Task 5b: `c.signal.aborted` is a member read of the AbortSignal's real lowered cell, not a plain local-binding read — codegen produces a comparison-shaped value for it, which the shared string-coercion ladder can prove, so it now renders `false`/`true` (matching node) rather than the raw `0`/`1` i64 this case previously pinned under the P2 convention.
 
 Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
 args = ["run", "aborted_flag_reads_zero_then_one.js"]
 exit = "success"
-stdout = """0
-1
+stdout = """false
+true
 """
 
 # --- Task 4: `.signal` identity, `.aborted` read, signal alias ---------------
@@ -232,10 +232,12 @@ The atomic core of the stage: the exclusion-list flip (`declarator_init_is_place
 
 A `const s = c.signal` alias reads the same underlying cell as `c.signal` itself.
 
+UPDATED by `console-render-unification` Task 5b: `.aborted` is tagged `ValueShape::Boolean` at the read site (`crates/kali_codegen/src/emit/control_flow.rs`, the "real load of the shared cell" comment), a shape the shared string-coercion ladder can prove, so this now renders `true` rather than the raw `1` i64 this case previously pinned.
+
 Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
 args = ["run", "signal_alias_reads_shared_cell.js"]
 exit = "success"
-stdout = """1
+stdout = """true
 """
 
 [[case]]

@@ -11006,8 +11006,7 @@ fn run_supports_console_level_routing_in_js_input() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stdout.contains("info"), "stdout: {stdout}");
     assert!(stdout.contains("debug"), "stdout: {stdout}");
-    assert!(stderr.contains("err"), "stderr: {stderr}");
-    assert!(stderr.contains("[warn] warn"), "stderr: {stderr}");
+    assert_eq!(stderr, "err\nwarn\n");
 }
 
 #[test]
@@ -11095,7 +11094,7 @@ console.log([0, 1, 2, 1].lastIndexOf(1));
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
-    assert_eq!(lines, ["1", "3", "1", "3"], "stdout: {stdout}");
+    assert_eq!(lines, ["true", "3", "1", "3"], "stdout: {stdout}");
 }
 
 #[test]
@@ -12798,8 +12797,7 @@ fn run_supports_console_level_routing() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stdout.contains("info"), "stdout: {stdout}");
     assert!(stdout.contains("debug"), "stdout: {stdout}");
-    assert!(stderr.contains("err"), "stderr: {stderr}");
-    assert!(stderr.contains("[warn] warn"), "stderr: {stderr}");
+    assert_eq!(stderr, "err\nwarn\n");
 }
 
 #[test]
@@ -13204,7 +13202,7 @@ fn run_supports_object_is_infinity_and_nan_literals_in_js_input() {
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "1\n1\n1", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "true\ntrue\ntrue", "stdout: {stdout}");
 }
 
 #[test]
@@ -13232,7 +13230,7 @@ fn json_run_supports_object_is_infinity_and_nan_literals_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    assert_eq!(json["stdout"], "1\n1\n1\n");
+    assert_eq!(json["stdout"], "true\ntrue\ntrue\n");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
@@ -13256,7 +13254,7 @@ fn run_supports_object_is_same_static_reference_alias_chain_in_js_input() {
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "1\n1", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "true\ntrue", "stdout: {stdout}");
 }
 
 #[test]
@@ -13284,7 +13282,7 @@ fn json_run_supports_object_is_same_static_reference_alias_chain_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    assert_eq!(json["stdout"], "1\n1\n");
+    assert_eq!(json["stdout"], "true\ntrue\n");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
@@ -13304,7 +13302,7 @@ fn run_supports_object_is_unary_plus_wrapped_numeric_literals_in_js_input() {
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "1", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "true", "stdout: {stdout}");
 }
 
 #[test]
@@ -13328,7 +13326,7 @@ fn json_run_supports_object_is_unary_plus_wrapped_numeric_literals_in_js_input()
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    assert_eq!(json["stdout"], "1\n");
+    assert_eq!(json["stdout"], "true\n");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
@@ -13355,7 +13353,10 @@ fn run_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_t
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("0\n1\n1\n1\n1"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("false\ntrue\ntrue\ntrue\ntrue"),
+        "stdout: {stdout}"
+    );
 }
 
 #[test]
@@ -13386,7 +13387,10 @@ fn json_run_supports_object_is_numeric_literals_in_browser_api_surface_with_harn
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    assert_eq!(json["stdout"], "0\n1\n1\n1\n1\n1\n1\n");
+    assert_eq!(
+        json["stdout"],
+        "false\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n"
+    );
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
@@ -14161,13 +14165,13 @@ fn run_and_test_supports_object_freeze_wrapped_math_and_number_roots_when_browse
             "test",
             "smoke.test.ts",
             "Kali.test('frozen math roots', () => { const zero = 0; const one = 1; console.log(Object.freeze(Math).exp(zero)); console.log(Object.freeze(globalThis[\"Math\"]).log(one)); console.log(Object.freeze(Number).isFinite(zero)); console.log(Object.freeze(globalThis[\"Number\"]).isInteger(one)); });\n",
-            "1\n0\n1\n1\nok 1",
+            "1\n0\ntrue\ntrue\nok 1",
         ),
         (
             "test",
             "smoke.test.js",
             "Kali.test('frozen math roots', () => { const zero = 0; const one = 1; console.log(Object.freeze(Math).exp(zero)); console.log(Object.freeze(globalThis[\"Math\"]).log(one)); console.log(Object.freeze(Number).isFinite(zero)); console.log(Object.freeze(globalThis[\"Number\"]).isInteger(one)); });\n",
-            "1\n0\n1\n1\nok 1",
+            "1\n0\ntrue\ntrue\nok 1",
         ),
     ] {
         for output_json in [false, true] {

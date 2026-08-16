@@ -658,7 +658,7 @@ fn check_build_and_run_accept_deno_env_has_in_js_input() {
 
     assert!(output.status.success(), "run failed: {:?}", output);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "1", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "true", "stdout: {stdout}");
 }
 
 #[test]
@@ -693,7 +693,7 @@ fn check_build_and_run_accept_deno_env_has_in_jsx_tsx_input() {
 
         assert!(output.status.success(), "run failed: {:?}", output);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout.trim(), "1", "stdout: {stdout}");
+        assert_eq!(stdout.trim(), "true", "stdout: {stdout}");
     }
 }
 

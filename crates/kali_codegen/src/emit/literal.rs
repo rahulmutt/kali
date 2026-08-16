@@ -1,3 +1,4 @@
+use crate::emit::operators::StringSink;
 use crate::*;
 
 /// Source of a dynamic array element index for `a[...] = v` writes: either a
@@ -1121,7 +1122,7 @@ impl<'a> FunctionEmitter<'a> {
                     // must NOT be reclaimed. Routed through the shared selector
                     // anyway so the two concat sites stay a single oracle.
                     function.instruction(&Instruction::LocalGet(index));
-                    self.emit_as_string(function, right);
+                    self.emit_as_string(function, right, StringSink::Concat);
                     function.instruction(&Instruction::Call(self.string_concat_import_index(id)));
                     function.instruction(&Instruction::LocalTee(index));
                     return true;

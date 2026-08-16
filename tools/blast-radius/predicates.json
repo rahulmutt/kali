@@ -118,6 +118,9 @@
       "description": "a call to `console.warn(...)`" },
     { "id": "R-34", "kind": "countable",
       "matcher": "booleanReturningFunctionCallInStringPosition",
-      "description": "a call to a user function whose `return` yields a comparison, `!`, or logical expression, used as a `+` concat operand or as a non-first `console.log` argument" }
+      "description": "a call to a user function whose `return` yields a comparison, `!`, or logical expression, used as a `+` concat operand or as a non-first `console.log` argument" },
+    { "id": "R-56", "kind": "countable",
+      "matcher": "objectLiteralQuotedNumericStringKey",
+      "description": "an object-literal property whose key is a non-computed string literal whose own text begins and ends with a double quote and whose inner text reads as a number -- upper bound, since the exact condition is that the inner text lies in Rust's `Display for f64` image, which an acorn AST cannot reproduce" }
   ]
 }

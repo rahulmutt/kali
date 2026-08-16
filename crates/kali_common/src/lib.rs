@@ -8,6 +8,7 @@
 
 mod helpers;
 pub mod interner;
+pub mod js_number;
 pub mod source_map;
 pub mod span;
 pub mod template;

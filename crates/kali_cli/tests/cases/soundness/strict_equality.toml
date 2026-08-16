@@ -215,9 +215,9 @@ console.log(c3 ?? 9);
 "nullish_coalescing_over_const_bound_member_read_is_a_known_residual.ts" = """const o = { a: 0 };
 console.log(o.a ?? 9);
 """
-"nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual.ts" = """console.log(false ?? 9);
+"nullish_coalescing_boolean_literal_result_renders_correctly.ts" = """console.log(false ?? 9);
 """
-"nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual.ts" = """console.log(null ?? false);
+"nullish_coalescing_right_operand_boolean_renders_correctly.ts" = """console.log(null ?? false);
 """
 "nullish_coalescing_boolean_result_loses_shape_in_concat_is_a_known_residual.ts" = """console.log("w:" + (Number.isInteger(5) ?? 9));
 """
@@ -609,10 +609,18 @@ args = ["run", "nullish_coalescing_over_const_bound_member_read_is_a_known_resid
 exit = "success"
 stdout = "9\n"
 
-# --- RESIDUAL, pinned honestly — FAMILY (b), SINGLE-ARGUMENT `console.log` ONLY (scope corrected 2026-07-19, round 4 — see FAMILY (c) below for the part of this... ---
+# --- FAMILY (b), SINGLE-ARGUMENT `console.log` ONLY (scope corrected 2026-07-19, round 4 — see FAMILY (c) below for the part of this... ---
+# RESOLVED 2026-08-15 (console-render-unification, Task 5b): FAMILY (b) was pinned as R-30 observed
+# through `??`, explicitly blocked on "R-30's own fix (unify the console formatters)" and explicitly
+# NOT blocked on the `Repr::Boolean`/null axis (see each case's own rationale below, left intact).
+# R-30's fix landed exactly as this section predicted: `emit_console_argument`'s hand-rolled body was
+# deleted and both console lanes now route through the shared `emit_as_string` ladder. The `??`
+# selection's `shape: ValueShape::Boolean` (never touched by this fix -- `selected_nullish_operand`
+# was already correct) is now honored by the sink too, so both cases below render `true`/`false`.
+# FAMILY (c) is untouched by this and remains open -- its own rationale already says so.
 
 [[case]]
-name = "nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual"
+name = "nullish_coalescing_boolean_literal_result_renders_correctly"
 rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
 
 kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
@@ -629,13 +637,15 @@ Mechanism: when `??`'s left operand is provably `Boolean`-classed (never nullish
 
 The multi-argument console lane and string concatenation, for a PROVABLE operand (a bare literal, and everything else this file's mechanism comment above enumerates), DO honor `shape: Boolean` and are NOT affected by THIS section — see the passing (non-residual) coverage this section deliberately omits. **Round 4 correction: this does NOT mean those two lanes are unconditionally fine — see FAMILY (c) below for the UNPROVABLE-operand case, which they do NOT handle.**
 
-Do not route these pins through string concatenation (`"n:" + (false ?? 9)`) — that takes `emit_as_string`'s correct path over this PROVABLE (literal) operand (per the existing `nullish_coalescing_does_not_treat_falsy_as_nullish` test above) and would mask this residual entirely, which is exactly what happened to a green suite in an earlier round."""
-args = ["run", "nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual.ts"]
+Do not route these pins through string concatenation (`"n:" + (false ?? 9)`) — that takes `emit_as_string`'s correct path over this PROVABLE (literal) operand (per the existing `nullish_coalescing_does_not_treat_falsy_as_nullish` test above) and would mask this residual entirely, which is exactly what happened to a green suite in an earlier round.
+
+RESOLVED 2026-08-15 (console-render-unification, Task 5b): this section's own update signal ("blocked on R-30's own fix (unify the console formatters)... these two pins are NOT blocked on the Repr::Boolean/null axis") fired. `emit_console_argument`'s hand-rolled single-argument sink was deleted and replaced by a call into the same `emit_as_string` ladder the `+`/multi-argument lanes already used, gated by a `StringSink::Console` vs `StringSink::Concat` parameter rather than by a separate hand-written body. `??`'s branch selection was never the defect -- `selected_nullish_operand` already tagged this result `shape: ValueShape::Boolean` before this fix, exactly as the mechanism paragraph above describes -- so nothing about how `??` classifies or selects its operand changed here. What changed is only that the sink `false ?? 9` reaches now inspects that shape instead of discarding everything but `Float`, so the selected `false` renders as the JS word. This is renamed from `..._loses_shape_is_a_known_residual` because, for this shape, it no longer does; the rationale above is left intact as the historical record of the defect and the exact prediction of its fix."""
+args = ["run", "nullish_coalescing_boolean_literal_result_renders_correctly.ts"]
 exit = "success"
-stdout = "0\n"
+stdout = "false\n"
 
 [[case]]
-name = "nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual"
+name = "nullish_coalescing_right_operand_boolean_renders_correctly"
 rationale = """Soundness pins for the strict/loose equality and nullish-coalescing conflation closed in soundness batch 1 (Fix 4).
 
 kali stores every value in an untyped i64 slot. `0`, `false`, `null` and `undefined` all lower to the bit pattern `0`, and `true` lowers to `1`, so the generic `i64.eq` lowering of `===` reported `0 === null`, `0 === false`, `null === undefined` and `1 === true` as `true` (node: `false` for all four). That is wrong CONTROL FLOW, not just a wrong printed value: every `if (x === null)` guard fired when `x` was `0`. The same raw-bit-pattern test made `??` treat `0` and `false` as nullish (`0 ?? 9` → `9`).
@@ -652,10 +662,12 @@ Mechanism: when `??`'s left operand is provably `Boolean`-classed (never nullish
 
 The multi-argument console lane and string concatenation, for a PROVABLE operand (a bare literal, and everything else this file's mechanism comment above enumerates), DO honor `shape: Boolean` and are NOT affected by THIS section — see the passing (non-residual) coverage this section deliberately omits. **Round 4 correction: this does NOT mean those two lanes are unconditionally fine — see FAMILY (c) below for the UNPROVABLE-operand case, which they do NOT handle.**
 
-Do not route these pins through string concatenation (`"n:" + (false ?? 9)`) — that takes `emit_as_string`'s correct path over this PROVABLE (literal) operand (per the existing `nullish_coalescing_does_not_treat_falsy_as_nullish` test above) and would mask this residual entirely, which is exactly what happened to a green suite in an earlier round."""
-args = ["run", "nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual.ts"]
+Do not route these pins through string concatenation (`"n:" + (false ?? 9)`) — that takes `emit_as_string`'s correct path over this PROVABLE (literal) operand (per the existing `nullish_coalescing_does_not_treat_falsy_as_nullish` test above) and would mask this residual entirely, which is exactly what happened to a green suite in an earlier round.
+
+RESOLVED 2026-08-15 (console-render-unification, Task 5b): see `nullish_coalescing_boolean_literal_result_renders_correctly`'s resolution note -- the same fix, the same unaffected `??` selection logic (`null ?? false` still correctly selects the right operand `false`; that decision did not change), and the same reasoning applies here for the right-operand case. Renamed from `..._loses_shape_is_a_known_residual` for the same reason; the rationale above is left intact as the historical record."""
+args = ["run", "nullish_coalescing_right_operand_boolean_renders_correctly.ts"]
 exit = "success"
-stdout = "0\n"
+stdout = "false\n"
 
 # --- RESIDUAL, pinned honestly — FAMILY (c) (NEW 2026-07-19, round 4 — split out of what round 3 wrongly retired as "the same as FAMILY (b) / R-30, closes when... ---
 
