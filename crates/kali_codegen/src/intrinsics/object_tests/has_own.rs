@@ -523,19 +523,18 @@ fn object_literal_key_renumbers_exactly_the_spellings_hir_can_write() {
     // `n` suffix, and the non-literal values NaN / negative.
     for inner in [
         "1e21", "1e-7", "5e3", "5E3", // exponent: Display never emits one
-        "+5", // sign PREFIX on a positive value: Display never writes one.
-              // (`-5` is absent on purpose -- it IS in the image, see above.)
+        "+5",  // sign PREFIX on a positive value: Display never writes one.
+        // (`-5` is absent on purpose -- it IS in the image, see above.)
         "05", "00", // leading zero
         "5.", ".5", "0.0", // trailing / leading dot, redundant fraction
-        "42n",  // `n` suffix
+        "42n", // `n` suffix
         "NaN", "nan", // no numeric literal denotes NaN
         // `-0` is genuinely unreachable AS A SPELLING even though negatives are
         // reachable as values: the parser folds `{[-0]: 1}` to a signed zero and
         // HIR collapses both zeros to "0". `-5` and `-inf` are NOT here -- they
         // are in the generated image set above, because `{[-5]: 1}` and
         // `{[-1e999]: 1}` write exactly those.
-        "-0",
-        "infinity", // Display writes "inf", never this
+        "-0", "infinity", // Display writes "inf", never this
         " 5", "5 ", "1_000", "0x10", "", // not numbers at all
     ] {
         let text = format!("\"{inner}\"");

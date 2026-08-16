@@ -565,7 +565,7 @@ fn math_sqrt_runtime_f64() {
     assert_eq!(run_js("console.log(Math.sqrt(2) < 1);\n"), "false\n");
     // perfect square still constant-folds correctly.
     assert_eq!(run_js("console.log(Math.sqrt(9) < 4);\n"), "true\n"); // 3 < 4
-                                                                   // sqrt of a computed float (the spectral-norm shape).
+                                                                      // sqrt of a computed float (the spectral-norm shape).
     assert_eq!(
         run_js("let r = 1 / 4;\nconsole.log(Math.sqrt(r) < 1);\n"),
         "true\n"

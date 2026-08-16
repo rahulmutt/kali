@@ -13387,7 +13387,10 @@ fn json_run_supports_object_is_numeric_literals_in_browser_api_surface_with_harn
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    assert_eq!(json["stdout"], "false\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n");
+    assert_eq!(
+        json["stdout"],
+        "false\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n"
+    );
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 

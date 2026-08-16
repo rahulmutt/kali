@@ -4893,7 +4893,10 @@ fn assert_object_is_same_reference_alias_chain_in_browser_harness(
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("true\ntrue\ntrue\ntrue"), "stdout: {stdout}");
+        assert!(
+            stdout.contains("true\ntrue\ntrue\ntrue"),
+            "stdout: {stdout}"
+        );
     }
 }
 

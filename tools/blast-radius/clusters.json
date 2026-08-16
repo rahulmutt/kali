@@ -18,7 +18,18 @@
     "by lane (R-23, R-28). This is a known over-attribution and is disclosed in the ranking.",
     "",
     "ONLY SILENT ENTRIES APPEAR HERE (spec §8.1). The ranking's generator fails if this file",
-    "assigns an entry the regenerated §0.2 does not measure SILENT, or omits one it does."
+    "assigns an entry the regenerated §0.2 does not measure SILENT, or omits one it does.",
+    "",
+    "REMOVED 2026-08-16 at `62b11a78c3` by the console-render-unification project: R-32 and",
+    "R-33, both formerly G8. Neither has a SILENT lane in §0.2 any more -- R-33's `console.warn`",
+    "prefix lane and R-32's past-threshold direct-log lane both moved to FIXED -- so the rule",
+    "in the paragraph above required their removal and the generator refused to run until it",
+    "was done. Leaving G8 with R-23, R-30 and R-31. This is a statement about the DANGEROUS",
+    "class only: R-33 is genuinely retired, but R-32 is NOT -- its §0.2 row records open",
+    "behaviour at `1e21` in the binding and concat lanes that no live oracle case pins. An",
+    "entry can leave this file without being fixed, exactly as R-01 and R-20 (FAIL_CLOSED) and",
+    "R-29 (ACCEPTS_INVALID) already do; R-04 and R-07 are absent for the opposite reason,",
+    "being FIXED."
   ],
   "clusters": [
     {
@@ -245,20 +256,6 @@
     },
     {
       "id": "R-31",
-      "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
-      "registerSource": "G8.",
-      "alternate": null,
-      "alternateCluster": null
-    },
-    {
-      "id": "R-32",
-      "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
-      "registerSource": "G8.",
-      "alternate": null,
-      "alternateCluster": null
-    },
-    {
-      "id": "R-33",
       "cluster": "G8 — per-sink rendering divergence: direct-log and concat are separate formatters",
       "registerSource": "G8.",
       "alternate": null,

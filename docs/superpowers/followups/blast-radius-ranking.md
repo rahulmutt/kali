@@ -90,8 +90,8 @@ working as designed, and it is the first thing §6 discusses.
 | node | `v26.7.0` | `counts.json` |
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/.cache/cargo-target/debug/kali`) | `accepts.json` |
-| §0.2's verdicts, measured at | `4cfa218814` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `87673202a8` | `git rev-parse HEAD`, recorded by the generator |
+| §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
+| this document generated at | `62b11a78c3` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -172,8 +172,6 @@ A cluster is a **root cause** — the unit a fix ships in — not a topic. Every
 | R-28 | 2 | R-28 (unclustered) | unclustered. | §3's G8 member list names R-28's rendering half; §3's own Unclustered line names its value half. Both lanes measure SILENT, and the count is per entry. |
 | R-30 | 4 | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | G8. | — |
 | R-31 | 4 | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | G8. | — |
-| R-32 | 4 | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | G8. | — |
-| R-33 | 4 | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | G8. | — |
 | R-34 | 4 | R-34 (unclustered) | not G8 (see below) -- currently unclustered. | §3's G8 member list still names R-34; §2's own entry refuses it. |
 | R-47 | 2 | R-47 (unclustered) | unclustered. It has **G3**'s shape ... with a **G7** flavour ... deliberately *not* added to G3's member list. | G3 by shape, G7 by discriminator -- both named and both declined by the register. |
 | R-48 | 2 | N1 — escape/provenance loss | unclustered (escape/provenance-loss family, with R-14). | — |
@@ -194,7 +192,7 @@ Frequency is the count over the 127 corpus programs kali accepts, of which 126 a
 | G4 — there is no value distinct from the scalar `0` | 2 | n/a — uncountable member | R-08, R-21, R-53 |
 | G5 — a string handle reaches a consumer that never proved it was a string | 2 | n/a — uncountable member | R-16, R-17, R-18 |
 | R-22 (unclustered) | 2 | n/a — uncountable member | R-22 |
-| G8 — per-sink rendering divergence: direct-log and concat are separate formatters | 2 | 65 | R-23, R-30, R-31, R-32, R-33 |
+| G8 — per-sink rendering divergence: direct-log and concat are separate formatters | 2 | 59 | R-23, R-30, R-31 |
 
 *Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested assignment and finds two that move a band 1: R-21 (both axes) and R-23 (the reachable axis, by changing G8's worst tier). Quote this table with §2.4, not on its own.*
 
@@ -233,7 +231,7 @@ Frequency is the count over the 127 corpus programs kali accepts, of which 126 a
 |---|---|---|---|
 | R-34 (unclustered) | 4 | 0 | R-34 |
 
-**Countable-only band 1** (the same computation with every uncountable cluster dropped rather than carried, so a reader can see the measured frontier on its own): G2 — call lowering: unresolvable callee folds to constant `0` (tier 1, 0); R-52 (unclustered) (tier 1, 0); G8 — per-sink rendering divergence: direct-log and concat are separate formatters (tier 2, 65).
+**Countable-only band 1** (the same computation with every uncountable cluster dropped rather than carried, so a reader can see the measured frontier on its own): G2 — call lowering: unresolvable callee folds to constant `0` (tier 1, 0); R-52 (unclustered) (tier 1, 0); G8 — per-sink rendering divergence: direct-log and concat are separate formatters (tier 2, 59).
 
 ### 2.3 The raw axis — published beside it, never instead of it
 
@@ -256,13 +254,13 @@ The same clusters banded on the count over all 177 corpus programs, accepted or 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
 | G2 — call lowering: unresolvable callee folds to constant `0` | 1 | 3 | R-51 |
-| G8 — per-sink rendering divergence: direct-log and concat are separate formatters | 2 | 102 | R-23, R-30, R-31, R-32, R-33 |
+| N1 — escape/provenance loss | 2 | 99 | R-14, R-48 |
 
 **Band 3**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
-| N1 — escape/provenance loss | 2 | 99 | R-14, R-48 |
+| G8 — per-sink rendering divergence: direct-log and concat are separate formatters | 2 | 79 | R-23, R-30, R-31 |
 
 **Band 4**
 
@@ -306,11 +304,11 @@ The same clusters banded on the count over all 177 corpus programs, accepted or 
 
 ### 2.4 How much the contested assignments matter
 
-9 of the 29 ranked entries have a second cluster the register names with a concrete destination. Each is moved to it, alone, and both band 1s are recomputed. A clustering that cannot be argued with is not a measurement, so the argument is priced here rather than asserted away.
+9 of the 27 ranked entries have a second cluster the register names with a concrete destination. Each is moved to it, alone, and both band 1s are recomputed. A clustering that cannot be argued with is not a measurement, so the argument is priced here rather than asserted away.
 
 | entry | assigned | moved to | reachable band 1 | raw band 1 |
 |---|---|---|---|---|
-| R-08 | G4 — there is no value distinct from the scalar `0` | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | unchanged | unchanged |
+| R-08 | G4 — there is no value distinct from the scalar `0` | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | gains **G3 — guards whose own diagnostic text names the unsoundness that leaks past them**; loses **G8 — per-sink rendering divergence: direct-log and concat are separate formatters** | unchanged |
 | R-15 | G6 — unresolved or unimplemented builtins fold to a default instead of failing closed | G5 — a string handle reaches a consumer that never proved it was a string | unchanged | unchanged |
 | R-18 | G5 — a string handle reaches a consumer that never proved it was a string | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | unchanged | unchanged |
 | R-21 | G4 — there is no value distinct from the scalar `0` | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | gains **G3 — guards whose own diagnostic text names the unsoundness that leaks past them**; loses **G4 — there is no value distinct from the scalar `0`** | gains **G8 — per-sink rendering divergence: direct-log and concat are separate formatters**; loses **G4 — there is no value distinct from the scalar `0`** |
@@ -345,10 +343,8 @@ Every input to §2, so a reader who disagrees with the clustering can re-band fr
 | R-26 | 2 | 12 | 0 | 1 / 0 | 11 / 0 | SILENT | present-but-unreachable | yes (disclosed in record) | R-26 (unclustered) |
 | R-27 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | — | R-27 (unclustered) |
 | R-28 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT / SILENT | unsampled | — | R-28 (unclustered) |
-| R-30 | 4 | 73 | 57 | 61 / 57 | 12 / 0 | SILENT / FIXED / FAIL_CLOSED | — | yes (disclosed in record) | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
+| R-30 | 4 | 73 | 57 | 61 / 57 | 12 / 0 | SILENT / FIXED | — | yes (disclosed in record) | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
 | R-31 | 4 | 3 | 2 | 2 / 2 | 1 / 0 | SILENT / SILENT | — | — | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
-| R-32 | 4 | 6 | 5 | 0 / 0 | 6 / 5 | SILENT / FIXED | — | — | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
-| R-33 | 4 | 17 | 1 | 0 / 0 | 17 / 1 | SILENT / FIXED | — | — | G8 — per-sink rendering divergence: direct-log and concat are separate formatters |
 | R-34 | 4 | 4 | 0 | 0 / 0 | 4 / 0 | SILENT | present-but-unreachable | — | R-34 (unclustered) |
 | R-47 | 2 | 1 | 0 | 0 / 0 | 1 / 0 | SILENT / FAIL_CLOSED / FIXED | present-but-unreachable | — | R-47 (unclustered) |
 | R-48 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | — | N1 — escape/provenance loss |
@@ -358,9 +354,9 @@ Every input to §2, so a reader who disagrees with the clustering can re-band fr
 
 ### 3.1 What the SILENT filter removed, and what it cost the ranking
 
-Spec §8.1 removes these 12 entries for **two different reasons**, and collapsing them would misdescribe 2 of them:
+Spec §8.1 removes these 14 entries for **two different reasons**, and collapsing them would misdescribe 2 of them:
 
-- **Not damage** — `FIXED`, `FAIL_CLOSED`, `BOTH_REJECT`. kali either agrees with node or refuses honestly. 10 entries leave this way: R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20, R-49.
+- **Not damage** — `FIXED`, `FAIL_CLOSED`, `BOTH_REJECT`. kali either agrees with node or refuses honestly. 12 entries leave this way: R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20, R-32, R-33, R-49.
 - **Outside this ranking's question** — `ACCEPTS_INVALID`, `FL_INTERNAL`, `TIMEOUT`, `NONDETERMINISTIC`. §8.1 *reports* these in the regenerated table and keeps them out of the ranking, whose question is *what silent defect should be fixed next*. 2 entries leave this way: R-29, R-54. The distinction is not pedantic: R-29's §0.2 row records kali printing `r=1` at exit 0 with no diagnostic, which is silent by any plain reading. It is out because accepting a program node rejects is a different defect class from giving a wrong answer to a valid one — not because nothing bad happens.
 
 Their counts are printed because the removal is not cosmetic: it takes the largest reachable count in the whole measurement out of the ranking.
@@ -369,6 +365,8 @@ Their counts are printed because the removal is not cosmetic: it takes the large
 |---|---|---|---|---|
 | R-07 | 2 | 449 | 82 | FIXED |
 | R-04 | 1 | 112 | 5 | FIXED |
+| R-32 | 4 | 6 | 5 | FIXED |
+| R-33 | 4 | 17 | 1 | FIXED |
 | R-01 | 1 | 18 | 0 | FAIL_CLOSED |
 | R-02 | 1 | 2 | 0 | FAIL_CLOSED |
 | R-03 | 1 | 15 | 0 | FAIL_CLOSED |
@@ -380,9 +378,9 @@ Their counts are printed because the removal is not cosmetic: it takes the large
 | R-49 | 1 | 2 | 0 | FAIL_CLOSED |
 | R-54 | 3 | uncountable | uncountable | ACCEPTS_INVALID |
 
-Only 2 of the 12 removed entries have a nonzero reachable count at all: R-04 (5) and R-07 (82). The largest of them, R-07 at 82, is **the largest reachable count anywhere in `counts.json`** — larger than the largest that survives the filter (R-30 at 57). The ranking's numeric input is much thinner than the raw measurement looks.
+Only 4 of the 14 removed entries have a nonzero reachable count at all: R-04 (5) and R-07 (82) and R-32 (5) and R-33 (1). The largest of them, R-07 at 82, is **the largest reachable count anywhere in `counts.json`** — larger than the largest that survives the filter (R-30 at 57). The ranking's numeric input is much thinner than the raw measurement looks.
 
-And of the 29 entries that do enter, **9 have a reachable count above zero** (R-06 = 1, R-08 = 15, R-10 = 1, R-13 = 45, R-14 = 11, R-30 = 57, R-31 = 2, R-32 = 5, R-33 = 1); 17 measure zero and 3 have no count at all. The bands below separate 16 clusters on the evidence of 9 nonzero entries.
+And of the 27 entries that do enter, **7 have a reachable count above zero** (R-06 = 1, R-08 = 15, R-10 = 1, R-13 = 45, R-14 = 11, R-30 = 57, R-31 = 2); 17 measure zero and 3 have no count at all. The bands below separate 16 clusters on the evidence of 7 nonzero entries.
 
 ### 3.2 R-13's number is not R-13's shape
 
@@ -403,7 +401,7 @@ A count is an upper bound when the predicate admits sites the defect does not re
 
 ### 3.4 A lane result is not an entry result
 
-11 of the 29 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED / FAIL_CLOSED); R-32 (SILENT / FIXED); R-33 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). §0.2 records why in each case — R-47's and R-53's FIXED lanes are the `const` controls those entries declare for themselves, and R-30's four FIXED lanes are its `const`-scalar lane, its concat/template sinks, a taint-reaching `String()`-result console lane, and a proven-`String()` one, so *declared control* is the accurate description and *`const` lane* is not. R-08's `===` half fails closed while its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
+9 of the 27 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). **This list can never hold a retired entry, by construction.** It is built from the entries the SILENT filter admits, and an entry whose every lane has moved has no SILENT lane left, so it is removed by that filter before this list is assembled and leaves the ranking altogether rather than appearing here as all-FIXED. §3.1 is where such an entry surfaces. R-33 left exactly that way on 2026-08-16 — its `console.warn` lane moved and its `console.error` control was already FIXED — and it is genuinely retired. R-32 left by the same door on the same day and is **not** retired: leaving is a statement about the dangerous class, not about being fixed, and §0.2's R-32 row records the `1e21` binding and concat behaviour that still holds it open with no live case pinning it. §0.2 records why in each remaining case — R-47's and R-53's FIXED lanes are the `const` controls those entries declare for themselves. R-30's six FIXED case-lanes are of two kinds, and the difference is worth keeping: four are controls the entry declares for itself (its `const`-scalar lane, its concat/template sinks, and the taint-reaching and proven-`String()` guards at the single-argument sink), while two — its `const`-object-field lane and the taint-reaching `String()`-result lane at the MULTI-argument sink — genuinely moved on 2026-08-16. So *declared control* is the accurate description of the first four and *`const` lane* is not, and neither kind retires the entry, because its plain `var`-binding lane is still SILENT. R-08's `===` half fails closed while its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
 
 ## 4. The uncountable entries
 
@@ -470,6 +468,49 @@ argues it says so. Sections 2 to 5 are the measurement; this section is what one
 reader thinks the measurement means, and a later reader is free to disagree with
 it without disturbing a single number above.
 
+**AMENDMENT 2026-08-16, at `62b11a78c3` — the first regeneration driven by a
+change from outside the ranking project, and it moved §2.** The
+console-render-unification project
+(`docs/superpowers/specs/2026-08-15-console-render-unification-design.md`) moved
+three §0.2 rows. **R-33 retired** — every lane of it moved, which is §3.4's rule.
+**R-32's live lanes are all FIXED**, though its §0.2 row records that it is *not*
+retired: behaviour its own title claims is still broken at `1e21` in the binding
+and concat lanes, pinned by no live case. Both therefore lose their SILENT lane,
+leave the SILENT filter, and are removed from `tools/blast-radius/clusters.json`,
+where they were **G8** members. **R-30 did not retire and did not leave**: its
+plain `var`-binding lane is still SILENT, so G8 keeps R-30's 57 — the largest
+reachable count that survives the filter — and G8 stays in the ranking.
+
+Every figure in the amendments below is **read out of the regenerated §2 and
+§3**, not predicted; §6.6 item 4's instruction is *re-run, do not re-read*, and
+this is the first time an outside change has exercised it. What moved, verbatim
+from the regeneration:
+
+- **G8's reachable frequency: ~~65~~ → 59**, members ~~R-23, R-30, R-31, R-32,
+  R-33~~ → **R-23, R-30, R-31**. It keeps its place in reachable band 1 and still
+  dominates G3 (tier 2, 45).
+- **G8's raw frequency: ~~102~~ → 79, and it changed BAND**: raw band 2 is now
+  **N1** (escape/provenance loss, 99) alone, and G8 drops to raw band 3. This is
+  the largest structural movement in the regeneration and it is not visible from
+  the reachable axis at all — an argument for §1.1's rule that the two axes are
+  published side by side.
+- **Ranked entries: ~~29~~ → 27.** Entries removed by the SILENT filter:
+  ~~12~~ → 14, of which the *not damage* group goes ~~10~~ → 12 (R-32 and R-33
+  join it). Entries entering with a nonzero reachable count: ~~9~~ → **7**, so
+  §2's 16 clusters are now separated on the evidence of seven entries.
+- **A contested assignment changed its verdict.** In §2.4, moving **R-08** from
+  G4 to G3 was previously priced as `unchanged` on both axes. It now *gains G3
+  and loses G8* on the reachable band 1. Nothing about R-08 moved; G8's frequency
+  fell from 65 to 59 and R-08's alternative destination G3 sits at 45, so the
+  dominance relation between them became sensitive to a swap it was not sensitive
+  to before. **This is a real, and slightly alarming, demonstration of §6.3's
+  point**: the frontier's shape is not robust, and fixing an unrelated tier-4
+  entry was enough to make one more contested assignment load-bearing.
+
+What did **not** happen, recorded because the project's own spec predicted it
+would: G8 does **not** lose R-30's 57, because R-30 does not retire. Any reading
+of this document that expected G8 to collapse should be discarded.
+
 ### 6.1 The most important thing here is not a rank
 
 It is §5's `1 / 40`. A corpus written to do jobs, never filtered by what kali
@@ -486,7 +527,8 @@ neither is allowed to stand alone.
 ### 6.2 Band 1's shape is a property of the definition, and it needs saying plainly
 
 On the reachable axis, band 1 contains two tier-1 clusters whose frequency is
-**zero** — G2 (R-51) and R-52 — alongside G8 at 65. That is not a glitch. Tier 1
+**zero** — G2 (R-51) and R-52 — alongside G8 at ~~65~~ **59** (amended 2026-08-16;
+see the amendment at the head of §6). That is not a glitch. Tier 1
 is the worst damage class, and no tier-2 cluster can dominate a tier-1 one no
 matter how frequent, so any tier-1 cluster is in band 1 unconditionally. Both
 are `present-but-unreachable`: the construct occurs in the extension stratum and
@@ -515,9 +557,13 @@ declined to invent.
 The register's §2 line for it reads `G8 (per-sink rendering) / G4`, and this
 ranking takes the first. R-23 is tier 2; every other G8 member is tier 4. A
 cluster's tier is its worst member's, so R-23 alone is what makes G8 a tier-2
-cluster — and it is G8's tier-2-with-65 combination that dominates G3's
-tier-2-with-45. Move R-23 to G4, as the register's own second reading allows,
-and G8 becomes tier 4, stops dominating, and **G3 enters band 1**.
+cluster — and it is G8's ~~tier-2-with-65~~ **tier-2-with-59** combination
+(amended 2026-08-16) that dominates G3's tier-2-with-45. Move R-23 to G4, as the
+register's own second reading allows, and G8 becomes tier 4, stops dominating,
+and **G3 enters band 1**. The margin narrowed on 2026-08-16 — 59 against 45,
+where it was 65 against 45 — which is a second reason to read this subsection
+before citing band 1: the dominance survived, and §2.4 now shows the R-08 swap
+changing the reachable band 1 where it previously changed nothing.
 
 So the frontier's shape rests on one entry whose reachable count is zero and
 whose cluster the register states two ways. That is worth knowing before anyone
@@ -548,13 +594,28 @@ construct family, most of which works.
 
 ### 6.5 What this ranking does not license
 
-- **It does not retire anything.** §3.4 lists the eleven ranked entries with a
-  non-SILENT lane. A lane is not an entry: R-47's and R-53's FIXED lanes are the
-  `const` controls those entries declare for themselves, R-30's two FIXED lanes
-  are its `const`-scalar lane *and* its concat/template sinks, R-08's `===` half
+- **It does not retire anything.** §3.4 lists the ~~eleven~~ **nine** (amended
+  2026-08-16) ranked entries with a non-SILENT lane. A lane is not an entry:
+  R-47's and R-53's FIXED lanes are the `const` controls those entries declare
+  for themselves, ~~R-30's two FIXED lanes are its `const`-scalar lane *and* its
+  concat/template sinks~~ — **amended 2026-08-16: R-30 now has six FIXED
+  case-lanes, four of them declared controls and two of them lanes that genuinely
+  moved (its `const`-object-field lane, and the taint-reaching `String()`-result
+  lane at the multi-argument sink); its plain `var`-binding lane is still SILENT
+  and is what keeps it open** — R-08's `===` half
   fails closed while its `??` half is **still SILENT**, and R-49 — outside the
   ranking entirely — fails closed by *R-35's* switch allowlist rather than by any
   gate of its own.
+  - **This bullet survived an entry actually retiring, and the distinction it
+    draws is why.** R-33 retired on 2026-08-16. Nothing in this document retired
+    it: its two oracle cases were re-measured against node, both came back FIXED,
+    and §0.2 was re-derived from them. The ranking then dropped it mechanically,
+    because an entry with no SILENT lane leaves the SILENT filter. §3.4 now states
+    the structural consequence — a retired entry can never appear in that list,
+    because it is filtered out before the list is built — so a reader cannot infer
+    "not retired" from absence there either. R-32 left the same way and is **not**
+    retired; leaving is a statement about the dangerous class, not about being
+    fixed.
 - **It does not license reading a cluster sum as a fix estimate.** G3 in
   particular: the register's §3 says in terms that G3's members are *not one code
   path* — it is a shape of mistake with six independent instances. **Both of G3's
