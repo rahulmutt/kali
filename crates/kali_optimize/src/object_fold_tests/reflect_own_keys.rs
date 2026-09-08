@@ -60,11 +60,16 @@ fn does_not_fold_object_keys_over_a_proto_keyed_literal() {
     let callee_obj = builder.alloc_text(LirNodeKind::Value, "Object");
     let callee = builder.alloc_text(LirNodeKind::Value, "keys");
     builder.node_mut(callee).unwrap().children = vec![callee_obj];
-    let k1 = builder.alloc_text(LirNodeKind::Literal, "\"__proto__\"");
+    // Key-slot texts are PROPERTY NAMES: `{ "__proto__": 1, "a": 2 }` lowers
+    // to the slot texts `__proto__` and `a`, with no quoting marker. The
+    // fixture used to spell them `"__proto__"` / `"a"`, which modelled the
+    // pre-Task-3 lowering; against that stale model the guard only matched
+    // because it stripped quotes first.
+    let k1 = builder.alloc_text(LirNodeKind::Literal, "__proto__");
     let v1 = builder.alloc_text(LirNodeKind::Literal, "1");
     let p1 = builder.alloc_text(LirNodeKind::Value, "init");
     builder.node_mut(p1).unwrap().children = vec![k1, v1];
-    let k2 = builder.alloc_text(LirNodeKind::Literal, "\"a\"");
+    let k2 = builder.alloc_text(LirNodeKind::Literal, "a");
     let v2 = builder.alloc_text(LirNodeKind::Literal, "2");
     let p2 = builder.alloc_text(LirNodeKind::Value, "init");
     builder.node_mut(p2).unwrap().children = vec![k2, v2];
@@ -88,6 +93,50 @@ fn does_not_fold_object_keys_over_a_proto_keyed_literal() {
         LirNodeKind::Call,
         "Object.keys over a __proto__-keyed literal must not fold"
     );
+}
+
+#[test]
+fn folds_object_keys_over_a_quoted_proto_named_key() {
+    // The other side of the guard above. `{'"__proto__"': 1}` declares an
+    // ORDINARY own property whose name is the eleven-character string
+    // `"__proto__"` (quotes included) — node's
+    // `Object.keys({'"__proto__"': 1})` is `['"__proto__"']`. It is not the
+    // prototype setter and must fold like any other key.
+    //
+    // While the guard stripped `"` off the key text first, this key matched
+    // `__proto__` and the enumeration declined: a security carve-out
+    // swallowing a program it was never meant to cover. Guard behavior for the
+    // real prototype setter is unchanged (the test above); only this
+    // over-match is gone.
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let callee_obj = builder.alloc_text(LirNodeKind::Value, "Object");
+    let callee = builder.alloc_text(LirNodeKind::Value, "keys");
+    builder.node_mut(callee).unwrap().children = vec![callee_obj];
+    let k1 = builder.alloc_text(LirNodeKind::Literal, "\"__proto__\"");
+    let v1 = builder.alloc_text(LirNodeKind::Literal, "1");
+    let p1 = builder.alloc_text(LirNodeKind::Value, "init");
+    builder.node_mut(p1).unwrap().children = vec![k1, v1];
+    let object = builder.alloc(LirNodeKind::Value);
+    builder.node_mut(object).unwrap().children = vec![p1];
+    let call = builder.alloc(LirNodeKind::Call);
+    builder.node_mut(call).unwrap().children = vec![callee, object];
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Value);
+    let texts: Vec<_> = call_node
+        .children
+        .iter()
+        .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+        .collect();
+    assert_eq!(texts, vec!["\"\\\"__proto__\\\"\""]);
 }
 
 #[test]
@@ -276,12 +325,12 @@ fn release_folds_reflect_own_keys_calls_over_frozen_literal_object_shapes() {
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(&mut builder, "\"2\"");
+    let prop_two_key = literal(&mut builder, "2");
     let prop_two_value = literal(&mut builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(&mut builder, "\"1\"");
+    let prop_one_key = literal(&mut builder, "1");
     let prop_one_value = literal(&mut builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
     builder.node_mut(object).unwrap().children = vec![prop_b, prop_two, prop_one];
@@ -380,12 +429,12 @@ fn build_frozen_selection_own_keys_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 

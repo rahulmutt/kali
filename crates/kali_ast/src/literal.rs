@@ -38,6 +38,12 @@ pub enum PropertyName {
     Identifier(String),
     Number(f64),
     String(String),
+    /// A BigInt literal key, as its decimal digits without the `n` suffix.
+    ///
+    /// Text, not a parsed value: `{123456789012345678901234567890n: 1}` has no
+    /// exact `f64`, and the property name JavaScript computes for it is the
+    /// exact digits (`String(123456789012345678901234567890n)`).
+    BigInt(String),
 }
 
 /// Object property kind

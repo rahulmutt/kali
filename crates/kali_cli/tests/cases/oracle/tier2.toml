@@ -2233,7 +2233,7 @@ name = "r56a_quoted_numeric_string_key_module_scope"
 kind = "oracle"
 register_entry = "R-56"
 program = "r56a_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-56, the whole entry (one lane), module scope. §2's headline `Repro` verbatim -- a `const` object literal whose single key is the STRING `'"5"'`, read once through a computed member and twice through `Object.hasOwn`, with the numeric probe `5` as the second `hasOwn`.
 
 WHY ALL THREE LINES ARE IN ONE PROGRAM. The entry's severity claim is that one run contradicts itself: line 1 finds the property and line 2 denies it. Split across two cases each line reads as an ordinary wrong answer, and the self-contradiction -- the thing that makes this worth an entry at a raw count of zero -- would be an observation in prose with nothing measuring it. Line 3 is in the same program because it is the other half of the same collision and it moves in the opposite direction, so a future fix that repairs one and not the other still turns this case red.
@@ -2244,16 +2244,24 @@ MEASURED 2026-08-16 at `3a636f62fb` against node v26.7.0: SILENT, as recorded. k
 
 WHAT A REGRESSION HERE WOULD MEAN, IN BOTH DIRECTIONS. If `canonical_property_key_text` ever stops renumbering a double-quoted key at all, line 3 becomes `false` (correct) and line 2 stays `false` (still wrong) -- the class stays SILENT and this case stays green while half the entry moved, so read the entry's 2x2 rather than this case's colour when judging a fix. If the entry is genuinely CLOSED -- by restoring the Number/String discriminator upstream in `kali_hir`'s `lower_property_name`, which is the only place it can be restored -- this case turns FIXED and goes red against its `silent` verdict, which is the signal to close the entry and re-derive the row.
 
-PRE-BRANCH PROVENANCE. Line 2 answered `true` (correct) at the merge base `8974cc6b57` and answers `false` here; line 3 answered `true` (wrong) at both. That comparison was taken on a binary built from `8974cc6b57` and is recorded in §2's 2x2, not by this case -- this case measures HEAD only."""
+PRE-BRANCH PROVENANCE. Line 2 answered `true` (correct) at the merge base `8974cc6b57` and answers `false` here; line 3 answered `true` (wrong) at both. That comparison was taken on a binary built from `8974cc6b57` and is recorded in §2's 2x2, not by this case -- this case measures HEAD only.
+
+MEASURED 2026-08-16 at `12fd424897` against node v26.7.0: FIXED. kali prints `1`, `true`, `false` at exit 0; node prints the same three lines at exit 0. The entry's own prediction -- that restoring the Number/String discriminator upstream is the only place it could be closed -- is what happened; the discriminator was restored in `kali_hir`'s `lower_property_name` by storing `String(key)` rather than a quoted marker. The verdict above is changed `silent` -> `fixed`; kali's stderr is empty (0 bytes, measured). The paragraphs above are left standing as the historical record of the defect and of the two directions it moved in.
+
+WHAT CLOSED IT, NAMED. `4a69275c63` ("fix(hir): a property key lowers to its JavaScript property name, closing R-56") is the commit the WHAT A REGRESSION paragraph above predicted: `lower_property_name` now stores `String(key)` for a numeric key instead of the quote-wrapped text, so `{5: 1}` and `{'"5"': 1}` no longer share one text and no downstream predicate has to guess from a quote character. `KeyTextSlot`, `is_hir_numeric_key_spelling` and its NaN guard were deleted with it, and `c4245eac62` removed all fourteen double-quote un-marking sites that existed only to undo the marker. The paragraph above said this case turning FIXED and going red is "the signal to close the entry and re-derive the row"; that is what this flip is."""
 
 [[case]]
 name = "r56a_quoted_numeric_string_key_in_function"
 kind = "oracle"
 register_entry = "R-56"
 program = "r56a_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-56, the whole entry (one lane), in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope. §2 records `both scopes`, measured rather than assumed: the fold this entry lives in (`static_object_has_own` over a `resolve_literal_aggregate`'d object literal) is scope-independent by construction, and the pair is here to hold that claim rather than to restate it.
 
-MEASURED 2026-08-16 at `3a636f62fb` against node v26.7.0: SILENT, as recorded. kali prints `1`, `false`, `true` at exit 0; node prints `1`, `true`, `false` at exit 0. Byte-identical to the module scope."""
+MEASURED 2026-08-16 at `3a636f62fb` against node v26.7.0: SILENT, as recorded. kali prints `1`, `false`, `true` at exit 0; node prints `1`, `true`, `false` at exit 0. Byte-identical to the module scope.
+
+MEASURED 2026-08-16 at `12fd424897` against node v26.7.0: FIXED. kali prints `1`, `true`, `false` at exit 0; node prints the same three lines at exit 0. The entry's own prediction -- that restoring the Number/String discriminator upstream is the only place it could be closed -- is what happened; the discriminator was restored in `kali_hir`'s `lower_property_name` by storing `String(key)` rather than a quoted marker. The verdict above is changed `silent` -> `fixed`. Byte-identical to the module scope after the move as before it, so the scope-independence claim this pair exists to hold survived the fix; what moved it is in the module-scope case's rationale and is not repeated here.
+
+R-56 RETIRES ON THIS PAIR. It is the entry's only lane, and every lane of an entry moving is §3.4's rule in `docs/superpowers/followups/blast-radius-ranking.md`. What is NOT pinned by any case was measured by hand at `12fd424897` and every reading agreed with node: the entry's whole hasOwn 2x2 with both member-read controls (`s['"5"']`, `Object.hasOwn(s,'"5"')`, `Object.hasOwn(s,5)`, `n[5]`, `Object.hasOwn(n,5)`, `Object.hasOwn(n,'"5"')` over `s = {'"5"': 1}` and `n = {5: 2}`) -- six cells, six agreements, where at `3a636f62fb` two disagreed; the same key spelled with escapes (`{"\\"5\\"": 1}`); and the four shapes the `objectLiteralQuotedNumericStringKey` matcher counts that are WIDER than the defect and were never it (`'"1.5"'`, `'"1e21"'`, `'"05"'`, `'"5."'`). Nothing under this entry's title was found still colliding, in either scope."""

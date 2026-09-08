@@ -48,12 +48,24 @@ impl Parser {
                     (PropertyName::String(name), self.parse_expression())
                 }
                 Some(TokenType::NumericLiteral) => {
-                    let token = self.stream.advance();
-                    let name = token
-                        .and_then(|token| token.value.parse::<f64>().ok())
-                        .unwrap_or(0.0);
+                    let text = self
+                        .stream
+                        .advance()
+                        .map(|token| token.value)
+                        .unwrap_or_default();
                     let _ = self.stream.accept(TokenType::Colon);
-                    (PropertyName::Number(name), self.parse_expression())
+                    let Some(name) = numeric_property_name(&text) else {
+                        // NOT `unwrap_or(0.0)`. Fabricating the key `0` for a literal this
+                        // parser could not read is how `{42n: 1}` came to answer
+                        // `Object.hasOwn(o, 0)` with `true` -- a program reading a value out
+                        // of a key it never wrote. If it cannot be read, it is refused.
+                        self.push_feature_unavailable(
+                            "this numeric property key is unavailable in the current phase; use a decimal or string literal key",
+                        );
+                        let _ = self.parse_expression();
+                        continue;
+                    };
+                    (name, self.parse_expression())
                 }
                 Some(TokenType::LeftBracket) => {
                     let _ = self.stream.advance();
@@ -196,6 +208,34 @@ impl Parser {
             _ => None,
         }
     }
+}
+
+/// The property name a numeric-literal key token denotes, or `None` when the
+/// token is not one this phase can read.
+///
+/// The BigInt arm keeps DIGITS: `String(42n)` is `"42"`, exactly, for values
+/// with no exact `f64`. A leading zero before another digit (`042n`) is
+/// refused, not admitted as `"042"`: JavaScript makes that a SyntaxError (the
+/// whole program fails to parse), so admitting it here would accept a program
+/// node refuses -- fail-open in the one direction this arm must not take.
+/// `0n` itself (a single `"0"`) is legal and stays admitted.
+///
+/// This phase also declines non-decimal BigInt literals (`0x2an`, `0b101n`,
+/// `0o17n`) and non-decimal numeric keys generally: the lexer that hands this
+/// function its `text` does not tokenize `0x`/`0b`/`0o` prefixes at all (a
+/// pre-existing, unrelated gap -- `0x10` lexes as the numeric literal `0`
+/// followed by the identifier `x10`, never reaching this function as one
+/// token), so hex/binary/octal keys never arrive here to be refused by name;
+/// they misparse upstream instead. Fixing that is out of this function's
+/// scope.
+fn numeric_property_name(text: &str) -> Option<PropertyName> {
+    if let Some(digits) = text.strip_suffix('n') {
+        let is_valid_bigint_digits = !digits.is_empty()
+            && digits.bytes().all(|byte| byte.is_ascii_digit())
+            && !(digits.len() > 1 && digits.starts_with('0'));
+        return is_valid_bigint_digits.then(|| PropertyName::BigInt(digits.to_string()));
+    }
+    text.parse::<f64>().ok().map(PropertyName::Number)
 }
 
 #[cfg(test)]

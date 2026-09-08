@@ -29,7 +29,15 @@ is a reading, not a memory.
 quoted-numeric-string-key collision in `Object.hasOwn`) was *also* discovered by
 this project and **is** filed, in the register's §2 as a Tier 2 entry with a §0.2
 row and an oracle pair, because one direction of it regressed on that branch. It
-does not appear below.
+does not appear below. R-56 was RETIRED 2026-08-16 at `12fd424897` by the
+hir-property-key-identity project — see §3.
+
+**Update, 2026-08-16, by the hir-property-key-identity project.** §2.5 and §2.8
+are now fixed, and §3's proposed fix has happened; each was re-measured against
+`node v26.7.0` on a binary built at `a7ea7b0cf7`, not carried forward from the
+original `5aebc5ec3d` baseline above. The rest of this file was re-read, not
+re-measured line by line, against the same change; §2.1-§2.4, §2.6-§2.7 and
+§2.9-§2.13 were checked and found still true and are unchanged, as is §4.
 
 ## 2. The defects
 
@@ -126,29 +134,60 @@ new entry — but only after deciding whether R-30 is "the direct-log boolean
 lane" or "the missing boolean repr", which the register currently answers both
 ways.
 
-### 2.5 `Object.keys` yields a Rust-formatted numeric key
+### 2.5 `Object.keys` yields a Rust-formatted numeric key — FIXED at `4a69275c63`
 
 ```js
-for (const k of Object.keys({1e-7:1})) console.log(k);
+for (const k of Object.keys({1e-7: 1})) console.log(k);
+for (const k of Object.keys({[-1e999]: 1, [1e21]: 2})) console.log(k);
 ```
 
-| | output |
-|---|---|
-| kali | `0.0000001` |
-| node | `1e-7` |
+Re-measured at `a7ea7b0cf7` against `node v26.7.0`:
 
-**Mechanism:** `collect_object_enumeration_iteration_items`
-(`crates/kali_codegen/src/intrinsics/object.rs`) pushes the key *node* into the
-iteration items, and it is rendered downstream with the expression-slot renderer
-rather than through `format_js_number`.
+```
+$ kali run keys_small_module.js      $ node keys_small_module.js
+1e-7                                 1e-7
 
-**This is a value defect, not a rendering one** — `Object.keys` returns strings,
-so a wrong key text propagates into comparisons, lookups and JSON round-trips.
-That distinction is why the console-render-unification project declined it: its
-spec confines it to rendering, and the verification surface (for-of, spread,
-object round-trips) is much wider than the one-line fix suggests.
+$ kali run keys_extreme_module.js    $ node keys_extreme_module.js
+-Infinity                            -Infinity
+1e+21                                1e+21
+```
 
-**Suggested home:** §2, silent.
+**This row originally recorded only the `1e-7` lane.** This project also
+measured the `-1e999` lane, and it is the worse of the two: before the fix,
+`Object.keys({[-1e999]: 1, [1e21]: 2})` printed `-inf` for the first key — a
+string no JavaScript program can produce, since no numeric literal or
+coercion in JS spells negative infinity that way — followed by
+`1000000000000000000000` for the second. Both now agree with node.
+
+**Fixed** by `4a69275c63`: `lower_property_name` now stores a key's text as
+`format_js_number(key)` — the same formatter `console.log` itself uses —
+instead of Rust's `Display for f64`, so `collect_object_enumeration_iteration_items`
+reads the JS spelling out of the key node directly rather than the expression-
+slot renderer's Rust spelling.
+
+**Why printed output alone could not have caught the string-vs-number half.**
+`Object.keys` must return strings, but `console.log("5")` and `console.log(5)`
+print the identical line — so a key that silently arrived as a `Repr::Number`
+rather than a string would be invisible to every transcript in this row. A
+`typeof` probe closes that gap, but `typeof` on a value bound directly to a
+for-of loop's key can itself be constant-folded at compile time and print
+`string` even when the underlying item is not (confirmed by contrast: routing
+the same value through a non-foldable function-parameter boundary instead
+makes kali's runtime `typeof` answer `0`, which turned out to be a separate,
+pre-existing, general defect — `typeof` on any runtime-string function
+parameter answers `0` in kali today, nothing to do with property keys). So the
+string-ness claim rests on non-foldable evidence — `.length` and strict
+equality both ways, routed through that same function-parameter boundary — not
+on `typeof` alone.
+
+**Pinned by** (`crates/kali_cli/tests/cases/object/property_key_identity.toml`):
+`object_keys_renders_small_magnitude_key_with_rust_display_module_scope` and
+`_in_function` for the `1e-7` lane;
+`object_keys_leaks_rust_infinity_spelling_module_scope` and `_in_function` for
+the `-1e999`/`1e21` lane; and `object_keys_yields_strings_not_numbers_module_scope`
+and `_in_function` for the `typeof` probe (with
+`object_keys_yields_strings_for_bigint_keys_module_scope` and `_in_function`
+covering the same probe for a BigInt key).
 
 ### 2.6 Static `Map`/`Set` lookups fold to a placeholder
 
@@ -161,9 +200,14 @@ Silent, exit 0. The static fold reaches a placeholder `0` before key identity is
 consulted, so both the number/string collision and the large-magnitude case
 return `0` rather than the stored value.
 
-Note this makes the SameValueZero half of R-56's `-0n` rationale *theoretical* —
-that lookup never reaches a text comparison today. The console-rendering half of
-that rationale stands on its own.
+Note this makes the SameValueZero half of this document's own `-0n` rationale
+*theoretical* — that lookup never reaches a text comparison today. The
+console-rendering half of that rationale stands on its own. (This is this
+document's own editorial gloss, not a quote of R-56's register entry: `grep -n
+"SameValueZero\|-0n"` on `kali-silent-miscompile-register.md` returns nothing
+at any revision -- R-56's entry is entirely about a string key colliding with
+a numeric key. R-56 is also RETIRED as of `12fd424897`, so this cross-reference
+points at a closed entry regardless.)
 
 **Suggested home:** §2, silent.
 
@@ -178,18 +222,67 @@ the same. JavaScript specifies last-wins.
 
 **Suggested home:** §2, silent.
 
-### 2.8 `Object.hasOwn` on a BigInt key answers `false`
+### 2.8 `Object.hasOwn` on a BigInt key answers `false` — FIXED at `20e2de09f6`, one residual disclosed
 
 ```js
-console.log(Object.hasOwn({42n:1}, 42n));   // kali false, node true
+const o = {42n: 1};
+console.log(Object.hasOwn(o, 0));
+console.log(o[0]);
+console.log(o[42]);
 ```
 
-Silent, exit 0. **Mechanism:** HIR's `lower_property_name`
-(`crates/kali_hir/src/lowering/object.rs`) destroys the key — a BigInt property
-name does not survive lowering in a form the probe can match.
+Re-measured at `a7ea7b0cf7` against `node v26.7.0`:
 
-**Related to R-56** and fixed by the same upstream change: preserving whether a
-`PropertyName` was `Number`, `String` or a BigInt through lowering. See §3.
+```
+$ kali run bigint_module.js   $ node bigint_module.js
+false                         false
+0                              undefined
+1                              1
+```
+
+**Corrected attribution.** This row originally named HIR's `lower_property_name`
+as what destroyed the key. That named the wrong crate. The key was destroyed
+one crate earlier, in the parser: `kali_parser/src/expression/object.rs`'s
+numeric-key arm read a key token with `token.value.parse::<f64>().ok().unwrap_or(0.0)`,
+which silently substituted the key `0` for any numeric-literal token that
+would not parse as an `f64` — every BigInt token, `42n` included — before
+`lower_property_name` ever saw it. `{42n:1}` was never a BigInt key that HIR
+lost; it was stored under the key `0` from the moment the parser read it, and
+`Object.hasOwn(o, 42n)` answered `false` because the object genuinely had no
+property named `42`.
+
+**Fixed** by `20e2de09f6`: `PropertyName` gained a `BigInt` variant holding the
+literal's exact digits (`"42"`, no `n` suffix — text, because a BigInt past
+`f64` precision has no exact double), and the `unwrap_or(0.0)` fallback is
+gone; a numeric key the parser genuinely cannot read is now refused through
+`push_feature_unavailable` instead of being silently rewritten to `0`.
+`Object.hasOwn(o, 0)` now correctly answers `false` and `o[42]` now correctly
+reads `1` — both agree with node.
+
+**Residual, not closed by this fix, and not property-key identity.** `o[0]`
+still reads `0` where node reads `undefined`. The reason has changed: `{42n:1}`
+now genuinely has no property named `0`, so this is the pre-existing
+fabricated-`0` static-member-read defect (the same defect this project met
+again on the `quoted_key_member_probe_*` cases below). It is not chased here.
+
+**Do not call that defect an "absent-property read" — it is wider than that.**
+Corrected by the hir-property-key-identity branch's final whole-branch review
+and measured at that branch's HEAD, both scopes: `const o =
+Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0` in kali and `1` in
+node, at exit 0. `o` HAS an own property named `a`; the read still fabricates
+`0`, because under `kali run`'s Fast mode the `fromEntries` fold never runs and
+the member read has no statically known shape to resolve against. So the `0` is
+what an unresolvable static member read emits, present property or not — a
+wrong VALUE, not only an `undefined`-rendered-as-`0`. Pinned as
+`a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_*`
+in `crates/kali_cli/tests/cases/object/property_key_identity.toml`.
+
+**Pinned by** `bigint_key_is_stored_under_zero_module_scope` and
+`bigint_key_is_stored_under_zero_in_function` in
+`crates/kali_cli/tests/cases/object/property_key_identity.toml`.
+
+**Related to R-56**, RETIRED at `12fd424897`, and fixed by the same upstream
+project. See §3.
 
 ### 2.9 The concat lane fails to compile a full order of magnitude before the ECMAScript threshold
 
@@ -264,29 +357,64 @@ Matching it means adopting inspect semantics for the console sink, which is
 R-31's territory and an explicit non-goal of the console-render-unification spec
 (§2).
 
-## 3. The upstream fix that retires several of these at once
+## 3. The upstream fix that retires several of these at once — DONE
 
-§2.5, §2.8 and R-56 share one root cause: **`kali_hir`'s `lower_property_name`
-discards whether a `PropertyName` was `Number`, `String` or a BigInt**, storing
-only text. Everything downstream then reasons about a type distinction that no
-longer exists, using textual conventions that invert between the object-literal
-key slot and the expression slot.
+§2.5, §2.8 and R-56 shared one root cause: **`kali_hir`'s `lower_property_name`
+discarded whether a `PropertyName` was `Number`, `String` or a BigInt**, storing
+only text. Everything downstream then reasoned about a type distinction that no
+longer existed, using textual conventions that inverted between the
+object-literal key slot and the expression slot.
 
-The evidence that patching the consumer does not converge is on the record:
+The evidence that patching the consumer would not converge is on the record:
 `canonical_property_key_text`
 (`crates/kali_codegen/src/intrinsics/object.rs`) took **five successive fix
 rounds** during the console-render-unification project, each closing one spelling
 and revealing another, before converging on a round-trip invariant — and R-56
-remains open because the one spelling it cannot close is the one where HIR's
-marker and the key's own content are the same character.
+stayed open through all five rounds because the one spelling none of them could
+close was the one where HIR's marker and the key's own content were the same
+character.
 
-Preserving that one bit upstream would retire the `KeyTextSlot` enum, the
-`is_hir_numeric_key_spelling` predicate, its NaN guard and the guard's fragile
-coupling to the parser, and make the whole collision family decidable.
+**The fix landed 2026-08-16, at `4a69275c63`.** `lower_property_name` now
+stores `String(key)` — `format_js_number` for numbers, digits for BigInts, the
+name verbatim otherwise — with no quoting marker, so a key-slot node's text is
+the property name for every shape of key it can express a type for. Two
+supporting fixes went with it: `20e2de09f6` (earlier the same day) removed the
+parser-side `unwrap_or(0.0)` fallback that had been fabricating the key `0` for
+any numeric-literal token it could not parse as an `f64` — the actual cause of
+§2.8, one crate below where this section originally looked — and gave
+`PropertyName` a `BigInt` variant so a BigInt key's digits survive parsing at
+all; `28a28b88e1` moved the computed-member-index probe side onto the same
+`format_js_number` formatter the key-slot side now uses, closing a lane the
+first commit had newly opened (`{1e21:1}` stored the key `1e+21` while
+`o[1e21]` probed for `1000000000000000000000`).
 
-**Do not add callers to `canonical_property_key_text` before that happens.** Its
-two current call sites are safe only because they are adjacent and were written
-together; a third elsewhere in the compiler is round six.
+**What it retired:** the `KeyTextSlot` enum, the `is_hir_numeric_key_spelling`
+predicate, its NaN guard, the guard's fragile coupling to the parser, and the
+parser's fabricated-key fallback (`unwrap_or(0.0)`) that produced §2.8's `0`.
+`c4245eac62` and `12fd424897` then deleted the fourteen `trim_matches('"')`
+un-marking sites that existed only to undo the marker `lower_property_name` no
+longer writes.
+
+**`canonical_property_key_text` survives, narrowed to one meaning.** It is no
+longer one of two functions reasoning about key text from opposite ends; it is
+the PROBE side alone — the property key an expression evaluates to, computed
+the way JS does. Its own doc comment now states this: "Only one currency
+exists now: a key-slot node's text is already the property name
+(`kali_hir`'s `lower_property_name`), so this function is for the PROBE side
+alone." It has exactly **one non-test call site**
+(`FunctionEmitter::static_probe_key_text`, `crates/kali_codegen/src/intrinsics/object.rs`).
+
+**Do not add callers to `canonical_property_key_text`.** The warning does not
+expire with the fix — it changes shape. Before the fix, a second caller risked
+re-deriving a type guess this function's *convention* had to invert correctly.
+After the fix, a second caller risks reintroducing exactly the bug this
+project fixed twice (§2.5, §2.8, and the member-read regression `28a28b88e1`
+caught before it shipped): a PROBE computed through this function and a STORED
+key-slot text computed through a *different* formatter, agreeing only by
+coincidence until one of the two changes. The stored side never needs this
+function — it reads a key-slot node's text directly, unmodified — and any code
+that finds itself wanting to call this function on a key-slot node instead of
+reading its text is the sign the invariant is about to be re-broken.
 
 ## 4. A gap in the register's own measuring instrument
 

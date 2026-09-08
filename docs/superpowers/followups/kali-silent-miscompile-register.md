@@ -196,7 +196,15 @@ a frequency over test snippets. That is a finding about kali, not a defect of th
 **Regenerated 2026-08-15; every row's class re-verified 2026-08-16.** Every row
 below is produced from the oracle cases in
 `crates/kali_cli/tests/cases/oracle/`, measured at commit `62b11a78c3` against
-`node v26.7.0`. ~~`4cfa218814`~~ — superseded 2026-08-16: the
+`node v26.7.0`. **One row has moved since: R-56's, re-measured and RETIRED
+2026-08-16 at `12fd424897` by the hir-property-key-identity project — the whole
+oracle suite was re-run green *with these verdicts* against the binary built at
+that commit, so every other row's class is re-verified there as well.** (Stated
+precisely because the looser house phrasing two lines below would be false here:
+the green run is the tree at `fb38edfc25`, which carries the flipped `r56a`
+verdicts. At `12fd424897` itself the pair still asserted `silent` and the suite
+was red by exactly those two — that red is what this row was derived from.)
+~~`4cfa218814`~~ — superseded 2026-08-16: the
 console-render-unification project moved three rows (R-30, R-32, R-33), and the
 whole oracle suite was re-run green at `62b11a78c3`, which re-measures every
 OTHER row's class against node at that commit as well. What is *not* re-measured
@@ -237,7 +245,7 @@ and are therefore attributable to no row — `agree.js`, `both_reject.js`,
 those four to be unattributed, and should treat any *other* unattributed case as
 a defect.
 
-| entry | status measured at `62b11a78c3` (2026-08-16; three rows moved, the rest re-verified — except **R-56**, added 2026-08-16 at `3a636f62fb` and measured there) | note |
+| entry | status measured at `62b11a78c3` (2026-08-16; three rows moved, the rest re-verified — except **R-56**, added 2026-08-16 at `3a636f62fb`, measured there, and **re-measured and RETIRED at `12fd424897`** the same day) | note |
 |---|---|---|
 | R-01 default param truncates module | **FAIL_CLOSED** (both scopes) | E5506 "a default parameter is not supported", all forms; no truncation. Class unchanged since the 2026-07-24 row — this is the first time a case has held it. kali's stdout is empty where node prints `A`/`B`, so nothing is truncated *and* nothing is printed. |
 | R-02 call through fn value → 0 | **FAIL_CLOSED** (both scopes) | every broken lane E5506 (the recommended G2 interim fix); callee never runs, but honestly. Supported set unchanged (direct call, const-arrow/fnlit, IIFE, sibling capture). The refusal is preceded by a `warning[E3100] undefined identifier … lowered through a zero placeholder compatibility fallback` — a warning, not the verdict. |
@@ -281,7 +289,7 @@ a defect.
 | R-52 `for`-clause arity misclassification (omitted clauses) | **SILENT** (Repro A `r52a`; Repro B `r52b`) / **FL_INTERNAL** (Repro C `r52c`, `E4003`), both scopes | added 2026-07-29, originally measured on `58234e87c7`. Three labelled repros, three declared severities, three lanes — collapsing them would record one class for an entry the register itself records as carrying three. A: `for (var i = 0; ;)` skips the loop entirely (kali `s=0`; node six `iter=` lines and `s=15`). B: `for (init; ; update)` drops iteration zero and **the sums still agree**, which is why the per-iteration log is load-bearing. C: `for (; test; update)` runs away to `E4003` after ~1.36M lines in ~2.7s, reproducibly (two kali runs compared byte for byte, so the pair does not rank NONDETERMINISTIC). Distinct from R-09, which is about update PLACEMENT, not clause identification. Carries a **standing coupling to `continue_is_faithful`** — see §2's R-52 entry. |
 | R-53 `for (var v of […])` — **and `for (let v of […])`** — binds every element to `0` | **SILENT** (`var` loop variable `r53v`; `let` loop variable `r53l`) / **FIXED** (`const` loop variable `r53c`), both scopes | the 2026-07-29 widening holds at `4cfa218814`: `let` is affected as well as `var`, measured on the entry's own separately-dated four-element fixture. In every silent lane **the trip count is correct and only the bound value is lost** (`iter=0` ×3 or ×4, `t=0`/`s=0`, against node's `1..3`/`t=6` and `1..4`/`s=10`). The silent surface remains *for-of over an **array literal** with a **`var` or `let`** loop variable*; over a binding iterable kali refuses. **The `const` lane's FIXED is a LANE result the entry itself declares as its control — it does not retire R-53.** Distinct from **R-47**, which is `for..of` over a `let`-declared array BINDING iterating the binding's NAME; this is the loop VARIABLE's declarator kind over an array LITERAL. Consequence for probe design is unchanged: `for (var v of …)` must not be used as a faithful-loop control. |
 | R-54 a second `default` clause is absorbed into the first (node: `SyntaxError`) | **ACCEPTS_INVALID** (both scopes) | added 2026-07-29, originally measured on `58234e87c7`. Both halves still reproduce: kali prints `v=d2` **and** `g=5` at exit 0, so the clauses are still MERGING rather than replacing; node refuses the whole file with `SyntaxError: More than one default clause in switch statement` at exit 1. `g=5` is the load-bearing half — `v=d2` alone would be consistent with replacement. A second case in `classifier_ground_truth.toml` pins the ACCEPTS_INVALID class on the same repro. Only invalid JS is affected. Cluster **G1**, same function as R-49 and independent of it. |
-| R-56 string key `'"5"'` collides with HIR's numeric-key marker | **SILENT** (both scopes) | added 2026-08-16 by the console-render-unification project's final whole-branch review, measured at `3a636f62fb` against `node v26.7.0`. `const o = {'"5"': 1}` prints `1` for `o['"5"']` and `false` for `Object.hasOwn(o, '"5"')` in the same run at exit 0, and `true` for `Object.hasOwn(o, 5)` where node says `false`. **One cell of this REGRESSED on this branch and a different cell was FIXED by it** — see §2's 2x2, which carries all six measured values and the pre-branch column. The cause is upstream of any predicate: `lower_property_name` writes the numeric key `{5: 1}` and the string key `{'"5"': 1}` into the key slot as the SAME three characters, so the double-quote marker cannot tell them apart. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`), so it enters the ranking as a tier-2 singleton with no frequency behind it. |
+| R-56 string key `'"5"'` collides with HIR's numeric-key marker | **FIXED** (both scopes) | **RETIRED 2026-08-16 at `12fd424897` by the hir-property-key-identity project — every lane of this entry moved, which is the rule §3.4 of the ranking states.** This row is re-derived from the two `r56a` cases, which now assert `fixed`; the gate at `crates/kali_blast_radius/src/oracle_tests.rs:172` named the mismatch first and the row followed it, rather than the other way round. **Re-measured at `12fd424897` against `node v26.7.0`, both scopes, byte-identical**: `const o = {'"5"': 1}` prints `1`, `true`, `false` at exit 0 with empty stderr, and node prints the same three lines at exit 0. What closed it is `4a69275c63`: `lower_property_name` now stores `String(key)` for a numeric key instead of wrapping it in double quotes, so `{5: 1}` and `{'"5"': 1}` no longer share one text — the fix direction this entry's own **Fix direction** bullet named, taken at the only place it could be taken. `KeyTextSlot`, `is_hir_numeric_key_spelling` and its NaN guard went with it, and `c4245eac62` deleted all fourteen double-quote un-marking sites that existed only to undo the marker. **WHAT IS PINNED BY A LIVE CASE**: the whole entry, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `12fd424897`: the full `hasOwn` 2x2 with both member-read controls — all six cells agree with node where two disagreed at `3a636f62fb`; the same key spelled with escapes (`{"\"5\"": 1}`); and the four shapes the `objectLiteralQuotedNumericStringKey` matcher counts that are wider than the defect and never were it (`'"1.5"'`, `'"1e21"'`, `'"05"'`, `'"5."'`). Nothing under this entry's title was found still colliding. ~~added 2026-08-16 by the console-render-unification project's final whole-branch review, measured at `3a636f62fb` … prints `1` for `o['"5"']` and `false` for `Object.hasOwn(o, '"5"')` in the same run at exit 0, and `true` for `Object.hasOwn(o, 5)` where node says `false`.~~ **One cell of it REGRESSED on the branch that filed it and a different cell was FIXED by that branch** — see §2's 2x2, which carries all six measured values, the pre-branch column and now the closing column; that history is why the entry was filed for the whole collision rather than for the regressed cell, and it is preserved rather than rewritten. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`), so it left the ranking without moving any other cluster's frequency; its `clusters.json` singleton was removed by the same rule that removed R-32's and R-33's G8 rows. |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
 neither has an oracle case, and a row with no case behind it is what this
@@ -297,17 +305,18 @@ never was one, and is named here so a reader does not go looking for it.**
 - **R-50** — filed in **§7** as a fail-loudly defect, not a §2 entry.
 
 **Net, re-measured 2026-08-16 at `62b11a78c3` against `node v26.7.0`**
-(~~2026-08-15 at `4cfa218814`~~), and re-counted 2026-08-16 at `3a636f62fb` when
-R-56 was added. Of the 42 §2
-entries, **28 carry at least one SILENT lane** and **14 carry none**
-(~~41 / 27 / 14~~):
+(~~2026-08-15 at `4cfa218814`~~), re-counted 2026-08-16 at `3a636f62fb` when
+R-56 was added, and re-counted again 2026-08-16 at `12fd424897` when R-56
+retired. Of the 42 §2
+entries, **27 carry at least one SILENT lane** and **15 carry none**
+(~~42 / 28 / 14~~, ~~41 / 27 / 14~~):
 
-- **No silent lane (14):** R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20,
-  R-29, **R-32**, **R-33**, R-49, R-54. ~~(12)~~
-- **At least one silent lane (28):** R-06, R-08, R-09, R-10, R-12, R-13, R-14,
+- **No silent lane (15):** R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20,
+  R-29, **R-32**, **R-33**, R-49, R-54, **R-56**. ~~(14)~~ ~~(12)~~
+- **At least one silent lane (27):** R-06, R-08, R-09, R-10, R-12, R-13, R-14,
   R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25, R-26, R-27, R-28, R-30,
-  R-31, R-34, R-47, R-48, R-51, R-52, R-53, **R-56**.
-  ~~(27)~~ ~~(29, including R-32 and R-33)~~
+  R-31, R-34, R-47, R-48, R-51, R-52, R-53.
+  ~~(28, including R-56)~~ ~~(27)~~ ~~(29, including R-32 and R-33)~~
 - **Movement 2026-08-16 (console-render-unification, at `62b11a78c3`).** R-32 and
   R-33 leave the silent set: every live lane of each measures FIXED. **R-33 is
   retired** — its only defective lane moved and its control was already FIXED.
@@ -359,6 +368,63 @@ entries, **28 carry at least one SILENT lane** and **14 carry none**
   other cluster's band. Its predicate is new, so `tools/blast-radius/predicates.json`
   and `matchers.mjs` were both re-frozen and `counts.json` regenerated — see the
   ranking's §6 amendment for what that did and did not move.
+  *(Superseded as a statement about the CURRENT silent set 2026-08-16 at
+  `12fd424897` — see the bullet immediately below. It is kept because it is the
+  record of the arrival, and because the regressed cell it names is why the
+  entry was filed for the whole collision.)*
+- **Retirement 2026-08-16 (hir-property-key-identity, at `12fd424897`): R-56
+  leaves the silent set, and it is RETIRED** — filed at `3a636f62fb` and closed
+  at `4a69275c63`, both on 2026-08-16 (R-49 is the only other entry filed and
+  closed on one day, 2026-07-28). Both `r56a` cases were re-measured against
+  `node v26.7.0` in both
+  scopes and read FIXED — kali prints `1`, `true`, `false` at exit 0 with empty
+  stderr, node prints the same three lines at exit 0 — and the cases were flipped
+  `silent` -> `fixed` only after that reading, which is what re-derived the row
+  above. **Retired rather than merely departed**, and the two are decided
+  separately here as they were for R-32 and R-33: the entry's single lane is its
+  whole title, its `hasOwn` 2x2 with both member-read controls now agrees with
+  node in all six cells where two disagreed at `3a636f62fb`, and the mechanism is
+  gone rather than narrowed — `lower_property_name` stores `String(key)`, so the
+  ambiguous text is never written and no downstream predicate has to guess from a
+  quote character. The unpinned shapes were measured by hand and are listed in the
+  row above. **R-56 was therefore removed from `tools/blast-radius/clusters.json`**
+  — both its `R-56 (unclustered)` singleton definition and its assignment — by the
+  same rule that removed R-32's and R-33's **G8** rows on this date: only SILENT
+  entries appear in that file, and the generator refuses to run until a departure
+  is reflected there. Because R-56 measured **raw 0 / reachable 0**, its departure
+  moves no other cluster's frequency and no band; the ranking's §6 amendment
+  records what the generator actually printed.
+  - **THE ARRAY-ELEMENT `.length` AND ESCAPE-SEQUENCE DIVERGENCES FOUND WHILE
+    MEASURING THIS RETIREMENT ARE NOT R-56 AND ARE NOT FILED HERE.** Both were
+    measured at `12fd424897` and both are live.
+    - **`.length` on a string read out of an ARRAY ELEMENT diverges.**
+      `["abc"][0].length` prints `2` where node prints `3` — **no `Object.keys`
+      and no object key anywhere in that program**, so it is not a property-key
+      phenomenon at all. `Object.keys(o)[0].length` is one spelling of it, and
+      that spelling is how this project first met it; the *iteration* lane
+      `for (const k of Object.keys(o)) k.length` is **correct** and matches node
+      (`3` for `abc`, `6` for `abcdef`). kali prints `2` for every string tried —
+      `["a"]`→`2` (node `1`), `["ab"]`→`2` (node `2`), `["abcdefghij"]`→`2` (node
+      `10`), `["x","yy"][1]`→`2` (node `2`) — so the value does not track the
+      string, and two of those four agree with node only by coincidence. **This
+      is very likely the family of R-17** (*"String handles escape as raw integers
+      from the plain-array and `Object.keys` lanes"*, group **G5**), whose repro
+      list already carries both the plain string-array element read and the
+      `Object.keys` element read, and whose `Object.keys` repro explicitly records
+      that **`k.length` is CORRECT (2)** — but that is the ARRAY's length, and the
+      string's `.length` is its untested neighbour at a different consumer
+      (`.length` rather than concat). Whether this belongs under **R-17**, under
+      **R-16** (per-method string-repr gap), or in a new entry **is a human's
+      decision and is not made here.**
+    - **`Object.keys({"\"5\"": 1})[0]`** prints `\"5\"` where node prints `"5"` —
+      the escape-sequence exception already recorded at `de87e48e8e` and in
+      `docs/superpowers/followups/property-key-trim-site-classification.md` §6,
+      which fires equally on `{"a\"b": 1}` and is a parser-decoding defect, not a
+      Number/String discriminator one.
+
+    Neither is under R-56's title, neither was filed by the retirement, and
+    filing either is a decision for a human — this bullet exists so a later
+    reader does not mistake the silence for absence.
 - **Tier 1's silent population is 2** — R-51 and R-52 — down from the eight
   entries Tier 1 holds. R-01, R-02, R-03 and R-05 fail closed; R-04 is fixed;
   R-49 fails closed by R-35's gate.
@@ -368,7 +434,12 @@ entries, **28 carry at least one SILENT lane** and **14 carry none**
   FAIL_CLOSED; both entries still carry silent lanes and neither is retired.
   **2026-08-16 at `62b11a78c3`: R-32 and R-33 leave, taking 29 to 27** — see the
   Movement bullet above for which of the two is retired and which is not — and
-  **2026-08-16 at `3a636f62fb`: R-56 arrives, taking 27 to 28.**
+  **2026-08-16 at `3a636f62fb`: R-56 arrives, taking 27 to 28**, and
+  **2026-08-16 at `12fd424897`: R-56 leaves, RETIRED, taking 28 back to 27.**
+  The three moves on this date are three separate commits — the first two the
+  console-render-unification project's, the third the hir-property-key-identity
+  project's — and are recorded step by step rather than netted, because a reader
+  auditing any one of them needs the intermediate figure.
 
 **The 2026-07-24 sweep's own net is preserved below, unrewritten,** because it is
 that sweep's record and the table above supersedes it rather than editing it. It
@@ -2611,20 +2682,30 @@ tier, ordering is by blast radius.
   `{'"5"': 1}` (a STRING key whose name is the three characters `"5"`); `n` is `{5: 2}`
   (the NUMERIC key `5`). All six values below were run, none inferred:
 
-  | program | node | pre-branch `8974cc6b57` | at `3a636f62fb` | |
-  |---|---|---|---|---|
-  | `s['"5"']` | `1` | `1` | `1` | correct throughout |
-  | `Object.hasOwn(s, '"5"')` | `true` | `true` | **`false`** | **REGRESSED on this branch** |
-  | `Object.hasOwn(s, 5)` | `false` | `true` | `true` | wrong before and after |
-  | `n[5]` | `2` | `2` | `2` | correct throughout |
-  | `Object.hasOwn(n, 5)` | `true` | `true` | `true` | correct throughout |
-  | `Object.hasOwn(n, '"5"')` | `false` | `true` | `false` | **fixed on this branch** |
+  | program | node | pre-branch `8974cc6b57` | at `3a636f62fb` | at `12fd424897` | |
+  |---|---|---|---|---|---|
+  | `s['"5"']` | `1` | `1` | `1` | `1` | correct throughout |
+  | `Object.hasOwn(s, '"5"')` | `true` | `true` | **`false`** | **`true`** | **REGRESSED on the filing branch, CLOSED here** |
+  | `Object.hasOwn(s, 5)` | `false` | `true` | `true` | **`false`** | wrong before and after, **CLOSED here** |
+  | `n[5]` | `2` | `2` | `2` | `2` | correct throughout |
+  | `Object.hasOwn(n, 5)` | `true` | `true` | `true` | `true` | correct throughout |
+  | `Object.hasOwn(n, '"5"')` | `false` | `true` | `false` | `false` | **fixed on the filing branch** |
 
   The pre-branch column reads `true`/`false` here for legibility; the pre-branch binary
   actually PRINTS `1`/`0` for these, because R-30's direct-log boolean rendering had not
   yet moved. The comparison was therefore taken again through an `if`/`else` that prints
   a word, so no cell in this table rests on reading a `1` as a `true`.
-- **Mechanism, traced.** `kali_hir`'s `lower_property_name`
+
+  **The `12fd424897` column was added 2026-08-16 by the hir-property-key-identity
+  project and is the closing measurement** — all six cells run on a binary freshly built
+  at that commit, against `node v26.7.0`, in both scopes, none inferred. It is read
+  directly as `true`/`false`, since the direct-log boolean rendering that forced the
+  `if`/`else` workaround for the pre-branch column has been correct since `62b11a78c3`.
+  Every cell now equals node's. See the **RETIRED** bullet at the foot of this entry.
+- **Mechanism, traced** *(as the code read at `3a636f62fb`; every present tense in this
+  bullet and the two after it is history as of `4a69275c63`, which is where the
+  **RETIRED** bullet at the foot of this entry takes over — the line citation resolves
+  only in that revision)*. `kali_hir`'s `lower_property_name`
   (`crates/kali_hir/src/lowering/object.rs:20`) writes a key's text into a single slot
   and throws the `PropertyName` variant away:
   - `PropertyName::Number(5.0)` -> `format!("\"{}\"", "5")` = the three characters `"5"`;
@@ -2664,13 +2745,95 @@ tier, ordering is by blast radius.
   of guessing from a quote character. **Do not** attempt a textual narrowing at the
   codegen predicate — that is what has already been tried three times, is what the
   predicate's own doc comment records, and cannot work for `"`.
-- **Pinned by**: two oracle cases (`r56a`, both scopes, `tier2.toml`) asserting the
+- **Pinned by**: two oracle cases (`r56a`, both scopes, `tier2.toml`) ~~asserting the
   SILENT class, and a deliberately-known-wrong unit pin in
   `crates/kali_codegen/src/intrinsics/object_tests/has_own.rs` that goes red when the
-  collision is fixed. The predicate's doc comment cross-references this entry.
+  collision is fixed~~ — **updated 2026-08-16 at `12fd424897`: the two cases now assert
+  FIXED, and the known-wrong unit pin is gone because it did exactly what it was built
+  to do.** It went red at `4a69275c63` and was replaced there, together with the whole
+  `KeyTextSlot`-shaped test around it, by
+  `probe_key_text_is_the_property_name_the_expression_denotes`. The predicate's doc
+  comment still cross-references this entry.
 - **Confidence**: high on behaviour (both scopes, two binaries, a 2x2 with controls,
   node as oracle); high on mechanism (both HIR arms read in source, and the parser's
   `unquote_string_literal` read with them).
+- **RETIRED 2026-08-16, at `12fd424897`, by the hir-property-key-identity project
+  (`docs/superpowers/sdd/2026-08-16-hir-property-key-identity/`). Every lane of this
+  entry moved — it has one — which is the rule the ranking's §3.4 states.** The bullets
+  above are kept as the record of the defect and of the two directions it moved in on
+  the branch that filed it. Filed at `3a636f62fb` and closed at `4a69275c63`, both
+  on 2026-08-16 — R-49 (2026-07-28) is the only other entry filed and closed on one
+  day — and the one whose **Fix direction** bullet was taken literally.
+  - **The fix, at the address this entry named.** `lower_property_name`
+    (`crates/kali_hir/src/lowering/object.rs`) now stores `String(key)` — the property
+    name JavaScript itself denotes, `format_js_number` for numbers, digits for BigInts,
+    the name verbatim otherwise — instead of wrapping a number's text in double quotes.
+    The marker WAS the defect: it encoded "this was a number" as a leading `"`, which a
+    string key's own content can also carry, so the ambiguous text is no longer written
+    at all rather than being disambiguated later. `KeyTextSlot`,
+    `is_hir_numeric_key_spelling` and its NaN guard were deleted with it, and
+    `c4245eac62` removed all fourteen `trim_matches('"')` un-marking sites that existed
+    only to undo the marker. `canonical_property_key_text` survives as the probe-side
+    function alone.
+  - **What was measured, at `12fd424897` against `node v26.7.0`, both scopes,
+    byte-identical.** The headline `Repro` prints `1`, `true`, `false` at exit 0 with
+    empty stderr on kali, and node prints the same three lines at exit 0. The 2x2 above
+    gains its closing column: `s['"5"']` `1`, `Object.hasOwn(s, '"5"')` **`true`**,
+    `Object.hasOwn(s, 5)` **`false`**, `n[5]` `2`, `Object.hasOwn(n, 5)` `true`,
+    `Object.hasOwn(n, '"5"')` `false` — six cells, six agreements with node, where two
+    of them disagreed at `3a636f62fb`. **The regressed cell and the pre-existing wrong
+    cell closed together**, which is what the entry asked for when it declined to file
+    only the regression.
+  - **Coverage, stated rather than assumed.** Pinned: the `r56a` pair, both scopes, now
+    `fixed`; plus 24 cases in `crates/kali_cli/tests/cases/object/property_key_identity.toml`,
+    which the closing project wrote before touching the code and which include the
+    member-read controls for this exact key in both scopes. Not pinned but measured by
+    hand at `12fd424897`: the same key spelled with escapes (`{"\"5\"": 1}`), and the
+    four shapes the `objectLiteralQuotedNumericStringKey` matcher counts that are
+    strictly WIDER than the defect and never were it (`'"1.5"'`, `'"1e21"'`, `'"05"'`,
+    `'"5."'`). All agreed with node. No shape under this entry's title was found still
+    colliding, in either scope.
+  - **Two live divergences were found while measuring this retirement and are NOT this
+    entry.** Neither is filed here: filing a register entry is a human's decision, and
+    this bullet exists so a later reader does not read the silence as absence.
+    - **`.length` on a string read out of an ARRAY ELEMENT diverges.**
+      `["abc"][0].length` prints `2` where node prints `3`, in a program with **no
+      `Object.keys` and no object key in it at all** — so it is not a property-key
+      phenomenon, and a reader who takes it for one will open the key-lowering path
+      this entry's own closure just cleared. `Object.keys(o)[0].length` is one
+      spelling of it (and is how this project met it); the *iteration* lane
+      `for (const k of Object.keys(o)) k.length` is **correct** and matches node.
+      Measured at `12fd424897`: kali prints `2` for every string tried — `["a"]` `2`
+      vs node `1`, `["ab"]` `2` vs `2`, `["abc"]` `2` vs `3`, `["abcdefghij"]` `2` vs
+      `10`, `["x","yy"][1]` `2` vs `2` — so the value does not track the string and
+      two of those five agree only by coincidence. A direct binding read is fine
+      (`const s = "abc"; s.length` → `3` on both). **This is very likely R-17's
+      family** (**G5**, *"String handles escape as raw integers from the plain-array
+      and `Object.keys` lanes"*): R-17's repros already include both the plain
+      string-array element read and the `Object.keys` element read, and its
+      `Object.keys` repro records **"`k.length` is CORRECT (2)"** — but that is the
+      **array's** length, and the string's `.length` is the untested neighbour, the
+      same lane at a different consumer (`.length` rather than concat). Whether it
+      belongs under **R-17**, under **R-16**, or in a new entry is not decided here.
+    - **`Object.keys({"\"5\"": 1})[0]`** prints `\"5\"` where node prints
+      `"5"` — that is the escape-sequence exception, already recorded at `de87e48e8e`,
+      in `crates/kali_codegen/src/intrinsics/object.rs`'s doc comment and in
+      `docs/superpowers/followups/property-key-trim-site-classification.md` §6; it fires
+      equally on `{"a\"b": 1}`, which contains no number, and its cause is the parser not
+      decoding escapes, not the Number/String discriminator.
+  - **Consequence for the ranking.** With no SILENT lane left, the row leaves the SILENT
+    filter, so R-56 is removed from `tools/blast-radius/clusters.json` — **both** its
+    `R-56 (unclustered)` singleton definition and its assignment, unlike R-32 and R-33
+    which were G8 members and left only an assignment behind. **That divergence from
+    the R-33 precedent is forced, not chosen**: `crates/kali_blast_radius/src/ranking.rs:326`
+    asserts every declared cluster has at least one member ("an empty cluster ranks
+    nothing"), so leaving the definition behind would have made the generator refuse to
+    run. Because R-56 measured
+    **raw 0 / reachable 0**, its departure moves no other cluster's frequency; the
+    ranking's §6 amendment records what the generator printed rather than what was
+    predicted. R-56 is still a §2 Tier-2 entry, so §1's severity table, the numbering
+    note under §7's R-50 and `register_tests.rs`'s 42 are all unchanged — retirement
+    does not delete an entry, exactly as it did not for R-33.
 
 ---
 

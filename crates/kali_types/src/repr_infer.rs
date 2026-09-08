@@ -1727,6 +1727,23 @@ impl ReprInfer {
                     );
                     return;
                 }
+                kali_ast::PropertyName::BigInt(_) => {
+                    // A BigInt key is NOT a numeric property name -- `{42n:
+                    // x}`'s key is the string "42" (`String(42n)`), the same
+                    // kind of key a `Number` key would produce if this lane
+                    // admitted it. It stays off the shape lane for the same
+                    // reason `Number` does (not a field-name identifier or
+                    // string this lane extracts), not because its value is
+                    // numeric, so it gets its own, accurate message rather
+                    // than sharing `Number`'s wording.
+                    self.obj_pending_conflicts.insert(
+                        slot.clone(),
+                        format!(
+                            "object literal for {slot:?} uses a bigint property name, which is unavailable in the current phase"
+                        ),
+                    );
+                    return;
+                }
             };
             // Honest fail-closed residue (throw-fallout Stage 2 Lane A
             // review): `__proto__` (identifier OR quoted-string form,

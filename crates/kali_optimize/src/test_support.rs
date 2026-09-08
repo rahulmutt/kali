@@ -1,4 +1,26 @@
 //! kali_optimize-specific test builders (compiled under cfg(test)).
+//!
+//! KEY-TEXT CURRENCY. These builders hand-assemble LIR, so they have to model
+//! what the real lowering produces, and there are two different things here
+//! that both look like "a key":
+//!
+//! * An object literal's KEY SLOT (`prop_*_key`) holds the PROPERTY NAME --
+//!   `String(key)`, no quoting marker (`kali_hir`'s `lower_property_name`).
+//!   `{ b: 1, "2": 2, "1": 4 }` gives the slot texts `b`, `2`, `1`. These
+//!   fixtures used to spell the last two `"2"` and `"1"`, modelling the
+//!   pre-Task-3 lowering, and that stale model is what let the un-quoting at
+//!   fourteen comparison sites look load-bearing.
+//! * A key EXPRESSION -- a `hasOwn` probe argument, a `fromEntries` entry's
+//!   first element (`entry_*_key`) -- is an ordinary string LITERAL and keeps
+//!   its source quoting, exactly as any other string literal node does. Those
+//!   stay quoted here on purpose.
+//!
+//! One exception to the first bullet, pre-existing in the parser and pinned by
+//! corpus cases rather than fixed: a key whose source spelling contains an
+//! ESCAPE SEQUENCE is stored UNDECODED, so `{"a\"b": 1}`'s slot holds the
+//! four-character `a\"b` rather than the name `a"b`. See
+//! docs/superpowers/followups/property-key-trim-site-classification.md
+//! section 6.
 use crate::*;
 use kali_lir::{LirBuilder, LirNodeKind};
 
@@ -79,12 +101,12 @@ pub(crate) fn build_object_enumeration_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -248,12 +270,12 @@ pub(crate) fn build_bracketed_global_this_object_enumeration_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -275,12 +297,12 @@ pub(crate) fn build_reflect_own_keys_call(builder: &mut LirBuilder) -> LirNodeId
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -307,12 +329,12 @@ pub(crate) fn build_bracketed_reflect_own_keys_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -339,12 +361,12 @@ pub(crate) fn build_global_this_reflect_own_keys_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -385,12 +407,12 @@ pub(crate) fn build_object_has_own_call(builder: &mut LirBuilder, callee_name: &
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -418,12 +440,12 @@ pub(crate) fn build_bracketed_object_has_own_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -447,12 +469,12 @@ pub(crate) fn build_const_bound_object_has_own_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -490,12 +512,12 @@ pub(crate) fn build_const_bound_reflect_own_keys_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -525,12 +547,12 @@ pub(crate) fn build_alias_bound_reflect_own_keys_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -576,12 +598,12 @@ pub(crate) fn build_const_bound_object_enumeration_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 
@@ -624,12 +646,12 @@ pub(crate) fn build_alias_bound_object_enumeration_call(
     builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
     let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_key = literal(builder, "2");
     let prop_two_value = literal(builder, "2");
     builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
     let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_key = literal(builder, "1");
     let prop_one_value = literal(builder, "4");
     builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
 

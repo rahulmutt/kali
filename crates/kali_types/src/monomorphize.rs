@@ -951,17 +951,20 @@ fn union_into(dst: &mut ShapeVal, src: &ShapeVal) {
 /// The ordered field names of an object literal, using exactly repr_infer's
 /// acceptance rule (`record_object_literal`): every property must be an
 /// `Init` with an `Identifier` or `String` key (excluding `__proto__` — see
-/// below) and a non-nested-object value; `Number` keys stay out. Anything
-/// else is not a supported fixed-shape object → `None` (treated as no shape,
-/// so it never drives a specialization). The field list is ES-ordered
-/// (throw-fallout Stage 2, Lane B) — the same shared ordering
+/// below) and a non-nested-object value; `Number` keys stay out, and so do
+/// `BigInt` keys — not for `Number`'s f64-canonicalization reason (a BigInt
+/// key has no f64 to canonicalize; its digits ARE the exact key text), but
+/// because neither is a field-name identifier or string this shape lane
+/// extracts. Anything else is not a supported fixed-shape object → `None`
+/// (treated as no shape, so it never drives a specialization). The field list
+/// is ES-ordered (throw-fallout Stage 2, Lane B) — the same shared ordering
 /// `record_object_literal` applies, so the mirror stays true.
 fn clean_shape(obj: &ObjectExpression) -> Option<ShapeTuple> {
     let mut names = Vec::with_capacity(obj.properties.len());
     for prop in &obj.properties {
         let key = match &prop.key {
             PropertyName::Identifier(key) | PropertyName::String(key) => key.clone(),
-            PropertyName::Number(_) => return None,
+            PropertyName::Number(_) | PropertyName::BigInt(_) => return None,
         };
         // Honest fail-closed residue (throw-fallout Stage 2 Lane A review):
         // `__proto__` (identifier OR quoted-string form, non-computed) is

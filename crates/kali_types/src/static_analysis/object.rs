@@ -465,6 +465,7 @@ impl TypeContext {
                             PropertyName::Identifier(_)
                                 | PropertyName::Number(_)
                                 | PropertyName::String(_)
+                                | PropertyName::BigInt(_)
                         )
                 })
             }
@@ -533,6 +534,7 @@ impl TypeContext {
                         PropertyName::Identifier(_)
                             | PropertyName::Number(_)
                             | PropertyName::String(_)
+                            | PropertyName::BigInt(_)
                     )
                 })
             }

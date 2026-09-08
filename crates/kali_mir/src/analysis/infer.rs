@@ -130,13 +130,19 @@ impl<'a> OwnershipAnalyzer<'a> {
             .unwrap_or_else(|| format!("field_{}", node.children.len()))
     }
 
+    /// ES enumeration-order key for a layout field name.
+    ///
+    /// `key` comes from `layout_field_name`, which reads an HIR key slot's
+    /// text -- the PROPERTY NAME (`lower_property_name`), never a quoted
+    /// literal spelling -- so nothing is stripped before classifying. See
+    /// `kali_common::property_order_key`, which this mirrors for the layout
+    /// lane and which records what the removed un-quoting cost.
     pub(crate) fn object_property_order_key(key: &str) -> Option<u64> {
-        let normalized = key.trim_matches('"');
-        if normalized.is_empty() || (normalized.len() > 1 && normalized.starts_with('0')) {
+        if key.is_empty() || (key.len() > 1 && key.starts_with('0')) {
             return None;
         }
 
-        let value = normalized.parse::<u64>().ok()?;
+        let value = key.parse::<u64>().ok()?;
         (value < u32::MAX as u64).then_some(value)
     }
 }

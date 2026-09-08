@@ -2,196 +2,62 @@
 use crate::*;
 use kali_common::js_number::format_js_number;
 
-/// Which slot a key literal's text was read from.
+/// The property key an EXPRESSION denotes, computed the way JS does
+/// (`String(key)`).
 ///
-/// The two slots encode the same key with OPPOSITE quoting conventions, so the
-/// slot is what says whether a text is a number's spelling or a string's. This
-/// is measured, not assumed -- dumping the lowered nodes gives:
-///
-/// | source | object-literal key slot | same literal as an expression |
-/// |---|---|---|
-/// | `{a: 1}` / `{"a": 1}` | `a` | `"a"` |
-/// | `{5: 1}` | `"5"` | `5` |
-/// | `{1e-7: 1}` | `"0.0000001"` | `0.0000001` |
-///
-/// So in a KEY slot the quotes mean "this was a NUMBER, already stringified by
-/// HIR with Rust's `Display`"; in an EXPRESSION slot they mean the opposite,
-/// "this was a string". An identifier key and a quoted-string key are already
-/// indistinguishable in the key slot, which is fine: JS gives them the same key.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum KeyTextSlot {
-    ObjectLiteralKey,
-    Expression,
-}
-
-/// The property key a literal's text denotes, computed the way JS does
-/// (`String(key)`). The single currency both sides of a static key comparison
-/// must be in.
-///
-/// The two sides used to agree by accident: the probe rendered through
-/// `render_static_value` and the stored key was read as raw HIR text, and both
-/// were the same Rust `Display for f64` expansion. Once the renderer started
-/// emitting JS notation they disagreed, and `Object.hasOwn({1e21: 1}, 1e21)`
-/// folded to a silent, diagnostic-free `false`.
-///
-/// The rule is deliberately TYPE-AWARE rather than "renumber anything that
-/// parses as a number": the numeric key `1e21` denotes the property `"1e+21"`,
-/// while the STRING key `"1000000000000000000000"` denotes itself, and JS keeps
-/// those two distinct. Renumbering both would fix one wrong answer by creating
-/// another.
-/// The value `spelling` denotes, but ONLY when `spelling` is exactly what
-/// `kali_hir`'s `lower_property_name` could have written for a numeric property
-/// name. Otherwise `None`, meaning "this is a string key, leave it alone".
-///
-/// That function is
-/// `if value == 0.0 { "0" } else { value.to_string() }`, so its image is what
-/// this predicate must accept -- no more and no less. Testing with
-/// `parse_numeric_literal_value` alone accepts a strictly WIDER language than
-/// HIR's writer can produce: `1e21`, `1e-7`, `5e3`, `5E3`, `+5`, `5.`, `.5`,
-/// `05`, `-0`, `42n`, `NaN` and `infinity` all parse, and none of them is
-/// something that writer can emit. Every spelling in that gap is a string
-/// key -- `{'"1e21"': 1}` -- and renumbering it renamed the property, which is
-/// how this helper acquired the same defect three times running. A round-trip
-/// through the writer closes the whole class instead of one spelling at a time.
-///
-/// NEGATIVE SPELLINGS ARE REACHABLE, and must be accepted. The plain key
-/// grammar has no sign -- `{-5: 1}` really is a syntax error -- but the
-/// COMPUTED key path folds one in: `computed_object_property_name`
-/// (`kali_parser/src/expression/object.rs:172-191`) matches a unary `+`/`-`
-/// over a numeric key and returns `PropertyName::Number(-number)`, which the
-/// repo's own parser test pins (`{[-1]: 1}` yields `PropertyName::Number(-1.0)`).
-/// So `{[-1]: 1}`, `{[-1.5]: 1}` and `{[-1e999]: 1}` all reach HIR as negative
-/// values and are written `-1`, `-1.5` and `-inf`. An earlier version of this
-/// predicate rejected every negative spelling on the false premise that the
-/// grammar forbids them, which traded a class of false positives for a class of
-/// false negatives. Do not re-add that guard.
-///
-/// ONE reachability guard, because the image is over the values a property name
-/// can actually denote: NOT NaN. No numeric literal denotes NaN, and
-/// `{NaN: 1}` is an IDENTIFIER key that never reaches this slot quoted -- but
-/// `f64::NAN.to_string()` is `"NaN"`, so the round trip alone would accept it.
-/// (`{[0/0]: 1}` does not reach here either: only a literal, not an arithmetic
-/// expression, folds to a computed property name.)
-///
-/// The zero case is stated separately rather than left to the round trip
-/// because `Display` and HIR disagree there: `(-0.0).to_string()` is `"-0"`,
-/// while HIR collapses BOTH zeros to `"0"` (its `*value == 0.0` test is true for
-/// `-0.0`, and the parser hands it a signed zero for `{[-0]: 1}`). That branch
-/// is therefore what makes `-0` unreachable AS A SPELLING and is the only thing
-/// rejecting it -- it needs no help from a sign guard.
-fn is_hir_numeric_key_spelling(spelling: &str) -> Option<f64> {
-    let value = parse_numeric_literal_value(spelling)?;
-    if value.is_nan() {
-        return None;
-    }
-    let written_by_hir = if value == 0.0 {
-        spelling == "0"
-    } else {
-        value.to_string() == spelling
-    };
-    written_by_hir.then_some(value)
-}
-
-pub(crate) fn canonical_property_key_text(text: &str, slot: KeyTextSlot) -> String {
-    // NOT trimmed. In the key slot whitespace is never padding -- ` a ` is the
-    // three-character property name, and `{" a ": 1}` lowers to exactly that
-    // text. Trimming here silently renamed the key to `a`.
+/// Only one currency exists now: a key-slot node's text is already the
+/// property name (`kali_hir`'s `lower_property_name`), so this function is for
+/// the PROBE side alone -- the key an expression evaluates to. Its convention
+/// is invertible and was never the defect: a quote character means a string
+/// literal whose content is the key, an `n` suffix means BigInt digits, and a
+/// bare text is a number's spelling to be rendered.
+pub(crate) fn canonical_property_key_text(text: &str) -> String {
+    // NOT trimmed: whitespace in a key is never padding. `{" a ": 1}`'s key is
+    // the three-character name ` a `, and the probe `o[" a "]` must keep it.
     //
-    // The length guard is a BYTE length while the delimiter tests are on chars,
-    // which is what keeps a one-character multi-byte key such as `{"é": 1}`
-    // (two bytes, one char) from ever being mistaken for a quoted text. Keep
-    // that pairing; the `[1..len - 1]` slices below are only ever reached once
-    // both ends are known to be ASCII quotes.
+    // The length guard is a BYTE length while the delimiter tests below are on
+    // CHARS, which is what keeps a one-character multi-byte text such as `é`
+    // (two bytes, one char) from ever being read as quoted. Keep that pairing;
+    // the `[1..len - 1]` slices are only ever reached once both ends are known
+    // to be ASCII quotes, so they cannot split a multi-byte char.
     let long_enough = text.len() >= 2;
-
-    // The ONE numeric renderer both slots share, so the two sides cannot drift
-    // apart on how a number is spelled.
-    let renumbered = |spelling: &str| -> Option<String> {
-        parse_numeric_literal_value(spelling).map(format_js_number)
-    };
-
-    match slot {
-        // A DOUBLE quote -- and only a double quote -- is HIR's marker for "this
-        // was a NUMBER, already stringified": `lower_property_name`'s `Number`
-        // arm is `format!("\"{}\"", ...)`, and its `String` and `Identifier`
-        // arms store the name verbatim. Accepting `'` and `` ` `` here as well
-        // renumbered string keys whose own content is a quoted number, so
-        // `{"'5'": 1}` answered `hasOwn(o, "'5'")` with `false` and
-        // `hasOwn(o, 5)` with `true` while member access still found the key --
-        // one program contradicting itself in a single output.
-        //
-        // A quoted-looking text whose inner is NOT a number is likewise a string
-        // key whose quote characters are part of the name (`{"\"d\"": 1}`), so
-        // it comes back verbatim.
-        //
-        // THE GATE IS STILL OPEN FOR `"` ITSELF, AND THAT IS A LIVE SILENT
-        // MISCOMPILE -- register **R-56** (§2, Tier 2). Narrowing the marker to
-        // the double quote fixed `'` and `` ` ``; it cannot fix `"`, because `"`
-        // is simultaneously HIR's marker for "this was a number". `{'"5"': 1}`
-        // and `{5: 1}` reach this function as the SAME text, so
-        // `Object.hasOwn({'"5"': 1}, '"5"')` folds to `false` and
-        // `Object.hasOwn({'"5"': 1}, 5)` to `true` -- both wrong, both at exit 0,
-        // in a program whose `o['"5"']` still reads `1`. The exact failure this
-        // paragraph says the gate exists to prevent, one quote character over.
-        // No predicate at THIS level can close it: `lower_property_name`
-        // (`crates/kali_hir/src/lowering/object.rs:20`) discards whether the
-        // `PropertyName` was `Number` or `String`, so the discriminator must be
-        // restored upstream. Do not attempt a textual fix here.
-        //
-        // "IS a number" here means the INVARIANT, not a spelling: the inner must
-        // be exactly what `lower_property_name` could have written
-        // (`is_hir_numeric_key_spelling`). Asking `parse_numeric_literal_value`
-        // instead accepts a language strictly wider than that function's image,
-        // and every spelling in the gap is a STRING key being renumbered.
-        KeyTextSlot::ObjectLiteralKey => {
-            let double_quoted = long_enough && text.starts_with('"') && text.ends_with('"');
-            if !double_quoted {
-                return text.to_string();
-            }
-            is_hir_numeric_key_spelling(&text[1..text.len() - 1])
-                .map(format_js_number)
-                .unwrap_or_else(|| text.to_string())
-        }
-        // The convention is inverted here: ANY quote character means a string
-        // literal, whose content is the key however it is spelled, and only an
-        // UNQUOTED text is a number's spelling.
-        KeyTextSlot::Expression => {
-            let quoted = long_enough
-                && matches!(
-                    (text.chars().next(), text.chars().last()),
-                    (Some('"'), Some('"')) | (Some('\''), Some('\'')) | (Some('`'), Some('`'))
-                );
-            if quoted {
-                return text[1..text.len() - 1].to_string();
-            }
-            // `String(42n)` is "42": exact, and textual, so the digits of a
-            // BigInt too large for an `f64` survive. Load-bearing on this side
-            // only -- a BigInt can reach an expression slot.
-            if is_bigint_literal_text(text) {
-                return text[..text.len() - 1].to_string();
-            }
-            renumbered(text).unwrap_or_else(|| text.to_string())
-        }
+    let quoted = long_enough
+        && matches!(
+            (text.chars().next(), text.chars().last()),
+            (Some('"'), Some('"')) | (Some('\''), Some('\'')) | (Some('`'), Some('`'))
+        );
+    if quoted {
+        return text[1..text.len() - 1].to_string();
     }
+    // `String(42n)` is "42": exact, and textual, so the digits of a BigInt too
+    // large for an `f64` survive.
+    if is_bigint_literal_text(text) {
+        return text[..text.len() - 1].to_string();
+    }
+    parse_numeric_literal_value(text)
+        .map(format_js_number)
+        .unwrap_or_else(|| text.to_string())
 }
 
 impl<'a> FunctionEmitter<'a> {
-    /// `canonical_property_key_text` for a key NODE.
+    /// The property name a KEY-SLOT node holds.
     ///
-    /// Key-slot nodes are read for their own text and never resolved as
-    /// bindings (`{ a: 1 }`'s key is the name `a`, not the value of a variable
-    /// `a`), which is why this cannot simply defer to `render_static_value`.
-    /// A non-literal PROBE key (a bound identifier, a folding call) still can:
-    /// that renderer's numeric output is already the canonical form and its
-    /// string output is already the bare content.
-    pub(crate) fn static_property_key_text(
-        &self,
-        id: LirNodeId,
-        slot: KeyTextSlot,
-    ) -> Option<String> {
+    /// Its text is already `String(key)`, so this reads it. Key-slot nodes are
+    /// never resolved as bindings (`{a: 1}`'s key is the name `a`, not the
+    /// value of a variable `a`), which is why this does not defer to
+    /// `render_static_value`.
+    pub(crate) fn static_object_key_text(&self, id: LirNodeId) -> Option<String> {
+        let node = self.node(id);
+        (node.kind == LirNodeKind::Literal)
+            .then(|| node.text.clone())
+            .flatten()
+    }
+
+    /// The property name a PROBE expression denotes.
+    pub(crate) fn static_probe_key_text(&self, id: LirNodeId) -> Option<String> {
         let node = self.node(id);
         if node.kind == LirNodeKind::Literal {
-            return Some(canonical_property_key_text(node.text.as_deref()?, slot));
+            return Some(canonical_property_key_text(node.text.as_deref()?));
         }
         self.render_static_value(id)
     }
@@ -212,22 +78,45 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
+    /// The value node an object literal stores under the property name
+    /// `field`, or `None` when it has no such own property.
+    ///
+    /// BOTH sides are property names and neither is un-quoted. `field` reaches
+    /// this from a member node's text (`kali_parser`'s
+    /// `expression_to_property_name`), a `kali_types` shape field name, or a
+    /// normalized static index -- all `String(key)` -- and the stored side is a
+    /// key slot's text, which IS `String(key)` since `lower_property_name`.
+    ///
+    /// The one pre-existing exception is ESCAPE SEQUENCES: `{"a\"b": 1}` stores
+    /// the undecoded four-character text `a\"b` (the delimiters are stripped,
+    /// the escape is not decoded), and a probe written the SAME way -- the
+    /// identical source spelling `o['a\"b']` -- arrives undecoded too, so the
+    /// two agree only because they are byte-identical text. Neither is the
+    /// three-character name node uses, and the agreement does not extend past
+    /// this direct comparison: the enumeration lane (`fold_object_enumeration_
+    /// call`) re-encodes the same undecoded text with a second escaping pass,
+    /// so a key read back out through `Object.keys` diverges again (its
+    /// `.length` is 6, not 4). A probe spelled `o['a"b']` (the real, decoded
+    /// name) therefore misses. Recorded and pinned, not fixed here; see
+    /// docs/superpowers/followups/property-key-trim-site-classification.md.
+    ///
+    /// It used to strip `"` off both sides, which is a guess at the key's type
+    /// from its punctuation rather than a property-name comparison, and the
+    /// guess invented properties: `const p = {'"a"': 1}; p['a']` read `1`
+    /// where node reads `undefined`, in a program whose `Object.hasOwn(p,'a')`
+    /// -- which stopped guessing first -- already answered `false`. One
+    /// program contradicting itself is R-56's class at a second address.
     pub(crate) fn object_literal_field(&self, node: &LirNode, field: &str) -> Option<LirNodeId> {
         if !self.is_object_literal(node) {
             return None;
         }
 
-        let field = field.trim_matches('"');
         for child in &node.children {
             let property = self.node(*child);
             if property.children.len() != 2 {
                 continue;
             }
-            let key = self
-                .node(property.children[0])
-                .text
-                .as_deref()
-                .map(|value| value.trim_matches('"'))?;
+            let key = self.node(property.children[0]).text.as_deref()?;
             if key == field {
                 return property.children.get(1).copied();
             }
@@ -545,29 +434,61 @@ impl<'a> FunctionEmitter<'a> {
         object_id: LirNodeId,
         key_id: LirNodeId,
     ) -> Option<bool> {
-        // BOTH sides of every comparison below go through
-        // `static_property_key_text`. The probe used to arrive as a
+        // BOTH sides of every comparison below are in the SAME currency: the
+        // JavaScript property name. The probe used to arrive as a
         // `render_static_value` string while the stored keys were read as raw
         // HIR text, and that asymmetry folded `Object.hasOwn({1e21: 1}, 1e21)`
-        // to a wrong `false` with no diagnostic.
-        let key = self.static_property_key_text(key_id, KeyTextSlot::Expression)?;
+        // to a wrong `false` with no diagnostic. It is true by construction
+        // now -- a key-slot node's text IS the name, so the stored side only
+        // reads it.
+        //
+        // ONE EXCEPTION, pre-existing and not this lane's: a key whose source
+        // spelling contains an ESCAPE SEQUENCE is stored undecoded, because
+        // `kali_parser`'s `unquote_string_literal` strips the delimiters
+        // without decoding. `{"a\"b": 1}` stores the four-character text
+        // `a\"b`, not the three-character name `a"b`. THIS fold's probe and
+        // stored key agree ONLY because they are byte-identical source
+        // spellings, not because either side holds the real property name --
+        // `Object.hasOwn(o, "a\"b")` folds to `true` here, but the SAME
+        // object's enumerated key fails a strict-equality probe against that
+        // identical literal (`k === "a\"b"` is `false` for `k` read out of
+        // `Object.keys(o)`), because the enumeration lane
+        // (`fold_object_enumeration_call`) re-encodes the undecoded text with
+        // a second escaping pass that this fold never sees. "Self-consistent"
+        // describes this one comparison, not the key's behaviour across the
+        // object model. See
+        // docs/superpowers/followups/property-key-trim-site-classification.md
+        // section 6.
+        let key = self.static_probe_key_text(key_id)?;
         let resolved = self
             .resolve_literal_aggregate(object_id)
             .unwrap_or(object_id);
         let object = self.node(resolved);
         if self.is_object_literal(object) {
-            // Deliberately NOT `object_literal_field`: that helper is fed raw
-            // HIR text by every one of its other callers (member-access
-            // property names, inferred shape field names), so it is symmetric
-            // for them and must stay on the raw-text currency.
+            // This scan and `object_literal_field` now compare the same way --
+            // property name against property name, neither side un-quoted.
+            // (The un-quoting that helper used to do, and the reason this lane
+            // deliberately avoided it, is gone: it was one of the fourteen
+            // sites Task 5 deleted, and the comment that used to point at it
+            // here has been removed rather than left to rot.)
+            //
+            // ONE difference remains, and it is why this is still not a call to
+            // that helper: `object_literal_field` reads the key with
+            // `.as_deref()?`, so a TEXT-LESS key node aborts its whole scan and
+            // it reports "no such field". Here a text-less key node makes only
+            // that ONE property unmatchable and the scan continues, so a later
+            // property really holding the probed name is still found. For a
+            // `hasOwn` fold that is the difference between a wrong `false` and
+            // the right `true`, so the more conservative scan stays.
+            //
+            // If that `?` is ever softened to a skip, these two collapse into
+            // one and this should become
+            // `self.object_literal_field(object, &key).is_some()`.
             return Some(object.children.iter().any(|child| {
                 let property = self.node(*child);
                 property.children.len() == 2
                     && self
-                        .static_property_key_text(
-                            property.children[0],
-                            KeyTextSlot::ObjectLiteralKey,
-                        )
+                        .static_object_key_text(property.children[0])
                         .is_some_and(|stored| stored == key)
             }));
         }
@@ -596,14 +517,37 @@ impl<'a> FunctionEmitter<'a> {
         // provable `Object.hasOwn` on such an object would emit a `false`
         // placeholder instead of folding to the true answer.
         // This lane compares the canonical probe against RAW interned field
-        // names, which is the one place the two currencies could still diverge --
-        // except that a shape's field names can never be numeric: an object
-        // literal with a numeric property name is rejected outright
-        // (`E5506` "object literal ... uses a numeric property name"), so it
-        // never materializes and never interns a shape. Measured: every
-        // numeric-key `hasOwn` resolves through the object-literal lane above,
-        // and forcing materialization (mutating through a function parameter)
-        // fails the compile instead of reaching here.
+        // names, which is the one place a shape's naming could still diverge
+        // from the property name -- except that a shape's field names can
+        // never be numeric: an object literal with a numeric property name is
+        // rejected outright (`E5506` "object literal ... uses a numeric
+        // property name", `kali_types/src/repr_infer.rs`), so it never
+        // materializes and never interns a shape.
+        //
+        // MEASURED, with the exact programs, at the commit that wrote this:
+        //
+        //   function bump(o) { o.a = 9; }
+        //   let o = {1: 1, a: 2};
+        //   bump(o);
+        //   console.log(o.a);
+        //
+        // fails to compile: `error[E5506]: object literal for
+        // Binding("_start", "o") uses a numeric property name, which is
+        // unavailable in the current phase`, exit 1. So forcing
+        // materialization of a numeric-key literal fails the compile instead
+        // of reaching here, and every numeric-key `hasOwn` that DOES compile
+        // resolves through the object-literal lane above.
+        //
+        // The string keys that do intern are compared correctly, including
+        // numeric-LOOKING ones:
+        //
+        //   function bump(o) { o.a = 9; }
+        //   let o = {"1": 1, "1e+21": 2, a: 3};
+        //   bump(o);
+        //   Object.hasOwn(o, "1") / 1 / "1e+21" / 1e21 / "b"
+        //
+        // answers `true true true true false` at exit 0, which is node's
+        // answer byte for byte.
         if let Some(shape) = self.object_shape_of_node(resolved) {
             return Some(self.repr_table.shape_field(shape, &key).is_some());
         }
@@ -633,8 +577,7 @@ impl<'a> FunctionEmitter<'a> {
             // Same currency as `static_object_has_own`'s probe, which is where
             // `key` comes from -- this lane was already symmetric because both
             // sides rendered, and it stays symmetric by sharing the function.
-            let rendered_key =
-                self.static_property_key_text(entry_node.children[0], KeyTextSlot::Expression)?;
+            let rendered_key = self.static_probe_key_text(entry_node.children[0])?;
             if rendered_key == key {
                 return Some(true);
             }

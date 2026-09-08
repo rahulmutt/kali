@@ -4,7 +4,11 @@ use crate::object::{property_order_key, sort_properties_es_order};
 fn property_order_key_classifies_array_index_like_keys() {
     assert_eq!(property_order_key("0"), Some(0));
     assert_eq!(property_order_key("1"), Some(1));
-    assert_eq!(property_order_key("\"2\""), Some(2)); // LIR text may keep quotes
+    // `"\"2\""` is the three-character property NAME `"2"` (a program wrote
+    // `{'"2"': 1}`), not the array index 2. Classifying it as an index put it
+    // ahead of earlier-inserted string keys and printed it as `2`; node
+    // enumerates it last and prints `"2"`.
+    assert_eq!(property_order_key("\"2\""), None);
     assert_eq!(property_order_key("01"), None); // leading zero: not an index
     assert_eq!(property_order_key(""), None);
     assert_eq!(property_order_key("b"), None);

@@ -94,11 +94,15 @@ fn release_folds_object_from_entries_calls_over_literal_entry_arrays() {
             (key, value)
         })
         .collect();
+    // The materialized literal's key slots hold PROPERTY NAMES, the same
+    // currency a source object literal's key slots hold. They used to hold the
+    // entry string literal's re-quoted SPELLING (`"b"`), which is what made
+    // every downstream key comparison strip quotes before reading.
     assert_eq!(
         entries,
         vec![
-            ("\"b\"".to_string(), "3".to_string()),
-            ("\"a\"".to_string(), "2".to_string())
+            ("b".to_string(), "3".to_string()),
+            ("a".to_string(), "2".to_string())
         ]
     );
 }
@@ -138,11 +142,15 @@ fn release_folds_global_this_object_from_entries_calls_over_literal_entry_arrays
             (key, value)
         })
         .collect();
+    // The materialized literal's key slots hold PROPERTY NAMES, the same
+    // currency a source object literal's key slots hold. They used to hold the
+    // entry string literal's re-quoted SPELLING (`"b"`), which is what made
+    // every downstream key comparison strip quotes before reading.
     assert_eq!(
         entries,
         vec![
-            ("\"b\"".to_string(), "3".to_string()),
-            ("\"a\"".to_string(), "2".to_string())
+            ("b".to_string(), "3".to_string()),
+            ("a".to_string(), "2".to_string())
         ]
     );
 }
@@ -949,12 +957,12 @@ fn release_advanced_folds_object_enumeration_calls_over_frozen_literal_object_sh
         builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
 
         let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
-        let prop_two_key = literal(&mut builder, "\"2\"");
+        let prop_two_key = literal(&mut builder, "2");
         let prop_two_value = literal(&mut builder, "2");
         builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
 
         let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
-        let prop_one_key = literal(&mut builder, "\"1\"");
+        let prop_one_key = literal(&mut builder, "1");
         let prop_one_value = literal(&mut builder, "4");
         builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
         builder.node_mut(object).unwrap().children = vec![prop_b, prop_two, prop_one];

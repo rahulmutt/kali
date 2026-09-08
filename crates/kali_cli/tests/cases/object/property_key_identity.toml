@@ -1,0 +1,684 @@
+# Pins for the property-key identity project (spec
+# docs/superpowers/specs/2026-08-16-hir-property-key-identity-design.md).
+#
+# EVERY EXPECTATION IN THIS FILE IS WRONG ON PURPOSE at the commit that adds
+# it. These cases record what kali does at `5c80f081d2` so that the fix has
+# something to turn red. The `rationale` on each says what node does and which
+# task is expected to move it; a case that moves without its task moving is a
+# surprise, which is the point.
+#
+# The two control cases at the end are the opposite: they are CORRECT today and
+# must stay correct. `{5:1}` and `{"5":1}` are the same property in JavaScript,
+# and a discriminator that separated them would fix R-56 by breaking conforming
+# programs.
+#
+# One more pair was added beyond the plan's Step 2 list: `object_keys_
+# enumeration_order_*`. The plan's spec claims Object.keys enumeration order is
+# pinned before it changes (docs/superpowers/specs/2026-08-16-hir-property-key-
+# identity-design.md:374-378, risk 4: "the ordering is pinned by cases before
+# the change so any movement is visible rather than inferred"), but the ten
+# cases above never actually exercise ordering with a mixed array-index-like
+# key and a string key. Measured against this commit, kali already agrees with
+# node, so this pair is a sixth CONTROL rather than a seventh defect: it exists
+# so that ordering movement caused by a later task's HIR key-slot collapse or
+# Object.keys rewrite is visible as a named red case rather than inferred from
+# an unrelated failure.
+#
+# Two more pairs were added by Task 5, and they are pinned at what kali does
+# AFTER that task rather than before it, so the "wrong on purpose" note above
+# does not describe them: `object_keys_over_a_quoted_string_key_*` is correct
+# and agrees with node (it was wrong in both text and order before Task 5), and
+# `member_probe_does_not_invent_a_property_from_quote_characters_*` is correct
+# on two of three lines, with the third WRONG ON PURPOSE and its rationale
+# naming the separate pre-existing defect that owns it. They exist because the
+# divergences they measure were invisible: nothing in this file exercised a
+# string key whose own content contains quote characters through the
+# ENUMERATION-order lane or the MEMBER-read lane.
+#
+# A THIRD pair was added by Task 5's review: `escaped_quote_in_a_key_is_stored_
+# undecoded_*`. It is WRONG ON PURPOSE and no task in this plan owns closing it.
+# It matters more than its size suggests, because it falsifies this project's
+# invariant as the project has been stating it: a key slot's text is the
+# property name for every shape of key EXCEPT one whose source spelling
+# contains an escape sequence, which is stored undecoded. That exception is
+# pre-existing parser behaviour (measured identical before and after Task 5),
+# and it is pinned here rather than chased because decoding belongs to the
+# parser, not to a task about comparison sites.
+#
+# THE FINAL WHOLE-BRANCH REVIEW AND ITS FIX WAVE made two further kinds of
+# change, none of which is a task in this plan and none of which owns closing
+# anything. It EXTENDED two existing pairs with probes their original rationale
+# did not cover (`escaped_quote_in_a_key_is_stored_undecoded_*` gained a
+# `k === "a\"b"` strict-equality probe; `object_keys_over_a_quoted_string_key_*`
+# gained a `.length` and a `k === '"2"'` probe, and its rationale was downgraded
+# from "correct" to "agrees on text and order" because `.length` does not
+# agree). And it ADDED three WRONG-ON-PURPOSE pairs, all pre-existing and all
+# out of scope:
+#
+#   * `octal_leading_zero_numeric_key_is_read_as_decimal_*` -- `{042: 1}`'s key
+#     reads as decimal `42` where node says `34`, in the same nine-line parser
+#     function whose BigInt half this branch guarded against exactly this;
+#   * `computed_member_index_is_fabricated_from_the_index_expression_*` --
+#     `expression_to_property_name` invents a property name for any index shape
+#     it cannot read statically, the same fabricated-key class Tasks 2 and 5
+#     deleted elsewhere, surviving one file over;
+#   * `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_
+#     zero_*` -- the fabricated `0` this file's other rationales call the
+#     "absent-property read" defect also fires on a property that is PRESENT,
+#     which is what forced those rationales to stop calling it that.
+#
+# Every expectation in the three new pairs is what kali printed at the commit
+# that adds them, measured with the live binary against node v26.8.1 in both
+# scopes; none of them is a guess at what kali ought to do.
+#
+[source]
+"bigint_module.js" = """const o = {42n: 1};
+console.log(Object.hasOwn(o, 0));
+console.log(o[0]);
+console.log(o[42]);
+"""
+"bigint_function.js" = """function main() {
+  const o = {42n: 1};
+  console.log(Object.hasOwn(o, 0));
+  console.log(o[0]);
+  console.log(o[42]);
+}
+main();
+"""
+"keys_small_module.js" = """for (const k of Object.keys({1e-7: 1})) console.log(k);
+"""
+"keys_small_function.js" = """function main() {
+  for (const k of Object.keys({1e-7: 1})) console.log(k);
+}
+main();
+"""
+"keys_extreme_module.js" = """for (const k of Object.keys({[-1e999]: 1, [1e21]: 2})) console.log(k);
+"""
+"keys_extreme_function.js" = """function main() {
+  for (const k of Object.keys({[-1e999]: 1, [1e21]: 2})) console.log(k);
+}
+main();
+"""
+"numeric_string_same_key_module.js" = """const o = {5: 1};
+const p = {"5": 1};
+console.log(Object.hasOwn(o, 5));
+console.log(Object.hasOwn(p, 5));
+console.log(Object.hasOwn(o, "5"));
+"""
+"numeric_string_same_key_function.js" = """function main() {
+  const o = {5: 1};
+  const p = {"5": 1};
+  console.log(Object.hasOwn(o, 5));
+  console.log(Object.hasOwn(p, 5));
+  console.log(Object.hasOwn(o, "5"));
+}
+main();
+"""
+"quoted_numeric_member_read_module.js" = """const q = {'"5"': 1};
+console.log(q['"5"']);
+"""
+"quoted_numeric_member_read_function.js" = """function main() {
+  const q = {'"5"': 1};
+  console.log(q['"5"']);
+}
+main();
+"""
+"member_read_module.js" = """const a = {1e21: 1};
+console.log(a[1e21]);
+const b = {1e-7: 2};
+console.log(b[1e-7]);
+const c = {[-1e999]: 3};
+console.log(c[-1e999]);
+"""
+"member_read_function.js" = """function main() {
+  const a = {1e21: 1};
+  console.log(a[1e21]);
+  const b = {1e-7: 2};
+  console.log(b[1e-7]);
+  const c = {[-1e999]: 3};
+  console.log(c[-1e999]);
+}
+main();
+"""
+"keys_order_module.js" = """for (const k of Object.keys({2: 'a', foo: 'b', 0: 'c'})) console.log(k);
+"""
+"keys_order_function.js" = """function main() {
+  for (const k of Object.keys({2: 'a', foo: 'b', 0: 'c'})) console.log(k);
+}
+main();
+"""
+"keys_typeof_module.js" = """for (const k of Object.keys({5: 1})) console.log(typeof k);
+"""
+"keys_typeof_function.js" = """function main() {
+  for (const k of Object.keys({5: 1})) console.log(typeof k);
+}
+main();
+"""
+"keys_bigint_module.js" = """for (const k of Object.keys({42n: 1})) console.log(k, typeof k);
+"""
+"keys_bigint_function.js" = """function main() {
+  for (const k of Object.keys({42n: 1})) console.log(k, typeof k);
+}
+main();
+"""
+"keys_quoted_string_key_order_module.js" = """const o = {foo:'b','"2"':'a'};
+for (const k of Object.keys(o)) { console.log(k); console.log(k.length); console.log(k === '"2"'); }
+"""
+"keys_quoted_string_key_order_function.js" = """function main() {
+  const o = {foo:'b','"2"':'a'};
+  for (const k of Object.keys(o)) { console.log(k); console.log(k.length); console.log(k === '"2"'); }
+}
+main();
+"""
+"quoted_key_member_probe_module.js" = """const p = {'"a"': 1};
+console.log(p['"a"']);
+console.log(p['a']);
+console.log(Object.hasOwn(p, 'a'));
+"""
+"quoted_key_member_probe_function.js" = """function main() {
+  const p = {'"a"': 1};
+  console.log(p['"a"']);
+  console.log(p['a']);
+  console.log(Object.hasOwn(p, 'a'));
+}
+main();
+"""
+# TOML LITERAL strings ('''), not basic ones, so the JS source keeps its
+# backslash exactly as written: the key's source spelling is `"a\"b"`.
+"escaped_quote_key_module.js" = '''const o = {"a\"b": 1};
+for (const k of Object.keys(o)) { console.log(k, k.length); console.log(k === "a\"b"); }
+console.log(o['a"b']);
+'''
+"escaped_quote_key_function.js" = '''function main() {
+  const o = {"a\"b": 1};
+  for (const k of Object.keys(o)) { console.log(k, k.length); console.log(k === "a\"b"); }
+  console.log(o['a"b']);
+}
+main();
+'''
+"octal_leading_zero_numeric_key_module.js" = """const o = {042: 1};
+console.log(Object.keys(o)[0]);
+"""
+"octal_leading_zero_numeric_key_function.js" = """function main() {
+  const o = {042: 1};
+  console.log(Object.keys(o)[0]);
+}
+main();
+"""
+"computed_member_index_module.js" = """const o = {index: 9, i: 7};
+let i = 1;
+console.log(o[i]);
+console.log(o[i + 0]);
+"""
+"computed_member_index_function.js" = """function main() {
+  const o = {index: 9, i: 7};
+  let i = 1;
+  console.log(o[i]);
+  console.log(o[i + 0]);
+}
+main();
+"""
+"from_entries_present_property_module.js" = """const o = Object.fromEntries([["a", 1]]);
+console.log(o.a);
+"""
+"from_entries_present_property_function.js" = """function main() {
+  const o = Object.fromEntries([["a", 1]]);
+  console.log(o.a);
+}
+main();
+"""
+
+[[case]]
+name = "bigint_key_is_stored_under_zero_module_scope"
+rationale = "RE-PINNED, was wrong now differently wrong (Task 2): node prints `false`, `undefined`, `1`. kali now prints `false`, `0`, `1` -- `Object.hasOwn(o, 0)` is fixed (the parser reads `42n` as `PropertyName::BigInt(\"42\")` instead of falling back to the key `0`, so `hasOwn` and `o[42]` now agree with node), but `o[0]` reads `0` instead of `undefined`. That residual is a DIFFERENT defect -- a static member read returning a fabricated `0` rather than the value JavaScript would produce -- not the key-identity defect this task fixes. It is reached here because the property is ABSENT, but the final whole-branch review measured the same fabricated `0` coming back for a PRESENT property too, so the defect is not only an absent-property one; see `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_module_scope`. Not chased here; see the commit message."
+args = ["run", "bigint_module.js"]
+exit = "success"
+stdout = "false\n0\n1\n"
+
+[[case]]
+name = "bigint_key_is_stored_under_zero_in_function"
+rationale = "RE-PINNED, was wrong now differently wrong (Task 2): same as the module-scope case, in function scope. node prints `false`, `undefined`, `1`; kali prints `false`, `0`, `1`. The key-identity part of this case is fixed; the `o[0]` residual is the same absent-property-read defect described on the module-scope case, not this task's defect."
+args = ["run", "bigint_function.js"]
+exit = "success"
+stdout = "false\n0\n1\n"
+
+[[case]]
+name = "object_keys_renders_small_magnitude_key_with_rust_display_module_scope"
+rationale = "RE-PINNED, was wrong now RIGHT and AGREEING WITH NODE (Task 3): kali now prints `1e-7`, which is what node prints. What moved: `lower_property_name` stores the key as `format_js_number(1e-7)` instead of Rust's `Display for f64`, so the enumeration fold reads `1e-7` out of the key node rather than `0.0000001`. Task 4 was expected to own finishing this lane; Task 3's HIR change alone finished it, so Task 4 should find this case already green rather than move it again."
+args = ["run", "keys_small_module.js"]
+exit = "success"
+stdout = "1e-7\n"
+
+[[case]]
+name = "object_keys_renders_small_magnitude_key_with_rust_display_in_function"
+rationale = "RE-PINNED, was wrong now RIGHT and AGREEING WITH NODE (Task 3): same movement in function scope; kali and node both print `1e-7`. Task 4 should find this already green."
+args = ["run", "keys_small_function.js"]
+exit = "success"
+stdout = "1e-7\n"
+
+[[case]]
+name = "object_keys_leaks_rust_infinity_spelling_module_scope"
+rationale = "RE-PINNED, was wrong now RIGHT and AGREEING WITH NODE (Task 3): kali now prints `-Infinity` then `1e+21`, matching node. The `-inf` line -- a string no JavaScript program can produce -- is gone because `lower_property_name` renders the key through `format_js_number`, which spells the infinities the way `String(number)` does. Task 4 was expected to own finishing this lane; Task 3's HIR change alone finished it, so Task 4 should find this case already green."
+args = ["run", "keys_extreme_module.js"]
+exit = "success"
+stdout = "-Infinity\n1e+21\n"
+
+[[case]]
+name = "object_keys_leaks_rust_infinity_spelling_in_function"
+rationale = "RE-PINNED, was wrong now RIGHT and AGREEING WITH NODE (Task 3): same movement in function scope; kali and node both print `-Infinity` then `1e+21`. Task 4 should find this already green."
+args = ["run", "keys_extreme_function.js"]
+exit = "success"
+stdout = "-Infinity\n1e+21\n"
+
+[[case]]
+name = "numeric_and_quoted_numeric_keys_are_the_same_property_module_scope"
+rationale = "CONTROL -- correct today and must stay correct. JavaScript gives `{5:1}` and `{\"5\":1}` the same property name, and both probes agree with node at `true true true`. This case is what a discriminator that over-separates would break, so it is the guard on Task 3 rather than a target of it."
+args = ["run", "numeric_string_same_key_module.js"]
+exit = "success"
+stdout = "true\ntrue\ntrue\n"
+
+[[case]]
+name = "numeric_and_quoted_numeric_keys_are_the_same_property_in_function"
+rationale = "CONTROL -- correct today and must stay correct, in function scope. node agrees at `true true true`."
+args = ["run", "numeric_string_same_key_function.js"]
+exit = "success"
+stdout = "true\ntrue\ntrue\n"
+
+[[case]]
+name = "quoted_numeric_string_key_member_read_is_correct_module_scope"
+rationale = "CONTROL -- correct today and must stay correct. The member read of R-56's key already agrees with node (`1`); it is the two `Object.hasOwn` probes in the oracle case `r56a_quoted_numeric_string_key_module_scope` that diverge. Keeping the read pinned here means a fix that repairs the probes by breaking the read cannot pass."
+args = ["run", "quoted_numeric_member_read_module.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "quoted_numeric_string_key_member_read_is_correct_in_function"
+rationale = "CONTROL -- correct today and must stay correct, in function scope. node prints `1`."
+args = ["run", "quoted_numeric_member_read_function.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "member_read_of_exponent_spelled_numeric_key_module_scope"
+rationale = "CONTROL, added by Task 3's review because nothing covered it. A member read of a numeric key whose JavaScript spelling differs from Rust's -- `1e21` (>= the 1e21 threshold), `1e-7` (< the 1e-6 threshold) and `-1e999` (overflow to -Infinity). node prints `1`, `2`, `3`; kali agrees. This is a REGRESSION GUARD with a real history: Task 3's first commit moved the stored key to `format_js_number` and left `expression_to_property_name` on `format!(\"{n:.0}\")`/`Display`, so `o[1e21]` probed for `1000000000000000000000` while the key was stored as `1e+21`, the object-literal field lookup missed, and the member read emitted a fabricated `0` at exit 0 -- in a program whose `Object.hasOwn` and `Object.keys` were both already right. The existing cases in this file exercise these keys only through `Object.keys`, which is why they did not catch it. Both formatters are `format_js_number` now; if either side ever grows a second one, this case goes red."
+args = ["run", "member_read_module.js"]
+exit = "success"
+stdout = "1\n2\n3\n"
+
+[[case]]
+name = "member_read_of_exponent_spelled_numeric_key_in_function"
+rationale = "CONTROL, added by Task 3's review. Same regression guard in function scope; node prints `1`, `2`, `3` and kali agrees."
+args = ["run", "member_read_function.js"]
+exit = "success"
+stdout = "1\n2\n3\n"
+
+[[case]]
+name = "object_keys_enumeration_order_module_scope"
+rationale = "CONTROL -- correct today and must stay correct. Enumerating `Object.keys({2: 'a', foo: 'b', 0: 'c'})`, kali and node both print `0`, `2`, `foo`: ES enumeration order puts array-index-like keys first in ascending numeric order, then string keys in insertion order, and kali gets this right today. This case is not in the plan's Step 2 list; it is added because the design's risk register (docs/superpowers/specs/2026-08-16-hir-property-key-identity-design.md:374-378) says ordering is 'pinned by cases before the change so any movement is visible rather than inferred', and none of the ten cases above actually mix an array-index-like key with a string key. No task in this plan owns changing this ordering; it is a tripwire -- if a later task's HIR key-slot collapse or Object.keys rewrite perturbs enumeration order, this case turns red on its own rather than the movement being inferred from something else."
+args = ["run", "keys_order_module.js"]
+exit = "success"
+stdout = "0\n2\nfoo\n"
+
+[[case]]
+name = "object_keys_enumeration_order_in_function"
+rationale = "CONTROL -- correct today and must stay correct, in function scope. node agrees at `0 2 foo`. Same tripwire as the module-scope case: no task in this plan owns changing this ordering."
+args = ["run", "keys_order_function.js"]
+exit = "success"
+stdout = "0\n2\nfoo\n"
+
+[[case]]
+name = "object_keys_yields_strings_not_numbers_module_scope"
+rationale = """
+TESTS-ONLY (Task 4): this case passes on arrival at this commit, and Task 4 did
+NOT change any code -- it was ordered not to conclude that from `typeof` alone,
+because `typeof` on a value bound directly to a for-of loop's key node can be
+constant-folded at compile time, which would print `string` even if the
+underlying enumeration item were still numeric. That is exactly what happens
+here: `typeof k` in this loop body IS folded away at compile time (confirmed
+by contrast -- routing the same value through a genuine non-foldable path, a
+function-parameter boundary, makes kali's runtime `typeof` operator answer `0`
+instead of `string`, but that turns out to be a separate, pre-existing,
+general defect: `typeof` on ANY runtime-string function parameter answers `0`
+in kali today, reproduced with a hardcoded `probe(x){console.log(typeof x)}
+probe(\"hello\")`, nothing to do with Object.keys or property keys).
+Because `typeof` alone cannot be trusted, the enumeration item's string-ness
+was verified through that same non-foldable function-parameter boundary using
+discriminators `typeof` cannot poison: `x.length` (a number has none) and
+strict equality both ways (`x === \"5\"` true, `x === 5` false) all agree with
+node, for `{5:1}`, `{1e-7:1}`, `{[-1e999]:1}`, and `{42n:1}` alike. node
+prints `string` for this case's probe."""
+args = ["run", "keys_typeof_module.js"]
+exit = "success"
+stdout = "string\n"
+
+[[case]]
+name = "object_keys_yields_strings_not_numbers_in_function"
+rationale = "TESTS-ONLY (Task 4), same probe in function scope; node prints `string`. See the module-scope case's rationale for why `typeof` alone was not trusted as proof and what non-foldable evidence was gathered instead before concluding no code change was needed."
+args = ["run", "keys_typeof_function.js"]
+exit = "success"
+stdout = "string\n"
+
+[[case]]
+name = "object_keys_yields_strings_for_bigint_keys_module_scope"
+rationale = "TESTS-ONLY (Task 4): a BigInt property key enumerated through Object.keys, pinned end to end through the enumeration lane for the first time -- Task 2 found BigInt key rendering unpinned anywhere, and Task 3 added only HIR-level lowering rows, not an enumeration case. `PropertyName::BigInt(\"42\")` (decimal digits, no `n` suffix) lowers to the key text `42`; node prints `42 string`, and kali agrees. Verified as genuinely string-valued (not a folded typeof) the same way as the sibling cases above: routed through a function-parameter boundary, `x.length` reads `2` and `x === \"42\"` / `x === 999` both agree with node."
+args = ["run", "keys_bigint_module.js"]
+exit = "success"
+stdout = "42 string\n"
+
+[[case]]
+name = "object_keys_yields_strings_for_bigint_keys_in_function"
+rationale = "TESTS-ONLY (Task 4), same BigInt enumeration probe in function scope; node prints `42 string` and kali agrees. See the module-scope case's rationale for the non-fold verification."
+args = ["run", "keys_bigint_function.js"]
+exit = "success"
+stdout = "42 string\n"
+
+[[case]]
+name = "object_keys_over_a_quoted_string_key_module_scope"
+rationale = """
+PINNED BY TASK 5. AGREES ON TEXT AND ORDER as of the commit that adds it --
+NOT "correct" outright; the final whole-branch review found a `.length`
+divergence this case did not probe for, added below. `{foo:'b','"2"':'a'}`
+has two ordinary string keys; the second one's NAME is the three-character
+text `"2"`, quotes included. node prints `foo` then `"2"`: neither key is
+array-index-like, so both enumerate in insertion order, and the second prints
+with its quote characters because they are part of the name.
+
+WHAT IT MEASURED AT `f563a0ecf4`, BEFORE TASK 5. kali printed `2` then `foo` --
+wrong TEXT and wrong ORDER, at exit 0. Two surviving un-quoting sites caused
+it: `kali_common::property_order_key` stripped the quotes before classifying,
+read the key as the array index 2 and sorted it ahead of `foo`; and the
+enumeration fold stripped them again before re-encoding the key as a string
+literal, so it printed `2`. Both are R-56's collision -- the string key `'"5"'`
+conflated with the numeric key `5` -- at a second address, exactly as the
+design's section 4.6 predicted. Both are gone; nothing normalizes a key-slot
+text now, because a key-slot text IS the property name.
+
+WHAT THE PRINT SINK HID. `console.log(k)` cannot distinguish a correct key
+from one whose `.length` is wrong -- exactly the trap this project's own
+design (section 4.5) warned about, and the trap the sibling `keys_typeof_*`
+cases went to real trouble not to fall into for `typeof`. This case did not
+extend the same suspicion to `.length` when Task 5 added it. Probed now: `"2"`
+(the quoted key) reports `.length` `5`, not `3` -- the same
+`fold_object_enumeration_call` double-escaping pass documented in
+docs/superpowers/followups/property-key-trim-site-classification.md section 6
+for the sibling escaped-quote case, here triggered by the quote CHARACTERS in
+the key's own name rather than by a source escape sequence. `k === '"2"'`
+still agrees with node (`true`), so the name and order claims stand; `.length`
+does not, and is pinned WRONG ON PURPOSE below. No task in this plan owns
+closing it.
+
+This case is also the ORDERING half's tripwire: it mixes a would-be-index-like
+key with a string key, which the `object_keys_enumeration_order_*` pair does
+not do (those use real numeric keys). If a later change re-introduces
+quote-blind index classification, this case goes red on the ORDER before
+anything else notices."""
+args = ["run", "keys_quoted_string_key_order_module.js"]
+exit = "success"
+stdout = "foo\n3\nfalse\n\"2\"\n5\ntrue\n"
+
+[[case]]
+name = "object_keys_over_a_quoted_string_key_in_function"
+rationale = "PINNED BY TASK 5, AGREES ON TEXT AND ORDER, in function scope -- not \"correct\" outright; see the module-scope case's rationale for the `.length` divergence the final whole-branch review found and added here. node prints `foo`, `3`, `false`, `\"2\"`, `3`, `true`; kali agrees on everything except `\"2\"`'s `.length`, which is `5` (the enumeration fold's double-escaping pass, same mechanism as the escaped-quote-key case, triggered here by the key's own quote characters). Before Task 5 this printed `2` then `foo`, the same wrong text and wrong order as the module-scope case; see its rationale for which two un-quoting sites produced each half."
+args = ["run", "keys_quoted_string_key_order_function.js"]
+exit = "success"
+stdout = "foo\n3\nfalse\n\"2\"\n5\ntrue\n"
+
+[[case]]
+name = "member_probe_does_not_invent_a_property_from_quote_characters_module_scope"
+rationale = """
+PINNED BY TASK 5. PARTLY FIXED, and the residual line is WRONG ON PURPOSE.
+
+node prints `1`, `undefined`, `false`. kali prints `1`, `0`, `false`.
+
+WHAT MOVED. Line 2 is the point of this case. `p` has exactly one own
+property, named `"a"` with the quote characters in the name; `p['a']` probes
+for the one-character name `a`, which `p` does not have. At `f563a0ecf4` kali
+printed `1` -- it INVENTED the property, because `object_literal_field`
+stripped `"` off both the probe and the stored key before comparing, which is a
+guess at a key's type from its punctuation. The same program's
+`Object.hasOwn(p,'a')` -- which Task 3 had already moved onto property-name
+comparison -- answered `false` on the same line of reasoning it should have
+used. One program contradicting itself is the R-56 class at a second address,
+and it is closed: the member lane compares property names now, so the probe
+misses.
+
+WHY LINE 2 IS STILL NOT `undefined`. Missing the fold, the read emits a
+fabricated `0` rather than JS's `undefined`. That is a DIFFERENT,
+already-inventoried defect -- the same one recorded on
+`bigint_key_is_stored_under_zero_module_scope` in this file for `o[0]` -- and
+it is not property-key identity. Task 5 did not chase it. NOT ONLY AN
+ABSENT-PROPERTY LANE, corrected by the final whole-branch review: the same
+fabricated `0` also comes back for a property that is PRESENT when the read
+cannot resolve its object's shape (see
+`a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_
+module_scope` at the end of this file). On THIS case the property genuinely is
+absent, so the absent-property framing is accurate here; it is the defect's
+overall scope, not this line, that is wider than the name suggests. WHAT
+WOULD CLOSE IT: an absent-property read on a statically known object literal
+producing the `undefined` value rather than an `I64Const(0)` placeholder; when
+that lands, this expectation becomes `1\\nundefined\\nfalse\\n` and agrees with
+node on all three lines.
+
+Line 1 is a CONTROL inside the same program: `p['"a"']` names the property that
+exists and must keep reading `1`. A fix that repairs line 2 by breaking line 1
+cannot pass."""
+args = ["run", "quoted_key_member_probe_module.js"]
+exit = "success"
+stdout = "1\n0\nfalse\n"
+
+[[case]]
+name = "member_probe_does_not_invent_a_property_from_quote_characters_in_function"
+rationale = "PINNED BY TASK 5, same three probes in function scope; node prints `1`, `undefined`, `false` and kali prints `1`, `0`, `false`. WRONG ON PURPOSE on line 2 for the reason given on the module-scope case: the invented property is gone (it read `1` at `f563a0ecf4`), and what remains is the pre-existing absent-property-read defect that fabricates `0` instead of `undefined`."
+args = ["run", "quoted_key_member_probe_function.js"]
+exit = "success"
+stdout = "1\n0\nfalse\n"
+
+[[case]]
+name = "escaped_quote_in_a_key_is_stored_undecoded_module_scope"
+rationale = """
+PINNED BY TASK 5's REVIEW, EXTENDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON
+PURPOSE, all four answers, and NO TASK IN THIS PLAN OWNS CLOSING IT.
+
+node prints `a"b 3`, `true`, then `1`. kali prints `a\\"b 6`, `false`, then
+`0`, at exit 0.
+
+WHAT THIS FALSIFIES. Task 3's invariant, as this project has been stating it --
+"an HIR key-slot node's text IS the property name, `String(key)`, for every
+shape of key" -- is FALSE for any key whose source spelling contains an escape
+sequence. `kali_parser`'s `unquote_string_literal` strips the delimiters
+WITHOUT DECODING, so `{"a\\"b": 1}` stores the FOUR-character text `a\\"b`
+where the property name is the three characters `a"b`. The member probe
+`o['a"b']` -- spelled with the real name -- misses that four-character stored
+text and falls into the absent-property lane's fabricated `0`.
+
+THE `6` IS A SEPARATE, SECOND DIVERGENCE, NOT THE STORED TEXT'S OWN LENGTH.
+Reading the key back out through `Object.keys` re-encodes the already-undecoded
+four-character text with a second escaping pass
+(`fold_object_enumeration_call`'s `format!("{key:?}", ...)`,
+`crates/kali_optimize/src/object_fold.rs`), which is what stretches `.length`
+to `6`. That the print sink still shows the familiar `a\\"b` spelling hides
+this: `k === "a\\"b"` is `false` even though `console.log(k)` reads as the same
+text. One program giving `Object.hasOwn`-style identity and `===` opposite
+answers about what looks like the same key, in a single run at exit 0, is
+R-56's own signature, and this new `false` line is what makes it visible here
+instead of only in a review.
+
+MEASURED, NOT INTRODUCED. Identical at `f563a0ecf4` (before Task 5) and after,
+verified by building both commits: `a\\"b 6` then `0` in both. The `===` probe
+was not part of the original case; the final whole-branch review added it and
+measured `false` at HEAD only. It is `false` at `f563a0ecf4` too, but that is
+read from the SOURCE, not from a second build (this fix wave was explicitly
+denied a second build tree): `git show f563a0ecf4:crates/kali_parser/src/
+literal.rs` has a byte-identical `unquote_string_literal`, and
+`git show f563a0ecf4:crates/kali_optimize/src/object_fold.rs` has the same
+second escaping pass spelled `format!("{:?}", key.trim_matches('"'))` at what
+are now lines 173/180/199 -- and `trim_matches('"')` is a no-op on the stored
+text `a\\"b`, which neither starts nor ends with a quote. Both inputs to the
+divergence are therefore unchanged. Task 5 deleted
+fourteen un-quoting sites and moved one producer; none of that touches escape
+decoding, which lives in the parser. The invariant is stated with this
+exception in
+docs/superpowers/followups/property-key-trim-site-classification.md section 6
+and in the doc comments of the sites that rely on it.
+
+WHY IT IS NOT CHASED HERE. Decoding a string literal's escapes is a parser
+change with a blast radius far wider than property keys (every string literal
+in the language shares `unquote_string_literal`'s siblings). It is recorded and
+pinned so it is visible, rather than fixed opportunistically inside a task
+about comparison sites.
+
+WHAT WOULD CLOSE IT: property-key lowering decoding escape sequences, so the
+key slot holds `a"b`. When that lands, this expectation becomes
+`a"b 3\\ntrue\\n1\\n` and agrees with node on all four answers. Until then, a
+change that alters ANY of these four answers is a surprise this case makes
+visible.
+"""
+args = ["run", "escaped_quote_key_module.js"]
+exit = "success"
+stdout = "a\\\"b 6\nfalse\n0\n"
+
+[[case]]
+name = "escaped_quote_in_a_key_is_stored_undecoded_in_function"
+rationale = "PINNED BY TASK 5's REVIEW, EXTENDED BY THE FINAL WHOLE-BRANCH REVIEW, same four probes in function scope; node prints `a\"b 3`, `true`, then `1`, kali prints `a\\\"b 6`, `false`, then `0`. WRONG ON PURPOSE for the reason given on the module-scope case: `unquote_string_literal` strips a key's delimiters without decoding its escape sequences, so the FOUR-character stored key text is not the three-character property name, and a second escaping pass in the enumeration fold (not the stored text itself) is what stretches `.length` to `6`. The added `k === \"a\\\"b\"` probe is `false` even though the printed text reads the same as the literal it is compared against -- measured identical before and after Task 5; no task in this plan owns closing it."
+args = ["run", "escaped_quote_key_function.js"]
+exit = "success"
+stdout = "a\\\"b 6\nfalse\n0\n"
+
+[[case]]
+name = "octal_leading_zero_numeric_key_is_read_as_decimal_module_scope"
+rationale = """
+ADDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON PURPOSE, and NO TASK IN THIS
+PLAN OWNS CLOSING IT -- pre-existing, out of this project's original scope,
+and not chased here. Do NOT change the parser to close this case.
+
+`{042: 1}` is a legacy OCTAL numeric-literal property key in sloppy mode
+(kali's `.js` entry files run non-strict, same as a node CommonJS script):
+`042` denotes the same value as `0o42`, decimal `34`. node's
+`Object.keys({042: 1})[0]` is `"34"`. kali's is `"42"` -- it reads the digits
+`042` as decimal, at exit 0, with no diagnostic.
+
+WHY THIS IS THE OCTAL SIBLING OF A GUARD THIS BRANCH WROTE. `numeric_property_
+name` (`crates/kali_parser/src/expression/object.rs`) guards a leading zero on
+the BigInt branch (`042n` is refused, matching JavaScript's real
+SyntaxError -- a LOUD divergence) but walks straight past a leading zero on the
+`f64` branch, which is what `042` (no `n` suffix) parses through
+(`text.parse::<f64>().ok()`, no leading-zero check). The two branches are the
+two halves of one nine-line function: the BigInt guard is the
+`!(digits.len() > 1 && digits.starts_with('0'))` conjunct, and the unguarded
+`f64` fallthrough is the function's last statement three lines below it.
+`042n` failing loudly and `042` silently returning a WRONG key at exit 0 is
+strictly worse than the BigInt case this branch already guarded, and it sits
+inside the same function this branch rewrote, for the same underlying reason
+(legacy octal is not decimal parsing).
+
+WHY IT IS NOT CLOSED HERE. Pre-existing (unrelated to property-key identity),
+out of the original seven-task plan's scope, and closing it correctly means
+teaching this phase to recognize a leading-zero decimal-digit run as legacy
+octal and convert its VALUE (not just refuse it), which is a parser change
+with its own verification surface. Pinned so it is visible instead."""
+args = ["run", "octal_leading_zero_numeric_key_module.js"]
+exit = "success"
+stdout = "42\n"
+
+[[case]]
+name = "octal_leading_zero_numeric_key_is_read_as_decimal_in_function"
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same octal-key probe in function scope; node prints `34` (`042` is legacy octal for decimal 34 in sloppy mode) and kali prints `42` (the digits are read as decimal), at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `numeric_property_name`'s f64 fallthrough has no leading-zero guard, unlike the BigInt branch three lines above it in the same nine-line function. Measured separately, both halves: `{042n: 1}` is refused LOUDLY (`error[E5506]: this numeric property key is unavailable in the current phase`, exit 1, where node raises a SyntaxError) while `{042: 1}` returns the wrong key SILENTLY at exit 0. Pre-existing, out of scope, not chased here; do not change the parser."
+args = ["run", "octal_leading_zero_numeric_key_function.js"]
+exit = "success"
+stdout = "42\n"
+
+[[case]]
+name = "computed_member_index_is_fabricated_from_the_index_expression_module_scope"
+rationale = """
+ADDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON PURPOSE, both lines, and NO
+TASK IN THIS PLAN OWNS CLOSING IT. Do NOT change the parser to close it.
+
+node prints `undefined` then `undefined`. kali prints `7` then `9`, at exit 0.
+
+WHAT IT PINS. `kali_parser`'s `expression_to_property_name`
+(`crates/kali_parser/src/literal.rs`) turns a computed member index into the
+JavaScript property name it denotes -- but only for the shapes it can read
+statically (a literal, or a folded `+`/`-` unary on one). For every OTHER
+shape it does not decline; it FABRICATES a name:
+
+* `o[i]` hits `Expression::Identifier(s) => s.clone()`, so the probe is the
+  identifier's own text `i`. `o` happens to have a property named `i`, so
+  kali reads `7` -- the wrong property, for a program where node reads
+  `o[1]` and gets `undefined`.
+* `o[i + 0]` is a binary expression, which no arm matches, so it falls to the
+  catch-all `_ => "index".to_string()`. `o` happens to have a property named
+  `index`, so kali reads `9`.
+
+Both properties exist ONLY so this case can tell the two fabrication arms
+apart by their output. An index expression this phase cannot read is supposed
+to be declined, not renamed.
+
+WHY IT MATTERS TO THIS BRANCH SPECIFICALLY. This is the same fabricated-key
+class Task 2 deleted from the parser's numeric-key arm (the `unwrap_or(0.0)`
+that stored `{42n: 1}` under the key `0`) and Task 5 deleted from the
+un-quoting sites -- surviving one file over, in the function whose doc comment
+this branch rewrote to claim that a probe and the key it probes are "one
+currency by construction". That claim is true only for the shapes this
+function actually reads; these two lines are what it is not true for.
+
+WHY IT IS NOT CLOSED HERE. Closing it means returning `Option<String>` and
+teaching every caller to decline, which is a behaviour change with its own
+verification surface -- out of this documentation-only fix wave's scope. The
+doc comment on `expression_to_property_name` now names the recommendation and
+cites this case; the case is what keeps the recommendation honest."""
+args = ["run", "computed_member_index_module.js"]
+exit = "success"
+stdout = "7\n9\n"
+
+[[case]]
+name = "computed_member_index_is_fabricated_from_the_index_expression_in_function"
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same two probes in function scope; node prints `undefined` twice and kali prints `7` then `9`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `expression_to_property_name` fabricates a property name for every index shape it cannot read statically -- the identifier's own text for `o[i]`, the literal string `index` for the catch-all arm `o[i + 0]` reaches. Pre-existing, out of scope, not chased here; do not change the parser."
+args = ["run", "computed_member_index_function.js"]
+exit = "success"
+stdout = "7\n9\n"
+
+[[case]]
+name = "a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_module_scope"
+rationale = """
+ADDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON PURPOSE, and NO TASK IN THIS
+PLAN OWNS CLOSING IT.
+
+node prints `1`. kali prints `0`, at exit 0, with no diagnostic.
+
+WHAT IT CORRECTS. Several rationales in this file and in
+docs/superpowers/followups/ describe the fabricated-`0` residual as the
+"absent-property read" defect -- a read of a property that does not exist
+returning `0` where JavaScript returns `undefined`. That name is too narrow.
+`Object.fromEntries([["a", 1]])` HAS an own property named `a`, with the value
+`1`; reading it still yields `0`. The `0` is what a static member read emits
+whenever the fold cannot resolve the object's shape, whether or not the
+property is there -- which means it is not a `undefined`-vs-`0` rendering
+divergence at all on this shape, but a wrong VALUE for a property that exists.
+Nothing in this file exercised that half before, so every statement of the
+divergence was scoped to the half that was pinned.
+
+WHY THIS SHAPE REACHES IT. `fold_object_from_entries_call`'s binding path runs
+only at `OptimizationLevel::Release`/`ReleaseAdvanced` (section 7 of
+docs/superpowers/followups/property-key-trim-site-classification.md), and
+`kali run` -- what this corpus executes -- is `BuildMode::Fast`. So the object
+is never materialized into a statically-known shape, the member read finds no
+shape to read from, and the same fabricated `0` the absent-property lane emits
+comes back for a property that is present.
+
+WHY IT IS NOT CLOSED HERE. It is the same unowned placeholder-read defect
+already recorded on `bigint_key_is_stored_under_zero_module_scope` and
+`member_probe_does_not_invent_a_property_from_quote_characters_module_scope`;
+this pair only widens what those rationales are allowed to claim about it.
+WHAT WOULD CLOSE IT: a static member read that cannot resolve its object's
+shape declining to fold, instead of emitting a placeholder. When that lands,
+this expectation becomes `1\\n` and agrees with node."""
+args = ["run", "from_entries_present_property_module.js"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_in_function"
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same probe in function scope; node prints `1` and kali prints `0`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: the fabricated `0` a static member read emits is not confined to ABSENT properties -- `Object.fromEntries([[\"a\", 1]])` has an own `a` worth `1`, and reading it still yields `0`, because under `kali run`'s Fast mode the fromEntries BINDING fold never runs (it is gated to Release/ReleaseAdvanced) and the read has no shape to resolve against. Pre-existing, unowned by this plan, not chased here."
+args = ["run", "from_entries_present_property_function.js"]
+exit = "success"
+stdout = "0\n"

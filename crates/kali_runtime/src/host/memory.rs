@@ -100,8 +100,8 @@ pub(crate) fn decode_low_bytes_from_slice(data: &[u8], handle: i64) -> Vec<u8> {
         return Vec::new();
     };
     let mut out = Vec::with_capacity(len);
-    for chunk in elems.chunks_exact(8) {
-        let value = i64::from_le_bytes(chunk.try_into().expect("8-byte element slice"));
+    for chunk in elems.as_chunks::<8>().0 {
+        let value = i64::from_le_bytes(*chunk);
         out.push((value & 0xFF) as u8);
     }
     out

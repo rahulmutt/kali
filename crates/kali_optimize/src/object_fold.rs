@@ -151,28 +151,33 @@ impl Optimizer {
         // point: never fold an enumeration over an object literal carrying a
         // `__proto__` key. Leave the call unfolded so it falls through to
         // the reject/backstop lane instead of ever emitting the phantom key.
-        if properties
-            .iter()
-            .any(|(key, _)| key.trim_matches('"') == "__proto__")
-        {
+        // The comparison is against the PROPERTY NAME, with no un-quoting: a
+        // key slot's text IS `String(key)`, so every spelling of the prototype
+        // setter -- `__proto__`, `"__proto__"`, `'__proto__'`, and a
+        // `fromEntries` entry whose key constant is the string `__proto__` --
+        // arrives here as the same nine-character name (except for keys spelled
+        // with an ESCAPE SEQUENCE, which are stored undecoded -- unreachable for
+        // this guard, see section 4 and section 6 of
+        // docs/superpowers/followups/property-key-trim-site-classification.md).
+        // Stripping quotes first could only ever ADD matches, and the one it
+        // added was wrong: the ordinary own property `{'"__proto__"': 1}` is not
+        // a prototype setter, and declining its fold hid a real key behind a
+        // security guard.
+        if properties.iter().any(|(key, _)| key == "__proto__") {
             return None;
         }
         match callee_name.as_str() {
             "Object.keys" | "globalThis.Object.keys" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, _) in properties {
-                    elements.push(
-                        self.clone_string_literal(program, format!("{:?}", key.trim_matches('"'))),
-                    );
+                    elements.push(self.clone_string_literal(program, format!("{key:?}")));
                 }
                 Some(self.push_array_literal(program, elements))
             }
             "Reflect.ownKeys" | "globalThis.Reflect.ownKeys" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, _) in properties {
-                    elements.push(
-                        self.clone_string_literal(program, format!("{:?}", key.trim_matches('"'))),
-                    );
+                    elements.push(self.clone_string_literal(program, format!("{key:?}")));
                 }
                 Some(self.push_array_literal(program, elements))
             }
@@ -191,8 +196,7 @@ impl Optimizer {
             "Object.entries" | "globalThis.Object.entries" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, value) in properties {
-                    let key_id =
-                        self.clone_string_literal(program, format!("{:?}", key.trim_matches('"')));
+                    let key_id = self.clone_string_literal(program, format!("{key:?}"));
                     let value_id = self.clone_subtree_with_substitution(
                         program,
                         value,
@@ -737,6 +741,16 @@ impl Optimizer {
     /// sort at fold time, exactly as it does for source literals. Never
     /// applies a `__proto__` mutation (fail-closed; the caller keeps such a
     /// binding out of the eligible set anyway).
+    ///
+    /// `key` and the stored keys are ONE currency -- the property name. The
+    /// mutation's key is a member node's text (`kali_parser`'s
+    /// `expression_to_property_name`) and a stored key is a key slot's text
+    /// (`kali_hir`'s `lower_property_name`); both are `String(key)` -- except
+    /// for a key spelled with an ESCAPE SEQUENCE, which both sides carry
+    /// undecoded and therefore still agree on (section 6 of
+    /// docs/superpowers/followups/property-key-trim-site-classification.md) --
+    /// so the comparisons below are direct. They used to strip quotes off both
+    /// sides, which made `delete x.a` erase the unrelated own property `'"a"'`.
     fn apply_timeline_mutation(
         &self,
         program: &mut LirProgram,
@@ -745,21 +759,19 @@ impl Optimizer {
         key: &str,
         value: Option<LirNodeId>,
     ) -> Option<LirNodeId> {
-        let normalized_key = key.trim_matches('"');
-        if normalized_key == "__proto__" {
+        if key == "__proto__" {
             return None;
         }
         let mut properties = self.source_order_object_properties(program, current)?;
         match kind {
             TimelineMutation::Delete => {
-                properties
-                    .retain(|(existing_key, _)| existing_key.trim_matches('"') != normalized_key);
+                properties.retain(|(existing_key, _)| existing_key != key);
             }
             TimelineMutation::Store => {
                 let value = value?;
                 if let Some(slot) = properties
                     .iter_mut()
-                    .find(|(existing_key, _)| existing_key.trim_matches('"') == normalized_key)
+                    .find(|(existing_key, _)| existing_key == key)
                 {
                     slot.1 = value;
                 } else {
@@ -912,12 +924,23 @@ impl Optimizer {
         }
 
         // (b) timeline-mutation base position (delete x.k / x.k = v).
+        //
+        // The `__proto__` disqualification compares PROPERTY NAMES: `key` is a
+        // member node's text, which `kali_parser` already reduced to
+        // `String(key)`, so `x.__proto__`, `x["__proto__"]` and
+        // `x['__proto__']` all arrive as the same nine-character name and all
+        // still disqualify the binding. (A key spelled with an ESCAPE SEQUENCE
+        // arrives undecoded, but cannot decode to `__proto__` either way -- see
+        // section 4 of
+        // docs/superpowers/followups/property-key-trim-site-classification.md.)
+        // Un-quoting first would additionally have disqualified
+        // `x['"__proto__"']`, an ordinary own property.
         if let Some((base_id, key)) = self.member_mutation_base_node(program, id) {
             if let Some(base_node) = program.nodes.get(base_id.0 as usize) {
                 if let Some(base_name) = base_node.text.as_deref() {
                     if mutated.contains(base_name) {
                         permitted.insert(base_id.0);
-                        if key.trim_matches('"') == "__proto__" {
+                        if key == "__proto__" {
                             disqualified.insert(base_name.to_string());
                         }
                     }

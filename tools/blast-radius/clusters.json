@@ -29,7 +29,23 @@
     "behaviour at `1e21` in the binding and concat lanes that no live oracle case pins. An",
     "entry can leave this file without being fixed, exactly as R-01 and R-20 (FAIL_CLOSED) and",
     "R-29 (ACCEPTS_INVALID) already do; R-04 and R-07 are absent for the opposite reason,",
-    "being FIXED."
+    "being FIXED.",
+    "",
+    "REMOVED 2026-08-16 at `12fd424897` by the hir-property-key-identity project: R-56, and",
+    "with it the `R-56 (unclustered)` singleton CLUSTER DEFINITION, not only the assignment.",
+    "That is the difference from the R-32/R-33 removal above: those two were G8 members, and",
+    "G8 survives them, whereas a singleton's cluster has no other member to keep it alive.",
+    "The divergence is FORCED, not chosen: crates/kali_blast_radius/src/ranking.rs:326 asserts",
+    "every declared cluster has at least one member (`cluster ... has no members -- an empty",
+    "cluster ranks nothing`), so leaving the definition behind would have made the generator",
+    "refuse to run. R-56's §0.2 row measures FIXED in both scopes at that commit --",
+    "`{'\"5\"': 1}` now answers 1/true/false,",
+    "matching node -- so the ONLY SILENT ENTRIES rule above required the removal. Unlike R-32,",
+    "this one IS retired: the Number/String discriminator was restored upstream in `kali_hir`'s",
+    "`lower_property_name`, so the ambiguous key text is never written rather than being",
+    "disambiguated late. R-56 measured raw 0 / reachable 0 over the frozen corpus, so its",
+    "departure moves no other cluster's frequency; what it did move is recorded in the",
+    "ranking's §6 amendment, read out of the generator's stdout."
   ],
   "clusters": [
     {
@@ -111,11 +127,6 @@
       "name": "R-52 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered (an isolated lowering/emit contract mismatch)'."
-    },
-    {
-      "name": "R-56 (unclustered)",
-      "origin": "singleton",
-      "why": "§2: 'unclustered. It has **G3**'s shape -- a gate keyed on one form with a sibling form slipping past into the miscompile the gate's own comment describes -- and is deliberately *not* added to G3's member list, because every G3 member has a guard that COULD be widened to cover its sibling and this one does not'."
     }
   ],
   "assignments": [
@@ -307,13 +318,6 @@
       "registerSource": "G4 (there is no value distinct from the scalar `0`) by symptom; plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4.",
       "alternate": "G7, named and declined by the register.",
       "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
-    },
-    {
-      "id": "R-56",
-      "cluster": "R-56 (unclustered)",
-      "registerSource": "unclustered. It has **G3**'s shape and is deliberately *not* added to G3's member list.",
-      "alternate": "G3 by shape, named and declined by the register: G3's members each have a guard that could be widened to admit the sibling form, and this one cannot -- the discriminator was discarded upstream in HIR.",
-      "alternateCluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them"
     }
   ]
 }

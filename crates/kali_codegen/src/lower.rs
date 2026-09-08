@@ -4892,7 +4892,14 @@ fn resolve_object_literal_properties(
             let Some(key) = key_node.text.as_deref() else {
                 return Some(ObjectLiteralPropertyScan::Partial);
             };
-            props.push((key.trim_matches('"').to_string(), child_node.children[1]));
+            // The key slot's text IS the property name (except for a key
+            // spelled with an ESCAPE SEQUENCE, which is stored undecoded --
+            // section 6 of
+            // docs/superpowers/followups/property-key-trim-site-classification.md),
+            // and the taint set this feeds is keyed by `kali_types` shape field
+            // names, which are the same property names -- so it is recorded as
+            // stored.
+            props.push((key.to_string(), child_node.children[1]));
         }
         return Some(ObjectLiteralPropertyScan::Clean(props));
     }

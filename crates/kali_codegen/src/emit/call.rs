@@ -4888,9 +4888,15 @@ impl<'a> FunctionEmitter<'a> {
                 if !self.denotes_program_function(node.children[1]) {
                     continue;
                 }
+                // A key slot's text IS the property name (except for a key
+                // spelled with an ESCAPE SEQUENCE, which is stored undecoded --
+                // section 6 of docs/superpowers/followups/
+                // property-key-trim-site-classification.md), and the callee
+                // texts this set is tested against (`o.f()`, `o["f"]()`) are
+                // property names too, so the name is inserted as stored.
                 if let Some(key) = nodes.get(node.children[0].0 as usize) {
                     if let Some(text) = key.text.clone() {
-                        names.insert(text.trim_matches('"').to_string());
+                        names.insert(text);
                     }
                 }
             }
