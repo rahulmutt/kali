@@ -3403,7 +3403,7 @@ tier, ordering is by blast radius.
   **`node v26.8.1`**, which is what `node --version` prints on this machine.
   Measured in **both** scopes — module, and inside `function main() { … }` with a
   trailing `main();` — **byte-identical in both**, for every line of every
-  program below. Citations are read in source at **`THIS-COMMIT`**, this task's
+  program below. Citations are read in source at **`02297ca6c2`**, this task's
   findings commit; measurements are pinned to the binary's commit and citations
   to the tree they resolve in, as R-57's and R-58's are, and on this branch the
   two differ because documentation-only edits move line numbers.
@@ -3481,7 +3481,7 @@ tier, ordering is by blast radius.
   `const o = {1: "one", 2: "two"};`. Run at `35e9ef4ef6` against `node v26.8.1`
   in both scopes. None is inferred.
 
-  | probe | arm reached (`literal.rs`, `THIS-COMMIT`) | kali | node | |
+  | probe | arm reached (`literal.rs`, `02297ca6c2`) | kali | node | |
   |---|---|---|---|---|
   | `o[i]` | `:132` `Identifier(s) => s.clone()` | `7` | `undefined` | fabricates the identifier's own text |
   | `o[i + 0]` | `:135` catch-all `_ => "index"` | `9` | `undefined` | fabricates the literal string `index` |
@@ -3515,7 +3515,7 @@ tier, ordering is by blast radius.
   identifier's own text happened to parse as a double.
 - **Mechanism, traced end to end — the fabricated name is not discarded
   downstream; it is what the static lanes read.** All read in source at
-  **`THIS-COMMIT`**.
+  **`02297ca6c2`**.
   1. **The parser fabricates.** `expression_to_property_name`
      (`crates/kali_parser/src/literal.rs:110-136`) returns a `String` and has no
      way to say "I cannot read this". Its arms are listed in the table above;
@@ -3531,7 +3531,7 @@ tier, ordering is by blast radius.
      as a **second child** only when the access was computed (`:54-56`).
   4. **The static consumers read the text.** For an object receiver,
      `emit_unary`'s fold lane resolves the aggregate and looks the text up as a
-     field (`crates/kali_codegen/src/emit/operators.rs:662-665`, calling
+     field (`crates/kali_codegen/src/emit/operators.rs:662-664`, calling
      `object_literal_field` at
      `crates/kali_codegen/src/intrinsics/object.rs:128`) — which is how a
      fabricated name that matches a real property returns that property's value.
@@ -3593,7 +3593,7 @@ tier, ordering is by blast radius.
   rather than a name — leaving `computed_index` as the only description of a
   dynamic index, which it already is for the lane that works. Every static
   consumer then has a `None` to fail closed on: `object_literal_field`'s caller
-  at `operators.rs:662-665` and `static_member_index` at `call.rs:6286`. **Do not
+  at `operators.rs:662-664` and `static_member_index` at `call.rs:6286`. **Do not
   fix this by making the fabricated name unlikely to collide** — a reserved
   prefix, a sigil, anything that makes `o[i]` look for a property no program
   would declare. That converts every hit into a miss and every wrong value into
@@ -3649,7 +3649,7 @@ tier, ordering is by blast radius.
   **`node v26.8.1`**, which is what `node --version` prints on this machine.
   Measured in **both** scopes — module, and inside `function main() { … }` with a
   trailing `main();` — **byte-identical in both**, for every line of every
-  program below. Citations are read in source at **`THIS-COMMIT`**, this task's
+  program below. Citations are read in source at **`02297ca6c2`**, this task's
   findings commit, for the reason R-57's Mechanism bullet gives.
 - **Root-cause group**: **G6** — *unresolved or unimplemented builtins fold to a
   default instead of failing closed*. This is the first of the four entries this
@@ -3658,7 +3658,7 @@ tier, ordering is by blast radius.
   **G6's signature is met exactly**: `Object.fromEntries` is not implemented at
   codegen, reaches the terminal call fallback, and is lowered to a scalar `0`
   placeholder — `push_placeholder_fallback_diagnostic`
-  (`crates/kali_codegen/src/emitter.rs:1294-1316`), whose own message says *"was
+  (`crates/kali_codegen/src/emitter.rs:1294-1328`), whose own message says *"was
   lowered through a zero placeholder compatibility fallback"*. **G6's
   raising-confidence experiment is what filing this entry ran.** §3 asks: *"call
   any other plausible-but-absent builtin and observe whether it yields `0` or
@@ -3744,11 +3744,11 @@ tier, ordering is by blast radius.
   placeholder compatibility fallback` **and** `warning[E8001] unsupported unary
   operator 'a'`; the plain-literal version emits neither.
 - **Mechanism, traced — there are TWO zero-emitting sites and the printed `0` is
-  the second one's.** All read in source at **`THIS-COMMIT`**.
+  the second one's.** All read in source at **`02297ca6c2`**.
   1. **The receiver becomes a scalar `0`.** `Object.fromEntries` is not resolved
      at codegen, so the call goes through the zero-placeholder compatibility
      fallback: `push_placeholder_fallback_diagnostic`
-     (`crates/kali_codegen/src/emitter.rs:1294-1316`; the `"call target"` arm at
+     (`crates/kali_codegen/src/emitter.rs:1294-1328`; the `"call target"` arm at
      `:1305-1308`) pushes a **warning** at `e3::UNDEFINED_IDENTIFIER` whose note
      reads *"name resolution should resolve this before codegen; the fallback
      emits a zero placeholder and should remain a compatibility escape hatch
@@ -3767,7 +3767,7 @@ tier, ordering is by blast radius.
   4. **The arms immediately above the fallback are the shape of the fix.** The
      same function already refuses two receiver shapes it cannot lower honestly,
      with `E5506` and an `Unreachable`, under a comment reading
-     `REJECT-DON'T-MISCOMPILE` (`operators.rs:664-693` and `:706-723`). This
+     `REJECT-DON'T-MISCOMPILE` (`operators.rs:679-691` and `:707-722`). This
      receiver reaches the arm below them.
   5. **Why the fold does not save it, and what was NOT measured.**
      `fold_object_from_entries_call`
