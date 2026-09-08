@@ -104,17 +104,21 @@ emit a phantom own key. Removing a trim changes what a guard matches, so both
 were reasoned about explicitly rather than swept.
 
 **These two guards are one of two doors, and the other stands open today.**
-`kali run` — what the corpus in this repository actually exercises — is
-`BuildMode::Fast` (§7), and the enumeration-fold guard above only runs inside
-the Release-only folds `object_fold.rs` implements. Fast mode's codegen
-backstop enumerates object properties with no equivalent guard at all.
-Measured at this commit: `{"__proto__": 1, a: 2}` prints `__proto__` then `a`
-in kali, where node prints only `a`. That is a separate, pre-existing
-codegen-backstop defect (unowned by this project, and unchanged by it — see
-§7), not something the argument below closes. It matters where it is stated:
-this section is about the two `object_fold.rs` guards specifically, and
-readers should not come away thinking the phantom-`__proto__`-key class is
-closed end to end.
+The enumeration-fold guard fires by DECLINING — it returns `None` so the call
+is left unfolded and falls through to the codegen backstop — and that backstop
+enumerates object properties with no equivalent guard of its own. So the guard
+does its job and the phantom key appears anyway. Measured at this commit, under
+`kali run`: `{"__proto__": 1, a: 2}` prints `__proto__` then `a`, where node
+prints only `a`. (Note the guard is NOT Release-gated: `optimize_program_
+internal` calls `fold_object_enumeration_calls_ordered` before the
+`OptimizationLevel` match, `crates/kali_optimize/src/driver.rs:185`, so it runs
+under Fast too — unlike `fold_object_has_own_call` and the `fromEntries`
+binding path, which are the Release-only folds §7 is about.) That phantom key
+is a separate, pre-existing codegen-backstop defect — unowned by this project
+and unchanged by it — not something the argument below closes. It matters
+where it is stated: this section is about the two `object_fold.rs` guards
+specifically, and readers should not come away thinking the
+phantom-`__proto__`-key class is closed end to end.
 
 **Both `object_fold.rs` guards still catch everything they caught** —
 including against the escape exception of §6, which is checked rather than
@@ -198,7 +202,7 @@ either one lets an escaped spelling's real name coincide with `__proto__`
 while the guard still compares undecoded, or pre-existing, text. Demonstrated
 by construction — not by a lexer change, since neither exists today — with the
 spelling a future `\u` escape would let through, respelling `__proto__`'s
-leading underscore as `_` (the Unicode escape for `_`):
+leading underscore as `\u005f` (the Unicode escape for `_`):
 
 ```
 const o = {"\u005f_proto__": 1, a: 2};
@@ -208,7 +212,7 @@ for (const k of Object.keys(o)) console.log(k);
   node:          a                                                                 exit 0
 ```
 
-`_` decodes to `_`; node reads the whole key as `__proto__`, treats it
+`\u005f` decodes to `_`; node reads the whole key as `__proto__`, treats it
 as the PROTOTYPE SETTER, and enumerates only `a`. kali refuses this program
 outright today — `u` is not in the eleven — so the guard is never reached,
 sound but only because the spelling does not compile. **A change that adds
@@ -217,9 +221,11 @@ at all, must move these guards onto the DECODED name before it ships.** Today
 they are sound because neither precondition holds, and the lexer test above is
 what catches either one moving.
 
-Separately, and NOT a hypothetical: the Fast-mode codegen backstop noted at
-this section's opening already has no guard at all, for the unescaped setter
-spelling `{"__proto__": 1, a: 2}`, no `\u` required. Measured, this commit:
+Separately, and NOT a hypothetical: the codegen backstop noted at this
+section's opening — the lane the guard's own `return None` hands the call to —
+already has no guard at all, for the unescaped setter spelling
+`{"__proto__": 1, a: 2}`, no `\u` required. Measured, this commit, under
+`kali run`:
 
 ```
 const o = {"__proto__": 1, a: 2};
@@ -259,9 +265,33 @@ console.log(p['"a"']); console.log(p['a']); console.log(Object.hasOwn(p,'a'));
 
 The second one is partly fixed: the INVENTED property is gone (line 2 no longer
 finds a property that does not exist), and what remains is the pre-existing
-absent-property-read defect that fabricates `0` where JavaScript has
-`undefined` — the same residual already recorded in that file for `o[0]` on the
-BigInt case. It is pinned WRONG ON PURPOSE with what would close it.
+static-member-read defect that fabricates `0` — the same residual already
+recorded in that file for `o[0]` on the BigInt case. It is pinned WRONG ON
+PURPOSE with what would close it.
+
+**That defect is wider than the name "absent-property read" this document and
+the corpus previously gave it**, corrected by the final whole-branch review and
+measured at this commit. The fabricated `0` is what a static member read emits
+whenever it cannot resolve the object's shape, and that happens for properties
+that are PRESENT too:
+
+```
+const o = Object.fromEntries([["a", 1]]);
+console.log(o.a);
+
+  kali:  0    exit 0
+  node:  1    exit 0
+```
+
+`o` has an own property `a` worth `1`. The reason the read still yields `0` is
+§7: `fold_object_from_entries_call`'s binding path is Release-only and `kali
+run` is Fast, so no shape is ever materialized for the read to consult. On that
+shape it is not an `undefined`-versus-`0` rendering divergence at all — it is a
+wrong VALUE for a property that exists, at exit 0. Pinned in both scopes as
+`a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_*`
+in `crates/kali_cli/tests/cases/object/property_key_identity.toml`. Unowned by
+this project and unchanged by it; recorded so the residual is not restated more
+narrowly than it is.
 
 ## 6. The one exception to "a key slot's text is the property name"
 
@@ -285,8 +315,8 @@ printed `6` above does not describe that stored text at all — it comes from a
 second, independent escaping pass, below. What the four-character stored text
 directly explains is two of the three wrong answers: a probe written with the
 real name (`o['a"b']`) misses the undecoded four-character slot and falls into
-the absent-property lane's fabricated `0`, and the enumerated key prints with a
-stray backslash because the slot's text has one.
+the fabricated-`0` member-read lane described at the end of §5, and the
+enumerated key prints with a stray backslash because the slot's text has one.
 
 **The `6` is `fold_object_enumeration_call` re-escaping an already-undecoded
 key.** Enumerating through `Object.keys` re-encodes the stored text with
@@ -330,19 +360,52 @@ decode `\\`, `\"`, `\'` and `` \` ``. So a `fromEntries` entry spelled
 `["a\"b", 1]` yields the correct three-character name while a source literal
 with the same spelling yields the four-character undecoded text. Re-measured
 under `kali run` (`BuildMode::Fast`, what the corpus exercises):
-`Object.keys(Object.fromEntries([["a\"b", 1]]))` and
-`Object.keys({"a\"b": 1})` do both print the same `a\"b`, agreeing with the
-original claim — but not for the reason given. `constant_property_key`'s
-Release-only fold (§7) never runs under `kali run` at all, so this agreement
-is two DIFFERENT undecoded runtime paths coincidentally producing the same
-text, not the decoded `fromEntries` producer's output surviving a
-re-escaping round trip unchanged. Whether the originally-described mechanism
-(a correctly-decoded `fromEntries` key masked by the enumeration fold's
-re-escaping) also holds under `--release` is not re-verified here — the case
-runner does not execute the `.wasm` that build emits (§7) — so that half of
-the claim is left as previously written rather than asserted anew. Note the
-direction either way: the `fromEntries` side is the CORRECT one and the source
-side is the defect.
+
+```
+for (const k of Object.keys(Object.fromEntries([["a\"b", 1]]))) console.log(k, k.length);
+for (const k of Object.keys({"a\"b": 1}))                     console.log(k, k.length);
+
+  kali:  a\"b  6   /  a\"b  6      exit 0
+  node:  a"b   3   /  a"b   3      exit 0
+```
+
+Both lanes print the same thing, agreeing with the original claim — but the
+explanation an earlier draft of this paragraph gave for it, that
+`constant_property_key`'s fold is Release-only and "never runs under `kali
+run`", is FALSE and is corrected here. `fold_object_enumeration_calls_ordered`
+is called BEFORE the `OptimizationLevel` match
+(`crates/kali_optimize/src/driver.rs:185`), and `fold_object_enumeration_call`
+materializes a `fromEntries` operand by calling `fold_object_from_entries_call`
+inline (`crates/kali_optimize/src/object_fold.rs:127`), which is what reaches
+`constant_property_key`. That lane is reachable under Fast; §7's Release-only
+claim covers `fold_object_has_own_call` and the BINDING path of
+`fold_object_from_entries_call`, not this nested-call one.
+
+What IS established by measurement is narrower: the decoded producer's output
+does not reach the enumeration's output. A differential probe separates the two
+possibilities, because a decoded key and an undecoded one would re-escape to
+different lengths. With a lone backslash escape, a decoded `fromEntries` key
+(`a\b`, three characters) would re-encode through `format!("{key:?}")` to a
+four-character payload, while the undecoded source-literal key (`a\\b`, four
+characters) re-encodes to a six-character one:
+
+```
+for (const k of Object.keys(Object.fromEntries([["a\\b", 1]]))) console.log(k, k.length);
+for (const k of Object.keys({"a\\b": 1}))                     console.log(k, k.length);
+
+  kali:  a\\b  6   /  a\\b  6      exit 0
+  node:  a\b   3   /  a\b   3      exit 0
+```
+
+Six in BOTH lanes, not four and six — so the decoded three-character name never
+arrives at the printer, and the two lanes really are landing on one undecoded
+text rather than converging by a round trip. WHICH step drops the decoded key
+(the `fromEntries` materialization declining on this operand, or something
+downstream of it) is NOT established here, and this document should not be read
+as claiming it. Nor is the `--release` behaviour re-verified — the case runner
+does not execute the `.wasm` that build emits (§7). Note the direction either
+way: the `fromEntries` side is the CORRECT one and the source side is the
+defect.
 
 **Not fixed here, deliberately.** Decoding a key's escapes is a parser change
 whose blast radius is every string literal in the language, not a comparison

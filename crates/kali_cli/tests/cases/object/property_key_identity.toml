@@ -45,17 +45,31 @@
 # and it is pinned here rather than chased because decoding belongs to the
 # parser, not to a task about comparison sites.
 #
-# THE FINAL WHOLE-BRANCH REVIEW made two further changes, neither of which is a
-# task in this plan and neither of which owns closing anything: it EXTENDED two
-# existing pairs with probes their original rationale did not cover
-# (`escaped_quote_in_a_key_is_stored_undecoded_*` gained a `k === "a\"b"`
-# strict-equality probe; `object_keys_over_a_quoted_string_key_*` gained a
-# `.length` and a `k === '"2"'` probe, and its rationale was downgraded from
-# "correct" to "agrees on text and order" because `.length` does not agree),
-# and it ADDED a fourth WRONG-ON-PURPOSE pair,
-# `octal_leading_zero_numeric_key_is_read_as_decimal_*`, pinning a pre-existing,
-# out-of-scope defect one line from a guard this branch wrote in the same
-# rewritten function.
+# THE FINAL WHOLE-BRANCH REVIEW AND ITS FIX WAVE made two further kinds of
+# change, none of which is a task in this plan and none of which owns closing
+# anything. It EXTENDED two existing pairs with probes their original rationale
+# did not cover (`escaped_quote_in_a_key_is_stored_undecoded_*` gained a
+# `k === "a\"b"` strict-equality probe; `object_keys_over_a_quoted_string_key_*`
+# gained a `.length` and a `k === '"2"'` probe, and its rationale was downgraded
+# from "correct" to "agrees on text and order" because `.length` does not
+# agree). And it ADDED three WRONG-ON-PURPOSE pairs, all pre-existing and all
+# out of scope:
+#
+#   * `octal_leading_zero_numeric_key_is_read_as_decimal_*` -- `{042: 1}`'s key
+#     reads as decimal `42` where node says `34`, in the same nine-line parser
+#     function whose BigInt half this branch guarded against exactly this;
+#   * `computed_member_index_is_fabricated_from_the_index_expression_*` --
+#     `expression_to_property_name` invents a property name for any index shape
+#     it cannot read statically, the same fabricated-key class Tasks 2 and 5
+#     deleted elsewhere, surviving one file over;
+#   * `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_
+#     zero_*` -- the fabricated `0` this file's other rationales call the
+#     "absent-property read" defect also fires on a property that is PRESENT,
+#     which is what forced those rationales to stop calling it that.
+#
+# Every expectation in the three new pairs is what kali printed at the commit
+# that adds them, measured with the live binary against node v26.8.1 in both
+# scopes; none of them is a guess at what kali ought to do.
 #
 [source]
 "bigint_module.js" = """const o = {42n: 1};
@@ -191,10 +205,32 @@ console.log(Object.keys(o)[0]);
 }
 main();
 """
+"computed_member_index_module.js" = """const o = {index: 9, i: 7};
+let i = 1;
+console.log(o[i]);
+console.log(o[i + 0]);
+"""
+"computed_member_index_function.js" = """function main() {
+  const o = {index: 9, i: 7};
+  let i = 1;
+  console.log(o[i]);
+  console.log(o[i + 0]);
+}
+main();
+"""
+"from_entries_present_property_module.js" = """const o = Object.fromEntries([["a", 1]]);
+console.log(o.a);
+"""
+"from_entries_present_property_function.js" = """function main() {
+  const o = Object.fromEntries([["a", 1]]);
+  console.log(o.a);
+}
+main();
+"""
 
 [[case]]
 name = "bigint_key_is_stored_under_zero_module_scope"
-rationale = "RE-PINNED, was wrong now differently wrong (Task 2): node prints `false`, `undefined`, `1`. kali now prints `false`, `0`, `1` -- `Object.hasOwn(o, 0)` is fixed (the parser reads `42n` as `PropertyName::BigInt(\"42\")` instead of falling back to the key `0`, so `hasOwn` and `o[42]` now agree with node), but `o[0]` reads `0` instead of `undefined`. That residual is a DIFFERENT defect -- an absent-property read returning a fabricated `0` rather than `undefined` -- not the key-identity defect this task fixes. Not chased here; see the commit message."
+rationale = "RE-PINNED, was wrong now differently wrong (Task 2): node prints `false`, `undefined`, `1`. kali now prints `false`, `0`, `1` -- `Object.hasOwn(o, 0)` is fixed (the parser reads `42n` as `PropertyName::BigInt(\"42\")` instead of falling back to the key `0`, so `hasOwn` and `o[42]` now agree with node), but `o[0]` reads `0` instead of `undefined`. That residual is a DIFFERENT defect -- a static member read returning a fabricated `0` rather than the value JavaScript would produce -- not the key-identity defect this task fixes. It is reached here because the property is ABSENT, but the final whole-branch review measured the same fabricated `0` coming back for a PRESENT property too, so the defect is not only an absent-property one; see `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_module_scope`. Not chased here; see the commit message."
 args = ["run", "bigint_module.js"]
 exit = "success"
 stdout = "false\n0\n1\n"
@@ -406,11 +442,18 @@ used. One program contradicting itself is the R-56 class at a second address,
 and it is closed: the member lane compares property names now, so the probe
 misses.
 
-WHY LINE 2 IS STILL NOT `undefined`. Missing the fold, the read falls into the
-pre-existing absent-property lane, which emits a fabricated `0` rather than
-JS's `undefined`. That is a DIFFERENT, already-inventoried defect -- the same
-one recorded on `bigint_key_is_stored_under_zero_module_scope` in this file for
-`o[0]` -- and it is not property-key identity. Task 5 did not chase it. WHAT
+WHY LINE 2 IS STILL NOT `undefined`. Missing the fold, the read emits a
+fabricated `0` rather than JS's `undefined`. That is a DIFFERENT,
+already-inventoried defect -- the same one recorded on
+`bigint_key_is_stored_under_zero_module_scope` in this file for `o[0]` -- and
+it is not property-key identity. Task 5 did not chase it. NOT ONLY AN
+ABSENT-PROPERTY LANE, corrected by the final whole-branch review: the same
+fabricated `0` also comes back for a property that is PRESENT when the read
+cannot resolve its object's shape (see
+`a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_
+module_scope` at the end of this file). On THIS case the property genuinely is
+absent, so the absent-property framing is accurate here; it is the defect's
+overall scope, not this line, that is wider than the name suggests. WHAT
 WOULD CLOSE IT: an absent-property read on a statically known object literal
 producing the `undefined` value rather than an `I64Const(0)` placeholder; when
 that lands, this expectation becomes `1\\nundefined\\nfalse\\n` and agrees with
@@ -461,10 +504,17 @@ R-56's own signature, and this new `false` line is what makes it visible here
 instead of only in a review.
 
 MEASURED, NOT INTRODUCED. Identical at `f563a0ecf4` (before Task 5) and after,
-verified by building both commits: `a\\"b 6` then `0` in both (the `===` probe
-was not part of the original case; added by the final review, and it is `false`
-under both the pre-Task-5 and current source at this position, per the
-underlying undecoded-storage mechanism being untouched). Task 5 deleted
+verified by building both commits: `a\\"b 6` then `0` in both. The `===` probe
+was not part of the original case; the final whole-branch review added it and
+measured `false` at HEAD only. It is `false` at `f563a0ecf4` too, but that is
+read from the SOURCE, not from a second build (this fix wave was explicitly
+denied a second build tree): `git show f563a0ecf4:crates/kali_parser/src/
+literal.rs` has a byte-identical `unquote_string_literal`, and
+`git show f563a0ecf4:crates/kali_optimize/src/object_fold.rs` has the same
+second escaping pass spelled `format!("{:?}", key.trim_matches('"'))` at what
+are now lines 173/180/199 -- and `trim_matches('"')` is a no-op on the stored
+text `a\\"b`, which neither starts nor ends with a quote. Both inputs to the
+divergence are therefore unchanged. Task 5 deleted
 fourteen un-quoting sites and moved one producer; none of that touches escape
 decoding, which lives in the parser. The invariant is stated with this
 exception in
@@ -512,10 +562,13 @@ name` (`crates/kali_parser/src/expression/object.rs`) guards a leading zero on
 the BigInt branch (`042n` is refused, matching JavaScript's real
 SyntaxError -- a LOUD divergence) but walks straight past a leading zero on the
 `f64` branch, which is what `042` (no `n` suffix) parses through
-(`text.parse::<f64>().ok()`, no leading-zero check). `042n` failing loudly and
-`042` silently returning a WRONG key at exit 0 is strictly worse than the
-BigInt case this branch already guarded, and it now sits one line from that
-guard, in a function this branch rewrote, for the same underlying reason
+(`text.parse::<f64>().ok()`, no leading-zero check). The two branches are the
+two halves of one nine-line function: the BigInt guard is the
+`!(digits.len() > 1 && digits.starts_with('0'))` conjunct, and the unguarded
+`f64` fallthrough is the function's last statement three lines below it.
+`042n` failing loudly and `042` silently returning a WRONG key at exit 0 is
+strictly worse than the BigInt case this branch already guarded, and it sits
+inside the same function this branch rewrote, for the same underlying reason
 (legacy octal is not decimal parsing).
 
 WHY IT IS NOT CLOSED HERE. Pre-existing (unrelated to property-key identity),
@@ -529,7 +582,103 @@ stdout = "42\n"
 
 [[case]]
 name = "octal_leading_zero_numeric_key_is_read_as_decimal_in_function"
-rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same octal-key probe in function scope; node prints `34` (`042` is legacy octal for decimal 34 in sloppy mode) and kali prints `42` (the digits are read as decimal), at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `numeric_property_name`'s f64 branch has no leading-zero guard, unlike the BigInt branch two lines above it. Pre-existing, out of scope, not chased here; do not change the parser."
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same octal-key probe in function scope; node prints `34` (`042` is legacy octal for decimal 34 in sloppy mode) and kali prints `42` (the digits are read as decimal), at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `numeric_property_name`'s f64 fallthrough has no leading-zero guard, unlike the BigInt branch three lines above it in the same nine-line function. Measured separately, both halves: `{042n: 1}` is refused LOUDLY (`error[E5506]: this numeric property key is unavailable in the current phase`, exit 1, where node raises a SyntaxError) while `{042: 1}` returns the wrong key SILENTLY at exit 0. Pre-existing, out of scope, not chased here; do not change the parser."
 args = ["run", "octal_leading_zero_numeric_key_function.js"]
 exit = "success"
 stdout = "42\n"
+
+[[case]]
+name = "computed_member_index_is_fabricated_from_the_index_expression_module_scope"
+rationale = """
+ADDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON PURPOSE, both lines, and NO
+TASK IN THIS PLAN OWNS CLOSING IT. Do NOT change the parser to close it.
+
+node prints `undefined` then `undefined`. kali prints `7` then `9`, at exit 0.
+
+WHAT IT PINS. `kali_parser`'s `expression_to_property_name`
+(`crates/kali_parser/src/literal.rs`) turns a computed member index into the
+JavaScript property name it denotes -- but only for the shapes it can read
+statically (a literal, or a folded `+`/`-` unary on one). For every OTHER
+shape it does not decline; it FABRICATES a name:
+
+* `o[i]` hits `Expression::Identifier(s) => s.clone()`, so the probe is the
+  identifier's own text `i`. `o` happens to have a property named `i`, so
+  kali reads `7` -- the wrong property, for a program where node reads
+  `o[1]` and gets `undefined`.
+* `o[i + 0]` is a binary expression, which no arm matches, so it falls to the
+  catch-all `_ => "index".to_string()`. `o` happens to have a property named
+  `index`, so kali reads `9`.
+
+Both properties exist ONLY so this case can tell the two fabrication arms
+apart by their output. An index expression this phase cannot read is supposed
+to be declined, not renamed.
+
+WHY IT MATTERS TO THIS BRANCH SPECIFICALLY. This is the same fabricated-key
+class Task 2 deleted from the parser's numeric-key arm (the `unwrap_or(0.0)`
+that stored `{42n: 1}` under the key `0`) and Task 5 deleted from the
+un-quoting sites -- surviving one file over, in the function whose doc comment
+this branch rewrote to claim that a probe and the key it probes are "one
+currency by construction". That claim is true only for the shapes this
+function actually reads; these two lines are what it is not true for.
+
+WHY IT IS NOT CLOSED HERE. Closing it means returning `Option<String>` and
+teaching every caller to decline, which is a behaviour change with its own
+verification surface -- out of this documentation-only fix wave's scope. The
+doc comment on `expression_to_property_name` now names the recommendation and
+cites this case; the case is what keeps the recommendation honest."""
+args = ["run", "computed_member_index_module.js"]
+exit = "success"
+stdout = "7\n9\n"
+
+[[case]]
+name = "computed_member_index_is_fabricated_from_the_index_expression_in_function"
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same two probes in function scope; node prints `undefined` twice and kali prints `7` then `9`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `expression_to_property_name` fabricates a property name for every index shape it cannot read statically -- the identifier's own text for `o[i]`, the literal string `index` for the catch-all arm `o[i + 0]` reaches. Pre-existing, out of scope, not chased here; do not change the parser."
+args = ["run", "computed_member_index_function.js"]
+exit = "success"
+stdout = "7\n9\n"
+
+[[case]]
+name = "a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_module_scope"
+rationale = """
+ADDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON PURPOSE, and NO TASK IN THIS
+PLAN OWNS CLOSING IT.
+
+node prints `1`. kali prints `0`, at exit 0, with no diagnostic.
+
+WHAT IT CORRECTS. Several rationales in this file and in
+docs/superpowers/followups/ describe the fabricated-`0` residual as the
+"absent-property read" defect -- a read of a property that does not exist
+returning `0` where JavaScript returns `undefined`. That name is too narrow.
+`Object.fromEntries([["a", 1]])` HAS an own property named `a`, with the value
+`1`; reading it still yields `0`. The `0` is what a static member read emits
+whenever the fold cannot resolve the object's shape, whether or not the
+property is there -- which means it is not a `undefined`-vs-`0` rendering
+divergence at all on this shape, but a wrong VALUE for a property that exists.
+Nothing in this file exercised that half before, so every statement of the
+divergence was scoped to the half that was pinned.
+
+WHY THIS SHAPE REACHES IT. `fold_object_from_entries_call`'s binding path runs
+only at `OptimizationLevel::Release`/`ReleaseAdvanced` (section 7 of
+docs/superpowers/followups/property-key-trim-site-classification.md), and
+`kali run` -- what this corpus executes -- is `BuildMode::Fast`. So the object
+is never materialized into a statically-known shape, the member read finds no
+shape to read from, and the same fabricated `0` the absent-property lane emits
+comes back for a property that is present.
+
+WHY IT IS NOT CLOSED HERE. It is the same unowned placeholder-read defect
+already recorded on `bigint_key_is_stored_under_zero_module_scope` and
+`member_probe_does_not_invent_a_property_from_quote_characters_module_scope`;
+this pair only widens what those rationales are allowed to claim about it.
+WHAT WOULD CLOSE IT: a static member read that cannot resolve its object's
+shape declining to fold, instead of emitting a placeholder. When that lands,
+this expectation becomes `1\\n` and agrees with node."""
+args = ["run", "from_entries_present_property_module.js"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_in_function"
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same probe in function scope; node prints `1` and kali prints `0`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: the fabricated `0` a static member read emits is not confined to ABSENT properties -- `Object.fromEntries([[\"a\", 1]])` has an own `a` worth `1`, and reading it still yields `0`, because under `kali run`'s Fast mode the fromEntries BINDING fold never runs (it is gated to Release/ReleaseAdvanced) and the read has no shape to resolve against. Pre-existing, unowned by this plan, not chased here."
+args = ["run", "from_entries_present_property_function.js"]
+exit = "success"
+stdout = "0\n"

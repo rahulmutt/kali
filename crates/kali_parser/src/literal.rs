@@ -36,9 +36,12 @@ impl Parser {
     /// falls to `Expression::Identifier(s) => s.clone()` instead of
     /// declining. Every other unreadable shape (a `SequenceExpression` with
     /// no last element, an unrecognized unary argument, or the catch-all
-    /// `_` arm) fabricates the literal string `"index"` instead: `const arr
-    /// = [1,2,3]; let i = 1; arr[i]` reads the property named `"index"`
-    /// (kali: `0`, node: `2`). Both are measured, not hypothetical -- see
+    /// `_` arm) fabricates the literal string `"index"` instead, and the
+    /// catch-all is the easiest one to reach: an index spelled as any
+    /// BINARY expression lands there, so in the same program `o[i + 0]`
+    /// reads the property named `index` (kali: `9`, node: `undefined`).
+    /// Both are measured, not hypothetical -- pinned in both scopes as
+    /// `computed_member_index_is_fabricated_from_the_index_expression_*` in
     /// `crates/kali_cli/tests/cases/object/property_key_identity.toml`.
     ///
     /// This is the same fabricated-key class Task 5 deleted from the

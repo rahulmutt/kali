@@ -179,13 +179,26 @@ impl Optimizer {
     /// `{"a\"b": 1}` stores the four-character `a\"b` while a `fromEntries`
     /// entry spelled the same way yields the three-character name `a"b`. The
     /// two spellings agree only when they are byte-identical in source text;
-    /// they do not converge through decoding. What makes the disagreement hard
-    /// to observe through `Object.keys` specifically is that the enumeration
-    /// fold adds a SECOND escaping pass on top (`format!("{key:?}", ...)`
-    /// re-encodes the already-undecoded text), which is its own distinct
-    /// divergence, not evidence the two lanes agree: it was measured identical
-    /// at `f563a0ecf4` and after. Recorded, pinned by corpus cases, and NOT
-    /// fixed here: decoding belongs to the parser. See
+    /// they do not converge through decoding.
+    ///
+    /// The disagreement does not SHOW under `kali run`, but not because the
+    /// two lanes agree. Measured at this commit,
+    /// `Object.keys(Object.fromEntries([["a\"b", 1]]))` and
+    /// `Object.keys({"a\"b": 1})` both print `a\"b 6` where node prints
+    /// `a"b 3`. The same probe with a lone backslash escape separates the two
+    /// hypotheses -- a decoded key would re-escape four characters wide and an
+    /// undecoded one six -- and both lanes print `6`, so the decoded name this
+    /// function produces does not reach the enumeration's output at all. Which
+    /// step drops it is not established; do NOT restate this as "the fold is
+    /// Release-only", which is false for the nested-call lane (`fold_object_
+    /// enumeration_call` materializes a `fromEntries` operand inline at
+    /// `object_fold.rs:127`, and the ordered enumeration pass runs before the
+    /// `OptimizationLevel` match at `driver.rs:185`). A separate, distinct
+    /// divergence stacks on top wherever the enumeration fold does run:
+    /// `format!("{key:?}", ...)` re-encodes the already-undecoded text a
+    /// SECOND time, which is what stretches a four-character stored key's
+    /// `.length` to `6`. Recorded, pinned by corpus cases, and NOT fixed
+    /// here: decoding belongs to the parser. See
     /// docs/superpowers/followups/property-key-trim-site-classification.md.
     pub(crate) fn constant_property_key(
         &self,

@@ -262,9 +262,20 @@ reads `1` — both agree with node.
 **Residual, not closed by this fix, and not property-key identity.** `o[0]`
 still reads `0` where node reads `undefined`. The reason has changed: `{42n:1}`
 now genuinely has no property named `0`, so this is the pre-existing
-absent-property-read defect that fabricates `0` for any missing key (the same
-defect this project met again on the `quoted_key_member_probe_*` cases below).
-It is not chased here.
+fabricated-`0` static-member-read defect (the same defect this project met
+again on the `quoted_key_member_probe_*` cases below). It is not chased here.
+
+**Do not call that defect an "absent-property read" — it is wider than that.**
+Corrected by the hir-property-key-identity branch's final whole-branch review
+and measured at that branch's HEAD, both scopes: `const o =
+Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0` in kali and `1` in
+node, at exit 0. `o` HAS an own property named `a`; the read still fabricates
+`0`, because under `kali run`'s Fast mode the `fromEntries` fold never runs and
+the member read has no statically known shape to resolve against. So the `0` is
+what an unresolvable static member read emits, present property or not — a
+wrong VALUE, not only an `undefined`-rendered-as-`0`. Pinned as
+`a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_*`
+in `crates/kali_cli/tests/cases/object/property_key_identity.toml`.
 
 **Pinned by** `bigint_key_is_stored_under_zero_module_scope` and
 `bigint_key_is_stored_under_zero_in_function` in
