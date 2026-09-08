@@ -205,7 +205,18 @@ impl<'a> FunctionEmitter<'a> {
         &self,
         node: &LirNode,
     ) -> Option<(LirNodeId, LirNodeId, kali_common::Repr)> {
-        if node.kind != LirNodeKind::Value || node.children.len() != 2 {
+        // Both spellings of a 2-child computed member reach here: the named
+        // `Value` (`obj["c"]`, and the folded twin the read gateway
+        // re-dispatches) and the nameless `ComputedMember` the parser now
+        // produces for `obj[c]`. This lane never reads the node's text for a
+        // NAME -- the key it needs is the index CHILD -- so the nameless kind
+        // is admitted on exactly the same terms. The STORE call sites
+        // (`emit/literal.rs`'s `obj[c] = v` and `obj[c] op= v` arms) pass the
+        // real target node rather than the gateway's text-less probe, so the
+        // kind must be admitted here rather than only at the read gateway.
+        if !matches!(node.kind, LirNodeKind::Value | LirNodeKind::ComputedMember)
+            || node.children.len() != 2
+        {
             return None;
         }
         // A binary expression also lowers to a 2-child `Value` node; its

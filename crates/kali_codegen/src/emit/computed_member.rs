@@ -4,20 +4,96 @@
 //! Spec: docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md §4.4.
 
 use crate::*;
-use kali_common::computed_member_access_unavailable_message;
+use kali_common::js_number::format_js_number;
+use kali_common::{
+    computed_member_access_unavailable_message, string_index_access_unavailable_message,
+};
 
 impl FunctionEmitter<'_> {
-    /// Read gateway for a nameless computed member. Filled in by Task 3 of the
-    /// plan; until then every such access refuses, which is already strictly
-    /// more honest than the fabricated name it replaces.
+    /// The property name a member node denotes statically: its text when it
+    /// has one, else the fold of its index child. The fold admits exactly a
+    /// childless `Value` (a bare identifier) whose `const` binding resolves
+    /// to a static string or number — `bindings` is `const`-only by
+    /// construction, and a `let`/`var` lives in `locals` and never resolves
+    /// here. A number is rendered by `format_js_number`, the same formatter
+    /// HIR stores a numeric key with, so probe and key stay one currency.
+    pub(crate) fn static_member_name(&self, node: &LirNode) -> Option<String> {
+        if let Some(text) = node.text.as_deref() {
+            return Some(text.to_string());
+        }
+        let index = *node.children.get(1)?;
+        let index_node = self.node(index);
+        if index_node.kind != LirNodeKind::Value || !index_node.children.is_empty() {
+            return None;
+        }
+        match self.resolve_static_object_identity_value(index)? {
+            StaticObjectIdentityValue::String(value) => Some(value),
+            StaticObjectIdentityValue::Number(value) => Some(format_js_number(value)),
+            _ => None,
+        }
+    }
+
+    /// `node` as the ordinary `Value`-shaped member the rest of codegen
+    /// understands, carrying `name` as its text. Used to re-dispatch a folded
+    /// access through the lanes the literal spelling takes; the original node
+    /// is not changed (the emitter borrows the program immutably), which is
+    /// why by-id consumers keep seeing the nameless kind and decline.
+    pub(crate) fn named_twin(node: &LirNode, name: String) -> LirNode {
+        let mut twin = node.clone();
+        twin.kind = LirNodeKind::Value;
+        twin.text = Some(name);
+        twin
+    }
+
+    /// True when `id` resolves to a statically-known string, the receiver
+    /// shape that has no admitting index lane in either spelling.
+    pub(crate) fn is_static_string_receiver(&self, id: LirNodeId) -> bool {
+        matches!(
+            self.resolve_static_object_identity_value(id),
+            Some(StaticObjectIdentityValue::String(_))
+        )
+    }
+
+    /// Read gateway for a nameless computed member (spec §4.4, in order):
+    /// 1. the runtime lanes that never read the text for a name, offered a
+    ///    `Value`-shaped text-less probe;
+    /// 2. the fold;
+    /// 3. dot semantics — the named twin re-dispatched through `emit_value`;
+    /// 4. refuse.
     pub(crate) fn emit_computed_member(
         &mut self,
         function: &mut Function,
-        _id: LirNodeId,
-        _node: &LirNode,
-        _want_value: bool,
+        id: LirNodeId,
+        node: &LirNode,
+        want_value: bool,
     ) -> EmittedValue {
-        self.deny_e5506(function, computed_member_access_unavailable_message())
+        let mut probe = node.clone();
+        probe.kind = LirNodeKind::Value;
+        probe.text = None;
+
+        if let Some((base, index, elem)) = self.computed_forin_object_access(&probe) {
+            return self.emit_object_field_read_dynamic(function, base, index, elem);
+        }
+        if self.growable_array_read_base(&probe).is_some() || self.growable_field_read_base(&probe)
+        {
+            return self.emit_growable_index_read(function, node.children[0], node.children[1]);
+        }
+        if let Some(base_name) = self.dynamic_array_read_base(&probe) {
+            return self.emit_dynamic_array_read_node(
+                function,
+                node.children[0],
+                node.children[1],
+                &base_name,
+            );
+        }
+        if self.is_static_string_receiver(node.children[0]) {
+            return self.deny_e5506(function, string_index_access_unavailable_message());
+        }
+        let Some(name) = self.static_member_name(node) else {
+            return self.deny_e5506(function, computed_member_access_unavailable_message());
+        };
+        let twin = Self::named_twin(node, name);
+        self.emit_value(function, id, &twin, want_value)
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::*;
+use kali_common::computed_member_access_unavailable_message;
 
 /// Which sink is consuming a string coercion.
 ///
@@ -124,6 +125,23 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_unary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let arg = node.children[0];
+        // A MEMBER READ whose BASE is a nameless computed member cannot be
+        // resolved: the base's own fold is visible only through the read
+        // gateway's re-dispatch, and this node reaches its base by id. Deny
+        // rather than fall through to the renderers' child-count arm or the
+        // placeholder tail (spec §4.5, chained access).
+        //
+        // A unary OPERATOR (`-a[j]`, `!a[j]`, `typeof o[k]`) is excluded: it
+        // does not read a property off `arg` at all, it emits `arg` through
+        // `emit_node`, which routes back to the read gateway and keeps every
+        // runtime lane and the fold admitted. Guarding it here denied
+        // `-a[j]` over a RUNTIME array -- a lane this task restores, and one
+        // the E5506 text itself promises. `is_unary_operator_text` is the
+        // repo's one source of truth for that split (see its doc comment);
+        // this site does not re-derive the list.
+        if !is_unary_operator_text(op) && self.node(arg).kind == LirNodeKind::ComputedMember {
+            return self.deny_e5506(function, computed_member_access_unavailable_message());
+        }
         // A string operand under a numeric/logical unary op has no correct
         // lowering: `-`/`~` would arithmetic on a raw handle; `!` truthiness
         // is wrong for a fresh concat handle (empty-string handle is non-zero).
@@ -1669,7 +1687,13 @@ impl<'a> FunctionEmitter<'a> {
                     .as_deref()
                     .is_some_and(|name| self.repr_table.return_repr(name) == kali_common::Repr::F64)
             }
-            LirNodeKind::Value => match node.children.len() {
+            // A nameless computed member (`obj[c]`, `a[i]`) carries the same
+            // 2-child member shape as a named `Value` one and answers the
+            // same float-ness question -- the element repr of the for-in /
+            // linear-array lane it reads through. It is never a binary
+            // operator (its text is always `None`), so the operator branch of
+            // the 2-child arm below cannot match it.
+            LirNodeKind::Value | LirNodeKind::ComputedMember => match node.children.len() {
                 0 => node.text.as_deref().is_some_and(|name| {
                     if Self::is_float_literal_text(name) {
                         return true;

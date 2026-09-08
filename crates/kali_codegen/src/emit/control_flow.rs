@@ -1,4 +1,5 @@
 use crate::*;
+use kali_common::string_index_access_unavailable_message;
 
 impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_break_or_continue(
@@ -3019,6 +3020,14 @@ impl<'a> FunctionEmitter<'a> {
                         node.children[1],
                         &base_name,
                     );
+                }
+
+                // A statically-known string has no index lane in either
+                // spelling (`s[1]` was a silent `0`; `s[k]` folds onto the
+                // same lane). Refuse here so the literal spelling and the
+                // folded twin agree (spec §4.4, "String receivers").
+                if self.is_static_string_receiver(node.children[0]) {
+                    return self.deny_e5506(function, string_index_access_unavailable_message());
                 }
 
                 self.emit_unary(function, node)
