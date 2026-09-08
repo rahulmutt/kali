@@ -29,7 +29,10 @@
 # `[[case]]` array has begun, so keys go mid-file and cases go at the end.
 #
 # ---------------------------------------------------------------------------
-# THE TWENTY-SEVEN ENTRIES, AND THE NINETY-TWO CASES.
+# THE TWENTY-NINE ENTRIES, AND THE NINETY-SIX CASES.
+# (~~THE TWENTY-SEVEN ENTRIES, AND THE NINETY-TWO CASES.~~ -- re-counted
+# 2026-09-08 with the three figures above it, which moved in the same commit
+# and left this heading behind.)
 #
 # Every entry is measured in BOTH scopes -- module scope and in-function --
 # because top-level and in-function are different programs in kali and several

@@ -2992,17 +2992,31 @@ tier, ordering is by blast radius.
   correctly. The `\n` spelling is the sharpest to read, because node prints a
   key containing a real newline and kali prints the two characters `\n`.
 - **Mechanism, traced — there are TWO, stacked, and a fix for either alone
-  leaves the entry open.** Both read in source at `dde0f083c0`.
+  leaves the entry open.** Both read in source at **`b13c890330`**, this branch's
+  findings commit, and every line number in this entry is that tree's. It is not
+  `dde0f083c0`, which is where the BEHAVIOUR was measured (the binary was built
+  there): the two commits differ only in documentation, so no cited construct
+  moved between them, but the doc comments this branch added shifted the line
+  numbers — `unquote_string_literal` was at `literal.rs:7-24` at `dde0f083c0`
+  and `numeric_property_name` twenty lines earlier than it is now. Citations are
+  pinned to the tree they resolve in, measurements to the tree they were taken
+  on, and the two are named separately here because on this branch they differ.
   1. **The key is stored undecoded.** `kali_lexer`'s string scanner keeps the
      raw escape sequence in the token's value on purpose
      (`crates/kali_lexer/src/string.rs:23-35` — *"Keep the raw sequence in
      `value` (kali_fmt re-emits it verbatim); only validate"*), and
      `kali_parser`'s `unquote_string_literal`
-     (`crates/kali_parser/src/literal.rs:29-46`) strips the delimiters and
-     **nothing else**: its whole body is `trimmed[1..len-1].to_string()`. The
-     string-literal key arm calls exactly that
-     (`crates/kali_parser/src/expression/object.rs:42-49`,
-     `PropertyName::String(unquote_string_literal(&token.value))`). So the key
+     (`crates/kali_parser/src/literal.rs:29-46`) whitespace-`trim`s, checks that
+     the first and last characters are a MATCHED pair of `"`, `'` or `` ` ``,
+     and returns `trimmed[1..len-1]` if they are or the trimmed text unchanged if
+     they are not. **No branch of it decodes anything** — that is the narrow,
+     true claim, and it is the whole of the defect; the function is not a
+     one-liner and this entry does not need it to be. The string-literal key arm
+     routes a key's token through it
+     (`crates/kali_parser/src/expression/object.rs:42-49`:
+     `token.map(|token| unquote_string_literal(&token.value)).unwrap_or_default()`,
+     reflowed onto one line from the three it occupies at `:44-46`, then wrapped
+     verbatim at `:48` as `PropertyName::String(name)`). So the key
      slot holds the FOUR characters `a\"b` where the property name is the three
      characters `a"b`, and every consumer downstream is comparing the wrong
      text. This is what makes rows 3, 4 and 8 of the table above diverge.
@@ -3063,8 +3077,9 @@ tier, ordering is by blast radius.
   key slot holds `a"b`. The decoder to reuse already exists
   (`decode_string_escapes`); what does not exist is a call to it before the key
   becomes a name. The second mechanism must move in the same change: drop the
-  `format!("{key:?}")` re-escape at `object_fold.rs:173/180/199` in favour of
-  handing the key's text through unmodified, or the enumeration lane will print
+  `format!("{key:?}")` re-escape at the three sites the **Mechanism** bullet
+  above cites — `object_fold.rs:192`, `:199`, `:218` at `b13c890330` — in favour
+  of handing the key's text through unmodified, or the enumeration lane will print
   a correctly-decoded key with a NEW stray backslash. **Do not** attempt a
   consumer-side shim — un-escaping at `object_literal_field`,
   `static_object_has_own` or `constant_property_key` is the same mistake as the
@@ -3226,7 +3241,10 @@ tier, ordering is by blast radius.
   would add a second declared class to a brand-new entry on a filing task; a
   later task that wants it owes `tier2.toml` a second pair, §0.2 a second class,
   and `oracle_tests.rs` a new total.
-- **Mechanism, traced.** All read in source at `dde0f083c0`.
+- **Mechanism, traced.** All read in source at **`b13c890330`**, this branch's
+  findings commit, and every line number below is that tree's — not
+  `dde0f083c0`, which is where the behaviour was measured. See R-57's Mechanism
+  bullet for why the two commits are named separately.
   - **The key lane.** `numeric_property_name`
     (`crates/kali_parser/src/expression/object.rs:251-259`) is nine lines. Its
     BigInt arm rejects a leading zero explicitly —
