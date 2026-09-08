@@ -4777,10 +4777,23 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
 ///          itself resolve which field a fold names;
 ///        - a plain VARIABLE key that is not `const`-foldable (`let k =
 ///          "a"; o[k] = v`): refused by the same checker gate as the fold
-///          spelling, and stays refused even after Task 5 lands — Task 5
-///          admits a `const`-folded key specifically (spec §4.4 step 2's
-///          fold rule), not an arbitrary variable. No further coverage
-///          needed here as long as that stays true.
+///          spelling ONLY WHEN `k` is not itself a `for..in` key over the
+///          SAME object — the gate's own message says so verbatim ("where
+///          the key is not a `for..in` key over `obj`",
+///          `kali_types/src/resolve/expression.rs`). A `for..in` key over
+///          the same object (`for (let c in obj) { obj[c] = v; }`) is
+///          ADMITTED by that gate and is a live, already-working write
+///          route today, structurally distinct from this route 3 —
+///          `emit/object.rs`'s `computed_forin_object_access`, reused by
+///          the existing for-in store arm in `emit/literal.rs`
+///          (`emit_object_field_write_dynamic`) — and is not itself
+///          enumerated anywhere in this numbered inventory (a pre-existing
+///          gap this entry does not fix). A genuinely arbitrary,
+///          non-for-in variable key stays refused even after Task 5 lands
+///          — Task 5 admits a `const`-folded key specifically (spec §4.4
+///          step 2's fold rule), not an arbitrary variable. No further
+///          coverage needed here for that non-for-in case, as long as that
+///          stays true.
 ///      All three are gated somewhere; nothing here claims the checker
 ///      gate is permanent for the fold spelling, and nothing here assumes
 ///      it is the only gate — the point of walking the `ComputedMember`
@@ -5198,9 +5211,23 @@ fn collect_bigint_tainted_shape_fields_walk(
             // Conservative default, same fail-toward-more-taint choice
             // `taint_shape_fields_from_object_inflow` already makes for a
             // `Partial`/unreadable inflow: taint EVERY field of the shape
-            // rather than none. This also taints a computed store this scan
-            // cannot otherwise distinguish from a `for..in`-key store
-            // (route 5, itself denied by a separate gate today) — accepted
+            // rather than none. This branch's structural guard (a 2-child
+            // `ComputedMember` over a `Repr::Object` base) cannot
+            // distinguish this route's own two live spellings (a
+            // `const`-fold, or a plain non-for-in variable) from a THIRD,
+            // unrelated write shape that lowers to the identical LIR
+            // structure: a `for..in` ORDINAL object write (`for (let c in
+            // obj) { obj[c] = v; }`), which the checker ADMITS (it is not
+            // refused at all) and which already has its own live, working
+            // lowering (`emit/object.rs`'s `computed_forin_object_access`,
+            // reused by `emit_object_field_write_dynamic` in
+            // `emit/literal.rs`) — that route is not "route 5" (this
+            // doc header's route 5 is a for..of/for..in ELEMENT DOT-FIELD
+            // write, a structurally distinct 1-child shape this 2-child
+            // branch can never match) and is not itself enumerated
+            // anywhere in this numbered inventory (a pre-existing gap,
+            // not fixed here). Over-tainting that live for-in route too is
+            // still the safe, fail-closed direction — accepted
             // over-approximation, not a new hole: it can only cost a
             // refusal on a bitwise compound assign that might otherwise
             // have been admitted, never a missed taint.
