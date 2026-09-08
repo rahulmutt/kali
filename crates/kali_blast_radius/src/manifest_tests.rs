@@ -239,17 +239,54 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// record since the freeze to enter a nonzero band. Those are, to the digit, the
 /// four numbers R-13's `computedMemberNonLiteralKey` already prints (anchor
 /// 47/43, extension 255/2). That is measured, not assumed, and it is not a
-/// duplicate matcher: R-59's is strictly narrower — it excludes the
+/// duplicate matcher — but ~~R-59's is strictly narrower, excluding the
 /// parenthesized, sequence and folded-unary index spellings this parser reads
-/// CORRECTLY, each of which was run against node in both scopes — and the
-/// corpus simply contains none of them. The identity is disclosed in
-/// `count.mjs`'s `UPPER_BOUNDS` for both directions it matters in: a reader must
-/// not add R-13's and R-59's counts together, and must not read the sameness as
-/// evidence that the two records say the same thing.
+/// CORRECTLY, and the corpus simply contains none of them~~ **WAS THE WRONG
+/// REASON, corrected below at the fourth re-freeze.**
+///
+/// **Re-frozen 2026-09-08 a THIRD time, the FOURTH movement of these constants,
+/// to withdraw a containment claim the instrument itself disproves.** Review
+/// round 1 found that "R-59's shape is a strict SUBSET of R-13's" is false, and
+/// the check is one line against the shipped module: `var o={}; o[true];
+/// o[null]; o[/x/]; o[1n];` counts **0** under `computedMemberNonLiteralKey` and
+/// **4** under `computedMemberFabricatedPropertyName`, while
+/// `var o={1:"one"}; o[(1)]; o[(0,1)]; o[+1]; o[-1];` counts **3** under the
+/// first and **0** under the second. R-13's shape is
+/// `computed && property.type != "Literal"`; R-59's asks whether
+/// `expression_to_property_name` can READ the index, and a boolean, `null`, a
+/// BigInt and a regex are all `Literal` nodes that it cannot read. **The two
+/// overlap and neither contains the other**, and both directions are counted
+/// correctly: measured at `35e9ef4ef6` against node v26.8.1 in both scopes,
+/// `o[true]`, `o[null]` and `o[1n]` each read the fabricated `index` property
+/// (`5` against node's `7`) at exit 0, and the four readable spellings each read
+/// the CORRECT name.
+///
+/// **The four figures are unchanged and so is every other number in
+/// `counts.json`; what moved is the EXPLANATION.** The corpus prints the same
+/// raw 302 / reachable 45 for both matchers because it contains NEITHER
+/// separating family — not because one shape contains the other. That is the
+/// distinction this re-freeze exists to publish, and it cost a record
+/// `description`, a `count.mjs` note, five documents and both SHAs to fix,
+/// because the false version had been written into all of them.
+///
+/// **A SECOND UPPER BOUND WAS FOUND IN THE SAME PASS AND IS NOW IN THE RECORD.**
+/// The regex spelling `o[/x/]` is counted by R-59's matcher and diverges
+/// **LOUDLY**, not silently: kali's lexer has no regex-literal token, so `/x/`
+/// lexes as a division by the identifier `x` and the program is refused with
+/// `error[E3100]: undefined identifier 'x'` at exit 1 where node reads the
+/// property (measured at `35e9ef4ef6`, both scopes). Unlike the caveat
+/// `2340b85335` deliberately kept OUT of R-58's record, this one IS about what
+/// the matcher counts, so it belongs in the `description` — and the record was
+/// being reopened anyway.
+///
+/// The pair `computedMemberFabricatedPropertyName counts READABLE-but-not-literal
+/// indices as R-13 does not` and `... counts LITERAL-but-unreadable indices as
+/// R-13 does not` in `matchers.test.mjs` pins both directions, so the withdrawn
+/// claim cannot be made again without a red test.
 const FROZEN_PREDICATES_SHA256: &str =
-    "6c2d11ba293353fe1aa3c6687cefa149b12491ca367891f0086e4de10b87c96f";
+    "cc498634c93527e34efe84a5cda9a361e71e6357b937dcbe778e14c2a28268a1";
 const FROZEN_MATCHERS_SHA256: &str =
-    "ef569b3185d209aaf96aaaaede07168e63d460ea38fdc08104965e9ba0f853ab";
+    "824bddff50d4dd2acde87ab00fb12155bfa52c61eb8c181a812ce1168bc2a7e9";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {

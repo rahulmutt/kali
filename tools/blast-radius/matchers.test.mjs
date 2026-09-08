@@ -432,14 +432,15 @@ test("computedMemberFabricatedPropertyName counts only the indices the parser ca
   assert.equal(count("computedMemberFabricatedPropertyName", src), 5);
 });
 
-test("computedMemberFabricatedPropertyName is strictly narrower than R-13's matcher", () => {
-  // The four shapes measured to read the CORRECT property name at `35e9ef4ef6`.
-  // This matcher counts none of them. R-13's "key expression is not a literal"
-  // counts THREE, not four: acorn elides parentheses, so `o[(1)]` reaches both
-  // matchers as a bare `Literal` and R-13's excludes it too. The parenthesized
-  // arm of `expression_to_property_name` is therefore invisible to this
-  // instrument in both directions -- which is a fact about acorn, not about
-  // kali, and it is recorded here rather than asserted away.
+test("computedMemberFabricatedPropertyName counts READABLE-but-not-literal indices as R-13 does not", () => {
+  // Half of the R-13/R-59 overlap boundary: the four shapes measured to read the
+  // CORRECT property name at `35e9ef4ef6`. This matcher counts none of them.
+  // R-13's "key expression is not a literal" counts THREE, not four: acorn
+  // elides parentheses, so `o[(1)]` reaches both matchers as a bare `Literal`
+  // and R-13's excludes it too. The parenthesized arm of
+  // `expression_to_property_name` is therefore invisible to this instrument in
+  // both directions -- a fact about acorn, not about kali, recorded here rather
+  // than asserted away.
   const src = `
     var o = {1: "one"};
     console.log(o[(1)]);
@@ -449,6 +450,30 @@ test("computedMemberFabricatedPropertyName is strictly narrower than R-13's matc
   `;
   assert.equal(count("computedMemberNonLiteralKey", src), 3);
   assert.equal(count("computedMemberFabricatedPropertyName", src), 0);
+});
+
+test("computedMemberFabricatedPropertyName counts LITERAL-but-unreadable indices as R-13 does not", () => {
+  // The other half, and the one that makes the two records overlap WITHOUT
+  // either containing the other. A boolean, `null`, a BigInt and a regex literal
+  // are all `Literal` nodes, so R-13's `property.type !== "Literal"` excludes
+  // every one of them -- while `expression_to_property_name` reads none of them
+  // and all four reach the catch-all `_ => "index"` arm.
+  //
+  // Counting them is correct, measured at `35e9ef4ef6` against node v26.8.1 in
+  // both scopes: over `const o = {index: 5, true: 7}` and its `null`/`"1"`
+  // siblings, `o[true]`, `o[null]` and `o[1n]` each print `5` -- the fabricated
+  // `index` property -- where node prints `7`, at exit 0 with empty stderr.
+  // The regex spelling is the exception the record and `count.mjs`'s
+  // UPPER_BOUNDS disclose: `o[/x/]` is counted here and diverges LOUDLY
+  // (`error[E3100]: undefined identifier 'x'`, exit 1, because kali's lexer has
+  // no regex-literal token and `/x/` lexes as a division), not silently.
+  //
+  // THIS TEST EXISTS BECAUSE THE CLAIM IT PINS WAS PUBLISHED WRONG. Six
+  // documents said R-59's shape was a strict SUBSET of R-13's; these two tests
+  // are the pair that makes that statement impossible to make again.
+  const src = `var o={}; o[true]; o[null]; o[/x/]; o[1n];`;
+  assert.equal(count("computedMemberNonLiteralKey", src), 0);
+  assert.equal(count("computedMemberFabricatedPropertyName", src), 4);
 });
 
 test("memberReadOnObjectFromEntriesResult follows the receiver, and counts reads only", () => {
