@@ -723,7 +723,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
 
                 // THIS IS WHERE REGISTER ENTRY R-60's `0` IS EMITTED (§2,
-                // Tier 2, filed 2026-09-08). A member read whose receiver no
+                // Tier 2, filed 2026-09-08 at `02297ca6c2`). A member read whose receiver no
                 // earlier arm could classify lands here, and `kali run` does not
                 // show the warning below on a program that otherwise compiles --
                 // measured at `35e9ef4ef6`, the tree this task's binary was

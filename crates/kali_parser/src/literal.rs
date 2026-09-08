@@ -6,7 +6,7 @@ use kali_common::js_number::format_js_number;
 
 /// Strip a string literal's delimiters. **It does NOT decode escape sequences,
 /// and that is register entry R-57** (§2, Tier 2, filed 2026-09-08 at
-/// `dde0f083c0`): the lexer deliberately keeps the raw escape in the token's
+/// `b13c890330`, off `dde0f083c0`): the lexer deliberately keeps the raw escape in the token's
 /// value (`crates/kali_lexer/src/string.rs:23-35`, so `kali_fmt` can re-emit it
 /// verbatim), and this function only removes the outer quotes -- so a property
 /// key spelled `"a\"b"` becomes the FOUR characters `a\"b`, where the property
@@ -52,12 +52,13 @@ impl Parser {
     /// fabricated name that is not the property JavaScript would read.
     ///
     /// **That fabrication is register entry R-59** (§2, Tier 2, filed
-    /// 2026-09-08 at `dde0f083c0`), and the entry is filed for the case the
+    /// 2026-09-08 at `02297ca6c2`, off `dde0f083c0`), and the entry is filed for
+    /// the case the
     /// paragraphs below understate: when the fabricated name COLLIDES with a
     /// property the receiver really has, the read does not fall to a
     /// placeholder `0` -- it returns another property's VALUE, at exit 0, with
     /// no diagnostic. Measured at `35e9ef4ef6` -- the tree the binary was built
-    /// from, not `dde0f083c0`, which is where it was FILED -- against node
+    /// from, not `02297ca6c2`, which is where it was FILED -- against node
     /// v26.8.1 in both scopes; pinned by
     /// `r59a_*` in `crates/kali_cli/tests/cases/oracle/tier2.toml` and by
     /// `computed_member_index_is_fabricated_from_the_index_expression_*` in

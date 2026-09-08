@@ -8,37 +8,50 @@
 # ---------------------------------------------------------------------------
 # COVERAGE -- THIS FILE IS COMPLETE FOR TIER 2.
 #
-# Tier 2 holds TWENTY-NINE entries: R-06, R-07, R-08, R-09, R-10, R-11, R-12,
+# Tier 2 holds THIRTY-ONE entries: R-06, R-07, R-08, R-09, R-10, R-11, R-12,
 # R-13, R-14, R-15, R-16, R-17, R-18, R-19, R-20, R-21, R-22, R-23, R-24, R-25,
-# R-26, R-27, R-28, R-47, R-48, R-53, R-56, R-57, R-58.
+# R-26, R-27, R-28, R-47, R-48, R-53, R-56, R-57, R-58, R-59, R-60.
+# ~~TWENTY-NINE ... R-56, R-57, R-58.~~
 # ~~TWENTY-SEVEN ... R-53, R-56.~~
 #
-# ALL TWENTY-NINE ARE COVERED HERE, in NINETY-SIX cases (~~twenty-seven /
-# ninety-two~~). Nothing in Tier 2 is left unauthored. The file was written in
-# four passes -- R-06..R-17
+# ALL THIRTY-ONE ARE COVERED HERE, in ONE HUNDRED cases (~~twenty-nine /
+# ninety-six~~; ~~twenty-seven / ninety-two~~). Nothing in Tier 2 is left
+# unauthored. The file was written in
+# five passes -- R-06..R-17
 # (thirty-four cases, 2026-08-15, `2a49fa1f3f`), R-18..R-53 (fifty-six cases,
 # 2026-08-15, `36f9c814a2`), R-56 (two cases, 2026-08-16, at `3a636f62fb`,
-# by the console-render-unification project's final whole-branch review) and
-# R-57/R-58 (four cases, 2026-09-08, at `dde0f083c0`, by the
-# register-property-key-followups branch) -- and
+# by the console-render-unification project's final whole-branch review),
+# R-57/R-58 (four cases, 2026-09-08, at `b13c890330`, by the
+# register-property-key-followups branch, off `dde0f083c0`) and R-59/R-60
+# (four cases, 2026-09-08, at `02297ca6c2`, the same branch's second pair) -- and
 # the passes' measurement summaries are kept separate below because they were
 # taken at different commits.
+#
+# ~~The fourth pass's row named `dde0f083c0`~~ -- that is the merge of PR #34,
+# this branch's BASE, and it contains none of these cases; the commit that added
+# them is `b13c890330`, which is what the three rows above it name. Corrected
+# 2026-09-08 in final review, with the counts above, all of which were derived by
+# command: `grep -c '^\[\[case\]\]'` on this file returns 100, and the Tier-2
+# entry list is the register's own `### R-` headings between `## Tier 2` and
+# `## Tier 3` (31).
 #
 # If you append: keep the cases in entry order, and put new `[source]` keys in
 # the single `[source]` table below. TOML forbids reopening `[source]` once the
 # `[[case]]` array has begun, so keys go mid-file and cases go at the end.
 #
 # ---------------------------------------------------------------------------
-# THE TWENTY-NINE ENTRIES, AND THE NINETY-SIX CASES.
-# (~~THE TWENTY-SEVEN ENTRIES, AND THE NINETY-TWO CASES.~~ -- re-counted
-# 2026-09-08 with the three figures above it, which moved in the same commit
-# and left this heading behind.)
+# THE THIRTY-ONE ENTRIES, AND THE ONE HUNDRED CASES.
+# (~~THE TWENTY-NINE ENTRIES, AND THE NINETY-SIX CASES.~~; ~~THE TWENTY-SEVEN
+# ENTRIES, AND THE NINETY-TWO CASES.~~ -- re-counted 2026-09-08 with the three
+# figures above it, which moved in the same commit and left this heading behind,
+# and re-counted AGAIN 2026-09-08 in final review, when the same three figures
+# had gone stale a second time on the same branch.)
 #
 # Every entry is measured in BOTH scopes -- module scope and in-function --
 # because top-level and in-function are different programs in kali and several
 # known defects appear at one scope only. NO SCOPE IS MOOT FOR ANY ENTRY IN
-# THIS FILE, so there are no exemptions to name: all twenty-nine carry both
-# (~~twenty-seven~~).
+# THIS FILE, so there are no exemptions to name: all thirty-one carry both
+# (~~twenty-nine~~; ~~twenty-seven~~).
 #
 # Ten entries carry MORE than two cases -- R-06, R-08, R-09, R-13 from the first
 # pass and R-19, R-21, R-25, R-28, R-47, R-53 from the second -- because the

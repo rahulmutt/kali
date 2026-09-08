@@ -231,7 +231,8 @@ impl Parser {
 ///
 /// **LEGACY OCTAL IS THE ONE NON-DECIMAL SPELLING THAT DOES ARRIVE HERE AS ONE
 /// TOKEN, AND IT IS MISREAD. That is register entry R-58** (§2, Tier 2, filed
-/// 2026-09-08 at `dde0f083c0`). JavaScript writes it with no prefix at all, so
+/// 2026-09-08 at `b13c890330`, off `dde0f083c0`). JavaScript writes it with no
+/// prefix at all, so
 /// `lex_number` hands `042` over as a well-formed-looking `NumericLiteral`, and
 /// the `f64` arm below parses it with Rust's `str::parse::<f64>`, which has no
 /// legacy-octal grammar: the key becomes `42` where node says `34`, at exit 0

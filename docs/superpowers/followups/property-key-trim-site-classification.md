@@ -299,7 +299,8 @@ in `crates/kali_cli/tests/cases/object/property_key_identity.toml`. Unowned by
 this project and unchanged by it; recorded so the residual is not restated more
 narrowly than it is.
 
-**FILED 2026-09-08 as R-60**, at `dde0f083c0`, on the human's instruction. This
+**FILED 2026-09-08 as R-60**, at `02297ca6c2` (off `dde0f083c0`, this
+branch's base, which carries no entry), on the human's instruction. This
 passage stays as written — it is the history of how the divergence was found —
 and the entry re-measured all of it rather than citing it. One sentence above is
 narrowed there rather than repeated: *"no shape is ever materialized for the read
@@ -316,7 +317,8 @@ machine for a `--release` artifact.
 
 ## 6. The one exception to "a key slot's text is the property name"
 
-**FILED 2026-09-08 as R-57, at `dde0f083c0`.** This section is where the
+**FILED 2026-09-08 as R-57, at `b13c890330`** (off `dde0f083c0`, this
+branch's base, which carries no entry). This section is where the
 divergence below was first characterised, and it stays as written — its
 measurements are the history of how it was found, and the two-mechanism reading
 it works out (undecoded storage, then a second escaping pass) is the reading the

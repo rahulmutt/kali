@@ -159,7 +159,8 @@ impl Optimizer {
         // with an ESCAPE SEQUENCE, which are stored undecoded -- unreachable for
         // this guard, see section 4 and section 6 of
         // docs/superpowers/followups/property-key-trim-site-classification.md,
-        // and register entry R-57, filed 2026-09-08 at `dde0f083c0`).
+        // and register entry R-57, filed 2026-09-08 at `b13c890330`, off
+        // `dde0f083c0`).
         // R-57's fix direction is to make the parser DECODE key slots, and
         // that removes the argument section 4.1 uses to prove this guard sound
         // -- "an escaped spelling always keeps a backslash, and `__proto__` has

@@ -115,7 +115,7 @@ impl<'a> FunctionEmitter<'a> {
     /// name) therefore misses. Recorded and pinned, not fixed here; see
     /// docs/superpowers/followups/property-key-trim-site-classification.md,
     /// and **register entry R-57** (§2, Tier 2, filed 2026-09-08 at
-    /// `dde0f083c0`), which now owns this divergence and its fix direction.
+    /// `b13c890330`, off `dde0f083c0`), which now owns this divergence and its fix direction.
     /// The fix belongs in `kali_parser`'s `unquote_string_literal`, NOT here:
     /// un-escaping at this comparison would repeat the `trim_matches('"')`
     /// mistake R-56's closure deleted from fourteen sites.

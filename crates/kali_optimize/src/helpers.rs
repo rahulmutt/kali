@@ -201,7 +201,7 @@ impl Optimizer {
     /// here: decoding belongs to the parser. See
     /// docs/superpowers/followups/property-key-trim-site-classification.md,
     /// and **register entry R-57** (§2, Tier 2, filed
-    /// 2026-09-08 at `dde0f083c0`), which owns both mechanisms named above --
+    /// 2026-09-08 at `b13c890330`, off `dde0f083c0`), which owns both mechanisms named above --
     /// the parser's undecoded storage and the enumeration fold's second
     /// escaping pass -- and states that a fix for either alone leaves the entry
     /// open.

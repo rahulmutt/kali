@@ -52,8 +52,14 @@ numeric key is read as decimal, in the same nine-line parser function §2.8's
 corrected attribution names), **R-59** (a computed member index that is not a
 literal is fabricated into a property name) and **R-60** (a PRESENT property on
 an `Object.fromEntries` object reads `0` — the residual §2.8 discloses) — filed
-at `dde0f083c0` with every reading re-measured there against `node v26.8.1`,
-R-57 and R-58 in one commit pair and R-59 and R-60 in the next. Nothing in §2 of
+off `dde0f083c0` in two commit pairs, with every reading re-measured against
+`node v26.8.1`. ~~filed at `dde0f083c0` with every reading re-measured there~~ —
+**corrected 2026-09-08 in final review, because one label cannot cover four
+entries measured on two different trees**: **R-57 and R-58** were filed at
+`b13c890330` and measured on a binary built at `dde0f083c0` (the branch base);
+**R-59 and R-60** were filed at `02297ca6c2` and measured on a binary built at
+`35e9ef4ef6`, this branch's documentation-only tip. `dde0f083c0` itself carries
+none of the four entries. Nothing in §2 of
 this file moved, and §5's obligation list was exercised four times by that
 filing; what it turned out to be missing is recorded at the foot of §5.
 
@@ -310,7 +316,9 @@ wrong VALUE, not only an `undefined`-rendered-as-`0`. Pinned as
 `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_*`
 in `crates/kali_cli/tests/cases/object/property_key_identity.toml`.
 
-**FILED 2026-09-08 as R-60** (§2, Tier 2), re-measured at `dde0f083c0` against
+**FILED 2026-09-08 as R-60** (§2, Tier 2) at `02297ca6c2`, re-measured at
+~~`dde0f083c0`~~ **`35e9ef4ef6`** — the tree R-60's binary was actually built
+from, corrected 2026-09-08 in final review — against
 `node v26.8.1` in both scopes rather than carried over from this paragraph —
 and the re-measurement narrowed the sentence above. *"The member read has no
 statically known shape to resolve against"* is true of the READ and false of the
@@ -516,10 +524,23 @@ Per the repo's spec §4.3, the instrument half of that work belongs in its own
 commit.
 
 **What this list turned out to be missing, found by using it — 2026-09-08, at
-`dde0f083c0`, filing R-57 and R-58.** The list above is accurate and was followed
+`b13c890330`, filing R-57 and R-58** (~~at `dde0f083c0`~~, which is the branch
+base and carries neither entry; corrected in final review). The list above is
+accurate and was followed
 step by step; it is also incomplete, and every item below cost a red gate or a
 stale sentence to discover. A future filer should treat the list above as the
 floor, not the ceiling.
+
+**§1 says the list was exercised FOUR times; this note was written after the
+first pass, and the second pass — R-59 and R-60, at `02297ca6c2` — is recorded
+here rather than left to be inferred from the first pass's figures.** The two
+counting items below carry the FIRST pass's numbers (42 → 44 records, 38 → 40
+matcher names); the second pass moved the same two constants again, to **46**
+(`crates/kali_blast_radius/src/catalogue_tests.rs`) and **42**
+(`matchers.test.mjs`), which is the point: they are bare numbers that go stale on
+every filing. What the second pass added to this list is below the existing
+bullets, and it is the more expensive half — the first pass's misses were all
+gates that go red, and the second pass's are all things NO gate checks.
 
 - **`crates/kali_blast_radius/src/catalogue_tests.rs` asserts a record COUNT**
   (42 -> 44 here), beside the `check_completeness` call the list already names.
@@ -542,3 +563,37 @@ floor, not the ceiling.
 - **`oracle_tests.rs` carries the case total TWICE** — once in the assertion and
   once in a doc comment above it — and only one of them is what the compiler
   checks.
+- **A REGISTER ENTRY'S OWN MEASUREMENTS CONSTRAIN ITS MATCHER, AND NO GATE
+  CHECKS THAT.** (Second pass, and found only by the final whole-branch review.)
+  R-59's matcher counted assignment and update TARGETS while R-59's own entry
+  body measured that a store does not fabricate — 40% of its published reachable
+  count was a site class the entry says is not the defect. `check_completeness`
+  checks that every record HAS a matcher and the freeze checks that no matcher
+  moves without a re-pin; neither asks whether the matcher counts what the record
+  says. Read the entry body against the matcher, by hand, before publishing a
+  figure — and if a neighbouring record already publishes a `breakdown` of the
+  same sites (R-13's did), read that first.
+- **`crates/kali_cli/tests/cases/oracle/tier2.toml`'s COVERAGE header carries
+  three counts and a pass table that no gate checks; it went stale TWICE on one
+  branch.** (Second pass.) The header states the Tier-2 entry count, the entry
+  list, the case count and a per-pass table of which commit added which cases.
+  `oracle_tests.rs` checks the case TOTAL across the oracle directory and nothing
+  checks this file's prose, so filing a pair updates the cases and silently
+  leaves the header describing the file as it was. Re-derive all three by command
+  when you append: `grep -c '^\[\[case\]\]'` on the file, and the register's
+  own `### R-` headings between `## Tier 2` and `## Tier 3`.
+- **A COMMIT LABEL IS A CITATION, AND "filed at <the branch base>" resolves to
+  nothing.** (Second pass.) Both pairs were labelled `dde0f083c0` — the merge the
+  branch starts from — in roughly fifteen places: §0.2 rows, every `Added`
+  bullet, `clusters.json`, the corpus rationales and this file. A reader who
+  checks one finds no entry there. A filing label names the commit that ADDED the
+  entry; a measurement label names the tree the BINARY was built from; they are
+  frequently different commits on a documentation-heavy branch, and each needs
+  its own label.
+- **THE §6 AMENDMENT IS ALSO WHERE A LATER CORRECTION LANDS, not only where a
+  filing is recorded.** (Second pass.) Two of this branch's regenerations were
+  driven by corrections to an instrument rather than by a filing — a withdrawn
+  containment claim and the store-target exclusion above — and each is its own
+  amendment, with the superseded figures struck rather than replaced. A figure
+  that was published, banded and reasoned about does not become un-published by
+  being edited.
