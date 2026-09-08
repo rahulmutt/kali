@@ -476,6 +476,44 @@ test("computedMemberFabricatedPropertyName counts LITERAL-but-unreadable indices
   assert.equal(count("computedMemberFabricatedPropertyName", src), 4);
 });
 
+test("computedMemberFabricatedPropertyName counts reads only, not assignment or update targets", () => {
+  // The third family that separates this matcher from R-13's, and the one this
+  // matcher was corrected for: R-13's counts every computed non-literal member
+  // node including the ones in TARGET position, this one counts reads only, as
+  // R-60's matcher does.
+  //
+  // The exclusion is a measurement, not a scope decision. R-59's entry measures
+  // the write half at `6f0df2c3db` in both scopes against node v26.8.1:
+  // `const o = {index:9, i:7}; let i = 1; o[i] = 8;` then `o.i` prints `7` and
+  // `o.index` prints `9` on BOTH engines, exit 0, 0 bytes of stderr -- the store
+  // fabricates nothing, so a store target does not trigger this defect. The
+  // update target is excluded for a second measured reason: `o[i]++` over the
+  // same object is refused LOUDLY in both scopes (`error[E5506]: update
+  // expression lowering is unavailable unless the target is a mutable local
+  // binding`, exit 1) where node prints `7` and `9`, which is not this entry's
+  // silent class either.
+  //
+  // Below: four read sites and four target sites over the same shape. The
+  // compound assignment `o[i] += 1` and the two update spellings are targets;
+  // the read INSIDE `o[o[j]] = 1` is not, and is counted.
+  const src = `
+    var o = {index: 9, i: 7};
+    var i = 1, j = 2;
+    console.log(o[i]);   // read, counts
+    console.log(o[i+0]); // read, counts
+    o[i] = 8;            // assignment target, does not count
+    o[i+0] += 1;         // compound-assignment target, does not count
+    o[i]++;              // update target, does not count
+    --o[i];              // prefix update target, does not count
+    o[o[j]] = 1;         // outer is a target; the INNER read counts
+    var x = o[j];        // read, counts
+  `;
+  assert.equal(count("computedMemberFabricatedPropertyName", src), 4);
+  // R-13's matcher, unchanged, counts all eight -- the four reads plus the four
+  // targets. That record is not reopened by this correction.
+  assert.equal(count("computedMemberNonLiteralKey", src), 9);
+});
+
 test("memberReadOnObjectFromEntriesResult follows the receiver, and counts reads only", () => {
   // Positives: the direct read, the read through a const binding, the read
   // through `Object.freeze`, the bracket spelling of the property, and the

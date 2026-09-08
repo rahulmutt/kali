@@ -149,6 +149,15 @@ the split of the same 302 sites: 56 have an object-literal receiver, 45 an
 array-like one, and **67 are store targets rather than reads**. Do not present
 the total as "how often R-13's defect is triggered".
 
+Those **67 store targets are the whole difference between R-13's count and
+R-59's** (raw 302 vs 235, reachable 45 vs 27 — the reachable store share is 18).
+R-59's matcher counts reads only, because R-59's entry measures that a store
+does not fabricate; R-13's counts both, because R-13's record says "computed
+member access" without qualification. The two records still overlap without
+either containing the other, for the two families in R-59's `note`; on this
+corpus neither of those families occurs, so store targets are the only reason
+the two figures differ here.
+
 `upperBound.breakdown.strata` splits the same breakdown per stratum, added
 2026-08-15 for the ranking. A pooled breakdown cannot answer *which* stratum the
 register-shaped sites are in, and for R-13 that is the whole question: the

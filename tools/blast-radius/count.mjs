@@ -136,6 +136,18 @@ const UPPER_BOUNDS = {
   "R-59": {
     disclosedInRecord: true,
     note:
+      "READS ONLY, AND THAT IS WHY THIS FIGURE IS SMALLER THAN R-13's. The matcher counts a " +
+      "computed member READ; assignment and update TARGETS are excluded, as R-60's matcher " +
+      "excludes them, because the entry measures that the write half does not fabricate: at " +
+      "`6f0df2c3db` against node v26.8.1, both scopes, `const o = {index:9, i:7}; let i = 1; " +
+      "o[i] = 8;` then `o.i` prints `7` and `o.index` prints `9` on BOTH engines at exit 0 " +
+      "with 0 bytes of stderr, and `o[i]++` over the same object is refused LOUDLY " +
+      "(`error[E5506]: update expression lowering is unavailable unless the target is a " +
+      "mutable local binding`, exit 1) where node prints `7` and `9`. Neither is this entry's " +
+      "silent read-lane class. An earlier revision of this matcher counted targets: it " +
+      "printed raw 302 / reachable 45, of which 67 raw and 18 reachable (40% of the reachable " +
+      "headline) were store targets. Those 67/18 are exactly R-13's `breakdown` storeTarget " +
+      "figures, and they are now counted by R-13's record alone. " +
       "Upper bound, per the record: the shape is a computed index the parser cannot read " +
       "statically, and a receiver ALLOCATED WITH `new Array(n)` reaches a runtime-index lane " +
       "that evaluates the member node's structured index child instead of the fabricated name, " +
@@ -159,19 +171,25 @@ const UPPER_BOUNDS = {
       "`var o={}; o[true]; o[null]; o[/x/]; o[1n];` counts 0 under R-13's matcher and 4 under " +
       "R-59's (a literal that is not READABLE), while " +
       "`var o={1:\"one\"}; o[(1)]; o[(0,1)]; o[+1]; o[-1];` counts 3 under R-13's and 0 under " +
-      "R-59's (readable but not a LITERAL). Both directions are correct: `o[true]`, `o[null]` " +
+      "R-59's (readable but not a LITERAL), and a third family runs R-13's way as well -- a " +
+      "STORE TARGET, which R-13's counts and R-59's now excludes. " +
+      "Both directions are correct: `o[true]`, `o[null]` " +
       "and `o[1n]` each read the fabricated `index` property (`5` against node's `7` over " +
       "`const o = {index: 5, true: 7}` and its siblings, measured at `35e9ef4ef6`, both " +
       "scopes), and `o[(1)]`, `o[(0, 1)]`, `o[+1]` and `o[-1]` all read the CORRECT name. " +
       "The two entries are also not the same defect -- R-13 records a computed read returning " +
       "`0`, and R-59 records the same read returning the WRONG PROPERTY'S VALUE when the " +
       "fabricated name collides with a real property, which is a different and worse " +
-      "observable. ON THIS CORPUS THE TWO MATCHERS NEVERTHELESS PRINT THE SAME FOUR NUMBERS " +
-      "(raw 302, reachable 45, anchor 47/43, extension 255/2), and the reason is that the " +
-      "frozen corpus contains NEITHER separating family -- no parenthesized, sequence or " +
-      "folded-unary computed index, and no boolean, `null`, BigInt or regex one. The identical " +
-      "figures are evidence that both families are unexercised here, and evidence of nothing " +
-      "about containment.",
+      "observable. ON THIS CORPUS THE TWO MATCHERS NO LONGER PRINT THE SAME FIGURES: R-13 " +
+      "raw 302 / reachable 45 (anchor 47/43, extension 255/2), R-59 raw 235 / reachable 27 " +
+      "(anchor 27/25, extension 208/2). The relationship was measured over the frozen corpus " +
+      "file by file rather than inferred: of the 51 files with a nonzero count under either " +
+      "matcher, 30 now differ (8 of the 14 reachable ones), R-59's count exceeds R-13's in " +
+      "ZERO files, and the whole pooled difference is store targets. That ordering is a fact " +
+      "about THIS CORPUS, not containment: the corpus still contains neither of the two " +
+      "families that run the other way -- no parenthesized, sequence or folded-unary computed " +
+      "index, and no boolean, `null`, BigInt or regex one -- so the only separating family " +
+      "present here is the one R-13 counts and R-59 does not.",
   },
   "R-60": {
     disclosedInRecord: false,

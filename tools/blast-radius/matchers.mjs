@@ -1152,13 +1152,22 @@ export const MATCHERS = {
   //     scopes, over `const o = {index: 5, true: 7}` and its siblings, `o[true]`,
   //     `o[null]` and `o[1n]` each read `5` where node reads `7` -- the
   //     fabricated `index` property, at exit 0.
+  //   * A STORE TARGET: `o[i] = 8`, `o[i] += 1`, `o[i]++`. R-13's counts them
+  //     (and classifies them in its record's `breakdown`), this one does not --
+  //     see the reads-only paragraph below for the two measurements that
+  //     exclude them.
   //
   // `var o={}; o[true]; o[null]; o[/x/]; o[1n];` counts 0 under R-13's matcher
   // and 4 under this one; `var o={1:"one"}; o[(1)]; o[(0,1)]; o[+1]; o[-1];`
-  // counts 3 under R-13's and 0 under this one. Both are pinned in
-  // `matchers.test.mjs`. THE TWO STILL PRINT IDENTICAL FIGURES ON THE FROZEN
-  // CORPUS, and the reason is that the corpus contains NEITHER family -- not
-  // that one shape contains the other.
+  // counts 3 under R-13's and 0 under this one; the eight-site read/target
+  // program in `matchers.test.mjs` counts 9 under R-13's and 4 under this one.
+  // All three are pinned there. ON THE FROZEN CORPUS THE TWO NO LONGER PRINT
+  // THE SAME FIGURES: R-13 raw 302 / reachable 45, this one raw 235 /
+  // reachable 27, and the whole difference is store targets (exactly R-13's
+  // `breakdown` storeTarget figures, raw 67 and reachable 18). The two
+  // separating families ABOVE are still both absent from the corpus, which is
+  // why the difference is store targets alone; that is a fact about this
+  // corpus, not containment in either direction.
   //
   // Upper bound, per the record, for TWO measured reasons. First, a receiver
   // allocated with `new Array(n)` reaches a runtime-index lane that evaluates
@@ -1174,11 +1183,30 @@ export const MATCHERS = {
   // with `error[E3100]: undefined identifier 'x'` at exit 1 where node reads the
   // property (measured at `35e9ef4ef6`, both scopes). Both disclosures are in
   // `count.mjs`'s UPPER_BOUNDS.
+  //
+  // READS ONLY -- assignment and update TARGETS are excluded, as R-60's matcher
+  // excludes them, and for a measured reason rather than a scope decision. The
+  // entry is a READ-lane entry because its own write-half measurement says the
+  // store does not fabricate: at `6f0df2c3db`, both scopes, against node
+  // v26.8.1, `const o = {index:9, i:7}; let i = 1; o[i] = 8;` then `o.i` prints
+  // `7` and `o.index` prints `9` on BOTH engines, at exit 0 with 0 bytes of
+  // stderr -- the store landed on neither fabricated name (it landed nowhere,
+  // which is R-13's write half and a different site class). The UPDATE target is
+  // excluded for a second measured reason: `o[i]++` over the same object is
+  // refused LOUDLY in both scopes -- `error[E5506]: update expression lowering
+  // is unavailable unless the target is a mutable local binding`, exit 1, where
+  // node prints `7` and `9` -- which is not this entry's silent class either.
+  // A store target therefore does not trigger this defect and is not counted;
+  // `matchers.test.mjs` pins that. R-13's matcher DOES count store targets, and
+  // its record's `breakdown` classifies them; that record is not reopened here.
   computedMemberFabricatedPropertyName(ast) {
     const analysis = analysisOf(ast);
+    const stores = new Set();
+    for (const node of analysis.of("AssignmentExpression")) stores.add(node.left);
+    for (const node of analysis.of("UpdateExpression")) stores.add(node.argument);
     return analysis
       .of("MemberExpression")
-      .filter((node) => node.computed && staticPropertyNameOf(node.property) === null).length;
+      .filter((node) => !stores.has(node) && node.computed && staticPropertyNameOf(node.property) === null).length;
   },
 
   // R-60: a member READ whose receiver is an `Object.fromEntries(...)` result --

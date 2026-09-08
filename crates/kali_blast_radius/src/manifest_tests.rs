@@ -283,10 +283,50 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// indices as R-13 does not` and `... counts LITERAL-but-unreadable indices as
 /// R-13 does not` in `matchers.test.mjs` pins both directions, so the withdrawn
 /// claim cannot be made again without a red test.
+///
+/// **Re-frozen 2026-09-08 a FOURTH time, the FIFTH movement of these constants,
+/// because R-59's matcher was counting the WRITE half of a READ-lane entry.**
+/// The final whole-branch review found that
+/// `computedMemberFabricatedPropertyName` counted assignment and update TARGETS
+/// as well as reads: of its raw 302, **67 were store targets**; of its reachable
+/// 45, **18 were** — 40% of the headline. R-59's own entry measures that a store
+/// does not fabricate, so those sites are not the defect the record names. The
+/// two measurements, re-run at `6f0df2c3db` against node v26.8.1 in **both**
+/// scopes: `const o = {index:9, i:7}; let i = 1; o[i] = 8;` then `o.i` prints
+/// `7` and `o.index` prints `9` on BOTH engines, exit 0, 0 bytes of stderr (the
+/// store lands nowhere — that is R-13's write half); and `o[i]++` over the same
+/// object is refused **LOUDLY** in both scopes (`error[E5506]: update expression
+/// lowering is unavailable unless the target is a mutable local binding`, exit
+/// 1) where node prints `7` and `9`. Neither is R-59's silent read-lane class.
+/// The matcher now excludes both, exactly as `memberReadOnObjectFromEntriesResult`
+/// already did, and the fix follows the standing constraint that a matcher is
+/// written from the entry's triggering construct rather than tuned to a count.
+///
+/// **THIS ONE MOVED FIGURES, WHICH THE THREE RE-FREEZES BEFORE IT DID NOT.**
+/// R-59 goes **raw 302 -> 235** and **reachable 45 -> 27** (anchor 47/43 ->
+/// 27/25, extension 255/2 -> 208/2). The deltas are exactly R-13's record's own
+/// `breakdown` storeTarget figures (raw 67, reachable 18; anchor 20/18,
+/// extension 47/0), which is the cross-check that the exclusion removed store
+/// targets and nothing else. `counts.json`'s whole diff is those five numbers
+/// plus R-59's `note`. R-13's record is **not** reopened: R-13's matcher counts
+/// store targets by its own description and classifies them in its breakdown.
+///
+/// **So the sentence above — that the corpus prints the same four numbers for
+/// both matchers — is now history rather than fact, and is left standing as the
+/// record of what the fourth re-freeze published.** The relationship was
+/// re-measured over the frozen corpus file by file rather than inferred: of the
+/// **51** files with a nonzero count under either matcher, **30** now differ (8
+/// of the **14** reachable ones), and R-59's count exceeds R-13's in **zero**
+/// files. That ordering holds on THIS corpus only because the corpus contains
+/// neither family that runs the other way; the containment withdrawal above
+/// stands unchanged, and store targets are simply the one separating family the
+/// corpus does exercise. `computedMemberFabricatedPropertyName counts reads
+/// only, not assignment or update targets` in `matchers.test.mjs` pins the third
+/// direction (9 under R-13's matcher, 4 under R-59's, over the same program).
 const FROZEN_PREDICATES_SHA256: &str =
-    "cc498634c93527e34efe84a5cda9a361e71e6357b937dcbe778e14c2a28268a1";
+    "dffeb59fc3af02a5b582478edb498628394558b50cce741886784ebaafcd293e";
 const FROZEN_MATCHERS_SHA256: &str =
-    "824bddff50d4dd2acde87ab00fb12155bfa52c61eb8c181a812ce1168bc2a7e9";
+    "19d2520978c3fa3afb96f3ca8a2c5035107e623f0925a5e976212fd86cefd701";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {
