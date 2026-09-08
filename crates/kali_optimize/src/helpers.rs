@@ -176,13 +176,16 @@ impl Optimizer {
     /// `literal_value` decodes `\\`, `\"`, `\'` and `` \` `` (see
     /// `parse_string_literal`), while a source key slot's text does NOT --
     /// `kali_parser`'s `unquote_string_literal` strips the delimiters only. So
-    /// `{"a\"b": 1}` stores the six-character `a\"b` while a `fromEntries`
-    /// entry spelled the same way yields the three-character name `a"b`. This
-    /// is unobservable today (the enumeration fold re-encodes with `{:?}` and
-    /// the downstream string reader strips delimiters without decoding, so both
-    /// lanes print the same wrong `a\"b`), and it was measured identical at
-    /// `f563a0ecf4` and after. Recorded, pinned by corpus cases, and NOT fixed
-    /// here: decoding belongs to the parser. See
+    /// `{"a\"b": 1}` stores the four-character `a\"b` while a `fromEntries`
+    /// entry spelled the same way yields the three-character name `a"b`. The
+    /// two spellings agree only when they are byte-identical in source text;
+    /// they do not converge through decoding. What makes the disagreement hard
+    /// to observe through `Object.keys` specifically is that the enumeration
+    /// fold adds a SECOND escaping pass on top (`format!("{key:?}", ...)`
+    /// re-encodes the already-undecoded text), which is its own distinct
+    /// divergence, not evidence the two lanes agree: it was measured identical
+    /// at `f563a0ecf4` and after. Recorded, pinned by corpus cases, and NOT
+    /// fixed here: decoding belongs to the parser. See
     /// docs/superpowers/followups/property-key-trim-site-classification.md.
     pub(crate) fn constant_property_key(
         &self,

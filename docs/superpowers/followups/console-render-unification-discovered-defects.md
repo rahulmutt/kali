@@ -200,9 +200,14 @@ Silent, exit 0. The static fold reaches a placeholder `0` before key identity is
 consulted, so both the number/string collision and the large-magnitude case
 return `0` rather than the stored value.
 
-Note this makes the SameValueZero half of R-56's `-0n` rationale *theoretical* —
-that lookup never reaches a text comparison today. The console-rendering half of
-that rationale stands on its own.
+Note this makes the SameValueZero half of this document's own `-0n` rationale
+*theoretical* — that lookup never reaches a text comparison today. The
+console-rendering half of that rationale stands on its own. (This is this
+document's own editorial gloss, not a quote of R-56's register entry: `grep -n
+"SameValueZero\|-0n"` on `kali-silent-miscompile-register.md` returns nothing
+at any revision -- R-56's entry is entirely about a string key colliding with
+a numeric key. R-56 is also RETIRED as of `12fd424897`, so this cross-reference
+points at a closed entry regardless.)
 
 **Suggested home:** §2, silent.
 

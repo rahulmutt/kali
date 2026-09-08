@@ -119,6 +119,87 @@ fn test_lexer_accepts_known_escapes_and_keeps_raw_value() {
     assert!(lexer.diagnostics().is_empty(), "{:?}", lexer.diagnostics());
 }
 
+/// PINS THE `__proto__` SECURITY INVARIANT this allowlist is load-bearing for.
+///
+/// `kali_optimize::object_fold` has two prototype-pollution guards
+/// (`fold_object_enumeration_call`'s property-admission check, and
+/// `collect_permitted_occurrences`'s timeline-eligibility disqualifier) that
+/// compare a possibly-UNDECODED key/member text against the literal constant
+/// `"__proto__"`. That comparison is sound only because (a) a key slot's text
+/// is never decoded at all (`kali_parser::unquote_string_literal` strips
+/// delimiters only), so any escaped spelling keeps a residual backslash and
+/// can never equal the backslash-free `"__proto__"`, and (b) none of the
+/// accepted escapes decode to a letter, digit, or underscore -- the only
+/// characters `__proto__` is made of -- so an escaped spelling could never be
+/// the real setter name even under full JavaScript decode semantics. See
+/// docs/superpowers/followups/property-key-trim-site-classification.md
+/// section 4.1, which this test enforces rather than merely asserts in prose.
+///
+/// If this test goes RED because an escape was ADDED to the lexer, STOP and
+/// re-read that section before touching `kali_optimize::object_fold`'s two
+/// `__proto__` guards: an escape that decodes to `_`, a letter, or a digit
+/// (`\u`, `\x`, or similar) breaks precondition (b), and those guards must
+/// move onto the DECODED property name, not the stored text, before the
+/// change ships.
+#[test]
+fn test_lexer_string_escape_allowlist_is_pinned_for_the_proto_guard() {
+    // The full accepted set, mirroring `crates/kali_lexer/src/string.rs`'s
+    // `matches!` arm exactly. If this list and that `matches!` arm diverge,
+    // this test's own coverage is wrong before its assertions even run.
+    let allowed = ['n', 't', 'r', '\\', '"', '\'', '`', '0', 'b', 'f', 'v'];
+
+    for c in allowed {
+        let source = format!("\"a\\{c}b\"");
+        let mut lexer = Lexer::new(FileId::new(0), source.clone());
+        let _ = lexer.next_token();
+        assert!(
+            lexer.diagnostics().is_empty(),
+            "escape `\\{c}` ({source:?}) regressed out of the lexer's \
+             accepted set: {:?}. If an escape was intentionally REMOVED, \
+             update this test's `allowed` list. If this is unexpected, an \
+             escape being refused is a lexer bug independent of the \
+             __proto__ guard this test exists to protect.",
+            lexer.diagnostics()
+        );
+    }
+
+    // None of the eleven decode to a letter, digit, or underscore. This is
+    // precondition (b) above, checked against Rust's own escape semantics
+    // (which agree with JavaScript's for this exact set) rather than assumed.
+    let decoded: [(char, char); 11] = [
+        ('n', '\n'),
+        ('t', '\t'),
+        ('r', '\r'),
+        ('\\', '\\'),
+        ('"', '"'),
+        ('\'', '\''),
+        ('`', '`'),
+        ('0', '\0'),
+        ('b', '\u{8}'),
+        ('f', '\u{c}'),
+        ('v', '\u{b}'),
+    ];
+    assert_eq!(
+        decoded.map(|(escape, _)| escape),
+        allowed,
+        "the decoded-meaning table above drifted from `allowed`; keep both in sync"
+    );
+    for (escape, meaning) in decoded {
+        assert!(
+            !meaning.is_alphanumeric() && meaning != '_',
+            "escape `\\{escape}` now decodes to `{meaning:?}`, a letter, digit, \
+             or underscore -- one of the characters `__proto__` is made of. \
+             This breaks precondition (b) of the __proto__ guard argument in \
+             docs/superpowers/followups/property-key-trim-site-classification.md \
+             section 4.1. Before merging, re-derive that section's Direction A \
+             argument and, if it no longer holds, move \
+             `kali_optimize::object_fold`'s two `__proto__` guards \
+             (`fold_object_enumeration_call` and `collect_permitted_occurrences`) \
+             onto the DECODED property name.",
+        );
+    }
+}
+
 #[test]
 fn test_lexer_multiline_template() {
     let mut lexer = Lexer::new(FileId::new(0), "`hello\nworld`".to_string());

@@ -96,16 +96,30 @@ producer (§2) was moved onto the same currency.
 
 ## 4. The two `__proto__` guards
 
-`object_fold.rs:156` (enumeration fold) and `:920` (timeline eligibility) are
+`object_fold.rs:166` (enumeration fold, `fold_object_enumeration_call`) and
+`:943` (timeline eligibility, `collect_permitted_occurrences`) are
 prototype-pollution defences: `__proto__` is JavaScript's prototype setter, not
 an own property, so folding an enumeration over a literal that carries one would
 emit a phantom own key. Removing a trim changes what a guard matches, so both
 were reasoned about explicitly rather than swept.
 
-**Both still catch everything they caught** — including against the escape
-exception of §6, which is checked rather than assumed below. The guard compares
-against the constant `"__proto__"`, and after Task 3 every real spelling of the
-setter arrives as that exact name:
+**These two guards are one of two doors, and the other stands open today.**
+`kali run` — what the corpus in this repository actually exercises — is
+`BuildMode::Fast` (§7), and the enumeration-fold guard above only runs inside
+the Release-only folds `object_fold.rs` implements. Fast mode's codegen
+backstop enumerates object properties with no equivalent guard at all.
+Measured at this commit: `{"__proto__": 1, a: 2}` prints `__proto__` then `a`
+in kali, where node prints only `a`. That is a separate, pre-existing
+codegen-backstop defect (unowned by this project, and unchanged by it — see
+§7), not something the argument below closes. It matters where it is stated:
+this section is about the two `object_fold.rs` guards specifically, and
+readers should not come away thinking the phantom-`__proto__`-key class is
+closed end to end.
+
+**Both `object_fold.rs` guards still catch everything they caught** —
+including against the escape exception of §6, which is checked rather than
+assumed below. The guard compares against the constant `"__proto__"`, and
+after Task 3 every real spelling of the setter arrives as that exact name:
 
 * `{__proto__: 1}` → `PropertyName::Identifier("__proto__")` → slot text
   `__proto__`;
@@ -129,20 +143,31 @@ a program it was never meant to cover.
 The list above says a key slot's text is the property name, and §6 says that is
 false for keys spelled with an escape sequence. A guard that compares a
 possibly-undecoded text against `"__proto__"` could in principle fail in two
-directions, so both were tested rather than argued:
+directions, so both were tested rather than argued.
+
+**The allowlist has ELEVEN members, not four.** kali's lexer accepts
+`n`, `t`, `r`, `\`, `"`, `'`, `` ` ``, `0`, `b`, `f`, `v`
+(`crates/kali_lexer/src/string.rs:28`) and hard-errors on anything else.
+Measured: `const o = {"_\_proto__": 1};` gives
+`error[E1004]: unsupported string escape sequence at position 14`, exit 1 — an
+escape outside the eleven does not compile. But `const o = {"a\nb": 1};`
+compiles at exit 0, with no diagnostic — a supported escape is not rejected —
+so the closing argument below has to hold for real, not merely because
+"escapes are refused."
 
 **Direction A — can a real `__proto__` key hide from the guard?** It would have
-to be spelled with an escape, so that the stored text differs from the decoded
-name `__proto__`. It cannot:
-
-* kali's lexer HARD-ERRORS on any escape outside `\\`, `\"`, `\'` and `` \` ``.
-  Measured: `const o = {"_\_proto__": 1};` gives
-  `error[E1004]: unsupported string escape sequence at position 14`, exit 1 —
-  the program does not compile, so no key reaches any guard.
-* Each of the four supported escapes decodes to `\`, `"`, `'` or `` ` ``, and
-  the name `__proto__` contains none of those characters. So a decoded name of
-  exactly `__proto__` cannot be produced by a spelling that contains an escape:
-  any such name carries at least one residual `\`, `"`, `'` or `` ` ``.
+to be spelled with an escape, so that the STORED text differs from the decoded
+name `__proto__`. It cannot, for a reason simpler than which characters the
+eleven escapes decode to: per §6, `kali_parser`'s `unquote_string_literal`
+never decodes ANY escape in a key slot — the delimiters are stripped and
+nothing else — so a key spelled with an escape ALWAYS keeps a literal
+backslash in its stored text, for all eleven, not just the previously-checked
+four. `__proto__` contains no backslash, so no escaped spelling can ever equal
+it. (The eleven also do not help an attacker even under real JavaScript
+decode semantics: none of `\n \t \r \\ \" \' \` \0 \b \f \v` decodes to a
+letter, digit, or underscore — the only characters `__proto__` is made of — so
+no spelling containing one of these escapes can be the setter's name at all,
+independent of whether kali decodes it.)
 
 Therefore a key whose property name is `__proto__` is always spelled without
 escapes, its stored text equals its name, and the guard fires.
@@ -155,38 +180,64 @@ text and name are the same. No false positive.
 
 Both guards therefore hold **in fact**, not merely by the unqualified invariant:
 the escape exception is real, and it is unreachable from this comparison in
-either direction.
+either direction — and the argument now rests on §6's "never decoded" finding
+rather than on an escape count, so it does not need re-deriving if the
+allowlist grows within the current single-character shape.
 
 **A TRIPWIRE ON THE LEXER, recorded so it is not rediscovered as a
-prototype-pollution bug.** Direction A rests on the lexer's escape allowlist,
-which is checked, not assumed:
+prototype-pollution bug, and now ENFORCED by a test, not only by prose.**
+Direction A rests on two facts about the lexer that a future change could
+silently break: that key slots are never decoded (§6), and that none of the
+accepted escapes decode to a letter, digit, or underscore. Both are pinned by
+`test_lexer_string_escape_allowlist_is_pinned_for_the_proto_guard` in
+`crates/kali_lexer/src/engine_tests.rs`, whose failure message names both
+`object_fold.rs` guards above and this section. What actually defeats Direction
+A is a lexer change that (a) starts DECODING key-slot escapes, or (b) adds an
+escape that decodes to a letter, digit, or underscore (`\u`, `\x`, or similar) —
+either one lets an escaped spelling's real name coincide with `__proto__`
+while the guard still compares undecoded, or pre-existing, text. Demonstrated
+by construction — not by a lexer change, since neither exists today — with the
+spelling a future `\u` escape would let through, respelling `__proto__`'s
+leading underscore as `_` (the Unicode escape for `_`):
+
+```
+const o = {"\u005f_proto__": 1, a: 2};
+for (const k of Object.keys(o)) console.log(k);
+
+  kali (today):  error[E1004]: unsupported string escape sequence at position 13   exit 1
+  node:          a                                                                 exit 0
+```
+
+`_` decodes to `_`; node reads the whole key as `__proto__`, treats it
+as the PROTOTYPE SETTER, and enumerates only `a`. kali refuses this program
+outright today — `u` is not in the eleven — so the guard is never reached,
+sound but only because the spelling does not compile. **A change that adds
+unicode or hex escapes to the lexer, or that starts decoding key-slot escapes
+at all, must move these guards onto the DECODED name before it ships.** Today
+they are sound because neither precondition holds, and the lexer test above is
+what catches either one moving.
+
+Separately, and NOT a hypothetical: the Fast-mode codegen backstop noted at
+this section's opening already has no guard at all, for the unescaped setter
+spelling `{"__proto__": 1, a: 2}`, no `\u` required. Measured, this commit:
 
 ```
 const o = {"__proto__": 1, a: 2};
 for (const k of Object.keys(o)) console.log(k);
 
-  kali:  error[E1004]: unsupported string escape sequence at position 13
-         error[E1004]: unsupported string escape sequence at position 19   exit 1
-  node:  a                                                                exit 0
+  kali:  __proto__
+         a                exit 0
+  node:  a                exit 0
 ```
-
-`\x5f` is refused the same way. Note what node's answer says: node decodes the
-key to `__proto__`, treats it as the PROTOTYPE SETTER, and enumerates only `a`.
-So if the lexer ever grows `\u`/`\x`, that program starts compiling, its stored
-key text is the undecoded `__proto__`, the guards do not fire on it,
-and the enumeration folds a phantom `__proto__` own key — a prototype-setter
-spelling smuggled past a security carve-out. **A change that adds unicode or hex
-escapes to the lexer must move these guards onto the decoded name.** Today they
-are sound because that spelling does not compile at all.
 
 Tests: `does_not_fold_object_keys_over_a_proto_keyed_literal` (unchanged
 assertion; its fixture was corrected to spell the key slot the way the front end
 now does) and a new sibling,
 `folds_object_keys_over_a_quoted_proto_named_key`, which pins the over-match as
 gone. The pre-existing phantom-`__proto__`-key behaviour on the *codegen*
-backstop lane (`Object.keys({__proto__: 1, a: 2})` prints `__proto__` then `a`
-where node prints `a`) is unchanged by this task and was verified identical at
-`f563a0ecf4`; it is a separate, pre-existing defect on a different lane.
+backstop lane is unchanged by this task and was verified identical at
+`f563a0ecf4`; it is a separate, pre-existing defect on a different lane, stated
+here at this section's opening rather than only in a closing footnote.
 
 ## 5. What moved, measured
 
@@ -221,18 +272,30 @@ stored undecoded:
 
 ```
 const o = {"a\"b": 1};
-for (const k of Object.keys(o)) console.log(k, k.length);
+for (const k of Object.keys(o)) { console.log(k, k.length); console.log(k === "a\"b"); }
 console.log(o['a"b']);
 
-  kali:  a\"b  6   then  0      exit 0
-  node:  a"b   3   then  1      exit 0
+  kali:  a\"b  6 / false   then  0      exit 0
+  node:  a"b   3 / true    then  1      exit 0
 ```
 
-The stored key slot holds the six characters `a\"b`; the property name is the
-three characters `a"b`. All three wrong answers follow from that one fact — the
-enumerated key prints a stray backslash, its `.length` is 6, and a probe written
-with the real name misses and falls into the absent-property lane's fabricated
-`0`.
+The stored key slot holds the FOUR characters `a\"b` (the delimiters stripped,
+the escape left alone); the property name is the three characters `a"b`. The
+printed `6` above does not describe that stored text at all — it comes from a
+second, independent escaping pass, below. What the four-character stored text
+directly explains is two of the three wrong answers: a probe written with the
+real name (`o['a"b']`) misses the undecoded four-character slot and falls into
+the absent-property lane's fabricated `0`, and the enumerated key prints with a
+stray backslash because the slot's text has one.
+
+**The `6` is `fold_object_enumeration_call` re-escaping an already-undecoded
+key.** Enumerating through `Object.keys` re-encodes the stored text with
+`format!("{key:?}", …)` (`crates/kali_optimize/src/object_fold.rs:173,180,199`)
+before handing it to the string reader — a SECOND escaping pass stacked on the
+parser's already-undecoded text. That is what stretches the four-character
+slot's `.length` to `6` for a key read out through enumeration; it is not a
+property of the stored text itself, and it is a distinct divergence from the
+undecoded-storage one, not a restatement of it.
 
 **This falsifies the invariant as this project has been stating it.** "An HIR
 key-slot node's text IS the property name (`String(key)`)" holds for identifier
@@ -248,16 +311,38 @@ verified by building both commits in separate worktrees rather than by
 inspection. Task 5's fourteen deletions and its one producer move do not touch
 escape decoding.
 
+**"Self-consistent" describes one comparison, not the key's behaviour.**
+`static_object_has_own` folds `Object.hasOwn(o, "a\"b")` to `true` for this `o`
+because its probe and the stored key are the SAME undecoded four-character
+text — that comparison genuinely does not lie, and only because the two
+spellings are byte-identical in source. It does not generalize: the same
+object's enumerated key fails a strict-equality probe against the identical
+literal. Measured in the same run: `k === "a\"b"` is `false` for `k` read out
+of `Object.keys(o)`, even though `console.log(k)` shows text that reads as the
+same spelling. One program giving `hasOwn` and `===` opposite answers about the
+same nominal property, in a single run at exit 0, is R-56's own signature —
+surviving in the lane this document previously called self-consistent.
+
 **There IS a producer disagreement here, and it is currently unobservable.**
 `constant_property_key` reads through `literal_value` →
 `parse_string_literal` (`crates/kali_optimize/src/constant_fold.rs`), which DOES
 decode `\\`, `\"`, `\'` and `` \` ``. So a `fromEntries` entry spelled
 `["a\"b", 1]` yields the correct three-character name while a source literal
-with the same spelling yields the six-character undecoded text. It does not show
-up today because the enumeration fold re-encodes with `format!("{:?}", …)` and
-the downstream string reader strips delimiters without decoding, so both lanes
-print the same wrong `a\"b` — measured, before and after. Note the direction:
-the `fromEntries` side is the CORRECT one and the source side is the defect.
+with the same spelling yields the four-character undecoded text. Re-measured
+under `kali run` (`BuildMode::Fast`, what the corpus exercises):
+`Object.keys(Object.fromEntries([["a\"b", 1]]))` and
+`Object.keys({"a\"b": 1})` do both print the same `a\"b`, agreeing with the
+original claim — but not for the reason given. `constant_property_key`'s
+Release-only fold (§7) never runs under `kali run` at all, so this agreement
+is two DIFFERENT undecoded runtime paths coincidentally producing the same
+text, not the decoded `fromEntries` producer's output surviving a
+re-escaping round trip unchanged. Whether the originally-described mechanism
+(a correctly-decoded `fromEntries` key masked by the enumeration fold's
+re-escaping) also holds under `--release` is not re-verified here — the case
+runner does not execute the `.wasm` that build emits (§7) — so that half of
+the claim is left as previously written rather than asserted anew. Note the
+direction either way: the `fromEntries` side is the CORRECT one and the source
+side is the defect.
 
 **Not fixed here, deliberately.** Decoding a key's escapes is a parser change
 whose blast radius is every string literal in the language, not a comparison

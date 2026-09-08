@@ -88,10 +88,16 @@ impl<'a> FunctionEmitter<'a> {
     /// key slot's text, which IS `String(key)` since `lower_property_name`.
     ///
     /// The one pre-existing exception is ESCAPE SEQUENCES: `{"a\"b": 1}` stores
-    /// the undecoded six-character text `a\"b`, and a probe written the same
-    /// way arrives undecoded too, so the two still agree with each other -- but
-    /// neither is the three-character name node uses. A probe spelled
-    /// `o['a"b']` therefore misses. Recorded and pinned, not fixed here; see
+    /// the undecoded four-character text `a\"b` (the delimiters are stripped,
+    /// the escape is not decoded), and a probe written the SAME way -- the
+    /// identical source spelling `o['a\"b']` -- arrives undecoded too, so the
+    /// two agree only because they are byte-identical text. Neither is the
+    /// three-character name node uses, and the agreement does not extend past
+    /// this direct comparison: the enumeration lane (`fold_object_enumeration_
+    /// call`) re-encodes the same undecoded text with a second escaping pass,
+    /// so a key read back out through `Object.keys` diverges again (its
+    /// `.length` is 6, not 4). A probe spelled `o['a"b']` (the real, decoded
+    /// name) therefore misses. Recorded and pinned, not fixed here; see
     /// docs/superpowers/followups/property-key-trim-site-classification.md.
     ///
     /// It used to strip `"` off both sides, which is a guess at the key's type
@@ -439,10 +445,18 @@ impl<'a> FunctionEmitter<'a> {
         // ONE EXCEPTION, pre-existing and not this lane's: a key whose source
         // spelling contains an ESCAPE SEQUENCE is stored undecoded, because
         // `kali_parser`'s `unquote_string_literal` strips the delimiters
-        // without decoding. `{"a\"b": 1}` stores the six-character text
-        // `a\"b`, not the three-character name `a"b`. Both sides of THIS
-        // comparison carry the same undecoded text, so the fold stays
-        // self-consistent, but neither is the JavaScript property name. See
+        // without decoding. `{"a\"b": 1}` stores the four-character text
+        // `a\"b`, not the three-character name `a"b`. THIS fold's probe and
+        // stored key agree ONLY because they are byte-identical source
+        // spellings, not because either side holds the real property name --
+        // `Object.hasOwn(o, "a\"b")` folds to `true` here, but the SAME
+        // object's enumerated key fails a strict-equality probe against that
+        // identical literal (`k === "a\"b"` is `false` for `k` read out of
+        // `Object.keys(o)`), because the enumeration lane
+        // (`fold_object_enumeration_call`) re-encodes the undecoded text with
+        // a second escaping pass that this fold never sees. "Self-consistent"
+        // describes this one comparison, not the key's behaviour across the
+        // object model. See
         // docs/superpowers/followups/property-key-trim-site-classification.md
         // section 6.
         let key = self.static_probe_key_text(key_id)?;

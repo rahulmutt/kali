@@ -53,8 +53,11 @@ fn test_object_layout_orders_integer_like_property_keys_before_string_keys() {
     // order, then string keys in insertion order. Only the field-name TEXT
     // moved: `lower_property_name` now stores a numeric key's JavaScript
     // property name (`1`) instead of marking it as "was a number" with a
-    // leading double quote (`"1"`). `object_property_order_key` strips those
-    // quotes before parsing, so it reads `1` exactly as it read `"1"`.
+    // leading double quote (`"1"`). `object_property_order_key` no longer
+    // strips anything -- Task 5 (`c4245eac62`) deleted that strip along with
+    // the other thirteen un-quoting sites (`grep trim_matches
+    // crates/kali_mir/src/analysis/infer.rs` now returns nothing) -- and it
+    // reads `1` because `1` is now what the key slot holds.
     //
     // A layout field name is NOT only an ordering key -- an interned shape's
     // field names are compared against a canonicalised probe in

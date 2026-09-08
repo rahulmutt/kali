@@ -44,7 +44,19 @@
 # pre-existing parser behaviour (measured identical before and after Task 5),
 # and it is pinned here rather than chased because decoding belongs to the
 # parser, not to a task about comparison sites.
-
+#
+# THE FINAL WHOLE-BRANCH REVIEW made two further changes, neither of which is a
+# task in this plan and neither of which owns closing anything: it EXTENDED two
+# existing pairs with probes their original rationale did not cover
+# (`escaped_quote_in_a_key_is_stored_undecoded_*` gained a `k === "a\"b"`
+# strict-equality probe; `object_keys_over_a_quoted_string_key_*` gained a
+# `.length` and a `k === '"2"'` probe, and its rationale was downgraded from
+# "correct" to "agrees on text and order" because `.length` does not agree),
+# and it ADDED a fourth WRONG-ON-PURPOSE pair,
+# `octal_leading_zero_numeric_key_is_read_as_decimal_*`, pinning a pre-existing,
+# out-of-scope defect one line from a guard this branch wrote in the same
+# rewritten function.
+#
 [source]
 "bigint_module.js" = """const o = {42n: 1};
 console.log(Object.hasOwn(o, 0));
@@ -136,11 +148,11 @@ main();
 main();
 """
 "keys_quoted_string_key_order_module.js" = """const o = {foo:'b','"2"':'a'};
-for (const k of Object.keys(o)) console.log(k);
+for (const k of Object.keys(o)) { console.log(k); console.log(k.length); console.log(k === '"2"'); }
 """
 "keys_quoted_string_key_order_function.js" = """function main() {
   const o = {foo:'b','"2"':'a'};
-  for (const k of Object.keys(o)) console.log(k);
+  for (const k of Object.keys(o)) { console.log(k); console.log(k.length); console.log(k === '"2"'); }
 }
 main();
 """
@@ -160,16 +172,25 @@ main();
 # TOML LITERAL strings ('''), not basic ones, so the JS source keeps its
 # backslash exactly as written: the key's source spelling is `"a\"b"`.
 "escaped_quote_key_module.js" = '''const o = {"a\"b": 1};
-for (const k of Object.keys(o)) console.log(k, k.length);
+for (const k of Object.keys(o)) { console.log(k, k.length); console.log(k === "a\"b"); }
 console.log(o['a"b']);
 '''
 "escaped_quote_key_function.js" = '''function main() {
   const o = {"a\"b": 1};
-  for (const k of Object.keys(o)) console.log(k, k.length);
+  for (const k of Object.keys(o)) { console.log(k, k.length); console.log(k === "a\"b"); }
   console.log(o['a"b']);
 }
 main();
 '''
+"octal_leading_zero_numeric_key_module.js" = """const o = {042: 1};
+console.log(Object.keys(o)[0]);
+"""
+"octal_leading_zero_numeric_key_function.js" = """function main() {
+  const o = {042: 1};
+  console.log(Object.keys(o)[0]);
+}
+main();
+"""
 
 [[case]]
 name = "bigint_key_is_stored_under_zero_module_scope"
@@ -318,12 +339,13 @@ stdout = "42 string\n"
 [[case]]
 name = "object_keys_over_a_quoted_string_key_module_scope"
 rationale = """
-PINNED BY TASK 5, and CORRECT AND AGREEING WITH NODE as of the commit that
-adds it. `{foo:'b','"2"':'a'}` has two ordinary string keys; the second one's
-NAME is the three-character text `"2"`, quotes included. node prints `foo` then
-`"2"`: neither key is array-index-like, so both enumerate in insertion order,
-and the second prints with its quote characters because they are part of the
-name.
+PINNED BY TASK 5. AGREES ON TEXT AND ORDER as of the commit that adds it --
+NOT "correct" outright; the final whole-branch review found a `.length`
+divergence this case did not probe for, added below. `{foo:'b','"2"':'a'}`
+has two ordinary string keys; the second one's NAME is the three-character
+text `"2"`, quotes included. node prints `foo` then `"2"`: neither key is
+array-index-like, so both enumerate in insertion order, and the second prints
+with its quote characters because they are part of the name.
 
 WHAT IT MEASURED AT `f563a0ecf4`, BEFORE TASK 5. kali printed `2` then `foo` --
 wrong TEXT and wrong ORDER, at exit 0. Two surviving un-quoting sites caused
@@ -335,6 +357,20 @@ conflated with the numeric key `5` -- at a second address, exactly as the
 design's section 4.6 predicted. Both are gone; nothing normalizes a key-slot
 text now, because a key-slot text IS the property name.
 
+WHAT THE PRINT SINK HID. `console.log(k)` cannot distinguish a correct key
+from one whose `.length` is wrong -- exactly the trap this project's own
+design (section 4.5) warned about, and the trap the sibling `keys_typeof_*`
+cases went to real trouble not to fall into for `typeof`. This case did not
+extend the same suspicion to `.length` when Task 5 added it. Probed now: `"2"`
+(the quoted key) reports `.length` `5`, not `3` -- the same
+`fold_object_enumeration_call` double-escaping pass documented in
+docs/superpowers/followups/property-key-trim-site-classification.md section 6
+for the sibling escaped-quote case, here triggered by the quote CHARACTERS in
+the key's own name rather than by a source escape sequence. `k === '"2"'`
+still agrees with node (`true`), so the name and order claims stand; `.length`
+does not, and is pinned WRONG ON PURPOSE below. No task in this plan owns
+closing it.
+
 This case is also the ORDERING half's tripwire: it mixes a would-be-index-like
 key with a string key, which the `object_keys_enumeration_order_*` pair does
 not do (those use real numeric keys). If a later change re-introduces
@@ -342,14 +378,14 @@ quote-blind index classification, this case goes red on the ORDER before
 anything else notices."""
 args = ["run", "keys_quoted_string_key_order_module.js"]
 exit = "success"
-stdout = "foo\n\"2\"\n"
+stdout = "foo\n3\nfalse\n\"2\"\n5\ntrue\n"
 
 [[case]]
 name = "object_keys_over_a_quoted_string_key_in_function"
-rationale = "PINNED BY TASK 5, correct and agreeing with node, in function scope. node prints `foo` then `\"2\"` and kali agrees. Before Task 5 this printed `2` then `foo`, the same wrong text and wrong order as the module-scope case; see its rationale for which two un-quoting sites produced each half."
+rationale = "PINNED BY TASK 5, AGREES ON TEXT AND ORDER, in function scope -- not \"correct\" outright; see the module-scope case's rationale for the `.length` divergence the final whole-branch review found and added here. node prints `foo`, `3`, `false`, `\"2\"`, `3`, `true`; kali agrees on everything except `\"2\"`'s `.length`, which is `5` (the enumeration fold's double-escaping pass, same mechanism as the escaped-quote-key case, triggered here by the key's own quote characters). Before Task 5 this printed `2` then `foo`, the same wrong text and wrong order as the module-scope case; see its rationale for which two un-quoting sites produced each half."
 args = ["run", "keys_quoted_string_key_order_function.js"]
 exit = "success"
-stdout = "foo\n\"2\"\n"
+stdout = "foo\n3\nfalse\n\"2\"\n5\ntrue\n"
 
 [[case]]
 name = "member_probe_does_not_invent_a_property_from_quote_characters_module_scope"
@@ -397,24 +433,38 @@ stdout = "1\n0\nfalse\n"
 [[case]]
 name = "escaped_quote_in_a_key_is_stored_undecoded_module_scope"
 rationale = """
-PINNED BY TASK 5's REVIEW. WRONG ON PURPOSE, all three answers, and NO TASK IN
-THIS PLAN OWNS CLOSING IT.
+PINNED BY TASK 5's REVIEW, EXTENDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON
+PURPOSE, all four answers, and NO TASK IN THIS PLAN OWNS CLOSING IT.
 
-node prints `a"b 3` then `1`. kali prints `a\\"b 6` then `0`, at exit 0.
+node prints `a"b 3`, `true`, then `1`. kali prints `a\\"b 6`, `false`, then
+`0`, at exit 0.
 
 WHAT THIS FALSIFIES. Task 3's invariant, as this project has been stating it --
 "an HIR key-slot node's text IS the property name, `String(key)`, for every
 shape of key" -- is FALSE for any key whose source spelling contains an escape
 sequence. `kali_parser`'s `unquote_string_literal` strips the delimiters
-WITHOUT DECODING, so `{"a\\"b": 1}` stores the six-character text `a\\"b` where
-the property name is the three characters `a"b`. All three answers follow from
-that one fact: the enumerated key prints with a stray backslash, its `.length`
-is 6 rather than 3, and the member probe `o['a"b']` -- which is spelled with
-the real name -- misses the stored text entirely and falls into the
-absent-property lane's fabricated `0`.
+WITHOUT DECODING, so `{"a\\"b": 1}` stores the FOUR-character text `a\\"b`
+where the property name is the three characters `a"b`. The member probe
+`o['a"b']` -- spelled with the real name -- misses that four-character stored
+text and falls into the absent-property lane's fabricated `0`.
+
+THE `6` IS A SEPARATE, SECOND DIVERGENCE, NOT THE STORED TEXT'S OWN LENGTH.
+Reading the key back out through `Object.keys` re-encodes the already-undecoded
+four-character text with a second escaping pass
+(`fold_object_enumeration_call`'s `format!("{key:?}", ...)`,
+`crates/kali_optimize/src/object_fold.rs`), which is what stretches `.length`
+to `6`. That the print sink still shows the familiar `a\\"b` spelling hides
+this: `k === "a\\"b"` is `false` even though `console.log(k)` reads as the same
+text. One program giving `Object.hasOwn`-style identity and `===` opposite
+answers about what looks like the same key, in a single run at exit 0, is
+R-56's own signature, and this new `false` line is what makes it visible here
+instead of only in a review.
 
 MEASURED, NOT INTRODUCED. Identical at `f563a0ecf4` (before Task 5) and after,
-verified by building both commits: `a\\"b 6` then `0` in both. Task 5 deleted
+verified by building both commits: `a\\"b 6` then `0` in both (the `===` probe
+was not part of the original case; added by the final review, and it is `false`
+under both the pre-Task-5 and current source at this position, per the
+underlying undecoded-storage mechanism being untouched). Task 5 deleted
 fourteen un-quoting sites and moved one producer; none of that touches escape
 decoding, which lives in the parser. The invariant is stated with this
 exception in
@@ -429,16 +479,57 @@ about comparison sites.
 
 WHAT WOULD CLOSE IT: property-key lowering decoding escape sequences, so the
 key slot holds `a"b`. When that lands, this expectation becomes
-`a"b 3\\n1\\n` and agrees with node on all three answers. Until then, a change
-that alters ANY of these three answers is a surprise this case makes visible.
+`a"b 3\\ntrue\\n1\\n` and agrees with node on all four answers. Until then, a
+change that alters ANY of these four answers is a surprise this case makes
+visible.
 """
 args = ["run", "escaped_quote_key_module.js"]
 exit = "success"
-stdout = "a\\\"b 6\n0\n"
+stdout = "a\\\"b 6\nfalse\n0\n"
 
 [[case]]
 name = "escaped_quote_in_a_key_is_stored_undecoded_in_function"
-rationale = "PINNED BY TASK 5's REVIEW, same three probes in function scope; node prints `a\"b 3` then `1`, kali prints `a\\\"b 6` then `0`. WRONG ON PURPOSE for the reason given on the module-scope case: `unquote_string_literal` strips a key's delimiters without decoding its escape sequences, so the stored key text is not the property name. Measured identical before and after Task 5; no task in this plan owns closing it."
+rationale = "PINNED BY TASK 5's REVIEW, EXTENDED BY THE FINAL WHOLE-BRANCH REVIEW, same four probes in function scope; node prints `a\"b 3`, `true`, then `1`, kali prints `a\\\"b 6`, `false`, then `0`. WRONG ON PURPOSE for the reason given on the module-scope case: `unquote_string_literal` strips a key's delimiters without decoding its escape sequences, so the FOUR-character stored key text is not the three-character property name, and a second escaping pass in the enumeration fold (not the stored text itself) is what stretches `.length` to `6`. The added `k === \"a\\\"b\"` probe is `false` even though the printed text reads the same as the literal it is compared against -- measured identical before and after Task 5; no task in this plan owns closing it."
 args = ["run", "escaped_quote_key_function.js"]
 exit = "success"
-stdout = "a\\\"b 6\n0\n"
+stdout = "a\\\"b 6\nfalse\n0\n"
+
+[[case]]
+name = "octal_leading_zero_numeric_key_is_read_as_decimal_module_scope"
+rationale = """
+ADDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON PURPOSE, and NO TASK IN THIS
+PLAN OWNS CLOSING IT -- pre-existing, out of this project's original scope,
+and not chased here. Do NOT change the parser to close this case.
+
+`{042: 1}` is a legacy OCTAL numeric-literal property key in sloppy mode
+(kali's `.js` entry files run non-strict, same as a node CommonJS script):
+`042` denotes the same value as `0o42`, decimal `34`. node's
+`Object.keys({042: 1})[0]` is `"34"`. kali's is `"42"` -- it reads the digits
+`042` as decimal, at exit 0, with no diagnostic.
+
+WHY THIS IS THE OCTAL SIBLING OF A GUARD THIS BRANCH WROTE. `numeric_property_
+name` (`crates/kali_parser/src/expression/object.rs`) guards a leading zero on
+the BigInt branch (`042n` is refused, matching JavaScript's real
+SyntaxError -- a LOUD divergence) but walks straight past a leading zero on the
+`f64` branch, which is what `042` (no `n` suffix) parses through
+(`text.parse::<f64>().ok()`, no leading-zero check). `042n` failing loudly and
+`042` silently returning a WRONG key at exit 0 is strictly worse than the
+BigInt case this branch already guarded, and it now sits one line from that
+guard, in a function this branch rewrote, for the same underlying reason
+(legacy octal is not decimal parsing).
+
+WHY IT IS NOT CLOSED HERE. Pre-existing (unrelated to property-key identity),
+out of the original seven-task plan's scope, and closing it correctly means
+teaching this phase to recognize a leading-zero decimal-digit run as legacy
+octal and convert its VALUE (not just refuse it), which is a parser change
+with its own verification surface. Pinned so it is visible instead."""
+args = ["run", "octal_leading_zero_numeric_key_module.js"]
+exit = "success"
+stdout = "42\n"
+
+[[case]]
+name = "octal_leading_zero_numeric_key_is_read_as_decimal_in_function"
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same octal-key probe in function scope; node prints `34` (`042` is legacy octal for decimal 34 in sloppy mode) and kali prints `42` (the digits are read as decimal), at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `numeric_property_name`'s f64 branch has no leading-zero guard, unlike the BigInt branch two lines above it. Pre-existing, out of scope, not chased here; do not change the parser."
+args = ["run", "octal_leading_zero_numeric_key_function.js"]
+exit = "success"
+stdout = "42\n"

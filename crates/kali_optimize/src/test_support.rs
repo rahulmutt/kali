@@ -18,7 +18,7 @@
 //! One exception to the first bullet, pre-existing in the parser and pinned by
 //! corpus cases rather than fixed: a key whose source spelling contains an
 //! ESCAPE SEQUENCE is stored UNDECODED, so `{"a\"b": 1}`'s slot holds the
-//! six-character `a\"b` rather than the name `a"b`. See
+//! four-character `a\"b` rather than the name `a"b`. See
 //! docs/superpowers/followups/property-key-trim-site-classification.md
 //! section 6.
 use crate::*;
