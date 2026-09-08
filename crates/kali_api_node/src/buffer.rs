@@ -56,7 +56,7 @@ impl NodeBuffer {
         }
 
         let mut bytes = Vec::with_capacity(text.len() / 2);
-        for chunk in text.as_bytes().chunks_exact(2) {
+        for chunk in text.as_bytes().as_chunks::<2>().0 {
             let hi = hex_digit(chunk[0])
                 .ok_or_else(|| format!("invalid hex digit '{}'", chunk[0] as char))?;
             let lo = hex_digit(chunk[1])
