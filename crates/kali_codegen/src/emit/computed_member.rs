@@ -46,12 +46,23 @@ impl FunctionEmitter<'_> {
     }
 
     /// True when `id` resolves to a statically-known string, the receiver
-    /// shape that has no admitting index lane in either spelling.
+    /// shape that has no admitting INDEX lane in either spelling.
     pub(crate) fn is_static_string_receiver(&self, id: LirNodeId) -> bool {
         matches!(
             self.resolve_static_object_identity_value(id),
             Some(StaticObjectIdentityValue::String(_))
         )
+    }
+
+    /// True when a static member name denotes a numeric INDEX rather than a
+    /// property name. Decided by round-tripping through `format_js_number` --
+    /// the one formatter the fold and HIR both spell a numeric key with -- so
+    /// `"1"` and `"1.5"` are indices while `"length"`, and the `"inf"` /
+    /// `"infinity"` spellings a bare `f64::from_str` would also accept, stay
+    /// property names. No second formatter, no second parse rule.
+    pub(crate) fn static_name_is_numeric_index(name: &str) -> bool {
+        name.parse::<f64>()
+            .is_ok_and(|value| format_js_number(value) == name)
     }
 
     /// Read gateway for a nameless computed member (spec §4.4, in order):
@@ -86,10 +97,24 @@ impl FunctionEmitter<'_> {
                 &base_name,
             );
         }
-        if self.is_static_string_receiver(node.children[0]) {
+        // The fold decides the SHAPE of the string-receiver refusal, so it is
+        // resolved before the refusal is taken. A statically-known string has
+        // no INDEX lane in either spelling (`s[1]` was a silent `0`; `s[k]`
+        // with a numeric `k` folds onto that same lane), but a folded PROPERTY
+        // NAME is dot semantics like any other fold: `s.length`, `s["length"]`
+        // and `const k = "length"; s[k]` must all answer `3`, which is the
+        // fold's whole claim (spec §4.4 step 3, "Dot semantics from here").
+        // Spec §5's string row is about an INDEX (`s[1]`, `s[k]`), and §2.5's
+        // controls do not license breaking property-name access on a string.
+        let name = self.static_member_name(node);
+        if self.is_static_string_receiver(node.children[0])
+            && name
+                .as_deref()
+                .is_none_or(Self::static_name_is_numeric_index)
+        {
             return self.deny_e5506(function, string_index_access_unavailable_message());
         }
-        let Some(name) = self.static_member_name(node) else {
+        let Some(name) = name else {
             return self.deny_e5506(function, computed_member_access_unavailable_message());
         };
         let twin = Self::named_twin(node, name);

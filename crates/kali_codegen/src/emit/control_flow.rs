@@ -3022,11 +3022,20 @@ impl<'a> FunctionEmitter<'a> {
                     );
                 }
 
-                // A statically-known string has no index lane in either
-                // spelling (`s[1]` was a silent `0`; `s[k]` folds onto the
-                // same lane). Refuse here so the literal spelling and the
-                // folded twin agree (spec §4.4, "String receivers").
-                if self.is_static_string_receiver(node.children[0]) {
+                // A statically-known string has no INDEX lane in either
+                // spelling (`s[1]` was a silent `0`; `s[k]` with a numeric `k`
+                // folds onto the same lane). Refuse here so the literal
+                // spelling and the folded twin agree (spec §4.4, "String
+                // receivers"), narrowed by the same rule the gateway applies:
+                // only a missing or NUMERIC static name is an index. A static
+                // property NAME on a string (`s["length"]`) keeps its lane, so
+                // the three spellings of `.length` answer alike.
+                if self.is_static_string_receiver(node.children[0])
+                    && self
+                        .static_member_name(node)
+                        .as_deref()
+                        .is_none_or(Self::static_name_is_numeric_index)
+                {
                     return self.deny_e5506(function, string_index_access_unavailable_message());
                 }
 

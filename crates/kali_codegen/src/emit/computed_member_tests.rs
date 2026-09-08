@@ -192,3 +192,39 @@ fn the_static_renderers_decline_a_nameless_member() {
         "Object[k] must refuse, not render the child count: {diagnostics:?}"
     );
 }
+
+#[test]
+fn the_three_spellings_of_a_string_property_name_agree_and_only_an_index_refuses() {
+    // A statically-known string has no INDEX lane in any spelling, but a
+    // static property NAME on a string is dot semantics like any other fold:
+    // `s.length`, `s["length"]` and `const k = "length"; s[k]` must agree.
+    // Only the numeric index (`s[1]`, `const k = 1; s[k]`) refuses.
+    //
+    // Every program forces RUNTIME emission (`n + …` against a `let`) on
+    // purpose: a bare `console.log(s["length"])` is claimed by the console
+    // static renderer and never reaches the member lane, so it cannot observe
+    // the guard at all. Measured with the guard un-narrowed: the console
+    // spelling still printed `3` while this runtime spelling refused.
+    for source in [
+        "const s = \"abc\"; let n = 0; n = n + s.length; console.log(n);",
+        "const s = \"abc\"; let n = 0; n = n + s[\"length\"]; console.log(n);",
+        "const s = \"abc\"; const k = \"length\"; let n = 0; n = n + s[k]; console.log(n);",
+    ] {
+        let diagnostics = diagnostics_for(source);
+        assert!(
+            diagnostics.iter().all(|d| !d.is_error()),
+            "{source}: a static property name on a string keeps its lane: {diagnostics:?}"
+        );
+    }
+    for source in [
+        "const s = \"abc\"; let n = 0; n = n + s[1]; console.log(n);",
+        "const s = \"abc\"; const k = 1; let n = 0; n = n + s[k]; console.log(n);",
+    ] {
+        let diagnostics = diagnostics_for(source);
+        assert_e5506(
+            &diagnostics,
+            "indexing a string `s[i]` is unavailable",
+            source,
+        );
+    }
+}
