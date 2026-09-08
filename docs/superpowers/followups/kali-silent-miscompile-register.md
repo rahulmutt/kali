@@ -3535,7 +3535,15 @@ tier, ordering is by blast radius.
   | `o[true]` over `{index: 5, true: 7}` | `5` | `7` | fabricates `index`, at exit 0 |
   | `o[null]` over `{index: 5, null: 7}` | `5` | `7` | same |
   | `o[1n]` over `{index: 5, "1": 7}` | `5` | `7` | same |
-  | `o[/x/]` over `{index: 5}` | `error[E3100]: undefined identifier 'x'`, **exit 1** | `7` | diverges **LOUDLY** — kali's lexer has no regex-literal token, so `/x/` lexes as a division by the identifier `x` |
+  | `o[/x/]` over `{index: 5, "/x/": 7}` | `error[E3100]: undefined identifier 'x'`, **exit 1** | `7` | diverges **LOUDLY** — kali's lexer has no regex-literal token, so `/x/` lexes as a division by the identifier `x` |
+
+  Every row's object is an object LITERAL declaring `index: 5` and the property
+  node really reads; the regex row's is `"/x/"`, because `String(/x/)` is the
+  four-character name `/x/`. (~~That row was published as `over {index: 5}`~~, an
+  object with no such property, which makes its node column `undefined` rather
+  than `7` — corrected 2026-09-08 in review round 2 against the program actually
+  measured. The kali column was right either way: the `E3100` comes from the
+  regex literal alone and does not depend on the receiver.)
 
   The first three are this entry, exactly and silently, and **R-13's matcher
   counts none of them** — a boolean, `null` and a BigInt are all acorn `Literal`
