@@ -1089,43 +1089,44 @@ mod member_expressions {
         );
         assert_eq!(output.statements.len(), 4);
 
-        let assert_permission_chain = |statement: &kali_ast::Statement, property: &str| {
-            match statement {
-                kali_ast::Statement::ExpressionStatement(es) => {
-                    match es.expression.as_ref() {
-                        kali_ast::Expression::MemberExpression(me) => {
-                            assert_eq!(me.property.as_deref(), Some(property));
-                            match &me.object {
-                                kali_ast::Expression::MemberExpression(permissions) => {
-                                    assert_eq!(permissions.property.as_deref(), Some("permissions"));
-                                    match &permissions.object {
-                                        kali_ast::Expression::MemberExpression(root) => {
-                                            assert_eq!(root.property.as_deref(), Some("Deno"));
-                                            match &root.object {
-                                                kali_ast::Expression::Identifier(name) => {
-                                                    assert_eq!(name, "globalThis");
-                                                }
-                                                other => {
-                                                    panic!("Expected globalThis identifier, got {other:?}")
-                                                }
+        let assert_permission_chain =
+            |statement: &kali_ast::Statement, property: &str| match statement {
+                kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                    kali_ast::Expression::MemberExpression(me) => {
+                        assert_eq!(me.property.as_deref(), Some(property));
+                        match &me.object {
+                            kali_ast::Expression::MemberExpression(permissions) => {
+                                assert_eq!(permissions.property.as_deref(), Some("permissions"));
+                                match &permissions.object {
+                                    kali_ast::Expression::MemberExpression(root) => {
+                                        assert_eq!(root.property.as_deref(), Some("Deno"));
+                                        match &root.object {
+                                            kali_ast::Expression::Identifier(name) => {
+                                                assert_eq!(name, "globalThis");
+                                            }
+                                            other => {
+                                                panic!(
+                                                    "Expected globalThis identifier, got {other:?}"
+                                                )
                                             }
                                         }
-                                        other => {
-                                            panic!("Expected nested Deno MemberExpression, got {other:?}")
-                                        }
+                                    }
+                                    other => {
+                                        panic!(
+                                            "Expected nested Deno MemberExpression, got {other:?}"
+                                        )
                                     }
                                 }
-                                other => panic!(
-                                    "Expected nested permissions MemberExpression, got {other:?}"
-                                ),
                             }
+                            other => panic!(
+                                "Expected nested permissions MemberExpression, got {other:?}"
+                            ),
                         }
-                        _ => panic!("Expected MemberExpression"),
                     }
-                }
+                    _ => panic!("Expected MemberExpression"),
+                },
                 _ => panic!("Expected ExpressionStatement"),
-            }
-        };
+            };
 
         assert_permission_chain(&output.statements[0], "request");
         assert_permission_chain(&output.statements[1], "revoke");
@@ -1140,43 +1141,44 @@ mod member_expressions {
         );
         assert_eq!(output.statements.len(), 2);
 
-        let assert_permission_chain = |statement: &kali_ast::Statement, property: &str| {
-            match statement {
-                kali_ast::Statement::ExpressionStatement(es) => {
-                    match es.expression.as_ref() {
-                        kali_ast::Expression::MemberExpression(me) => {
-                            assert_eq!(me.property.as_deref(), Some(property));
-                            match &me.object {
-                                kali_ast::Expression::MemberExpression(permissions) => {
-                                    assert_eq!(permissions.property.as_deref(), Some("permissions"));
-                                    match &permissions.object {
-                                        kali_ast::Expression::MemberExpression(root) => {
-                                            assert_eq!(root.property.as_deref(), Some("Deno"));
-                                            match &root.object {
-                                                kali_ast::Expression::Identifier(name) => {
-                                                    assert_eq!(name, "globalThis");
-                                                }
-                                                other => {
-                                                    panic!("Expected globalThis identifier, got {other:?}")
-                                                }
+        let assert_permission_chain =
+            |statement: &kali_ast::Statement, property: &str| match statement {
+                kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                    kali_ast::Expression::MemberExpression(me) => {
+                        assert_eq!(me.property.as_deref(), Some(property));
+                        match &me.object {
+                            kali_ast::Expression::MemberExpression(permissions) => {
+                                assert_eq!(permissions.property.as_deref(), Some("permissions"));
+                                match &permissions.object {
+                                    kali_ast::Expression::MemberExpression(root) => {
+                                        assert_eq!(root.property.as_deref(), Some("Deno"));
+                                        match &root.object {
+                                            kali_ast::Expression::Identifier(name) => {
+                                                assert_eq!(name, "globalThis");
+                                            }
+                                            other => {
+                                                panic!(
+                                                    "Expected globalThis identifier, got {other:?}"
+                                                )
                                             }
                                         }
-                                        other => {
-                                            panic!("Expected nested Deno MemberExpression, got {other:?}")
-                                        }
+                                    }
+                                    other => {
+                                        panic!(
+                                            "Expected nested Deno MemberExpression, got {other:?}"
+                                        )
                                     }
                                 }
-                                other => panic!(
-                                    "Expected nested permissions MemberExpression, got {other:?}"
-                                ),
                             }
+                            other => panic!(
+                                "Expected nested permissions MemberExpression, got {other:?}"
+                            ),
                         }
-                        _ => panic!("Expected MemberExpression"),
                     }
-                }
+                    _ => panic!("Expected MemberExpression"),
+                },
                 _ => panic!("Expected ExpressionStatement"),
-            }
-        };
+            };
 
         assert_permission_chain(&output.statements[0], "request");
         assert_permission_chain(&output.statements[1], "revoke");
@@ -1261,7 +1263,10 @@ mod member_expressions {
                     assert_eq!(call.property.as_deref(), Some("call"));
                     match &call.object {
                         kali_ast::Expression::MemberExpression(has_own_property) => {
-                            assert_eq!(has_own_property.property.as_deref(), Some("hasOwnProperty"));
+                            assert_eq!(
+                                has_own_property.property.as_deref(),
+                                Some("hasOwnProperty")
+                            );
                             match &has_own_property.object {
                                 kali_ast::Expression::MemberExpression(prototype) => {
                                     assert_eq!(prototype.property.as_deref(), Some("prototype"));

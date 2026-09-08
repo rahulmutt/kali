@@ -454,7 +454,8 @@ impl TypeContext {
         &self,
         expr: &MemberExpression,
     ) -> bool {
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
         self.is_supported_static_callable_member_name(&dotted, &bracketed)
     }

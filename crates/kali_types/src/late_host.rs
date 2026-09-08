@@ -341,39 +341,60 @@ impl TypeContext {
             return;
         };
 
-        if expr.static_name() == Some("pid") && object_name == "Deno" && self.api_surface == "deno" {
+        if expr.static_name() == Some("pid") && object_name == "Deno" && self.api_surface == "deno"
+        {
             return;
         }
 
-        if expr.static_name() == Some("exit") && object_name == "Deno" && self.api_surface == "deno" {
+        if expr.static_name() == Some("exit") && object_name == "Deno" && self.api_surface == "deno"
+        {
             return;
         }
 
-        if expr.static_name() == Some("cwd") && object_name == "Deno" && self.api_surface == "deno" {
+        if expr.static_name() == Some("cwd") && object_name == "Deno" && self.api_surface == "deno"
+        {
             return;
         }
 
-        if expr.static_name() == Some("chdir") && object_name == "Deno" && self.api_surface == "deno" {
+        if expr.static_name() == Some("chdir")
+            && object_name == "Deno"
+            && self.api_surface == "deno"
+        {
             return;
         }
 
-        if expr.static_name() == Some("cwd") && object_name == "process" && self.api_surface == "node" {
+        if expr.static_name() == Some("cwd")
+            && object_name == "process"
+            && self.api_surface == "node"
+        {
             return;
         }
 
-        if expr.static_name() == Some("chdir") && object_name == "process" && self.api_surface == "node" {
+        if expr.static_name() == Some("chdir")
+            && object_name == "process"
+            && self.api_surface == "node"
+        {
             return;
         }
 
-        if expr.static_name() == Some("pid") && object_name == "process" && self.api_surface == "node" {
+        if expr.static_name() == Some("pid")
+            && object_name == "process"
+            && self.api_surface == "node"
+        {
             return;
         }
 
-        if expr.static_name() == Some("exit") && object_name == "process" && self.api_surface == "node" {
+        if expr.static_name() == Some("exit")
+            && object_name == "process"
+            && self.api_surface == "node"
+        {
             return;
         }
 
-        if expr.static_name() == Some("kill") && object_name == "process" && self.api_surface == "node" {
+        if expr.static_name() == Some("kill")
+            && object_name == "process"
+            && self.api_surface == "node"
+        {
             return;
         }
 
@@ -465,7 +486,8 @@ impl TypeContext {
             return false;
         }
 
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
         self.diagnostics.push(Diagnostic::error(
@@ -493,7 +515,8 @@ impl TypeContext {
             return false;
         }
 
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
         self.diagnostics.push(Diagnostic::error(
@@ -510,7 +533,8 @@ impl TypeContext {
         &mut self,
         expr: &MemberExpression,
     ) -> bool {
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
         if !matches!(
@@ -529,7 +553,8 @@ impl TypeContext {
             return false;
         }
 
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
         self.diagnostics.push(Diagnostic::error(
@@ -555,7 +580,8 @@ impl TypeContext {
             return false;
         }
 
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
         self.diagnostics.push(Diagnostic::error(
@@ -573,7 +599,8 @@ impl TypeContext {
             return false;
         }
 
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
         if !matches!(
@@ -632,7 +659,8 @@ impl TypeContext {
             return false;
         }
 
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
         if !matches!(
@@ -663,7 +691,8 @@ impl TypeContext {
             return false;
         };
 
-        let dotted = Self::member_access_name(member).unwrap_or_else(|| member.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(member)
+            .unwrap_or_else(|| member.static_name().unwrap_or_default().to_string());
         let bracketed =
             Self::member_access_name_bracketed(member).unwrap_or_else(|| dotted.clone());
 
@@ -696,7 +725,8 @@ impl TypeContext {
         &mut self,
         member: &MemberExpression,
     ) -> bool {
-        let dotted = Self::member_access_name(member).unwrap_or_else(|| member.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(member)
+            .unwrap_or_else(|| member.static_name().unwrap_or_default().to_string());
         let bracketed =
             Self::member_access_name_bracketed(member).unwrap_or_else(|| dotted.clone());
 
@@ -754,9 +784,11 @@ impl TypeContext {
             return false;
         }
 
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
-        let bracketed = Self::member_access_name_bracketed(expr)
-            .unwrap_or_else(|| format!("globalThis[\"{}\"]", expr.static_name().unwrap_or_default()));
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| {
+            format!("globalThis[\"{}\"]", expr.static_name().unwrap_or_default())
+        });
         let single_quoted = Self::member_access_name_single_quoted(expr)
             .unwrap_or_else(|| format!("globalThis['{}']", expr.static_name().unwrap_or_default()));
         let single_quoted_root_dotted = Self::member_access_single_quoted_root_name(&expr.object)
@@ -774,7 +806,8 @@ impl TypeContext {
     }
 
     pub(crate) fn resolve_late_object_model_member(&mut self, expr: &MemberExpression) -> bool {
-        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| expr.static_name().unwrap_or_default().to_string());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
         let single_quoted = Self::member_access_name_single_quoted(expr).unwrap_or_else(|| {
             format!(

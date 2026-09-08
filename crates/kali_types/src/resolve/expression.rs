@@ -707,7 +707,9 @@ impl TypeContext {
         let shape = self.object_shape_of_expression(&member.object)?;
         let field = member.static_name()?;
         match self.repr_table.shape_field(shape, field) {
-            Some((_, kali_common::Repr::GrowableArrayI64)) => Some((base.clone(), field.to_string())),
+            Some((_, kali_common::Repr::GrowableArrayI64)) => {
+                Some((base.clone(), field.to_string()))
+            }
             _ => None,
         }
     }
@@ -1917,8 +1919,9 @@ impl TypeContext {
 
                 if matches!(expr.operator, AssignmentOperator::Assign) {
                     if let Expression::MemberExpression(member) = &expr.left {
-                        let dotted = Self::member_access_name(member)
-                            .unwrap_or_else(|| member.static_name().unwrap_or_default().to_string());
+                        let dotted = Self::member_access_name(member).unwrap_or_else(|| {
+                            member.static_name().unwrap_or_default().to_string()
+                        });
                         if self.api_surface == "node"
                             && Self::is_process_env_mutation_path(&dotted)
                             && !Self::is_process_env_root_path(&dotted)
