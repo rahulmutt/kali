@@ -120,7 +120,18 @@ const UPPER_BOUNDS = {
       "(`{010: 1}` is the key `8` in node and `10` in kali). `08`/`09` are " +
       "NonOctalDecimalIntegerLiteral, not octal, and are correctly excluded; `0o42` is excluded " +
       "because kali's lexer never tokenizes it as one number and it fails LOUDLY (`error[E3100]: " +
-      "undefined identifier 'o42'`, exit 1).",
+      "undefined identifier 'o42'`, exit 1). " +
+      "THIS NUMBER IS ALSO A LOWER BOUND ON R-58, WHICH NO OTHER RECORD IN THIS CATALOGUE IS, " +
+      "AND THE 0 MUST NOT BE READ AS THE FREQUENCY OF THE WHOLE DEFECT. The matcher counts " +
+      "legacy octal in OBJECT-LITERAL KEY position only, and R-58's entry establishes by " +
+      "measurement that the same misreading fires in ordinary expression position too: " +
+      "`console.log(042)` prints `42` where node prints `34` (measured at `dde0f083c0` against " +
+      "node v26.8.1, both scopes, and again through a `const` binding). That lane is a " +
+      "different parser function (`expression/primary.rs`'s numeric-literal arm, not " +
+      "`numeric_property_name`) and is counted by nothing here. The catalogue RECORD cannot " +
+      "disclose this, because a record states what its matcher counts and the matcher counts " +
+      "the key lane; the disclosure therefore lives here, beside the number a reader actually " +
+      "meets.",
   },
 };
 
