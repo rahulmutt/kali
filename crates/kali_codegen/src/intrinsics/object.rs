@@ -87,6 +87,20 @@ impl<'a> FunctionEmitter<'a> {
     /// normalized static index -- all `String(key)` -- and the stored side is a
     /// key slot's text, which IS `String(key)` since `lower_property_name`.
     ///
+    /// **"ALL `String(key)`" IS TRUE OF THE STORED SIDE AND NOT OF THE PROBE,
+    /// AND THAT IS REGISTER ENTRY R-59** (§2, Tier 2, filed 2026-09-08).
+    /// `expression_to_property_name` reads an index statically only for a
+    /// literal, a sequence ending in one, and a folded `+`/`-` unary on one;
+    /// for every other shape it FABRICATES a name -- the identifier's own text
+    /// for `o[i]`, the literal string `index` for the catch-all. This scan then
+    /// finds that fabricated name, and if the receiver happens to declare a
+    /// property under it the read returns THAT property's value. Measured at
+    /// `dde0f083c0` against node v26.8.1, both scopes: over
+    /// `const o = {index: 9, i: 7}; let i = 1;`, `o[i]` reads `7` and
+    /// `o[i + 0]` reads `9` where node reads `undefined` twice. The un-quoting
+    /// symmetry this comment establishes is real; the currency claim holds only
+    /// for the index shapes that phase actually reads.
+    ///
     /// The one pre-existing exception is ESCAPE SEQUENCES: `{"a\"b": 1}` stores
     /// the undecoded four-character text `a\"b` (the delimiters are stripped,
     /// the escape is not decoded), and a probe written the SAME way -- the

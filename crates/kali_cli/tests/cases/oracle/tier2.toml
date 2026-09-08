@@ -97,6 +97,8 @@
 #   R-56   --                         r56a_..._module_scope  r56a_..._in_function
 #   R-57   --                         r57a_..._module_scope  r57a_..._in_function
 #   R-58   --                         r58a_..._module_scope  r58a_..._in_function
+#   R-59   --                         r59a_..._module_scope  r59a_..._in_function
+#   R-60   --                         r60a_..._module_scope  r60a_..._in_function
 #
 # R-57 AND R-58 EACH GET ONE PAIR, NOT MORE, and the rule below is what decides
 # that. Neither entry states a second class or a separately named repro program:
@@ -110,6 +112,21 @@
 # repro, so no case asserts it and section 0.2's R-58 row records SILENT alone.
 # A later task that promotes that lane owes this file a second pair, section 0.2
 # a second class in the row, and `oracle_tests.rs` a new total.
+#
+# R-59 AND R-60 EACH GET ONE PAIR TOO, by the same rule, and each declines a
+# second pair for a measured reason rather than for brevity. R-59's read lane and
+# its ARRAY lane are one class (both SILENT) and one mechanism -- the same
+# fabricated name, hitting in one and missing in the other -- so clause (a) is
+# not met; its WRITE half was measured and does NOT fabricate (`o[i] = 8` leaves
+# `o.i` at `7`, agreeing with node), so there is no second lane to pin. R-60's
+# sibling consumers on the SAME receiver do split classes -- `Object.keys(o)`
+# refuses the file with `error[E5506]` at exit 1 (FAIL_CLOSED) while
+# `Object.hasOwn(o, "a")` AGREES with node -- but neither is this entry's
+# divergence: one is a different class and the other is not a divergence at all.
+# Both are recorded in section 2's entry as measured, and section 0.2's R-60 row
+# records SILENT alone. A later task that wants the enumeration lane pinned owes
+# this file a pair, section 0.2 a second class, and `oracle_tests.rs` a new
+# total.
 #
 # (The first pass's header said "Five entries" here; the correct count for that
 # pass is FOUR -- R-06, R-08, R-09 and R-13 -- and it is corrected in passing.)
@@ -1002,6 +1019,28 @@ console.log(Object.hasOwn(o, 42));
   console.log(Object.keys(o)[0]);
   console.log(Object.hasOwn(o, 34));
   console.log(Object.hasOwn(o, 42));
+}
+main();
+"""
+"r59a_module.js" = """const o = {index: 9, i: 7};
+let i = 1;
+console.log(o[i]);
+console.log(o[i + 0]);
+"""
+"r59a_function.js" = """function main() {
+  const o = {index: 9, i: 7};
+  let i = 1;
+  console.log(o[i]);
+  console.log(o[i + 0]);
+}
+main();
+"""
+"r60a_module.js" = """const o = Object.fromEntries([["a", 1]]);
+console.log(o.a);
+"""
+"r60a_function.js" = """function main() {
+  const o = Object.fromEntries([["a", 1]]);
+  console.log(o.a);
 }
 main();
 """
@@ -2390,4 +2429,86 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 MEASURED 2026-09-08 at `dde0f083c0` against node v26.8.1: SILENT, as recorded. kali prints `42`, `false`, `true` at exit 0 with empty stderr; node prints `34`, `true`, `false` at exit 0. Byte-identical to the module scope.
 
 THE THREE CONTROLS ARE NOT PINNED BY THIS PAIR AND WERE MEASURED BY HAND at `dde0f083c0` against node v26.8.1, in both scopes. `{042n: 1}` fails LOUDLY in kali (`error[E5506]: this numeric property key is unavailable in the current phase; use a decimal or string literal key`, exit 1) where node raises `SyntaxError: Invalid or unexpected token` -- both refuse, so the BigInt half of the same nine-line function is sound. `{0o42: 1}` and `{0x10: 1}` fail loudly too, but for a cruder reason (`error[E3100]: undefined identifier 'o42'` and `'x10'`, exit 1: `lex_number` never tokenizes a radix prefix, so `0o42` lexes as the number `0` followed by an identifier), where node accepts both and prints `34` and `16`. So of the four non-decimal spellings this parser meets, three fail loudly and exactly one -- legacy octal, the one JavaScript spells with no prefix at all -- is accepted and misread. That is the entry.
+'''
+
+[[case]]
+name = "r59a_computed_index_fabricated_into_a_property_name_module_scope"
+kind = "oracle"
+register_entry = "R-59"
+program = "r59a_module.js"
+verdict = "silent"
+rationale = '''
+R-59, the whole entry (one lane), module scope. Section 2's headline `Repro` verbatim -- an object literal declaring the two properties `index` and `i`, a `let` binding named `i` holding `1`, and two computed member reads whose index expressions this parser cannot read statically.
+
+WHY THESE TWO LINES AND NOT ONE. They reach DIFFERENT arms of `expression_to_property_name`, and a fix that repaired one and not the other would leave the entry open while a single-line case went green. `o[i]` reaches the `Expression::Identifier(s) => s.clone()` arm, so the fabricated name is the identifier's own text `i`; `o` declares a property named `i`, so kali reads `7`. `o[i + 0]` is a binary expression, which no arm matches, so it falls to the catch-all `_ => "index".to_string()`; `o` declares a property named `index`, so kali reads `9`. node reads `o[1]` and `o[1]` and prints `undefined` twice: neither property is the one JavaScript reads.
+
+WHY THE OBJECT DECLARES THOSE TWO PROPERTY NAMES. Only so the two fabrication arms can be told apart by their output. That is deliberate and it is the entry's whole point: the fabricated name is not a poison value that a program is unlikely to collide with, it is an ordinary identifier and an ordinary English word, and when it collides the read returns a REAL VALUE FROM THE WRONG PROPERTY at exit 0.
+
+WHY THIS IS NOT R-13, WHICH THIS PROGRAM SITS NEXT TO IN THE SAME TIER. R-13 records a computed read with a variable key returning `0`, and hypothesizes an admit-list falling through to a default. Section 2's R-59 entry disproves that hypothesis with one measurement: add a property named `k` to R-13's own repro object and its `0` becomes `99`. The `0` R-13 records is this same fabricated name MISSING; this pair pins the case where it HITS, which is the observable R-13's title cannot describe.
+
+WHAT IS DELIBERATELY NOT IN THIS PROGRAM. The optional-chained spelling `o?.[i]`, the parenthesized `o[(i)]` and the sequence `o[(0, i)]` all fabricate identically (`7`), and the two unary spellings `o[+i]` / `o[-i]` fabricate `index` (`9`) through the arm that parses and then declines to decline -- all measured, all in section 2's table, none pinned here, because each is the same two arms reached by a different route. The ARRAY lane (`const a = [5,6]; a[i]` -> `0` against node's `6`) is the same fabricated name missing, and it is not pinned here because its `0` spelling belongs to the neighbouring fabricated-zero read. The WRITE half was measured and does NOT fabricate: `o[i] = 8` leaves `o.i` at `7` on BOTH engines, so this entry is a read-lane entry and there is no second pair to owe.
+
+Expected verdict set from the register's recorded status: section 0.2's R-59 row and section 2's entry both record SILENT in both scopes -- kali exits 0 with empty stderr and prints values that differ from node's -- so SILENT.
+
+MEASURED 2026-09-08 at `35e9ef4ef6` (the tree the binary was built from) against node v26.8.1: SILENT, as recorded. kali prints `7`, `9` at exit 0 with empty stderr (0 bytes, measured); node prints `undefined`, `undefined` at exit 0. Both lines diverge.
+
+WHAT A REGRESSION HERE WOULD MEAN. If `expression_to_property_name` learns to decline -- returning `Option<String>`, with both member-parse sites recording the absence -- these reads stop resolving to a static field and this case moves off SILENT, which is the signal to re-derive the row. WHICH class it moves to is the thing to read, and it is not automatically good news: if the failed static read still emits a placeholder, the lines become `0` and `0`, the case stays SILENT and green, and the entry has moved into R-13's shape rather than closing. Only a case that turns FIXED (`undefined`, `undefined`) or FAIL_CLOSED closes R-59. A fix that merely makes the fabricated name unlikely to COLLIDE -- a reserved prefix or a sigil -- would turn this program's output into `0`, `0` and must not be read as progress; section 2's Fix direction names it as the thing not to do.
+'''
+
+[[case]]
+name = "r59a_computed_index_fabricated_into_a_property_name_in_function"
+kind = "oracle"
+register_entry = "R-59"
+program = "r59a_function.js"
+verdict = "silent"
+rationale = '''
+R-59, the whole entry (one lane), in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. Section 2 records `both scopes`, measured rather than assumed: the name is fabricated by `kali_parser` while the member expression is being parsed, before any scope exists, so scope-independence is what the mechanism predicts and this pair is here to hold that prediction rather than to restate it.
+
+MEASURED 2026-09-08 at `35e9ef4ef6` against node v26.8.1: SILENT, as recorded. kali prints `7`, `9` at exit 0 with empty stderr; node prints `undefined`, `undefined` at exit 0. Byte-identical to the module scope.
+
+THE FOUR SHAPES THAT AGREE ARE NOT PINNED BY THIS PAIR AND WERE MEASURED BY HAND at `35e9ef4ef6` against node v26.8.1, in both scopes, over `const o = {1: "one", 2: "two"}`. `o[(1)]`, `o[(0, 1)]` and `o[+1]` each print `one` on both engines -- the parenthesized arm recurses, the sequence arm takes its last element, and the `+`/`-` unary arm parses the recursive result as an `f64` and succeeds -- and `o[-1]` reads the CORRECT name `-1`, a property `o` does not have. Those four are why this entry's blast-radius matcher is narrower than R-13's, which counts all of them: they are a working lane, and counting them as this defect would be counting sites that agree with node. The `new Array(n)` receiver is the other working lane -- `const a = new Array(3); for (let i = 0; i < 3; i++) { a[i] = i * 2; }` then reading `a[i]` prints `0 2 4` on both engines, because that lane evaluates the member node's structured index child instead of its fabricated text -- and it is the reason the count is an upper bound.
+'''
+
+[[case]]
+name = "r60a_present_property_on_a_from_entries_object_reads_zero_module_scope"
+kind = "oracle"
+register_entry = "R-60"
+program = "r60a_module.js"
+verdict = "silent"
+rationale = '''
+R-60, the whole entry (one lane), module scope. Section 2's headline `Repro` verbatim -- a `const` bound to `Object.fromEntries([["a", 1]])`, and one member read of the property `a` that object HAS.
+
+WHY TWO LINES AND NOT MORE, AND WHY NO PROBE OF THE PROPERTY'S EXISTENCE SITS BESIDE THE READ. Because the two probes a reader would reach for are in different verdict classes and one of them AGREES with node, so neither can share this program. `Object.hasOwn(o, "a")` folds to `true` here, correctly, and `Object.hasOwn(o, "b")` to `false`, correctly -- `static_object_has_own` recognizes a `fromEntries` call operand directly and proves the key set from it. `Object.keys(o)` REFUSES the file (`error[E5506]: Object enumeration is only supported where the object has a compile-time-known fixed shape`, exit 1), and an error takes the whole program's exit code, so putting it in this program would classify the case FAIL_CLOSED and pin the wrong lane. Three consumers of one object give three answers; exactly one is silently wrong, and it is the one this pair pins.
+
+WHAT THAT ESTABLISHES, AND WHY IT IS THE ENTRY'S POINT. The leads this entry came from all explain the `0` by saying the object's shape is not statically known. In this very program the shape is known well enough for `hasOwn` to answer two questions correctly in the same run and the same build mode. What is unresolvable is the member read's RECEIVER, which by codegen is a scalar `0` placeholder -- `Object.fromEntries` reaches codegen unresolved and is lowered through the zero-placeholder call fallback -- and the read then falls to `emit_unary`'s default arm, which drops the receiver and pushes its own `I64Const(0)`. TWO zero-emitting sites, and the printed one is the second.
+
+THE PROPERTY IS PRESENT, WHICH IS WHAT MAKES THIS A SECTION-2 ENTRY RATHER THAN A ROW IN THE ABSENT-READ FAMILY. `o` has an own enumerable `a` worth `1`. This is not `undefined` rendered as `0`; there is a right answer and kali prints a different number, at exit 0, with no diagnostic. The genuinely absent read (`o.b` -> `0` against node's `undefined`) also diverges and is NOT this entry -- it is the pre-existing fabricated-zero lane, recorded as a measured neighbour in section 2.
+
+BOTH WARNINGS EXIST AND NEITHER REACHES THE USER, which is why the class is SILENT and not FAIL_CLOSED. kali pushes `warning[E3100] undefined call target 'fromEntries' ... lowered through a zero placeholder compatibility fallback` and `warning[E8001] unsupported unary operator 'a'`; `kali run` shows neither on this program (measured: 0 bytes of stderr, under `run`, `run --verbose` and `check` alike). They appear only in a run that also produces an error.
+
+Expected verdict set from the register's recorded status: section 0.2's R-60 row and section 2's entry both record SILENT in both scopes, so SILENT.
+
+MEASURED 2026-09-08 at `35e9ef4ef6` (the tree the binary was built from) against node v26.8.1: SILENT, as recorded. kali prints `0` at exit 0 with empty stderr (0 bytes, measured); node prints `1` at exit 0.
+
+WHAT A REGRESSION HERE WOULD MEAN. If `Object.fromEntries` is resolved -- or folded, which is the larger fix and the one section 2 recommends -- the read finds a real shape, this line becomes `1`, and the case turns FIXED and goes red against its `silent` verdict, which is the signal to close the entry. If instead the call is put on the value-builtin deny-set so it fails closed, the case turns FAIL_CLOSED and also goes red; that outcome is ACCEPTABLE here and section 2 says why, unlike the superficially similar move R-58's Fix direction rejects -- kali ALREADY refuses this program through `Object.keys`, so failing closed costs nothing that is not already lost. If the fix is made at `emit_unary`'s default arm alone, this case turns FAIL_CLOSED while the receiver stays a placeholder for every other consumer; read section 2's Fix direction before treating that as a close.
+'''
+
+[[case]]
+name = "r60a_present_property_on_a_from_entries_object_reads_zero_in_function"
+kind = "oracle"
+register_entry = "R-60"
+program = "r60a_function.js"
+verdict = "silent"
+rationale = '''
+R-60, the whole entry (one lane), in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope. Section 2 records `both scopes`, measured rather than assumed: the receiver becomes a zero placeholder at codegen because the call target is unresolved, which is a fact about name resolution and not about where the binding lives, so scope-independence is what the mechanism predicts and this pair holds the prediction.
+
+MEASURED 2026-09-08 at `35e9ef4ef6` against node v26.8.1: SILENT, as recorded. kali prints `0` at exit 0 with empty stderr; node prints `1` at exit 0. Byte-identical to the module scope.
+
+THE RECEIVER SPELLINGS AND THE TWO CONTROLS ARE NOT PINNED BY THIS PAIR AND WERE MEASURED BY HAND at `35e9ef4ef6` against node v26.8.1, in both scopes, all at exit 0 with empty stderr and node correct in every one. Every way of reaching the same receiver diverges identically: `o["a"]` -> `0`; the direct `Object.fromEntries([["a", 1]]).a` -> `0`; through `Object.freeze(...)` -> `0`; with the entries array itself bound (`const e = [["a",1]]; Object.fromEntries(e).a`) -> `0`; and a second property on a two-entry object -> `0`. The two controls are what locate the fault in the RECEIVER rather than in the member read: `({a: 1}).a` prints `1` on both engines, and `function f() { return {a: 1}; } const o = f(); console.log(o.a)` prints `1` on both engines. A member read on a plain literal is correct, and a member read on a USER function's call result is correct; it is specifically the unresolved builtin's result that reads `0`. Run with diagnostics forced to the surface, the `fromEntries` version emits both warnings and the plain-literal version emits neither.
+
+THE `--release` LANE WAS NOT MEASURED AND IS NOT PINNED. Section 7 of `docs/superpowers/followups/property-key-trim-site-classification.md` records `fold_object_from_entries_call`'s binding path as gated to Release/ReleaseAdvanced while `kali run` is Fast. There is no runner for a built artifact on this machine, so every reading above is the Fast lane and section 2's entry says so rather than guessing. A later task with a runner owes this file a Release-mode measurement before anyone claims the entry is mode-independent.
 '''

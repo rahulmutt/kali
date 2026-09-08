@@ -75,11 +75,12 @@
 #   * `computed_member_index_is_fabricated_from_the_index_expression_*` --
 #     `expression_to_property_name` invents a property name for any index shape
 #     it cannot read statically, the same fabricated-key class Tasks 2 and 5
-#     deleted elsewhere, surviving one file over;
+#     deleted elsewhere, surviving one file over (filed 2026-09-08 as R-59);
 #   * `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_
 #     zero_*` -- the fabricated `0` this file's other rationales call the
 #     "absent-property read" defect also fires on a property that is PRESENT,
-#     which is what forced those rationales to stop calling it that.
+#     which is what forced those rationales to stop calling it that
+#     (filed 2026-09-08 as R-60).
 #
 # Every expectation in the three new pairs is what kali printed at the commit
 # that adds them, measured with the live binary against node v26.8.1 in both
@@ -465,8 +466,9 @@ ABSENT-PROPERTY LANE, corrected by the final whole-branch review: the same
 fabricated `0` also comes back for a property that is PRESENT when the read
 cannot resolve its object's shape (see
 `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_
-module_scope` at the end of this file). On THIS case the property genuinely is
-absent, so the absent-property framing is accurate here; it is the defect's
+module_scope` at the end of this file, filed 2026-09-08 as R-60). On THIS case
+the property genuinely is absent, so the absent-property framing is accurate
+here; it is the defect's
 overall scope, not this line, that is wider than the name suggests. WHAT
 WOULD CLOSE IT: an absent-property read on a statically known object literal
 producing the `undefined` value rather than an `I64Const(0)` placeholder; when
@@ -657,7 +659,20 @@ WHY IT IS NOT CLOSED HERE. Closing it means returning `Option<String>` and
 teaching every caller to decline, which is a behaviour change with its own
 verification surface -- out of this documentation-only fix wave's scope. The
 doc comment on `expression_to_property_name` now names the recommendation and
-cites this case; the case is what keeps the recommendation honest."""
+cites this case; the case is what keeps the recommendation honest.
+
+FILED 2026-09-08 as R-59 (register section 2, Tier 2), at `dde0f083c0`, on the
+human's instruction. This case is unchanged and stays wrong on purpose. The
+entry re-measured both lines and adds what this rationale did not know: the
+optional-chained spelling `o?.[i]` fabricates identically (`7`); the four index
+shapes this phase DOES read statically all agree with node (`o[(1)]`,
+`o[(0, 1)]`, `o[+1]`, and `o[-1]`, which reads the correct name `-1`); the same
+fabricated name is consumed by the ARRAY lane through
+`static_member_index`, where it can never hit, so an array literal read at a
+variable index prints `0` against node's element while a `new Array(n)` receiver
+reaches a runtime-index lane and agrees; and the WRITE half does not fabricate
+(`o[i] = 8` leaves `o.i` at `7`, agreeing with node), so R-59 is a read-lane
+entry."""
 args = ["run", "computed_member_index_module.js"]
 exit = "success"
 stdout = "7\n9\n"
@@ -703,7 +718,20 @@ already recorded on `bigint_key_is_stored_under_zero_module_scope` and
 this pair only widens what those rationales are allowed to claim about it.
 WHAT WOULD CLOSE IT: a static member read that cannot resolve its object's
 shape declining to fold, instead of emitting a placeholder. When that lands,
-this expectation becomes `1\\n` and agrees with node."""
+this expectation becomes `1\\n` and agrees with node.
+
+FILED 2026-09-08 as R-60 (register section 2, Tier 2), at `dde0f083c0`, on the
+human's instruction. This case is unchanged and stays wrong on purpose. The
+entry re-measured this line and adds what this rationale did not know: THE SHAPE
+IS NOT UNRESOLVABLE TO EVERY CONSUMER. On the same object, at the same build
+mode, `Object.hasOwn(o, "a")` folds to `true` and `Object.hasOwn(o, "b")` to
+`false` -- both agreeing with node -- because `static_object_has_own` recognizes
+a `fromEntries` call directly, while `Object.keys(o)` / `Object.values(o)` /
+`Object.entries(o)` REFUSE the program (`error[E5506]: Object enumeration is
+only supported where the object has a compile-time-known fixed shape`, exit 1),
+which is a different verdict class. So this rationale's \"the member read has no
+statically known shape to resolve against\" describes this read and not the
+object: the shape is known to a sibling consumer in the same run."""
 args = ["run", "from_entries_present_property_module.js"]
 exit = "success"
 stdout = "0\n"

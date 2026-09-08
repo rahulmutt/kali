@@ -45,15 +45,17 @@ true **of the thirteen rows in §2 of this file**, none of which has been filed.
 It is no longer true of the property-key family this file's §2.5, §2.8 and §3
 belong to: the hir-property-key-identity project measured four FURTHER
 divergences that are not rows here, left them unfiled because filing is a
-human's decision, and on 2026-09-08 the human asked for them to be filed. Two of
-the four are now §2 Tier-2 register entries — **R-57** (a property key spelled
-with an escape sequence is stored undecoded) and **R-58** (a legacy-octal
+human's decision, and on 2026-09-08 the human asked for them to be filed. **All
+four are now §2 Tier-2 register entries** — **R-57** (a property key spelled
+with an escape sequence is stored undecoded), **R-58** (a legacy-octal
 numeric key is read as decimal, in the same nine-line parser function §2.8's
-corrected attribution names) — filed at `dde0f083c0` with every reading
-re-measured there against `node v26.8.1`. The remaining two are the next task on
-that branch. Nothing in §2 of this file moved, and §5's obligation list was
-exercised twice by that filing; what it turned out to be missing is recorded at
-the foot of §5.
+corrected attribution names), **R-59** (a computed member index that is not a
+literal is fabricated into a property name) and **R-60** (a PRESENT property on
+an `Object.fromEntries` object reads `0` — the residual §2.8 discloses) — filed
+at `dde0f083c0` with every reading re-measured there against `node v26.8.1`,
+R-57 and R-58 in one commit pair and R-59 and R-60 in the next. Nothing in §2 of
+this file moved, and §5's obligation list was exercised four times by that
+filing; what it turned out to be missing is recorded at the foot of §5.
 
 ## 2. The defects
 
@@ -295,7 +297,8 @@ now genuinely has no property named `0`, so this is the pre-existing
 fabricated-`0` static-member-read defect (the same defect this project met
 again on the `quoted_key_member_probe_*` cases below). It is not chased here.
 
-**Do not call that defect an "absent-property read" — it is wider than that.**
+**Do not call that defect an "absent-property read" — it is wider than that,
+and it is now filed as R-60.**
 Corrected by the hir-property-key-identity branch's final whole-branch review
 and measured at that branch's HEAD, both scopes: `const o =
 Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0` in kali and `1` in
@@ -306,6 +309,20 @@ what an unresolvable static member read emits, present property or not — a
 wrong VALUE, not only an `undefined`-rendered-as-`0`. Pinned as
 `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_*`
 in `crates/kali_cli/tests/cases/object/property_key_identity.toml`.
+
+**FILED 2026-09-08 as R-60** (§2, Tier 2), re-measured at `dde0f083c0` against
+`node v26.8.1` in both scopes rather than carried over from this paragraph —
+and the re-measurement narrowed the sentence above. *"The member read has no
+statically known shape to resolve against"* is true of the READ and false of the
+OBJECT: on the same `o`, in the same run and the same build mode,
+`Object.hasOwn(o, "a")` folds to `true` and `Object.hasOwn(o, "b")` to `false`,
+both agreeing with node, because `static_object_has_own` recognizes a
+`fromEntries` call directly. `Object.keys(o)` / `Object.values(o)` /
+`Object.entries(o)` refuse the program outright (`error[E5506]`, exit 1). Three
+consumers of one statically-known shape give three different answers, and only
+the member read is silently wrong. The `--release` lane this paragraph invokes
+was NOT re-measured — there is no runner for a built artifact on this machine —
+so the entry pins the Fast-mode lane and says so.
 
 **Pinned by** `bigint_key_is_stored_under_zero_module_scope` and
 `bigint_key_is_stored_under_zero_in_function` in

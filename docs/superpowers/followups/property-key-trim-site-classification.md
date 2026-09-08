@@ -299,6 +299,21 @@ in `crates/kali_cli/tests/cases/object/property_key_identity.toml`. Unowned by
 this project and unchanged by it; recorded so the residual is not restated more
 narrowly than it is.
 
+**FILED 2026-09-08 as R-60**, at `dde0f083c0`, on the human's instruction. This
+passage stays as written — it is the history of how the divergence was found —
+and the entry re-measured all of it rather than citing it. One sentence above is
+narrowed there rather than repeated: *"no shape is ever materialized for the read
+to consult"* is true of the READ and not of the object. On the same `o`, in the
+same Fast-mode run, `Object.hasOwn(o, "a")` folds to `true` and
+`Object.hasOwn(o, "b")` to `false` — both agreeing with node — because
+`static_object_has_own` recognizes a `fromEntries` call operand directly, while
+`Object.keys(o)` / `Object.values(o)` / `Object.entries(o)` refuse the program
+(`error[E5506]`, exit 1, measured, directly and through the binding). The §7
+Release-gating explanation therefore accounts for the ENUMERATION fold's absence
+and not for the member read's answer, and the entry says which of the two it
+measured: the Fast-mode lane, in both scopes, with no runner available on this
+machine for a `--release` artifact.
+
 ## 6. The one exception to "a key slot's text is the property name"
 
 **FILED 2026-09-08 as R-57, at `dde0f083c0`.** This section is where the

@@ -767,8 +767,13 @@ impl Optimizer {
     /// (`kali_hir`'s `lower_property_name`); both are `String(key)` -- except
     /// for a key spelled with an ESCAPE SEQUENCE, which both sides carry
     /// undecoded and therefore still agree on (section 6 of
-    /// docs/superpowers/followups/property-key-trim-site-classification.md) --
-    /// so the comparisons below are direct. They used to strip quotes off both
+    /// docs/superpowers/followups/property-key-trim-site-classification.md),
+    /// and except for a COMPUTED index this phase cannot read statically, where
+    /// the member node's text is a FABRICATED name rather than `String(key)` --
+    /// register entry **R-59** (§2, Tier 2, filed 2026-09-08) -- so the
+    /// currency claim covers the index shapes `expression_to_property_name`
+    /// actually reads and no others.
+    /// So the comparisons below are direct. They used to strip quotes off both
     /// sides, which made `delete x.a` erase the unrelated own property `'"a"'`.
     fn apply_timeline_mutation(
         &self,

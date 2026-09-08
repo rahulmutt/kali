@@ -51,6 +51,16 @@ impl Parser {
     /// one. For every OTHER shape this does NOT decline: it falls back to a
     /// fabricated name that is not the property JavaScript would read.
     ///
+    /// **That fabrication is register entry R-59** (§2, Tier 2, filed
+    /// 2026-09-08 at `dde0f083c0`), and the entry is filed for the case the
+    /// paragraphs below understate: when the fabricated name COLLIDES with a
+    /// property the receiver really has, the read does not fall to a
+    /// placeholder `0` -- it returns another property's VALUE, at exit 0, with
+    /// no diagnostic. Measured against node v26.8.1 in both scopes; pinned by
+    /// `r59a_*` in `crates/kali_cli/tests/cases/oracle/tier2.toml` and by
+    /// `computed_member_index_is_fabricated_from_the_index_expression_*` in
+    /// `crates/kali_cli/tests/cases/object/property_key_identity.toml`.
+    ///
     /// An `Identifier` (`o[i]`) returns the identifier's own TEXT, not
     /// `String(i)`'s runtime value -- `const o = {index: 9, i: 7}; let i = 1;
     /// o[i]` reads the property literally named `i` (kali: `7`, node:
