@@ -24,9 +24,9 @@ fn test_resolution_accepts_transparent_wrappers_around_permission_query_descript
                 object: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Deno".to_string()),
-                    property: "permissions".to_string(),
+                    property: Some("permissions".to_string()),
                 })),
-                property: "query".to_string(),
+                property: Some("query".to_string()),
             })),
             args: vec![wrapped_descriptor],
         }))),
@@ -70,9 +70,9 @@ fn test_resolution_rejects_unsupported_permission_query_descriptors() {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "query".to_string(),
+                    property: Some("query".to_string()),
                 })),
                 args: vec![Expression::ObjectExpression(ObjectExpression {
                     properties: vec![ObjectProperty {
@@ -92,11 +92,11 @@ fn test_resolution_rejects_unsupported_permission_query_descriptors() {
                         object: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
-                            property: "Deno".to_string(),
+                            property: Some("Deno".to_string()),
                         })),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "query".to_string(),
+                    property: Some("query".to_string()),
                 })),
                 args: vec![Expression::ObjectExpression(ObjectExpression {
                     properties: vec![ObjectProperty {
@@ -116,11 +116,11 @@ fn test_resolution_rejects_unsupported_permission_query_descriptors() {
                         object: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
-                            property: "Deno".to_string(),
+                            property: Some("Deno".to_string()),
                         })),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "query".to_string(),
+                    property: Some("query".to_string()),
                 })),
                 args: vec![wrapped_ffi_descriptor],
             }))),
@@ -134,11 +134,11 @@ fn test_resolution_rejects_unsupported_permission_query_descriptors() {
                         object: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
-                            property: "Deno".to_string(),
+                            property: Some("Deno".to_string()),
                         })),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "query".to_string(),
+                    property: Some("query".to_string()),
                 })),
                 args: vec![wrapped_sys_descriptor],
             }))),
@@ -168,7 +168,7 @@ fn test_resolution_accepts_supported_permission_query_descriptors_with_const_bin
         Expression::MemberExpression(Box::new(MemberExpression {
             computed_index: None,
             object,
-            property: property.to_string(),
+            property: Some(property.to_string()),
         }))
     }
 
@@ -233,7 +233,7 @@ fn test_resolution_accepts_supported_permission_query_descriptors_with_const_bin
         Expression::MemberExpression(Box::new(MemberExpression {
             computed_index: None,
             object,
-            property: property.to_string(),
+            property: Some(property.to_string()),
         }))
     }
 
@@ -302,9 +302,9 @@ fn test_resolution_reports_permission_escalation_members_as_unavailable() {
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "request".to_string(),
+                    property: Some("request".to_string()),
                 },
             ))),
         }),
@@ -315,9 +315,9 @@ fn test_resolution_reports_permission_escalation_members_as_unavailable() {
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "revoke".to_string(),
+                    property: Some("revoke".to_string()),
                 },
             ))),
         }),
@@ -331,12 +331,12 @@ fn test_resolution_reports_permission_escalation_members_as_unavailable() {
                             kali_ast::MemberExpression {
                                 computed_index: None,
                                 object: Expression::Identifier("globalThis".to_string()),
-                                property: "Deno".to_string(),
+                                property: Some("Deno".to_string()),
                             },
                         )),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "request".to_string(),
+                    property: Some("request".to_string()),
                 },
             ))),
         }),
@@ -350,12 +350,12 @@ fn test_resolution_reports_permission_escalation_members_as_unavailable() {
                             kali_ast::MemberExpression {
                                 computed_index: None,
                                 object: Expression::Identifier("globalThis".to_string()),
-                                property: "Deno".to_string(),
+                                property: Some("Deno".to_string()),
                             },
                         )),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "revoke".to_string(),
+                    property: Some("revoke".to_string()),
                 },
             ))),
         }),
@@ -366,9 +366,9 @@ fn test_resolution_reports_permission_escalation_members_as_unavailable() {
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "request".to_string(),
+                    property: Some("request".to_string()),
                 },
             ))),
         }),
@@ -379,9 +379,9 @@ fn test_resolution_reports_permission_escalation_members_as_unavailable() {
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
-                        property: "permissions".to_string(),
+                        property: Some("permissions".to_string()),
                     })),
-                    property: "revoke".to_string(),
+                    property: Some("revoke".to_string()),
                 },
             ))),
         }),
@@ -420,11 +420,11 @@ fn test_resolution_reports_bracketed_permission_escalation_members_as_unavailabl
             object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("globalThis".to_string()),
-                property: "Deno".to_string(),
+                property: Some("Deno".to_string()),
             })),
-            property: "permissions".to_string(),
+            property: Some("permissions".to_string()),
         })),
-        property: "request".to_string(),
+        property: Some("request".to_string()),
     }));
     let bracketed_revoke = Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
         computed_index: None,
@@ -433,11 +433,11 @@ fn test_resolution_reports_bracketed_permission_escalation_members_as_unavailabl
             object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("globalThis".to_string()),
-                property: "Deno".to_string(),
+                property: Some("Deno".to_string()),
             })),
-            property: "permissions".to_string(),
+            property: Some("permissions".to_string()),
         })),
-        property: "revoke".to_string(),
+        property: Some("revoke".to_string()),
     }));
 
     let bracketed_request_member = match &bracketed_request {

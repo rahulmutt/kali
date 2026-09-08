@@ -64,7 +64,7 @@ fn test_resolution_accepts_wrapped_call_targets_with_type_assertions_and_satisfi
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::TemplateLiteral(TemplateLiteral {

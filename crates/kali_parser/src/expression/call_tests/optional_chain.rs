@@ -20,7 +20,7 @@ fn test_parse_optional_chain_member_expression() {
     match &output.statements[0] {
         Statement::ExpressionStatement(expr_stmt) => match expr_stmt.expression.as_ref() {
             Expression::MemberExpression(member) => {
-                assert_eq!(member.property, "version");
+                assert_eq!(member.property.as_deref(), Some("version"));
                 assert!(member.computed_index.is_none());
                 assert!(
                     matches!(member.object, Expression::OptionalChainExpression(_)),

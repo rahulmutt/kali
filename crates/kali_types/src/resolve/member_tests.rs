@@ -11,11 +11,11 @@ fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
             object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("globalThis".to_string()),
-                property: "Deno".to_string(),
+                property: Some("Deno".to_string()),
             })),
-            property: "env".to_string(),
+            property: Some("env".to_string()),
         })),
-        property: "toObject".to_string(),
+        property: Some("toObject".to_string()),
     };
 
     assert_eq!(
@@ -32,9 +32,9 @@ fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
         object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
             computed_index: None,
             object: Expression::Identifier("Deno".to_string()),
-            property: "env".to_string(),
+            property: Some("env".to_string()),
         })),
-        property: "toObject".to_string(),
+        property: Some("toObject".to_string()),
     };
 
     assert_eq!(
@@ -53,7 +53,7 @@ fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
                     kali_ast::MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Deno".to_string(),
+                        property: Some("Deno".to_string()),
                     },
                 ))),
             },
@@ -74,9 +74,9 @@ fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
         object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
             computed_index: None,
             object: sequence_wrapped_object,
-            property: "env".to_string(),
+            property: Some("env".to_string()),
         })),
-        property: "toObject".to_string(),
+        property: Some("toObject".to_string()),
     };
 
     assert_eq!(
@@ -96,9 +96,9 @@ fn test_member_access_bracketed_name_for_permission_escalation() {
         object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
             computed_index: None,
             object: Expression::Identifier("Deno".to_string()),
-            property: "permissions".to_string(),
+            property: Some("permissions".to_string()),
         })),
-        property: "request".to_string(),
+        property: Some("request".to_string()),
     };
 
     assert_eq!(

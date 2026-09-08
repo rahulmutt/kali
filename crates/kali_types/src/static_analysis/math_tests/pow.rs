@@ -8,7 +8,7 @@ fn test_resolution_supports_math_pow_member_calls_for_integer_literals() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "pow".to_string(),
+                property: Some("pow".to_string()),
             })),
             args: vec![
                 Expression::Literal(LiteralValue::Number(2.0)),
@@ -33,7 +33,7 @@ fn test_resolution_supports_math_pow_member_calls_with_non_integer_base_for_zero
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "pow".to_string(),
+                property: Some("pow".to_string()),
             })),
             args: vec![
                 Expression::Literal(LiteralValue::Number(1.6)),
@@ -73,7 +73,7 @@ fn test_resolution_supports_math_pow_member_calls_with_zero_base_and_positive_in
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "pow".to_string(),
+                    property: Some("pow".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Number(0.0)),
@@ -114,7 +114,7 @@ fn test_resolution_supports_math_pow_member_calls_with_const_numeric_alias_expon
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "pow".to_string(),
+                    property: Some("pow".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Number(2.0)),
@@ -156,7 +156,7 @@ fn test_resolution_supports_math_pow_member_calls_with_negative_integer_base_and
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "pow".to_string(),
+                    property: Some("pow".to_string()),
                 })),
                 args: vec![
                     Expression::UnaryExpression(Box::new(kali_ast::UnaryExpression {
@@ -205,7 +205,7 @@ fn test_resolution_supports_math_pow_member_calls_with_negative_integer_exponent
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "pow".to_string(),
+                    property: Some("pow".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Number(1.0)),
@@ -218,7 +218,7 @@ fn test_resolution_supports_math_pow_member_calls_with_negative_integer_exponent
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "pow".to_string(),
+                    property: Some("pow".to_string()),
                 })),
                 args: vec![
                     Expression::UnaryExpression(Box::new(kali_ast::UnaryExpression {
@@ -247,7 +247,7 @@ fn test_resolution_reports_unsupported_math_pow_negative_exponents_as_unavailabl
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "pow".to_string(),
+                property: Some("pow".to_string()),
             })),
             args: vec![
                 Expression::Literal(LiteralValue::Number(2.0)),
@@ -279,7 +279,7 @@ fn test_resolution_reports_optional_chain_wrapped_math_pow_member_calls_as_unava
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: optional_chain_global_this_math(),
-                    property: "pow".to_string(),
+                    property: Some("pow".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Number(2.0)),
@@ -293,12 +293,12 @@ fn test_resolution_reports_optional_chain_wrapped_math_pow_member_calls_as_unava
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
-                        property: "freeze".to_string(),
+                        property: Some("freeze".to_string()),
                     })),
                     args: vec![Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: optional_chain_global_this_math(),
-                        property: "pow".to_string(),
+                        property: Some("pow".to_string()),
                     }))],
                 })),
                 args: vec![
@@ -312,7 +312,7 @@ fn test_resolution_reports_optional_chain_wrapped_math_pow_member_calls_as_unava
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: optional_chain_global_this_math_pow(),
-                    property: "call".to_string(),
+                    property: Some("call".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Number(2.0)),
@@ -326,7 +326,7 @@ fn test_resolution_reports_optional_chain_wrapped_math_pow_member_calls_as_unava
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
-                        property: "freeze".to_string(),
+                        property: Some("freeze".to_string()),
                     })),
                     args: vec![optional_chain_global_this_math_pow()],
                 })),
@@ -358,7 +358,7 @@ fn test_resolution_reports_math_pow_with_single_argument_as_unavailable() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "pow".to_string(),
+                property: Some("pow".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(2.0))],
         }))),
@@ -404,7 +404,7 @@ fn test_resolution_rejects_negative_const_numeric_alias_exponents_in_math_pow_me
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "pow".to_string(),
+                    property: Some("pow".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Number(2.0)),
@@ -449,7 +449,7 @@ fn test_resolution_rejects_non_integer_const_numeric_alias_exponents_in_math_pow
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "pow".to_string(),
+                    property: Some("pow".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Number(2.0)),

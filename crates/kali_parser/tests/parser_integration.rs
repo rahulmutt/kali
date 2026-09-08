@@ -745,10 +745,10 @@ mod member_expressions {
         match &output.statements[0] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(me) => {
-                    assert_eq!(me.property, "exit");
+                    assert_eq!(me.property.as_deref(), Some("exit"));
                     match &me.object {
                         kali_ast::Expression::MemberExpression(inner) => {
-                            assert_eq!(inner.property, "Deno");
+                            assert_eq!(inner.property.as_deref(), Some("Deno"));
                             match &inner.object {
                                 kali_ast::Expression::Identifier(name) => {
                                     assert_eq!(name, "globalThis");
@@ -773,10 +773,10 @@ mod member_expressions {
         match &output.statements[0] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(me) => {
-                    assert_eq!(me.property, "pid");
+                    assert_eq!(me.property.as_deref(), Some("pid"));
                     match &me.object {
                         kali_ast::Expression::MemberExpression(inner) => {
-                            assert_eq!(inner.property, "Deno");
+                            assert_eq!(inner.property.as_deref(), Some("Deno"));
                             match &inner.object {
                                 kali_ast::Expression::Identifier(name) => {
                                     assert_eq!(name, "globalThis");
@@ -801,10 +801,10 @@ mod member_expressions {
         match &output.statements[0] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(me) => {
-                    assert_eq!(me.property, "cwd");
+                    assert_eq!(me.property.as_deref(), Some("cwd"));
                     match &me.object {
                         kali_ast::Expression::MemberExpression(inner) => {
-                            assert_eq!(inner.property, "process");
+                            assert_eq!(inner.property.as_deref(), Some("process"));
                             match &inner.object {
                                 kali_ast::Expression::Identifier(name) => {
                                     assert_eq!(name, "globalThis");
@@ -823,7 +823,7 @@ mod member_expressions {
         match &output.statements[1] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(me) => {
-                    assert_eq!(me.property, "exit");
+                    assert_eq!(me.property.as_deref(), Some("exit"));
                     match &me.object {
                         kali_ast::Expression::Identifier(name) => {
                             assert_eq!(name, "process");
@@ -845,13 +845,13 @@ mod member_expressions {
         match &output.statements[0] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(me) => {
-                    assert_eq!(me.property, "get");
+                    assert_eq!(me.property.as_deref(), Some("get"));
                     match &me.object {
                         kali_ast::Expression::MemberExpression(inner) => {
-                            assert_eq!(inner.property, "env");
+                            assert_eq!(inner.property.as_deref(), Some("env"));
                             match &inner.object {
                                 kali_ast::Expression::MemberExpression(root) => {
-                                    assert_eq!(root.property, "Deno");
+                                    assert_eq!(root.property.as_deref(), Some("Deno"));
                                     match &root.object {
                                         kali_ast::Expression::Identifier(name) => {
                                             assert_eq!(name, "globalThis");
@@ -885,13 +885,13 @@ mod member_expressions {
             match statement {
                 kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                     kali_ast::Expression::MemberExpression(me) => {
-                        assert_eq!(me.property, expected_property);
+                        assert_eq!(me.property.as_deref(), Some(expected_property));
                         match &me.object {
                             kali_ast::Expression::MemberExpression(inner) => {
-                                assert_eq!(inner.property, "env");
+                                assert_eq!(inner.property.as_deref(), Some("env"));
                                 match &inner.object {
                                     kali_ast::Expression::MemberExpression(root) => {
-                                        assert_eq!(root.property, "Deno");
+                                        assert_eq!(root.property.as_deref(), Some("Deno"));
                                         match &root.object {
                                             kali_ast::Expression::Identifier(name) => {
                                                 assert_eq!(name, "globalThis");
@@ -930,13 +930,13 @@ mod member_expressions {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::AssignmentExpression(assignment) => match &assignment.left {
                     kali_ast::Expression::MemberExpression(me) => {
-                        assert_eq!(me.property, "KALI_PARSER_ENV");
+                        assert_eq!(me.property.as_deref(), Some("KALI_PARSER_ENV"));
                         match &me.object {
                             kali_ast::Expression::MemberExpression(inner) => {
-                                assert_eq!(inner.property, "env");
+                                assert_eq!(inner.property.as_deref(), Some("env"));
                                 match &inner.object {
                                     kali_ast::Expression::MemberExpression(root) => {
-                                        assert_eq!(root.property, "process");
+                                        assert_eq!(root.property.as_deref(), Some("process"));
                                         match &root.object {
                                             kali_ast::Expression::Identifier(name) => {
                                                 assert_eq!(name, "globalThis");
@@ -974,14 +974,14 @@ mod member_expressions {
                 kali_ast::Statement::ExpressionStatement(es) => {
                     match es.expression.as_ref() {
                         kali_ast::Expression::MemberExpression(me) => {
-                            assert_eq!(me.property, "query");
+                            assert_eq!(me.property.as_deref(), Some("query"));
                             match &me.object {
                                 kali_ast::Expression::MemberExpression(inner) => {
-                                    assert_eq!(inner.property, "permissions");
+                                    assert_eq!(inner.property.as_deref(), Some("permissions"));
                                     if inherited {
                                         match &inner.object {
                                             kali_ast::Expression::MemberExpression(root) => {
-                                                assert_eq!(root.property, "Deno");
+                                                assert_eq!(root.property.as_deref(), Some("Deno"));
                                                 match &root.object {
                                                 kali_ast::Expression::Identifier(name) => {
                                                     assert_eq!(name, "globalThis");
@@ -1033,14 +1033,14 @@ mod member_expressions {
             match statement {
                 kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                     kali_ast::Expression::MemberExpression(me) => {
-                        assert_eq!(me.property, property);
+                        assert_eq!(me.property.as_deref(), Some(property));
                         match &me.object {
                             kali_ast::Expression::MemberExpression(permissions) => {
-                                assert_eq!(permissions.property, "permissions");
+                                assert_eq!(permissions.property.as_deref(), Some("permissions"));
                                 if inherited {
                                     match &permissions.object {
                                         kali_ast::Expression::MemberExpression(root) => {
-                                            assert_eq!(root.property, "Deno");
+                                            assert_eq!(root.property.as_deref(), Some("Deno"));
                                             match &root.object {
                                                 kali_ast::Expression::Identifier(name) => {
                                                     assert_eq!(name, "globalThis");
@@ -1094,13 +1094,13 @@ mod member_expressions {
                 kali_ast::Statement::ExpressionStatement(es) => {
                     match es.expression.as_ref() {
                         kali_ast::Expression::MemberExpression(me) => {
-                            assert_eq!(me.property, property);
+                            assert_eq!(me.property.as_deref(), Some(property));
                             match &me.object {
                                 kali_ast::Expression::MemberExpression(permissions) => {
-                                    assert_eq!(permissions.property, "permissions");
+                                    assert_eq!(permissions.property.as_deref(), Some("permissions"));
                                     match &permissions.object {
                                         kali_ast::Expression::MemberExpression(root) => {
-                                            assert_eq!(root.property, "Deno");
+                                            assert_eq!(root.property.as_deref(), Some("Deno"));
                                             match &root.object {
                                                 kali_ast::Expression::Identifier(name) => {
                                                     assert_eq!(name, "globalThis");
@@ -1145,13 +1145,13 @@ mod member_expressions {
                 kali_ast::Statement::ExpressionStatement(es) => {
                     match es.expression.as_ref() {
                         kali_ast::Expression::MemberExpression(me) => {
-                            assert_eq!(me.property, property);
+                            assert_eq!(me.property.as_deref(), Some(property));
                             match &me.object {
                                 kali_ast::Expression::MemberExpression(permissions) => {
-                                    assert_eq!(permissions.property, "permissions");
+                                    assert_eq!(permissions.property.as_deref(), Some("permissions"));
                                     match &permissions.object {
                                         kali_ast::Expression::MemberExpression(root) => {
-                                            assert_eq!(root.property, "Deno");
+                                            assert_eq!(root.property.as_deref(), Some("Deno"));
                                             match &root.object {
                                                 kali_ast::Expression::Identifier(name) => {
                                                     assert_eq!(name, "globalThis");
@@ -1193,10 +1193,10 @@ mod member_expressions {
             |statement: &kali_ast::Statement, root: &str, property: &str| match statement {
                 kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                     kali_ast::Expression::MemberExpression(me) => {
-                        assert_eq!(me.property, property);
+                        assert_eq!(me.property.as_deref(), Some(property));
                         match &me.object {
                             kali_ast::Expression::MemberExpression(inner) => {
-                                assert_eq!(inner.property, root);
+                                assert_eq!(inner.property.as_deref(), Some(root));
                                 match &inner.object {
                                     kali_ast::Expression::Identifier(name) => {
                                         assert_eq!(name, "globalThis");
@@ -1218,7 +1218,7 @@ mod member_expressions {
             |statement: &kali_ast::Statement, property: &str| match statement {
                 kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                     kali_ast::Expression::MemberExpression(me) => {
-                        assert_eq!(me.property, property);
+                        assert_eq!(me.property.as_deref(), Some(property));
                         match &me.object {
                             kali_ast::Expression::Identifier(name) => {
                                 assert_eq!(name, "globalThis");
@@ -1239,7 +1239,7 @@ mod member_expressions {
         match &output.statements[4] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(me) => {
-                    assert_eq!(me.property, "exit");
+                    assert_eq!(me.property.as_deref(), Some("exit"));
                     match &me.object {
                         kali_ast::Expression::Identifier(name) => {
                             assert_eq!(name, "process");
@@ -1258,16 +1258,16 @@ mod member_expressions {
         match &output.statements[7] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(call) => {
-                    assert_eq!(call.property, "call");
+                    assert_eq!(call.property.as_deref(), Some("call"));
                     match &call.object {
                         kali_ast::Expression::MemberExpression(has_own_property) => {
-                            assert_eq!(has_own_property.property, "hasOwnProperty");
+                            assert_eq!(has_own_property.property.as_deref(), Some("hasOwnProperty"));
                             match &has_own_property.object {
                                 kali_ast::Expression::MemberExpression(prototype) => {
-                                    assert_eq!(prototype.property, "prototype");
+                                    assert_eq!(prototype.property.as_deref(), Some("prototype"));
                                     match &prototype.object {
                                         kali_ast::Expression::MemberExpression(object) => {
-                                            assert_eq!(object.property, "Object");
+                                            assert_eq!(object.property.as_deref(), Some("Object"));
                                             match &object.object {
                                                 kali_ast::Expression::Identifier(name) => {
                                                     assert_eq!(name, "globalThis");
@@ -1313,7 +1313,7 @@ mod member_expressions {
         match &output.statements[0] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(me) => {
-                    assert_eq!(me.property, "index");
+                    assert_eq!(me.property.as_deref(), Some("index"));
                 }
                 _ => panic!("Expected MemberExpression"),
             },

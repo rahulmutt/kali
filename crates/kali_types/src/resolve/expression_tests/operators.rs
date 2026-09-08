@@ -194,7 +194,7 @@ fn test_resolution_rejects_compound_assignment_on_non_local_targets_as_unavailab
                     left: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("target".to_string()),
-                        property: "value".to_string(),
+                        property: Some("value".to_string()),
                     })),
                     right: Expression::Literal(LiteralValue::Number(2.0)),
                 },

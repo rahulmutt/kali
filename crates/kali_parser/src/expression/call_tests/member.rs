@@ -27,11 +27,11 @@ fn test_parse_bracketed_member_expression_chain() {
             first_stmt.expression
         );
     };
-    assert_eq!(first_member.property, "DateTimeFormat");
+    assert_eq!(first_member.property.as_deref(), Some("DateTimeFormat"));
     let Expression::MemberExpression(first_root) = &first_member.object else {
         panic!("Expected first member root, got {:?}", first_member.object);
     };
-    assert_eq!(first_root.property, "Intl");
+    assert_eq!(first_root.property.as_deref(), Some("Intl"));
     assert!(matches!(first_root.object, Expression::Identifier(ref name) if name == "globalThis"));
 
     let Statement::ExpressionStatement(second_stmt) = &output.statements[1] else {
@@ -53,14 +53,14 @@ fn test_parse_bracketed_member_expression_chain() {
             second_call.callee
         );
     };
-    assert_eq!(second_member.property, "revocable");
+    assert_eq!(second_member.property.as_deref(), Some("revocable"));
     let Expression::MemberExpression(second_root) = &second_member.object else {
         panic!(
             "Expected second member root, got {:?}",
             second_member.object
         );
     };
-    assert_eq!(second_root.property, "Proxy");
+    assert_eq!(second_root.property.as_deref(), Some("Proxy"));
     assert!(matches!(second_root.object, Expression::Identifier(ref name) if name == "globalThis"));
 
     let Statement::ExpressionStatement(third_stmt) = &output.statements[2] else {
@@ -82,11 +82,11 @@ fn test_parse_bracketed_member_expression_chain() {
             third_call.callee
         );
     };
-    assert_eq!(third_member.property, "hasOwn");
+    assert_eq!(third_member.property.as_deref(), Some("hasOwn"));
     let Expression::MemberExpression(third_root) = &third_member.object else {
         panic!("Expected third member root, got {:?}", third_member.object);
     };
-    assert_eq!(third_root.property, "Object");
+    assert_eq!(third_root.property.as_deref(), Some("Object"));
     assert!(matches!(third_root.object, Expression::Identifier(ref name) if name == "globalThis"));
 
     let Statement::ExpressionStatement(fourth_stmt) = &output.statements[3] else {
@@ -101,14 +101,14 @@ fn test_parse_bracketed_member_expression_chain() {
             fourth_stmt.expression
         );
     };
-    assert_eq!(fourth_member.property, "exit");
+    assert_eq!(fourth_member.property.as_deref(), Some("exit"));
     let Expression::MemberExpression(fourth_root) = &fourth_member.object else {
         panic!(
             "Expected fourth member root, got {:?}",
             fourth_member.object
         );
     };
-    assert_eq!(fourth_root.property, "Deno");
+    assert_eq!(fourth_root.property.as_deref(), Some("Deno"));
     assert!(matches!(fourth_root.object, Expression::Identifier(ref name) if name == "globalThis"));
 
     let Statement::ExpressionStatement(fifth_stmt) = &output.statements[4] else {
@@ -123,11 +123,11 @@ fn test_parse_bracketed_member_expression_chain() {
             fifth_stmt.expression
         );
     };
-    assert_eq!(fifth_member.property, "pid");
+    assert_eq!(fifth_member.property.as_deref(), Some("pid"));
     let Expression::MemberExpression(fifth_root) = &fifth_member.object else {
         panic!("Expected fifth member root, got {:?}", fifth_member.object);
     };
-    assert_eq!(fifth_root.property, "Deno");
+    assert_eq!(fifth_root.property.as_deref(), Some("Deno"));
     assert!(matches!(fifth_root.object, Expression::Identifier(ref name) if name == "globalThis"));
 
     let Statement::ExpressionStatement(sixth_stmt) = &output.statements[5] else {
@@ -149,15 +149,15 @@ fn test_parse_bracketed_member_expression_chain() {
             sixth_call.callee
         );
     };
-    assert_eq!(sixth_member.property, "get");
+    assert_eq!(sixth_member.property.as_deref(), Some("get"));
     let Expression::MemberExpression(sixth_env) = &sixth_member.object else {
         panic!("Expected sixth env member, got {:?}", sixth_member.object);
     };
-    assert_eq!(sixth_env.property, "env");
+    assert_eq!(sixth_env.property.as_deref(), Some("env"));
     let Expression::MemberExpression(sixth_root) = &sixth_env.object else {
         panic!("Expected sixth root member, got {:?}", sixth_env.object);
     };
-    assert_eq!(sixth_root.property, "Deno");
+    assert_eq!(sixth_root.property.as_deref(), Some("Deno"));
     assert!(matches!(sixth_root.object, Expression::Identifier(ref name) if name == "globalThis"));
 
     let Statement::ExpressionStatement(seventh_stmt) = &output.statements[6] else {
@@ -179,21 +179,21 @@ fn test_parse_bracketed_member_expression_chain() {
             seventh_call.callee
         );
     };
-    assert_eq!(seventh_member.property, "query");
+    assert_eq!(seventh_member.property.as_deref(), Some("query"));
     let Expression::MemberExpression(seventh_permissions) = &seventh_member.object else {
         panic!(
             "Expected seventh permissions member, got {:?}",
             seventh_member.object
         );
     };
-    assert_eq!(seventh_permissions.property, "permissions");
+    assert_eq!(seventh_permissions.property.as_deref(), Some("permissions"));
     let Expression::MemberExpression(seventh_root) = &seventh_permissions.object else {
         panic!(
             "Expected seventh root member, got {:?}",
             seventh_permissions.object
         );
     };
-    assert_eq!(seventh_root.property, "Deno");
+    assert_eq!(seventh_root.property.as_deref(), Some("Deno"));
     assert!(
         matches!(seventh_root.object, Expression::Identifier(ref name) if name == "globalThis")
     );
@@ -210,14 +210,14 @@ fn test_parse_bracketed_member_expression_chain() {
             eighth_stmt.expression
         );
     };
-    assert_eq!(eighth_member.property, "Locale");
+    assert_eq!(eighth_member.property.as_deref(), Some("Locale"));
     let Expression::MemberExpression(eighth_root) = &eighth_member.object else {
         panic!(
             "Expected eighth member root, got {:?}",
             eighth_member.object
         );
     };
-    assert_eq!(eighth_root.property, "Intl");
+    assert_eq!(eighth_root.property.as_deref(), Some("Intl"));
     assert!(matches!(eighth_root.object, Expression::Identifier(ref name) if name == "globalThis"));
 
     let Statement::ExpressionStatement(ninth_stmt) = &output.statements[8] else {
@@ -232,7 +232,7 @@ fn test_parse_bracketed_member_expression_chain() {
             ninth_stmt.expression
         );
     };
-    assert_eq!(ninth_member.property, "WeakRef");
+    assert_eq!(ninth_member.property.as_deref(), Some("WeakRef"));
     assert!(
         matches!(ninth_member.object, Expression::Identifier(ref name) if name == "globalThis")
     );
@@ -249,11 +249,11 @@ fn test_parse_bracketed_member_expression_chain() {
             tenth_stmt.expression
         );
     };
-    assert_eq!(tenth_member.property, "DisplayNames");
+    assert_eq!(tenth_member.property.as_deref(), Some("DisplayNames"));
     let Expression::MemberExpression(tenth_root) = &tenth_member.object else {
         panic!("Expected tenth member root, got {:?}", tenth_member.object);
     };
-    assert_eq!(tenth_root.property, "Intl");
+    assert_eq!(tenth_root.property.as_deref(), Some("Intl"));
     assert!(matches!(tenth_root.object, Expression::Identifier(ref name) if name == "globalThis"));
 
     let Statement::ExpressionStatement(eleventh_stmt) = &output.statements[10] else {
@@ -268,14 +268,14 @@ fn test_parse_bracketed_member_expression_chain() {
             eleventh_stmt.expression
         );
     };
-    assert_eq!(eleventh_member.property, "PluralRules");
+    assert_eq!(eleventh_member.property.as_deref(), Some("PluralRules"));
     let Expression::MemberExpression(eleventh_root) = &eleventh_member.object else {
         panic!(
             "Expected eleventh member root, got {:?}",
             eleventh_member.object
         );
     };
-    assert_eq!(eleventh_root.property, "Intl");
+    assert_eq!(eleventh_root.property.as_deref(), Some("Intl"));
     assert!(
         matches!(eleventh_root.object, Expression::Identifier(ref name) if name == "globalThis")
     );
@@ -292,14 +292,14 @@ fn test_parse_bracketed_member_expression_chain() {
             twelfth_stmt.expression
         );
     };
-    assert_eq!(twelfth_member.property, "cwd");
+    assert_eq!(twelfth_member.property.as_deref(), Some("cwd"));
     let Expression::MemberExpression(twelfth_root) = &twelfth_member.object else {
         panic!(
             "Expected twelfth member root, got {:?}",
             twelfth_member.object
         );
     };
-    assert_eq!(twelfth_root.property, "process");
+    assert_eq!(twelfth_root.property.as_deref(), Some("process"));
     assert!(
         matches!(twelfth_root.object, Expression::Identifier(ref name) if name == "globalThis")
     );
@@ -317,14 +317,14 @@ fn test_parse_bracketed_member_expression_chain() {
             thirteenth_stmt.expression
         );
     };
-    assert_eq!(thirteenth_member.property, "exit");
+    assert_eq!(thirteenth_member.property.as_deref(), Some("exit"));
     let Expression::MemberExpression(thirteenth_root) = &thirteenth_member.object else {
         panic!(
             "Expected thirteenth member root, got {:?}",
             thirteenth_member.object
         );
     };
-    assert_eq!(thirteenth_root.property, "process");
+    assert_eq!(thirteenth_root.property.as_deref(), Some("process"));
     assert!(
         matches!(thirteenth_root.object, Expression::Identifier(ref name) if name == "globalThis")
     );
@@ -387,11 +387,11 @@ fn test_parse_dot_delete_member_expression_after_keyword_property() {
     let Expression::MemberExpression(member) = &call.callee else {
         panic!("Expected member expression callee, got {:?}", call.callee);
     };
-    assert_eq!(member.property, "delete");
+    assert_eq!(member.property.as_deref(), Some("delete"));
     let Expression::MemberExpression(root) = &member.object else {
         panic!("Expected member root, got {:?}", member.object);
     };
-    assert_eq!(root.property, "env");
+    assert_eq!(root.property.as_deref(), Some("env"));
     let Expression::Identifier(deno) = &root.object else {
         panic!("Expected Deno root, got {:?}", root.object);
     };
@@ -423,7 +423,7 @@ fn test_parse_dot_from_member_expression_after_keyword_property() {
     let Expression::MemberExpression(member) = &call.callee else {
         panic!("Expected member expression callee, got {:?}", call.callee);
     };
-    assert_eq!(member.property, "from");
+    assert_eq!(member.property.as_deref(), Some("from"));
     let Expression::Identifier(array) = &member.object else {
         panic!("Expected Array root, got {:?}", member.object);
     };
@@ -465,7 +465,7 @@ fn test_parse_keyword_property_names_after_dot() {
         let Expression::MemberExpression(member) = stmt.expression.as_ref() else {
             panic!("expected member expression, got {:?}", stmt.expression);
         };
-        assert_eq!(member.property, property);
+        assert_eq!(member.property.as_deref(), Some(property));
         assert!(
             matches!(&member.object, Expression::Identifier(name) if name == object),
             "object of .{property}: {:?}",

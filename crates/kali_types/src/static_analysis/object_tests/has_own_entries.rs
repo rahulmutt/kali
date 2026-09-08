@@ -25,7 +25,7 @@ fn test_resolution_supports_object_has_own_as_static_object_model_callable_in_br
                 init: Some(Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "hasOwn".to_string(),
+                    property: Some("hasOwn".to_string()),
                 }))),
             }],
         }),
@@ -40,11 +40,11 @@ fn test_resolution_supports_object_has_own_as_static_object_model_callable_in_br
                         object: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("Object".to_string()),
-                            property: "prototype".to_string(),
+                            property: Some("prototype".to_string()),
                         })),
-                        property: "hasOwnProperty".to_string(),
+                        property: Some("hasOwnProperty".to_string()),
                     })),
-                    property: "call".to_string(),
+                    property: Some("call".to_string()),
                 }))),
             }],
         }),
@@ -160,7 +160,7 @@ Object.prototype.hasOwnProperty.call(alias, "a");
                 init: Some(Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "hasOwn".to_string(),
+                    property: Some("hasOwn".to_string()),
                 }))),
             }],
         }),
@@ -175,11 +175,11 @@ Object.prototype.hasOwnProperty.call(alias, "a");
                         object: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("Object".to_string()),
-                            property: "prototype".to_string(),
+                            property: Some("prototype".to_string()),
                         })),
-                        property: "hasOwnProperty".to_string(),
+                        property: Some("hasOwnProperty".to_string()),
                     })),
-                    property: "call".to_string(),
+                    property: Some("call".to_string()),
                 }))),
             }],
         }),
@@ -343,7 +343,7 @@ fn test_resolution_supports_object_from_entries_with_satisfies_wrapper_in_ts_inp
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
-                        property: "fromEntries".to_string(),
+                        property: Some("fromEntries".to_string()),
                     })),
                     args: vec![Expression::Identifier("wrappedEntries".to_string())],
                 }))),
@@ -396,7 +396,7 @@ fn test_resolution_supports_same_branch_conditional_string_keys_for_object_has_o
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Object".to_string()),
-                property: "hasOwn".to_string(),
+                property: Some("hasOwn".to_string()),
             })),
             args: vec![
                 Expression::ObjectExpression(ObjectExpression {
@@ -450,7 +450,7 @@ fn test_resolution_supports_object_has_own_helpers_for_static_object_literals_an
                     kali_ast::MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
-                        property: "hasOwn".to_string(),
+                        property: Some("hasOwn".to_string()),
                     },
                 ))),
             }],
@@ -469,13 +469,13 @@ fn test_resolution_supports_object_has_own_helpers_for_static_object_literals_an
                                     kali_ast::MemberExpression {
                                         computed_index: None,
                                         object: Expression::Identifier("Object".to_string()),
-                                        property: "prototype".to_string(),
+                                        property: Some("prototype".to_string()),
                                     },
                                 )),
-                                property: "hasOwnProperty".to_string(),
+                                property: Some("hasOwnProperty".to_string()),
                             },
                         )),
-                        property: "call".to_string(),
+                        property: Some("call".to_string()),
                     },
                 ))),
             }],

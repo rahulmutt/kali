@@ -72,7 +72,7 @@ fn assert_object_helper_iteration_with_let_binding_in_js_input(helper: &str, reb
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Object".to_string()),
-                property: helper.to_string(),
+                property: Some(helper.to_string()),
             })),
             args: vec![Expression::Identifier("values".to_string())],
         })),
@@ -82,7 +82,7 @@ fn assert_object_helper_iteration_with_let_binding_in_js_input(helper: &str, reb
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("console".to_string()),
-                        property: "log".to_string(),
+                        property: Some("log".to_string()),
                     })),
                     args: vec![Expression::Identifier("item".to_string())],
                 }))),
