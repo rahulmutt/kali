@@ -277,3 +277,48 @@ fn a_runtime_array_element_store_keeps_its_lane() {
         "{diagnostics:?}"
     );
 }
+
+/// Task 4 review Important 3: every other test in this file asserts a
+/// refusal, or the absence of one — none of them would fail if
+/// `dot.children.truncate(1)` were wrong, or if `try_emit_shaped_field_store`
+/// silently returned `false` on the folded twin (that path still ends in a
+/// diagnostic, just the generic E5506 rather than a crash, so a test that
+/// only checks "no diagnostic" on an UNPRIMED shape can never observe it
+/// either). This test primes a real shape for `o` — the same pattern
+/// `object_tests`'s `computed_forin_key_access_uses_headerless_offset_zero`
+/// uses, since `parse_and_lower_lir` runs no type inference — and pins the
+/// STORE itself landing at the field's real offset, not just the absence of
+/// an error.
+#[test]
+fn a_named_bracket_store_on_a_primed_shape_actually_stores() {
+    let program = crate::test_support::parse_and_lower_lir(
+        "const o = {a: 1, b: 2}; o[\"b\"] = 8; console.log(o.b);",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let shape = ctx.repr_table.intern_shape(vec![
+        ("a".to_string(), kali_common::Repr::I64),
+        ("b".to_string(), kali_common::Repr::I64),
+    ]);
+    ctx.repr_table
+        .set_scalar("_start", "o", kali_common::Repr::Object(shape));
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(
+        result.diagnostics.iter().all(|d| !d.is_error()),
+        "a named bracket store on a primed shape must not refuse: {:?}",
+        result.diagnostics
+    );
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("printable wasm");
+    // Field "b" is index 1 of this 2-field shape, so its static offset is
+    // 1 * 8 = 8. Asserting on the exact offset (not merely "i64.store"
+    // anywhere in the module) is what distinguishes "the store landed at
+    // the right field" from some other instruction sequence that also
+    // happens to validate and also happens to emit no diagnostic.
+    assert!(
+        printed.contains("i64.store offset=8"),
+        "expected the bracket store to land at field 'b's offset (8):\n{printed}"
+    );
+}

@@ -73,3 +73,89 @@ fn a_computed_key_plain_integer_write_does_not_taint_the_field() {
         result.diagnostics
     );
 }
+
+/// Task 4 review round 2, Critical 1: the `const`-fold (and plain-variable)
+/// spelling of a computed-key write (`o[k] = <expr>`, `k` a bare identifier
+/// the parser cannot read statically) lowers to `LirNodeKind::ComputedMember`
+/// — a DIFFERENT LIR shape than the parser-named `o["a"] = <expr>` the
+/// `Value`-kind branch above matches, and one that branch's structural guard
+/// (`lhs_node.kind == LirNodeKind::Value`) does not match at all.
+/// `parse_and_lower_lir` runs no `kali_types` checker pass, so this LIR
+/// shape is reachable in this harness regardless of what the checker would
+/// say about the source program end to end today — the point is pinning the
+/// SHAPE this scan must walk (Task 5 is what will make the checker admit a
+/// `const`-folded key end to end; this scan must already cover the shape
+/// before that lands, per the coordinator's ruling on this Critical). Since
+/// this scan has no binding table and cannot resolve which field a fold
+/// names, it must taint EVERY field of the shape conservatively — pinned
+/// here by targeting a bitwise compound assign on `b`, a field the write
+/// never even names, and asserting it STILL fails closed.
+#[test]
+fn a_computed_member_bigint_write_taints_every_field_of_the_shape() {
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let shape = ctx.repr_table.intern_shape(vec![
+        ("a".to_string(), kali_common::Repr::I64),
+        ("b".to_string(), kali_common::Repr::I64),
+    ]);
+    ctx.repr_table
+        .set_scalar("_start", "o", kali_common::Repr::Object(shape));
+    ctx.repr_table.set_numeric_shape_fields(
+        [(shape, "a".to_string()), (shape, "b".to_string())]
+            .into_iter()
+            .collect(),
+    );
+    let program = parse_and_lower_lir(
+        "let o = {a: 6, b: 9}; const k = \"a\"; o[k] = 7n; o.b &= 3; console.log(o.b);",
+    );
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|d| d.is_error() && d.message.contains("a BigInt value was observed")),
+        "a computed-member (fold/variable-key) BigInt write must taint EVERY \
+         field of the shape, since this scan cannot resolve which field a \
+         fold names -- a bitwise compound assign on 'b', a field the write \
+         never even names, must still fail closed: {:?}",
+        result.diagnostics
+    );
+}
+
+/// Negative control for the `ComputedMember` branch: a plain-integer
+/// computed-member write must not taint anything, mirroring the `Value`
+/// branch's own negative control.
+#[test]
+fn a_computed_member_plain_integer_write_does_not_taint_any_field() {
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let shape = ctx.repr_table.intern_shape(vec![
+        ("a".to_string(), kali_common::Repr::I64),
+        ("b".to_string(), kali_common::Repr::I64),
+    ]);
+    ctx.repr_table
+        .set_scalar("_start", "o", kali_common::Repr::Object(shape));
+    ctx.repr_table.set_numeric_shape_fields(
+        [(shape, "a".to_string()), (shape, "b".to_string())]
+            .into_iter()
+            .collect(),
+    );
+    let program = parse_and_lower_lir(
+        "let o = {a: 6, b: 9}; const k = \"a\"; o[k] = 7; o.b &= 3; console.log(o.b);",
+    );
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(
+        !result
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("a BigInt value was observed")),
+        "a plain-integer computed-member write must not taint the shape: {:?}",
+        result.diagnostics
+    );
+}
