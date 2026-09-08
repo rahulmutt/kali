@@ -722,6 +722,23 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
 
+                // THIS IS WHERE REGISTER ENTRY R-60's `0` IS EMITTED (§2,
+                // Tier 2, filed 2026-09-08 at `02297ca6c2`). A member read whose receiver no
+                // earlier arm could classify lands here, and `kali run` does not
+                // show the warning below on a program that otherwise compiles --
+                // measured at `35e9ef4ef6`, the tree this task's binary was
+                // built from: `const o =
+                // Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0`
+                // at exit 0 with ZERO bytes of stderr, where node prints `1`.
+                // The receiver arrives unclassifiable because `Object.fromEntries`
+                // is itself lowered through the zero-placeholder call fallback
+                // (`emitter.rs`'s `push_placeholder_fallback_diagnostic`), and
+                // the property is PRESENT: `Object.hasOwn(o, "a")` folds to
+                // `true` on the same object and `Object.keys(o)` refuses the
+                // program outright with E5506. Three consumers of one
+                // statically-known shape; this is the only one that answers
+                // silently and wrongly. The REJECT-DON'T-MISCOMPILE arms above
+                // are the shape a fix for it would take.
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
                     format!("unsupported unary operator '{}'", op),

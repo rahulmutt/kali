@@ -99,6 +99,121 @@ const UPPER_BOUNDS = {
       "are counted here and are NOT this defect -- each is a string key the codegen predicate " +
       "correctly leaves alone.",
   },
+  "R-57": {
+    disclosedInRecord: true,
+    note:
+      "Upper bound, per the record: the matcher counts any string-literal key whose raw source " +
+      "text carries a backslash, and acorn accepts escapes kali's lexer refuses outright -- " +
+      "`\\u`, `\\x`, and everything outside the eleven at `crates/kali_lexer/src/string.rs:28`. " +
+      "A key spelled with one of those is counted here and diverges LOUDLY (`error[E1004]: " +
+      "unsupported string escape sequence`, exit 1), which is not this entry's silent class. " +
+      "Every key spelled with one of the eleven IS this defect, computed or not -- all eleven " +
+      "measured at `dde0f083c0` in both scopes: `Object.keys(o)[0] === \"<the same literal>\"` " +
+      "is `false` in kali and `true` in node for every one of them.",
+  },
+  "R-58": {
+    disclosedInRecord: true,
+    note:
+      "Upper bound, per the record: `0[0-7]+` is the legacy-octal SPELLING, and a spelling is " +
+      "not always a divergence. A one-digit run reads the same in both radices, so `{00: 1}` " +
+      "through `{07: 1}` are counted here and agree with node. Every longer run diverges " +
+      "(`{010: 1}` is the key `8` in node and `10` in kali). `08`/`09` are " +
+      "NonOctalDecimalIntegerLiteral, not octal, and are correctly excluded; `0o42` is excluded " +
+      "because kali's lexer never tokenizes it as one number and it fails LOUDLY (`error[E3100]: " +
+      "undefined identifier 'o42'`, exit 1). " +
+      "THIS NUMBER IS ALSO A LOWER BOUND ON R-58, WHICH NO OTHER RECORD IN THIS CATALOGUE IS, " +
+      "AND THE 0 MUST NOT BE READ AS THE FREQUENCY OF THE WHOLE DEFECT. The matcher counts " +
+      "legacy octal in OBJECT-LITERAL KEY position only, and R-58's entry establishes by " +
+      "measurement that the same misreading fires in ordinary expression position too: " +
+      "`console.log(042)` prints `42` where node prints `34` (measured at `dde0f083c0` against " +
+      "node v26.8.1, both scopes, and again through a `const` binding). That lane is a " +
+      "different parser function (`expression/primary.rs`'s numeric-literal arm, not " +
+      "`numeric_property_name`) and is counted by nothing here. The catalogue RECORD cannot " +
+      "disclose this, because a record states what its matcher counts and the matcher counts " +
+      "the key lane; the disclosure therefore lives here, beside the number a reader actually " +
+      "meets.",
+  },
+  "R-59": {
+    disclosedInRecord: true,
+    note:
+      "READS ONLY, AND THAT IS WHY THIS FIGURE IS SMALLER THAN R-13's. The matcher counts a " +
+      "computed member READ; assignment and update TARGETS are excluded, as R-60's matcher " +
+      "excludes them, because the entry measures that the write half does not fabricate: at " +
+      "`6f0df2c3db` against node v26.8.1, both scopes, `const o = {index:9, i:7}; let i = 1; " +
+      "o[i] = 8;` then `o.i` prints `7` and `o.index` prints `9` on BOTH engines at exit 0 " +
+      "with 0 bytes of stderr, and `o[i]++` over the same object is refused LOUDLY " +
+      "(`error[E5506]: update expression lowering is unavailable unless the target is a " +
+      "mutable local binding`, exit 1) where node prints `7` and `9`. Neither is this entry's " +
+      "silent read-lane class. An earlier revision of this matcher counted targets: it " +
+      "printed raw 302 / reachable 45, of which 67 raw and 18 reachable (40% of the reachable " +
+      "headline) were store targets. Those 67/18 are exactly R-13's `breakdown` storeTarget " +
+      "figures, and they are now counted by R-13's record alone. " +
+      "Upper bound, per the record: the shape is a computed index the parser cannot read " +
+      "statically, and a receiver ALLOCATED WITH `new Array(n)` reaches a runtime-index lane " +
+      "that evaluates the member node's structured index child instead of the fabricated name, " +
+      "and does not diverge. Measured at `35e9ef4ef6` against node v26.8.1, both scopes: " +
+      "`const a = new Array(3); for (let i = 0; i < 3; i++) { a[i] = i * 2; }` then reading " +
+      "`a[i]` prints `0 2 4` on BOTH engines, while the same loop over an ARRAY LITERAL " +
+      "(`const a = [5, 6, 7]`) prints `0 0 0` against node's `5 6 7`. An acorn AST cannot see " +
+      "how a receiver was allocated, so the working lane is counted here. " +
+      "SECOND, and separately from the count: the REGEX spelling `o[/x/]` is counted here and " +
+      "diverges LOUDLY rather than silently. kali's lexer has no regex-literal token, so `/x/` " +
+      "lexes as a division by the identifier `x` and the program is refused with " +
+      "`error[E3100]: undefined identifier 'x'` at exit 1, where node reads the property " +
+      "(measured at `35e9ef4ef6` against node v26.8.1, both scopes). That is not this entry's " +
+      "silent class. " +
+      "READ THIS BESIDE R-13's NOTE, NOT INSTEAD OF IT, AND DO NOT ADD THE TWO NUMBERS " +
+      "TOGETHER. The two records overlap, and NEITHER CONTAINS THE OTHER -- an earlier " +
+      "revision of this note claimed R-59's shape was a strict subset of R-13's, and the " +
+      "instrument itself disproves it. R-13's shape is `computed && property.type !== " +
+      "\"Literal\"`; R-59's asks whether `expression_to_property_name` can read the index. " +
+      "They come apart in BOTH directions, measured on the shipped module: " +
+      "`var o={}; o[true]; o[null]; o[/x/]; o[1n];` counts 0 under R-13's matcher and 4 under " +
+      "R-59's (a literal that is not READABLE), while " +
+      "`var o={1:\"one\"}; o[(1)]; o[(0,1)]; o[+1]; o[-1];` counts 3 under R-13's and 0 under " +
+      "R-59's (readable but not a LITERAL), and a third family runs R-13's way as well -- a " +
+      "STORE TARGET, which R-13's counts and R-59's now excludes. " +
+      "Both directions are correct: `o[true]`, `o[null]` " +
+      "and `o[1n]` each read the fabricated `index` property (`5` against node's `7` over " +
+      "`const o = {index: 5, true: 7}` and its siblings, measured at `35e9ef4ef6`, both " +
+      "scopes), and `o[(1)]`, `o[(0, 1)]`, `o[+1]` and `o[-1]` all read the CORRECT name. " +
+      "The two entries are also not the same defect -- R-13 records a computed read returning " +
+      "`0`, and R-59 records the same read returning the WRONG PROPERTY'S VALUE when the " +
+      "fabricated name collides with a real property, which is a different and worse " +
+      "observable. ON THIS CORPUS THE TWO MATCHERS NO LONGER PRINT THE SAME FIGURES: R-13 " +
+      "raw 302 / reachable 45 (anchor 47/43, extension 255/2), R-59 raw 235 / reachable 27 " +
+      "(anchor 27/25, extension 208/2). The relationship was measured over the frozen corpus " +
+      "file by file rather than inferred: of the 51 files with a nonzero count under either " +
+      "matcher, 30 now differ (8 of the 14 reachable ones), R-59's count exceeds R-13's in " +
+      "ZERO files, and the whole pooled difference is store targets. That ordering is a fact " +
+      "about THIS CORPUS, not containment: the corpus still contains neither of the two " +
+      "families that run the other way -- no parenthesized, sequence or folded-unary computed " +
+      "index, and no boolean, `null`, BigInt or regex one -- so the only separating family " +
+      "present here is the one R-13 counts and R-59 does not.",
+  },
+  "R-60": {
+    disclosedInRecord: false,
+    note:
+      "Upper bound NOT disclosed by the record, and a LOWER bound as well; neither direction " +
+      "is a defect in the matcher, and both are about what a member read's RECEIVER is. " +
+      "Upper: the record counts every member read on a `fromEntries` result, and the " +
+      "measurements behind R-60 are all reads of a property the object HAS or does not have " +
+      "under the default `kali run` (Fast) build mode. Whether the same read diverges under " +
+      "`--release`, where `fold_object_from_entries_call`'s binding path runs, was NOT " +
+      "measured -- there is no runner for a built artifact on this machine -- so a corpus " +
+      "counted here is counted for the mode the oracle cases pin and no other. " +
+      "Lower: the fabricated `0` is what an unresolvable static member read emits generally, " +
+      "and `Object.fromEntries` is one producer of an unresolvable receiver. The matcher " +
+      "counts that producer alone and carries no evidence about the rest of the family " +
+      "(R-21's, and the `o[1]` read in R-59's own repro). " +
+      "The neighbouring ENUMERATION consumers of the same receiver are excluded correctly and " +
+      "for a reason worth stating: `Object.keys(o)` / `Object.values(o)` / `Object.entries(o)` " +
+      "on a `fromEntries` result fail LOUDLY (`error[E5506]: Object enumeration is only " +
+      "supported where the object has a compile-time-known fixed shape`, exit 1, measured at " +
+      "`35e9ef4ef6` in both scopes, directly and through a binding), which is a different " +
+      "verdict class, and in any case the receiver is an ARGUMENT there rather than a member " +
+      "receiver.",
+  },
 };
 
 /**

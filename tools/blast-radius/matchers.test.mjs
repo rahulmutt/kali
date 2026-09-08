@@ -345,7 +345,7 @@ test("the module exports exactly the catalogue's countable matchers, by name", (
   const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
   const catalogueNames = countable.map((entry) => entry.matcher).sort();
   assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
-  assert.equal(catalogueNames.length, 38);
+  assert.equal(catalogueNames.length, 42);
 });
 
 test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling", () => {
@@ -362,6 +362,180 @@ test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling
     var f = {["\\"5\\""]: 1}; // computed, does not count
   `;
   assert.equal(count("objectLiteralQuotedNumericStringKey", src), 2);
+});
+
+test("objectLiteralEscapedStringKey counts every string key whose RAW text carries a backslash", () => {
+  // Positives: the two escapes the register's repro and its non-quote control
+  // use, a computed spelling of the same key (measured to diverge identically,
+  // so unlike R-56's matcher this one does not exclude computed), and a lone
+  // backslash. Negatives: a string key with no escape, a numeric key, an
+  // identifier key, and a string VALUE carrying an escape under an unescaped key
+  // -- the trigger is the KEY's spelling, not the property's.
+  const src = String.raw`
+    var a = {"a\"b": 1};   // counts
+    var b = {"a\nb": 1};   // counts
+    var c = {["a\"b"]: 1}; // computed, counts
+    var d = {'a\\b': 1};   // counts
+    var e = {"ab": 1};     // no escape, does not count
+    var f = {5: 1};        // numeric key, does not count
+    var g = {ab: 1};       // identifier key, does not count
+    var h = {ab: "x\ny"};  // escape is in the VALUE, does not count
+  `;
+  assert.equal(count("objectLiteralEscapedStringKey", src), 4);
+});
+
+test("objectLiteralLegacyOctalNumericKey counts the legacy-octal key spelling only", () => {
+  // Positives: the register's repro, a longer run, and a computed spelling
+  // (measured to diverge identically). Negatives: `08`/`09` are
+  // NonOctalDecimalIntegerLiteral and kali's decimal reading of them is correct;
+  // `0o42` is modern octal, which kali's lexer refuses loudly; `0` alone, a
+  // decimal, a fraction and a quoted "042" are not legacy octal at all.
+  const src = `
+    var a = {042: 1};    // counts
+    var b = {010: 1};    // counts
+    var c = {[042]: 1};  // computed, counts
+    var d = {08: 1};     // NonOctalDecimalIntegerLiteral, does not count
+    var e = {0o42: 1};   // modern octal, does not count
+    var f = {0: 1};      // plain zero, does not count
+    var g = {42: 1};     // decimal, does not count
+    var h = {0.5: 1};    // fraction, does not count
+    var i = {"042": 1};  // string key, does not count
+  `;
+  assert.equal(count("objectLiteralLegacyOctalNumericKey", src), 3);
+});
+
+test("computedMemberFabricatedPropertyName counts only the indices the parser cannot read", () => {
+  // Positives: the register's two repro arms (an identifier, and a binary
+  // expression reaching the catch-all), the optional-chained spelling of the
+  // first, a template literal, and a `+` unary whose argument's own name does
+  // NOT parse under Rust's f64 grammar. Negatives: every shape measured to read
+  // correctly at `35e9ef4ef6` -- a numeric literal, a string literal, a
+  // parenthesized literal (which acorn does not even build a node for), a
+  // sequence expression ending in a literal, and `+1`/`-1`. Plus dot access,
+  // which is not computed at all.
+  const src = `
+    var o = {index: 9, i: 7};
+    var i = 1;
+    console.log(o[i]);      // identifier arm, counts
+    console.log(o[i + 0]);  // catch-all arm, counts
+    console.log(o?.[i]);    // optional-chained, same arm, counts
+    console.log(o[\`i\`]);    // template literal, catch-all arm, counts
+    console.log(o[+i]);     // unary whose inner name "i" fails f64 parse, counts
+    console.log(o[1]);      // numeric literal, does not count
+    console.log(o["i"]);    // string literal, does not count
+    console.log(o[(1)]);    // parenthesized literal, does not count
+    console.log(o[(0, 1)]); // sequence ending in a literal, does not count
+    console.log(o[+1]);     // folded unary on a literal, does not count
+    console.log(o[-1]);     // folded unary on a literal, does not count
+    console.log(o.i);       // not computed, does not count
+  `;
+  assert.equal(count("computedMemberFabricatedPropertyName", src), 5);
+});
+
+test("computedMemberFabricatedPropertyName counts READABLE-but-not-literal indices as R-13 does not", () => {
+  // Half of the R-13/R-59 overlap boundary: the four shapes measured to read the
+  // CORRECT property name at `35e9ef4ef6`. This matcher counts none of them.
+  // R-13's "key expression is not a literal" counts THREE, not four: acorn
+  // elides parentheses, so `o[(1)]` reaches both matchers as a bare `Literal`
+  // and R-13's excludes it too. The parenthesized arm of
+  // `expression_to_property_name` is therefore invisible to this instrument in
+  // both directions -- a fact about acorn, not about kali, recorded here rather
+  // than asserted away.
+  const src = `
+    var o = {1: "one"};
+    console.log(o[(1)]);
+    console.log(o[(0, 1)]);
+    console.log(o[+1]);
+    console.log(o[-1]);
+  `;
+  assert.equal(count("computedMemberNonLiteralKey", src), 3);
+  assert.equal(count("computedMemberFabricatedPropertyName", src), 0);
+});
+
+test("computedMemberFabricatedPropertyName counts LITERAL-but-unreadable indices as R-13 does not", () => {
+  // The other half, and the one that makes the two records overlap WITHOUT
+  // either containing the other. A boolean, `null`, a BigInt and a regex literal
+  // are all `Literal` nodes, so R-13's `property.type !== "Literal"` excludes
+  // every one of them -- while `expression_to_property_name` reads none of them
+  // and all four reach the catch-all `_ => "index"` arm.
+  //
+  // Counting them is correct, measured at `35e9ef4ef6` against node v26.8.1 in
+  // both scopes: over `const o = {index: 5, true: 7}` and its `null`/`"1"`
+  // siblings, `o[true]`, `o[null]` and `o[1n]` each print `5` -- the fabricated
+  // `index` property -- where node prints `7`, at exit 0 with empty stderr.
+  // The regex spelling is the exception the record and `count.mjs`'s
+  // UPPER_BOUNDS disclose: `o[/x/]` is counted here and diverges LOUDLY
+  // (`error[E3100]: undefined identifier 'x'`, exit 1, because kali's lexer has
+  // no regex-literal token and `/x/` lexes as a division), not silently.
+  //
+  // THIS TEST EXISTS BECAUSE THE CLAIM IT PINS WAS PUBLISHED WRONG. Six
+  // documents said R-59's shape was a strict SUBSET of R-13's; these two tests
+  // are the pair that makes that statement impossible to make again.
+  const src = `var o={}; o[true]; o[null]; o[/x/]; o[1n];`;
+  assert.equal(count("computedMemberNonLiteralKey", src), 0);
+  assert.equal(count("computedMemberFabricatedPropertyName", src), 4);
+});
+
+test("computedMemberFabricatedPropertyName counts reads only, not assignment or update targets", () => {
+  // The third family that separates this matcher from R-13's, and the one this
+  // matcher was corrected for: R-13's counts every computed non-literal member
+  // node including the ones in TARGET position, this one counts reads only, as
+  // R-60's matcher does.
+  //
+  // The exclusion is a measurement, not a scope decision. R-59's entry measures
+  // the write half at `6f0df2c3db` in both scopes against node v26.8.1:
+  // `const o = {index:9, i:7}; let i = 1; o[i] = 8;` then `o.i` prints `7` and
+  // `o.index` prints `9` on BOTH engines, exit 0, 0 bytes of stderr -- the store
+  // fabricates nothing, so a store target does not trigger this defect. The
+  // update target is excluded for a second measured reason: `o[i]++` over the
+  // same object is refused LOUDLY in both scopes (`error[E5506]: update
+  // expression lowering is unavailable unless the target is a mutable local
+  // binding`, exit 1) where node prints `7` and `9`, which is not this entry's
+  // silent class either.
+  //
+  // Below: four read sites and four target sites over the same shape. The
+  // compound assignment `o[i] += 1` and the two update spellings are targets;
+  // the read INSIDE `o[o[j]] = 1` is not, and is counted.
+  const src = `
+    var o = {index: 9, i: 7};
+    var i = 1, j = 2;
+    console.log(o[i]);   // read, counts
+    console.log(o[i+0]); // read, counts
+    o[i] = 8;            // assignment target, does not count
+    o[i+0] += 1;         // compound-assignment target, does not count
+    o[i]++;              // update target, does not count
+    --o[i];              // prefix update target, does not count
+    o[o[j]] = 1;         // outer is a target; the INNER read counts
+    var x = o[j];        // read, counts
+  `;
+  assert.equal(count("computedMemberFabricatedPropertyName", src), 4);
+  // R-13's matcher, unchanged, counts all eight -- the four reads plus the four
+  // targets. That record is not reopened by this correction.
+  assert.equal(count("computedMemberNonLiteralKey", src), 9);
+});
+
+test("memberReadOnObjectFromEntriesResult follows the receiver, and counts reads only", () => {
+  // Positives: the direct read, the read through a const binding, the read
+  // through `Object.freeze`, the bracket spelling of the property, and the
+  // `globalThis.`-qualified callee. Negatives: a member STORE (a different site
+  // class, not measured), a plain object literal's read, and `Object.keys(o)` --
+  // where the fromEntries result is an ARGUMENT, not a receiver, and which fails
+  // LOUDLY rather than silently.
+  const src = `
+    var direct = Object.fromEntries([["a", 1]]).a;      // counts
+    var o = Object.fromEntries([["a", 1]]);
+    console.log(o.a);                                    // counts
+    console.log(o["a"]);                                 // counts
+    var f = Object.freeze(Object.fromEntries([["a", 1]]));
+    console.log(f.a);                                    // counts
+    var g = globalThis.Object.fromEntries([["a", 1]]);
+    console.log(g.a);                                    // counts
+    o.b = 2;                                             // store, does not count
+    console.log(Object.keys(o));                         // argument, does not count
+    var p = {a: 1};
+    console.log(p.a);                                    // plain literal, does not count
+  `;
+  assert.equal(count("memberReadOnObjectFromEntriesResult", src), 5);
 });
 
 test("the disclosure instruments name real entries and stay out of MATCHERS", () => {

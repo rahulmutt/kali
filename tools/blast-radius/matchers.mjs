@@ -342,6 +342,91 @@ function nullishSelectedOperand(node) {
   return null;
 }
 
+/**
+ * Rust's `f64: FromStr` grammar, which is what the `+`/`-` unary arm of
+ * `expression_to_property_name` runs on the name its recursive call produced
+ * (`crates/kali_parser/src/literal.rs:123-126` at `02297ca6c2`). It is NOT
+ * JavaScript's `Number()`: Rust rejects the empty string, `0x10`, and any
+ * surrounding whitespace, all of which `Number()` accepts. Written out here
+ * rather than approximated with `Number.isFinite`, because R-59's whole claim
+ * is about which shapes that `parse` declines.
+ */
+const RUST_F64_LITERAL = /^[+-]?(?:inf|infinity|nan|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)$/i;
+
+/**
+ * The property name `expression_to_property_name` would produce for a computed
+ * member's index expression, or `null` where it would FABRICATE one instead --
+ * the identifier's own text, or the literal string `index`. One arm per arm of
+ * the `match` at `crates/kali_parser/src/literal.rs:110-136`, read at
+ * `02297ca6c2`.
+ *
+ * `ParenthesizedExpression` has no arm here because acorn does not build one:
+ * `o[(1)]` parses as the bare literal, which is exactly what kali's
+ * parenthesized arm recurses to. A string literal is taken at acorn's DECODED
+ * `value`; a key whose spelling carries an escape is R-57's lane, not this one,
+ * and the two matchers are deliberately kept apart.
+ */
+function staticPropertyNameOf(node) {
+  if (!node) return null;
+  if (node.type === "Literal") {
+    if (typeof node.value === "number") return String(node.value);
+    if (typeof node.value === "string") return node.value;
+    return null; // BigInt, boolean, null, regex -- all reach the catch-all arm
+  }
+  if (node.type === "SequenceExpression") {
+    return staticPropertyNameOf(node.expressions[node.expressions.length - 1]);
+  }
+  if (node.type === "UnaryExpression" && (node.operator === "+" || node.operator === "-")) {
+    const inner = staticPropertyNameOf(node.argument);
+    if (inner === null || !RUST_F64_LITERAL.test(inner)) return null;
+    return String(node.operator === "+" ? Number(inner) : -Number(inner));
+  }
+  return null;
+}
+
+/** `Object.fromEntries` / `globalThis.Object.fromEntries`, dotted or bracketed. */
+const OBJECT_FROM_ENTRIES_NAMES = new Set(["Object.fromEntries", "globalThis.Object.fromEntries"]);
+const OBJECT_FREEZE_NAMES = new Set(["Object.freeze", "globalThis.Object.freeze"]);
+
+/** The dotted path of an identifier-rooted member chain, or null. */
+function memberPathText(node) {
+  if (!node) return null;
+  if (node.type === "Identifier") return node.name;
+  if (node.type !== "MemberExpression") return null;
+  const base = memberPathText(node.object);
+  if (base === null) return null;
+  if (!node.computed && node.property.type === "Identifier") return `${base}.${node.property.name}`;
+  if (node.computed && isStringLiteral(node.property)) return `${base}.${node.property.value}`;
+  return null;
+}
+
+/**
+ * True when `node` is, or resolves through one binding chain to, an
+ * `Object.fromEntries(...)` call -- optionally wrapped in `Object.freeze(...)`,
+ * which `fold_object_from_entries_call` sees through and which was measured to
+ * diverge identically.
+ */
+function resolvesToObjectFromEntriesCall(node, analysis, seen = new Set()) {
+  const current = node && node.type === "ChainExpression" ? node.expression : node;
+  if (!current || seen.has(current)) return false;
+  seen.add(current);
+  if (current.type === "CallExpression") {
+    const name = memberPathText(current.callee);
+    if (name === null) return false;
+    if (OBJECT_FROM_ENTRIES_NAMES.has(name)) return true;
+    if (OBJECT_FREEZE_NAMES.has(name) && current.arguments.length >= 1) {
+      return resolvesToObjectFromEntriesCall(current.arguments[0], analysis, seen);
+    }
+    return false;
+  }
+  if (current.type === "Identifier") {
+    const binding = analysis.binding(current);
+    if (!binding || !binding.init) return false;
+    return resolvesToObjectFromEntriesCall(binding.init, analysis, seen);
+  }
+  return false;
+}
+
 // --------------------------------------------------------------------------
 // The matchers
 // --------------------------------------------------------------------------
@@ -969,6 +1054,194 @@ export const MATCHERS = {
       }
     }
     return count;
+  },
+
+  // R-57: an object-literal property whose key is a STRING literal whose RAW
+  // SOURCE TEXT contains a backslash -- `{"a\"b": 1}`, `{"a\nb": 1}`. That is
+  // the whole trigger: `kali_parser`'s `unquote_string_literal` strips a key's
+  // delimiters WITHOUT decoding its escapes, so any key whose spelling carries
+  // one is stored as text that is not the property name JavaScript denotes.
+  // `key.raw` is used rather than `key.value`, because `key.value` is acorn's
+  // DECODED name and the decoded name is exactly what kali never computes.
+  //
+  // COMPUTED KEYS ARE NOT EXCLUDED, unlike R-56's matcher, and the difference is
+  // measured rather than assumed: `{["a\"b"]: 1}` diverges identically to the
+  // non-computed spelling (`Object.keys(o)[0]` prints `a\"b` against node's
+  // `a"b`, `o['a"b']` reads `0` against node's `1`), in both scopes, at
+  // `dde0f083c0`.
+  //
+  // Upper bound, per the record: acorn accepts escapes kali's lexer refuses
+  // outright (`\u`, `\x`, and every sequence outside the eleven at
+  // `crates/kali_lexer/src/string.rs:28`). A key spelled with one of those is
+  // counted here and is a LOUD `E1004` divergence, not this silent one. The
+  // disclosure is in `count.mjs`'s UPPER_BOUNDS, beside the number.
+  objectLiteralEscapedStringKey(ast) {
+    const analysis = analysisOf(ast);
+    let count = 0;
+    for (const node of analysis.of("ObjectExpression")) {
+      for (const property of node.properties) {
+        if (property.type !== "Property") continue;
+        const key = property.key;
+        if (!isStringLiteral(key)) continue;
+        if (typeof key.raw !== "string" || !key.raw.includes("\\")) continue;
+        count += 1;
+      }
+    }
+    return count;
+  },
+
+  // R-58: an object-literal property whose key is a NUMERIC literal whose RAW
+  // SOURCE TEXT is a legacy octal literal -- `0` followed by one or more octal
+  // digits, `{042: 1}`. kali reads those digits as decimal, so the key it stores
+  // is not the one JavaScript denotes. `key.raw` again, because `key.value` is
+  // acorn's correctly-octal value and the octal value is what kali never
+  // computes.
+  //
+  // The pattern is `^0[0-7]+$` exactly. `08`/`09` are NonOctalDecimalIntegerLiteral
+  // (acorn values them 8 and 9, and kali's decimal reading AGREES), `0o42` is
+  // modern octal (kali's lexer never tokenizes it as one number -- it lexes as
+  // `0` then the identifier `o42` and fails LOUDLY with `E3100`), `0` alone is
+  // an ordinary zero, and `0.5`/`0e1` are not integer digit runs. None of those
+  // is counted.
+  //
+  // Computed keys are not excluded, for the same measured reason as R-57's:
+  // `{[042]: 1}` prints `42` against node's `34` in both scopes at `dde0f083c0`,
+  // identically to the non-computed spelling.
+  //
+  // Upper bound, per the record: a run of one octal digit reads the same in both
+  // radices (`{07: 1}` is the key `7` on both engines), so `00`..`07` are counted
+  // here and do not diverge. The disclosure is in `count.mjs`'s UPPER_BOUNDS.
+  objectLiteralLegacyOctalNumericKey(ast) {
+    const analysis = analysisOf(ast);
+    let count = 0;
+    for (const node of analysis.of("ObjectExpression")) {
+      for (const property of node.properties) {
+        if (property.type !== "Property") continue;
+        const key = property.key;
+        if (!isNumericLiteral(key)) continue;
+        if (typeof key.raw !== "string" || !/^0[0-7]+$/.test(key.raw)) continue;
+        count += 1;
+      }
+    }
+    return count;
+  },
+
+  // R-59: a COMPUTED member access whose index expression is not one
+  // `expression_to_property_name` reads statically, so the parser writes a
+  // FABRICATED property name into the member node's text slot
+  // (`crates/kali_parser/src/expression/call.rs:59` for `o[e]`, `:268` for
+  // `o?.[e]`, both at `02297ca6c2`, which is the commit every source line
+  // number in this file's two newest comments resolves at) and every static consumer downstream reads that slot.
+  //
+  // THIS MATCHER AND R-13's `computedMemberNonLiteralKey` OVERLAP WITHOUT EITHER
+  // CONTAINING THE OTHER, and the two separating families were measured against
+  // the shipped module rather than reasoned about. R-13's shape is
+  // `node.computed && node.property.type !== "Literal"`; this one asks a
+  // different question -- whether `expression_to_property_name` can read the
+  // index -- and the two answers come apart in BOTH directions:
+  //
+  //   * READABLE BUT NOT A LITERAL: a parenthesized literal, a sequence ending
+  //     in one, and a `+`/`-` unary on one. R-13's counts them, this one does
+  //     not, and this one is right to decline: all were run at `35e9ef4ef6`
+  //     against node v26.8.1 in both scopes over `const o = {1: "one", 2: "two"}`
+  //     -- `o[(1)]`, `o[(0, 1)]` and `o[+1]` each print `one` on BOTH engines,
+  //     and `o[-1]` reads the correct name `-1`.
+  //   * A LITERAL BUT NOT READABLE: a boolean, `null`, a BigInt and a regex
+  //     literal all reach `_ => "index"`. This one counts them, R-13's does not,
+  //     and this one is right to count them: measured at `35e9ef4ef6`, both
+  //     scopes, over `const o = {index: 5, true: 7}` and its siblings, `o[true]`,
+  //     `o[null]` and `o[1n]` each read `5` where node reads `7` -- the
+  //     fabricated `index` property, at exit 0.
+  //   * A STORE TARGET: `o[i] = 8`, `o[i] += 1`, `o[i]++`. R-13's counts them
+  //     (and classifies them in its record's `breakdown`), this one does not --
+  //     see the reads-only paragraph below for the two measurements that
+  //     exclude them.
+  //
+  // `var o={}; o[true]; o[null]; o[/x/]; o[1n];` counts 0 under R-13's matcher
+  // and 4 under this one; `var o={1:"one"}; o[(1)]; o[(0,1)]; o[+1]; o[-1];`
+  // counts 3 under R-13's and 0 under this one; the eight-site read/target
+  // program in `matchers.test.mjs` counts 9 under R-13's and 4 under this one.
+  // All three are pinned there. ON THE FROZEN CORPUS THE TWO NO LONGER PRINT
+  // THE SAME FIGURES: R-13 raw 302 / reachable 45, this one raw 235 /
+  // reachable 27, and the whole difference is store targets (exactly R-13's
+  // `breakdown` storeTarget figures, raw 67 and reachable 18). The two
+  // separating families ABOVE are still both absent from the corpus, which is
+  // why the difference is store targets alone; that is a fact about this
+  // corpus, not containment in either direction.
+  //
+  // Upper bound, per the record, for TWO measured reasons. First, a receiver
+  // allocated with `new Array(n)` reaches a runtime-index lane that evaluates
+  // the member node's SECOND child (the structured index `kali_hir` keeps at
+  // `crates/kali_hir/src/lowering/expression.rs:54-56`) instead of the
+  // fabricated name, and does not diverge -- measured at `35e9ef4ef6`, both
+  // scopes: `const a = new Array(3); for (let i = 0; i < 3; i++) { a[i] = i * 2; }`
+  // then `a[i]` prints `0 2 4` on both engines. An acorn AST cannot see how the
+  // receiver was allocated, so those sites are counted here and are not this
+  // defect. Second, the REGEX spelling `o[/x/]` is counted here and diverges
+  // LOUDLY rather than silently: kali's lexer has no regex-literal token, so
+  // `/x/` lexes as a division by the identifier `x` and the program is refused
+  // with `error[E3100]: undefined identifier 'x'` at exit 1 where node reads the
+  // property (measured at `35e9ef4ef6`, both scopes). Both disclosures are in
+  // `count.mjs`'s UPPER_BOUNDS.
+  //
+  // READS ONLY -- assignment and update TARGETS are excluded, as R-60's matcher
+  // excludes them, and for a measured reason rather than a scope decision. The
+  // entry is a READ-lane entry because its own write-half measurement says the
+  // store does not fabricate: at `6f0df2c3db`, both scopes, against node
+  // v26.8.1, `const o = {index:9, i:7}; let i = 1; o[i] = 8;` then `o.i` prints
+  // `7` and `o.index` prints `9` on BOTH engines, at exit 0 with 0 bytes of
+  // stderr -- the store landed on neither fabricated name (it landed nowhere,
+  // which is R-13's write half and a different site class). The UPDATE target is
+  // excluded for a second measured reason: `o[i]++` over the same object is
+  // refused LOUDLY in both scopes -- `error[E5506]: update expression lowering
+  // is unavailable unless the target is a mutable local binding`, exit 1, where
+  // node prints `7` and `9` -- which is not this entry's silent class either.
+  // A store target therefore does not trigger this defect and is not counted;
+  // `matchers.test.mjs` pins that. R-13's matcher DOES count store targets, and
+  // its record's `breakdown` classifies them; that record is not reopened here.
+  computedMemberFabricatedPropertyName(ast) {
+    const analysis = analysisOf(ast);
+    const stores = new Set();
+    for (const node of analysis.of("AssignmentExpression")) stores.add(node.left);
+    for (const node of analysis.of("UpdateExpression")) stores.add(node.argument);
+    return analysis
+      .of("MemberExpression")
+      .filter((node) => !stores.has(node) && node.computed && staticPropertyNameOf(node.property) === null).length;
+  },
+
+  // R-60: a member READ whose receiver is an `Object.fromEntries(...)` result --
+  // written directly, through `Object.freeze(...)`, or through a binding whose
+  // initializer is one of those. The receiver is lowered through codegen's
+  // zero-placeholder call fallback
+  // (`crates/kali_codegen/src/emitter.rs:1294-1328`) and the read itself falls
+  // to `emit_unary`'s default arm, which drops the operand and pushes
+  // `I64Const(0)` (`crates/kali_codegen/src/emit/operators.rs:741-749`).
+  //
+  // Reads only: a member STORE is a different site class and was not measured,
+  // so assignment and update targets are excluded rather than counted on the
+  // strength of the read's behaviour.
+  //
+  // The `globalThis.`-qualified and string-bracket callee spellings are admitted
+  // because `fold_object_from_entries_call` recognizes them
+  // (`crates/kali_optimize/src/object_fold.rs:242-247`, at `02297ca6c2`), so a corpus file
+  // spelling the call that way is the same defect.
+  //
+  // This record is an upper bound in one direction and a LOWER bound in the
+  // other, and `count.mjs`'s UPPER_BOUNDS says both: the enumeration consumers
+  // of the same receiver fail LOUDLY (`E5506`, exit 1, measured) rather than
+  // silently, and are not member reads so are not counted here; and the
+  // fabricated `0` is what an unresolvable static member read emits generally,
+  // of which the `fromEntries` receiver is one producer -- the matcher counts
+  // that producer alone.
+  memberReadOnObjectFromEntriesResult(ast) {
+    const analysis = analysisOf(ast);
+    const stores = new Set();
+    for (const node of analysis.of("AssignmentExpression")) stores.add(node.left);
+    for (const node of analysis.of("UpdateExpression")) stores.add(node.argument);
+    return analysis
+      .of("MemberExpression")
+      .filter((node) => !stores.has(node) && resolvesToObjectFromEntriesCall(node.object, analysis))
+      .length;
   },
 };
 

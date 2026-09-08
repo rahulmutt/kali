@@ -87,6 +87,21 @@ impl<'a> FunctionEmitter<'a> {
     /// normalized static index -- all `String(key)` -- and the stored side is a
     /// key slot's text, which IS `String(key)` since `lower_property_name`.
     ///
+    /// **"ALL `String(key)`" IS TRUE OF THE STORED SIDE AND NOT OF THE PROBE,
+    /// AND THAT IS REGISTER ENTRY R-59** (§2, Tier 2, filed 2026-09-08).
+    /// `expression_to_property_name` reads an index statically only for a
+    /// literal, a sequence ending in one, and a folded `+`/`-` unary on one;
+    /// for every other shape it FABRICATES a name -- the identifier's own text
+    /// for `o[i]`, the literal string `index` for the catch-all. This scan then
+    /// finds that fabricated name, and if the receiver happens to declare a
+    /// property under it the read returns THAT property's value. Measured at
+    /// `35e9ef4ef6` (the tree the binary was built from) against node v26.8.1,
+    /// both scopes: over
+    /// `const o = {index: 9, i: 7}; let i = 1;`, `o[i]` reads `7` and
+    /// `o[i + 0]` reads `9` where node reads `undefined` twice. The un-quoting
+    /// symmetry this comment establishes is real; the currency claim holds only
+    /// for the index shapes that phase actually reads.
+    ///
     /// The one pre-existing exception is ESCAPE SEQUENCES: `{"a\"b": 1}` stores
     /// the undecoded four-character text `a\"b` (the delimiters are stripped,
     /// the escape is not decoded), and a probe written the SAME way -- the
@@ -98,7 +113,12 @@ impl<'a> FunctionEmitter<'a> {
     /// so a key read back out through `Object.keys` diverges again (its
     /// `.length` is 6, not 4). A probe spelled `o['a"b']` (the real, decoded
     /// name) therefore misses. Recorded and pinned, not fixed here; see
-    /// docs/superpowers/followups/property-key-trim-site-classification.md.
+    /// docs/superpowers/followups/property-key-trim-site-classification.md,
+    /// and **register entry R-57** (§2, Tier 2, filed 2026-09-08 at
+    /// `b13c890330`, off `dde0f083c0`), which now owns this divergence and its fix direction.
+    /// The fix belongs in `kali_parser`'s `unquote_string_literal`, NOT here:
+    /// un-escaping at this comparison would repeat the `trim_matches('"')`
+    /// mistake R-56's closure deleted from fourteen sites.
     ///
     /// It used to strip `"` off both sides, which is a guess at the key's type
     /// from its punctuation rather than a property-name comparison, and the

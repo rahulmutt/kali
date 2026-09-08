@@ -129,8 +129,11 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 ///
 /// Spec §4.3 freezes `predicates.json` alongside the corpus, and
 /// `corpus/README.md` says so in the same sentence -- but only the corpus half
-/// was mechanical. The catalogue was checked for COMPLETENESS (42 records ↔ 42
-/// entries, matcher names agreeing with `matchers.mjs`), which is silent about
+/// was mechanical. The catalogue was checked for COMPLETENESS (46 records ↔ 46
+/// entries as of 2026-09-08 -- the figure was written as 42 and left behind by
+/// three later re-freezes, and is corrected here rather than left to rot, which
+/// is the same failure mode the strike-throughs in `tier2.toml` exist to make
+/// visible; matcher names agreeing with `matchers.mjs`), which is silent about
 /// *which* matcher an entry maps to: swap R-13's matcher for R-14's and every
 /// completeness check stays green while both counts change.
 ///
@@ -170,10 +173,160 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// true. The next author to add an entry faces the same incentive; the record is
 /// countable because the shape is countable, and the band placement is a
 /// consequence rather than a motive.
+///
+/// **Re-frozen 2026-09-08**, the second movement of these constants, by the
+/// register-property-key-followups branch filing **R-57** (§2, Tier 2 — a key
+/// spelled with an escape sequence is stored undecoded) and **R-58** (§2,
+/// Tier 2 — a legacy-octal numeric key is read as decimal). Two §2 entries need
+/// two catalogue records for `check_completeness`, and both records are honestly
+/// COUNTABLE for the same reason R-56's is: each triggering shape is a property
+/// key spelled a particular way, which an acorn AST hands you directly. The
+/// four `uncountable` reasons (R-17, R-21, R-22, R-54 — representation,
+/// representation, runtime-type, parseability) reach neither: `{"a\"b": 1}` and
+/// `{042: 1}` are both legal, parseable JavaScript, and both matchers read
+/// `key.raw` — the SOURCE SPELLING — which is the one thing acorn preserves
+/// exactly. So `matchers.mjs` gained `objectLiteralEscapedStringKey` and
+/// `objectLiteralLegacyOctalNumericKey`, and both files moved together again.
+///
+/// `counts.json` was regenerated with them (`node count.mjs`), and the diff is
+/// again the evidence that this was an ADDITION: it added exactly two entries
+/// (R-57 and R-58, each raw 0 / reachable 0, `unsampled`) and left every other
+/// entry's every field byte-identical — with ONE exception that is a genuine
+/// reading and not a drift, disclosed here rather than smoothed over: the
+/// file's `nodeVersion` cell moved `v26.7.0` -> `v26.8.1`, because that is what
+/// `node --version` prints on this machine now. No count depends on it (the
+/// matchers run on acorn, pinned at 8.18.0, over the unchanged frozen corpus,
+/// and every other number in the file is byte-identical), but it is published
+/// provenance and it propagates into the ranking's provenance table.
+///
+/// The `countable` warning above applies unchanged to both new records, and the
+/// band placement is again a consequence: both measure zero, so both land among
+/// the tier-2 zeros rather than on the frontier.
+///
+/// **Re-frozen 2026-09-08 a second time**, the third movement of these
+/// constants, by the same branch filing **R-59** (§2, Tier 2 — a computed
+/// member index that is not a literal is fabricated into a property name) and
+/// **R-60** (§2, Tier 2 — a present property on an `Object.fromEntries` object
+/// reads `0`). Two more §2 entries, two more records, and `matchers.mjs` gained
+/// `computedMemberFabricatedPropertyName` and
+/// `memberReadOnObjectFromEntriesResult`.
+///
+/// **BOTH RECORDS ARE COUNTABLE, AND R-60's WAS THE CLOSE CALL.** R-59's shape
+/// is pure syntax — which arms of `expression_to_property_name` an index
+/// expression reaches — so it never came near the four `uncountable` reasons.
+/// R-60's did: its triggering construct is a member read whose RECEIVER is a
+/// `fromEntries` result, and a receiver is a value, which sounds like R-17's and
+/// R-21's representation condition. It is not one. The receiver here is
+/// identified by the SPELLING of the call that produced it, through at most one
+/// binding, and this module already resolves bindings for R-02, R-10, R-12,
+/// R-29, R-30 and R-47 — a binding walk reads nothing the source does not say.
+/// What WOULD have been uncountable is the wider family R-60's own
+/// `UPPER_BOUNDS` note discloses (any unresolvable static member read), and that
+/// is exactly why the record is stated at the narrow, decidable shape and the
+/// family is disclosed beside the number instead of smuggled into the matcher.
+///
+/// `counts.json` was regenerated with them (`node count.mjs`) over the unchanged
+/// frozen corpus, and `accepts.mjs` was re-run FIRST and wrote a byte-identical
+/// `accepts.json` (anchor 126/137, extension 1/40) as the evidence that corpus
+/// and binary are where they were. The `counts.json` diff adds exactly two
+/// entries and leaves every other entry's every field byte-identical — including
+/// `nodeVersion`, which stays `v26.8.1`, and the corpus hash, which stays
+/// `ca6f5333…`.
+///
+/// **THE ONE FIGURE THAT IS NOT A ZERO, AND THE ONE READING THAT CHANGES HOW IT
+/// MUST BE PUBLISHED.** R-59 measures **raw 302 / reachable 45** — the first
+/// entry filed by this branch with any frequency behind it, and the first new
+/// record since the freeze to enter a nonzero band. Those are, to the digit, the
+/// four numbers R-13's `computedMemberNonLiteralKey` already prints (anchor
+/// 47/43, extension 255/2). That is measured, not assumed, and it is not a
+/// duplicate matcher — but ~~R-59's is strictly narrower, excluding the
+/// parenthesized, sequence and folded-unary index spellings this parser reads
+/// CORRECTLY, and the corpus simply contains none of them~~ **WAS THE WRONG
+/// REASON, corrected below at the fourth re-freeze.**
+///
+/// **Re-frozen 2026-09-08 a THIRD time, the FOURTH movement of these constants,
+/// to withdraw a containment claim the instrument itself disproves.** Review
+/// round 1 found that "R-59's shape is a strict SUBSET of R-13's" is false, and
+/// the check is one line against the shipped module: `var o={}; o[true];
+/// o[null]; o[/x/]; o[1n];` counts **0** under `computedMemberNonLiteralKey` and
+/// **4** under `computedMemberFabricatedPropertyName`, while
+/// `var o={1:"one"}; o[(1)]; o[(0,1)]; o[+1]; o[-1];` counts **3** under the
+/// first and **0** under the second. R-13's shape is
+/// `computed && property.type != "Literal"`; R-59's asks whether
+/// `expression_to_property_name` can READ the index, and a boolean, `null`, a
+/// BigInt and a regex are all `Literal` nodes that it cannot read. **The two
+/// overlap and neither contains the other**, and both directions are counted
+/// correctly: measured at `35e9ef4ef6` against node v26.8.1 in both scopes,
+/// `o[true]`, `o[null]` and `o[1n]` each read the fabricated `index` property
+/// (`5` against node's `7`) at exit 0, and the four readable spellings each read
+/// the CORRECT name.
+///
+/// **The four figures are unchanged and so is every other number in
+/// `counts.json`; what moved is the EXPLANATION.** The corpus prints the same
+/// raw 302 / reachable 45 for both matchers because it contains NEITHER
+/// separating family — not because one shape contains the other. That is the
+/// distinction this re-freeze exists to publish, and it cost a record
+/// `description`, a `count.mjs` note, five documents and both SHAs to fix,
+/// because the false version had been written into all of them.
+///
+/// **A SECOND UPPER BOUND WAS FOUND IN THE SAME PASS AND IS NOW IN THE RECORD.**
+/// The regex spelling `o[/x/]` is counted by R-59's matcher and diverges
+/// **LOUDLY**, not silently: kali's lexer has no regex-literal token, so `/x/`
+/// lexes as a division by the identifier `x` and the program is refused with
+/// `error[E3100]: undefined identifier 'x'` at exit 1 where node reads the
+/// property (measured at `35e9ef4ef6`, both scopes). Unlike the caveat
+/// `2340b85335` deliberately kept OUT of R-58's record, this one IS about what
+/// the matcher counts, so it belongs in the `description` — and the record was
+/// being reopened anyway.
+///
+/// The pair `computedMemberFabricatedPropertyName counts READABLE-but-not-literal
+/// indices as R-13 does not` and `... counts LITERAL-but-unreadable indices as
+/// R-13 does not` in `matchers.test.mjs` pins both directions, so the withdrawn
+/// claim cannot be made again without a red test.
+///
+/// **Re-frozen 2026-09-08 a FOURTH time, the FIFTH movement of these constants,
+/// because R-59's matcher was counting the WRITE half of a READ-lane entry.**
+/// The final whole-branch review found that
+/// `computedMemberFabricatedPropertyName` counted assignment and update TARGETS
+/// as well as reads: of its raw 302, **67 were store targets**; of its reachable
+/// 45, **18 were** — 40% of the headline. R-59's own entry measures that a store
+/// does not fabricate, so those sites are not the defect the record names. The
+/// two measurements, re-run at `6f0df2c3db` against node v26.8.1 in **both**
+/// scopes: `const o = {index:9, i:7}; let i = 1; o[i] = 8;` then `o.i` prints
+/// `7` and `o.index` prints `9` on BOTH engines, exit 0, 0 bytes of stderr (the
+/// store lands nowhere — that is R-13's write half); and `o[i]++` over the same
+/// object is refused **LOUDLY** in both scopes (`error[E5506]: update expression
+/// lowering is unavailable unless the target is a mutable local binding`, exit
+/// 1) where node prints `7` and `9`. Neither is R-59's silent read-lane class.
+/// The matcher now excludes both, exactly as `memberReadOnObjectFromEntriesResult`
+/// already did, and the fix follows the standing constraint that a matcher is
+/// written from the entry's triggering construct rather than tuned to a count.
+///
+/// **THIS ONE MOVED FIGURES, WHICH THE THREE RE-FREEZES BEFORE IT DID NOT.**
+/// R-59 goes **raw 302 -> 235** and **reachable 45 -> 27** (anchor 47/43 ->
+/// 27/25, extension 255/2 -> 208/2). The deltas are exactly R-13's record's own
+/// `breakdown` storeTarget figures (raw 67, reachable 18; anchor 20/18,
+/// extension 47/0), which is the cross-check that the exclusion removed store
+/// targets and nothing else. `counts.json`'s whole diff is those five numbers
+/// plus R-59's `note`. R-13's record is **not** reopened: R-13's matcher counts
+/// store targets by its own description and classifies them in its breakdown.
+///
+/// **So the sentence above — that the corpus prints the same four numbers for
+/// both matchers — is now history rather than fact, and is left standing as the
+/// record of what the fourth re-freeze published.** The relationship was
+/// re-measured over the frozen corpus file by file rather than inferred: of the
+/// **51** files with a nonzero count under either matcher, **30** now differ (8
+/// of the **14** reachable ones), and R-59's count exceeds R-13's in **zero**
+/// files. That ordering holds on THIS corpus only because the corpus contains
+/// neither family that runs the other way; the containment withdrawal above
+/// stands unchanged, and store targets are simply the one separating family the
+/// corpus does exercise. `computedMemberFabricatedPropertyName counts reads
+/// only, not assignment or update targets` in `matchers.test.mjs` pins the third
+/// direction (9 under R-13's matcher, 4 under R-59's, over the same program).
 const FROZEN_PREDICATES_SHA256: &str =
-    "a90b2d095ca9f846ac151ee557ca99f9cc448d0eb3252f5f23ec7566dc6bf9bd";
+    "dffeb59fc3af02a5b582478edb498628394558b50cce741886784ebaafcd293e";
 const FROZEN_MATCHERS_SHA256: &str =
-    "08bc1a028e74a87396b3d22eda54f7c23a23bbac206263fe32f06952dde69824";
+    "19d2520978c3fa3afb96f3ca8a2c5035107e623f0925a5e976212fd86cefd701";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {

@@ -121,6 +121,18 @@
       "description": "a call to a user function whose `return` yields a comparison, `!`, or logical expression, used as a `+` concat operand or as a non-first `console.log` argument" },
     { "id": "R-56", "kind": "countable",
       "matcher": "objectLiteralQuotedNumericStringKey",
-      "description": "an object-literal property whose key is a non-computed string literal whose own text begins and ends with a double quote and whose inner text reads as a number -- upper bound, since the exact condition is that the inner text lies in Rust's `Display for f64` image, which an acorn AST cannot reproduce" }
+      "description": "an object-literal property whose key is a non-computed string literal whose own text begins and ends with a double quote and whose inner text reads as a number -- upper bound, since the exact condition is that the inner text lies in Rust's `Display for f64` image, which an acorn AST cannot reproduce" },
+    { "id": "R-57", "kind": "countable",
+      "matcher": "objectLiteralEscapedStringKey",
+      "description": "an object-literal property whose key is a string literal whose RAW SOURCE TEXT contains a backslash, computed or not -- upper bound, since acorn accepts escapes kali's lexer refuses outright (`\\u`, `\\x`, anything outside the eleven at `crates/kali_lexer/src/string.rs:28`), and a key spelled with one of those diverges LOUDLY (`E1004`, exit 1) rather than silently" },
+    { "id": "R-58", "kind": "countable",
+      "matcher": "objectLiteralLegacyOctalNumericKey",
+      "description": "an object-literal property whose key is a numeric literal whose RAW SOURCE TEXT matches legacy octal `0[0-7]+`, computed or not -- upper bound, since a single octal digit reads the same in both radices (`{07: 1}` is the key `7` on both engines) and is counted here without diverging" },
+    { "id": "R-59", "kind": "countable",
+      "matcher": "computedMemberFabricatedPropertyName",
+      "description": "a computed member READ (not a store: assignment and update targets are excluded, as R-60's matcher excludes them, because the entry's own write-half measurement shows a store fabricates nothing -- `o[i] = 8` leaves `o.i` at `7` on both engines, and `o[i]++` is refused LOUDLY with `error[E5506]` at exit 1) whose index expression is not one `expression_to_property_name` reads statically -- not a string or numeric literal, not a sequence expression whose last element is one, and not a `+`/`-` unary whose argument's own static name parses under Rust's `f64` grammar -- so the parser writes a fabricated property name into the member node's text slot; it OVERLAPS R-13's `computedMemberNonLiteralKey` without either containing the other -- R-13's counts the parenthesized, sequence and folded-unary spellings this parser reads correctly and this one does not, this one counts the boolean, `null`, BigInt and regex literals that reach the catch-all arm and R-13's does not, and R-13's counts the store targets this one excludes; upper bound for two reasons, since a receiver allocated with `new Array(n)` reaches a runtime-index lane that evaluates the structured index instead of the fabricated name and does not diverge, and an acorn AST cannot see how a receiver was allocated, and since the regex spelling `o[/x/]` diverges LOUDLY (`error[E3100]`, exit 1: kali's lexer has no regex-literal token) rather than silently" },
+    { "id": "R-60", "kind": "countable",
+      "matcher": "memberReadOnObjectFromEntriesResult",
+      "description": "a member read (not a store) whose receiver is an `Object.fromEntries(...)` result -- written directly, through `Object.freeze(...)`, or through a binding whose initializer is one of those, in the dotted or `globalThis.`-qualified or string-bracket callee spellings the fold recognizes" }
   ]
 }

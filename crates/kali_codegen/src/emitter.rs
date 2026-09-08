@@ -1280,6 +1280,22 @@ impl<'a> FunctionEmitter<'a> {
         id
     }
 
+    /// The zero-placeholder compatibility fallback, and the site the register's
+    /// **G6** cluster hypothesizes without having read: an unresolved call
+    /// target or identifier is lowered to a scalar `0` and the program keeps
+    /// going. **Register entry R-60** (§2, Tier 2, filed 2026-09-08 at
+    /// `02297ca6c2`) is one
+    /// consumer of it -- `Object.fromEntries` reaches codegen unresolved, so a
+    /// binding initialized from it holds this placeholder, and the member read
+    /// off that binding then falls to `emit/operators.rs`'s `emit_unary`
+    /// default arm and emits its own `0`. **The warning below is a warning, not
+    /// the verdict**: `kali run` does not surface it on a program that
+    /// otherwise compiles, which is why R-60 classifies SILENT and not
+    /// FAIL_CLOSED. Measured at `35e9ef4ef6` against node v26.8.1, both scopes
+    /// -- that is the tree the binary was built from; `02297ca6c2` above is the
+    /// commit the entry was FILED at, and the two are named separately because
+    /// on this branch they differ. (~~`dde0f083c0`~~ -- the branch BASE was named
+    /// here as the filing commit until the final review; it carries no entry.)
     pub(crate) fn push_placeholder_fallback_diagnostic(&mut self, kind: &str, name: &str) {
         let fallback_key = format!("{kind}:{name}");
         if !self.reported_placeholder_fallbacks.insert(fallback_key) {

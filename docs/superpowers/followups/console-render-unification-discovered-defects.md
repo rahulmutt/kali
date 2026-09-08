@@ -39,6 +39,30 @@ original `5aebc5ec3d` baseline above. The rest of this file was re-read, not
 re-measured line by line, against the same change; §2.1-§2.4, §2.6-§2.7 and
 §2.9-§2.13 were checked and found still true and are unchanged, as is §4.
 
+**Update, 2026-09-08, by the register-property-key-followups branch — and read
+this before the "None of them is filed" sentence above.** That sentence is still
+true **of the thirteen rows in §2 of this file**, none of which has been filed.
+It is no longer true of the property-key family this file's §2.5, §2.8 and §3
+belong to: the hir-property-key-identity project measured four FURTHER
+divergences that are not rows here, left them unfiled because filing is a
+human's decision, and on 2026-09-08 the human asked for them to be filed. **All
+four are now §2 Tier-2 register entries** — **R-57** (a property key spelled
+with an escape sequence is stored undecoded), **R-58** (a legacy-octal
+numeric key is read as decimal, in the same nine-line parser function §2.8's
+corrected attribution names), **R-59** (a computed member index that is not a
+literal is fabricated into a property name) and **R-60** (a PRESENT property on
+an `Object.fromEntries` object reads `0` — the residual §2.8 discloses) — filed
+off `dde0f083c0` in two commit pairs, with every reading re-measured against
+`node v26.8.1`. ~~filed at `dde0f083c0` with every reading re-measured there~~ —
+**corrected 2026-09-08 in final review, because one label cannot cover four
+entries measured on two different trees**: **R-57 and R-58** were filed at
+`b13c890330` and measured on a binary built at `dde0f083c0` (the branch base);
+**R-59 and R-60** were filed at `02297ca6c2` and measured on a binary built at
+`35e9ef4ef6`, this branch's documentation-only tip. `dde0f083c0` itself carries
+none of the four entries. Nothing in §2 of
+this file moved, and §5's obligation list was exercised four times by that
+filing; what it turned out to be missing is recorded at the foot of §5.
+
 ## 2. The defects
 
 Ordered by severity as this project would score them: silent wrong values first,
@@ -259,13 +283,28 @@ gone; a numeric key the parser genuinely cannot read is now refused through
 `Object.hasOwn(o, 0)` now correctly answers `false` and `o[42]` now correctly
 reads `1` — both agree with node.
 
+**A SECOND, STILL-OPEN DIVERGENCE LIVES IN THE SAME NINE-LINE FUNCTION, and is
+now filed as R-58.** The corrected attribution above names
+`kali_parser/src/expression/object.rs`'s numeric-key arm as where the BigInt key
+was destroyed. `numeric_property_name`, the function that arm calls, has two
+branches: the BigInt one, which `20e2de09f6` guarded against a leading zero
+(`042n` is refused, matching JavaScript's real SyntaxError), and an `f64` one
+three lines below it that parses a numeric key's digits with Rust's
+`str::parse::<f64>` and therefore has no legacy-octal grammar at all. `{042: 1}`
+is the property `42` in kali and `34` in node, at exit 0. Measured at
+`dde0f083c0` against `node v26.8.1` in both scopes and **filed 2026-09-08 as
+R-58** (§2, Tier 2). It is the sibling of the divergence this row records —
+the same function, the other branch — and the fix `20e2de09f6` shipped did not
+and could not reach it.
+
 **Residual, not closed by this fix, and not property-key identity.** `o[0]`
 still reads `0` where node reads `undefined`. The reason has changed: `{42n:1}`
 now genuinely has no property named `0`, so this is the pre-existing
 fabricated-`0` static-member-read defect (the same defect this project met
 again on the `quoted_key_member_probe_*` cases below). It is not chased here.
 
-**Do not call that defect an "absent-property read" — it is wider than that.**
+**Do not call that defect an "absent-property read" — it is wider than that,
+and it is now filed as R-60.**
 Corrected by the hir-property-key-identity branch's final whole-branch review
 and measured at that branch's HEAD, both scopes: `const o =
 Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0` in kali and `1` in
@@ -276,6 +315,22 @@ what an unresolvable static member read emits, present property or not — a
 wrong VALUE, not only an `undefined`-rendered-as-`0`. Pinned as
 `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_*`
 in `crates/kali_cli/tests/cases/object/property_key_identity.toml`.
+
+**FILED 2026-09-08 as R-60** (§2, Tier 2) at `02297ca6c2`, re-measured at
+~~`dde0f083c0`~~ **`35e9ef4ef6`** — the tree R-60's binary was actually built
+from, corrected 2026-09-08 in final review — against
+`node v26.8.1` in both scopes rather than carried over from this paragraph —
+and the re-measurement narrowed the sentence above. *"The member read has no
+statically known shape to resolve against"* is true of the READ and false of the
+OBJECT: on the same `o`, in the same run and the same build mode,
+`Object.hasOwn(o, "a")` folds to `true` and `Object.hasOwn(o, "b")` to `false`,
+both agreeing with node, because `static_object_has_own` recognizes a
+`fromEntries` call directly. `Object.keys(o)` / `Object.values(o)` /
+`Object.entries(o)` refuse the program outright (`error[E5506]`, exit 1). Three
+consumers of one statically-known shape give three different answers, and only
+the member read is silently wrong. The `--release` lane this paragraph invokes
+was NOT re-measured — there is no runner for a built artifact on this machine —
+so the entry pins the Fast-mode lane and says so.
 
 **Pinned by** `bigint_key_is_stored_under_zero_module_scope` and
 `bigint_key_is_stored_under_zero_in_function` in
@@ -467,3 +522,78 @@ why §2.10 above ended up unmeasured. Cheapness is not a reason to choose §7.
 
 Per the repo's spec §4.3, the instrument half of that work belongs in its own
 commit.
+
+**What this list turned out to be missing, found by using it — 2026-09-08, at
+`b13c890330`, filing R-57 and R-58** (~~at `dde0f083c0`~~, which is the branch
+base and carries neither entry; corrected in final review). The list above is
+accurate and was followed
+step by step; it is also incomplete, and every item below cost a red gate or a
+stale sentence to discover. A future filer should treat the list above as the
+floor, not the ceiling.
+
+**§1 says the list was exercised FOUR times; this note was written after the
+first pass, and the second pass — R-59 and R-60, at `02297ca6c2` — is recorded
+here rather than left to be inferred from the first pass's figures.** The two
+counting items below carry the FIRST pass's numbers (42 → 44 records, 38 → 40
+matcher names); the second pass moved the same two constants again, to **46**
+(`crates/kali_blast_radius/src/catalogue_tests.rs`) and **42**
+(`matchers.test.mjs`), which is the point: they are bare numbers that go stale on
+every filing. What the second pass added to this list is below the existing
+bullets, and it is the more expensive half — the first pass's misses were all
+gates that go red, and the second pass's are all things NO gate checks.
+
+- **`crates/kali_blast_radius/src/catalogue_tests.rs` asserts a record COUNT**
+  (42 -> 44 here), beside the `check_completeness` call the list already names.
+  Two constants, not one.
+- **A singleton cluster needs a `clusters.json` cluster DEFINITION as well as an
+  assignment.** The list says "a `clusters.json` membership", which reads as one
+  edit; `ranking.rs`'s "an empty cluster ranks nothing" assertion has its mirror
+  image — an assignment naming an undeclared cluster — and a singleton needs
+  both halves. R-56's RETIREMENT already recorded this asymmetry in the removal
+  direction; this is the addition direction.
+- **A countable record needs an `UPPER_BOUNDS` entry in `count.mjs`** wherever
+  the matcher is wider (or narrower) than the defect, and a test in
+  `matchers.test.mjs` — including the catalogue-name-count assertion inside it,
+  which is a bare number (38 -> 40 here) and fails with no explanation of which
+  file to edit.
+- **The ranking needs a §6 AMENDMENT, not only a re-splice.** §2-§5 are
+  generated and the gate holds them; §6 is authored, nothing checks it, and it is
+  where what the generator PRINTED gets recorded. A re-splice with no amendment
+  passes every gate and loses the reading.
+- **`oracle_tests.rs` carries the case total TWICE** — once in the assertion and
+  once in a doc comment above it — and only one of them is what the compiler
+  checks.
+- **A REGISTER ENTRY'S OWN MEASUREMENTS CONSTRAIN ITS MATCHER, AND NO GATE
+  CHECKS THAT.** (Second pass, and found only by the final whole-branch review.)
+  R-59's matcher counted assignment and update TARGETS while R-59's own entry
+  body measured that a store does not fabricate — 40% of its published reachable
+  count was a site class the entry says is not the defect. `check_completeness`
+  checks that every record HAS a matcher and the freeze checks that no matcher
+  moves without a re-pin; neither asks whether the matcher counts what the record
+  says. Read the entry body against the matcher, by hand, before publishing a
+  figure — and if a neighbouring record already publishes a `breakdown` of the
+  same sites (R-13's did), read that first.
+- **`crates/kali_cli/tests/cases/oracle/tier2.toml`'s COVERAGE header carries
+  three counts and a pass table that no gate checks; it went stale TWICE on one
+  branch.** (Second pass.) The header states the Tier-2 entry count, the entry
+  list, the case count and a per-pass table of which commit added which cases.
+  `oracle_tests.rs` checks the case TOTAL across the oracle directory and nothing
+  checks this file's prose, so filing a pair updates the cases and silently
+  leaves the header describing the file as it was. Re-derive all three by command
+  when you append: `grep -c '^\[\[case\]\]'` on the file, and the register's
+  own `### R-` headings between `## Tier 2` and `## Tier 3`.
+- **A COMMIT LABEL IS A CITATION, AND "filed at <the branch base>" resolves to
+  nothing.** (Second pass.) Both pairs were labelled `dde0f083c0` — the merge the
+  branch starts from — in roughly fifteen places: §0.2 rows, every `Added`
+  bullet, `clusters.json`, the corpus rationales and this file. A reader who
+  checks one finds no entry there. A filing label names the commit that ADDED the
+  entry; a measurement label names the tree the BINARY was built from; they are
+  frequently different commits on a documentation-heavy branch, and each needs
+  its own label.
+- **THE §6 AMENDMENT IS ALSO WHERE A LATER CORRECTION LANDS, not only where a
+  filing is recorded.** (Second pass.) Two of this branch's regenerations were
+  driven by corrections to an instrument rather than by a filing — a withdrawn
+  containment claim and the store-target exclusion above — and each is its own
+  amendment, with the superseded figures struck rather than replaced. A figure
+  that was published, banded and reasoned about does not become un-published by
+  being edited.
