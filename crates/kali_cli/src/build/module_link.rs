@@ -410,7 +410,7 @@ fn is_object_freeze_callee(callee: &Expression, bound_counts: &BTreeMap<String, 
     matches!(
         callee,
         Expression::MemberExpression(member)
-            if member.dot_name() == Some("freeze")
+            if member.static_name() == Some("freeze")
                 && matches!(&member.object, Expression::Identifier(name) if name == "Object")
                 && bound_counts.get("Object").copied().unwrap_or(0) == 0
     )
