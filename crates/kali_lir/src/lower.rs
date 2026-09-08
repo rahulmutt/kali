@@ -59,6 +59,7 @@ fn map_kind(kind: &MirNodeKind) -> LirNodeKind {
         MirNodeKind::Function => LirNodeKind::Instruction,
         MirNodeKind::Decl => LirNodeKind::Instruction,
         MirNodeKind::Expr => LirNodeKind::Value,
+        MirNodeKind::ComputedMember => LirNodeKind::ComputedMember,
         MirNodeKind::Call => LirNodeKind::Call,
         MirNodeKind::Literal => LirNodeKind::Literal,
         MirNodeKind::ControlFlow => LirNodeKind::Branch,

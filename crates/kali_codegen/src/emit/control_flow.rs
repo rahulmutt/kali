@@ -1857,6 +1857,9 @@ impl<'a> FunctionEmitter<'a> {
             }
             LirNodeKind::Literal => emit_literal(function, node.text.as_deref(), self.strings),
             LirNodeKind::Value => self.emit_value(function, id, &node, want_value),
+            LirNodeKind::ComputedMember => {
+                self.emit_computed_member(function, id, &node, want_value)
+            }
             LirNodeKind::Call => self.emit_call(function, id, &node),
             LirNodeKind::Branch => match node.text.as_deref() {
                 Some(text) if text.starts_with("break") => {

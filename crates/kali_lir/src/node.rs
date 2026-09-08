@@ -9,6 +9,10 @@ pub enum LirNodeKind {
     Block,
     Instruction,
     Value,
+    /// A computed member access `[object, index]` with no static property
+    /// name. Every recognizer that matches `Value` declines this kind by
+    /// construction; codegen's `emit_computed_member` is its only consumer.
+    ComputedMember,
     Branch,
     Call,
     Literal,

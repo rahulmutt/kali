@@ -223,6 +223,7 @@ impl<'a> FunctionEmitter<'a> {
                     | LirNodeKind::Instruction
                     | LirNodeKind::Branch
                     | LirNodeKind::Literal
+                    | LirNodeKind::ComputedMember
                     | LirNodeKind::Unknown => false,
                 }
             });
@@ -5437,6 +5438,7 @@ impl<'a> FunctionEmitter<'a> {
                 | LirNodeKind::Block
                 | LirNodeKind::Branch
                 | LirNodeKind::Call
+                | LirNodeKind::ComputedMember
                 | LirNodeKind::Unknown => false,
             }
         })

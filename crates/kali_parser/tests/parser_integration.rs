@@ -1318,7 +1318,13 @@ mod member_expressions {
         match &output.statements[0] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(me) => {
-                    assert_eq!(me.property.as_deref(), Some("index"));
+                    // `arr[index]` has an identifier index, which this parser
+                    // cannot read statically (spec §4.1); it used to fabricate
+                    // the identifier's own text as the property name (R-59).
+                    assert!(
+                        me.property.is_none(),
+                        "an identifier index has no static name"
+                    );
                 }
                 _ => panic!("Expected MemberExpression"),
             },

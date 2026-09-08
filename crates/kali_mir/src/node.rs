@@ -10,6 +10,11 @@ pub enum MirNodeKind {
     Function,
     Decl,
     Expr,
+    /// A computed member access whose index has no static name (a HIR
+    /// `MemberExpr` with no text). Kept distinct from `Expr` because kinds are
+    /// erased below HIR and a text-less two-child `Expr` would be
+    /// indistinguishable from a two-element array literal (spec §4.3).
+    ComputedMember,
     Call,
     Literal,
     ControlFlow,

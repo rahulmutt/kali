@@ -48,11 +48,18 @@ fn test_parse_optional_chain_index_expression() {
     assert_eq!(output.statements.len(), 1);
 
     // `a?.[expr]` preserves the computed index as a `MemberExpression` whose
-    // receiver is the short-circuit `OptionalChainExpression` marker.
+    // receiver is the short-circuit `OptionalChainExpression` marker. `expr`
+    // is an identifier index, which this parser cannot read statically (spec
+    // §4.1); it previously fabricated the identifier's own text (`"expr"`)
+    // as the property name.
     match &output.statements[0] {
         Statement::ExpressionStatement(expr_stmt) => match expr_stmt.expression.as_ref() {
             Expression::MemberExpression(member) => {
                 assert!(member.computed_index.is_some());
+                assert!(
+                    member.property.is_none(),
+                    "an identifier index has no static name"
+                );
                 assert!(
                     matches!(member.object, Expression::OptionalChainExpression(_)),
                     "expected optional-chain receiver, got {:?}",
