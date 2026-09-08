@@ -234,18 +234,21 @@ by **two** cases, module scope and in-function, and **the two scopes agreed on t
 class for every lane of every entry** — there is no entry in this table whose class
 depends on scope. Five entries (R-07, R-09, R-13, R-20, R-54) carry an additional
 case in `classifier_ground_truth.toml`, which measures the classifier on that
-entry's own repro; those cases agree with the tier files. **153 cases back the 42
-rows.** ~~151 cases back the 41 rows … holds 155~~ — superseded 2026-08-16 at
+entry's own repro; those cases agree with the tier files. **157 cases back the 44
+rows.** ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
+holds 155~~ — superseded 2026-08-16 at
 `3a636f62fb`, when the console-render-unification project's final whole-branch
-review added **R-56** with its own two-case scope pair. The oracle directory holds
-157; the other four carry
+review added **R-56** with its own two-case scope pair, and again 2026-09-08 at
+`dde0f083c0`, when the register-property-key-followups branch added **R-57** and
+**R-58** with a two-case scope pair each. The oracle directory holds
+161 (~~157~~); the other four carry
 `register_entry = "GROUND-TRUTH"`, measure the classifier rather than any entry,
 and are therefore attributable to no row — `agree.js`, `both_reject.js`,
 `hang.js` and `nondeterministic.js`. A reader auditing the mapping should expect
 those four to be unattributed, and should treat any *other* unattributed case as
 a defect.
 
-| entry | status measured at `62b11a78c3` (2026-08-16; three rows moved, the rest re-verified — except **R-56**, added 2026-08-16 at `3a636f62fb`, measured there, and **re-measured and RETIRED at `12fd424897`** the same day) | note |
+| entry | status measured at `62b11a78c3` (2026-08-16; three rows moved, the rest re-verified — except **R-56**, added 2026-08-16 at `3a636f62fb`, measured there, and **re-measured and RETIRED at `12fd424897`** the same day; and except **R-57** and **R-58**, added 2026-09-08 and measured at `dde0f083c0` against `node v26.8.1`) | note |
 |---|---|---|
 | R-01 default param truncates module | **FAIL_CLOSED** (both scopes) | E5506 "a default parameter is not supported", all forms; no truncation. Class unchanged since the 2026-07-24 row — this is the first time a case has held it. kali's stdout is empty where node prints `A`/`B`, so nothing is truncated *and* nothing is printed. |
 | R-02 call through fn value → 0 | **FAIL_CLOSED** (both scopes) | every broken lane E5506 (the recommended G2 interim fix); callee never runs, but honestly. Supported set unchanged (direct call, const-arrow/fnlit, IIFE, sibling capture). The refusal is preceded by a `warning[E3100] undefined identifier … lowered through a zero placeholder compatibility fallback` — a warning, not the verdict. |
@@ -290,6 +293,8 @@ a defect.
 | R-53 `for (var v of […])` — **and `for (let v of […])`** — binds every element to `0` | **SILENT** (`var` loop variable `r53v`; `let` loop variable `r53l`) / **FIXED** (`const` loop variable `r53c`), both scopes | the 2026-07-29 widening holds at `4cfa218814`: `let` is affected as well as `var`, measured on the entry's own separately-dated four-element fixture. In every silent lane **the trip count is correct and only the bound value is lost** (`iter=0` ×3 or ×4, `t=0`/`s=0`, against node's `1..3`/`t=6` and `1..4`/`s=10`). The silent surface remains *for-of over an **array literal** with a **`var` or `let`** loop variable*; over a binding iterable kali refuses. **The `const` lane's FIXED is a LANE result the entry itself declares as its control — it does not retire R-53.** Distinct from **R-47**, which is `for..of` over a `let`-declared array BINDING iterating the binding's NAME; this is the loop VARIABLE's declarator kind over an array LITERAL. Consequence for probe design is unchanged: `for (var v of …)` must not be used as a faithful-loop control. |
 | R-54 a second `default` clause is absorbed into the first (node: `SyntaxError`) | **ACCEPTS_INVALID** (both scopes) | added 2026-07-29, originally measured on `58234e87c7`. Both halves still reproduce: kali prints `v=d2` **and** `g=5` at exit 0, so the clauses are still MERGING rather than replacing; node refuses the whole file with `SyntaxError: More than one default clause in switch statement` at exit 1. `g=5` is the load-bearing half — `v=d2` alone would be consistent with replacement. A second case in `classifier_ground_truth.toml` pins the ACCEPTS_INVALID class on the same repro. Only invalid JS is affected. Cluster **G1**, same function as R-49 and independent of it. |
 | R-56 string key `'"5"'` collides with HIR's numeric-key marker | **FIXED** (both scopes) | **RETIRED 2026-08-16 at `12fd424897` by the hir-property-key-identity project — every lane of this entry moved, which is the rule §3.4 of the ranking states.** This row is re-derived from the two `r56a` cases, which now assert `fixed`; the gate at `crates/kali_blast_radius/src/oracle_tests.rs:172` named the mismatch first and the row followed it, rather than the other way round. **Re-measured at `12fd424897` against `node v26.7.0`, both scopes, byte-identical**: `const o = {'"5"': 1}` prints `1`, `true`, `false` at exit 0 with empty stderr, and node prints the same three lines at exit 0. What closed it is `4a69275c63`: `lower_property_name` now stores `String(key)` for a numeric key instead of wrapping it in double quotes, so `{5: 1}` and `{'"5"': 1}` no longer share one text — the fix direction this entry's own **Fix direction** bullet named, taken at the only place it could be taken. `KeyTextSlot`, `is_hir_numeric_key_spelling` and its NaN guard went with it, and `c4245eac62` deleted all fourteen double-quote un-marking sites that existed only to undo the marker. **WHAT IS PINNED BY A LIVE CASE**: the whole entry, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `12fd424897`: the full `hasOwn` 2x2 with both member-read controls — all six cells agree with node where two disagreed at `3a636f62fb`; the same key spelled with escapes (`{"\"5\"": 1}`); and the four shapes the `objectLiteralQuotedNumericStringKey` matcher counts that are wider than the defect and never were it (`'"1.5"'`, `'"1e21"'`, `'"05"'`, `'"5."'`). Nothing under this entry's title was found still colliding. ~~added 2026-08-16 by the console-render-unification project's final whole-branch review, measured at `3a636f62fb` … prints `1` for `o['"5"']` and `false` for `Object.hasOwn(o, '"5"')` in the same run at exit 0, and `true` for `Object.hasOwn(o, 5)` where node says `false`.~~ **One cell of it REGRESSED on the branch that filed it and a different cell was FIXED by that branch** — see §2's 2x2, which carries all six measured values, the pre-branch column and now the closing column; that history is why the entry was filed for the whole collision rather than for the regressed cell, and it is preserved rather than rewritten. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`), so it left the ranking without moving any other cluster's frequency; its `clusters.json` singleton was removed by the same rule that removed R-32's and R-33's G8 rows. |
+| R-57 a key spelled with an escape sequence is stored undecoded | **SILENT** (both scopes) | **added 2026-09-08 at `dde0f083c0`** by the register-property-key-followups branch, at the human's instruction to file what the hir-property-key-identity project measured and left unfiled. This row is derived from the two `r57a` cases; the gate at `crates/kali_blast_radius/src/oracle_tests.rs` named the missing row before it was written, rather than the other way round. **Measured at `dde0f083c0` against `node v26.8.1`, both scopes, byte-identical**: over `const o = {"a\"b": 1}`, kali prints `a\"b 6`, `false`, `false` at exit 0 with empty stderr where node prints `a"b 3`, `true`, `true` at exit 0. The property's name is the three characters `a"b`; `kali_parser`'s `unquote_string_literal` strips a key's delimiters without decoding its escapes, so the key slot holds four characters, and `fold_object_enumeration_call`'s `format!("{key:?}")` escapes that text a SECOND time on the way out, which is where the `6` comes from. **WHAT IS PINNED BY A LIVE CASE**: the enumerated key's text and length, the strict-equality probe, and `Object.hasOwn` with the decoded name — one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `dde0f083c0`: the two same-spelling probes that AGREE with node (`o["a\"b"]` → `1`, `Object.hasOwn(o, "a\"b")` → `true`, and they agree only because both sides are byte-identical undecoded text — the trap this entry exists to make visible); the member read `o['a"b']` (kali `0`, node `1`); all eleven of the lexer's escapes as key spellings, every one of which diverges; and the computed spelling `{["a\"b"]: 1}`, which diverges identically. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`), so it adds a tier-2 cluster with no frequency behind it. Two neighbouring divergences are recorded in §2's entry as measured and explicitly NOT this entry: `"a\"b".length` → `4` (a plain string literal, no key in the program) and `Object.keys(o)[0].length` → `2` (the array-element `.length` lane already attributed to R-17's family). |
+| R-58 a legacy-octal numeric key is read as decimal | **SILENT** (both scopes) | **added 2026-09-08 at `dde0f083c0`** by the register-property-key-followups branch, from the same instruction and the same gate. **Measured at `dde0f083c0` against `node v26.8.1`, both scopes, byte-identical**: over `const o = {042: 1}`, kali prints `42`, `false`, `true` at exit 0 with empty stderr where node prints `34`, `true`, `false` at exit 0. `042` is a `LegacyOctalIntegerLiteral` denoting decimal 34 in sloppy mode, which is what a `.js` entry file runs in on both engines; `numeric_property_name`'s `f64` arm parses the digits with Rust's grammar, which has no legacy octal in it. The last two lines are R-56's signature at a second address — one run denies a property the object has and affirms one it does not. **WHAT IS PINNED BY A LIVE CASE**: those three lines, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `dde0f083c0`: the member reads (`o[34]` → `0` against node's `1`, `o[42]` → `1` against node's `undefined`); the value lane outside key position (`console.log(042)` → `42` against node's `34`, and the same through a `const` binding), which no lead recorded and which widens the entry past its own title; the three non-decimal controls (`{042n: 1}` and, for a cruder lexer reason, `{0o42: 1}` and `{0x10: 1}` all fail LOUDLY at exit 1); and the upper-bound boundary (`{07: 1}` agrees with node, `{010: 1}` does not). **A SECOND LANE IS MEASURED AND IS NOT IN THIS ROW'S CLASS SET**: under `"use strict"` — and in an ES module — node refuses the file with `SyntaxError: Octal literals are not allowed in strict mode.` at exit 1 while kali accepts it and prints `42` at exit 0, which classifies **ACCEPTS_INVALID**, not SILENT. It carries no oracle case by deliberate choice, so this row records SILENT alone and §2's entry says why; a later task that pins it owes this row a second class. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`). |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
 neither has an oracle case, and a row with no case behind it is what this
@@ -306,17 +311,18 @@ never was one, and is named here so a reader does not go looking for it.**
 
 **Net, re-measured 2026-08-16 at `62b11a78c3` against `node v26.7.0`**
 (~~2026-08-15 at `4cfa218814`~~), re-counted 2026-08-16 at `3a636f62fb` when
-R-56 was added, and re-counted again 2026-08-16 at `12fd424897` when R-56
-retired. Of the 42 §2
-entries, **27 carry at least one SILENT lane** and **15 carry none**
-(~~42 / 28 / 14~~, ~~41 / 27 / 14~~):
+R-56 was added, re-counted again 2026-08-16 at `12fd424897` when R-56
+retired, and re-counted 2026-09-08 at `dde0f083c0` when R-57 and R-58 were
+added. Of the 44 §2
+entries, **29 carry at least one SILENT lane** and **15 carry none**
+(~~42 / 27 / 15~~, ~~42 / 28 / 14~~, ~~41 / 27 / 14~~):
 
 - **No silent lane (15):** R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20,
   R-29, **R-32**, **R-33**, R-49, R-54, **R-56**. ~~(14)~~ ~~(12)~~
-- **At least one silent lane (27):** R-06, R-08, R-09, R-10, R-12, R-13, R-14,
+- **At least one silent lane (29):** R-06, R-08, R-09, R-10, R-12, R-13, R-14,
   R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25, R-26, R-27, R-28, R-30,
-  R-31, R-34, R-47, R-48, R-51, R-52, R-53.
-  ~~(28, including R-56)~~ ~~(27)~~ ~~(29, including R-32 and R-33)~~
+  R-31, R-34, R-47, R-48, R-51, R-52, R-53, **R-57**, **R-58**.
+  ~~(27)~~ ~~(28, including R-56)~~ ~~(27)~~ ~~(29, including R-32 and R-33)~~
 - **Movement 2026-08-16 (console-render-unification, at `62b11a78c3`).** R-32 and
   R-33 leave the silent set: every live lane of each measures FIXED. **R-33 is
   retired** — its only defective lane moved and its control was already FIXED.
@@ -420,11 +426,43 @@ entries, **27 carry at least one SILENT lane** and **15 carry none**
       the escape-sequence exception already recorded at `de87e48e8e` and in
       `docs/superpowers/followups/property-key-trim-site-classification.md` §6,
       which fires equally on `{"a\"b": 1}` and is a parser-decoding defect, not a
-      Number/String discriminator one.
+      Number/String discriminator one. **FILED 2026-09-08 at `dde0f083c0` as
+      R-57**, on the human's instruction, after every reading above was
+      re-measured — see the R-57 row in this table and §2's entry. This bullet is
+      kept unrewritten because it is the record of where the divergence was
+      first seen and of the retirement that declined to file it.
 
     Neither is under R-56's title, neither was filed by the retirement, and
     filing either is a decision for a human — this bullet exists so a later
-    reader does not mistake the silence for absence.
+    reader does not mistake the silence for absence. **That decision was taken
+    on 2026-09-08**: the human asked for the divergences to be filed, and the
+    escape-sequence one is now **R-57**. The array-element `.length` one is
+    still unfiled and still live, re-measured at `dde0f083c0` in R-57's own
+    entry, which records it as explicitly not R-57.
+- **Addition 2026-09-08 (register-property-key-followups, at `dde0f083c0`): R-57
+  and R-58 join the silent set, taking 27 to 29.** Neither is a new
+  divergence and neither is a regression: both were measured by the
+  hir-property-key-identity project, both were left unfiled because filing is a
+  human's decision, and the human then asked for them to be filed. **What is new
+  is the filing, not the behaviour** — which makes this the first movement in
+  this table driven by a decision rather than by a code change, and the reason
+  every reading in both entries was re-taken at `dde0f083c0` against
+  `node v26.8.1` rather than carried across: one of the carried-over numbers
+  (the `.length` of `Object.keys(o)[0]`, recorded as `6` in the lead) turned out
+  to describe a different lane from the one the lead attributed it to. R-57 is
+  the escape-sequence divergence named in the retirement bullet above; R-58 is
+  the legacy-octal numeric key, whose lead lived only in a corpus-case rationale.
+  Each takes a new singleton cluster in `tools/blast-radius/clusters.json`
+  (`R-57 (unclustered)`, `R-58 (unclustered)`), and they are deliberately **not**
+  merged into one cluster despite sharing a shape — see either entry's
+  **Root-cause group** bullet and that file's own `note`. Both are **countable**
+  with raw 0 / reachable 0 over the frozen corpus, so they add two tier-2
+  clusters with no frequency behind them and move no other cluster's band; their
+  predicates are new, so `predicates.json` and `matchers.mjs` were re-frozen a
+  second time and `counts.json` regenerated. **Two of the four divergences that
+  branch left unfiled are now filed; the other two are not, and are the next
+  task on this branch.** See the ranking's §6 amendment for what the
+  regeneration printed.
 - **Tier 1's silent population is 2** — R-51 and R-52 — down from the eight
   entries Tier 1 holds. R-01, R-02, R-03 and R-05 fail closed; R-04 is fixed;
   R-49 fails closed by R-35's gate.
@@ -440,6 +478,10 @@ entries, **27 carry at least one SILENT lane** and **15 carry none**
   console-render-unification project's, the third the hir-property-key-identity
   project's — and are recorded step by step rather than netted, because a reader
   auditing any one of them needs the intermediate figure.
+  **2026-09-08 at `dde0f083c0`: R-57 and R-58 arrive together, taking 27 to 29**
+  — one commit, two entries, and the only movement in this series that files
+  behaviour which was already measured and already live rather than behaviour
+  that moved.
 
 **The 2026-07-24 sweep's own net is preserved below, unrewritten,** because it is
 that sweep's record and the table above supersedes it rather than editing it. It
@@ -642,7 +684,7 @@ Severity split (each entry ranked at the most severe class it carries):
 | tier | class | count (historical R-01..R-34 / now) |
 |---|---|---|
 | 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 / **8** |
-| 2 | **silently produces a wrong value** | 23 / **27** |
+| 2 | **silently produces a wrong value** | 23 / **29** |
 | 3 | **silently wrong control flow only** (value otherwise intact) | 1 / **2** |
 | 4 | **rendering-only** (in-memory value is correct) | 4 (see note) / 5 |
 
@@ -691,6 +733,19 @@ un-ranked §0.3 set (R-35..R-46) plus §7's **R-50 and R-55** — R-55 having be
 §7 on 2026-08-15 by the same project, which is why that "plus §7's R-50" reads short
 above. Both figures were re-counted by `### R-` headers per tier heading rather than
 incremented; see R-50's numbering note for the whole-file-versus-§2 series.
+
+**Updated 2026-09-08 (register-property-key-followups, at `dde0f083c0`).** The
+right-hand column moved once more: **R-57** and **R-58** were added as tier-ranked §2
+**Tier 2** entries — a key spelled with an escape sequence stored undecoded, and a
+legacy-octal numeric key read as decimal — so the Tier-2 cell reads **29** where it read
+27, and the right-hand column is now **44** tier-ranked entries in §2 (8 + 29 + 2 + 5).
+The register holds **58** numbered entries in total (R-01..R-58), the other 14 being the
+same un-ranked §0.3 set (R-35..R-46) plus §7's R-50 and R-55. Both figures were
+re-counted by `### R-` headers per tier heading rather than incremented. **Neither entry
+is a new defect**: both were measured by the hir-property-key-identity project and left
+unfiled, and this is the commit that files them — the first movement in this table that
+records a decision rather than a change in the compiler. Every reading in both was
+re-taken at `dde0f083c0` against `node v26.8.1` rather than carried across.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -2820,7 +2875,12 @@ tier, ordering is by blast radius.
       in `crates/kali_codegen/src/intrinsics/object.rs`'s doc comment and in
       `docs/superpowers/followups/property-key-trim-site-classification.md` §6; it fires
       equally on `{"a\"b": 1}`, which contains no number, and its cause is the parser not
-      decoding escapes, not the Number/String discriminator.
+      decoding escapes, not the Number/String discriminator. **This is now
+      R-57**, filed 2026-09-08 at `dde0f083c0` on the human's instruction, with
+      every reading re-measured there rather than carried across from this
+      bullet — one of them, the `.length` of `Object.keys(o)[0]`, turned out to
+      belong to the OTHER divergence in this list. The sentence above is kept as
+      written because it is the record of this retirement declining to file it.
   - **Consequence for the ranking.** With no SILENT lane left, the row leaves the SILENT
     filter, so R-56 is removed from `tools/blast-radius/clusters.json` — **both** its
     `R-56 (unclustered)` singleton definition and its assignment, unlike R-32 and R-33
@@ -2833,7 +2893,430 @@ tier, ordering is by blast radius.
     ranking's §6 amendment records what the generator printed rather than what was
     predicted. R-56 is still a §2 Tier-2 entry, so §1's severity table, the numbering
     note under §7's R-50 and `register_tests.rs`'s 42 are all unchanged — retirement
-    does not delete an entry, exactly as it did not for R-33.
+    does not delete an entry, exactly as it did not for R-33. *(That `42` was the
+    constant at `12fd424897`; it is **44** since 2026-09-08, when R-57 and R-58
+    were filed. The sentence's claim — that retirement moves none of these — is
+    unaffected, and the figure is dated rather than overwritten.)*
+
+---
+
+### R-57: A property key spelled with an escape sequence is stored undecoded, so the object has no property under the name JavaScript denotes
+
+- **Added**: 2026-09-08, by the **register-property-key-followups** branch, at
+  `dde0f083c0` (the merge of PR #34), at the human's instruction to file the four
+  divergences the hir-property-key-identity project measured and deliberately did
+  not file. It was found by that project while narrowing the key-COMPARISON
+  sites — the control is where the new defect lives, again — and recorded there
+  as a lead in three places: §6 of
+  `docs/superpowers/followups/property-key-trim-site-classification.md`, the
+  **RETIRED** bullet at the foot of R-56, and §0.2's own "NOT R-56" sub-bullet.
+  **Every reading in this entry was re-measured here**, on a binary built at
+  `dde0f083c0`; nothing is carried across from those leads, and one number in
+  them (the `.length` of `Object.keys(o)[0]`) turned out to belong to a different
+  defect — see the last bullet.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured on a freshly built
+  binary at `dde0f083c0` (`cargo build -p kali_cli --bin kali`) against
+  **`node v26.8.1`**, which is what `node --version` prints on this machine; the
+  `v26.7.0` older entries cite is a different machine's and is not reused here.
+  Measured in **both** scopes — module, and inside `function main() { … }` with a
+  trailing `main();` — **byte-identical in both**, for every line of every
+  program below.
+- **Root-cause group**: **unclustered**, and deliberately not added to any of
+  §3's eight. It is not **G1**: G1 is *parser fail-open recovery*, a position
+  whose contract with the token STREAM is wrong, and nothing desynchronizes here
+  — the lexer and `unquote_string_literal` each do exactly what they say, and
+  what they say is the wrong function. It is not **G8** either, though the
+  entry's second mechanism (a second escaping pass on the enumeration path) has
+  G8's *shape* of two formatters disagreeing about one value: G8 is about
+  direct-log versus concat rendering a correct in-memory value, and here the
+  in-memory value is already wrong before any sink sees it. And it is **not
+  N1**, despite the name: N1 in `tools/blast-radius/clusters.json` is
+  *escape/provenance loss* in the ARENA-ESCAPE sense (R-14/R-48), not the
+  string-escape sense. That word collision is the reason this sentence exists.
+  **It shares a shape with R-58** — both are `kali_parser` converting a literal's
+  source text with Rust's grammar where JavaScript's is required — but they are
+  not one cluster, by `clusters.json`'s own definition that a cluster is *the
+  unit a fix actually ships in*: escape decoding and legacy-octal value
+  conversion live in different functions, need different tests, and cannot land
+  in one change. Naming a new §3 group for the family would be a fresh
+  diagnosis, and §3 opens by saying grouping errors are cheap to make and
+  expensive to act on; the shape claim is recorded here so a later reader can
+  form the group on evidence.
+- **Repro** (module scope; the in-function form is the same three statements
+  inside `function main() { … }` with a trailing `main();`, and measures
+  byte-identically):
+  ```js
+  const o = {"a\"b": 1};
+  for (const k of Object.keys(o)) { console.log(k, k.length); console.log(k === "a\"b"); }
+  console.log(Object.hasOwn(o, 'a"b'));
+  ```
+  ```
+  kali:  a\"b 6        node:  a"b 3
+         false                true
+         false                true
+  ```
+  **Exit 0, empty stderr (0 bytes, measured), no diagnostic, on both engines.**
+  The property's name is the three characters `a"b`. kali prints a four-character
+  name with a stray backslash, gives it a length of six, denies it equals the
+  literal it was written as, and denies the object has it.
+- **Every lane measured, and which ones agree.** Ten probes over
+  `const o = {"a\"b": 1}`, run at `dde0f083c0` against `node v26.8.1` in both
+  scopes. None is inferred.
+
+  | probe | kali | node | |
+  |---|---|---|---|
+  | `o["a\"b"]` (same source spelling) | `1` | `1` | **agrees**, and only because both sides are byte-identical undecoded text |
+  | `Object.hasOwn(o, "a\"b")` (same spelling) | `true` | `true` | **agrees**, same reason |
+  | `o['a"b']` (the real, decoded name) | `0` | `1` | diverges — the probe misses the undecoded slot |
+  | `Object.hasOwn(o, 'a"b')` (decoded name) | `false` | `true` | diverges |
+  | `Object.keys(o)[0]` | `a\"b` | `a"b` | diverges — the stored text, plus a second escaping pass |
+  | `for (const k of Object.keys(o)) k` | `a\"b` | `a"b` | diverges, same value |
+  | `for (const k of Object.keys(o)) k.length` | `6` | `3` | diverges — six, not four, and that is the second mechanism |
+  | `Object.keys(o)[0] === "a\"b"` | `false` | `true` | diverges |
+  | `Object.keys(o)[0].length` | `2` | `3` | diverges, **and is NOT this entry** — see the last bullet |
+  | `"a\"b".length` (no object in the program) | `4` | `3` | diverges, **and is NOT this entry** — see the last bullet |
+
+  The first two rows are the trap this entry exists to make un-loseable: a probe
+  written with the SAME spelling as the key agrees with node, so the defect is
+  invisible to anyone who tests a key by copying its own source text. It appears
+  the moment the probe is written the way a human would name the property.
+- **All eleven of kali's escapes are affected, measured rather than argued.**
+  kali's lexer accepts exactly eleven escape characters —
+  `crates/kali_lexer/src/string.rs:28` — and rejects everything else with
+  `error[E1004]: unsupported string escape sequence` at exit 1. All eleven were
+  run as key spellings at `dde0f083c0` in both scopes, as
+  `for (const k of Object.keys({"a\<esc>b": 1})) console.log(k === "a\<esc>b", k.length)`:
+  every one prints `false` in kali and `true` in node, and every enumerated
+  length is **5** (or **6** for `\\` and `\"`, whose re-escaping doubles) against
+  node's **3**. There is no supported escape for which the key is stored
+  correctly. The `\n` spelling is the sharpest to read, because node prints a
+  key containing a real newline and kali prints the two characters `\n`.
+- **Mechanism, traced — there are TWO, stacked, and a fix for either alone
+  leaves the entry open.** Both read in source at `dde0f083c0`.
+  1. **The key is stored undecoded.** `kali_lexer`'s string scanner keeps the
+     raw escape sequence in the token's value on purpose
+     (`crates/kali_lexer/src/string.rs:23-35` — *"Keep the raw sequence in
+     `value` (kali_fmt re-emits it verbatim); only validate"*), and
+     `kali_parser`'s `unquote_string_literal`
+     (`crates/kali_parser/src/literal.rs:29-46`) strips the delimiters and
+     **nothing else**: its whole body is `trimmed[1..len-1].to_string()`. The
+     string-literal key arm calls exactly that
+     (`crates/kali_parser/src/expression/object.rs:42-49`,
+     `PropertyName::String(unquote_string_literal(&token.value))`). So the key
+     slot holds the FOUR characters `a\"b` where the property name is the three
+     characters `a"b`, and every consumer downstream is comparing the wrong
+     text. This is what makes rows 3, 4 and 8 of the table above diverge.
+     **A decoder does exist in this compiler** — `decode_string_escapes`
+     (`crates/kali_codegen/src/ctx.rs:160-191`), called when a string is
+     interned into the pool at `ctx.rs:222`. It is downstream of the key path,
+     and the precise thing it does *not* do is undo the SOURCE escaping: by the
+     time a key reaches the pool the parser has already thrown the decoded name
+     away, so what the decoder undoes is only whatever escaping was added after
+     that point. That is exactly why `const s = "a\"b"; console.log(s)` prints
+     `a"b` (a plain string value never goes through the key path at all) while
+     the same spelling as a KEY does not.
+  2. **The enumeration path escapes the already-undecoded text a second time.**
+     `fold_object_enumeration_call` re-encodes each key with
+     `format!("{key:?}")` before handing it to the string reader —
+     `crates/kali_optimize/src/object_fold.rs:192` (`Object.keys`), `:199`
+     (`Reflect.ownKeys`) and `:218` (`Object.entries`). Rust's `Debug for str`
+     escapes the backslash the parser left in place, so the four-character slot
+     `a\"b` becomes the six-character payload `a\\\"b`. That, and not the stored
+     text, is where the `6` comes from. The arithmetic is checkable against the
+     non-quote spellings: `a\nb` (four stored characters, one backslash)
+     re-escapes to **5**, and `a\"b` (four stored characters, one backslash and
+     one quote, both escaped) to **6** — which is exactly what the eleven-escape
+     sweep prints. **The re-escape and the pool decoder cancel for RENDERING and
+     do not cancel for `.length`, which is measurable and is what the two
+     numbers on line 1 of the repro actually are.** Measured at `dde0f083c0` in
+     both scopes on an independent escape: `for (const k of Object.keys({"a\\b": 1}))`
+     prints `a\\b 6` in kali against node's `a\b 3`. The stored slot is the four
+     characters `a\\b`; `format!("{key:?}")` makes a six-character payload;
+     something on the render path turns that back into the four characters the
+     printer shows (`decode_string_escapes` at `ctx.rs:222` is the compiler's
+     only decode site and is the obvious candidate, but it was not traced
+     through to this print and is not asserted here); and the **length is taken
+     from the undecoded six**. The same split shows
+     with no object in the program at all — `console.log("a\\b")` prints `a\b`
+     (decoded, and it agrees with node) while `"a\\b".length` prints `4` against
+     node's `3` — which is the second of the two neighbours in the last bullet,
+     and the reason it is a neighbour and not this entry: it needs no key.
+- **Severity**: **Tier 2** — silently produces a wrong value. Not Tier 1: no
+  statement is dropped, no output line vanishes, control flow is unaffected, and
+  the program prints exactly as many lines as node does. Not Tier 4: the
+  in-memory value is *not* correct — `Object.hasOwn` and `===` both answer from
+  it and both answer wrongly, so this is not a rendering artefact.
+- **Blast radius**: **narrow**, and measured as such. The frozen corpus contains
+  **zero** occurrences of the triggering shape — `objectLiteralEscapedStringKey`,
+  **raw 0 / reachable 0**, anchor 0/0 and extension 0/0, zero-kind
+  `unsampled` — so it enters the ranking as a tier-2 cluster with no frequency
+  behind it. A key whose own name needs an escape is rare in hand-written
+  JavaScript, and the corpus dialect
+  (`tools/blast-radius/corpus/README.md`) has no reason to carry one. The count
+  is an **upper bound** in the other direction and its record says so: acorn
+  accepts `\u` and `\x`, which kali refuses outright, so a corpus that did carry
+  one of those would count a LOUD divergence as this silent one. Filed at full
+  length anyway for what it is: a program that enumerates a property, prints a
+  name, and then denies that name is the property's, at exit 0.
+- **Fix direction, and what NOT to do.** The fix is in the **parser's key path**:
+  decode a string literal's escapes when producing `PropertyName::String`, so the
+  key slot holds `a"b`. The decoder to reuse already exists
+  (`decode_string_escapes`); what does not exist is a call to it before the key
+  becomes a name. The second mechanism must move in the same change: drop the
+  `format!("{key:?}")` re-escape at `object_fold.rs:173/180/199` in favour of
+  handing the key's text through unmodified, or the enumeration lane will print
+  a correctly-decoded key with a NEW stray backslash. **Do not** attempt a
+  consumer-side shim — un-escaping at `object_literal_field`,
+  `static_object_has_own` or `constant_property_key` is the same mistake as the
+  fourteen `trim_matches('"')` sites R-56's closure deleted: it makes each
+  comparison guess at a transformation the front end owes it, and the first
+  spelling nobody thought of walks past. **And do not ship the parser half
+  without re-arguing the `__proto__` guards.** §4.1 of the trim-site
+  classification proves `object_fold.rs`'s two guards sound from a *structural*
+  fact — a key spelled with an escape always keeps a backslash in its stored
+  text, and `__proto__` contains none, so no escaped spelling can ever equal it.
+  Decoding destroys that fact. It does **not** by itself make the guards wrong:
+  §4.1's second, weaker observation still holds, that none of the eleven escapes
+  decodes to a letter, digit or underscore. What changes is that the guards stop
+  resting on structure and start resting on the allowlist's *contents*, so the
+  fix commit owes them either a move onto the decoded name or an explicit
+  re-derivation from the allowlist — and from then on adding `\u` or `\x` to
+  the lexer becomes a prototype-pollution change rather than a feature.
+  `test_lexer_string_escape_allowlist_is_pinned_for_the_proto_guard`
+  (`crates/kali_lexer/src/engine_tests.rs`) is the tripwire for both halves, and
+  its failure message already names these two guards.
+- **Two divergences were measured while filing this entry and are NOT this
+  entry.** Both are in the table above, marked; both are live at `dde0f083c0` in
+  both scopes; neither is filed here.
+  - **`"a\"b".length` is `4` where node says `3`, in a program with no object and
+    no property key in it at all.** That is the same undecoded text one layer
+    out — a plain string LITERAL, not a key — so it is not a property-key
+    phenomenon and a reader who takes it for one will open the key path this
+    entry names and find nothing wrong there. Where the length is computed was
+    **not traced**, and this bullet says so rather than guessing; the neighbouring
+    fact that `console.log("a\"b")` prints `a"b` on BOTH engines (measured here,
+    both scopes) shows the rendering path and the length path do not agree with
+    each other about the same literal: **rendering decodes and `.length` counts
+    the undecoded text.** That regularity is stated as a MEASURED one — it holds
+    on `\"` and on `\\`, in both scopes, with and without an object — and not as
+    a traced one; no site was read for it, and a reader must not treat
+    `ctx.rs:222` as its explanation without doing that work. Filing it is a human's decision.
+  - **`Object.keys(o)[0].length` is `2`** — for this key and for every string
+    tried. Re-measured here at `dde0f083c0`, in both scopes, rather than carried
+    over: `["a"][0].length` prints `2` (node `1`), `["ab"][0].length` `2` (node
+    `2`), `["abc"][0].length` `2` (node `3`), `["abcdefghij"][0].length` `2`
+    (node `10`) — so the value does not track the string and one of those four
+    agrees only by coincidence. That is the **array-element `.length`**
+    divergence R-56's RETIRED bullet already records and attributes to **R-17**'s family (**G5**): it fires
+    with no object key anywhere in the program, the value does not track the
+    string, and the *iteration* lane (`for (const k of …) k.length`) is the one
+    that carries this entry's `6`. It is the reason this entry's own table
+    measures the length through iteration and not through `[0]`, and the reason
+    the lead in §6 of the trim-site classification says `6` where a reader might
+    expect `4`.
+- **Pinned by**: two oracle cases (`r57a`, both scopes, `tier2.toml`) asserting
+  the SILENT class over the three-line repro above; plus, in
+  `crates/kali_cli/tests/cases/object/property_key_identity.toml`, the
+  pre-existing WRONG-ON-PURPOSE pair
+  `escaped_quote_in_a_key_is_stored_undecoded_*`, whose four probes include the
+  member read this entry's oracle case deliberately leaves out. **Not pinned, and
+  measured by hand** at `dde0f083c0`: the eleven-escape sweep, the two
+  same-spelling controls that AGREE, and the computed-key spelling
+  `{["a\"b"]: 1}`, which diverges identically and is why this entry's blast-radius
+  matcher does not exclude computed keys the way R-56's does.
+- **Confidence**: high on behaviour (both scopes, ten probes with two agreeing
+  controls, eleven escape spellings, node as oracle); high on mechanism (both
+  sites read in source at HEAD, the second one's arithmetic checked against two
+  different escapes that predict different lengths, and the existing decoder
+  located so the fix has an address).
+
+---
+
+### R-58: A legacy-octal numeric property key is read as decimal — `{042: 1}` is the property `42`, where JavaScript says `34`
+
+- **Added**: 2026-09-08, by the **register-property-key-followups** branch, at
+  `dde0f083c0` (the merge of PR #34), at the human's instruction to file the four
+  divergences the hir-property-key-identity project measured and deliberately did
+  not file. It was found by that project's final whole-branch review while
+  probing the `042n` guard the *same nine-line function* had just gained — the
+  control is where the new defect lives, a third time — and recorded there as a
+  lead in the rationale of `octal_leading_zero_numeric_key_is_read_as_decimal_*`
+  in `crates/kali_cli/tests/cases/object/property_key_identity.toml`. **Every
+  reading in this entry was re-measured here**, and one of them widened the
+  entry: the same misreading fires OUTSIDE key position, which no lead recorded.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured on a freshly built
+  binary at `dde0f083c0` (`cargo build -p kali_cli --bin kali`) against
+  **`node v26.8.1`**, which is what `node --version` prints on this machine.
+  Measured in **both** scopes — module, and inside `function main() { … }` with a
+  trailing `main();` — **byte-identical in both**, for every line of every
+  program below.
+- **Root-cause group**: **unclustered**, and the interesting part is which group
+  it declines. It has **G3**'s shape exactly — *"a guard keyed on one syntactic
+  form, with a sibling form slipping past into precisely the miscompile the
+  guard's message describes"* — and closer than most G3 members do: the guard and
+  the hole are three lines apart inside one nine-line function
+  (`numeric_property_name`), the guard refuses `042n` for having a leading zero,
+  and the `f64` arm below it walks past the identical leading zero; the guard's
+  own remediation text, *"use a decimal or string literal key"*, names the
+  spelling that leaks. It is nonetheless **not** added to G3's member list, on
+  G3's own criterion: §3's strongest recommendation for that cluster is to
+  *replace the denylist with an allowlist at the choke point*, and that remedy is
+  **wrong here**. Widening the refusal to cover `042` would make kali reject a
+  program node RUNS (`042` is legal in sloppy mode), trading a silent wrong value
+  for a loud regression. A cluster is *the unit a fix ships in*
+  (`tools/blast-radius/clusters.json`'s own note); this fix does not ship with
+  G3's. Recorded as unclustered for that reason, the way R-47 and R-56 are.
+  **It shares a shape with R-57** — both are `kali_parser` converting a literal's
+  source text with Rust's grammar where JavaScript's is required — and, for the
+  same fix-unit reason, the two are not merged into one cluster: escape decoding
+  and legacy-octal value conversion are different functions and different tests.
+  The shape is recorded in both entries so a later reader can form the family on
+  evidence rather than on this task's say-so.
+- **Repro** (module scope; the in-function form is the same four statements
+  inside `function main() { … }` with a trailing `main();`, and measures
+  byte-identically):
+  ```js
+  const o = {042: 1};
+  console.log(Object.keys(o)[0]);      // kali 42     node 34
+  console.log(Object.hasOwn(o, 34));   // kali false  node true
+  console.log(Object.hasOwn(o, 42));   // kali true   node false
+  ```
+  **Exit 0, empty stderr (0 bytes, measured), no diagnostic, on both engines.**
+  `042` is a `LegacyOctalIntegerLiteral`: in sloppy mode — which is what a `.js`
+  entry file runs in, on kali and on node alike — it denotes decimal **34**.
+  kali reads the digits as decimal and stores the property `42`. The last two
+  lines are R-56's signature at a second address: **one run denies a property the
+  object has and affirms one it does not.**
+- **The member reads, measured beside the booleans, because they diverge in a
+  third way.** Over the same `o`:
+
+  | probe | kali | node | |
+  |---|---|---|---|
+  | `Object.keys(o)[0]` | `42` | `34` | the key's own text |
+  | `Object.hasOwn(o, 34)` | `false` | `true` | denies a property it has |
+  | `Object.hasOwn(o, 42)` | `true` | `false` | affirms one it has not |
+  | `o[34]` | `0` | `1` | diverges; the `0` spelling is the neighbouring fabricated-zero read, not this entry |
+  | `o[42]` | `1` | `undefined` | diverges, and is purely this entry — kali reads a value out of a property that does not exist |
+
+  The oracle cases pin the three boolean/text lines and not the member reads, for
+  the reason the fourth row gives: `o[34]`'s wrongness is this entry's, but its
+  `0` *spelling* belongs to a defect this branch is filing separately.
+- **THE SAME MISREADING FIRES OUTSIDE KEY POSITION, which no lead recorded and
+  which widens this entry beyond the title.** Measured at `dde0f083c0`, both
+  scopes:
+  ```js
+  console.log(042);            // kali 42   node 34
+  const n = 042;
+  console.log(n);              // kali 42   node 34
+  ```
+  So this is not a property-key defect that happens to be reachable from a value
+  position; it is a numeric-literal defect that a property key is one consumer of.
+  The title keeps the key framing because that is the lane the oracle cases pin
+  and the lane the corpus case records, and because it is the lane where the
+  damage is worst — a wrong VALUE is one wrong number, a wrong KEY is a property
+  that both exists and does not. **The Fix direction bullet names both sites.**
+- **The strict-mode face is a different verdict class, measured and deliberately
+  not pinned.** `"use strict"; const o = {042: 1}; console.log(Object.keys(o)[0])`
+  prints `42` in kali at exit 0; node refuses the file with
+  `SyntaxError: Octal literals are not allowed in strict mode.` at exit 1, and so
+  does the identical program as an ES module (`.mjs`). That classifies
+  **ACCEPTS_INVALID**, not SILENT — the same class R-54 carries — so it cannot
+  share an oracle case with the sloppy-mode lane, and §0.2's row for this entry
+  records SILENT alone. It is recorded here rather than pinned because pinning it
+  would add a second declared class to a brand-new entry on a filing task; a
+  later task that wants it owes `tier2.toml` a second pair, §0.2 a second class,
+  and `oracle_tests.rs` a new total.
+- **Mechanism, traced.** All read in source at `dde0f083c0`.
+  - **The key lane.** `numeric_property_name`
+    (`crates/kali_parser/src/expression/object.rs:251-259`) is nine lines. Its
+    BigInt arm rejects a leading zero explicitly —
+    `!(digits.len() > 1 && digits.starts_with('0'))` at `:255` — and its last
+    statement, `:258`, is `text.parse::<f64>().ok().map(PropertyName::Number)`
+    with no leading-zero check at all. **Rust's `f64: FromStr` has no legacy-octal
+    grammar**: `"042"` parses to `42.0`. The object-literal key arm calls it at
+    `crates/kali_parser/src/expression/object.rs:57`.
+  - **The value lane.** `crates/kali_parser/src/expression/primary.rs:81-90`
+    does the same thing for a numeric literal in expression position:
+    `value.parse::<f64>().unwrap_or(0.0)`. Same Rust grammar, same wrong value,
+    different function — which is why fixing only `numeric_property_name` would
+    leave `console.log(042)` printing `42`.
+  - **Why the LEXER cannot be the fix on its own, and why the other radices fail
+    loudly instead.** `lex_number`
+    (`crates/kali_lexer/src/number.rs:5-59`) scans ASCII digits, an optional
+    fraction, an optional exponent and an optional `n`. It has **no radix-prefix
+    branch**, so `0x10` lexes as the number `0` followed by the identifier `x10`
+    and `0o42` as `0` then `o42`. Legacy octal is the one non-decimal spelling
+    JavaScript writes with no prefix, so it is the one that survives this lexer
+    as a single well-formed-looking token and reaches a decimal `parse`. The
+    lexer produces the right token here; the conversion is what is wrong.
+- **The three controls, and what they establish.** Measured at `dde0f083c0`,
+  both scopes.
+
+  | program | kali | node | |
+  |---|---|---|---|
+  | `{042n: 1}` | `error[E5506]: this numeric property key is unavailable in the current phase; use a decimal or string literal key`, **exit 1** | `SyntaxError: Invalid or unexpected token`, **exit 1** | both refuse — the BigInt half of the same function is sound |
+  | `{0o42: 1}` | `error[E3100]: undefined identifier 'o42'`, **exit 1** | `34`, exit 0 | kali refuses valid JS, loudly, for a lexer reason |
+  | `{0x10: 1}` | `error[E3100]: undefined identifier 'x10'`, **exit 1** | `16`, exit 0 | same |
+
+  Of the four non-decimal numeric-key spellings this parser meets, three fail
+  loudly and exactly one — legacy octal — is accepted and misread. **`042n`
+  failing loudly while `042` returns a wrong key at exit 0 is strictly worse than
+  the BigInt case the branch that wrote that guard was worried about**, and it
+  sits three lines below it.
+- **Severity**: **Tier 2** — silently produces a wrong value. Not Tier 1: nothing
+  is dropped and the program prints as many lines as node's does. Not Tier 3: no
+  control flow is involved. Its ACCEPTS_INVALID face in strict mode is recorded
+  above and is a second lane, not a re-tier: entries are ranked at the most severe
+  class they carry, and a silent wrong value outranks accepting invalid input,
+  which is where R-54 sits at Tier 3.
+- **Blast radius**: **narrow**, and measured as such. The frozen corpus contains
+  **zero** occurrences of the triggering shape —
+  `objectLiteralLegacyOctalNumericKey`, **raw 0 / reachable 0**, anchor 0/0 and
+  extension 0/0, zero-kind `unsampled` — so it enters the ranking as a tier-2
+  cluster with no frequency behind it. Legacy octal is a deprecated spelling that
+  strict mode and every module forbid, and the corpus dialect has no reason to
+  carry one. The count is an **upper bound** and its record says so: `{00: 1}`
+  through `{07: 1}` match the pattern and do NOT diverge, because a one-digit run
+  reads the same in both radices (`{07: 1}` is the key `7` on both engines,
+  measured); every longer run does diverge (`{010: 1}` is `8` in node and `10` in
+  kali, measured). **The matcher counts the key lane only**, so it is also a
+  LOWER bound on the defect as this entry now states it — the value lane above is
+  not counted anywhere.
+- **Fix direction, and what NOT to do.** The fix is a **value conversion, in two
+  places**: teach `numeric_property_name`
+  (`crates/kali_parser/src/expression/object.rs:258`) and the numeric-literal arm
+  of `parse_primary` (`crates/kali_parser/src/expression/primary.rs:87`) to
+  recognise a leading-zero run of octal digits as a `LegacyOctalIntegerLiteral`
+  and convert its VALUE, mirroring the grammar the `042n` guard three lines up
+  already knows how to recognise. **Do not** simply extend the `042n` refusal to
+  `042`: that is the cheap change, it is what the guard's shape invites, and it
+  would make kali reject a program node runs — a fail-closed regression against
+  the oracle, which the `r58a` cases would report as FAIL_CLOSED going red for
+  the wrong reason. **The strict-mode question is open and is stated, not
+  guessed**: correct JavaScript refuses `042` under `"use strict"` and in every
+  module, and kali today has no strict-mode notion in this path at all (measured:
+  it accepts and misreads the `"use strict"` program identically). Doing this
+  properly therefore needs a decision about whether the parser tracks strictness
+  — which is a design question this entry raises and does not answer. A fix that
+  converts the value in sloppy mode and does nothing about strict mode closes
+  this entry's SILENT lane and leaves its ACCEPTS_INVALID lane open; that is an
+  acceptable staging, but it must be said out loud rather than discovered later.
+- **Pinned by**: two oracle cases (`r58a`, both scopes, `tier2.toml`) asserting
+  the SILENT class over the three-line repro above; plus the pre-existing
+  WRONG-ON-PURPOSE pair
+  `octal_leading_zero_numeric_key_is_read_as_decimal_*` in
+  `crates/kali_cli/tests/cases/object/property_key_identity.toml`, which pins the
+  `Object.keys` line alone. **Not pinned, and measured by hand** at
+  `dde0f083c0`: the two member reads, the value lane, the strict-mode and ESM
+  lanes, the three non-decimal controls, the upper-bound boundary (`{07: 1}`
+  agrees, `{010: 1}` does not), the `{08: 1}` non-octal control (kali `8`, node
+  `8` — agrees, which is why the matcher excludes it), and the computed spelling
+  `{[042]: 1}` (kali `42`, node `34` — diverges identically, which is why the
+  matcher does not exclude computed keys).
+- **Confidence**: high on behaviour (both scopes, five probes plus three controls
+  plus a strict-mode and an ESM arm, node as oracle); high on mechanism (both
+  conversion sites and the lexer read in source at HEAD, and the guard three
+  lines above the hole read with them).
 
 ---
 
@@ -3946,9 +4429,22 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   leaves the claim untouched. §1's severity table was NOT left behind this time: its
   Tier-2 "now" cell went 26 -> 27 in the same commit, which is the step the 2026-08-15
   re-count above did not have to take and which is why this series exists.
-  `crates/kali_blast_radius/src/register_tests.rs` asserts the 42 and
-  `catalogue_tests.rs` asserts a matching 42 catalogue records; both point a reader
+  ~~`crates/kali_blast_radius/src/register_tests.rs` asserts the 42 and
+  `catalogue_tests.rs` asserts a matching 42 catalogue records~~; both point a reader
   here for the total, so this line and those constants must move together.
+  **Re-counted 2026-09-08** by the register-property-key-followups branch, after
+  filing **R-57** and **R-58** in §2's Tier 2: `grep -c "^### R-"` now returns
+  **46** while §2 holds **44** tier-ranked entries (8 + 29 + 2 + 5). Both numbers
+  were measured, not incremented — the per-tier figures by counting `### R-`
+  headers between the `## Tier n` headings. **The difference is still 2, and it is
+  still R-50 and R-55**: these are §2 entries, so they move both counts together
+  and leave the claim untouched. §1's severity table moved with them in the same
+  commit (Tier-2 "now" cell 27 -> 29), which is the discipline this series
+  exists to enforce. `register_tests.rs` now asserts **44** and
+  `catalogue_tests.rs` a matching **44** catalogue records; the oracle-case
+  totals in `oracle_tests.rs` moved with the two scope pairs each entry brought
+  (157 -> **161** cases, of which **157** back the 44 rows). All of those point a
+  reader here for the total, so this line and those constants must move together.
 - **Cross-referenced 2026-07-29** from
   `docs/superpowers/followups/r35-switch-boundary-rederived.md` ("What this matrix does NOT
   cover, and the entry that does"). That file had no reference to R-50 at all, which meant a

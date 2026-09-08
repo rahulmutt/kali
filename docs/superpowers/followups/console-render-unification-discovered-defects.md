@@ -39,6 +39,22 @@ original `5aebc5ec3d` baseline above. The rest of this file was re-read, not
 re-measured line by line, against the same change; §2.1-§2.4, §2.6-§2.7 and
 §2.9-§2.13 were checked and found still true and are unchanged, as is §4.
 
+**Update, 2026-09-08, by the register-property-key-followups branch — and read
+this before the "None of them is filed" sentence above.** That sentence is still
+true **of the thirteen rows in §2 of this file**, none of which has been filed.
+It is no longer true of the property-key family this file's §2.5, §2.8 and §3
+belong to: the hir-property-key-identity project measured four FURTHER
+divergences that are not rows here, left them unfiled because filing is a
+human's decision, and on 2026-09-08 the human asked for them to be filed. Two of
+the four are now §2 Tier-2 register entries — **R-57** (a property key spelled
+with an escape sequence is stored undecoded) and **R-58** (a legacy-octal
+numeric key is read as decimal, in the same nine-line parser function §2.8's
+corrected attribution names) — filed at `dde0f083c0` with every reading
+re-measured there against `node v26.8.1`. The remaining two are the next task on
+that branch. Nothing in §2 of this file moved, and §5's obligation list was
+exercised twice by that filing; what it turned out to be missing is recorded at
+the foot of §5.
+
 ## 2. The defects
 
 Ordered by severity as this project would score them: silent wrong values first,
@@ -259,6 +275,20 @@ gone; a numeric key the parser genuinely cannot read is now refused through
 `Object.hasOwn(o, 0)` now correctly answers `false` and `o[42]` now correctly
 reads `1` — both agree with node.
 
+**A SECOND, STILL-OPEN DIVERGENCE LIVES IN THE SAME NINE-LINE FUNCTION, and is
+now filed as R-58.** The corrected attribution above names
+`kali_parser/src/expression/object.rs`'s numeric-key arm as where the BigInt key
+was destroyed. `numeric_property_name`, the function that arm calls, has two
+branches: the BigInt one, which `20e2de09f6` guarded against a leading zero
+(`042n` is refused, matching JavaScript's real SyntaxError), and an `f64` one
+three lines below it that parses a numeric key's digits with Rust's
+`str::parse::<f64>` and therefore has no legacy-octal grammar at all. `{042: 1}`
+is the property `42` in kali and `34` in node, at exit 0. Measured at
+`dde0f083c0` against `node v26.8.1` in both scopes and **filed 2026-09-08 as
+R-58** (§2, Tier 2). It is the sibling of the divergence this row records —
+the same function, the other branch — and the fix `20e2de09f6` shipped did not
+and could not reach it.
+
 **Residual, not closed by this fix, and not property-key identity.** `o[0]`
 still reads `0` where node reads `undefined`. The reason has changed: `{42n:1}`
 now genuinely has no property named `0`, so this is the pre-existing
@@ -467,3 +497,31 @@ why §2.10 above ended up unmeasured. Cheapness is not a reason to choose §7.
 
 Per the repo's spec §4.3, the instrument half of that work belongs in its own
 commit.
+
+**What this list turned out to be missing, found by using it — 2026-09-08, at
+`dde0f083c0`, filing R-57 and R-58.** The list above is accurate and was followed
+step by step; it is also incomplete, and every item below cost a red gate or a
+stale sentence to discover. A future filer should treat the list above as the
+floor, not the ceiling.
+
+- **`crates/kali_blast_radius/src/catalogue_tests.rs` asserts a record COUNT**
+  (42 -> 44 here), beside the `check_completeness` call the list already names.
+  Two constants, not one.
+- **A singleton cluster needs a `clusters.json` cluster DEFINITION as well as an
+  assignment.** The list says "a `clusters.json` membership", which reads as one
+  edit; `ranking.rs`'s "an empty cluster ranks nothing" assertion has its mirror
+  image — an assignment naming an undeclared cluster — and a singleton needs
+  both halves. R-56's RETIREMENT already recorded this asymmetry in the removal
+  direction; this is the addition direction.
+- **A countable record needs an `UPPER_BOUNDS` entry in `count.mjs`** wherever
+  the matcher is wider (or narrower) than the defect, and a test in
+  `matchers.test.mjs` — including the catalogue-name-count assertion inside it,
+  which is a bare number (38 -> 40 here) and fails with no explanation of which
+  file to edit.
+- **The ranking needs a §6 AMENDMENT, not only a re-splice.** §2-§5 are
+  generated and the gate holds them; §6 is authored, nothing checks it, and it is
+  where what the generator PRINTED gets recorded. A re-splice with no amendment
+  passes every gate and loses the reading.
+- **`oracle_tests.rs` carries the case total TWICE** — once in the assertion and
+  once in a doc comment above it — and only one of them is what the compiler
+  checks.

@@ -98,7 +98,12 @@ impl<'a> FunctionEmitter<'a> {
     /// so a key read back out through `Object.keys` diverges again (its
     /// `.length` is 6, not 4). A probe spelled `o['a"b']` (the real, decoded
     /// name) therefore misses. Recorded and pinned, not fixed here; see
-    /// docs/superpowers/followups/property-key-trim-site-classification.md.
+    /// docs/superpowers/followups/property-key-trim-site-classification.md,
+    /// and **register entry R-57** (§2, Tier 2, filed 2026-09-08 at
+    /// `dde0f083c0`), which now owns this divergence and its fix direction.
+    /// The fix belongs in `kali_parser`'s `unquote_string_literal`, NOT here:
+    /// un-escaping at this comparison would repeat the `trim_matches('"')`
+    /// mistake R-56's closure deleted from fourteen sites.
     ///
     /// It used to strip `"` off both sides, which is a guess at the key's type
     /// from its punctuation rather than a property-name comparison, and the

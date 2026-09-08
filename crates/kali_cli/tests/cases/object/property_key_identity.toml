@@ -35,6 +35,19 @@
 # string key whose own content contains quote characters through the
 # ENUMERATION-order lane or the MEMBER-read lane.
 #
+# FILED 2026-09-08, at `dde0f083c0`: two of the wrong-on-purpose pairs below are
+# now register entries, on the human's instruction, with every reading
+# re-measured there against node v26.8.1 rather than carried across from these
+# rationales. `escaped_quote_in_a_key_is_stored_undecoded_*` is **R-57** and
+# `octal_leading_zero_numeric_key_is_read_as_decimal_*` is **R-58**, both §2
+# Tier 2 in docs/superpowers/followups/kali-silent-miscompile-register.md, each
+# with an `r57a`/`r58a` oracle pair of its own in
+# crates/kali_cli/tests/cases/oracle/tier2.toml. The cases below are UNCHANGED
+# and stay WRONG ON PURPOSE: they pin probes the oracle pairs deliberately do not
+# carry (the member reads), and their expectations are still what kali prints.
+# The "no task in this plan owns closing it" notes below remain true of THIS
+# plan; what has changed is that the register now tracks the defects.
+#
 # A THIRD pair was added by Task 5's review: `escaped_quote_in_a_key_is_stored_
 # undecoded_*`. It is WRONG ON PURPOSE and no task in this plan owns closing it.
 # It matters more than its size suggests, because it falsifies this project's
@@ -57,7 +70,8 @@
 #
 #   * `octal_leading_zero_numeric_key_is_read_as_decimal_*` -- `{042: 1}`'s key
 #     reads as decimal `42` where node says `34`, in the same nine-line parser
-#     function whose BigInt half this branch guarded against exactly this;
+#     function whose BigInt half this branch guarded against exactly this
+#     (filed 2026-09-08 as R-58);
 #   * `computed_member_index_is_fabricated_from_the_index_expression_*` --
 #     `expression_to_property_name` invents a property name for any index shape
 #     it cannot read statically, the same fabricated-key class Tasks 2 and 5
@@ -527,6 +541,14 @@ in the language shares `unquote_string_literal`'s siblings). It is recorded and
 pinned so it is visible, rather than fixed opportunistically inside a task
 about comparison sites.
 
+FILED 2026-09-08 as R-57 (register section 2, Tier 2), at `dde0f083c0`, on the
+human's instruction. This case is unchanged and stays wrong on purpose; the
+entry re-measured all four probes here rather than citing them, and it carries
+the eleven-escape sweep, the two same-spelling probes that AGREE with node, and
+the fix direction. Note what this case pins that the `r57a` oracle pair does
+NOT: the member read `o['a\"b']`, whose `0` spelling belongs to a neighbouring
+defect and which the oracle pair therefore leaves out.
+
 WHAT WOULD CLOSE IT: property-key lowering decoding escape sequences, so the
 key slot holds `a"b`. When that lands, this expectation becomes
 `a"b 3\\ntrue\\n1\\n` and agrees with node on all four answers. Until then, a
@@ -539,7 +561,7 @@ stdout = "a\\\"b 6\nfalse\n0\n"
 
 [[case]]
 name = "escaped_quote_in_a_key_is_stored_undecoded_in_function"
-rationale = "PINNED BY TASK 5's REVIEW, EXTENDED BY THE FINAL WHOLE-BRANCH REVIEW, same four probes in function scope; node prints `a\"b 3`, `true`, then `1`, kali prints `a\\\"b 6`, `false`, then `0`. WRONG ON PURPOSE for the reason given on the module-scope case: `unquote_string_literal` strips a key's delimiters without decoding its escape sequences, so the FOUR-character stored key text is not the three-character property name, and a second escaping pass in the enumeration fold (not the stored text itself) is what stretches `.length` to `6`. The added `k === \"a\\\"b\"` probe is `false` even though the printed text reads the same as the literal it is compared against -- measured identical before and after Task 5; no task in this plan owns closing it."
+rationale = "PINNED BY TASK 5's REVIEW, EXTENDED BY THE FINAL WHOLE-BRANCH REVIEW, same four probes in function scope; node prints `a\"b 3`, `true`, then `1`, kali prints `a\\\"b 6`, `false`, then `0`. WRONG ON PURPOSE for the reason given on the module-scope case: `unquote_string_literal` strips a key's delimiters without decoding its escape sequences, so the FOUR-character stored key text is not the three-character property name, and a second escaping pass in the enumeration fold (not the stored text itself) is what stretches `.length` to `6`. The added `k === \"a\\\"b\"` probe is `false` even though the printed text reads the same as the literal it is compared against -- measured identical before and after Task 5; no task in this plan owns closing it. FILED 2026-09-08 as R-57 (register section 2, Tier 2), with an `r57a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose."
 args = ["run", "escaped_quote_key_function.js"]
 exit = "success"
 stdout = "a\\\"b 6\nfalse\n0\n"
@@ -575,14 +597,24 @@ WHY IT IS NOT CLOSED HERE. Pre-existing (unrelated to property-key identity),
 out of the original seven-task plan's scope, and closing it correctly means
 teaching this phase to recognize a leading-zero decimal-digit run as legacy
 octal and convert its VALUE (not just refuse it), which is a parser change
-with its own verification surface. Pinned so it is visible instead."""
+with its own verification surface. Pinned so it is visible instead.
+
+FILED 2026-09-08 as R-58 (register section 2, Tier 2), at `dde0f083c0`, on the
+human's instruction. This case is unchanged and stays wrong on purpose. The
+entry re-measured this line and adds what this rationale did not know: the same
+misreading fires OUTSIDE key position (`console.log(042)` prints `42`, node
+`34`), so it is a numeric-literal defect that a property key is one consumer of;
+the hasOwn 2x2 is wrong in both directions (`Object.hasOwn(o, 34)` `false`
+against node's `true`, `Object.hasOwn(o, 42)` `true` against node's `false`);
+and under `\"use strict\"` node refuses the file outright while kali accepts it
+and still prints `42`, which is a second lane in a different verdict class."""
 args = ["run", "octal_leading_zero_numeric_key_module.js"]
 exit = "success"
 stdout = "42\n"
 
 [[case]]
 name = "octal_leading_zero_numeric_key_is_read_as_decimal_in_function"
-rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same octal-key probe in function scope; node prints `34` (`042` is legacy octal for decimal 34 in sloppy mode) and kali prints `42` (the digits are read as decimal), at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `numeric_property_name`'s f64 fallthrough has no leading-zero guard, unlike the BigInt branch three lines above it in the same nine-line function. Measured separately, both halves: `{042n: 1}` is refused LOUDLY (`error[E5506]: this numeric property key is unavailable in the current phase`, exit 1, where node raises a SyntaxError) while `{042: 1}` returns the wrong key SILENTLY at exit 0. Pre-existing, out of scope, not chased here; do not change the parser."
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same octal-key probe in function scope; node prints `34` (`042` is legacy octal for decimal 34 in sloppy mode) and kali prints `42` (the digits are read as decimal), at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `numeric_property_name`'s f64 fallthrough has no leading-zero guard, unlike the BigInt branch three lines above it in the same nine-line function. FILED 2026-09-08 as R-58 (register section 2, Tier 2), with an `r58a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose. Measured separately, both halves: `{042n: 1}` is refused LOUDLY (`error[E5506]: this numeric property key is unavailable in the current phase`, exit 1, where node raises a SyntaxError) while `{042: 1}` returns the wrong key SILENTLY at exit 0. Pre-existing, out of scope, not chased here; do not change the parser."
 args = ["run", "octal_leading_zero_numeric_key_function.js"]
 exit = "success"
 stdout = "42\n"

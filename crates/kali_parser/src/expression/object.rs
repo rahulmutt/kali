@@ -228,6 +228,26 @@ impl Parser {
 /// token), so hex/binary/octal keys never arrive here to be refused by name;
 /// they misparse upstream instead. Fixing that is out of this function's
 /// scope.
+///
+/// **LEGACY OCTAL IS THE ONE NON-DECIMAL SPELLING THAT DOES ARRIVE HERE AS ONE
+/// TOKEN, AND IT IS MISREAD. That is register entry R-58** (§2, Tier 2, filed
+/// 2026-09-08 at `dde0f083c0`). JavaScript writes it with no prefix at all, so
+/// `lex_number` hands `042` over as a well-formed-looking `NumericLiteral`, and
+/// the `f64` arm below parses it with Rust's `str::parse::<f64>`, which has no
+/// legacy-octal grammar: the key becomes `42` where node says `34`, at exit 0
+/// with no diagnostic. The BigInt arm three lines up refuses the identical
+/// leading zero on `042n`; this arm walks past it. Measured at `dde0f083c0`
+/// against node v26.8.1, both scopes; pinned by `r58a_*` in
+/// `crates/kali_cli/tests/cases/oracle/tier2.toml`.
+///
+/// **Do not close R-58 by extending the leading-zero refusal to `042`.** That
+/// is the cheap change this function's shape invites and it would make kali
+/// reject a program node RUNS -- `042` is legal in sloppy mode, which is what a
+/// `.js` entry file runs in. The fix is a VALUE conversion, here and in
+/// `crates/kali_parser/src/expression/primary.rs:87`, which misreads the same
+/// spelling in expression position. The strict-mode question (node refuses
+/// `042` under `"use strict"` and in every module; kali has no strict-mode
+/// notion in this path) is stated in the entry and is not answered by it.
 fn numeric_property_name(text: &str) -> Option<PropertyName> {
     if let Some(digits) = text.strip_suffix('n') {
         let is_valid_bigint_digits = !digits.is_empty()

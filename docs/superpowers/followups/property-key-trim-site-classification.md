@@ -183,7 +183,13 @@ and the text `__proto__` contains no backslash — so there was no escape, and
 text and name are the same. No false positive.
 
 Both guards therefore hold **in fact**, not merely by the unqualified invariant:
-the escape exception is real, and it is unreachable from this comparison in
+the escape exception is real (**and is now filed as R-57**, whose **Fix
+direction** bullet carries this section's tripwire forward: Direction A's
+argument below holds only while key slots are never decoded, and R-57's fix is to
+decode them — which does not by itself falsify the guards, since the second
+observation in that paragraph still holds, but does move them off a structural
+fact and onto the allowlist's contents, so the commit that closes R-57 owes them
+either a move onto the DECODED name or an explicit re-derivation), and it is unreachable from this comparison in
 either direction — and the argument now rests on §6's "never decoded" finding
 rather than on an escape count, so it does not need re-deriving if the
 allowlist grows within the current single-character shape.
@@ -294,6 +300,23 @@ this project and unchanged by it; recorded so the residual is not restated more
 narrowly than it is.
 
 ## 6. The one exception to "a key slot's text is the property name"
+
+**FILED 2026-09-08 as R-57, at `dde0f083c0`.** This section is where the
+divergence below was first characterised, and it stays as written — its
+measurements are the history of how it was found, and the two-mechanism reading
+it works out (undecoded storage, then a second escaping pass) is the reading the
+register entry adopts. What has changed is that it is no longer unfiled: the
+human asked for it, and it is now **R-57** in §2 of
+`docs/superpowers/followups/kali-silent-miscompile-register.md`, Tier 2, with a
+§0.2 row, an `r57a` oracle pair in both scopes, a predicate record and a
+`clusters.json` singleton. **The entry re-measured everything below at
+`dde0f083c0` against `node v26.8.1` rather than citing it**, which is how one
+number here was found to be describing a different lane: `k.length` is `6` in the
+ITERATION lane, as this section says, but `Object.keys(o)[0].length` is `2` — the
+array-element `.length` divergence, which is not this defect and not a
+property-key phenomenon at all. Read the two closing paragraphs of this section
+("Not fixed here, deliberately") with the entry, which now owns the fix
+direction.
 
 **ESCAPE SEQUENCES.** `kali_parser`'s `unquote_string_literal`
 (`crates/kali_parser/src/literal.rs:7-24`) strips a string key's delimiters
@@ -413,7 +436,12 @@ site. It is pinned instead, in both scopes, as
 `escaped_quote_in_a_key_is_stored_undecoded_*` in
 `crates/kali_cli/tests/cases/object/property_key_identity.toml`, WRONG ON
 PURPOSE, with node's answers and what would close it. **No task in this plan
-owns closing it.**
+owns closing it.** — **still true of this plan, and superseded as a statement
+about the register: FILED 2026-09-08 as R-57**, which carries the fix direction,
+the eleven-escape sweep, the two same-spelling probes that AGREE with node, and
+the standing warning that the `__proto__` guards of §4.1 must move onto the
+decoded name in the same commit as any decoding fix. Still not fixed; now
+tracked.
 
 ## 7. The lane the corpus cannot reach
 

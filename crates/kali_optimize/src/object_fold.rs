@@ -158,7 +158,26 @@ impl Optimizer {
         // arrives here as the same nine-character name (except for keys spelled
         // with an ESCAPE SEQUENCE, which are stored undecoded -- unreachable for
         // this guard, see section 4 and section 6 of
-        // docs/superpowers/followups/property-key-trim-site-classification.md).
+        // docs/superpowers/followups/property-key-trim-site-classification.md,
+        // and register entry R-57, filed 2026-09-08 at `dde0f083c0`).
+        // R-57's fix direction is to make the parser DECODE key slots, and
+        // that removes the argument section 4.1 uses to prove this guard sound
+        // -- "an escaped spelling always keeps a backslash, and `__proto__` has
+        // none". It does not by itself make the guard WRONG: none of the
+        // lexer's eleven escapes decodes to a letter, digit or underscore, so
+        // no decoded spelling can spell `__proto__` today either. What changes
+        // is that the guard stops resting on a structural fact and starts
+        // resting on the allowlist's CONTENTS -- so after that fix this
+        // comparison must either move onto the decoded name or be re-argued
+        // from the allowlist, and adding `\u`/`\x` (refused today: `u` and `x`
+        // are not among the eleven) would then let `{"\u005f_proto__": 1}` be
+        // the prototype setter to JavaScript and an ordinary property here.
+        // `test_lexer_string_escape_allowlist_is_pinned_for_the_proto_guard` in
+        // `crates/kali_lexer/src/engine_tests.rs` is the tripwire for both.
+        // The `format!("{key:?}")` calls below are R-57's SECOND mechanism:
+        // they escape the parser's already-undecoded text a second time, which
+        // is what makes an enumerated four-character key report `.length` 6.
+        // A fix for either mechanism alone leaves that entry open.
         // Stripping quotes first could only ever ADD matches, and the one it
         // added was wrong: the ordinary own property `{'"__proto__"': 1}` is not
         // a prototype setter, and declining its fold hid a real key behind a

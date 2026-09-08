@@ -45,7 +45,33 @@
     "`lower_property_name`, so the ambiguous key text is never written rather than being",
     "disambiguated late. R-56 measured raw 0 / reachable 0 over the frozen corpus, so its",
     "departure moves no other cluster's frequency; what it did move is recorded in the",
-    "ranking's §6 amendment, read out of the generator's stdout."
+    "ranking's §6 amendment, read out of the generator's stdout.",
+    "",
+    "ADDED 2026-09-08 at `dde0f083c0` by the register-property-key-followups branch: R-57 and",
+    "R-58, each with its own singleton CLUSTER DEFINITION as well as its assignment, because a",
+    "singleton has no other member to hang on -- the mirror image of the R-56 removal above.",
+    "Both entries' `**Root-cause group**:` lines say `unclustered`, and both say WHY at length;",
+    "the quotes below are elided in the R-47 style, not paraphrased.",
+    "",
+    "THE TWO ARE NOT MERGED INTO ONE CLUSTER, AND THAT IS A DECISION, NOT AN OVERSIGHT. They",
+    "share a real shape: both are `kali_parser` converting a literal's SOURCE TEXT with Rust's",
+    "grammar where JavaScript's is required -- `unquote_string_literal` not decoding escapes,",
+    "and `numeric_property_name` parsing `042` as decimal. Merging them would have been the",
+    "tidier ranking. It is declined on this file's OWN definition: a cluster is a ROOT CAUSE,",
+    "`the unit a fix actually ships in`. Escape decoding and legacy-octal value conversion live",
+    "in different functions, need different tests, and cannot land in one change -- and R-58's",
+    "fix additionally has to answer a strict-mode question that has nothing to do with escapes.",
+    "Naming a new section-3 group for the family would be a fresh diagnosis, which section 3",
+    "opens by warning is cheap to make and expensive to act on; the shape claim is recorded in",
+    "both register entries instead, so a later reader can form the group on evidence.",
+    "",
+    "R-58 DECLINES G3 EXPLICITLY, and the reason is worth reading before anyone re-files it",
+    "there. It has G3's shape more exactly than most G3 members do -- the guard (`042n` refused",
+    "for its leading zero) and the hole (`042` walked past) are three lines apart in one",
+    "nine-line function. It is declined because section 3's remedy for G3 is to replace the",
+    "denylist with an allowlist at the choke point, and here that remedy is WRONG: refusing",
+    "`042` would make kali reject a program node RUNS, trading a silent wrong value for a loud",
+    "regression. The alternate reading is recorded on the assignment, as R-47's is."
   ],
   "clusters": [
     {
@@ -127,6 +153,16 @@
       "name": "R-52 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered (an isolated lowering/emit contract mismatch)'."
+    },
+    {
+      "name": "R-57 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered, and deliberately not added to any of §3's eight ... not G1 ... not G8 ... and not N1, despite the name'. The N1 exclusion is explicit because of a word collision: N1 here is escape/provenance loss in the ARENA-ESCAPE sense (R-14/R-48), not the string-escape sense."
+    },
+    {
+      "name": "R-58 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered ... It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion'. Declined because G3's stated remedy -- an allowlist at the choke point -- would refuse a program node runs."
     }
   ],
   "assignments": [
@@ -318,6 +354,20 @@
       "registerSource": "G4 (there is no value distinct from the scalar `0`) by symptom; plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4.",
       "alternate": "G7, named and declined by the register.",
       "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
+    },
+    {
+      "id": "R-57",
+      "cluster": "R-57 (unclustered)",
+      "registerSource": "unclustered, and deliberately not added to any of §3's eight ... not G1 ... not G8 ... not N1, despite the name ... It shares a shape with R-58 ... but they are not one cluster, by clusters.json's own definition that a cluster is the unit a fix actually ships in.",
+      "alternate": "A shared cluster with R-58 (`kali_parser` converting a literal's source text with Rust's grammar) is named and declined by the register itself, on the fix-unit rule this file states.",
+      "alternateCluster": null
+    },
+    {
+      "id": "R-58",
+      "cluster": "R-58 (unclustered)",
+      "registerSource": "unclustered, and the interesting part is which group it declines. It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion ... A cluster is the unit a fix ships in; this fix does not ship with G3's.",
+      "alternate": "G3 by shape, named and declined by the register because G3's remedy would refuse valid JavaScript; a shared cluster with R-57 is also named and declined, on the fix-unit rule.",
+      "alternateCluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them"
     }
   ]
 }

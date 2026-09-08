@@ -4,6 +4,28 @@ use crate::Parser;
 use kali_ast::{Expression, LiteralValue};
 use kali_common::js_number::format_js_number;
 
+/// Strip a string literal's delimiters. **It does NOT decode escape sequences,
+/// and that is register entry R-57** (§2, Tier 2, filed 2026-09-08 at
+/// `dde0f083c0`): the lexer deliberately keeps the raw escape in the token's
+/// value (`crates/kali_lexer/src/string.rs:23-35`, so `kali_fmt` can re-emit it
+/// verbatim), and this function only removes the outer quotes -- so a property
+/// key spelled `"a\"b"` becomes the FOUR characters `a\"b`, where the property
+/// name JavaScript denotes is the three characters `a"b`. Every downstream
+/// comparison then compares the wrong text, and `Object.hasOwn(o, 'a"b')`
+/// answers `false` for a property the object has. Measured at `dde0f083c0`
+/// against node v26.8.1, both scopes; pinned by `r57a_*` in
+/// `crates/kali_cli/tests/cases/oracle/tier2.toml` and by
+/// `escaped_quote_in_a_key_is_stored_undecoded_*` in
+/// `crates/kali_cli/tests/cases/object/property_key_identity.toml`.
+///
+/// A decoder exists -- `decode_string_escapes`
+/// (`crates/kali_codegen/src/ctx.rs:160`), applied when a string is interned at
+/// `ctx.rs:222` -- and it is downstream of the key path, which is why a string
+/// VALUE renders correctly while a key does not. **Do not fix R-57 by
+/// un-escaping at a comparison site**; see the entry's Fix direction, and note
+/// that it also owes `object_fold.rs`'s two `__proto__` guards a move onto the
+/// decoded name, which are sound today only because this function never decodes
+/// (§4.1 of `docs/superpowers/followups/property-key-trim-site-classification.md`).
 pub(crate) fn unquote_string_literal(value: &str) -> String {
     let trimmed = value.trim();
     let Some(first) = trimmed.chars().next() else {
