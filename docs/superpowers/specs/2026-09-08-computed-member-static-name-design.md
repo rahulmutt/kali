@@ -237,12 +237,20 @@ because a computed access without a readable index has none.
 ### 4.3 `kali_hir`, `kali_mir`, `kali_lir`, and the passes without bindings
 
 HIR allocates the member node with text only when the AST has a name, otherwise
-without text; the index is still pushed as the second child. MIR and LIR already
-carry text as `Option<String>`. Downstream, a computed member is still "a
-two-child `Value` whose text is not a binary operator", and a textless two-child
-node satisfies that test, so it routes to the computed-member arms. Every
-transparent-wrapper recognizer inspected requires exactly one child; §6 carries
-a unit test that pins that rather than relying on inspection.
+without text; the index is still pushed as the second child.
+
+**A nameless computed member gets its own node kind below HIR** (amendment
+2026-09-08, after the implementation survey). MIR erases node kinds, so codegen
+tells a member from an array literal only by text: a member has a name, an
+array literal has none. A nameless computed member lowered as a textless
+two-child `Value` is therefore byte-identical to the two-element array literal
+`[o, i]`; the array-literal recognizer would claim it, and two static renderers
+would render it as the string `2`. So MIR gains `MirNodeKind::ComputedMember`
+and LIR gains `LirNodeKind::ComputedMember`, used only when a HIR `MemberExpr`
+has no text. Named computed members (`o["b"]`, `o[1]`) stay `Value` exactly as
+today. Every existing recognizer matches the `Value` kind and so declines the
+new kind by construction; the four exhaustive matches over the kind enums are
+the compile-time checklist, and each new arm is a decline.
 
 Passes with no binding knowledge **decline** on a nameless member, which is
 always sound:
@@ -270,14 +278,21 @@ path and the assignment path, in this order:
    growable array, a string-element array — is decided by the existing
    dynamic-index lanes. Existing denies (crypto and search-params results) fire
    where they fire today.
-2. **Fold.** The index is resolved to a name: a string through the existing
-   static string resolver, a number through the existing static numeric
-   resolver rendered with `format_js_number`. **An identifier folds only when
-   it is a `const` declarator.** Codegen's `bindings` map is `const`-only by
-   construction; the checker's static-value tables also admit `let`, so the
-   checker must additionally check the declarator kind. A `let` key, even one
-   never reassigned, does not fold, because the two twins must admit the same
-   set.
+2. **Fold.** The index is a **bare identifier naming a `const` whose
+   initializer is a string or number literal**; the name is the literal's
+   inner text, a number rendered with `format_js_number`. Nothing else folds:
+   not a `let` (even one never reassigned), not a parameter, not a
+   parenthesized or unary spelling of the identifier, not a `const` with a
+   computed initializer. The rule is that narrow because three passes apply it
+   and must agree: codegen's `bindings` map is `const`-only by construction;
+   the checker's resolver keeps richer static-value tables that also admit
+   `let`, so it records a dedicated `const`-declarator set; and the checker's
+   materialization pass has no view of initializers at all, so it records the
+   literal at the declarator. The rule itself is **one pure function** in the
+   checker crate with the lookup passed in, so the two checker passes cannot
+   drift from each other. Codegen may fold a strict superset (its resolver
+   tunnels wrappers); that direction is safe, because `kali run` runs the
+   checker first and the checker's refusal wins.
 3. **Dot semantics from here.** With a name, the access is the dot spelling.
 4. **Refuse.** Otherwise `E5506`, one canonical message used verbatim by both
    twins:
@@ -302,14 +317,19 @@ node's text if present, else the fold of the index child through the `const`
 binding resolvers (`resolve_static_numeric_value` and a string counterpart over
 `resolve_bound_node`). It has exactly two callers.
 
-- *Read gateway.* In the two-child member arm, after every runtime lane has
-  declined and before `emit_unary`. With a name, the gateway records it on the
-  node **in place**, so every later by-id consumer sees the same name, and
-  re-dispatches through the same arm, which now behaves as if the parser had
-  read the index: the object-literal field fold, the static element fold, and
-  the existing miss behaviour all apply unchanged. Without one, `E5506` and an
+- *Read gateway.* The `emit_node` arm for `LirNodeKind::ComputedMember`. It
+  first offers a `Value`-shaped, text-less probe to the runtime lanes that never
+  read the text for a name (the for-in ordinal lane, the growable lanes, the
+  linear-memory array lane). If none admits it, it folds. With a name, it
+  re-dispatches a `Value`-shaped **clone** carrying the name through the
+  ordinary two-child member arm, which then behaves as if the parser had read
+  the index: the object-literal field fold, the static element fold, and the
+  existing miss behaviour all apply unchanged. Without one, `E5506` and an
   `unreachable`; `emit_unary` never sees a nameless member. The catch-all's
-  placeholder tail is untouched.
+  placeholder tail is untouched. The emitter holds an immutable borrow of the
+  program, so the folded name is **not** recorded on the node: by-id consumers
+  keep seeing the nameless kind and decline, which is why a chained access off
+  a folded member (`o[k].x`, `o[k].length`) refuses rather than folds (§4.5).
 - *Store choke point.* In `emit_assignment`, before the `assignment_target_name`
   fallthrough. A two-child target on a non-array receiver resolves its static
   name; with one, the store is emitted by the dot-store arm as if spelled
@@ -329,6 +349,9 @@ binding resolvers (`resolve_static_numeric_value` and a string counterpart over
   a present property, so the verdict is unaffected.
 - **`o[""]`.** A string literal, readable, `Some("")`. There is no sentinel
   value; that is why the field is an `Option`.
+- **Chained access off a folded member.** `o[k].x` and `o[k].length` with a
+  `const` key refuse: the outer access sees the inner node by id, and by id it
+  is the nameless kind (§4.4). Spell it `o.b.x` or bind the inner read first.
 - **`delete o[k]`.** No member-text lane; unchanged, already fail-closed.
 - **A fold that hits the for-in gate's shape.** Step 1 runs first, so a
   `const` key over a proven object shape is decided by the fold only if the
@@ -343,6 +366,7 @@ binding resolvers (`resolve_static_numeric_value` and a string counterpart over
 | `for (let j…) a[j]` over an array literal | `0 0 0` | `E5506` | the linear-memory lane exists for `new Array(n)` receivers; extending it to literals is its own design |
 | `s[k]`, `s[1]` on a string | `0` | `E5506` | a character fold is a string-helper widening, not a member-access fix |
 | `o[true]`, `o[null]`, `o[1n]` | `5` (fabricated `index`) | `E5506` | the parser's readable set does not grow; a decline closes R-59's lane honestly |
+| `o[k].x`, `o[k].length` with a `const` key | `0` / `2` | `E5506` | by-id consumers see the nameless kind; the fold is visible only through the gateway's re-dispatch |
 | the unary catch-all's placeholder `0` | `0` | `0` | R-21's and R-60's site; this project stops nameless members from reaching it, and changes nothing about what reaches it with a name |
 | a runtime string-keyed object lookup | none | none | needs a key table per shape at runtime; the for-in ordinal lane is the only precedent and it is deliberately narrow |
 
@@ -361,8 +385,8 @@ today's output, so the fix wave reads as verdict flips rather than new tests.
   `.b` read-back is the dot lane, so it proves the store landed.
 - `classifier_ground_truth.toml`'s SILENT row: R-13's `var`-key read becomes
   `fail_closed`, so the classifier loses its SILENT fixture. It is replaced by
-  **R-10**'s repro (`var x = 1; { let x = 2; } console.log(x)`), measured SILENT
-  first, with the header table and the rationale saying why R-13 left the class.
+  **R-10**'s repro (`let x = 1; { let x = 2; } console.log("r=" + x);`, the
+  register's and the tier file's own spelling), measured SILENT first, with the header table and the rationale saying why R-13 left the class.
   R-10 is chosen because its fix is architectural and no project is near it.
 
 ### 6.3 Wrong-on-purpose pins flip
@@ -389,8 +413,9 @@ controls of §2.5 are asserted unchanged.
   shape in §4.1 and the recorded value for every readable one.
 - AST: the two accessors.
 - Codegen: `static_member_name` folds a `const` string and a `const` number,
-  declines a `let` and a parameter; every transparent-wrapper recognizer
-  declines a two-child node.
+  declines a `let` and a parameter; the array-literal recognizer, the static
+  value renderer and the length renderer each decline a `ComputedMember` node,
+  and a chained access off a folded member refuses rather than rendering `2`.
 - Checker: the fold declines a `let` declarator; a folded store records a write
   access.
 
@@ -408,8 +433,14 @@ R-35 and the console-render project both needed.
 ## 7. Ledger obligations
 
 **R-13 and R-59 close by re-derivation, not by editing a verdict.** Fix,
-re-measure, regenerate §0.2 of the register from the oracle cases, then record
-each closure in its own §2 entry against the closing commit. R-13's mechanism
+re-measure, then re-derive their §0.2 rows from the oracle cases — §0.2 has no
+generator; it is hand-written under the gate
+`every_zero_two_row_is_the_class_set_its_live_cases_assert`, which compares each
+row's class set to the live cases — then record each closure in its own §2
+entry against the closing commit. The two hard-coded totals in
+`crates/kali_blast_radius/src/oracle_tests.rs` (four ground-truth cases, 165
+oracle cases) do not move: no oracle case is added or removed, and the
+ground-truth SILENT case changes entry, not count. R-13's mechanism
 bullet, struck and "disproved, not replaced", is replaced with the traced
 mechanism from §3 and the note that its write lane was item 2.3's family.
 
@@ -421,11 +452,18 @@ count; R-59's singleton cluster is removed; R-13's contested-assignment row
 leaves §2.4. §6 of that document gets a dated amendment recording what the
 generator printed. §6.6 item 4 of the ranking: re-run, do not re-read.
 
-**`clusters.json` and the instrument.** Both entries leave `clusters.json`,
-following R-56's retirement at `12fd424897`. `predicates.json`, `matchers.mjs`
-and `counts.json` are not touched; both matchers stay so a regression re-lights
-the count. No §4.3 apparatus commit is expected. If one becomes necessary, it
-lands alone, ahead of the change that motivates it.
+**`clusters.json`, the outputs, and the instrument.** Both entries leave
+`clusters.json`, following R-56's retirement at `12fd424897`; R-59's singleton
+cluster definition goes with its assignment, or the ranking's non-empty-cluster
+gate refuses to run. The instrument — `predicates.json`, `matchers.mjs`, and
+the frozen SHAs that pin them — is not touched; both matchers stay so a
+regression re-lights the count. The **outputs** do move: this project makes
+kali refuse programs it used to accept, so `accepts.json` and therefore
+`counts.json`'s reachable column are re-measured against the new binary
+(`node accepts.mjs && node count.mjs`) before the ranking is regenerated, and
+the amendment records how the accept rate and the reachable counts moved. That
+is an outputs refresh, not a §4.3 apparatus change, and it lands in its own
+`measure(blast-radius)` commit ahead of the `docs(register)` commit.
 
 **The console-render follow-up** marks item 2.3 fixed at the closing commit and
 names this project.
@@ -440,9 +478,10 @@ never documented as available.
   reverse. The check-versus-run parity step on every refusal case is the
   detector. If they cannot be made to agree on the `const`-only rule, the
   design is wrong about the admitted set, not about the shape.
-- **A textless two-child node is misread as a wrapper.** The recognizer unit
-  test is the detector. If it fails, the node needs a kind marker that survives
-  MIR's erasure, which is a larger change than this design prices.
+- **A textless two-child node is misread as an array literal or a wrapper.**
+  Resolved by the amendment in §4.3: the nameless member carries its own node
+  kind below HIR, and the recognizer unit tests pin that the array-literal
+  recognizer and the two static renderers decline it.
 - **The dot-store arm needs materialization evidence the folded store does not
   produce**, so `o[k] = 8` refuses instead of working. R-13's write lane then
   closes `FAIL_CLOSED` rather than `FIXED`, which is honest and must be recorded
