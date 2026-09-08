@@ -45,6 +45,18 @@ impl FunctionEmitter<'_> {
         twin
     }
 
+    /// The store target as the `Value`-shaped node the store arms match on.
+    /// A nameless computed member (`LirNodeKind::ComputedMember`) is presented
+    /// as a text-less two-child `Value` so the for-in ordinal and runtime
+    /// array arms — which never read the text for a name — keep admitting it.
+    pub(crate) fn store_target_node(&self, left: LirNodeId) -> LirNode {
+        let mut target = self.node(left).clone();
+        if target.kind == LirNodeKind::ComputedMember {
+            target.kind = LirNodeKind::Value;
+        }
+        target
+    }
+
     /// True when `id` resolves to a statically-known string, the receiver
     /// shape that has no admitting INDEX lane in either spelling.
     pub(crate) fn is_static_string_receiver(&self, id: LirNodeId) -> bool {

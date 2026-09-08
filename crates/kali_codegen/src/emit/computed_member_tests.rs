@@ -228,3 +228,52 @@ fn the_three_spellings_of_a_string_property_name_agree_and_only_an_index_refuses
         );
     }
 }
+
+#[test]
+fn a_bracket_store_on_an_array_literal_refuses_instead_of_vanishing() {
+    let diagnostics = diagnostics_for("const a = [5, 6]; a[1] = 9; console.log(a[1]);");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.is_error() && d.code == Some(5506)),
+        "a[1] = 9 on an array literal has no store lane and must refuse: {diagnostics:?}"
+    );
+}
+
+#[test]
+fn a_nameless_bracket_store_refuses_with_the_shared_message() {
+    let diagnostics =
+        diagnostics_for("const o = {a: 1, b: 2}; let k = \"b\"; o[k] = 8; console.log(o.b);");
+    assert_e5506(
+        &diagnostics,
+        "computed member access `o[k]` is unavailable",
+        "let key store",
+    );
+}
+
+#[test]
+fn a_named_bracket_store_without_a_shape_refuses_rather_than_dropping() {
+    // parse_and_lower_lir runs no type inference, so `o` has no materialized
+    // shape here; the point is that the store is REFUSED, never silently
+    // dropped. The end-to-end FIXED reading (o.b prints 8) is a case in
+    // crates/kali_cli/tests/cases/object/computed_member_static_name.toml.
+    let diagnostics = diagnostics_for("const o = {a: 1, b: 2}; o[\"b\"] = 8; console.log(o.b);");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.is_error() && d.code == Some(5506)),
+        "an unshaped bracket store must refuse, not vanish: {diagnostics:?}"
+    );
+}
+
+#[test]
+fn a_runtime_array_element_store_keeps_its_lane() {
+    let diagnostics =
+        diagnostics_for("const a = new Array(2); let i = 1; a[i] = 9; console.log(a[i]);");
+    assert!(
+        !diagnostics
+            .iter()
+            .any(|d| d.is_error() && d.message.contains("computed member access")),
+        "{diagnostics:?}"
+    );
+}
