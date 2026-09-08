@@ -814,16 +814,32 @@ Read out of the regenerated §2 and §3, not predicted:
   the zero block 9→10. **The raw axis now has ten bands where it had nine.** No
   cluster changed its neighbours' *counts*; what changed is that a new cluster was
   inserted between two existing ones, which is what a band structure is for.
-- **On the reachable axis no band boundary moved, and R-59 arrives in a TIE that
-  is not a coincidence.** `R-59 (unclustered)` enters reachable **band 2** at
-  **45**, alongside `G3` at **45** — and G3's 45 *is* R-13's 45. The two clusters
-  tie because **they count the same sites**: R-59's matcher is a strict subset of
-  R-13's shape, and the corpus contains none of the four index spellings that
-  separate them (a parenthesized literal, a sequence ending in one, and `+`/`-`
-  applied to one — all measured to read the CORRECT property). Bands 3 to 6 are
-  byte-identical, and R-60 lands in reachable band 5 with the other zeros. **Band
-  1 is byte-identical to the block above on both axes**, which is now the third
-  consecutive regeneration in which that has held.
+- **On the reachable axis no band boundary moved, and R-59 arrives in a TIE whose
+  reason this amendment got wrong the first time.** `R-59 (unclustered)` enters
+  reachable **band 2** at **45**, alongside `G3` at **45** — and G3's 45 *is*
+  R-13's 45. This bullet originally explained the tie by saying the two clusters
+  *"count the same sites"* because *"R-59's matcher is a strict subset of R-13's
+  shape"*. ~~That~~ **The subset half is false, and the instrument disproves it in
+  one line** (review round 1): `var o={}; o[true]; o[null]; o[/x/]; o[1n];`
+  counts **0** under `computedMemberNonLiteralKey` and **4** under
+  `computedMemberFabricatedPropertyName`, while
+  `var o={1:"one"}; o[(1)]; o[(0,1)]; o[+1]; o[-1];` counts **3** under the first
+  and **0** under the second. R-13's shape is
+  `computed && property.type !== "Literal"`; R-59's asks whether
+  `expression_to_property_name` can READ the index, and a boolean, `null`, a
+  BigInt and a regex are all `Literal` nodes it cannot read. **The two overlap and
+  neither contains the other**, and both directions are counted correctly —
+  `o[true]`, `o[null]` and `o[1n]` each read the fabricated `index` property (`5`
+  against node's `7`, measured at `35e9ef4ef6`, both scopes), and the four
+  readable spellings each read the CORRECT name. **The corrected reason for the
+  tie is that the corpus contains NEITHER separating family**, which is a fact
+  about this corpus and not about the two shapes. The figures did not move; the
+  explanation did, and the correction is recorded here rather than substituted,
+  because a number published with a wrong reason is the failure this section
+  exists to make visible. Bands 3 to 6 are byte-identical, and R-60 lands in
+  reachable band 5 with the other zeros. **Band 1 is byte-identical to the block
+  above on both axes**, which is now the third consecutive regeneration in which
+  that has held.
 - **§3.1's arithmetic moved in the numerator for the first time.** Entries
   entering with a nonzero reachable count go **~~7~~ → 8** (R-59 = 45 joins R-06,
   R-08, R-10, R-13, R-14, R-30, R-31); "19 measure zero" becomes **20**; and
@@ -834,8 +850,12 @@ Read out of the regenerated §2 and §3, not predicted:
   frequency behind it.
 - **AND THE NUMERATOR'S GROWTH IS DOUBLE-COUNTED, WHICH THIS AMENDMENT SAYS
   RATHER THAN LETTING THE FIGURE STAND ALONE.** R-59's 302 raw and 45 reachable
-  sites are, to the digit, sites `G3` already counts through R-13 — the same
-  sites, in two clusters, summed twice by `aggregate`. That is the same
+  sites are, to the digit, sites `G3` already counts through R-13 — **on this
+  corpus the same sites**, in two clusters, summed twice by `aggregate`. (The
+  qualifier is load-bearing after the correction above: the two matchers select
+  the same set *here* because neither separating family occurs here, not because
+  either shape contains the other. Wherever one did occur, the sets would differ
+  and the double-count would be partial rather than total.) That is the same
   over-attribution `clusters.json`'s WHOLE-ENTRY RULE discloses for R-23 and
   R-28, arriving by a new route, and it is disclosed in `clusters.json`'s `note`
   and in `count.mjs`'s `UPPER_BOUNDS` as well as here. **A reader must not add

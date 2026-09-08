@@ -35,13 +35,19 @@
 # string key whose own content contains quote characters through the
 # ENUMERATION-order lane or the MEMBER-read lane.
 #
-# FILED 2026-09-08, at `dde0f083c0`: two of the wrong-on-purpose pairs below are
+# FILED 2026-09-08, at `dde0f083c0`: ~~two~~ **FOUR** of the wrong-on-purpose
+# pairs below are
 # now register entries, on the human's instruction, with every reading
 # re-measured there against node v26.8.1 rather than carried across from these
-# rationales. `escaped_quote_in_a_key_is_stored_undecoded_*` is **R-57** and
-# `octal_leading_zero_numeric_key_is_read_as_decimal_*` is **R-58**, both §2
+# rationales. (The "two" was written when the first pair of entries landed and
+# was left behind by the commit that filed the second pair; corrected here.)
+# `escaped_quote_in_a_key_is_stored_undecoded_*` is **R-57**,
+# `octal_leading_zero_numeric_key_is_read_as_decimal_*` is **R-58**,
+# `computed_member_index_is_fabricated_from_the_index_expression_*` is **R-59**
+# and `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_*`
+# is **R-60** -- all four §2
 # Tier 2 in docs/superpowers/followups/kali-silent-miscompile-register.md, each
-# with an `r57a`/`r58a` oracle pair of its own in
+# with an `r57a`/`r58a`/`r59a`/`r60a` oracle pair of its own in
 # crates/kali_cli/tests/cases/oracle/tier2.toml. The cases below are UNCHANGED
 # and stay WRONG ON PURPOSE: they pin probes the oracle pairs deliberately do not
 # carry (the member reads), and their expectations are still what kali prints.
@@ -679,7 +685,7 @@ stdout = "7\n9\n"
 
 [[case]]
 name = "computed_member_index_is_fabricated_from_the_index_expression_in_function"
-rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same two probes in function scope; node prints `undefined` twice and kali prints `7` then `9`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `expression_to_property_name` fabricates a property name for every index shape it cannot read statically -- the identifier's own text for `o[i]`, the literal string `index` for the catch-all arm `o[i + 0]` reaches. Pre-existing, out of scope, not chased here; do not change the parser."
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same two probes in function scope; node prints `undefined` twice and kali prints `7` then `9`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `expression_to_property_name` fabricates a property name for every index shape it cannot read statically -- the identifier's own text for `o[i]`, the literal string `index` for the catch-all arm `o[i + 0]` reaches. Pre-existing, out of scope, not chased here; do not change the parser. FILED 2026-09-08 as R-59 (register section 2, Tier 2), at `dde0f083c0`, on the human's instruction, with an `r59a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose. The entry re-measured this scope too and records it byte-identical to the module scope, which is what the mechanism predicts: the name is fabricated by `kali_parser` while the member expression is parsed, before any scope exists."
 args = ["run", "computed_member_index_function.js"]
 exit = "success"
 stdout = "7\n9\n"
@@ -738,7 +744,7 @@ stdout = "0\n"
 
 [[case]]
 name = "a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_in_function"
-rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same probe in function scope; node prints `1` and kali prints `0`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: the fabricated `0` a static member read emits is not confined to ABSENT properties -- `Object.fromEntries([[\"a\", 1]])` has an own `a` worth `1`, and reading it still yields `0`, because under `kali run`'s Fast mode the fromEntries BINDING fold never runs (it is gated to Release/ReleaseAdvanced) and the read has no shape to resolve against. Pre-existing, unowned by this plan, not chased here."
+rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same probe in function scope; node prints `1` and kali prints `0`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: the fabricated `0` a static member read emits is not confined to ABSENT properties -- `Object.fromEntries([[\"a\", 1]])` has an own `a` worth `1`, and reading it still yields `0`, ~~because under `kali run`'s Fast mode the fromEntries BINDING fold never runs (it is gated to Release/ReleaseAdvanced) and the read has no shape to resolve against~~. Pre-existing, unowned by this plan, not chased here. FILED 2026-09-08 as R-60 (register section 2, Tier 2), at `dde0f083c0`, on the human's instruction, with an `r60a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose. THE STRUCK CLAUSE IS THE ONE THING THE ENTRY DISPROVED, and it is kept struck rather than deleted because it is what this file believed: it is true of the READ and false of the OBJECT. On the same `o`, in the same Fast-mode run, `Object.hasOwn(o, \"a\")` folds to `true` and `Object.hasOwn(o, \"b\")` to `false` -- both agreeing with node -- because `static_object_has_own` recognizes a `fromEntries` call operand directly; and `Object.keys(o)` REFUSES the program (`error[E5506]`, exit 1). The shape is known to a sibling consumer in the same run; what has no shape to resolve against is this member read's RECEIVER, which by codegen is a scalar zero placeholder. Measured at `35e9ef4ef6` against node v26.8.1, both scopes."
 args = ["run", "from_entries_present_property_function.js"]
 exit = "success"
 stdout = "0\n"

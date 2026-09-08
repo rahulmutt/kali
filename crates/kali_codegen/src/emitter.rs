@@ -1290,7 +1290,10 @@ impl<'a> FunctionEmitter<'a> {
     /// default arm and emits its own `0`. **The warning below is a warning, not
     /// the verdict**: `kali run` does not surface it on a program that
     /// otherwise compiles, which is why R-60 classifies SILENT and not
-    /// FAIL_CLOSED. Measured at `dde0f083c0` against node v26.8.1, both scopes.
+    /// FAIL_CLOSED. Measured at `35e9ef4ef6` against node v26.8.1, both scopes
+    /// -- that is the tree the binary was built from; `dde0f083c0` above is the
+    /// commit the entry was FILED at, and the two are named separately because
+    /// on this branch they differ.
     pub(crate) fn push_placeholder_fallback_diagnostic(&mut self, kind: &str, name: &str) {
         let fallback_key = format!("{kind}:{name}");
         if !self.reported_placeholder_fallbacks.insert(fallback_key) {

@@ -95,7 +95,8 @@ impl<'a> FunctionEmitter<'a> {
     /// for `o[i]`, the literal string `index` for the catch-all. This scan then
     /// finds that fabricated name, and if the receiver happens to declare a
     /// property under it the read returns THAT property's value. Measured at
-    /// `dde0f083c0` against node v26.8.1, both scopes: over
+    /// `35e9ef4ef6` (the tree the binary was built from) against node v26.8.1,
+    /// both scopes: over
     /// `const o = {index: 9, i: 7}; let i = 1;`, `o[i]` reads `7` and
     /// `o[i + 0]` reads `9` where node reads `undefined` twice. The un-quoting
     /// symmetry this comment establishes is real; the currency claim holds only

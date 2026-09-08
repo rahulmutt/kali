@@ -726,7 +726,8 @@ impl<'a> FunctionEmitter<'a> {
                 // Tier 2, filed 2026-09-08). A member read whose receiver no
                 // earlier arm could classify lands here, and `kali run` does not
                 // show the warning below on a program that otherwise compiles --
-                // measured at `dde0f083c0`: `const o =
+                // measured at `35e9ef4ef6`, the tree this task's binary was
+                // built from: `const o =
                 // Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0`
                 // at exit 0 with ZERO bytes of stderr, where node prints `1`.
                 // The receiver arrives unclassifiable because `Object.fromEntries`

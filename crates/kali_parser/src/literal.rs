@@ -56,7 +56,9 @@ impl Parser {
     /// paragraphs below understate: when the fabricated name COLLIDES with a
     /// property the receiver really has, the read does not fall to a
     /// placeholder `0` -- it returns another property's VALUE, at exit 0, with
-    /// no diagnostic. Measured against node v26.8.1 in both scopes; pinned by
+    /// no diagnostic. Measured at `35e9ef4ef6` -- the tree the binary was built
+    /// from, not `dde0f083c0`, which is where it was FILED -- against node
+    /// v26.8.1 in both scopes; pinned by
     /// `r59a_*` in `crates/kali_cli/tests/cases/oracle/tier2.toml` and by
     /// `computed_member_index_is_fabricated_from_the_index_expression_*` in
     /// `crates/kali_cli/tests/cases/object/property_key_identity.toml`.
