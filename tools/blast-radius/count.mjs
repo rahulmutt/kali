@@ -99,6 +99,29 @@ const UPPER_BOUNDS = {
       "are counted here and are NOT this defect -- each is a string key the codegen predicate " +
       "correctly leaves alone.",
   },
+  "R-57": {
+    disclosedInRecord: true,
+    note:
+      "Upper bound, per the record: the matcher counts any string-literal key whose raw source " +
+      "text carries a backslash, and acorn accepts escapes kali's lexer refuses outright -- " +
+      "`\\u`, `\\x`, and everything outside the eleven at `crates/kali_lexer/src/string.rs:28`. " +
+      "A key spelled with one of those is counted here and diverges LOUDLY (`error[E1004]: " +
+      "unsupported string escape sequence`, exit 1), which is not this entry's silent class. " +
+      "Every key spelled with one of the eleven IS this defect, computed or not -- all eleven " +
+      "measured at `dde0f083c0` in both scopes: `Object.keys(o)[0] === \"<the same literal>\"` " +
+      "is `false` in kali and `true` in node for every one of them.",
+  },
+  "R-58": {
+    disclosedInRecord: true,
+    note:
+      "Upper bound, per the record: `0[0-7]+` is the legacy-octal SPELLING, and a spelling is " +
+      "not always a divergence. A one-digit run reads the same in both radices, so `{00: 1}` " +
+      "through `{07: 1}` are counted here and agree with node. Every longer run diverges " +
+      "(`{010: 1}` is the key `8` in node and `10` in kali). `08`/`09` are " +
+      "NonOctalDecimalIntegerLiteral, not octal, and are correctly excluded; `0o42` is excluded " +
+      "because kali's lexer never tokenizes it as one number and it fails LOUDLY (`error[E3100]: " +
+      "undefined identifier 'o42'`, exit 1).",
+  },
 };
 
 /**

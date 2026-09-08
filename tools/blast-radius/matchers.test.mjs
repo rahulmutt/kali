@@ -345,7 +345,7 @@ test("the module exports exactly the catalogue's countable matchers, by name", (
   const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
   const catalogueNames = countable.map((entry) => entry.matcher).sort();
   assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
-  assert.equal(catalogueNames.length, 38);
+  assert.equal(catalogueNames.length, 40);
 });
 
 test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling", () => {
@@ -362,6 +362,46 @@ test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling
     var f = {["\\"5\\""]: 1}; // computed, does not count
   `;
   assert.equal(count("objectLiteralQuotedNumericStringKey", src), 2);
+});
+
+test("objectLiteralEscapedStringKey counts every string key whose RAW text carries a backslash", () => {
+  // Positives: the two escapes the register's repro and its non-quote control
+  // use, a computed spelling of the same key (measured to diverge identically,
+  // so unlike R-56's matcher this one does not exclude computed), and a lone
+  // backslash. Negatives: a string key with no escape, a numeric key, an
+  // identifier key, and a string VALUE carrying an escape under an unescaped key
+  // -- the trigger is the KEY's spelling, not the property's.
+  const src = String.raw`
+    var a = {"a\"b": 1};   // counts
+    var b = {"a\nb": 1};   // counts
+    var c = {["a\"b"]: 1}; // computed, counts
+    var d = {'a\\b': 1};   // counts
+    var e = {"ab": 1};     // no escape, does not count
+    var f = {5: 1};        // numeric key, does not count
+    var g = {ab: 1};       // identifier key, does not count
+    var h = {ab: "x\ny"};  // escape is in the VALUE, does not count
+  `;
+  assert.equal(count("objectLiteralEscapedStringKey", src), 4);
+});
+
+test("objectLiteralLegacyOctalNumericKey counts the legacy-octal key spelling only", () => {
+  // Positives: the register's repro, a longer run, and a computed spelling
+  // (measured to diverge identically). Negatives: `08`/`09` are
+  // NonOctalDecimalIntegerLiteral and kali's decimal reading of them is correct;
+  // `0o42` is modern octal, which kali's lexer refuses loudly; `0` alone, a
+  // decimal, a fraction and a quoted "042" are not legacy octal at all.
+  const src = `
+    var a = {042: 1};    // counts
+    var b = {010: 1};    // counts
+    var c = {[042]: 1};  // computed, counts
+    var d = {08: 1};     // NonOctalDecimalIntegerLiteral, does not count
+    var e = {0o42: 1};   // modern octal, does not count
+    var f = {0: 1};      // plain zero, does not count
+    var g = {42: 1};     // decimal, does not count
+    var h = {0.5: 1};    // fraction, does not count
+    var i = {"042": 1};  // string key, does not count
+  `;
+  assert.equal(count("objectLiteralLegacyOctalNumericKey", src), 3);
 });
 
 test("the disclosure instruments name real entries and stay out of MATCHERS", () => {

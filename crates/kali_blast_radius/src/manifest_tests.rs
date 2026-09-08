@@ -170,10 +170,39 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// true. The next author to add an entry faces the same incentive; the record is
 /// countable because the shape is countable, and the band placement is a
 /// consequence rather than a motive.
+///
+/// **Re-frozen 2026-09-08**, the second movement of these constants, by the
+/// register-property-key-followups branch filing **R-57** (§2, Tier 2 — a key
+/// spelled with an escape sequence is stored undecoded) and **R-58** (§2,
+/// Tier 2 — a legacy-octal numeric key is read as decimal). Two §2 entries need
+/// two catalogue records for `check_completeness`, and both records are honestly
+/// COUNTABLE for the same reason R-56's is: each triggering shape is a property
+/// key spelled a particular way, which an acorn AST hands you directly. The
+/// four `uncountable` reasons (R-17, R-21, R-22, R-54 — representation,
+/// representation, runtime-type, parseability) reach neither: `{"a\"b": 1}` and
+/// `{042: 1}` are both legal, parseable JavaScript, and both matchers read
+/// `key.raw` — the SOURCE SPELLING — which is the one thing acorn preserves
+/// exactly. So `matchers.mjs` gained `objectLiteralEscapedStringKey` and
+/// `objectLiteralLegacyOctalNumericKey`, and both files moved together again.
+///
+/// `counts.json` was regenerated with them (`node count.mjs`), and the diff is
+/// again the evidence that this was an ADDITION: it added exactly two entries
+/// (R-57 and R-58, each raw 0 / reachable 0, `unsampled`) and left every other
+/// entry's every field byte-identical — with ONE exception that is a genuine
+/// reading and not a drift, disclosed here rather than smoothed over: the
+/// file's `nodeVersion` cell moved `v26.7.0` -> `v26.8.1`, because that is what
+/// `node --version` prints on this machine now. No count depends on it (the
+/// matchers run on acorn, pinned at 8.18.0, over the unchanged frozen corpus,
+/// and every other number in the file is byte-identical), but it is published
+/// provenance and it propagates into the ranking's provenance table.
+///
+/// The `countable` warning above applies unchanged to both new records, and the
+/// band placement is again a consequence: both measure zero, so both land among
+/// the tier-2 zeros rather than on the frontier.
 const FROZEN_PREDICATES_SHA256: &str =
-    "a90b2d095ca9f846ac151ee557ca99f9cc448d0eb3252f5f23ec7566dc6bf9bd";
+    "e95bbdeb99664aae209eac0ce66a11e2a3b1fabe2d756eb8e86ec1815d78d1e5";
 const FROZEN_MATCHERS_SHA256: &str =
-    "08bc1a028e74a87396b3d22eda54f7c23a23bbac206263fe32f06952dde69824";
+    "2dfad0362cadf3f66d6bca5f838fdefecc0807cf6ba4d79cb87a7645aacfef0d";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {

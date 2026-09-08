@@ -1,6 +1,6 @@
 {
   "corpusHash": "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f",
-  "nodeVersion": "v26.7.0",
+  "nodeVersion": "v26.8.1",
   "acornVersion": "8.18.0",
   "programs": {
     "pooled": {
@@ -902,6 +902,50 @@
       "upperBound": {
         "disclosedInRecord": true,
         "note": "Upper bound, per the record: the exact condition is that the key's inner text lies in Rust's `Display for f64` image -- what `lower_property_name` could have written -- and an acorn AST cannot reproduce that image. The matcher tests `Number.isFinite(Number(inner))` instead, which is strictly wider, so `{'\"1e21\"': 1}`, `{'\"05\"': 1}` and `{'\"5.\"': 1}` are counted here and are NOT this defect -- each is a string key the codegen predicate correctly leaves alone."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-57",
+      "matcher": "objectLiteralEscapedStringKey",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the matcher counts any string-literal key whose raw source text carries a backslash, and acorn accepts escapes kali's lexer refuses outright -- `\\u`, `\\x`, and everything outside the eleven at `crates/kali_lexer/src/string.rs:28`. A key spelled with one of those is counted here and diverges LOUDLY (`error[E1004]: unsupported string escape sequence`, exit 1), which is not this entry's silent class. Every key spelled with one of the eleven IS this defect, computed or not -- all eleven measured at `dde0f083c0` in both scopes: `Object.keys(o)[0] === \"<the same literal>\"` is `false` in kali and `true` in node for every one of them."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-58",
+      "matcher": "objectLiteralLegacyOctalNumericKey",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: `0[0-7]+` is the legacy-octal SPELLING, and a spelling is not always a divergence. A one-digit run reads the same in both radices, so `{00: 1}` through `{07: 1}` are counted here and agree with node. Every longer run diverges (`{010: 1}` is the key `8` in node and `10` in kali). `08`/`09` are NonOctalDecimalIntegerLiteral, not octal, and are correctly excluded; `0o42` is excluded because kali's lexer never tokenizes it as one number and it fails LOUDLY (`error[E3100]: undefined identifier 'o42'`, exit 1)."
       },
       "alternateReading": null
     }

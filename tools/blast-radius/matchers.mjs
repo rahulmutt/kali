@@ -970,6 +970,76 @@ export const MATCHERS = {
     }
     return count;
   },
+
+  // R-57: an object-literal property whose key is a STRING literal whose RAW
+  // SOURCE TEXT contains a backslash -- `{"a\"b": 1}`, `{"a\nb": 1}`. That is
+  // the whole trigger: `kali_parser`'s `unquote_string_literal` strips a key's
+  // delimiters WITHOUT decoding its escapes, so any key whose spelling carries
+  // one is stored as text that is not the property name JavaScript denotes.
+  // `key.raw` is used rather than `key.value`, because `key.value` is acorn's
+  // DECODED name and the decoded name is exactly what kali never computes.
+  //
+  // COMPUTED KEYS ARE NOT EXCLUDED, unlike R-56's matcher, and the difference is
+  // measured rather than assumed: `{["a\"b"]: 1}` diverges identically to the
+  // non-computed spelling (`Object.keys(o)[0]` prints `a\"b` against node's
+  // `a"b`, `o['a"b']` reads `0` against node's `1`), in both scopes, at
+  // `dde0f083c0`.
+  //
+  // Upper bound, per the record: acorn accepts escapes kali's lexer refuses
+  // outright (`\u`, `\x`, and every sequence outside the eleven at
+  // `crates/kali_lexer/src/string.rs:28`). A key spelled with one of those is
+  // counted here and is a LOUD `E1004` divergence, not this silent one. The
+  // disclosure is in `count.mjs`'s UPPER_BOUNDS, beside the number.
+  objectLiteralEscapedStringKey(ast) {
+    const analysis = analysisOf(ast);
+    let count = 0;
+    for (const node of analysis.of("ObjectExpression")) {
+      for (const property of node.properties) {
+        if (property.type !== "Property") continue;
+        const key = property.key;
+        if (!isStringLiteral(key)) continue;
+        if (typeof key.raw !== "string" || !key.raw.includes("\\")) continue;
+        count += 1;
+      }
+    }
+    return count;
+  },
+
+  // R-58: an object-literal property whose key is a NUMERIC literal whose RAW
+  // SOURCE TEXT is a legacy octal literal -- `0` followed by one or more octal
+  // digits, `{042: 1}`. kali reads those digits as decimal, so the key it stores
+  // is not the one JavaScript denotes. `key.raw` again, because `key.value` is
+  // acorn's correctly-octal value and the octal value is what kali never
+  // computes.
+  //
+  // The pattern is `^0[0-7]+$` exactly. `08`/`09` are NonOctalDecimalIntegerLiteral
+  // (acorn values them 8 and 9, and kali's decimal reading AGREES), `0o42` is
+  // modern octal (kali's lexer never tokenizes it as one number -- it lexes as
+  // `0` then the identifier `o42` and fails LOUDLY with `E3100`), `0` alone is
+  // an ordinary zero, and `0.5`/`0e1` are not integer digit runs. None of those
+  // is counted.
+  //
+  // Computed keys are not excluded, for the same measured reason as R-57's:
+  // `{[042]: 1}` prints `42` against node's `34` in both scopes at `dde0f083c0`,
+  // identically to the non-computed spelling.
+  //
+  // Upper bound, per the record: a run of one octal digit reads the same in both
+  // radices (`{07: 1}` is the key `7` on both engines), so `00`..`07` are counted
+  // here and do not diverge. The disclosure is in `count.mjs`'s UPPER_BOUNDS.
+  objectLiteralLegacyOctalNumericKey(ast) {
+    const analysis = analysisOf(ast);
+    let count = 0;
+    for (const node of analysis.of("ObjectExpression")) {
+      for (const property of node.properties) {
+        if (property.type !== "Property") continue;
+        const key = property.key;
+        if (!isNumericLiteral(key)) continue;
+        if (typeof key.raw !== "string" || !/^0[0-7]+$/.test(key.raw)) continue;
+        count += 1;
+      }
+    }
+    return count;
+  },
 };
 
 /** Every matcher's count for one source string. */
