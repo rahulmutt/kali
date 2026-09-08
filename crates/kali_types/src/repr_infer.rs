@@ -51,7 +51,7 @@ fn expr_is_process_argv(expr: &Expression) -> bool {
     let Expression::MemberExpression(member) = expr else {
         return false;
     };
-    if member.computed_index.is_some() || member.property.as_str() != "argv" {
+    if member.computed_index.is_some() || member.dot_name() != Some("argv") {
         return false;
     }
     expr_is_process_root(&member.object)
@@ -62,7 +62,7 @@ fn expr_is_process_root(expr: &Expression) -> bool {
         Expression::Identifier(name) => name == "process",
         Expression::MemberExpression(member) => {
             member.computed_index.is_none()
-                && member.property.as_str() == "process"
+                && member.dot_name() == Some("process")
                 && matches!(&member.object, Expression::Identifier(root) if root == "globalThis")
         }
         _ => false,
@@ -2928,7 +2928,7 @@ impl ReprInfer {
                 self.abort_controller_origin
                     .insert((func.to_string(), id.to_string()));
             } else if let Expression::MemberExpression(member) = init {
-                if member.computed_index.is_none() && member.property == "signal" {
+                if member.computed_index.is_none() && member.dot_name() == Some("signal") {
                     if let Expression::Identifier(base) = &member.object {
                         if self
                             .abort_controller_origin
@@ -2981,7 +2981,7 @@ impl ReprInfer {
                 self.event_bindings
                     .insert((func.to_string(), id.to_string()));
             } else if let Expression::MemberExpression(member) = init {
-                if member.computed_index.is_none() && member.property == "searchParams" {
+                if member.computed_index.is_none() && member.dot_name() == Some("searchParams") {
                     if let Expression::Identifier(base) = &member.object {
                         if self.url_origin.contains(&(func.to_string(), base.clone())) {
                             self.usp_bindings.insert((func.to_string(), id.to_string()));
@@ -2997,7 +2997,7 @@ impl ReprInfer {
         // reference resolves in this one pass (mirrors the `.searchParams`
         // alias arm); a cross-function base is never admitted.
         if let Expression::MemberExpression(member) = init {
-            if member.computed_index.is_none() && member.property.as_str() == "type" {
+            if member.computed_index.is_none() && member.dot_name() == Some("type") {
                 if let Expression::Identifier(base) = &member.object {
                     if self
                         .event_bindings
@@ -3144,7 +3144,7 @@ impl ReprInfer {
         let Expression::MemberExpression(member) = &call.callee else {
             return false;
         };
-        if member.computed_index.is_some() || member.property.as_str() != "encode" {
+        if member.computed_index.is_some() || member.dot_name() != Some("encode") {
             return false;
         }
         let Expression::Identifier(base) = &member.object else {
@@ -3936,7 +3936,10 @@ impl ReprInfer {
             if let Some(base) = self.member_base_slot(func, &member.object) {
                 self.obj_accesses.push(ObjAccess {
                     base,
-                    field: member.property.clone(),
+                    field: member
+                        .dot_name()
+                        .expect("a non-computed member always carries its name (kali_ast::MemberExpression invariant)")
+                        .to_string(),
                     other: rn,
                     is_write: true,
                 });
@@ -4067,7 +4070,7 @@ impl ReprInfer {
         // propagation link pass-through callers. Other dot access carries no
         // array signal. Arrays that are also subscripted are already seeded, so
         // integer programs (whose arrays are always indexed) are unaffected.
-        if member.property.as_str() == "length" {
+        if member.static_name() == Some("length") {
             if let Expression::Identifier(name) = &member.object {
                 self.array_elem_node_for(func, name);
             }
@@ -4078,7 +4081,10 @@ impl ReprInfer {
             let result = self.new_node();
             self.obj_accesses.push(ObjAccess {
                 base,
-                field: member.property.as_str().to_string(),
+                field: member
+                    .dot_name()
+                    .expect("a non-computed member always carries its name (kali_ast::MemberExpression invariant)")
+                    .to_string(),
                 other: result,
                 is_write: false,
             });
@@ -4124,7 +4130,7 @@ impl ReprInfer {
             }
             return;
         }
-        if member.property.as_str() == "length" {
+        if member.static_name() == Some("length") {
             if let Expression::Identifier(name) = &member.object {
                 self.array_elem_node_for(func, name);
                 return;
@@ -4140,7 +4146,7 @@ impl ReprInfer {
         match &call.callee {
             // Method call: `obj.method(args)`.
             Expression::MemberExpression(member) if member.computed_index.is_none() => {
-                let method = member.property.as_str();
+                let method = member.dot_name().unwrap_or_default();
                 match method {
                     "sqrt" | "cbrt" if is_math_object(&member.object) => {
                         for arg in &call.args {
@@ -6457,13 +6463,13 @@ fn enumeration_namespace_root(expr: &Expression) -> Option<&str> {
     match strip_parenthesized(expr) {
         Expression::Identifier(name) if name == "Object" || name == "Reflect" => Some(name),
         Expression::MemberExpression(member)
-            if (member.property == "Object" || member.property == "Reflect")
+            if matches!(member.static_name(), Some("Object" | "Reflect"))
                 && matches!(
                     strip_parenthesized(&member.object),
                     Expression::Identifier(root) if root == "globalThis"
                 ) =>
         {
-            Some(&member.property)
+            member.static_name()
         }
         _ => None,
     }
@@ -6510,7 +6516,7 @@ fn for_of_string_items(rhs: &Expression) -> ForOfStringItems<'_> {
             let is_freeze_wrap = matches!(
                 strip_parenthesized(&inner.callee),
                 Expression::MemberExpression(freeze)
-                    if freeze.property == "freeze"
+                    if freeze.static_name() == Some("freeze")
                         && enumeration_namespace_root(&freeze.object) == Some("Object")
             ) && inner.args.len() == 1;
             if !is_freeze_wrap {
@@ -6525,10 +6531,12 @@ fn for_of_string_items(rhs: &Expression) -> ForOfStringItems<'_> {
     };
     match (
         enumeration_namespace_root(&member.object),
-        member.property.as_str(),
+        member.static_name(),
     ) {
-        (Some("Object"), "keys") | (Some("Reflect"), "ownKeys") => ForOfStringItems::Seed,
-        (Some("Object"), "values") if call.args.len() == 1 => {
+        (Some("Object"), Some("keys")) | (Some("Reflect"), Some("ownKeys")) => {
+            ForOfStringItems::Seed
+        }
+        (Some("Object"), Some("values")) if call.args.len() == 1 => {
             match strip_parenthesized(&call.args[0]) {
                 Expression::Literal(kali_ast::LiteralValue::String(_)) => ForOfStringItems::Seed,
                 // `"a" + x` is ALWAYS a string in JS (concat when either
@@ -6574,7 +6582,7 @@ fn is_crypto_subtle_object(expr: &Expression) -> bool {
         expr,
         Expression::MemberExpression(member)
             if member.computed_index.is_none()
-                && member.property.as_str() == "subtle"
+                && member.dot_name() == Some("subtle")
                 && is_crypto_object(&member.object)
     )
 }
@@ -6611,7 +6619,7 @@ fn text_encoder_encode_new(expr: &Expression) -> Option<&kali_ast::CallExpressio
     let Expression::MemberExpression(member) = &call.callee else {
         return None;
     };
-    if member.computed_index.is_some() || member.property.as_str() != "encode" {
+    if member.computed_index.is_some() || member.dot_name() != Some("encode") {
         return None;
     }
     if is_text_encoder_ctor(&member.object) {
@@ -6679,7 +6687,7 @@ fn text_decoder_decode_new(expr: &Expression) -> Option<&kali_ast::CallExpressio
     let Expression::MemberExpression(member) = &call.callee else {
         return None;
     };
-    if member.computed_index.is_some() || member.property.as_str() != "decode" {
+    if member.computed_index.is_some() || member.dot_name() != Some("decode") {
         return None;
     }
     if is_text_decoder_ctor(&member.object) {

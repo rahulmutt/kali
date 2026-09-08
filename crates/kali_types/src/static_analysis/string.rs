@@ -202,7 +202,7 @@ impl TypeContext {
         let Expression::MemberExpression(member) = &expr.callee else {
             return None;
         };
-        if member.property.as_str() != "normalize" {
+        if member.static_name() != Some("normalize") {
             return None;
         }
 
@@ -310,7 +310,9 @@ impl TypeContext {
             return;
         };
 
-        let method = member.property.as_str();
+        let Some(method) = member.static_name() else {
+            return;
+        };
         if !matches!(
             method,
             "includes" | "indexOf" | "lastIndexOf" | "startsWith" | "endsWith"
@@ -362,7 +364,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "slice" {
+        if member.static_name() != Some("slice") {
             return;
         }
 
@@ -418,7 +420,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "substring" {
+        if member.static_name() != Some("substring") {
             return;
         }
 
@@ -466,7 +468,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "repeat" {
+        if member.static_name() != Some("repeat") {
             return;
         }
 
@@ -509,7 +511,7 @@ impl TypeContext {
         let Expression::MemberExpression(member) = &expr.callee else {
             return None;
         };
-        if member.property.as_str() != "concat" {
+        if member.static_name() != Some("concat") {
             return None;
         }
 
@@ -531,7 +533,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "concat" {
+        if member.static_name() != Some("concat") {
             return;
         }
 
@@ -569,7 +571,9 @@ impl TypeContext {
             return;
         };
 
-        let method = member.property.as_str();
+        let Some(method) = member.static_name() else {
+            return;
+        };
         if !matches!(method, "padStart" | "padEnd") {
             return;
         }
@@ -617,7 +621,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "at" {
+        if member.static_name() != Some("at") {
             return;
         }
         if matches!(member.object, Expression::ArrayExpression(_)) {
@@ -658,7 +662,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "charAt" {
+        if member.static_name() != Some("charAt") {
             return;
         }
 
@@ -693,7 +697,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "charCodeAt" {
+        if member.static_name() != Some("charCodeAt") {
             return;
         }
 
@@ -728,7 +732,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "codePointAt" {
+        if member.static_name() != Some("codePointAt") {
             return;
         }
 
@@ -763,7 +767,9 @@ impl TypeContext {
             return;
         };
 
-        let method = member.property.as_str();
+        let Some(method) = member.static_name() else {
+            return;
+        };
         if !matches!(
             method,
             "trim" | "trimStart" | "trimEnd" | "trimLeft" | "trimRight"
@@ -799,7 +805,9 @@ impl TypeContext {
             return;
         };
 
-        let method = member.property.as_str();
+        let Some(method) = member.static_name() else {
+            return;
+        };
         if !matches!(
             method,
             "toLowerCase" | "toUpperCase" | "toLocaleLowerCase" | "toLocaleUpperCase"
@@ -831,7 +839,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "normalize" {
+        if member.static_name() != Some("normalize") {
             return;
         }
 
@@ -871,7 +879,9 @@ impl TypeContext {
             return;
         };
 
-        let method = member.property.as_str();
+        let Some(method) = member.static_name() else {
+            return;
+        };
         if !matches!(method, "replace" | "replaceAll") {
             return;
         }
@@ -921,7 +931,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "split" {
+        if member.static_name() != Some("split") {
             return;
         }
 
@@ -975,7 +985,7 @@ impl TypeContext {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
-        if member.computed_index.is_some() || member.property.as_str() != "fill" {
+        if member.computed_index.is_some() || member.dot_name() != Some("fill") {
             return;
         }
         let Some(first) = expr.args.first() else {

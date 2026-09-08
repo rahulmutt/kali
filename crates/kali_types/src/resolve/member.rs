@@ -45,11 +45,11 @@ impl TypeContext {
     pub(crate) fn member_access_name(expr: &MemberExpression) -> Option<String> {
         let object_name = Self::member_access_root_name(&expr.object)?;
 
-        Some(format!("{}.{}", object_name, expr.property))
+        Some(format!("{}.{}", object_name, expr.static_name()?))
     }
 
     pub(crate) fn is_runtime_args_slice_member(expr: &MemberExpression) -> bool {
-        if expr.property != "slice" {
+        if expr.static_name() != Some("slice") {
             return false;
         }
 
@@ -63,13 +63,13 @@ impl TypeContext {
     pub(crate) fn member_access_name_bracketed(expr: &MemberExpression) -> Option<String> {
         let object_name = Self::member_access_bracketed_root_name(&expr.object)?;
 
-        Some(format!("{}[\"{}\"]", object_name, expr.property))
+        Some(format!("{}[\"{}\"]", object_name, expr.static_name()?))
     }
 
     pub(crate) fn member_access_name_single_quoted(expr: &MemberExpression) -> Option<String> {
         let object_name = Self::member_access_single_quoted_root_name(&expr.object)?;
 
-        Some(format!("{}['{}']", object_name, expr.property))
+        Some(format!("{}['{}']", object_name, expr.static_name()?))
     }
 
     pub(crate) fn member_access_single_quoted_root_name(object: &Expression) -> Option<String> {
@@ -184,7 +184,7 @@ impl TypeContext {
         match object {
             Expression::Identifier(name) => Some(name.clone()),
             Expression::MemberExpression(member) if matches!(&member.object, Expression::Identifier(name) if name == "globalThis") => {
-                Some(member.property.clone())
+                member.property.clone()
             }
             Expression::ParenthesizedExpression(expr) => Self::member_object_name(&expr.expression),
             Expression::TypeAssertion(expr) => Self::member_object_name(&expr.expression),

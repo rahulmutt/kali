@@ -13,7 +13,7 @@ impl TypeContext {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
-        if member.property.as_str() != "resolve" {
+        if member.static_name() != Some("resolve") {
             return;
         }
         if !Self::is_promise_root_expression(&member.object) {
@@ -29,7 +29,7 @@ impl TypeContext {
         match expression {
             Expression::Identifier(name) => name == "Promise",
             Expression::MemberExpression(member) => {
-                member.property.as_str() == "Promise"
+                member.static_name() == Some("Promise")
                     && matches!(&member.object, Expression::Identifier(name) if name == "globalThis")
             }
             Expression::ParenthesizedExpression(expr) => {

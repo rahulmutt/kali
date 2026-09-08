@@ -99,7 +99,7 @@ impl TypeContext {
         let Expression::MemberExpression(member) = expr else {
             return false;
         };
-        if member.computed_index.is_some() || member.property.as_str() != "argv" {
+        if member.computed_index.is_some() || member.dot_name() != Some("argv") {
             return false;
         }
         Self::is_process_root_expr(&member.object)
@@ -111,7 +111,7 @@ impl TypeContext {
             Expression::Identifier(name) => name == "process",
             Expression::MemberExpression(member) => {
                 member.computed_index.is_none()
-                    && member.property.as_str() == "process"
+                    && member.dot_name() == Some("process")
                     && matches!(&member.object, Expression::Identifier(root) if root == "globalThis")
             }
             _ => false,
@@ -658,9 +658,10 @@ impl TypeContext {
         if self.repr_table.shape_field(shape, "length").is_some() {
             return false;
         }
-        self.repr_table
-            .shape_field(shape, &member.property)
-            .is_some()
+        let Some(field) = member.static_name() else {
+            return false;
+        };
+        self.repr_table.shape_field(shape, field).is_some()
     }
 
     /// `Some(shape)` iff `expr` is a bare identifier whose `ReprTable` scalar
@@ -704,10 +705,9 @@ impl TypeContext {
             return None;
         };
         let shape = self.object_shape_of_expression(&member.object)?;
-        match self.repr_table.shape_field(shape, &member.property) {
-            Some((_, kali_common::Repr::GrowableArrayI64)) => {
-                Some((base.clone(), member.property.clone()))
-            }
+        let field = member.static_name()?;
+        match self.repr_table.shape_field(shape, field) {
+            Some((_, kali_common::Repr::GrowableArrayI64)) => Some((base.clone(), field.to_string())),
             _ => None,
         }
     }
@@ -746,7 +746,7 @@ impl TypeContext {
                 // `<recv>.fill(v)` — recv is a fresh `new Array(n)`/`Array(n)`
                 // allocation or an already-structural runtime array binding.
                 if let Expression::MemberExpression(member) = &call.callee {
-                    if member.computed_index.is_none() && member.property.as_str() == "fill" {
+                    if member.computed_index.is_none() && member.dot_name() == Some("fill") {
                         return self.declarator_registers_runtime_array(&member.object)
                             || matches!(&member.object, Expression::Identifier(name)
                                 if self.is_structural_runtime_array(name));
@@ -1050,7 +1050,7 @@ impl TypeContext {
                 // signal codegen's `is_string_valued` `runtime_join_call_parts`
                 // arm consults.
                 Expression::MemberExpression(member)
-                    if member.computed_index.is_none() && member.property.as_str() == "join" =>
+                    if member.computed_index.is_none() && member.dot_name() == Some("join") =>
                 {
                     matches!(&member.object, Expression::Identifier(base)
                         if self.string_element_array_binding(base))
@@ -1120,7 +1120,7 @@ impl TypeContext {
                 // A chained substring: ASCII iff ITS receiver is.
                 Expression::MemberExpression(member)
                     if member.computed_index.is_none()
-                        && member.property.as_str() == "substring" =>
+                        && member.dot_name() == Some("substring") =>
                 {
                     self.expression_repr_is_ascii_string(&member.object)
                 }
@@ -1170,7 +1170,7 @@ impl TypeContext {
             // this predicate does not fail-close a bound the `.length` access
             // itself is legal to read.
             Expression::MemberExpression(member)
-                if member.computed_index.is_none() && member.property.as_str() == "length" =>
+                if member.computed_index.is_none() && member.dot_name() == Some("length") =>
             {
                 self.expression_is_length_fold_receiver(&member.object)
                     || self.expression_repr_is_ascii_string(&member.object)
@@ -1373,7 +1373,7 @@ impl TypeContext {
     /// for ASCII). Static-foldable receivers stay on the base fold lane,
     /// which counts UTF-16 units and is correct for ANY literal.
     pub(crate) fn reject_unprovable_string_length(&mut self, expr: &MemberExpression) {
-        if expr.computed_index.is_some() || expr.property.as_str() != "length" {
+        if expr.computed_index.is_some() || expr.dot_name() != Some("length") {
             return;
         }
         // `process.argv[<index>].length` where the index is NOT a provable static
@@ -1476,11 +1476,11 @@ impl TypeContext {
                 // alongside the substring fallthrough. Both mirror codegen's
                 // `is_string_valued`. Non-identifier receivers fall through to
                 // the substring check and then to `false` (fail-closed).
-                if member.computed_index.is_none() && member.property.as_str() == "join" {
+                if member.computed_index.is_none() && member.dot_name() == Some("join") {
                     return matches!(&member.object, Expression::Identifier(base)
                         if self.string_element_array_binding(base));
                 }
-                return member.computed_index.is_none() && member.property.as_str() == "substring";
+                return member.computed_index.is_none() && member.dot_name() == Some("substring");
             }
         }
         // Computed element read `a[i]` of a proven `Repr::String` array is a
@@ -1918,7 +1918,7 @@ impl TypeContext {
                 if matches!(expr.operator, AssignmentOperator::Assign) {
                     if let Expression::MemberExpression(member) = &expr.left {
                         let dotted = Self::member_access_name(member)
-                            .unwrap_or_else(|| member.property.clone());
+                            .unwrap_or_else(|| member.static_name().unwrap_or_default().to_string());
                         if self.api_surface == "node"
                             && Self::is_process_env_mutation_path(&dotted)
                             && !Self::is_process_env_root_path(&dotted)

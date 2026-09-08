@@ -354,7 +354,7 @@ fn call_member_access_name(expression: &Expression) -> Option<String> {
 
 fn member_access_name(member: &kali_ast::MemberExpression) -> Option<String> {
     let object = call_member_access_name(&member.object)?;
-    Some(format!("{object}.{}", member.property))
+    Some(format!("{object}.{}", member.static_name()?))
 }
 
 fn function_signature(params: &[String], return_type: Option<&str>, is_async: bool) -> String {

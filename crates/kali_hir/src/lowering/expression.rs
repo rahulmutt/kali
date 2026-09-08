@@ -44,13 +44,20 @@ impl HirLowerer {
                 id
             }
             Expression::MemberExpression(expr) => {
-                let id =
-                    self.builder
-                        .alloc_text(HirNodeKind::MemberExpr, None, expr.property.clone());
+                // A member with a statically known name carries it as text. A
+                // computed access the parser could not name carries NO text:
+                // the index is its second child and is the only description of
+                // the access (register R-59; spec §4.3).
+                let id = match &expr.property {
+                    Some(name) => {
+                        self.builder
+                            .alloc_text(HirNodeKind::MemberExpr, None, name.clone())
+                    }
+                    None => self.builder.alloc(HirNodeKind::MemberExpr, None),
+                };
                 push_child!(self, id, self.lower_expression(&expr.object));
                 // Computed access `a[<expr>]` carries the structured index as a
-                // second child so codegen can evaluate arithmetic/dynamic indices
-                // at runtime; dot access (`a.b`) keeps a single `[object]` child.
+                // second child; dot access (`a.b`) keeps a single `[object]` child.
                 if let Some(index) = &expr.computed_index {
                     push_child!(self, id, self.lower_expression(index));
                 }

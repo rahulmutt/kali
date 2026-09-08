@@ -59,7 +59,7 @@ impl Parser {
                     let index_str = Self::expression_to_property_name(&index);
                     expr = Expression::MemberExpression(Box::new(MemberExpression {
                         object: expr,
-                        property: index_str,
+                        property: Some(index_str),
                         computed_index: Some(Box::new(index)),
                     }));
                 }
@@ -72,13 +72,13 @@ impl Parser {
                                 let prop_name = token.value.clone();
                                 expr = Expression::MemberExpression(Box::new(MemberExpression {
                                     object: expr,
-                                    property: prop_name,
+                                    property: Some(prop_name),
                                     computed_index: None,
                                 }));
                             } else {
                                 expr = Expression::MemberExpression(Box::new(MemberExpression {
                                     object: expr,
-                                    property: "unknown".to_string(),
+                                    property: Some("unknown".to_string()),
                                     computed_index: None,
                                 }));
                             }
@@ -255,7 +255,7 @@ impl Parser {
                     .unwrap_or_else(|| "unknown".to_string());
                 return Expression::MemberExpression(Box::new(MemberExpression {
                     object: optional_object,
-                    property: prop_name,
+                    property: Some(prop_name),
                     computed_index: None,
                 }));
             }
@@ -268,7 +268,7 @@ impl Parser {
                 let index_str = Self::expression_to_property_name(&index);
                 return Expression::MemberExpression(Box::new(MemberExpression {
                     object: optional_object,
-                    property: index_str,
+                    property: Some(index_str),
                     computed_index: Some(Box::new(index)),
                 }));
             }
@@ -338,7 +338,7 @@ impl Parser {
 
     pub(crate) fn member_access_name(member: &MemberExpression) -> Option<String> {
         let object = Self::call_member_access_name(&member.object)?;
-        Some(format!("{object}.{}", member.property))
+        Some(format!("{object}.{}", member.static_name()?))
     }
 }
 

@@ -410,7 +410,7 @@ fn is_object_freeze_callee(callee: &Expression, bound_counts: &BTreeMap<String, 
     matches!(
         callee,
         Expression::MemberExpression(member)
-            if member.property == "freeze"
+            if member.dot_name() == Some("freeze")
                 && matches!(&member.object, Expression::Identifier(name) if name == "Object")
                 && bound_counts.get("Object").copied().unwrap_or(0) == 0
     )
@@ -1682,7 +1682,10 @@ fn try_fold_typeof_namespace_member(
          and only entry statements are rewritten (see `rewrite_namespace_uses`), so its module is \
          always in `modules` here",
     );
-    let literal = if module.exports.contains_key(&member.property) {
+    let Some(property) = member.dot_name() else {
+        return None;
+    };
+    let literal = if module.exports.contains_key(property) {
         "function"
     } else {
         "undefined"
@@ -1721,7 +1724,9 @@ fn try_rewrite_namespace_call_callee(
         diagnostics.push(computed_member_access_error(&linked.path));
         return;
     }
-    let property = member.property.clone();
+    let Some(property) = member.dot_name().map(str::to_string) else {
+        return;
+    };
     let module = modules.get(&linked.index).expect(
         "a proven binding reaching this member-access shape in the ENTRY program is exactly the \
          condition the I1 load gate loads its module under (`BindingSignals::member_access_sites`), \
@@ -5371,7 +5376,7 @@ mod tests {
                         call.callee,
                         Expression::MemberExpression(Box::new(MemberExpression {
                             object: Expression::Identifier("ns".to_string()),
-                            property: "notAnExport".to_string(),
+                            property: Some("notAnExport".to_string()),
                             computed_index: None,
                         }))
                     );
