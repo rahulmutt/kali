@@ -345,7 +345,7 @@ test("the module exports exactly the catalogue's countable matchers, by name", (
   const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
   const catalogueNames = countable.map((entry) => entry.matcher).sort();
   assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
-  assert.equal(catalogueNames.length, 40);
+  assert.equal(catalogueNames.length, 42);
 });
 
 test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling", () => {
@@ -402,6 +402,77 @@ test("objectLiteralLegacyOctalNumericKey counts the legacy-octal key spelling on
     var i = {"042": 1};  // string key, does not count
   `;
   assert.equal(count("objectLiteralLegacyOctalNumericKey", src), 3);
+});
+
+test("computedMemberFabricatedPropertyName counts only the indices the parser cannot read", () => {
+  // Positives: the register's two repro arms (an identifier, and a binary
+  // expression reaching the catch-all), the optional-chained spelling of the
+  // first, a template literal, and a `+` unary whose argument's own name does
+  // NOT parse under Rust's f64 grammar. Negatives: every shape measured to read
+  // correctly at `35e9ef4ef6` -- a numeric literal, a string literal, a
+  // parenthesized literal (which acorn does not even build a node for), a
+  // sequence expression ending in a literal, and `+1`/`-1`. Plus dot access,
+  // which is not computed at all.
+  const src = `
+    var o = {index: 9, i: 7};
+    var i = 1;
+    console.log(o[i]);      // identifier arm, counts
+    console.log(o[i + 0]);  // catch-all arm, counts
+    console.log(o?.[i]);    // optional-chained, same arm, counts
+    console.log(o[\`i\`]);    // template literal, catch-all arm, counts
+    console.log(o[+i]);     // unary whose inner name "i" fails f64 parse, counts
+    console.log(o[1]);      // numeric literal, does not count
+    console.log(o["i"]);    // string literal, does not count
+    console.log(o[(1)]);    // parenthesized literal, does not count
+    console.log(o[(0, 1)]); // sequence ending in a literal, does not count
+    console.log(o[+1]);     // folded unary on a literal, does not count
+    console.log(o[-1]);     // folded unary on a literal, does not count
+    console.log(o.i);       // not computed, does not count
+  `;
+  assert.equal(count("computedMemberFabricatedPropertyName", src), 5);
+});
+
+test("computedMemberFabricatedPropertyName is strictly narrower than R-13's matcher", () => {
+  // The four shapes measured to read the CORRECT property name at `35e9ef4ef6`.
+  // This matcher counts none of them. R-13's "key expression is not a literal"
+  // counts THREE, not four: acorn elides parentheses, so `o[(1)]` reaches both
+  // matchers as a bare `Literal` and R-13's excludes it too. The parenthesized
+  // arm of `expression_to_property_name` is therefore invisible to this
+  // instrument in both directions -- which is a fact about acorn, not about
+  // kali, and it is recorded here rather than asserted away.
+  const src = `
+    var o = {1: "one"};
+    console.log(o[(1)]);
+    console.log(o[(0, 1)]);
+    console.log(o[+1]);
+    console.log(o[-1]);
+  `;
+  assert.equal(count("computedMemberNonLiteralKey", src), 3);
+  assert.equal(count("computedMemberFabricatedPropertyName", src), 0);
+});
+
+test("memberReadOnObjectFromEntriesResult follows the receiver, and counts reads only", () => {
+  // Positives: the direct read, the read through a const binding, the read
+  // through `Object.freeze`, the bracket spelling of the property, and the
+  // `globalThis.`-qualified callee. Negatives: a member STORE (a different site
+  // class, not measured), a plain object literal's read, and `Object.keys(o)` --
+  // where the fromEntries result is an ARGUMENT, not a receiver, and which fails
+  // LOUDLY rather than silently.
+  const src = `
+    var direct = Object.fromEntries([["a", 1]]).a;      // counts
+    var o = Object.fromEntries([["a", 1]]);
+    console.log(o.a);                                    // counts
+    console.log(o["a"]);                                 // counts
+    var f = Object.freeze(Object.fromEntries([["a", 1]]));
+    console.log(f.a);                                    // counts
+    var g = globalThis.Object.fromEntries([["a", 1]]);
+    console.log(g.a);                                    // counts
+    o.b = 2;                                             // store, does not count
+    console.log(Object.keys(o));                         // argument, does not count
+    var p = {a: 1};
+    console.log(p.a);                                    // plain literal, does not count
+  `;
+  assert.equal(count("memberReadOnObjectFromEntriesResult", src), 5);
 });
 
 test("the disclosure instruments name real entries and stay out of MATCHERS", () => {

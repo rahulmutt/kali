@@ -948,6 +948,50 @@
         "note": "Upper bound, per the record: `0[0-7]+` is the legacy-octal SPELLING, and a spelling is not always a divergence. A one-digit run reads the same in both radices, so `{00: 1}` through `{07: 1}` are counted here and agree with node. Every longer run diverges (`{010: 1}` is the key `8` in node and `10` in kali). `08`/`09` are NonOctalDecimalIntegerLiteral, not octal, and are correctly excluded; `0o42` is excluded because kali's lexer never tokenizes it as one number and it fails LOUDLY (`error[E3100]: undefined identifier 'o42'`, exit 1). THIS NUMBER IS ALSO A LOWER BOUND ON R-58, WHICH NO OTHER RECORD IN THIS CATALOGUE IS, AND THE 0 MUST NOT BE READ AS THE FREQUENCY OF THE WHOLE DEFECT. The matcher counts legacy octal in OBJECT-LITERAL KEY position only, and R-58's entry establishes by measurement that the same misreading fires in ordinary expression position too: `console.log(042)` prints `42` where node prints `34` (measured at `dde0f083c0` against node v26.8.1, both scopes, and again through a `const` binding). That lane is a different parser function (`expression/primary.rs`'s numeric-literal arm, not `numeric_property_name`) and is counted by nothing here. The catalogue RECORD cannot disclose this, because a record states what its matcher counts and the matcher counts the key lane; the disclosure therefore lives here, beside the number a reader actually meets."
       },
       "alternateReading": null
+    },
+    {
+      "id": "R-59",
+      "matcher": "computedMemberFabricatedPropertyName",
+      "raw": 302,
+      "reachable": 45,
+      "strata": {
+        "anchor": {
+          "raw": 47,
+          "reachable": 43
+        },
+        "extension": {
+          "raw": 255,
+          "reachable": 2
+        }
+      },
+      "zero": null,
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the shape is a computed index the parser cannot read statically, and a receiver ALLOCATED WITH `new Array(n)` reaches a runtime-index lane that evaluates the member node's structured index child instead of the fabricated name, and does not diverge. Measured at `35e9ef4ef6` against node v26.8.1, both scopes: `const a = new Array(3); for (let i = 0; i < 3; i++) { a[i] = i * 2; }` then reading `a[i]` prints `0 2 4` on BOTH engines, while the same loop over an ARRAY LITERAL (`const a = [5, 6, 7]`) prints `0 0 0` against node's `5 6 7`. An acorn AST cannot see how a receiver was allocated, so the working lane is counted here. READ THIS BESIDE R-13's NOTE, NOT INSTEAD OF IT. The two records overlap by construction: R-59's shape is a strict SUBSET of R-13's, because R-13's `not a literal` counts the sequence and folded-unary spellings this parser reads correctly and R-59's arm-derived matcher excludes them. The two entries are not the same defect -- R-13 records a computed read returning `0`, and R-59 records the same read returning the WRONG PROPERTY'S VALUE when the fabricated name collides with a real property, which is a different and worse observable -- but a reader who adds these two numbers together is double-counting sites. ON THIS CORPUS THE TWO MATCHERS PRINT THE SAME FOUR NUMBERS (raw 302, reachable 45, anchor 47/43, extension 255/2), which is a measurement and not a coincidence worth hiding: the frozen corpus contains NO parenthesized, sequence or folded-unary computed index at all, so the shapes that separate the two records do not occur here. The narrowing is real in the language and unexercised in this corpus, and the identical figures are the evidence for both halves of that sentence."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-60",
+      "matcher": "memberReadOnObjectFromEntriesResult",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": {
+        "disclosedInRecord": false,
+        "note": "Upper bound NOT disclosed by the record, and a LOWER bound as well; neither direction is a defect in the matcher, and both are about what a member read's RECEIVER is. Upper: the record counts every member read on a `fromEntries` result, and the measurements behind R-60 are all reads of a property the object HAS or does not have under the default `kali run` (Fast) build mode. Whether the same read diverges under `--release`, where `fold_object_from_entries_call`'s binding path runs, was NOT measured -- there is no runner for a built artifact on this machine -- so a corpus counted here is counted for the mode the oracle cases pin and no other. Lower: the fabricated `0` is what an unresolvable static member read emits generally, and `Object.fromEntries` is one producer of an unresolvable receiver. The matcher counts that producer alone and carries no evidence about the rest of the family (R-21's, and the `o[1]` read in R-59's own repro). The neighbouring ENUMERATION consumers of the same receiver are excluded correctly and for a reason worth stating: `Object.keys(o)` / `Object.values(o)` / `Object.entries(o)` on a `fromEntries` result fail LOUDLY (`error[E5506]: Object enumeration is only supported where the object has a compile-time-known fixed shape`, exit 1, measured at `35e9ef4ef6` in both scopes, directly and through a binding), which is a different verdict class, and in any case the receiver is an ARGUMENT there rather than a member receiver."
+      },
+      "alternateReading": null
     }
   ]
 }

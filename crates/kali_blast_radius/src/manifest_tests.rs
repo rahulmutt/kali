@@ -129,8 +129,11 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 ///
 /// Spec §4.3 freezes `predicates.json` alongside the corpus, and
 /// `corpus/README.md` says so in the same sentence -- but only the corpus half
-/// was mechanical. The catalogue was checked for COMPLETENESS (42 records ↔ 42
-/// entries, matcher names agreeing with `matchers.mjs`), which is silent about
+/// was mechanical. The catalogue was checked for COMPLETENESS (46 records ↔ 46
+/// entries as of 2026-09-08 -- the figure was written as 42 and left behind by
+/// three later re-freezes, and is corrected here rather than left to rot, which
+/// is the same failure mode the strike-throughs in `tier2.toml` exist to make
+/// visible; matcher names agreeing with `matchers.mjs`), which is silent about
 /// *which* matcher an entry maps to: swap R-13's matcher for R-14's and every
 /// completeness check stays green while both counts change.
 ///
@@ -199,10 +202,54 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// The `countable` warning above applies unchanged to both new records, and the
 /// band placement is again a consequence: both measure zero, so both land among
 /// the tier-2 zeros rather than on the frontier.
+///
+/// **Re-frozen 2026-09-08 a second time**, the third movement of these
+/// constants, by the same branch filing **R-59** (§2, Tier 2 — a computed
+/// member index that is not a literal is fabricated into a property name) and
+/// **R-60** (§2, Tier 2 — a present property on an `Object.fromEntries` object
+/// reads `0`). Two more §2 entries, two more records, and `matchers.mjs` gained
+/// `computedMemberFabricatedPropertyName` and
+/// `memberReadOnObjectFromEntriesResult`.
+///
+/// **BOTH RECORDS ARE COUNTABLE, AND R-60's WAS THE CLOSE CALL.** R-59's shape
+/// is pure syntax — which arms of `expression_to_property_name` an index
+/// expression reaches — so it never came near the four `uncountable` reasons.
+/// R-60's did: its triggering construct is a member read whose RECEIVER is a
+/// `fromEntries` result, and a receiver is a value, which sounds like R-17's and
+/// R-21's representation condition. It is not one. The receiver here is
+/// identified by the SPELLING of the call that produced it, through at most one
+/// binding, and this module already resolves bindings for R-02, R-10, R-12,
+/// R-29, R-30 and R-47 — a binding walk reads nothing the source does not say.
+/// What WOULD have been uncountable is the wider family R-60's own
+/// `UPPER_BOUNDS` note discloses (any unresolvable static member read), and that
+/// is exactly why the record is stated at the narrow, decidable shape and the
+/// family is disclosed beside the number instead of smuggled into the matcher.
+///
+/// `counts.json` was regenerated with them (`node count.mjs`) over the unchanged
+/// frozen corpus, and `accepts.mjs` was re-run FIRST and wrote a byte-identical
+/// `accepts.json` (anchor 126/137, extension 1/40) as the evidence that corpus
+/// and binary are where they were. The `counts.json` diff adds exactly two
+/// entries and leaves every other entry's every field byte-identical — including
+/// `nodeVersion`, which stays `v26.8.1`, and the corpus hash, which stays
+/// `ca6f5333…`.
+///
+/// **THE ONE FIGURE THAT IS NOT A ZERO, AND THE ONE READING THAT CHANGES HOW IT
+/// MUST BE PUBLISHED.** R-59 measures **raw 302 / reachable 45** — the first
+/// entry filed by this branch with any frequency behind it, and the first new
+/// record since the freeze to enter a nonzero band. Those are, to the digit, the
+/// four numbers R-13's `computedMemberNonLiteralKey` already prints (anchor
+/// 47/43, extension 255/2). That is measured, not assumed, and it is not a
+/// duplicate matcher: R-59's is strictly narrower — it excludes the
+/// parenthesized, sequence and folded-unary index spellings this parser reads
+/// CORRECTLY, each of which was run against node in both scopes — and the
+/// corpus simply contains none of them. The identity is disclosed in
+/// `count.mjs`'s `UPPER_BOUNDS` for both directions it matters in: a reader must
+/// not add R-13's and R-59's counts together, and must not read the sameness as
+/// evidence that the two records say the same thing.
 const FROZEN_PREDICATES_SHA256: &str =
-    "e95bbdeb99664aae209eac0ce66a11e2a3b1fabe2d756eb8e86ec1815d78d1e5";
+    "6c2d11ba293353fe1aa3c6687cefa149b12491ca367891f0086e4de10b87c96f";
 const FROZEN_MATCHERS_SHA256: &str =
-    "2dfad0362cadf3f66d6bca5f838fdefecc0807cf6ba4d79cb87a7645aacfef0d";
+    "ef569b3185d209aaf96aaaaede07168e63d460ea38fdc08104965e9ba0f853ab";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {

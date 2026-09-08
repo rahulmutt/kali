@@ -62,7 +62,7 @@ from.
 
 | file | what it is |
 |---|---|
-| `predicates.json` | **Frozen.** 41 records, 37 countable with matcher names, 4 uncountable. Written and reviewed in Task 2; not editable here. |
+| `predicates.json` | **Frozen.** 46 records, 42 countable with matcher names, 4 uncountable — read out of the file on 2026-09-08, not recalled. The figures stood at 41/37/4 when this table was written and had gone stale through three re-freezes (R-56; then R-57/R-58; then R-59/R-60); the freeze rationale in `crates/kali_blast_radius/src/manifest_tests.rs` records each movement. Written and reviewed in Task 2; not editable here. |
 | `corpus/` | **Frozen.** 177 programs in two strata, `corpus_hash` in `corpus/manifest.json`. See `corpus/README.md`. |
 | `matchers.mjs` | One matcher per countable record, each implementing what that record's `description` says. |
 | `matchers.test.mjs` | A positive and a negative test per matcher, plus the two module gates. |
@@ -126,15 +126,24 @@ was written.
 
 ### Some counts are upper bounds — `entries[].upperBound`
 
-Four records carry an explicit upper-bound clause naming what the AST cannot see
-(**R-08**, **R-16**, **R-26**, **R-30**). Three more are upper bounds that their
-records do **not** disclose, found while implementing them (**R-13**, **R-14**,
-**R-07**). Each carries a `note` saying what it cannot see, and
-`disclosedInRecord` says which kind it is.
+Eight records carry an explicit upper-bound clause naming what the AST cannot see
+(**R-08**, **R-16**, **R-26**, **R-30**, **R-56**, **R-57**, **R-58**,
+**R-59**). Four more are upper bounds that their records do **not** disclose,
+found while implementing them (**R-13**, **R-14**, **R-07**, **R-60**). Each
+carries a `note` saying what it cannot see, and `disclosedInRecord` says which
+kind it is. **R-58** and **R-60** are additionally LOWER bounds, each in its
+`note`.
 
 The sharpest is **R-13**. Its record is "computed member access whose key
 expression is not a literal", with no qualifying clause, so ordinary array
-indexing `a[i]` counts — and array indexing demonstrably works. The register's
+indexing `a[i]` counts — and array indexing works on the lane the anchor stratum
+uses. **That last clause used to read "array indexing demonstrably works", and
+that is narrowed here rather than repeated**, because filing R-59 measured which
+lane: at `35e9ef4ef6` against node v26.8.1, in both scopes, an array allocated
+with `new Array(n)` and read at a loop index prints `0 2 4` on both engines,
+while the *same* loop over an **array literal** (`const a = [5, 6, 7]`) prints
+`0 0 0` against node's `5 6 7`. Both spellings are counted by this matcher; one
+of them diverges. The register's
 R-13 repro is an *object* read with a variable key. `upperBound.breakdown` gives
 the split of the same 302 sites: 56 have an object-literal receiver, 45 an
 array-like one, and **67 are store targets rather than reads**. Do not present

@@ -342,6 +342,91 @@ function nullishSelectedOperand(node) {
   return null;
 }
 
+/**
+ * Rust's `f64: FromStr` grammar, which is what the `+`/`-` unary arm of
+ * `expression_to_property_name` runs on the name its recursive call produced
+ * (`crates/kali_parser/src/literal.rs:113-116` at `35e9ef4ef6`). It is NOT
+ * JavaScript's `Number()`: Rust rejects the empty string, `0x10`, and any
+ * surrounding whitespace, all of which `Number()` accepts. Written out here
+ * rather than approximated with `Number.isFinite`, because R-59's whole claim
+ * is about which shapes that `parse` declines.
+ */
+const RUST_F64_LITERAL = /^[+-]?(?:inf|infinity|nan|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)$/i;
+
+/**
+ * The property name `expression_to_property_name` would produce for a computed
+ * member's index expression, or `null` where it would FABRICATE one instead --
+ * the identifier's own text, or the literal string `index`. One arm per arm of
+ * the `match` at `crates/kali_parser/src/literal.rs:100-127`, read at
+ * `35e9ef4ef6`.
+ *
+ * `ParenthesizedExpression` has no arm here because acorn does not build one:
+ * `o[(1)]` parses as the bare literal, which is exactly what kali's
+ * parenthesized arm recurses to. A string literal is taken at acorn's DECODED
+ * `value`; a key whose spelling carries an escape is R-57's lane, not this one,
+ * and the two matchers are deliberately kept apart.
+ */
+function staticPropertyNameOf(node) {
+  if (!node) return null;
+  if (node.type === "Literal") {
+    if (typeof node.value === "number") return String(node.value);
+    if (typeof node.value === "string") return node.value;
+    return null; // BigInt, boolean, null, regex -- all reach the catch-all arm
+  }
+  if (node.type === "SequenceExpression") {
+    return staticPropertyNameOf(node.expressions[node.expressions.length - 1]);
+  }
+  if (node.type === "UnaryExpression" && (node.operator === "+" || node.operator === "-")) {
+    const inner = staticPropertyNameOf(node.argument);
+    if (inner === null || !RUST_F64_LITERAL.test(inner)) return null;
+    return String(node.operator === "+" ? Number(inner) : -Number(inner));
+  }
+  return null;
+}
+
+/** `Object.fromEntries` / `globalThis.Object.fromEntries`, dotted or bracketed. */
+const OBJECT_FROM_ENTRIES_NAMES = new Set(["Object.fromEntries", "globalThis.Object.fromEntries"]);
+const OBJECT_FREEZE_NAMES = new Set(["Object.freeze", "globalThis.Object.freeze"]);
+
+/** The dotted path of an identifier-rooted member chain, or null. */
+function memberPathText(node) {
+  if (!node) return null;
+  if (node.type === "Identifier") return node.name;
+  if (node.type !== "MemberExpression") return null;
+  const base = memberPathText(node.object);
+  if (base === null) return null;
+  if (!node.computed && node.property.type === "Identifier") return `${base}.${node.property.name}`;
+  if (node.computed && isStringLiteral(node.property)) return `${base}.${node.property.value}`;
+  return null;
+}
+
+/**
+ * True when `node` is, or resolves through one binding chain to, an
+ * `Object.fromEntries(...)` call -- optionally wrapped in `Object.freeze(...)`,
+ * which `fold_object_from_entries_call` sees through and which was measured to
+ * diverge identically.
+ */
+function resolvesToObjectFromEntriesCall(node, analysis, seen = new Set()) {
+  const current = node && node.type === "ChainExpression" ? node.expression : node;
+  if (!current || seen.has(current)) return false;
+  seen.add(current);
+  if (current.type === "CallExpression") {
+    const name = memberPathText(current.callee);
+    if (name === null) return false;
+    if (OBJECT_FROM_ENTRIES_NAMES.has(name)) return true;
+    if (OBJECT_FREEZE_NAMES.has(name) && current.arguments.length >= 1) {
+      return resolvesToObjectFromEntriesCall(current.arguments[0], analysis, seen);
+    }
+    return false;
+  }
+  if (current.type === "Identifier") {
+    const binding = analysis.binding(current);
+    if (!binding || !binding.init) return false;
+    return resolvesToObjectFromEntriesCall(binding.init, analysis, seen);
+  }
+  return false;
+}
+
 // --------------------------------------------------------------------------
 // The matchers
 // --------------------------------------------------------------------------
@@ -1039,6 +1124,75 @@ export const MATCHERS = {
       }
     }
     return count;
+  },
+
+  // R-59: a COMPUTED member access whose index expression is not one
+  // `expression_to_property_name` reads statically, so the parser writes a
+  // FABRICATED property name into the member node's text slot
+  // (`crates/kali_parser/src/expression/call.rs:54` for `o[e]`, `:261` for
+  // `o?.[e]`) and every static consumer downstream reads that slot.
+  //
+  // THIS IS NARROWER THAN R-13's `computedMemberNonLiteralKey`, DELIBERATELY,
+  // AND THE DIFFERENCE IS MEASURED RATHER THAN ASSUMED. R-13's record is "key
+  // expression is not a literal", which counts four shapes this parser reads
+  // CORRECTLY through the arms at `crates/kali_parser/src/literal.rs:100-127`:
+  // a parenthesized literal, a sequence expression ending in one, and a `+`/`-`
+  // unary applied to one. All four were run at `35e9ef4ef6` against node
+  // v26.8.1 in both scopes over `const o = {1: "one", 2: "two"}` -- `o[(1)]`,
+  // `o[(0, 1)]` and `o[+1]` all print `one` on both engines, and `o[-1]` reads
+  // the correct name `-1` (a property `o` does not have). None of them
+  // fabricates, so none of them is this entry, and this matcher excludes them
+  // by mirroring the arms instead of the "not a literal" shorthand.
+  //
+  // Upper bound, per the record: a receiver allocated with `new Array(n)`
+  // reaches a runtime-index lane that evaluates the member node's SECOND child
+  // (the structured index `kali_hir` keeps at
+  // `crates/kali_hir/src/lowering/expression.rs:53-56`) instead of the
+  // fabricated name, and does not diverge -- measured at `35e9ef4ef6`, both
+  // scopes: `const a = new Array(3); for (let i = 0; i < 3; i++) { a[i] = i * 2; }`
+  // then `a[i]` prints `0 2 4` on both engines. An acorn AST cannot see how the
+  // receiver was allocated, so those sites are counted here and are not this
+  // defect. The disclosure is in `count.mjs`'s UPPER_BOUNDS.
+  computedMemberFabricatedPropertyName(ast) {
+    const analysis = analysisOf(ast);
+    return analysis
+      .of("MemberExpression")
+      .filter((node) => node.computed && staticPropertyNameOf(node.property) === null).length;
+  },
+
+  // R-60: a member READ whose receiver is an `Object.fromEntries(...)` result --
+  // written directly, through `Object.freeze(...)`, or through a binding whose
+  // initializer is one of those. The receiver is lowered through codegen's
+  // zero-placeholder call fallback
+  // (`crates/kali_codegen/src/emitter.rs:1283-1316`) and the read itself falls
+  // to `emit_unary`'s default arm, which drops the operand and pushes
+  // `I64Const(0)` (`crates/kali_codegen/src/emit/operators.rs:724-736`).
+  //
+  // Reads only: a member STORE is a different site class and was not measured,
+  // so assignment and update targets are excluded rather than counted on the
+  // strength of the read's behaviour.
+  //
+  // The `globalThis.`-qualified and string-bracket callee spellings are admitted
+  // because `fold_object_from_entries_call` recognizes them
+  // (`crates/kali_optimize/src/object_fold.rs:242-247`), so a corpus file
+  // spelling the call that way is the same defect.
+  //
+  // This record is an upper bound in one direction and a LOWER bound in the
+  // other, and `count.mjs`'s UPPER_BOUNDS says both: the enumeration consumers
+  // of the same receiver fail LOUDLY (`E5506`, exit 1, measured) rather than
+  // silently, and are not member reads so are not counted here; and the
+  // fabricated `0` is what an unresolvable static member read emits generally,
+  // of which the `fromEntries` receiver is one producer -- the matcher counts
+  // that producer alone.
+  memberReadOnObjectFromEntriesResult(ast) {
+    const analysis = analysisOf(ast);
+    const stores = new Set();
+    for (const node of analysis.of("AssignmentExpression")) stores.add(node.left);
+    for (const node of analysis.of("UpdateExpression")) stores.add(node.argument);
+    return analysis
+      .of("MemberExpression")
+      .filter((node) => !stores.has(node) && resolvesToObjectFromEntriesCall(node.object, analysis))
+      .length;
   },
 };
 
