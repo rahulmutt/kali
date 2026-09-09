@@ -95,7 +95,7 @@ impl TypeContext {
 
     /// `process.argv` (or `globalThis.process.argv`): a non-computed `.argv`
     /// member read on the process root. Mirror of codegen's `is_process_argv`.
-    fn is_process_argv_member(expr: &Expression) -> bool {
+    pub(crate) fn is_process_argv_member(expr: &Expression) -> bool {
         let Expression::MemberExpression(member) = expr else {
             return false;
         };
@@ -1557,24 +1557,23 @@ impl TypeContext {
 
     /// Literal-array mutation gate: a computed subscript STORE whose base
     /// resolves to a static array-LITERAL binding (`resolve_array_literal_binding_name`,
-    /// the Task 7 registry backing `is_static_array_iteration_target`) has no
-    /// correct runtime lowering unless the WHOLE access folds statically.
-    /// Codegen never linearizes a literal array into a mutable runtime buffer
-    /// (the `join`-lane doc comment on `resolve_array_literal_binding_name`
-    /// notes the same absence for reads); probing on this branch: a runtime
-    /// index (`a[k] = 42` for a parameter `k`) and a STATIC index inside a
-    /// named function (`a[1] = 42` inside `function h() {...}`) both compile
-    /// and silently print a stale/wrong value instead of the stored one.
-    /// Rejects when EITHER:
-    ///   (a) the index is not a static numeric literal (no fold target at
-    ///       all — mirrors the slice/join gates' `is_static_numeric_literal_expr`
-    ///       foldability check), OR
-    ///   (b) the store executes inside a named function
-    ///       (`current_function_name() != "_start"`) — even a static index
-    ///       there is not the SAME top-level fold lane that resolves a
-    ///       top-level `var a = [...]; a[1] = 42;` (probed: that top-level
-    ///       shape's behavior is unchanged by this gate, silent-wrong residual
-    ///       or not — out of scope here, no new green lane).
+    /// the Task 7 registry backing `is_static_array_iteration_target`) has NO
+    /// correct runtime lowering at all. Codegen never linearizes a literal
+    /// array into a mutable runtime buffer (the `join`-lane doc comment on
+    /// `resolve_array_literal_binding_name` notes the same absence for reads);
+    /// probing on this branch: a runtime index (`a[k] = 42` for a parameter
+    /// `k`) and a STATIC index inside a named function (`a[1] = 42` inside
+    /// `function h() {...}`) both compile and silently print a stale/wrong
+    /// value instead of the stored one.
+    ///
+    /// This gate used to admit the store when "the whole access folds
+    /// statically" — a static numeric index at module scope. That admit never
+    /// landed anything: codegen DROPS the store (computed-member-static-name
+    /// follow-up item 2.3), so the admitted program read the stale literal
+    /// element. The named-index store therefore refuses UNCONDITIONALLY now.
+    /// A NAMELESS index (`a[k]`, no static name) is not this gate's business:
+    /// `gate_nameless_computed_member` owns it, so one defect gets one
+    /// diagnostic from one owner.
     /// Same dispatch site as `reject_runtime_string_store` (any assignment
     /// operator; a compound `a[1] += 1` on a literal array is exactly as
     /// unsupported as `a[1] = 42`). `new Array(n)` bindings
@@ -1588,23 +1587,22 @@ impl TypeContext {
         let Expression::MemberExpression(member) = &assign.left else {
             return;
         };
-        let Some(index) = member.computed_index.as_deref() else {
+        if member.computed_index.is_none() {
             return;
-        };
+        }
+        if member.property.is_none() {
+            return; // owned by `gate_nameless_computed_member`
+        }
         let Expression::Identifier(base_name) = &member.object else {
             return;
         };
         if !self.resolve_array_literal_binding_name(base_name) {
             return;
         }
-        let index_is_foldable = self.is_static_numeric_literal_expr(index);
-        let in_named_function = self.current_function_name() != "_start";
-        if !index_is_foldable || in_named_function {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "mutating a literal array is unavailable in the current direct-runtime path unless the whole access folds statically; use new Array(n) for runtime mutation".to_string(),
-            ));
-        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "mutating a literal array is unavailable in the current direct-runtime path; use new Array(n) for runtime mutation".to_string(),
+        ));
     }
 
     /// True when `expr` is one of the array-producing reassignment shapes

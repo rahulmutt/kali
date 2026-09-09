@@ -718,11 +718,21 @@ fn test_resolution_accepts_object_freeze_wrapped_dynamic_import_targets() {
     );
 }
 
+/// 2026-09-09 re-pin (computed-member-static-name Task 5): every bracket
+/// spelling in this fixture was written `[\"process\"]` inside a RAW string,
+/// so the JavaScript carried literal backslashes and the lexer produced a
+/// bracket index of the identifier `unknown`. The old clean reading depended
+/// on the parser FABRICATING a property name for an index it could not read
+/// (register R-59); with the fabrication gone those are nameless computed
+/// members and the new checker gate refuses them. The new reading is the
+/// source the test always meant — `["process"]`, the spelling two of its own
+/// lines already used — which resolves with no diagnostics, so the assertion
+/// is unchanged and now actually exercises the bracket wrappers it names.
 #[test]
 fn test_resolution_supports_process_kill_zero_probe_object_freeze_wrappers_on_node_surface() {
     let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
-    let source = r#"Object.freeze(process.kill)(0); Object.freeze((process.kill))(0); Object.freeze((process.kill))(+0); Object.freeze(globalThis.process.kill)(0); Object.freeze(globalThis.process.kill)(+0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); Object.freeze(globalThis[\"process\"].kill)(0); Object.freeze(process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](+0); Object.freeze(globalThis[\"process\"])[\"kill\"](0); Object.freeze(globalThis[\"process\"])[\"kill\"](+0); Object.freeze(globalThis[\"process\"].kill)(0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); Object.freeze((globalThis.process.kill))(0); Object.freeze((globalThis.process.kill))(+0); Object.freeze((globalThis[\"process\"][\"kill\"]))(0); Object.freeze((globalThis[\"process\"][\"kill\"]))(+0); Object.freeze((globalThis[\"process\"].kill))(0); Object.freeze((globalThis[\"process\"].kill))(+0); Object.freeze((globalThis.process[\"kill\"]))(0); Object.freeze((globalThis.process[\"kill\"]))(+0); Object.freeze((process))[\"kill\"](0); Object.freeze((process))[\"kill\"](+0); Object.freeze((globalThis.process))[\"kill\"](0); Object.freeze((globalThis.process))[\"kill\"](+0); Object.freeze((globalThis["process"]))[\"kill\"](0); Object.freeze((globalThis["process"]))[\"kill\"](+0);"#;
+    let source = r#"Object.freeze(process.kill)(0); Object.freeze((process.kill))(0); Object.freeze((process.kill))(+0); Object.freeze(globalThis.process.kill)(0); Object.freeze(globalThis.process.kill)(+0); Object.freeze(globalThis["process"]["kill"])(0); Object.freeze(globalThis["process"].kill)(0); Object.freeze(process)["kill"](0); Object.freeze(globalThis.process)["kill"](0); Object.freeze(globalThis.process)["kill"](+0); Object.freeze(globalThis["process"])["kill"](0); Object.freeze(globalThis["process"])["kill"](+0); Object.freeze(globalThis["process"].kill)(0); Object.freeze(globalThis["process"]["kill"])(0); Object.freeze((globalThis.process.kill))(0); Object.freeze((globalThis.process.kill))(+0); Object.freeze((globalThis["process"]["kill"]))(0); Object.freeze((globalThis["process"]["kill"]))(+0); Object.freeze((globalThis["process"].kill))(0); Object.freeze((globalThis["process"].kill))(+0); Object.freeze((globalThis.process["kill"]))(0); Object.freeze((globalThis.process["kill"]))(+0); Object.freeze((process))["kill"](0); Object.freeze((process))["kill"](+0); Object.freeze((globalThis.process))["kill"](0); Object.freeze((globalThis.process))["kill"](+0); Object.freeze((globalThis["process"]))["kill"](0); Object.freeze((globalThis["process"]))["kill"](+0);"#;
     fs::write(&source_path, source).unwrap();
 
     let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
