@@ -9,11 +9,15 @@
 # `kali check` runs the checker only and the refusal must live in both twins.
 #
 # Every expectation here was measured against node v26.8.1, in both scopes where
-# the program has a function twin, at the commit its own rationale names. TWO
+# the program has a function twin, at the commit its own rationale names. THREE
 # COMMITS APPEAR, and the split is not cosmetic: the original 51 cases were
-# measured at `3ef65ef785`, and the seven `..._array_fill_...` cases added by
+# measured at `3ef65ef785`; the seven `..._array_fill_...` cases added by
 # this project's review were measured at `dbaf05767b`, the commit that restored
-# the chained-allocation lane this project had briefly refused. Reading a
+# the chained-allocation lane this project had briefly refused; and the
+# `..._a_unary_over_a_string_index` pair added by the branch's final review was
+# measured at `2c31e1d617`, the commit that narrowed the parser's `+`/`-` arm to
+# a number-literal source (its rationale also carries the `ff8567e7f4` reading
+# the fabricated name produced BEFORE that narrowing). Reading a
 # rationale's SHA rather than assuming a file-wide one is the point -- a case
 # measured before a fix and a case measured after it are different claims.
 # Nothing here is predicted:
@@ -122,6 +126,8 @@ console.log(f("b"));
 "readable_string_key_control.js" = """const o = {a: 1, b: 2}; console.log(o["b"]);
 """
 "readable_numeric_spellings_control.js" = """const o = {1: "one", 2: "two"}; console.log(o[(1)]); console.log(o[(0, 1)]); console.log(o[+1]);
+"""
+"unary_string_index.js" = """const o = {Infinity: 9, NaN: 7}; console.log(o[+"inf"]); console.log(o[+"infinity"]);
 """
 "chained_access_off_folded_member.js" = """const o = {a: "xyz"}; const k = "a"; console.log(o[k].length);
 """
@@ -425,6 +431,35 @@ stderr_contains = ["E5506", "${COMPUTED}"]
 name = "run_refuses_boolean_null_and_bigint_indexes"
 rationale = "Twin of the check case. Measured at `3ef65ef785`."
 args = ["run", "boolean_null_bigint_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_refuses_a_unary_over_a_string_index"
+rationale = """R-59's LAST SURVIVING SHAPE, closed by the final review of this branch (finding 1). Spec section 4.1 scopes the `+`/`-` unary arm to recursing into a LITERAL, and the implementation was wider than the spec: it re-parsed its recursive result's RENDERED NAME with Rust's `str::parse::<f64>()`, which accepts `inf`, `infinity` and `nan` case-insensitively where JavaScript's `ToNumber` returns `NaN` for all three.
+
+MEASURED AT `ff8567e7f4` against node v26.8.1 on `const o = {Infinity: 9, NaN: 7}`:
+
+  console.log(o[+"inf"]);        kali 9   node 7
+  console.log(o[+"infinity"]);   kali 9   node 7
+
+both at exit 0 with `check` clean -- a fabricated name (one that is not `String(key)`) hitting a real, wrong property, silently. That is the defect class this whole branch exists to end, and three doc comments (`kali_optimize/src/helpers.rs`, `kali_optimize/src/object_fold.rs`, `kali_codegen/src/intrinsics/object.rs`) assert the fabricated-name qualification is withdrawn, which was false while this arm stood.
+
+FIXED BY NARROWING THE SOURCE, NOT BY GUARDING THE RESULT. `+1e400` legitimately IS `Infinity` in JavaScript, so an `is_finite` guard would break `o[1e400]`, which must keep reading the property named "Infinity". `unary_number_value` carries the f64 instead of a rendering, so the arm folds only over a NUMBER literal.
+
+MEASURED AT `2c31e1d617` (the fix) against node v26.8.1: node prints 7 then 7 at exit 0; kali refuses at exit 1 under BOTH `check` and `run`, two copies of the shared computed-member message, one per access. Refusing is conservative and correct: the index is not in the parser's readable set, so it has no name.
+
+`o[+"nan"]` is refused by the same narrowing. It had AGREED with node before (7 against 7) -- by coincidence, since Rust's `"nan"` and JavaScript's `ToNumber("nan")` both land on NaN and `format_js_number(NaN)` is "NaN". An accidental agreement is not a lane, and no rule distinguished it from the two wrong ones.
+
+The numeric spellings do not move: `readable_numeric_spellings_control` above still reads `o[(1)]`, `o[(0, 1)]` and `o[+1]`, and `a_unary_over_a_number_literal_still_reads_its_name` in crates/kali_parser/src/literal_tests.rs pins `+1`, `-1`, `+1e21`, `+1e400`, `+(1)`, `-(-1)`, `+(0, 1)` and `-0`."""
+args = ["check", "unary_string_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_unary_over_a_string_index"
+rationale = "Twin of the check case. Measured at `2c31e1d617`: exit 1, two copies of the shared computed-member message, byte-identical to the `check` reading."
+args = ["run", "unary_string_index.js"]
 exit = "failure"
 stderr_contains = ["E5506", "${COMPUTED}"]
 

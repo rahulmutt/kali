@@ -172,8 +172,13 @@ impl Optimizer {
     /// `lower_property_name` and `expression_to_property_name` use it: one
     /// formatter is what makes the agreement structural rather than lucky.
     ///
-    /// **The one-currency claim is UNQUALIFIED as of 2026-09-09
-    /// (`71b5f42f6c`), and it was not before.** Until the
+    /// **The one-currency claim is UNQUALIFIED as of 2026-09-09 (`71b5f42f6c`
+    /// for every shape but one, and `2c31e1d617` for the last: the `+`/`-`
+    /// unary arm re-parsed its own RENDERED NAME with Rust's
+    /// `str::parse::<f64>()`, which reads `inf`/`infinity`/`nan` where
+    /// JavaScript's `ToNumber` does not, so `o[+"inf"]` still fabricated
+    /// `Infinity` until that commit narrowed the arm to a number-literal
+    /// source), and it was not before.** Until the
     /// computed-member-static-name project retired register entry **R-59**,
     /// `expression_to_property_name` FABRICATED a property name for any
     /// computed index it could not read statically, so a member node's text was

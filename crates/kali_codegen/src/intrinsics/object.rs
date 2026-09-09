@@ -102,7 +102,12 @@ impl<'a> FunctionEmitter<'a> {
     /// symmetry this comment establishes is real; the currency claim held only
     /// for the index shapes that phase actually read.
     ///
-    /// **RESOLVED 2026-09-09 at `71b5f42f6c`, and the qualification is
+    /// **RESOLVED 2026-09-09 at `71b5f42f6c` -- and, for the one shape that
+    /// outlived it, at `2c31e1d617`: the `+`/`-` unary arm re-parsed its own
+    /// RENDERED NAME with Rust's `str::parse::<f64>()`, which accepts `inf`,
+    /// `infinity` and `nan` where JavaScript's `ToNumber` returns `NaN`, so
+    /// `o[+"inf"]` fabricated `Infinity` until that commit narrowed the arm to
+    /// a number-literal source. The qualification is
     /// withdrawn.** R-59 is retired (FAIL_CLOSED) by the
     /// computed-member-static-name project. The one-currency claim now holds
     /// for **every** computed access that HAS a name, because a computed access

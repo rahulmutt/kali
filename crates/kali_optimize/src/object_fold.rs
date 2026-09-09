@@ -773,7 +773,10 @@ impl Optimizer {
     /// not read statically, where the member node's text was a FABRICATED name
     /// rather than `String(key)`: register entry **R-59** (§2, Tier 2, filed
     /// 2026-09-08, **RETIRED 2026-09-09 at `71b5f42f6c`** by the
-    /// computed-member-static-name project). **That exception is gone, and the
+    /// computed-member-static-name project, with its last surviving shape --
+    /// the `+`/`-` unary arm re-parsing its own rendered name, which read
+    /// `o[+"inf"]` as `Infinity` where JavaScript's `ToNumber` yields `NaN` --
+    /// closed at `2c31e1d617`). **That exception is gone, and the
     /// currency claim is now unqualified for every access that HAS a name.** A
     /// computed access whose index the parser cannot read has none:
     /// `expression_to_property_name` returns `Option<String>` and declines,
