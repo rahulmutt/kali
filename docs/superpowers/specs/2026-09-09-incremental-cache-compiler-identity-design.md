@@ -111,10 +111,26 @@ would have left the shipped defect entirely intact.
 
 The full evaluation — polyglot (350,906 LOC of Rust against 9 `.lean` and 7
 `.mjs` files), incrementality (rustc's unit is the crate, so no granularity gain
-over cargo, and `crates/kali_cli/tests` is 122,598 LOC in 2 targets), remote
-caching, hermeticity (already owned by `devenv.nix` + `mise` + `Cargo.lock` +
-SLSA3) — found zero of the four adoption triggers holding. It is summarised here
-rather than filed separately because the question will be asked again.
+over cargo, and a cold workspace build with dependencies warm measures **30 s**),
+remote caching, hermeticity (already owned by `devenv.nix` + `mise` +
+`Cargo.lock` + SLSA3) — found zero of the four adoption triggers holding. It is
+summarised here rather than filed separately because the question will be asked
+again.
+
+**One correction to that evaluation, recorded rather than quietly fixed.** An
+earlier draft of this section claimed `crates/kali_cli/tests` was "122,598 LOC in
+2 targets" and used it to argue that Bazel's per-target test-result caching had
+nothing to work with here. That was wrong: 2 is the number of *explicitly
+declared* `[[test]]` entries in `crates/kali_cli/Cargo.toml`, and Cargo
+auto-discovers every top-level `tests/*.rs` besides. The real count is **68 test
+targets in `kali_cli` and 71 across the workspace**. The inference therefore runs
+the other way — the suite is already finely partitioned, so cargo parallelises it
+and Bazel would inherit a granularity it did not create. The conclusion is
+unchanged, on the other three triggers; the supporting fact is not.
+
+`AGENTS.md` §5's rule that black-box CLI tests go in the single `cases` target
+governs *that lane only*, and does not describe the workspace's test-target
+strategy generally.
 
 ---
 
