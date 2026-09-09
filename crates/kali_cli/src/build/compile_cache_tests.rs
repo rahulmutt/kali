@@ -88,3 +88,52 @@ fn the_cache_filename_carries_the_fingerprint() {
          identifiable by name, got {name:?}"
     );
 }
+
+/// The old key, exactly as it was built before this change: every component an
+/// input, ending in the frozen `CARGO_PKG_VERSION`. Real examples of this shape
+/// were found in `crates/kali_cli/tests/fixtures/.kali-cache/incremental/`,
+/// e.g. `sha256-18aab710...-release-deno-16-profiles:-profile:none-false-false-0.1.0.wasm`.
+fn old_style_cache_filename(source: &Path) -> String {
+    let source_hash = source_hash_for_file(source).expect("hash source");
+    format!(
+        "{}-fast-deno-16-profiles:-profile:none-false-false-{}.wasm",
+        source_hash,
+        env!("CARGO_PKG_VERSION")
+    )
+}
+
+#[test]
+fn an_artifact_written_under_the_old_key_is_never_served() {
+    let (dir, source) = project_with_source();
+
+    // Plant an artifact where the pre-fix compiler would have written one, with
+    // contents that are obviously not a compile of this source. Before the fix,
+    // `compile_source_file` returned exactly these bytes with `cache_hit: true`
+    // and never reached codegen -- which is how a codegen diagnostic could not
+    // be produced, and how a suite passed in ~0.00s.
+    let planted = b"NOT-WASM-PLANTED-BY-AN-OLDER-COMPILER".to_vec();
+    let cache_dir = dir.path().join(".kali-cache").join("incremental");
+    std::fs::create_dir_all(&cache_dir).expect("create cache dir");
+    std::fs::write(cache_dir.join(old_style_cache_filename(&source)), &planted)
+        .expect("plant stale artifact");
+
+    let output = compile_source_file_with_cache_state(
+        &source,
+        BuildMode::Fast,
+        16,
+        ApiSurface::Deno,
+        &[],
+        false,
+        false,
+    )
+    .expect("compiling a trivial source must succeed");
+
+    assert!(
+        !output.cache_hit,
+        "an artifact keyed without compiler identity must not be read"
+    );
+    assert_ne!(
+        output.wasm_bytes, planted,
+        "the planted bytes must never reach the caller"
+    );
+}
