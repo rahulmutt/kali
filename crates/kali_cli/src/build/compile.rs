@@ -273,8 +273,11 @@ pub fn compile_source_file_with_cache_state_and_profile_data_and_validation(
         if let Some(parent) = cache_path.parent() {
             let _ = fs::create_dir_all(parent);
             let _ = fs::write(&cache_path, &wasm_bytes);
-            // After the write, so a fresh entry is never the one evicted for
-            // being over budget on the sweep its own write triggered.
+            // After the write, so a fresh entry is practically never the one
+            // evicted for being over budget on the sweep its own write
+            // triggered -- eviction is oldest-mtime-first, and in the worst
+            // case (a tie with older entries under coarse mtime resolution)
+            // the cost is one extra recompile, which is self-healing.
             maybe_reap(parent);
         }
 
