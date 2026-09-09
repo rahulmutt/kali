@@ -28,6 +28,9 @@
         "null"
       ]
     },
+    "incrementalCache": {
+      "type": "boolean"
+    },
     "include": {
       "type": "array",
       "items": {

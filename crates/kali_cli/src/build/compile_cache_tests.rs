@@ -137,3 +137,56 @@ fn an_artifact_written_under_the_old_key_is_never_served() {
         "the planted bytes must never reach the caller"
     );
 }
+
+/// A project root whose manifest is exactly `manifest`, plus one source file.
+fn project_with_manifest(manifest: &str) -> (TempDir, PathBuf) {
+    let dir = TempDir::new().expect("create temp project root");
+    std::fs::write(dir.path().join("kali.json"), manifest).expect("write manifest");
+    let source = dir.path().join("main.ts");
+    std::fs::write(&source, "console.log(1);\n").expect("write source");
+    (dir, source)
+}
+
+#[test]
+fn a_project_can_decline_the_incremental_cache() {
+    let (_dir, source) =
+        project_with_manifest(r#"{"schemaVersion":1,"incrementalCache":false}"#);
+
+    assert_eq!(
+        path_for(&source, Some("aaaaaaaaaaaaaaaa")),
+        None,
+        "`incrementalCache: false` must decline the on-disk cache"
+    );
+}
+
+#[test]
+fn an_omitted_incremental_cache_field_leaves_the_cache_enabled() {
+    let (_dir, source) = project_with_manifest(r#"{"schemaVersion":1}"#);
+
+    assert!(
+        path_for(&source, Some("aaaaaaaaaaaaaaaa")).is_some(),
+        "omission must preserve the behaviour every existing project already has"
+    );
+}
+
+#[test]
+fn an_explicit_true_leaves_the_cache_enabled() {
+    let (_dir, source) =
+        project_with_manifest(r#"{"schemaVersion":1,"incrementalCache":true}"#);
+
+    assert!(
+        path_for(&source, Some("aaaaaaaaaaaaaaaa")).is_some(),
+        "an explicit true must mean the same as omission"
+    );
+}
+
+#[test]
+fn an_unparseable_manifest_leaves_the_cache_enabled() {
+    let (_dir, source) = project_with_manifest("{ this is not json");
+
+    assert!(
+        path_for(&source, Some("aaaaaaaaaaaaaaaa")).is_some(),
+        "a broken manifest must not silently change caching behaviour; \
+         `load_exclude_set` is tolerant the same way"
+    );
+}

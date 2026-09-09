@@ -787,6 +787,7 @@ Canonical filename: `kali.json`
 - for schema-v1 registry manifests, follow the shared **exact-version-first registry manifest rule (schema v1)** from [SPEC.md](../SPEC.md): the canonical recorded value is the exact resolved version string, while wider version-range manifest syntax is intentionally deferred
 - `schemaVersion: number` is required on `kali.json` like every other top-level machine-readable Kali JSON document
 - `$schema: string` is an optional, recognized top-level metadata field for editor/tooling integration; it is not treated as an unknown extension field
+- `incrementalCache: boolean` is an optional top-level field; `false` declines the on-disk incremental artifact cache for the project, and omission means enabled
 
 ### Schema-v1 defaulting and omission rules
 To keep `kali.json` minimal and avoid placeholder churn, schema v1 uses a small canonical default set when fields are omitted.
@@ -807,6 +808,7 @@ Defaults:
 - omitted `compilerOptions.maxSpecializations` means `16`
 - omitted `compat` means `{"features": []}`
 - omitted `compat.features` means `[]`
+- In schema v1, omitted `incrementalCache` means the on-disk incremental artifact cache is enabled, which is the behavior every existing project already has; `false` declines it and is not a request to delete existing entries
 
 Canonical compatibility feature names (schema v1):
 - `"eval"` is the only stable compatibility feature name in schema v1

@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "incrementalCache": false,
   "exclude": [
     "benchmarks/fasta-benchmark-v1.ts",
     "benchmarks/join-loop-peak.ts",

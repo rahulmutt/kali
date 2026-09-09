@@ -13,6 +13,8 @@ pub struct ProjectManifest {
     pub compat: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub incremental_cache: Option<bool>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub include: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -39,6 +41,7 @@ impl ProjectManifest {
             && self.compiler_options.is_none()
             && self.compat.is_none()
             && self.sandbox.is_none()
+            && self.incremental_cache.is_none()
             && self.include.is_empty()
             && self.exclude.is_empty()
             && self.imports.is_empty()

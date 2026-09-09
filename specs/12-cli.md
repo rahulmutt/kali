@@ -829,6 +829,7 @@ Omission/default rule for minimal configs:
 - In schema v1, omitted `compilerOptions.strict` means the default strict-checking bundle is enabled; its canonical semantics are defined in [specs/04-type-system.md](04-type-system.md).
 - In schema v1, omitted `compilerOptions.maxSpecializations` means the project uses the default specialization cap of `16`.
 - Omitted `compat` means `compat.features = []`.
+- In schema v1, omitted `incrementalCache` means the on-disk incremental artifact cache is enabled; setting it to `false` declines the cache for that project.
 
 Configuration simplification rules:
 - `compilerOptions.apiSurface` is the config equivalent of the CLI `--api` flag

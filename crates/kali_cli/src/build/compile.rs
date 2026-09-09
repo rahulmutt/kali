@@ -590,6 +590,9 @@ pub(crate) fn incremental_cache_path_with_fingerprint(
     let Some(project_root) = project_root_for_source(source_path) else {
         return Ok(None);
     };
+    if !project_incremental_cache_enabled(&project_root) {
+        return Ok(None);
+    }
     let normalized_runtime_profiles = normalize_runtime_profiles(runtime_profiles.to_vec());
     let profile_key = profile_data
         .map(|profile| {
@@ -628,6 +631,26 @@ fn project_root_for_source(source_path: &Path) -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// `incrementalCache: false` in the project manifest declines the on-disk
+/// artifact cache. Omitted, `true`, or anything unreadable means enabled, which
+/// is the behaviour every existing project already has.
+///
+/// Deliberately tolerant of a missing or malformed manifest, matching
+/// `load_exclude_set` (`crates/kali_cli/src/lib.rs:524`): a broken manifest must
+/// not silently change caching behaviour.
+fn project_incremental_cache_enabled(project_root: &Path) -> bool {
+    let Ok(raw) = fs::read_to_string(project_root.join("kali.json")) else {
+        return true;
+    };
+    let Ok(manifest) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return true;
+    };
+    manifest
+        .get("incrementalCache")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(true)
 }
 
 fn analyze_source_file(
