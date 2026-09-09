@@ -107,15 +107,54 @@ fn process_argv_variable_index_never_flows_as_a_real_string() {
     // element by either side — this pin guards the fallback contract stays
     // the same shape as the huge-literal pin above (no reliance on a
     // dynamic value being smuggled through as a string).
+    //
+    // RE-PINNED 2026-09-09 at `dbaf05767b` (controller ruling R18) by the
+    // computed-member-static-name project
+    // (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md).
+    //
+    // OLD READING: kali exited 0 and printed `0`, against node's `hello`. The
+    // assertions were `status.success()`, `stdout != "hello\n"` and
+    // `stdout == "0\n"` — i.e. this test PINNED A SILENT WRONG VALUE. It was
+    // right to: at the time, `0` really was the fallback, and pinning it is how
+    // a change to the fallback would have been noticed. What it could not say
+    // is that the fallback was wrong.
+    //
+    // NEW READING (`dbaf05767b`, node v26.8.1): node prints `hello`; kali exits
+    // 1 with empty stdout and the shared computed-member E5506, under `run` and
+    // `check` alike. `var i = 2` is not a `const` with a literal initializer, so
+    // the index folds nowhere and the read is refused rather than fabricated.
+    //
+    // THE CONTRACT THIS TEST GUARDS IS UNCHANGED AND IS ASSERTED MORE STRONGLY.
+    // Its subject is "a dynamic value must never be smuggled through as a real
+    // argv string". A refusal satisfies that strictly better than a `0` did: the
+    // `assert_ne!` against `hello` is kept, and the emptiness of stdout now
+    // makes it unfalsifiable-by-accident. The sibling huge-literal pin above
+    // still measures the numeric-placeholder fallback on its own program and is
+    // untouched, so the fallback contract has not lost its pin.
+    //
+    // The equivalent divergence is also pinned as a black-box case —
+    // `object/computed_member_static_name.toml::the_argv_index_lane_disagrees_
+    // with_itself_between_a_number_and_a_string_spelling` — which records the
+    // WRONG-ON-PURPOSE half that survives: `process.argv[2]` is correct while
+    // `const i = 2; process.argv[i]` and `process.argv["2"]` both read `0`,
+    // because the argv intrinsic keys on the index child's literal form. That
+    // is a defect in the argv intrinsic, not in the fold, and Task 8 files it.
     let out = run_node_source_with_args("var i = 2;\nconsole.log(process.argv[i]);\n", &["hello"]);
     assert!(
-        out.status.success(),
-        "stderr: {}",
+        !out.status.success(),
+        "expected the honest refusal, not a silent value; stdout: {} stderr: {}",
+        String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert_ne!(stdout, "hello\n");
-    assert_eq!(stdout, "0\n");
+    assert_eq!(stdout, "");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("computed member access `o[k]` is unavailable in the current phase"),
+        "stderr: {stderr}"
+    );
 }
 
 // --- Fail-closed pins: `.length` on an unprovable argv index (Spec 5 Task 5
