@@ -8,8 +8,15 @@
 # asserted under BOTH `check` and `run` with the one shared message, because
 # `kali check` runs the checker only and the refusal must live in both twins.
 #
-# Every expectation here was measured at `3ef65ef785` against node v26.8.1, in
-# both scopes where the program has a function twin. Nothing here is predicted:
+# Every expectation here was measured against node v26.8.1, in both scopes where
+# the program has a function twin, at the commit its own rationale names. TWO
+# COMMITS APPEAR, and the split is not cosmetic: the original 51 cases were
+# measured at `3ef65ef785`, and the seven `..._array_fill_...` cases added by
+# this project's review were measured at `dbaf05767b`, the commit that restored
+# the chained-allocation lane this project had briefly refused. Reading a
+# rationale's SHA rather than assuming a file-wide one is the point -- a case
+# measured before a fix and a case measured after it are different claims.
+# Nothing here is predicted:
 # where the plan's Task 7 brief dictated an expectation the binary does not
 # produce, the MEASUREMENT is what is pinned and the rationale carries both
 # readings and names the mechanism. Three such divergences exist and each is
@@ -97,6 +104,16 @@ console.log(f("b"));
 "array_literal_const_index_read.js" = """const a = [5, 6]; const i = 1; console.log(a[i]);
 """
 "runtime_array_control.js" = """const a = new Array(3); for (let i = 0; i < 3; i++) { a[i] = i * 2; } let j = 2; console.log(a[j]);
+"""
+"chained_array_fill_read.js" = """const u = new Array(3).fill(1); let i = 0; console.log(u[i]);
+"""
+"bare_array_fill_read.js" = """const u = Array(3).fill(1); let i = 0; console.log(u[i]);
+"""
+"statement_form_array_fill_read.js" = """const u = new Array(3); u.fill(1); let i = 0; console.log(u[i]);
+"""
+"chained_array_fill_store.js" = """const u = new Array(3).fill(1); let i = 0; u[i] = 9; console.log(u[0]); console.log(u[2]);
+"""
+"double_chained_array_fill_read.js" = """const u = new Array(3).fill(1).fill(2); let i = 0; console.log(u[i]);
 """
 "readable_string_key_control.js" = """const o = {a: 1, b: 2}; console.log(o["b"]);
 """
@@ -245,6 +262,58 @@ rationale = "Spec section 2.5 control: a `new Array(n)` receiver reads its index
 args = ["run", "runtime_array_control.js"]
 exit = "success"
 stdout = "4\n"
+
+[[case]]
+name = "a_chained_array_allocation_is_the_same_runtime_array_as_the_statement_form"
+rationale = """THE LANE THIS PROJECT BRIEFLY BROKE, PINNED WHERE IT BELONGS. Review finding (2026-09-09): until `dbaf05767b` the shared runtime-array recognizer behind `nameless_computed_member_is_admitted_by_a_runtime_lane` saw `const u = new Array(n); u.fill(v);` but NOT the chained spelling `const u = new Array(n).fill(v)`, so this project's gateway refused a live lane -- `u[i]` on a chained allocation, which node reads and codegen can lower. It surfaced as a red benchmark fixture rather than as a case, because nothing in the black-box suite exercised it.
+
+Measured at `dbaf05767b` against node v26.8.1: node prints 1, kali prints 1 at exit 0, `check` clean. The two spellings are pinned as AGREEING by the control case below, which is the whole claim of the fix: a chained array allocation is the same runtime array as the statement form, so the recognizer must not distinguish them."""
+args = ["run", "chained_array_fill_read.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "check_admits_a_chained_array_allocation_read"
+rationale = "The `check` twin of the case above. An admitted program reaches `run` only through the checker, so `run`-green already implies `check`-green; it is asserted separately anyway because the defect this pair exists to catch was a SHARED admit-list hole, and a case file that only ever spells `run` cannot show that the two passes agree. Measured at `dbaf05767b`: exit 0, `Checked 1 file(s)`."
+args = ["check", "chained_array_fill_read.js"]
+exit = "success"
+
+[[case]]
+name = "the_statement_form_array_fill_control_reads_the_same"
+rationale = "The control that makes the case above a statement about AGREEMENT rather than about one spelling: `const u = new Array(3); u.fill(1);` -- the form that was admitted all along -- reads the same element. node prints 1; measured at `dbaf05767b`, kali prints 1, `check` clean. If a later change ever made the two spellings disagree again, these two cases move apart and the divergence is named rather than inferred."
+args = ["run", "statement_form_array_fill_read.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "the_bare_array_call_spelling_folds_the_same_way"
+rationale = "The mirror hole the same fix closed: `Array(n).fill(v)` without `new` is the same allocation and must be recognized identically. node prints 1; measured at `dbaf05767b`, kali prints 1, `check` clean. Pinned because `new`-less `Array(...)` is a separate parse shape, so a recognizer taught only the `new` spelling would pass the case above and still refuse this one."
+args = ["run", "bare_array_fill_read.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_chained_array_allocation_takes_a_mutable_index_store_too"
+rationale = "The write half of the restored lane, and the discriminator that proves the store LANDS rather than merely being admitted: `u[i] = 9` with `let i = 0` on a chained allocation, read back at two literal indexes. node prints 9 then 1 -- the stored element and an untouched neighbour, so a store that overwrote everything or nothing would fail this case. Measured at `dbaf05767b`: kali prints 9 then 1, `check` clean."
+args = ["run", "chained_array_fill_store.js"]
+exit = "success"
+stdout = "9\n1\n"
+
+[[case]]
+name = "check_refuses_a_doubly_chained_array_fill"
+rationale = """The honest edge of the recognizer, pinned as a NEGATIVE so the lane's boundary is recorded and not just its interior. `new Array(3).fill(1).fill(2)` -- a second `.fill` chained onto the first -- is not recognized, and both twins refuse with the shared computed-member message. node prints 2.
+
+THIS IS FAIL-CLOSED, NOT WRONG ON PURPOSE. kali declines a program node accepts, at exit 1 with a diagnostic, which is the outcome this project exists to produce for anything it cannot prove; no value is silently invented. It is pinned so that widening the recognizer to a `.fill` CHAIN is a deliberate move that turns this case red, rather than something noticed by accident. The same spelling without `new` behaves identically. Measured at `dbaf05767b` against node v26.8.1."""
+args = ["check", "double_chained_array_fill_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_doubly_chained_array_fill"
+rationale = "Twin of the check case. Measured at `dbaf05767b`: exit 1, byte-identical stderr."
+args = ["run", "double_chained_array_fill_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
 
 [[case]]
 name = "the_three_string_length_spellings_agree"
@@ -459,10 +528,12 @@ rationale = """Spec section 4.5: `o[k].length` with a const key -- the outer acc
 
 THIS IS NOT A WORKING LANE BEING REGRESSED. Measured at `dc19c3a040`: this program printed `2`, and so did the same program with `"xyzwv"` -- the value is `render_length`'s text-less arm returning the member node's CHILD COUNT, not the string's length. Refusing replaces a silent wrong answer with an honest one. The dot spelling `o.a.length` prints `1` by the same arm and is NOT fixed here; it is recorded as a separate divergence in the follow-up this project files.
 
-NO `check` TWIN IS ASSERTED, AND THAT IS A RECORDED DISAGREEMENT, NOT AN OVERSIGHT. Measured at `3ef65ef785`: `kali run` refuses at exit 1 with the shared message, while `kali check` on the SAME program exits 0 with `Checked 1 file(s)`. Binding constraint 8 (spec section 8) says codegen may fold a strict superset but the checker admitting what codegen refuses is a defect, so this is one. Task 7 owns case files only and does not change compiler source, so the twin is left unasserted here and the disagreement is reported to the controller instead of being papered over with a `run`-shaped claim about `check`."""
+NO `check` TWIN IS ASSERTED, AND THAT IS A RECORDED DISAGREEMENT, NOT AN OVERSIGHT. Measured at `3ef65ef785`: `kali run` refuses at exit 1 with the shared message, while `kali check` on the SAME program exits 0 with `Checked 1 file(s)`. Binding constraint 8 (spec section 8) says codegen may fold a strict superset but the checker admitting what codegen refuses is a defect, so this is one. Task 7 owns case files only and does not change compiler source, so the twin is left unasserted here and the disagreement is reported to the controller instead of being papered over with a `run`-shaped claim about `check`.
+
+THE NEEDLE NAMES THE MESSAGE, NOT JUST THE CODE. Review finding (2026-09-09): the brief dictated a bare `E5506` needle here, and E5506 is shared -- the numeric-key gate, `mutating a literal array` and `an object literal passed directly as a call argument` all carry it, and all three fire elsewhere in THIS file. A bare code needle would let this program start refusing for an entirely unrelated reason while the case stayed green and this rationale went on claiming a mechanism that was gone. The shared computed-member message is now asserted alongside the code."""
 args = ["run", "chained_access_off_folded_member.js"]
 exit = "failure"
-stderr_contains = ["E5506"]
+stderr_contains = ["E5506", "${COMPUTED}"]
 
 [[case]]
 name = "check_still_admits_the_chained_access_off_a_folded_member"
@@ -476,10 +547,12 @@ rationale = """`Object[k](o)` with `const k = "keys"`: the optimizer's name-stri
 
 ALSO NOT A WORKING LANE. Measured at `dc19c3a040`, this printed `2` for a FOUR-key object -- the child count again, through the same renderer. node prints 4. Measured at `3ef65ef785`: `kali run` refuses at exit 1 with the shared computed-member message.
 
-Like the chained-access case above, `kali check` still admits this program at `3ef65ef785` (exit 0), which is the same spec-section-8 twin disagreement and is pinned by its own case below."""
+Like the chained-access case above, `kali check` still admits this program at `3ef65ef785` (exit 0), which is the same spec-section-8 twin disagreement and is pinned by its own case below.
+
+The needle names the shared computed-member message and not just `E5506`, for the reason given on the chained-access case above: the code alone is shared by three other gates that fire in this same file."""
 args = ["run", "computed_callee_fold.js"]
 exit = "failure"
-stderr_contains = ["E5506"]
+stderr_contains = ["E5506", "${COMPUTED}"]
 
 [[case]]
 name = "check_still_admits_the_computed_callee"
