@@ -377,3 +377,52 @@ fn a_name_declared_twice_in_one_function_does_not_fold() {
         );
     }
 }
+
+/// Task 7's end-to-end gate run (2026-09-09): narrowing the admit list to the
+/// STRUCTURAL registries was right, but that registry could not see through a
+/// method call chained onto `new Array(n)` — the parser hangs the whole chain
+/// under one `new` — so a legitimately-registered runtime array fell out of the
+/// admit list in that ONE spelling and `check` refused what `run` admits. It
+/// killed `tests/fixtures/benchmarks/spectral-norm-benchmark-v1.ts`. Codegen
+/// registers it at `emit/control_flow.rs`'s "`const u = new Array(n).fill(v)`"
+/// declarator arm; this pins every spelling of that same array against it.
+#[test]
+fn a_chained_array_allocation_is_the_same_runtime_array_as_the_statement_form() {
+    for source in [
+        // The chained spellings codegen's declarator arm registers.
+        "const u = new Array(3).fill(1); let i = 0; console.log(u[i]);",
+        "const u = Array(3).fill(1); let i = 0; console.log(u[i]);",
+        "const u = (new Array(3)).fill(1); let i = 0; console.log(u[i]);",
+        // The statement spellings, which always worked — kept as the
+        // side-by-side the regression was found by.
+        "const u = new Array(3); u.fill(1); let i = 0; console.log(u[i]);",
+        "const u = new Array(3); u[0] = 1; let i = 0; console.log(u[i]);",
+        // `.fill` on an already-structural binding is codegen's other
+        // receiver, and the result is an array binding too.
+        "const u = new Array(3); const v = u.fill(1); let i = 0; console.log(v[i]);",
+    ] {
+        assert!(
+            e5506_messages(source).is_empty(),
+            "{source}: {:?}",
+            e5506_messages(source)
+        );
+    }
+
+    for source in [
+        // Negative control: the admit list is still not vacuous. An array
+        // LITERAL never enters codegen's `array_bindings`.
+        "const a = [\"x\", \"y\"]; let i = 0; console.log(a[i]);",
+        // A `.fill` chained onto another `.fill` is NOT an allocation for
+        // codegen's receiver test either (`array_fill_call_parts` wants an
+        // alloc call or an existing binding), and `run` refuses both
+        // spellings — so neither may be admitted here.
+        "const u = new Array(3).fill(1).fill(2); let i = 0; console.log(u[i]);",
+        "const u = Array(3).fill(1).fill(2); let i = 0; console.log(u[i]);",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            messages.iter().any(|m| m.contains(COMPUTED)),
+            "{source}: {messages:?}"
+        );
+    }
+}

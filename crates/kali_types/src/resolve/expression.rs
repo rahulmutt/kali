@@ -747,14 +747,25 @@ impl TypeContext {
         match expr {
             // `new Array(n)`: callee is the `CallExpression` `Array(n)` (see
             // `rhs_is_array_shape`); bare `new Array` is the Identifier form.
-            // Arity <= 1 only: `Array(n)` is a length allocation. n >= 2 is
+            // The arity <= 1 rule (`Array(n)` is a length allocation; n >= 2 is
             // desugared to an `ArrayExpression` at parse time and must never
-            // register through this arm either.
+            // register) still holds — the recursion below lands on the
+            // `CallExpression` arm, which enforces it.
+            //
+            // A `new` hangs its arguments on the callee CALL and keeps its own
+            // `args` empty, so `new Array(n)` is `New(Call(Array, [n]))` and the
+            // CHAINED `new Array(n).fill(v)` is `New(Call(Member(Call(Array,
+            // [n]), "fill"), [v]))` — the whole chain under one `new`. Handing
+            // the callee back to this function therefore covers both: the
+            // `Array(n)` arm below answers the first, the `.fill` arm the
+            // second. Before that recursion the chained spelling registered
+            // NOTHING here while codegen's declarator arm inserted it into
+            // `array_bindings` (`emit/control_flow.rs`, "`const u = new
+            // Array(n).fill(v)`"), so `check` refused what `run` admits — it
+            // killed `tests/fixtures/benchmarks/spectral-norm-benchmark-v1.ts`.
             Expression::NewExpression(new_expr) => {
                 matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
-                    || matches!(&new_expr.callee, Expression::CallExpression(call)
-                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array")
-                            && call.args.len() <= 1)
+                    || self.declarator_registers_runtime_array(&new_expr.callee)
             }
             Expression::CallExpression(call) => {
                 // Arity <= 1 only: `Array(n)` is a length allocation. n >= 2 is
@@ -767,15 +778,51 @@ impl TypeContext {
                     return true;
                 }
                 // `<recv>.fill(v)` — recv is a fresh `new Array(n)`/`Array(n)`
-                // allocation or an already-structural runtime array binding.
+                // ALLOCATION or an already-structural runtime array binding,
+                // which is exactly codegen's receiver test
+                // (`array_fill_call_parts`: `resolve_array_alloc_call(receiver)`
+                // or a name already in `array_bindings`). A receiver that is
+                // itself a `.fill` chain is NOT an allocation there, so it must
+                // not be one here: `Array(3).fill(1).fill(2)` was check-clean
+                // while `run` refused it, and this arm's earlier recursion into
+                // the general recognizer is what admitted it.
                 if let Expression::MemberExpression(member) = &call.callee {
                     if member.computed_index.is_none() && member.dot_name() == Some("fill") {
-                        return self.declarator_registers_runtime_array(&member.object)
+                        return Self::expression_is_array_allocation(&member.object)
                             || matches!(&member.object, Expression::Identifier(name)
                                 if self.is_structural_runtime_array(name));
                     }
                 }
                 false
+            }
+            _ => false,
+        }
+    }
+
+    /// `new Array(n)` / `Array(n)` / bare `new Array` — the allocation shapes
+    /// codegen's `resolve_array_alloc_call` recognizes, and nothing else. Kept
+    /// separate from `declarator_registers_runtime_array` so the `.fill`
+    /// receiver test cannot drift into accepting whatever else that recognizer
+    /// registers (an identifier copy, another `.fill`).
+    fn expression_is_array_allocation(expr: &Expression) -> bool {
+        match expr {
+            // Codegen reaches the allocation through
+            // `unwrap_transparent_value_node`, so a parenthesized spelling is
+            // the same allocation there. Measured: `const u = (new
+            // Array(3)).fill(1); console.log(u[0]); u.length` prints `1` `3`
+            // under `run`, so declining it here would refuse a live lane.
+            Expression::ParenthesizedExpression(inner) => {
+                Self::expression_is_array_allocation(&inner.expression)
+            }
+            Expression::NewExpression(new_expr) => {
+                matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
+                    || Self::expression_is_array_allocation(&new_expr.callee)
+            }
+            // Arity <= 1 only: `Array(n)` is a length allocation; `n >= 2` is
+            // desugared to an `ArrayExpression` at parse time.
+            Expression::CallExpression(call) => {
+                matches!(&call.callee, Expression::Identifier(name) if name == "Array")
+                    && call.args.len() <= 1
             }
             _ => false,
         }
