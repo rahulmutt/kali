@@ -171,17 +171,35 @@ fn a_string_receiver_refuses_in_both_spellings() {
 
 #[test]
 fn an_array_literal_element_store_refuses_even_with_a_literal_index() {
-    let messages = e5506_messages("const a = [5, 6]; a[1] = 9; console.log(a[1]);");
-    assert!(
-        messages
-            .iter()
-            .any(|m| m.contains("mutating a literal array")),
-        "{messages:?}"
-    );
-    assert!(
-        !messages.iter().any(|m| m.contains(COMPUTED)),
-        "one owner per refusal: {messages:?}"
-    );
+    // Both spellings that carry a static NAME — the literal index the parser
+    // reads, and the `const` index that folds — are this gate's, and each
+    // refuses exactly once. Review round 1, Important 1: the folded spelling
+    // was check-clean while `run` refused it, because the gate handed every
+    // nameless index to `gate_nameless_computed_member` and that gate folds.
+    for source in [
+        "const a = [5, 6]; a[1] = 9; console.log(a[1]);",
+        "const a = [5, 6]; const i = 1; a[i] = 9; console.log(a[1]);",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("mutating a literal array")),
+            "{source}: {messages:?}"
+        );
+        assert!(
+            !messages.iter().any(|m| m.contains(COMPUTED)),
+            "{source}: one owner per refusal: {messages:?}"
+        );
+    }
+    // A nameless index that does NOT fold stays with the nameless gate, still
+    // exactly once.
+    let unfoldable = e5506_messages("const a = [5, 6]; let i = 1; a[i] = 9;");
+    assert_eq!(unfoldable.len(), 1, "{unfoldable:?}");
+    assert!(unfoldable[0].contains(COMPUTED), "{unfoldable:?}");
+    // A literal-array READ with a folded index keeps its lane: measured,
+    // `run` prints the element.
+    assert!(e5506_messages("const a = [5, 6]; const i = 1; console.log(a[i]);").is_empty());
 }
 
 #[test]
@@ -242,6 +260,70 @@ fn a_folded_key_over_a_materialized_object_is_admitted_and_a_dynamic_one_still_r
         assert!(
             messages.iter().any(|m| m.contains(DYNAMIC)),
             "{source}: a non-folding key over a proven shape still fails closed: {messages:?}"
+        );
+    }
+}
+
+/// Review round 1, Important 1 and 3 (2026-09-09): three admit-list holes, all
+/// the same shape — `check` clean while `run` refused, constraint 8's
+/// dangerous direction. Each program here was measured in both twins before
+/// and after the fix; the readings are in the task report.
+///
+/// 1-2. `string_element_array_binding` is `repr_table.is_array_binding`
+///    narrowed to a `Repr::String` element axis, not a structural mirror, so
+///    it admitted an array LITERAL — which codegen's `array_bindings` set
+///    never holds. The store half had additionally LOST the refusal
+///    `reject_literal_array_unfoldable_mutation` used to give it, since that
+///    gate now hands a nameless index to `gate_nameless_computed_member`.
+/// 3. `const_index_name`'s walk tunnelled past a shadowing parameter, because
+///    only foldable `const`s enter `const_index_names` and the walk looked for
+///    an entry rather than for a declaration.
+#[test]
+fn the_admit_list_does_not_reach_past_the_lanes_codegen_actually_has() {
+    for source in [
+        // A string-element array LITERAL, read and store: codegen registers no
+        // `array_bindings` entry for a literal, so both refuse at `run`.
+        "const a = [\"x\", \"y\"]; let i = 0; console.log(a[i]);",
+        "const a = [\"x\", \"y\"]; let i = 0; a[i] = \"z\";",
+        // A shadowing parameter must not fold the outer `const` of the same
+        // name.
+        "const k = \"b\"; const o = {a:1, b:2}; function f(k) { return o[k]; }",
+        // Nor may the walk leave the function being emitted at all: codegen's
+        // `bindings` map is per-`FunctionEmitter`, so a module-scope `const`
+        // is invisible to a named function's fold and `run` refuses this.
+        "const k = \"b\"; const o = {a:1, b:2}; function f() { return o[k]; } console.log(f());",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            messages.iter().any(|m| m.contains(COMPUTED)),
+            "{source}: {messages:?}"
+        );
+    }
+
+    // The lanes codegen DOES have are untouched: a `new Array(n)` binding
+    // (structural) still takes a runtime index in both directions, and a
+    // string-element array reached through one keeps its lane.
+    for source in [
+        "const a = new Array(2); a[0] = \"x\"; let i = 0; console.log(a[i]);",
+        "const a = new Array(2); let i = 0; a[i] = \"x\";",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            !messages.iter().any(|m| m.contains(COMPUTED)),
+            "{source}: {messages:?}"
+        );
+    }
+
+    // The stop is a stop, not a blanket refusal: the same fold still works at
+    // module scope, and inside a function when the `const` is declared there.
+    for source in [
+        "const k = \"b\"; const o = {a:1, b:2}; console.log(o[k]);",
+        "function f() { const k = \"b\"; const o = {a:1, b:2}; return o[k]; } console.log(f());",
+    ] {
+        assert!(
+            e5506_messages(source).is_empty(),
+            "{source}: {:?}",
+            e5506_messages(source)
         );
     }
 }

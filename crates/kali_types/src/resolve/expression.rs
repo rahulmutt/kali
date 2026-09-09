@@ -95,7 +95,7 @@ impl TypeContext {
 
     /// `process.argv` (or `globalThis.process.argv`): a non-computed `.argv`
     /// member read on the process root. Mirror of codegen's `is_process_argv`.
-    pub(crate) fn is_process_argv_member(expr: &Expression) -> bool {
+    fn is_process_argv_member(expr: &Expression) -> bool {
         let Expression::MemberExpression(member) = expr else {
             return false;
         };
@@ -1608,11 +1608,24 @@ impl TypeContext {
         let Expression::MemberExpression(member) = &assign.left else {
             return;
         };
-        if member.computed_index.is_none() {
+        let Some(index) = member.computed_index.as_deref() else {
             return;
-        }
-        if member.property.is_none() {
-            return; // owned by `gate_nameless_computed_member`
+        };
+        // A nameless index that does NOT fold belongs to
+        // `gate_nameless_computed_member` — one defect, one diagnostic, one
+        // owner. One that DOES fold is this gate's business again: the fold
+        // gives the access a static name, and a named element store on a
+        // literal array has no lane in codegen either. Measured before this
+        // was added: `const a = [5, 6]; const i = 1; a[i] = 9;` was
+        // check-clean while `run` refused it.
+        if member.property.is_none()
+            && crate::static_analysis::computed_member::fold_nameless_computed_index(
+                index,
+                |name| self.const_index_name(name),
+            )
+            .is_none()
+        {
+            return;
         }
         let Expression::Identifier(base_name) = &member.object else {
             return;

@@ -211,17 +211,53 @@ impl TypeContext {
     }
 
     /// The recorded literal name of a `const` binding, walking the scope
-    /// chain like `resolve_static_string_binding`.
+    /// chain like `resolve_static_string_binding` — but STOPPING at any scope
+    /// that declares the name at all. `const_index_names` holds only the
+    /// foldable subset (`const` + string/number literal), so a shadowing
+    /// `let`/`var`/parameter/computed-`const` leaves no entry, and a walk that
+    /// merely looked for an entry would tunnel past the shadow and fold the
+    /// OUTER binding's literal — admitting `const k = "b"; const o = {a:1,b:2};
+    /// function f(k) { return o[k]; }`, which codegen refuses.
+    /// `resolve_static_string_binding` needs no such stop: `static_values`
+    /// records every declaration kind, so a shadow stops it by construction.
+    ///
+    /// The walk is also FUNCTION-BOUNDED, exactly like
+    /// `is_structural_runtime_array` and for the same reason: codegen's
+    /// `bindings` map is per-`FunctionEmitter`, so a module-scope `const` is
+    /// simply not visible while a named function is emitted and its fold
+    /// declines there. Measured: `const k = "b"; const o = {a:1,b:2};
+    /// function f() { return o[k]; }` is refused by `run`, so admitting it
+    /// here would kill nothing but would leave `check` claiming a lane that
+    /// does not exist. Module/global scope is therefore reachable only under
+    /// `_start` (no tracked function).
     pub(crate) fn const_index_name(&self, name: &str) -> Option<String> {
+        let tracked_scope = self.current_function_scope();
         let mut current = self.current_scope_id();
-        while let Some(scope_id) = current {
-            let scope = self.scopes.get(&scope_id)?;
+        loop {
+            let Some(scope_id) = current else {
+                return self.global_scope.const_index_names.get(name).cloned();
+            };
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return None;
+            };
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                // Crossed into a function `current_function_name()` does not
+                // name — fail closed rather than guess.
+                return None;
+            }
             if let Some(value) = scope.const_index_names.get(name) {
                 return Some(value.clone());
             }
+            if scope.bindings.contains_key(name) {
+                return None;
+            }
+            if scope.scope_type == ScopeType::Function {
+                // The tracked function's own top scope, no hit: a free module
+                // reference codegen's emitter for this function cannot fold.
+                return None;
+            }
             current = scope.parent;
         }
-        self.global_scope.const_index_names.get(name).cloned()
     }
 
     /// The property name a member denotes statically: its own name when the
@@ -263,10 +299,24 @@ impl TypeContext {
     /// exactly what codegen's `dynamic_array_read_base` consults (its
     /// `array_bindings` set, seeded from `repr_table.is_array_binding` for
     /// PARAMS only — mirrored here at function entry, `resolve/function.rs`).
-    /// A bare `repr_table.is_array_binding` check does NOT belong here: the
-    /// inference over-proves array-ness for any bracket-indexed binding, so it
-    /// admitted `const o = {a:1, b:2}; let k = "b"; o[k]` — an object codegen
-    /// never registers — and would have made this gate vacuous.
+    /// NO repr-table proof belongs here, in any spelling: the inference
+    /// over-proves array-ness for any bracket-indexed binding, so a bare
+    /// `repr_table.is_array_binding` admitted `const o = {a:1, b:2};
+    /// let k = "b"; o[k]` (an object codegen never registers), and
+    /// `string_element_array_binding` — which IS that proof narrowed to a
+    /// `Repr::String` element axis — admitted a literal array in both
+    /// directions: `const a = ["x","y"]; let i = 0; a[i]` and `a[i] = "z"`
+    /// were check-clean while `run` refused, the store having additionally
+    /// LOST the refusal `reject_literal_array_unfoldable_mutation` used to
+    /// give it. Measured, then deleted.
+    ///
+    /// There is no `process.argv` entry either. Codegen's argv element lane
+    /// (`intrinsics/host.rs`, `is_process_argv_element`) requires the INDEX
+    /// CHILD's text to parse as a non-negative integer literal, and
+    /// `emit_computed_member` has no argv lane at all — so the whole live
+    /// domain of such an entry (`process.argv[i]`, `process.argv[i + 1]`, the
+    /// literal index having already returned early with a name) is what
+    /// codegen refuses. Measured under `--api node`: both refuse.
     pub(crate) fn nameless_computed_member_is_admitted_by_a_runtime_lane(
         &self,
         member: &MemberExpression,
@@ -279,14 +329,9 @@ impl TypeContext {
                 return true;
             }
         }
-        if Self::is_process_argv_member(&member.object) {
-            return true;
-        }
         match &member.object {
             Expression::Identifier(base) => {
-                self.is_structural_runtime_array(base)
-                    || self.is_growable_array_binding(base)
-                    || self.string_element_array_binding(base)
+                self.is_structural_runtime_array(base) || self.is_growable_array_binding(base)
             }
             Expression::MemberExpression(_) => self
                 .growable_i64_field_member_parts(&member.object)
