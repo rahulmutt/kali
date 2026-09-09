@@ -175,8 +175,7 @@ suggested shape.
 builds within the same second producing byte-identical lengths would collide.
 `len` makes this vanishingly unlikely and no observation of it exists. Folding in
 the inode (`std::os::unix::fs::MetadataExt`, with a `cfg` fallback for Windows)
-would close it completely. **Ruled: not now, tracked as a GitHub issue** — see
-§6.
+would close it completely. **Ruled: not now, tracked as rahulmutt/kali#37.**
 
 ### 3.2 The key, and failing closed
 

@@ -4,6 +4,7 @@ mod compile;
 mod entrypoint;
 mod eval;
 mod exports;
+mod fingerprint;
 mod helpers;
 mod metadata;
 pub mod module_link;
