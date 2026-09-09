@@ -49,9 +49,16 @@
 # is **R-60** -- all four §2
 # Tier 2 in docs/superpowers/followups/kali-silent-miscompile-register.md, each
 # with an `r57a`/`r58a`/`r59a`/`r60a` oracle pair of its own in
-# crates/kali_cli/tests/cases/oracle/tier2.toml. The cases below are UNCHANGED
-# and stay WRONG ON PURPOSE: they pin probes the oracle pairs deliberately do not
-# carry (the member reads), and their expectations are still what kali prints.
+# crates/kali_cli/tests/cases/oracle/tier2.toml. Three of the four pairs below are
+# UNCHANGED and stay WRONG ON PURPOSE: they pin probes the oracle pairs
+# deliberately do not carry (the member reads), and their expectations are still
+# what kali prints. THE R-59 PAIR IS THE EXCEPTION AND NO LONGER STAYS WRONG ON
+# PURPOSE: it FLIPPED TO A REFUSAL at `3ef65ef785`, re-pinned 2026-09-09 by the
+# computed-member-static-name project (docs/superpowers/specs/2026-09-08-
+# computed-member-static-name-design.md), which taught
+# `expression_to_property_name` to decline. Both scopes now exit 1 with the
+# shared E5506 under `kali check` and `kali run` alike, where they used to print
+# `7` then `9` at exit 0; each case's own rationale opens with the dated record.
 # The "no task in this plan owns closing it" notes below remain true of THIS
 # plan; what has changed is that the register now tracks the defects.
 #
@@ -631,6 +638,8 @@ stdout = "42\n"
 [[case]]
 name = "computed_member_index_is_fabricated_from_the_index_expression_module_scope"
 rationale = """
+CLOSED 2026-09-09 at `3ef65ef785` by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md): both lines now refuse with the shared E5506 -- `kali check` and `kali run` alike, exit 1, empty stdout, one message per line -- instead of reading `7` and `9`. node still prints `undefined` twice at exit 0, so this is FAIL_CLOSED rather than FIXED. `expression_to_property_name` returns `Option<String>` and declines every index shape it cannot read statically, so `o[i]` no longer becomes a probe for the property named `i` and `o[i + 0]` no longer falls to the catch-all `index`. The paragraphs below are kept as the record of what this program did while it was wrong on purpose; they are no longer a description of the binary.
+
 ADDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON PURPOSE, both lines, and NO
 TASK IN THIS PLAN OWNS CLOSING IT. Do NOT change the parser to close it.
 
@@ -681,15 +690,15 @@ reaches a runtime-index lane and agrees; and the WRITE half does not fabricate
 (`o[i] = 8` leaves `o.i` at `7`, agreeing with node), so R-59 is a read-lane
 entry."""
 args = ["run", "computed_member_index_module.js"]
-exit = "success"
-stdout = "7\n9\n"
+exit = "failure"
+stderr_contains = ["E5506", "computed member access `o[k]` is unavailable"]
 
 [[case]]
 name = "computed_member_index_is_fabricated_from_the_index_expression_in_function"
-rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same two probes in function scope; node prints `undefined` twice and kali prints `7` then `9`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `expression_to_property_name` fabricates a property name for every index shape it cannot read statically -- the identifier's own text for `o[i]`, the literal string `index` for the catch-all arm `o[i + 0]` reaches. Pre-existing, out of scope, not chased here; do not change the parser. FILED 2026-09-08 as R-59 (register section 2, Tier 2), at `02297ca6c2` (off `dde0f083c0`, the branch base), on the human's instruction, with an `r59a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose. The entry re-measured this scope too and records it byte-identical to the module scope, which is what the mechanism predicts: the name is fabricated by `kali_parser` while the member expression is parsed, before any scope exists."
+rationale = "CLOSED 2026-09-09 at `3ef65ef785` by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md): both lines now refuse with the shared E5506 -- `kali check` and `kali run` alike, exit 1, empty stdout, one message per line -- instead of reading `7` and `9`. node still prints `undefined` twice at exit 0, so this is FAIL_CLOSED rather than FIXED. `expression_to_property_name` returns `Option<String>` and declines every index shape it cannot read statically, so `o[i]` no longer becomes a probe for the property named `i` and `o[i + 0]` no longer falls to the catch-all `index`. The paragraphs below are kept as the record of what this program did while it was wrong on purpose; they are no longer a description of the binary. ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same two probes in function scope; node prints `undefined` twice and kali prints `7` then `9`, at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `expression_to_property_name` fabricates a property name for every index shape it cannot read statically -- the identifier's own text for `o[i]`, the literal string `index` for the catch-all arm `o[i + 0]` reaches. Pre-existing, out of scope, not chased here; do not change the parser. FILED 2026-09-08 as R-59 (register section 2, Tier 2), at `02297ca6c2` (off `dde0f083c0`, the branch base), on the human's instruction, with an `r59a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose. The entry re-measured this scope too and records it byte-identical to the module scope, which is what the mechanism predicts: the name is fabricated by `kali_parser` while the member expression is parsed, before any scope exists."
 args = ["run", "computed_member_index_function.js"]
-exit = "success"
-stdout = "7\n9\n"
+exit = "failure"
+stderr_contains = ["E5506", "computed member access `o[k]` is unavailable"]
 
 [[case]]
 name = "a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_module_scope"
