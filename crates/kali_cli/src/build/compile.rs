@@ -6,6 +6,7 @@ use super::fingerprint::compiler_build_fingerprint;
 use super::helpers::*;
 use super::metadata::{append_metadata_section, build_artifact_metadata};
 use super::paths::executable_output_path_for;
+use super::reap::maybe_reap;
 
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
@@ -272,6 +273,9 @@ pub fn compile_source_file_with_cache_state_and_profile_data_and_validation(
         if let Some(parent) = cache_path.parent() {
             let _ = fs::create_dir_all(parent);
             let _ = fs::write(&cache_path, &wasm_bytes);
+            // After the write, so a fresh entry is never the one evicted for
+            // being over budget on the sweep its own write triggered.
+            maybe_reap(parent);
         }
 
         Ok(CompileOutput {
