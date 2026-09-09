@@ -21,7 +21,9 @@ files and are not repeated here**, only named:
   refuse programs `--fast` compiles correctly **and silently miscompile others**.
   The most consequential of the six.
 
-The four below are the rest.
+The four below are the rest, **and section 5 — the twin gaps — was added by
+the branch's final review**: this file enumerated six findings and not one of
+them was a twin gap, which is the one class this project exists to close.
 
 ---
 
@@ -177,3 +179,70 @@ belongs wherever the case-migration machinery is owned. **It is a PLAN defect
 too, and worth saying once plainly:** the plan did not anticipate that a re-pin
 target would be a byte-pinned generated file, and any future project that
 re-pins behaviour will meet the same wall.
+
+## 5. THE TWIN GAPS — `check`-clean / `run`-refuses, three of them, all shipping
+
+**Added 2026-09-09 by the branch's final whole-branch review (finding 2), and
+re-measured at `826861b32d` against node v26.8.1 before being written down
+(that is the last commit on this branch that changed behaviour; everything after
+it is comment and prose).**
+Every reading below is from `.cache/cargo-target/debug/kali`; all three
+reproduce.
+
+Spec §8 names twin disagreement as **this design's own falsifier**: `kali check`
+and `kali run` must refuse the same programs with the same message, and codegen
+may refuse a strict subset of what the checker admits only in the direction
+where the checker's refusal wins. The reverse — the checker admitting what
+codegen refuses — is the defect. Three programs ship in that shape. Each is
+**fail-closed** (`run` refuses; nothing is silently miscompiled) and each is
+pinned, so none is an unrecorded risk; but a reader who comes to this file for
+"what this project left behind" would have found the falsifier's own class
+missing from it, which is why it is written down here.
+
+| program | `kali check` | `kali run` | node | pinned by |
+|---|---|---|---|---|
+| `const o = {a: "xyz"}; const k = "a"; console.log(o[k].length);` | exit 0, `Checked 1 file(s)` | `E5506` computed-member, exit 1 | `3` | `check_still_admits_the_chained_access_off_a_folded_member` |
+| `const o = {a:1,b:2,c:3,d:4}; const k = "keys"; console.log(Object[k](o).length);` | exit 0, `Checked 1 file(s)` | `E5506` computed-member, exit 1 | `4` | `check_still_admits_the_computed_callee` |
+| `const a = [1,2]; const b = a; b[0] = 7; console.log(b[0]); console.log(a[0]);` | exit 0, `Checked 1 file(s)` | `E5506` computed-member, exit 1 | `7`, `7` | nothing — recorded only in **R-12**'s §0.2 row |
+
+The first two pins live in
+`crates/kali_cli/tests/cases/object/computed_member_static_name.toml`, each
+beside its `run`-refuses twin, and each rationale already says the disagreement
+is deliberate and unowned. **The third is pinned nowhere as a case**: R-12's
+re-derived §0.2 row in `kali-silent-miscompile-register.md` records "`kali check`
+still exits 0 on the aliased program while `run` refuses", and the oracle harness
+cannot see it because the harness observes `run` only.
+
+**Why the first two happen, mechanically.** Both are the **by-id decline** of
+spec §4.3. Codegen's fold does not write the folded name back onto the LIR node:
+`named_twin` (`crates/kali_codegen/src/emit/computed_member.rs`) returns a
+*clone* carrying the name, because the emitter borrows the program immutably and
+cannot mutate it — the function's own doc comment says so. So the folded access
+is re-dispatched through the literal spelling's lanes, but any consumer that
+reaches the node **by id** — the outer `.length` member in `o[k].length`, the
+callee lookup in `Object[k](o)` — still sees `LirNodeKind::ComputedMember` and
+declines by construction, exactly as §4.3 designs every by-id consumer to.
+`kali check` has no such by-id step for these two compositions, so it admits
+them. Note that refusing is still the RIGHT outcome for both under `run`: at the
+baseline `dc19c3a040` each printed a silent wrong `2` from `render_length`'s
+text-less arm, so this is a silent wrong answer replaced by an honest refusal,
+not a working lane regressed.
+
+The third has a different mechanism — the aliased literal-array store is refused
+by the store choke point rather than by a by-id decline — but the same shape:
+`run` refuses, `check` does not.
+
+**What closing them would require.** A **checker rule** of the form *"a member
+whose object is a nameless computed member refuses"*, in
+`crates/kali_types/src/resolve/expression.rs`, so `check` reaches the same
+verdict `run` does without either twin learning to fold more. That single rule
+covers gaps 1 and 2 (the chained member and the computed callee are both
+"something applied to a nameless computed member"); gap 3 needs the checker's
+array-store lane to see the alias the way codegen's store choke point does, which
+is a separate rule and probably belongs with R-12 rather than here.
+
+**Suggested home:** not §2 of the register — none of the three is a silent
+divergence from node; all three are fail-closed. They belong to whatever plan
+item closes the checker's admit list, and the two pinned cases are the tripwire
+that will go red on the day it is closed, which is the day a human should read
+this section.

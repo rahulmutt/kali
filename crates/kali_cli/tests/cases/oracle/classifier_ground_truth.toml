@@ -73,7 +73,10 @@
 # banked.
 #
 # Every construct below was measured by hand at commit `9a39a2c1f8` against
-# `node v26.7.0` before it was written down, and every verdict here is the
+# `node v26.7.0` before it was written down -- EXCEPT the SILENT case, whose
+# program was replaced on 2026-09-08 (R-13's `var k; o[k]` read no longer
+# classifies SILENT) and re-measured at `3ef65ef785` against `node v26.8.1`, as
+# its own rationale records. Every verdict here is the
 # class that was measured, not the class the register predicted. Divergences
 # are recorded in the individual rationales.
 #
