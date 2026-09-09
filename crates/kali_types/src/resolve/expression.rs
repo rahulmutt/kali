@@ -477,6 +477,27 @@ impl TypeContext {
         let Expression::Identifier(key) = index else {
             return;
         };
+        // Spec §4.4 steps 2-3 carve-out: an index that FOLDS under this
+        // project's one rule (a bare identifier naming a `const` whose
+        // initializer is a string or number literal) is not a general dynamic
+        // string key — it is a STATIC property name, and with a name the
+        // access IS the dot spelling. The literal spelling `obj["b"]` never
+        // reached this gate (the parser reads its name, so its index is not an
+        // identifier and the destructure above returns); the folded spelling
+        // must not either, or the two spellings of one access disagree — which
+        // is the whole claim of the fold. Uses the SHARED rule with the lookup
+        // passed in (`static_analysis::computed_member`, the same call
+        // `gate_nameless_computed_member` makes), so the three passes that
+        // must agree on what folds cannot drift. Everything below is
+        // unchanged: a genuinely dynamic key over a proven shape still fails
+        // closed, and the `for..in` lane keeps its own carve-out.
+        if crate::static_analysis::computed_member::fold_nameless_computed_index(index, |name| {
+            self.const_index_name(name)
+        })
+        .is_some()
+        {
+            return;
+        }
         let Some(obj_shape) = self.object_shape_of_expression(&member.object) else {
             // Not a known object (an array or an unproven base): leave the
             // existing element/host member behavior untouched.

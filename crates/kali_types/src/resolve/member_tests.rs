@@ -210,3 +210,38 @@ fn the_runtime_lanes_are_still_admitted() {
         );
     }
 }
+
+/// The carve-out coordination ruling (2026-09-09): a MATERIALIZED object gives
+/// `reject_nonuniform_forin_key_object_access` a shape, and before the
+/// carve-out that gate claimed a folded key as a "general dynamic string-keyed
+/// access" — so `const o = {…}; o.b = 8; const k = "b"; o[k]` refused at both
+/// `check` and `run` even though the fold's whole claim is that it IS the dot
+/// spelling. The second half is what keeps the carve-out from becoming a hole:
+/// a NON-folding key over the very same materialized shape still refuses.
+#[test]
+fn a_folded_key_over_a_materialized_object_is_admitted_and_a_dynamic_one_still_refuses() {
+    const DYNAMIC: &str = "computed key access `obj[k]` where the key is not a `for..in` key";
+
+    for source in [
+        "const o = {a:1, b:2}; o.b = 8; const k = \"b\"; console.log(o[k]);",
+        "let o = {a:1, b:2}; const k = \"b\"; o[k] = 8; console.log(o.b);",
+        "let o = {a: 6}; const k = \"a\"; o[k] = 7; console.log(o.a);",
+    ] {
+        assert!(
+            e5506_messages(source).is_empty(),
+            "{source}: a folded key is a static name, not a dynamic key: {:?}",
+            e5506_messages(source)
+        );
+    }
+
+    for source in [
+        "const o = {a:1, b:2}; o.b = 8; let k = \"b\"; console.log(o[k]);",
+        "const o = {a:1, b:2}; o.b = 8; let k = \"b\"; o[k] = 9;",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            messages.iter().any(|m| m.contains(DYNAMIC)),
+            "{source}: a non-folding key over a proven shape still fails closed: {messages:?}"
+        );
+    }
+}
