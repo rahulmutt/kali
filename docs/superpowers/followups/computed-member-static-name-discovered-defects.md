@@ -19,11 +19,20 @@ files and are not repeated here**, only named:
 * `release-mode-optimizer-inlines-an-allocating-initializer.md` — the optimizer
   inlines an allocating array initializer at `--release`, so the release tiers
   refuse programs `--fast` compiles correctly **and silently miscompile others**.
-  The most consequential of the six.
+  The most consequential of the six. **It hits THREE Benchmarks Game fixtures,
+  not two**: `spectral-norm`, `nbody` and — added 2026-09-09 at `6b59ddeef9` —
+  `fannkuch-redux`, which the original sweep missed for the reason §6 below
+  gives.
 
 The four below are the rest, **and section 5 — the twin gaps — was added by
 the branch's final review**: this file enumerated six findings and not one of
 them was a twin gap, which is the one class this project exists to close.
+
+**Section 6 was added later still**, 2026-09-09 at `6b59ddeef9`, by the fix
+round that unblocked PR #36. It is not a computed-member defect at all; it is
+the instrument defect that let one of this project's own measurements be wrong,
+and it is filed here because this is where the reader of that measurement will
+be standing.
 
 ---
 
@@ -246,3 +255,72 @@ divergence from node; all three are fail-closed. They belong to whatever plan
 item closes the checker's admit list, and the two pinned cases are the tripwire
 that will go red on the day it is closed, which is the day a human should read
 this section.
+
+## 6. The incremental cache key carries no compiler-build identity, so a stale artifact can mask a semantics change
+
+**This is a TOOLING defect, and it already caused a false measurement on this
+very branch.** Filed 2026-09-09 at `6b59ddeef9`.
+
+**The mechanism.** `compile_source_file`
+(`crates/kali_cli/src/build/compile.rs`) short-circuits on an on-disk wasm cache:
+a hit returns the cached bytes at lines 237-244 and never runs
+resolver / HIR / MIR / LIR / optimizer / **codegen**. The key is built at lines
+567-578 and is composed **entirely of inputs** — source hash, build mode, API
+surface, specialization budget, runtime profiles, profile data, `compat_eval`,
+`coverage` — and then ends in `env!("CARGO_PKG_VERSION")`, which is frozen at
+`"0.1.0"` and has never moved. **Nothing in the key identifies the compiler
+build.** An artifact therefore survives arbitrary compiler-semantics changes and
+is served to a compiler that would no longer produce it.
+
+**The consequence, measured rather than hypothesised.**
+`crates/kali_cli/tests/fixtures/kali.json` makes the fixtures directory a project
+root, so `crates/kali_cli/tests/fixtures/.kali-cache/incremental/` is a live,
+gitignored, machine-local cache that every fixture-driven test reads. It held two
+release-tier artifacts for `fannkuch-redux-benchmark-v1.ts` written **2026-07-16
+by the pre-project compiler**:
+
+```
+sha256-18aab710…-release-deno-16-profiles:-profile:none-false-false-0.1.0.wasm
+sha256-18aab710…-release-advanced-deno-16-profiles:-profile:none-false-false-0.1.0.wasm
+```
+
+`E5506` is emitted at **codegen**, so a cache hit cannot produce it. With those
+two files present, `fannkuch_redux_builds_in_all_release_modes`
+(`crates/kali_cli/tests/inprocess/release_constant_condition_loop.rs`) passed in
+`0.00s` — three `fs::read`s, not three release compiles. With them moved aside it
+failed immediately, identically to CI. **So a local `bash scripts/test-gate.sh`
+reporting GATE OK was meaningless for this branch**, and the sweep that re-pinned
+`spectral-norm` and `nbody` for the optimizer defect skipped fannkuch not by
+oversight but because the machine doing the sweeping was being told fannkuch was
+fine. CI caches only `~/.cargo` and `target`, so every runner is cold, compiles
+for real, and went red on both ubuntu and macOS.
+
+**The shape of the fix.** Add a compiler-build discriminator to the cache key —
+a build fingerprint, a `git describe`, or any value that changes when the
+compiler changes — so an artifact produced by a different compiler misses
+instead of hitting. Adding it invalidates every existing entry, **by design**.
+
+**Why it was NOT fixed in the same commit as this entry.** This repository has
+no such value today and nothing computes one: there is no build script under
+`crates/*/src`, no `vergen`, no `GIT_HASH`, no build-info crate — the only
+version-shaped constant anywhere is the same frozen `CARGO_PKG_VERSION` (it is
+also what `crates/kali_cli/src/build/metadata.rs:90` stamps into build metadata).
+Producing one therefore means **new build machinery** — a build script plus, in
+practice, a dependency — which is a change to how every crate in the workspace
+is built and does not belong inside a PR scoped to computed member access. The
+alternative single-site hack, deriving a discriminator at run time from
+`std::env::current_exe()` metadata, was considered and rejected: it silently
+re-namespaces the cache per **calling binary** (the `kali` binary and each
+in-process test binary would get separate entries) and cold-starts the fixture
+cache on every rebuild — a real behavioural change to a caching layer, made
+sideways, in a PR about something else.
+
+**Until it is fixed, the operational rule is:** a green run of any
+fixture-driven test on a machine with a warm `.kali-cache` proves nothing about
+a compiler-semantics change. Clear the relevant entries, or read the timing — a
+release-mode compile that finishes in ~0.00s is a cache hit, not a pass.
+
+**Suggested home:** not the register — this is not a divergence from node. It
+belongs wherever the build/caching machinery is owned, next to §4's generator
+defect, which is the same class: an instrument that can quietly report the wrong
+thing.

@@ -48,10 +48,26 @@ emulating what the release tiers had been emitting BEFORE this project:
 |---|---|---|---|
 | `spectral-norm-benchmark-v1.ts` | builds; `kali run` prints `1.274219991` | **exit 1**, 16 × `E5506` computed-member, 6 × `E3100` | **exit 1**, 12 × `E5506`, 5 × `E3100` |
 | `nbody-benchmark-v1.ts` | builds; `kali run` prints `-0.169075164` / `-0.169087605` | **exit 1**, 6 × `E5506` | **exit 1**, 6 × `E5506` |
+| `fannkuch-redux-benchmark-v1.ts` | builds; `kali run` prints `228` / `Pfannkuchen(7) = 16` | **exit 1**, 20 × `E5506`, 2 × `E3100` | **exit 1**, 10 × `E5506`, 1 × `E3100` |
 | `const u = new Array(4).fill(7); let i = 0; console.log(u[i]);` | builds | **exit 1**, 1 × `E5506` | — |
 | `const u = new Array(4).fill(7); console.log(u[0]);` (literal index) | builds | **builds, no diagnostic** | — |
 
-Both `--fast` outputs are byte-identical to node. The `E5506` counts are an
+**The fannkuch row was added 2026-09-09 at `6b59ddeef9`**, in the fix round that
+unblocked PR #36, and it is a THIRD Benchmarks Game fixture in exactly this
+shape: its three allocations are `const perm = new Array(n);`,
+`const perm1 = new Array(n);` and `const count = new Array(n);` (lines 7-9), and
+its release tiers lower them through the same zero placeholder. **It was not
+found by the sweep that re-pinned the other two**, and the reason matters more
+than the finding: a stale pre-project wasm artifact in the gitignored on-disk
+incremental cache (`crates/kali_cli/tests/fixtures/.kali-cache/incremental/`,
+dated 2026-07-16) short-circuited `compile_source_file` before codegen, so
+fannkuch's three-mode build test read cached bytes and passed in ~0.00s on the
+machine doing the sweeping. CI runners are cold and compiled for real, which is
+where it surfaced. So **the sweep of this defect's fixtures was not exhaustive,
+and a local green on this repository is only as trustworthy as its cache** --
+filed as §6 of `computed-member-static-name-discovered-defects.md`.
+
+All three `--fast` outputs are byte-identical to node. The `E5506` counts are an
 artefact of how far the optimizer got before refusing and are deliberately not
 asserted by any test; only the refusal and its code are.
 
@@ -129,7 +145,8 @@ Teach the optimizer that a `new Array(n)` / `new Array(n).fill(v)` initializer i
 copying a constant — or, equivalently, refuse to inline a declarator initializer
 whose value has identity. That is a change in `kali_optimize`, not in the
 computed-member gateway, and it is what would let `"spectral-norm"` and
-`"nbody"` go back into the measured benchmark list.
+`"nbody"` go back into the measured benchmark list, and fannkuch's three-mode
+build assertion back to three.
 
 Until then, two things are true and should be said together: `--release` REFUSES
 some programs `--fast` compiles correctly, and `--release` SILENTLY MISCOMPILES
