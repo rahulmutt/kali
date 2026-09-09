@@ -619,6 +619,10 @@ struct ReprInfer {
     /// object_shape_of_node(right).is_some()` check fires (closing the p2a
     /// fail-open) instead of silently falling through to a scalar compare.
     obj_identity_compared: Vec<ObjSlot>,
+    /// `(func, binding)` → the property name a `const`'s string/number
+    /// literal initializer denotes; the computed-member fold's lookup table
+    /// for this pass (`static_analysis::computed_member`).
+    const_index_names: BTreeMap<(String, String), String>,
     /// Deferred member accesses (wired in `resolve_objects`).
     obj_accesses: Vec<ObjAccess>,
     /// Per-(slot, field) storage node, unioned across aliased slots.
@@ -1990,6 +1994,25 @@ impl ReprInfer {
         }
     }
 
+    /// The static property name of a member — the parser's (`o.b`, `o["b"]`)
+    /// or the `const` fold's (`const k = "b"; o[k]`) — or `None` for an index
+    /// that must be evaluated.
+    fn static_member_field(
+        &self,
+        func: &str,
+        member: &kali_ast::MemberExpression,
+    ) -> Option<String> {
+        if let Some(name) = member.static_name() {
+            return Some(name.to_string());
+        }
+        let index = member.computed_index.as_deref()?;
+        crate::static_analysis::computed_member::fold_nameless_computed_index(index, |name| {
+            self.const_index_names
+                .get(&(func.to_string(), name.to_string()))
+                .cloned()
+        })
+    }
+
     // ---- Phase A: signature collection ---------------------------------
 
     fn collect_functions(&mut self, statements: &[Statement]) {
@@ -2902,6 +2925,14 @@ impl ReprInfer {
     /// node for `id`; everything else flows the init into `id`'s scalar node
     /// (`init -> id`).
     fn visit_declarator_init(&mut self, func: &str, kind: &str, id: &str, init: &Expression) {
+        if kind == "const" {
+            if let Some(name) =
+                crate::static_analysis::computed_member::fold_const_initializer(init)
+            {
+                self.const_index_names
+                    .insert((func.to_string(), id.to_string()), name);
+            }
+        }
         // P3 Task 2: `const c = new AbortController()` and the same-function
         // forward alias `const s = c.signal` are the only two admitted
         // AbortHandle-seeding shapes (applied in `emit_table`, gated by the
@@ -3925,6 +3956,18 @@ impl ReprInfer {
                     // `break` (outside the loop body). No-ops unless the RHS
                     // was seen as a `for..in` key somewhere in `func`.
                     self.seed_persisted_for_in_key_string_use(func, &assign.right);
+                    // Same as the read: a static-name bracket store is the
+                    // dot store `o.<name> = v` and records the write access
+                    // that materializes the object (follow-up item 2.3,
+                    // R-13's write lane).
+                    if let Some(field) = self.static_member_field(func, member) {
+                        self.obj_accesses.push(ObjAccess {
+                            base: ObjSlot::Binding(func.to_string(), name.clone()),
+                            field,
+                            other: rn,
+                            is_write: true,
+                        });
+                    }
                 } else {
                     self.visit_expr(func, &member.object);
                 }
@@ -4043,6 +4086,7 @@ impl ReprInfer {
                     return result;
                 }
             }
+            let static_field = self.static_member_field(func, member);
             if let Expression::Identifier(name) = &member.object {
                 let elem = self.array_elem_node_for(func, name);
                 let result = self.new_node();
@@ -4056,6 +4100,20 @@ impl ReprInfer {
                 // reads (`resolve_objects`) remain float-only and gated;
                 // fields are a separate, still-excluded axis.
                 self.add_edge(elem, result);
+                // A computed read with a static name is ALSO the dot read
+                // `o.<name>`: record the same deferred object access, so an
+                // object receiver wires the field's repr into the result and
+                // materializes on the same evidence. For an array receiver
+                // `resolve_objects` finds no fields and skips it, which is
+                // why both records can coexist (spec §4.4, checker).
+                if let Some(field) = static_field {
+                    self.obj_accesses.push(ObjAccess {
+                        base: ObjSlot::Binding(func.to_string(), name.clone()),
+                        field,
+                        other: result,
+                        is_write: false,
+                    });
+                }
                 return result;
             }
             self.visit_expr(func, &member.object);
