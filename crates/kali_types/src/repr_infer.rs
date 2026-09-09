@@ -623,6 +623,17 @@ struct ReprInfer {
     /// literal initializer denotes; the computed-member fold's lookup table
     /// for this pass (`static_analysis::computed_member`).
     const_index_names: BTreeMap<(String, String), String>,
+    /// Every `(func, name)` this walk has already seen DECLARED, in any
+    /// binding form. Exists only to spot the second declaration; see
+    /// `note_abort_shadow_name`, which is the one frontier that fills it.
+    declared_names: BTreeSet<(String, String)>,
+    /// `(func, name)` declared MORE THAN ONCE in the same function — the
+    /// poison set for `const_index_names`. `const_index_names` is flat and
+    /// last-write-wins, so a shadowed name's entry may belong to a binding
+    /// that is not the one in scope at the use; such a name does not fold.
+    /// The resolver's twin is `TypeContext::shadowed_index_names`, and the
+    /// two must decline together or `check` and `run` disagree.
+    shadowed_index_names: BTreeSet<(String, String)>,
     /// Deferred member accesses (wired in `resolve_objects`).
     obj_accesses: Vec<ObjAccess>,
     /// Per-(slot, field) storage node, unioned across aliased slots.
@@ -2007,9 +2018,13 @@ impl ReprInfer {
         }
         let index = member.computed_index.as_deref()?;
         crate::static_analysis::computed_member::fold_nameless_computed_index(index, |name| {
-            self.const_index_names
-                .get(&(func.to_string(), name.to_string()))
-                .cloned()
+            let key = (func.to_string(), name.to_string());
+            if self.shadowed_index_names.contains(&key) {
+                // Declared twice in this function: the flat table cannot say
+                // WHICH binding this use sees, so it does not fold.
+                return None;
+            }
+            self.const_index_names.get(&key).cloned()
         })
     }
 
@@ -2531,7 +2546,39 @@ impl ReprInfer {
     // construction. INVARIANT: the shadow frontier must cover every
     // position the seeding walk reaches — enforced here by literally being
     // the same code, not by manually mirroring it.
-    fn note_abort_shadow_name(&mut self, name: &str) {
+    fn note_abort_shadow_name(&mut self, func: &str, name: &str) {
+        // Follow-up fix (Task 6 review): this is also the ONE declared-name
+        // frontier the computed-member fold's `const_index_names` needs.
+        // That table is flat — `visit_block` recurses with the same `func`,
+        // so every block-scoped declaration of one name collapses onto the
+        // same `(func, binding)` key and the last `insert` wins. A shadow
+        // therefore made an OUTER `o[k]` fold to an INNER binding's literal:
+        // `const k = "b"; const o = {a:1,b:2}; if (true) { const k = "a"; }`
+        // stored to, and read, field `a` — R-59's defining symptom
+        // (a fabricated name hitting a real property) re-introduced by our
+        // own fold. Poisoning the key is the fix: a name declared twice in
+        // one function does not fold, in either checker pass (the resolver's
+        // twin is `TypeContext::note_fold_shadow_name`). Recorded HERE, at
+        // the same frontier the abort/URL/encoder guards use, so the poison
+        // cannot miss a declaration position the seeding walk reaches —
+        // including a `switch` case body and a nested fn-expr/arrow body.
+        //
+        // ORDER: the poison is recorded as the walk reaches each
+        // declaration, and `static_member_field` consults it at the use. A
+        // use walked BEFORE any second declaration still folds — soundly:
+        // every flat table in the compiler (this one and codegen's
+        // per-`FunctionEmitter` `bindings`) is last-write-wins in the same
+        // source order, so at that point they all hold the one binding that
+        // is in scope. It is only a use walked AFTER a second declaration
+        // whose tables may disagree with JS scoping, and that is exactly
+        // what declines.
+        if !self
+            .declared_names
+            .insert((func.to_string(), name.to_string()))
+        {
+            self.shadowed_index_names
+                .insert((func.to_string(), name.to_string()));
+        }
         if name == "AbortController" || name == "AbortSignal" {
             self.abort_controller_shadowed = true;
         }
@@ -2613,9 +2660,14 @@ impl ReprInfer {
                 // shares this exact traversal with the seeding walk. A
                 // parameter name shadows for the ENTIRE body, exactly like a
                 // declarator (fix-round: params were previously un-noted).
-                self.note_abort_shadow_name(&decl.name);
+                self.note_abort_shadow_name(func, &decl.name);
                 for param in &decl.params {
-                    self.note_abort_shadow_name(param);
+                    // A parameter is declared in the function's OWN scope, so
+                    // it is keyed under `decl.name`, not the enclosing `func`
+                    // — the same keying `visit_declarator_init` uses inside
+                    // the body, and the same one the resolver's twin gets
+                    // from `current_function_scope()`.
+                    self.note_abort_shadow_name(&decl.name, param);
                 }
                 // Walk the body under the function's own name.
                 self.visit_block(&decl.name, &decl.body);
@@ -2623,13 +2675,13 @@ impl ReprInfer {
             Statement::ClassDeclaration(decl) => {
                 // P3 Task 2 shadow guard only — repr_infer otherwise does not
                 // model class bodies (pre-existing, out of this task's scope).
-                self.note_abort_shadow_name(&decl.name);
+                self.note_abort_shadow_name(func, &decl.name);
             }
             Statement::VariableDeclaration(decl) => {
                 for d in &decl.declarations {
                     // P3 Task 2 shadow guard: every declarator name, even one
                     // with no initializer (`let AbortController;`), can shadow.
-                    self.note_abort_shadow_name(&d.id);
+                    self.note_abort_shadow_name(func, &d.id);
                     // Round 3: every declarator is a WRITE against the numeric
                     // binding proof — including one with no initializer, whose
                     // value is `undefined` and which therefore taints.
@@ -2713,7 +2765,7 @@ impl ReprInfer {
                         ForInit::VariableDeclaration(decl) => {
                             for d in &decl.declarations {
                                 // P3 Task 2 shadow guard (see note above).
-                                self.note_abort_shadow_name(&d.id);
+                                self.note_abort_shadow_name(func, &d.id);
                                 // Round 3, same write accounting as a plain
                                 // declaration statement (see above).
                                 self.record_numeric_binding_write(
@@ -2770,7 +2822,7 @@ impl ReprInfer {
                 if let ForInLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
                         // P3 Task 2 shadow guard (see note above).
-                        self.note_abort_shadow_name(&d.id);
+                        self.note_abort_shadow_name(func, &d.id);
                         // Round 3: a `for..in` key is an ORDINAL that a string
                         // USE materializes into an interned STRING handle — the
                         // single most dangerous "looks like a plain I64" value
@@ -2829,7 +2881,7 @@ impl ReprInfer {
                 // P3 Task 2 shadow guard (see note above).
                 if let kali_ast::ForOfLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
-                        self.note_abort_shadow_name(&d.id);
+                        self.note_abort_shadow_name(func, &d.id);
                         // Round 3: a `for..of` element can be a string handle,
                         // an object pointer or a growable element — never a
                         // proven plain number. Taint.
@@ -2904,7 +2956,7 @@ impl ReprInfer {
                 self.visit_block(func, &stmt.block);
                 if let Some(handler) = &stmt.handler {
                     // P3 Task 2 shadow guard (see note above).
-                    self.note_abort_shadow_name(&handler.param);
+                    self.note_abort_shadow_name(func, &handler.param);
                     // Round 3: a caught value is whatever was thrown — never a
                     // proven plain number. Taint.
                     self.record_numeric_binding_write(func, &handler.param, None, false);
@@ -3720,9 +3772,9 @@ impl ReprInfer {
                     // walk (`visit_block(id, body)` just below) reaches
                     // unconditionally, so both must be noted before/alongside
                     // it, same one-traversal invariant as everywhere else.
-                    self.note_abort_shadow_name(id);
+                    self.note_abort_shadow_name(id, id);
                     for param in &f.params {
-                        self.note_abort_shadow_name(&param.name);
+                        self.note_abort_shadow_name(id, &param.name);
                     }
                     // F-AB-2 lockstep: record what walk 4 seeds (see
                     // `nested_fns_seeded`).
@@ -3739,8 +3791,9 @@ impl ReprInfer {
                 // have no source-level named-function-expression syntax), so
                 // it is never a user-authored name that could equal
                 // "AbortController"/"AbortSignal".
+                let arrow_scope = a.id.as_deref().unwrap_or(func);
                 for param in &a.params {
-                    self.note_abort_shadow_name(&param.name);
+                    self.note_abort_shadow_name(arrow_scope, &param.name);
                 }
                 if let Some(id) = a.id.as_deref() {
                     // F-AB-2 lockstep: record what walk 4 seeds (see
@@ -3771,7 +3824,7 @@ impl ReprInfer {
             // guard is already in place rather than being a new fail-open.
             Expression::ClassExpression(c) => {
                 if let Some(id) = c.id.as_deref() {
-                    self.note_abort_shadow_name(id);
+                    self.note_abort_shadow_name(id, id);
                 }
                 self.new_node()
             }

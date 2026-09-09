@@ -327,3 +327,53 @@ fn the_admit_list_does_not_reach_past_the_lanes_codegen_actually_has() {
         );
     }
 }
+
+/// Task 6 review, Important (2026-09-09): a name declared twice in one
+/// function does not fold. Measured before the fix, both `check`-clean and
+/// exit 0 with a SILENT WRONG value: with `const k = "b"; const o = {a:1,b:2};
+/// if (true) { const k = "a"; }`, `o[k] = 8; console.log(o.b)` printed `2`
+/// (node `8`) — the store landed on field `a` — and `console.log(o[k])`
+/// printed `1` (node `2`). This gate's walk is scope-precise and resolved
+/// `"b"`, while `repr_infer`'s flat per-function table and codegen's flat
+/// per-`FunctionEmitter` `bindings` both resolved the LAST declaration, `"a"`.
+/// That is R-59's defining symptom — a name that hits a real, wrong property —
+/// so the fold declines instead. Both passes must decline: a gate that
+/// admitted here while `repr_infer` declined would leave the store without
+/// materialization evidence and make `check` clean where `run` refuses.
+#[test]
+fn a_name_declared_twice_in_one_function_does_not_fold() {
+    for source in [
+        // The measured shape: an outer fold name shadowed by a block-scoped
+        // `const`, read and store.
+        "const k = \"b\"; const o = {a:1, b:2}; if (true) { const k = \"a\"; } console.log(o[k]);",
+        "const k = \"b\"; const o = {a:1, b:2}; if (true) { const k = \"a\"; } o[k] = 8;",
+        // The shadow need not itself be foldable: a `let`, a `var` or a
+        // non-literal `const` makes the flat tables just as ambiguous.
+        "const k = \"b\"; const o = {a:1, b:2}; if (true) { let k = 1; } console.log(o[k]);",
+        "const k = \"b\"; const o = {a:1, b:2}; if (true) { const k = o; } console.log(o[k]);",
+        // Same rule inside a function.
+        "function f() { const k = \"b\"; const o = {a:1, b:2}; if (true) { const k = \"a\"; } return o[k]; }",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            messages.iter().any(|m| m.contains(COMPUTED)),
+            "{source}: a shadowed fold name must refuse: {messages:?}"
+        );
+    }
+
+    // The poison is keyed on the NAME within one function, not on block
+    // nesting: an unshadowed `const` declared in a nested block still folds,
+    // and so does a same-named `const` in a DIFFERENT function (each flat
+    // table is per-function, so there is no ambiguity to poison).
+    for source in [
+        "const o = {a:1, b:2}; if (true) { const k = \"b\"; console.log(o[k]); }",
+        "const o = {a:1, b:2}; const k = \"b\"; console.log(o[k]);",
+        "function f() { const k = \"b\"; const o = {a:1, b:2}; return o[k]; } function g() { const k = \"a\"; return k; } console.log(f());",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            !messages.iter().any(|m| m.contains(COMPUTED)),
+            "{source}: an unambiguous name still folds: {messages:?}"
+        );
+    }
+}

@@ -232,6 +232,26 @@ impl TypeContext {
     /// `_start` (no tracked function).
     pub(crate) fn const_index_name(&self, name: &str) -> Option<String> {
         let tracked_scope = self.current_function_scope();
+        // Task 6 review follow-up: a name declared more than once in this
+        // function does not fold, in EITHER checker pass. This walk is
+        // scope-precise, but the tables the fold ultimately has to agree with
+        // are not — `repr_infer`'s `const_index_names` is flat per function
+        // and codegen's `bindings` is flat per `FunctionEmitter`, both
+        // last-write-wins. Resolving `"b"` here while those resolve `"a"`
+        // admitted a store and a read that landed on a DIFFERENT real field:
+        // `const k = "b"; const o = {a:1,b:2}; if (true) { const k = "a"; }`
+        // then `o[k] = 8` / `o[k]` wrote and read `a`, silently, exit 0 —
+        // R-59's symptom on the lane this project opened. Declining is the
+        // honest answer, and it must happen HERE too: if only `repr_infer`
+        // declined, this gate would keep admitting while the store lost its
+        // materialization evidence, and `check` would be clean where `run`
+        // refuses (spec §2.6, §8's dangerous direction).
+        if self
+            .shadowed_index_names
+            .contains(&(tracked_scope, name.to_string()))
+        {
+            return None;
+        }
         let mut current = self.current_scope_id();
         loop {
             let Some(scope_id) = current else {
