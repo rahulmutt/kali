@@ -566,7 +566,7 @@ pub(crate) fn incremental_cache_path(
 /// The key builder, taking compiler identity as a parameter so tests can assert
 /// composition without relinking a binary.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn incremental_cache_path_with_fingerprint(
+fn incremental_cache_path_with_fingerprint(
     source_path: &Path,
     mode: BuildMode,
     max_specializations: usize,
@@ -645,8 +645,13 @@ fn project_root_for_source(source_path: &Path) -> Option<PathBuf> {
 /// is the behaviour every existing project already has.
 ///
 /// Deliberately tolerant of a missing or malformed manifest, matching
-/// `load_exclude_set` (`crates/kali_cli/src/lib.rs:524`): a broken manifest must
-/// not silently change caching behaviour.
+/// `load_exclude_set` in `crates/kali_cli/src/lib.rs`: a broken manifest must
+/// not silently change caching behaviour. That tolerance matters for library
+/// embedders and in-process tests that call this directly; a CLI user instead
+/// hits `kali_npm::ProjectManifest`'s `#[serde(deny_unknown_fields)]` and
+/// strict `Option<bool>` in `crates/kali_cli/src/bin/config.rs`'s early
+/// `load_manifest` call, which hard-fails on a malformed manifest (e.g.
+/// `"incrementalCache": "false"`) before this function is ever reached.
 fn project_incremental_cache_enabled(project_root: &Path) -> bool {
     let Ok(raw) = fs::read_to_string(project_root.join("kali.json")) else {
         return true;

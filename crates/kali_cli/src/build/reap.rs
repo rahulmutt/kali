@@ -42,8 +42,9 @@ pub(crate) fn maybe_reap(cache_dir: &Path) {
 ///
 /// Needs no locking. A concurrent reader whose entry is deleted between path
 /// computation and `fs::read` gets `ErrorKind::NotFound`, which the read path
-/// already treats as a miss and falls through to a real compile
-/// (`compile.rs:245`). The worst outcome of a race is a recompile.
+/// already treats as a miss and falls through to a real compile (the
+/// `NotFound` arm in `crates/kali_cli/src/build/compile.rs`). The worst
+/// outcome of a race is a recompile.
 pub(crate) fn reap(cache_dir: &Path) {
     let Ok(entries) = fs::read_dir(cache_dir) else {
         return;

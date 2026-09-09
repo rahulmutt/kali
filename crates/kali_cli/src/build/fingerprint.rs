@@ -1,10 +1,11 @@
 //! Compiler-build identity for the incremental cache key.
 //!
-//! The cache key in `compile.rs` is built entirely from *inputs* and ends in a
-//! frozen `CARGO_PKG_VERSION`. Nothing in it identifies the compiler that
-//! produced the artifact, so a cached wasm file survives arbitrary
-//! compiler-semantics changes and is served to a compiler that would no longer
-//! produce it. This module supplies the missing discriminator.
+//! The cache key in `compile.rs` USED TO be built entirely from *inputs* and
+//! ended in a frozen `CARGO_PKG_VERSION`. Nothing in it identified the
+//! compiler that produced the artifact, so a cached wasm file survived
+//! arbitrary compiler-semantics changes and was served to a compiler that
+//! would no longer produce it. This module supplies the missing
+//! discriminator.
 //!
 //! Design: `docs/superpowers/specs/2026-09-09-incremental-cache-compiler-identity-design.md` §3.1.
 

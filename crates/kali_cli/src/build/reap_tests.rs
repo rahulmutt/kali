@@ -10,10 +10,14 @@ use tempfile::TempDir;
 /// `filetime` is not a dependency, so age is simulated by writing the file and
 /// asserting against a `MAX_AGE` boundary the test controls, rather than by
 /// setting mtimes. For the age test we instead drive `reap` against a directory
-/// whose entries are all fresh, and check the count/size paths directly.
+/// whose entries are all fresh, and check the count/size paths directly. The
+/// file is sparse -- real bytes are never needed because `reap` only reads
+/// `metadata.len()`, and `set_len` reports the full length without writing it.
 fn write_entry(dir: &Path, name: &str, size: usize) -> PathBuf {
     let path = dir.join(name);
-    fs::write(&path, vec![0u8; size]).expect("write cache entry");
+    fs::File::create(&path)
+        .and_then(|file| file.set_len(size as u64))
+        .expect("write cache entry");
     path
 }
 
