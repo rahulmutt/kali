@@ -2,6 +2,7 @@
 
 use super::entrypoint::validate_unique_export_names_from_statements;
 use super::eval::{rewrite_eval_compat_source, source_uses_eval_compat};
+use super::fingerprint::compiler_build_fingerprint;
 use super::helpers::*;
 use super::metadata::{append_metadata_section, build_artifact_metadata};
 use super::paths::executable_output_path_for;
@@ -542,6 +543,40 @@ pub(crate) fn incremental_cache_path(
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
+    incremental_cache_path_with_fingerprint(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        runtime_profiles,
+        profile_data,
+        compat_eval,
+        coverage,
+        compiler_build_fingerprint(),
+    )
+}
+
+/// The key builder, taking compiler identity as a parameter so tests can assert
+/// composition without relinking a binary.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn incremental_cache_path_with_fingerprint(
+    source_path: &Path,
+    mode: BuildMode,
+    max_specializations: usize,
+    api_surface: ApiSurface,
+    runtime_profiles: &[String],
+    profile_data: Option<&ProfileData>,
+    compat_eval: bool,
+    coverage: bool,
+    fingerprint: Option<&str>,
+) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
+    // Fail closed. A cache we cannot prove is ours is a cache we do not read,
+    // and a version-only fallback is exactly the defect this replaces. Checked
+    // before hashing the source, which is the expensive part.
+    let Some(fingerprint) = fingerprint else {
+        return Ok(None);
+    };
+
     let source_hash = source_hash_for_file(source_path).map_err(|error| {
         vec![Diagnostic::error(
             e8::INTERNAL_ERROR as u32,
@@ -565,7 +600,7 @@ pub(crate) fn incremental_cache_path(
         })
         .unwrap_or_else(|| "profile:none".to_string());
     let cache_key = format!(
-        "{}-{}-{}-{}-profiles:{}-{}-{}-{}-{}",
+        "{}-{}-{}-{}-profiles:{}-{}-{}-{}-{}-{}",
         source_hash,
         build_mode_name(mode),
         api_surface,
@@ -574,7 +609,8 @@ pub(crate) fn incremental_cache_path(
         profile_key,
         compat_eval,
         coverage,
-        env!("CARGO_PKG_VERSION")
+        env!("CARGO_PKG_VERSION"),
+        fingerprint
     );
     Ok(Some(
         project_root
@@ -1069,3 +1105,7 @@ main();
         );
     }
 }
+
+#[cfg(test)]
+#[path = "compile_cache_tests.rs"]
+mod compile_cache_tests;

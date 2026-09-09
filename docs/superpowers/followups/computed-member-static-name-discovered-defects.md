@@ -324,3 +324,18 @@ release-mode compile that finishes in ~0.00s is a cache hit, not a pass.
 belongs wherever the build/caching machinery is owned, next to §4's generator
 defect, which is the same class: an instrument that can quietly report the wrong
 thing.
+
+**CLOSED**, 2026-09-09, by the design at
+`docs/superpowers/specs/2026-09-09-incremental-cache-compiler-identity-design.md`.
+The key now folds in a fingerprint of the running compiler build and fails
+closed when it cannot be computed, and the fixtures decline the on-disk cache
+through a new `incrementalCache: false` manifest field.
+
+**One claim of this entry is withdrawn.** It said the fix "means **new build
+machinery** -- a build script plus, in practice, a dependency". It needs
+neither, and a build script would have *missed this exact failure*: Cargo reruns
+a build script on its own package's files, not its dependencies', and the
+semantics change that broke fannkuch was in `kali_optimize` and `kali_codegen`.
+The discriminator is a memoized `stat` of `current_exe()`. This entry's
+rejection of that route was a *scope* objection -- "made sideways, in a PR about
+something else" -- and scope was the point of the follow-up project.
