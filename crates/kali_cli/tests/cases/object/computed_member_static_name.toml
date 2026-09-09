@@ -31,10 +31,14 @@
 #     are `run`-only because `check` still admits them (spec section 8 twin
 #     disagreement, recorded rather than papered over).
 #
-# THREE CASES HERE ARE WRONG ON PURPOSE and no task in this plan owns closing
+# FOUR CASES HERE ARE WRONG ON PURPOSE and no task in this plan owns closing
 # them (spec section 6.3): the absent-property read after a fold, the
-# `process.argv` index divergence, and the BigInt field rendering after a
-# bracket store. Each says so in its own rationale.
+# `process.argv` index divergence, the BigInt field rendering after a
+# bracket store, and -- added by Task 8 at `71b5f42f6c` -- the DOT-spelling
+# `.length` that renders the receiver object's property count. Each says so in
+# its own rationale. (Two further cases, the `check`-admits halves of the
+# chained-access and computed-callee pair, are wrong on purpose in a different
+# sense: they pin a spec-section-8 twin disagreement, and say so.)
 
 [constants]
 COMPUTED = "computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the receiver is a runtime array or a `for..in` key over the same object"
@@ -128,6 +132,8 @@ console.log(f("b"));
 "argv_index_divergence.js" = """console.log(process.argv[2]); const i = 2; console.log(process.argv[i]); console.log(process.argv["2"]);
 """
 "bigint_field_after_bracket_store.js" = """let o = {a: 1, b: 7n}; o["a"] = 5; console.log(o.b);
+"""
+"dot_member_length.js" = """const o = {a: "xyz"}; console.log(o.a.length);
 """
 
 # ---- admitted: the fold is the dot spelling ---------------------------------
@@ -583,3 +589,14 @@ THE DIVERGENCE IS BIGINT RENDERING, NOT A WRONG VALUE. The field's value is righ
 args = ["run", "bigint_field_after_bracket_store.js"]
 exit = "success"
 stdout = "7\n"
+
+[[case]]
+name = "a_dot_member_length_still_renders_the_child_count"
+rationale = """WRONG ON PURPOSE, and NO TASK IN THIS PLAN OWNS CLOSING IT. node prints 3; kali prints 1. The value is NOT the string's length and does not track it: measured at `71b5f42f6c` against node v26.8.1, `{a: "xyz"}` and `{a: "xyzwv"}` both print 1, `{a: "xyz", z: 1}` prints 2, and `{a: "xyz", z: 1, y: 2}` prints 3 -- which agrees with node by coincidence. See docs/superpowers/followups/member-length-renders-the-child-count.md.
+
+THE MECHANISM, MEASURED RATHER THAN ASSUMED. The plan's Task 8 brief described this as `the member node's child count`. That is the BRACKET spelling: `o["a"].length` returns 2 for every object and every string, because `render_length` stops at the two-child member node. The DOT spelling recurses one level through the receiver binding into the OBJECT LITERAL and returns ITS property count, which is why the number tracks the object's width and not the string. Both arms are `crates/kali_codegen/src/intrinsics/host.rs`'s `render_length` fallbacks (`:1336-1338` and `:1373-1377`), reached from `render_static_value`'s `"length"` member arm.
+
+WHY IT IS HERE. The computed half of this defect (`o[k].length`) refuses as of this project, and `run_refuses_a_chained_access_off_a_folded_member` above pins that. Without this case the dot half would be silently unpinned, and a reader would reasonably infer from the refusal that the whole family was handled. It was not: the dot spelling and the string-literal bracket spelling are both still silent, and the bracket-literal one is not pinned anywhere at all."""
+args = ["run", "dot_member_length.js"]
+exit = "success"
+stdout = "1\n"

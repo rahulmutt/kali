@@ -257,9 +257,13 @@ impl TypeContext {
             let Some(scope_id) = current else {
                 return self.global_scope.const_index_names.get(name).cloned();
             };
-            let Some(scope) = self.scopes.get(&scope_id) else {
-                return None;
-            };
+            // `?` rather than a `let ... else { return None }`: clippy's
+            // `question_mark` lint refuses the longer spelling under
+            // `-D warnings`, and the two are the same fail-closed answer (a
+            // scope id with no scope resolves no name). The `bool`-returning
+            // twins in `resolve/expression.rs` keep the `let ... else` form
+            // because `?` does not apply to their return type.
+            let scope = self.scopes.get(&scope_id)?;
             if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
                 // Crossed into a function `current_function_name()` does not
                 // name — fail closed rather than guess.

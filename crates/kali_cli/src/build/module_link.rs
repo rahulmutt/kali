@@ -1682,9 +1682,10 @@ fn try_fold_typeof_namespace_member(
          and only entry statements are rewritten (see `rewrite_namespace_uses`), so its module is \
          always in `modules` here",
     );
-    let Some(property) = member.dot_name() else {
-        return None;
-    };
+    // `?` rather than a `let ... else { return None }`: clippy's `question_mark`
+    // lint refuses the longer spelling under `-D warnings`. Same answer -- a
+    // member with no dot name is not a namespace member access.
+    let property = member.dot_name()?;
     let literal = if module.exports.contains_key(property) {
         "function"
     } else {

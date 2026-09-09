@@ -232,9 +232,14 @@ order, not the 2026-07-24 table's. The status column names **lanes**, and each l
 name is the `rNN…` prefix of the cases that assert it: every lane below is measured
 by **two** cases, module scope and in-function, and **the two scopes agreed on the
 class for every lane of every entry** — there is no entry in this table whose class
-depends on scope. Five entries (R-07, R-09, R-13, R-20, R-54) carry an additional
+depends on scope. Five entries (R-07, R-09, ~~R-13~~ **R-10**, R-20, R-54) carry an additional
 case in `classifier_ground_truth.toml`, which measures the classifier on that
-entry's own repro; those cases agree with the tier files. **161 cases back the 46
+entry's own repro; those cases agree with the tier files. *(**Corrected
+2026-09-09 at `71b5f42f6c`**: the SILENT ground-truth fixture was R-13's
+`var`-key computed read, which now refuses; the computed-member-static-name
+project replaced it with R-10's block-scoped shadow read — `let x = 1; { let x =
+2; } console.log("r=" + x);`, kali `r=2`, node `r=1`, exit 0 both — so the
+classifier still has a SILENT specimen and the count of five is unchanged.)* **161 cases back the 46
 rows.** ~~157 cases back the 44 rows … holds 161~~, ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
 holds 155~~ — superseded 2026-08-16 at
 `3a636f62fb`, when the console-render-unification project's final whole-branch
@@ -265,8 +270,8 @@ a defect.
 | R-09 `continue` skips for-update | **SILENT** (skip-ahead form `r09s`) / **FL_INTERNAL** (hang form `r09h`, `E4003` fuel trap) | two lanes of one entry, not a contradiction: the skip-ahead form is silent-wrong (kali `s=13`, node `s=10`, exit 0 both) and the `i%2` form runs away to `E4003`. `E4003` is documented as *internal*, so it is FL_INTERNAL and not an honest denial. The evidence-widening recorded on this row in 2026-07 stands and is not re-measured here: as of `61c2d48ea9` the register records the hang as independent of `let`/`var`, of `%`, and of nesting, reproducing under `do`/`while` and `for…in`, with `while`, `for…of` and a C-style `for` with no update clause the only faithful forms. **R-09 is the owning ID for the switch-clause `continue` hang**; it is *not* an R-35 defect and no `switch` allowlist can fix it. See §2's R-09 entry and `r35-switch-boundary-rederived.md`. |
 | R-10 block-scope shadowing | **SILENT** (both scopes) | the inner declaration still aliases the outer binding: kali `r=2`, node `r=1`, exit 0. One of the three frontier candidates, and still silent at `4cfa218814`. |
 | R-11 bitwise compound assign | **FIXED** (local-scalar lane, both scopes) | ~~CLOSED 2026-07-25 (`28f18b3ff`)~~ — the class is now stated in the classifier's vocabulary rather than as a project event: **FIXED**. All six operators match (`and=2 or=14 xor=7 shl=24 shr=3 ushr=3`). **This case measures the local-scalar lane only** — the entry's own repro. R-11's guard-bypass shapes (object field, array element, parameter) are different programs with no case here, and as of `61c2d48ea9` §2 records some of them refusing with `E5506`; this row does not speak for them. The `&=`/`+=` relation is **INVERTED** on the object-field lane — as of `61c2d48ea9`, `o.a &= 3` lowers to `2` while `o.a += 1` refuses with `E5506`; see §3's G3 edit. |
-| R-12 alias defeats array-store guard | **SILENT** (both scopes) | the store vanishes and the read-back through the alias reports the pre-store value (kali `b0=1`, node `b0=7`). The discriminator is **SCOPE, not declarator kind**, per the 2026-07-25 correction on `372a3f440`; both scopes measure SILENT here because both cases carry the alias. |
-| R-13 computed var-key get/set | **SILENT** (read `r13r`) / **SILENT** (write `r13w`), both scopes | read →`v=0` where node reads `2`; write vanishes (kali `dot=2`, node `dot=8`). Two repros, two lanes, one class. A third case in `classifier_ground_truth.toml` pins the SILENT class on the read repro. One of the three frontier candidates, and still silent at `4cfa218814`. |
+| R-12 alias defeats array-store guard | **FAIL_CLOSED** (both scopes) | **RE-DERIVED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project, and NOT RETIRED.** The two `r12` cases now assert `fail_closed`; the gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named this row alongside R-13's and R-59's, and it is re-derived here rather than left to ride along. Measured at `71b5f42f6c` against `node v26.8.1`, both scopes: `const a=[1,2]; const b=a; b[0]=7; console.log("b0="+b[0]);` exits 1 with empty stdout and the shared `E5506: computed member access …` under `kali run`, where node prints `b0=7` at exit 0. **node's `b0=7` is still not produced, so the behaviour this entry names is NOT fixed** — what moved is the class, from a store that vanished silently to one that refuses loudly, which is the R-32 precedent this file already records (an entry can leave the SILENT filter without being fixed). Two readings this row must not be given: the un-aliased spelling `const a=[1,2]; a[0]=7;` refuses too, with the neighbouring `mutating a literal array` message, so the alias is no longer the discriminator between refusal and silence; and **`kali check` still exits 0 on the aliased program** while `run` refuses — a spec §8 twin disagreement the oracle harness cannot see, because it observes `run` only. **Consequence for the ranking**: with no SILENT lane left R-12 leaves the SILENT filter and `tools/blast-radius/clusters.json`, and because R-13 leaves in the same regeneration **G3 loses both of its members, so G3's cluster definition goes with them** — forced by `crates/kali_blast_radius/src/ranking.rs:326`, not chosen. ~~the store vanishes and the read-back through the alias reports the pre-store value (kali `b0=1`, node `b0=7`). The discriminator is **SCOPE, not declarator kind**, per the 2026-07-25 correction on `372a3f440`; both scopes measure SILENT here because both cases carry the alias.~~ |
+| R-13 computed var-key get/set | **FIXED** (read `r13r`; write `r13w`), both scopes | **RETIRED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project — every lane of this entry moved, which is the rule §3.4 of the ranking states.** Re-derived from the four `r13r`/`r13w` cases, which now assert `fixed`; the gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named the mismatch first and the row followed it. ~~SILENT (read `r13r`) / SILENT (write `r13w`), both scopes: read →`v=0` where node reads `2`; write vanishes (kali `dot=2`, node `dot=8`). Two repros, two lanes, one class. A third case in `classifier_ground_truth.toml` pins the SILENT class on the read repro. One of the three frontier candidates, and still silent at `4cfa218814`.~~ **WHAT IS PINNED BY A LIVE CASE**: the `const` key, read and store, both scopes. **WHAT IS NOT PINNED HERE AND IS PINNED ELSEWHERE**: the `var`-key spelling this entry's ground-truth fixture used is now FAIL_CLOSED (`object/computed_member_static_name.toml`, `check_refuses_a_var_key` and `run_refuses_a_var_key`), so the classifier's SILENT fixture moved to R-10. |
 | R-14 returned array reads zeros | **SILENT** (both scopes) | kali `r=0`, node `r=1`, exit 0. One of the three frontier candidates, and still silent at `4cfa218814`. The "object-return is correct" control that FLIPPED is **R-44**, a different entry with no case here. Arrays are broken even when bound, not only when indexed off the call expression. |
 | R-15 `.split()` result | **SILENT** (both scopes) | element-read shape → `len=0` plus a leaked handle (`1=-9223354418898927615`, node `1=b`). The `STATUS 2026-07-20` partial closure added the *runtime* `.split()` fallback to the deny-set; the register's own repro binds a string **literal**, so it reaches the preserved static-ASCII fold lane and the deny-set never sees it. Partial closure, live defect. |
 | R-16 per-method string repr leak | **SILENT** (both scopes) | `.slice()`/`.charAt()`/`.toUpperCase()`/`.repeat()` leak the raw handle in concat position (kali `c=-9223354388834156541`, node `c=hel`). The handle's bit pattern is allocation-dependent and differs from the one recorded in 2026-07; the two kali runs of the case agree with each other, so the pair does not rank NONDETERMINISTIC. |
@@ -298,7 +303,7 @@ a defect.
 | R-56 string key `'"5"'` collides with HIR's numeric-key marker | **FIXED** (both scopes) | **RETIRED 2026-08-16 at `12fd424897` by the hir-property-key-identity project — every lane of this entry moved, which is the rule §3.4 of the ranking states.** This row is re-derived from the two `r56a` cases, which now assert `fixed`; the gate at `crates/kali_blast_radius/src/oracle_tests.rs:172` named the mismatch first and the row followed it, rather than the other way round. **Re-measured at `12fd424897` against `node v26.7.0`, both scopes, byte-identical**: `const o = {'"5"': 1}` prints `1`, `true`, `false` at exit 0 with empty stderr, and node prints the same three lines at exit 0. What closed it is `4a69275c63`: `lower_property_name` now stores `String(key)` for a numeric key instead of wrapping it in double quotes, so `{5: 1}` and `{'"5"': 1}` no longer share one text — the fix direction this entry's own **Fix direction** bullet named, taken at the only place it could be taken. `KeyTextSlot`, `is_hir_numeric_key_spelling` and its NaN guard went with it, and `c4245eac62` deleted all fourteen double-quote un-marking sites that existed only to undo the marker. **WHAT IS PINNED BY A LIVE CASE**: the whole entry, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `12fd424897`: the full `hasOwn` 2x2 with both member-read controls — all six cells agree with node where two disagreed at `3a636f62fb`; the same key spelled with escapes (`{"\"5\"": 1}`); and the four shapes the `objectLiteralQuotedNumericStringKey` matcher counts that are wider than the defect and never were it (`'"1.5"'`, `'"1e21"'`, `'"05"'`, `'"5."'`). Nothing under this entry's title was found still colliding. ~~added 2026-08-16 by the console-render-unification project's final whole-branch review, measured at `3a636f62fb` … prints `1` for `o['"5"']` and `false` for `Object.hasOwn(o, '"5"')` in the same run at exit 0, and `true` for `Object.hasOwn(o, 5)` where node says `false`.~~ **One cell of it REGRESSED on the branch that filed it and a different cell was FIXED by that branch** — see §2's 2x2, which carries all six measured values, the pre-branch column and now the closing column; that history is why the entry was filed for the whole collision rather than for the regressed cell, and it is preserved rather than rewritten. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`), so it left the ranking without moving any other cluster's frequency; its `clusters.json` singleton was removed by the same rule that removed R-32's and R-33's G8 rows. |
 | R-57 a key spelled with an escape sequence is stored undecoded | **SILENT** (both scopes) | **added 2026-09-08 at `b13c890330`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, at the human's instruction to file what the hir-property-key-identity project measured and left unfiled. This row is derived from the two `r57a` cases; the gate at `crates/kali_blast_radius/src/oracle_tests.rs` named the missing row before it was written, rather than the other way round. **Measured at `dde0f083c0` against `node v26.8.1`, both scopes, byte-identical**: over `const o = {"a\"b": 1}`, kali prints `a\"b 6`, `false`, `false` at exit 0 with empty stderr where node prints `a"b 3`, `true`, `true` at exit 0. The property's name is the three characters `a"b`; `kali_parser`'s `unquote_string_literal` strips a key's delimiters without decoding its escapes, so the key slot holds four characters, and `fold_object_enumeration_call`'s `format!("{key:?}")` escapes that text a SECOND time on the way out, which is where the `6` comes from. **WHAT IS PINNED BY A LIVE CASE**: the enumerated key's text and length, the strict-equality probe, and `Object.hasOwn` with the decoded name — one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `dde0f083c0`: the two same-spelling probes that AGREE with node (`o["a\"b"]` → `1`, `Object.hasOwn(o, "a\"b")` → `true`, and they agree only because both sides are byte-identical undecoded text — the trap this entry exists to make visible); the member read `o['a"b']` (kali `0`, node `1`); all eleven of the lexer's escapes as key spellings, every one of which diverges; and the computed spelling `{["a\"b"]: 1}`, which diverges identically. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`), so it adds a tier-2 cluster with no frequency behind it. Two neighbouring divergences are recorded in §2's entry as measured and explicitly NOT this entry: `"a\"b".length` → `4` (a plain string literal, no key in the program) and `Object.keys(o)[0].length` → `2` (the array-element `.length` lane already attributed to R-17's family). |
 | R-58 a legacy-octal numeric key is read as decimal | **SILENT** (both scopes) | **added 2026-09-08 at `b13c890330`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate. **Measured at `dde0f083c0` against `node v26.8.1`, both scopes, byte-identical**: over `const o = {042: 1}`, kali prints `42`, `false`, `true` at exit 0 with empty stderr where node prints `34`, `true`, `false` at exit 0. `042` is a `LegacyOctalIntegerLiteral` denoting decimal 34 in sloppy mode, which is what a `.js` entry file runs in on both engines; `numeric_property_name`'s `f64` arm parses the digits with Rust's grammar, which has no legacy octal in it. The last two lines are R-56's signature at a second address — one run denies a property the object has and affirms one it does not. **WHAT IS PINNED BY A LIVE CASE**: those three lines, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `dde0f083c0`: the member reads (`o[34]` → `0` against node's `1`, `o[42]` → `1` against node's `undefined`); the value lane outside key position (`console.log(042)` → `42` against node's `34`, and the same through a `const` binding), which no lead recorded and which widens the entry past its own title; the three non-decimal controls (`{042n: 1}` and, for a cruder lexer reason, `{0o42: 1}` and `{0x10: 1}` all fail LOUDLY at exit 1); and the upper-bound boundary (`{07: 1}` agrees with node, `{010: 1}` does not). **A SECOND LANE IS MEASURED AND IS NOT IN THIS ROW'S CLASS SET**: under `"use strict"` — and in an ES module — node refuses the file with `SyntaxError: Octal literals are not allowed in strict mode.` at exit 1 while kali accepts it and prints `42` at exit 0, which classifies **ACCEPTS_INVALID**, not SILENT. It carries no oracle case by deliberate choice, so this row records SILENT alone and §2's entry says why; a later task that pins it owes this row a second class. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`). |
-| R-59 a computed member index that is not a literal is fabricated into a property name | **SILENT** (both scopes) | **added 2026-09-08 at `02297ca6c2`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate; **measured at `35e9ef4ef6`** (this branch's documentation-only tip, and the tree the binary was built from) **against `node v26.8.1`, both scopes, byte-identical**: over `const o = {index: 9, i: 7}; let i = 1;`, kali prints `7` for `o[i]` and `9` for `o[i + 0]` at exit 0 with empty stderr where node prints `undefined` twice at exit 0. `expression_to_property_name` reads an index statically for a literal, a sequence ending in one, and a folded `+`/`-` unary on one; for every other shape it does not decline but FABRICATES a name — the identifier's own text for `o[i]`, the literal string `index` for the catch-all — and the static consumers read that name out of the member node's text slot. When it collides with a real property the read returns THAT property's value. **WHAT IS PINNED BY A LIVE CASE**: the two fabrication arms, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `35e9ef4ef6`: the optional-chained, parenthesized and sequence spellings (all `7`) and the two unary spellings (`o[+i]`/`o[-i]`, both `9` through a guard that parses and then still does not decline); the FOUR shapes that AGREE with node (`o[(1)]`, `o[(0, 1)]`, `o[+1]` all print `one` over `{1: "one"}`, and `o[-1]` reads the correct name `-1`), which is one of the two families that separate this entry's matcher from R-13's; the array and string lanes, where the fabricated name can never hit and the answer is the fabricated `0` (`[5,6][i]` → `0` against node's `6`; an ordinary `for` loop over an array LITERAL prints `0 0 0` against node's `5 6 7`; `"abc"[k]` → `0` against node's `b`), and the `new Array(n)` receiver that AGREES (`0 2 4` on both engines), which is the count's upper bound; and the WRITE half, which does NOT fabricate (`o[i] = 8` leaves `o.i` at `7` on both engines), which is why this is a read-lane entry. **THIS ROW CORRECTS R-13's**: R-13's mechanism hypothesis is an admit-list falling through to a default-`0` read, and it is measurably wrong — adding one property named `k` to R-13's own repro object turns its `0` into `99`. Countable, **raw 235 / reachable 27** over the frozen corpus (anchor 27/25, extension 208/2) — the only nonzero count among the four entries this branch filed. (~~raw 302 / reachable 45 ... to the digit the same four numbers R-13's matcher prints~~ — **corrected 2026-09-08 in final review at `07ad2e6447`**: that matcher counted assignment and update TARGETS, and the write half measured in this very row does not fabricate, so 67 raw and 18 reachable store sites left the count. The deltas are exactly R-13's record's own `breakdown` storeTarget figures.) **The two matchers OVERLAP AND NEITHER CONTAINS THE OTHER** (measured on the shipped module: `o[true]`/`o[null]`/`o[/x/]`/`o[1n]` count 0 under R-13's and 4 under this one; `o[(1)]`/`o[(0,1)]`/`o[+1]`/`o[-1]` count 3 under R-13's and 0 under this one; and a store target counts under R-13's and not under this one). The two no longer print the same figures: measured over the frozen corpus file by file, of the **51** files with a nonzero count under either, **30** differ (8 of the 14 reachable ones) and this matcher exceeds R-13's in **zero** files — a strict subset ON THIS CORPUS, which is a fact about the corpus and not containment between the shapes. Do not add the two counts together. |
+| R-59 a computed member index that is not a literal is fabricated into a property name | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project — its one lane moved.** Re-derived from the two `r59a` cases, which now assert `fail_closed`: kali refuses both lines with the shared computed-member `E5506` (``computed member access `o[k]` is unavailable in the current phase …``) at exit 1 with empty stdout; node prints `undefined` twice at exit 0. FAIL_CLOSED, not FIXED, on purpose: `let i = 1; o[i]` needs a runtime lookup this project does not build (spec §5), and a fix that printed `0`, `0` would have been R-13's shape, not a closure — the case's own regression note says so. The fabrication itself is gone at the address this entry named: `expression_to_property_name` returns `Option<String>`, both parse sites record the absence, and a nameless member is its own node kind (`LirNodeKind::ComputedMember`). ~~**added 2026-09-08 at `02297ca6c2`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate; **measured at `35e9ef4ef6`** (this branch's documentation-only tip, and the tree the binary was built from) **against `node v26.8.1`, both scopes, byte-identical**: over `const o = {index: 9, i: 7}; let i = 1;`, kali prints `7` for `o[i]` and `9` for `o[i + 0]` at exit 0 with empty stderr where node prints `undefined` twice at exit 0.~~ **THE REST OF THIS ROW IS THE ORIGINAL AND IS KEPT**, because it describes the mechanism, the matchers and the corpus rather than the verdict — but it is written in the PRESENT TENSE OF `35e9ef4ef6` and must be read as history from here on: the fabricating behaviour it describes is gone as of `71b5f42f6c`, and **one figure in it has moved**. **Corrected 2026-09-09 at `71b5f42f6c`**: the reachable counts below were re-measured against the binary that refuses nameless computed members, and R-59 now reads **raw 235 / reachable 25** (anchor 27/25 unchanged, extension 208/~~2~~**0**), not reachable 27 — one extension program, `extension/unit_conversions.js`, left the accept set because it indexes an object with a parameter key. The raw figures are unchanged, because the corpus did not change; only its accepted subset did. Everything after this sentence is the original text: `expression_to_property_name` reads an index statically for a literal, a sequence ending in one, and a folded `+`/`-` unary on one; for every other shape it does not decline but FABRICATES a name — the identifier's own text for `o[i]`, the literal string `index` for the catch-all — and the static consumers read that name out of the member node's text slot. When it collides with a real property the read returns THAT property's value. **WHAT IS PINNED BY A LIVE CASE**: the two fabrication arms, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `35e9ef4ef6`: the optional-chained, parenthesized and sequence spellings (all `7`) and the two unary spellings (`o[+i]`/`o[-i]`, both `9` through a guard that parses and then still does not decline); the FOUR shapes that AGREE with node (`o[(1)]`, `o[(0, 1)]`, `o[+1]` all print `one` over `{1: "one"}`, and `o[-1]` reads the correct name `-1`), which is one of the two families that separate this entry's matcher from R-13's; the array and string lanes, where the fabricated name can never hit and the answer is the fabricated `0` (`[5,6][i]` → `0` against node's `6`; an ordinary `for` loop over an array LITERAL prints `0 0 0` against node's `5 6 7`; `"abc"[k]` → `0` against node's `b`), and the `new Array(n)` receiver that AGREES (`0 2 4` on both engines), which is the count's upper bound; and the WRITE half, which does NOT fabricate (`o[i] = 8` leaves `o.i` at `7` on both engines), which is why this is a read-lane entry. **THIS ROW CORRECTS R-13's**: R-13's mechanism hypothesis is an admit-list falling through to a default-`0` read, and it is measurably wrong — adding one property named `k` to R-13's own repro object turns its `0` into `99`. Countable, **raw 235 / reachable 27** over the frozen corpus (anchor 27/25, extension 208/2) — the only nonzero count among the four entries this branch filed. (~~raw 302 / reachable 45 ... to the digit the same four numbers R-13's matcher prints~~ — **corrected 2026-09-08 in final review at `07ad2e6447`**: that matcher counted assignment and update TARGETS, and the write half measured in this very row does not fabricate, so 67 raw and 18 reachable store sites left the count. The deltas are exactly R-13's record's own `breakdown` storeTarget figures.) **The two matchers OVERLAP AND NEITHER CONTAINS THE OTHER** (measured on the shipped module: `o[true]`/`o[null]`/`o[/x/]`/`o[1n]` count 0 under R-13's and 4 under this one; `o[(1)]`/`o[(0,1)]`/`o[+1]`/`o[-1]` count 3 under R-13's and 0 under this one; and a store target counts under R-13's and not under this one). The two no longer print the same figures: measured over the frozen corpus file by file, of the **51** files with a nonzero count under either, **30** differ (8 of the 14 reachable ones) and this matcher exceeds R-13's in **zero** files — a strict subset ON THIS CORPUS, which is a fact about the corpus and not containment between the shapes. Do not add the two counts together. |
 | R-60 a present property on an `Object.fromEntries` object reads `0` | **SILENT** (both scopes) | **added 2026-09-08 at `02297ca6c2`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate; **measured at `35e9ef4ef6` against `node v26.8.1`, both scopes, byte-identical**: `const o = Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0` in kali at exit 0 with empty stderr where node prints `1` at exit 0. `o` HAS an own enumerable `a` worth `1`, so this is a wrong VALUE for a property that exists and not an `undefined` rendered as `0`. Two zero-emitting sites stack: `Object.fromEntries` reaches codegen unresolved and is lowered through the zero-placeholder call fallback, and the member read on that scalar then falls to `emit_unary`'s default arm, which drops the receiver and pushes its own `I64Const(0)` — the one that prints. Both sites push a WARNING and `kali run` shows neither. **WHAT IS PINNED BY A LIVE CASE**: that one read, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `35e9ef4ef6`: the two `hasOwn` probes on the same object, which AGREE with node (`"a"` → `true`, `"b"` → `false`), because `static_object_has_own` recognizes a `fromEntries` operand directly — so the object's shape IS statically known, which contradicts the explanation every lead for this entry carried; the receiver spellings that diverge identically (`o["a"]`, the direct `Object.fromEntries([...]).a`, through `Object.freeze`, and with the entries array bound); and the two controls that locate the fault in the receiver (`({a: 1}).a` and a member read on a USER function's object result both print `1` on both engines). **A SECOND LANE IS MEASURED AND IS NOT IN THIS ROW'S CLASS SET**: `Object.keys(o)` / `Object.values(o)` / `Object.entries(o)` on the same receiver REFUSE the file (`error[E5506]: Object enumeration is only supported where the object has a compile-time-known fixed shape`, exit 1) where node prints the array — that classifies **FAIL_CLOSED**, not SILENT, so it cannot share an oracle case with the read, and this row records SILENT alone. The `--release` lane was NOT measured (no runner for a built artifact on this machine) and §2's entry says so. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`). |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
@@ -517,6 +522,20 @@ entries, **31 carry at least one SILENT lane** and **15 carry none**
   same kind and are recorded as two steps rather than one for the same reason the
   three 2026-08-16 moves are: a reader auditing either needs the intermediate
   figure.
+  **2026-09-09 at `71b5f42f6c`: R-12, R-13 and R-59 leave together, taking 31 to
+  28** — the computed-member-static-name project, one regeneration, and the
+  largest single movement this series has recorded. **Only two of the three are
+  retired.** R-13 is retired at FIXED (both lanes moved); R-59 is retired at
+  FAIL_CLOSED (its one lane moved, to an honest refusal rather than to a correct
+  answer); **R-12 is NOT retired** — its class moved from SILENT to FAIL_CLOSED
+  and node's `b0=7` is still not produced, which is the R-32 precedent. The
+  project's own plan predicted two entries leaving, not three: the gate
+  `every_zero_two_row_is_the_class_set_its_live_cases_assert` named R-12 as well,
+  and the row was re-derived rather than left to ride along. Because R-12 and
+  R-13 were **G3**'s only two members, G3's cluster definition left
+  `tools/blast-radius/clusters.json` with them — the first non-singleton cluster
+  ever removed from the ranking. See the ranking's §6 SEVENTH amendment, which is
+  also the first regeneration in which the ACCEPT SET moved.
 
 **The 2026-07-24 sweep's own net is preserved below, unrewritten,** because it is
 that sweep's record and the table above supersedes it rather than editing it. It
@@ -2214,8 +2233,92 @@ tier, ordering is by blast radius.
   task's decision; and the WRITE half's "dropped store" remains untested against
   the fabricated name (R-59 measured that a store does NOT land on it, so the two
   halves have different mechanisms and this bullet covered both with one).
-- **Confidence**: high on behavior; ~~medium~~ **low** on mechanism, until the
-  above is re-derived — the hypothesis is disproved, not replaced.
+  **RE-DERIVED 2026-09-09 at `71b5f42f6c`, and the two halves have two
+  mechanisms.** *Read lane*: R-59's chain exactly — the parser fabricated a
+  property name for `o[k]`, the static consumers read it out of the member's
+  text slot, and the `0` was the fabricated name MISSING. *Write lane*: the
+  bracket-store family of follow-up item 2.3
+  (`docs/superpowers/followups/console-render-unification-discovered-defects.md`),
+  which is NOT about the key's spelling at all — a **literal** string key showed
+  the same vanishing store, `const p = {a:1}; p["a"] = 7; console.log(p["a"])`
+  reading `1` at `dc19c3a040` where node reads `7`, with the dot spelling
+  `q.a = 7` correct as the control. Codegen's assignment emitter returned
+  `false` for a two-child target and the caller emitted a bare read, so the
+  store was DROPPED rather than the read being stale. Both lanes are closed —
+  see the retirement bullet at the end of this entry.
+- **Confidence**: high on behaviour; ~~medium~~ ~~**low**~~ **high** on mechanism
+  (traced and closed). *(The `low` above was correct while it stood: the
+  hypothesis was disproved and not replaced. It is replaced now, by two traced
+  mechanisms rather than one, and by a fix that moved both lanes.)*
+- **RETIRED 2026-09-09, at `71b5f42f6c`, by the computed-member-static-name
+  project (spec
+  `docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md`,
+  plan `docs/superpowers/sdd/2026-09-08-computed-member-static-name/`). Every
+  lane of this entry moved — it has two — which is the rule the ranking's §3.4
+  states.** The bullets above are kept as the record of the defect, of the
+  mechanism hypothesis that stood untraced from 2026-07-24, and of the
+  correction R-59 forced on it.
+  - **The fix, at the address this entry named.** The entry named "admittance
+    keyed on key *shape* rather than key *repr*", and that is where it was
+    taken, in four places that share ONE rule. (1) The rule itself is one pure
+    function with the lookup passed in —
+    `static_analysis::computed_member::fold_nameless_computed_index`
+    (`crates/kali_types/src/static_analysis/computed_member.rs`): a bare
+    identifier naming a `const` whose initializer is a string or number literal,
+    and nothing else, so the two checker passes cannot drift. (2) The checker
+    gates: `resolve::member` refuses a nameless computed member unless a runtime
+    lane admits it (`nameless_computed_member_is_admitted_by_a_runtime_lane`,
+    `crates/kali_types/src/resolve/member.rs:340`), with the same rule on the
+    store side. (3) Codegen has ONE read gateway and ONE store choke point,
+    `emit_computed_member` and `store_target_node` in
+    `crates/kali_codegen/src/emit/computed_member.rs`; a folded access is
+    re-dispatched through the literal spelling's lanes as a `named_twin`, and a
+    nameless one refuses with the shared `E5506`. (4) The materialization record
+    (`44e8033ae9`, `crates/kali_types/src/repr_infer.rs`): a computed read or
+    store with a static name pushes the same deferred object access the DOT
+    spelling pushes, so the object materializes and codegen's dot-store arm has
+    a shape to store into. That fourth is what closed the WRITE lane, and it is
+    the one the struck mechanism hypothesis could not have predicted.
+  - **What was measured, at `71b5f42f6c` against `node v26.8.1`, both scopes,
+    byte-identical.** The four `r13r`/`r13w` oracle cases in
+    `crates/kali_cli/tests/cases/oracle/tier2.toml` were extracted and run by
+    hand on the binary and on node before any verdict was touched.
+    `r13r_computed_variable_key_read_module_scope` and its `_in_function` twin,
+    `const o={a:1,b:2}; const k="b"; console.log("v=" + o[k]);` → kali `v=2` at
+    exit 0 with empty stderr, node `v=2` at exit 0 (was kali `v=0`).
+    `r13w_computed_variable_key_write_module_scope` and its `_in_function` twin,
+    `const o={a:1,b:2}; const k="b"; o[k]=8; console.log("dot=" + o.b);` → kali
+    `dot=8` at exit 0, node `dot=8` at exit 0 (was kali `dot=2`). `kali check`
+    agrees with `kali run` on all four, exit 0. The two `r59a` cases were
+    re-measured in the same pass and read FAIL_CLOSED; see R-59.
+  - **Coverage, stated rather than assumed.** Pinned: the four oracle cases
+    above, two lanes, both scopes; plus
+    `crates/kali_cli/tests/cases/object/computed_member_static_name.toml`, which
+    pins the admitted matrix (dot, literal, `const`-folded; read and store, both
+    scopes), the refused matrix under **both** twins, and the spec §2.5 controls.
+    **Not pinned, but measured by hand: nothing.** Every reading this retirement
+    makes is behind a live case — stated because the two retirements above this
+    one in this file both had a hand-measured tail, and this one does not.
+  - **What is NOT this entry.** The absent-property read after a successful fold
+    — `const o={a:1,b:2}; const k="c"; o[k]` → `0` where node says `undefined` —
+    is **R-21's** lane, is unchanged, and is pinned WRONG ON PURPOSE as
+    `an_absent_property_after_a_successful_fold_is_r21s_lane_not_this_projects`.
+    A `let`/`var`/parameter key now REFUSES rather than reading: the runtime
+    lookup that would make `let k = "b"; o[k]` read `2` is not built by this
+    project (spec §5), and refusing is the honest interim, not a closure. A name
+    declared more than once in one function does not fold either, in both checker
+    passes — a conservative refusal, and part of the shipped behaviour.
+  - **Consequence for the ranking.** With no SILENT lane left, R-13 leaves the
+    SILENT filter and is removed from `tools/blast-radius/clusters.json`, where
+    it was a **G3** member. **G3 does NOT survive it**, which is the difference
+    from the R-32/R-33 precedent: G3's only other member was **R-12**, whose row
+    moved to FAIL_CLOSED in the same regeneration, so G3's cluster DEFINITION is
+    removed as well — `crates/kali_blast_radius/src/ranking.rs:326` asserts every
+    declared cluster has at least one member, so leaving it behind would have made
+    the generator refuse to run. R-13 is still a §2 entry, so §1's severity table
+    and the §2 entry count are unchanged; retirement does not delete an entry.
+    The ranking regenerates, and its §6 amendment records what the generator
+    printed rather than what was predicted.
 
 ### R-14: An array returned from a function reads back as all zeros
 
@@ -3733,6 +3836,76 @@ tier, ordering is by blast radius.
   static consumers that read the name — the chain is traced end to end, which is
   what lets this entry correct R-13's hypothesis rather than propose another
   one).
+- **RETIRED 2026-09-09, at `71b5f42f6c`, by the computed-member-static-name
+  project (spec
+  `docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md`,
+  plan `docs/superpowers/sdd/2026-09-08-computed-member-static-name/`). Its one
+  lane moved, which is the rule the ranking's §3.4 states.** Filed 2026-09-08 at
+  `02297ca6c2`, closed the next day — the shortest-lived entry in this file after
+  R-49 and R-56, which were each filed and closed within one day. The bullets
+  above are kept as the record of the defect and of the chain that was traced to
+  file it.
+  - **The fix, at the address this entry named**, and taken in the direction the
+    **Fix direction** bullet demanded rather than either of the two it forbade.
+    `expression_to_property_name` (`crates/kali_parser/src/literal.rs:73`) now
+    returns `Option<String>` and DECLINES the shape it cannot read instead of
+    fabricating a name; the two call sites in
+    `crates/kali_parser/src/expression/call.rs` record the absence, and
+    `MemberExpression.property` is an `Option` so every consumer has to decide
+    (`45e20e3b27`). Below HIR a nameless member gets its own node kind — `MIR`
+    and `LIR` both gained `ComputedMember` (`crates/kali_mir/src/node.rs:17`,
+    `crates/kali_lir/src/node.rs:15`) — so a by-id consumer that reads a text
+    slot sees a kind it must decline rather than a plausible string. The
+    forbidden fixes were not taken: no reserved prefix or sigil was invented (it
+    would have converted every hit into the fabricated `0`, which is R-13), and
+    nothing was patched at the consumer (which cannot tell a fabricated name from
+    a real one — precisely the information the parser had thrown away).
+  - **What was measured, at `71b5f42f6c` against `node v26.8.1`, both scopes,
+    byte-identical.** The two `r59a` cases in
+    `crates/kali_cli/tests/cases/oracle/tier2.toml` over the headline repro
+    `const o = {index: 9, i: 7}; let i = 1; console.log(o[i]); console.log(o[i + 0]);`
+    → kali exits **1** with **empty stdout** and TWO `E5506` computed-member
+    lines, where it printed `7` and `9` at exit 0 at `35e9ef4ef6`; node prints
+    `undefined` twice at exit 0, unchanged. `kali check` refuses identically,
+    exit 1. The four shapes that AGREED with node are unchanged in their
+    agreement — `o[(1)]`, `o[(0, 1)]`, `o[+1]` all still print `one` over
+    `{1: "one"}` — because the parser's readable set did not grow or shrink; and
+    the three literal indexes the parser cannot read, `o[true]`, `o[null]` and
+    `o[1n]`, now refuse in both twins rather than fabricating.
+  - **FAIL_CLOSED, not FIXED, and that is the intended outcome.** `let i = 1;
+    o[i]` needs a runtime property lookup this project does not build (spec §5).
+    A "fix" that made the repro print `0`, `0` would have been R-13's shape
+    wearing R-59's name, and it would have closed these very cases while leaving
+    both defects in place — which is what this entry's own **Fix direction**
+    bullet warned against, and what the `r59a` cases' "WHAT A REGRESSION HERE
+    WOULD MEAN" paragraph names as the failure mode. It did not happen: stdout is
+    empty and the exit is 1.
+  - **Coverage, stated rather than assumed.** Pinned: the two `r59a` cases, one
+    lane, both scopes, now `fail_closed`; the pre-existing wrong-on-purpose pair
+    `computed_member_index_is_fabricated_from_the_index_expression_*` in
+    `crates/kali_cli/tests/cases/object/property_key_identity.toml`, flipped to
+    the refusal with the old reading kept in the rationale; and
+    `crates/kali_cli/tests/cases/object/computed_member_static_name.toml`, whose
+    refused matrix asserts every refusal under **both** `check` and `run`.
+    **Not pinned, but measured by hand: nothing.**
+  - **What is NOT this entry.** `o[true]`, `o[null]` and `o[1n]` REFUSE rather
+    than fold: they are literals, but not literals the parser's readable set
+    contains, and widening that set is explicitly out of scope (spec §5, §4.1).
+    The array and string lanes named in the row above are refusals now, not
+    fabrications — `"abc"[k]` takes the string-receiver `E5506`, not the
+    computed-member one. And the WRITE half was never this entry: `o[i] = 8`
+    left `o.i` at `7` on both engines, which is why the matcher counts reads
+    only.
+  - **Consequence for the ranking.** With no SILENT lane left, R-59 leaves the
+    SILENT filter and is removed from `tools/blast-radius/clusters.json` —
+    **both** its assignment and its `R-59 (unclustered)` singleton CLUSTER
+    DEFINITION, exactly as R-56's removal did and for the same forced reason
+    (`crates/kali_blast_radius/src/ranking.rs:326`: an empty cluster ranks
+    nothing). Unlike R-56, R-59 did NOT measure zero — its raw/reachable figures
+    are the largest any entry this branch filed carried — so its departure is the
+    first in this file that can move another cluster's band. What it actually
+    moved is read out of the generator's stdout in the ranking's §6 amendment,
+    not predicted here.
 
 ---
 

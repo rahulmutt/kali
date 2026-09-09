@@ -4794,11 +4794,11 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
 ///          step 2's fold rule), not an arbitrary variable. No further
 ///          coverage needed here for that non-for-in case, as long as that
 ///          stays true.
-///      All three are gated somewhere; nothing here claims the checker
-///      gate is permanent for the fold spelling, and nothing here assumes
-///      it is the only gate — the point of walking the `ComputedMember`
-///      shape now is that this scan does not get to assume any upstream
-///      gate at all;
+///          All three are gated somewhere; nothing here claims the checker
+///          gate is permanent for the fold spelling, and nothing here assumes
+///          it is the only gate — the point of walking the `ComputedMember`
+///          shape now is that this scan does not get to assume any upstream
+///          gate at all;
 ///   4. a dot-field write off a PARAMETER (e.g. an arrow-function body
 ///      `(x) => { x.a = <expr>; }`) — NOT covered. Params get their
 ///      `Repr::Object(shape)` via `ReprTable::set_param`, a DIFFERENT
