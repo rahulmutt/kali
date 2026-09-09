@@ -75,3 +75,60 @@ fn an_unreadable_index_has_no_name_and_no_fallback() {
         );
     }
 }
+
+/// A `+`/`-` unary over a STRING literal declines, even when Rust's float
+/// parser would read the string. This is register entry R-59's exact shape:
+/// the arm used to render its recursive result and re-parse that TEXT with
+/// `str::parse::<f64>()`, which accepts `inf`, `infinity` and `nan`
+/// case-insensitively while JavaScript's `ToNumber` does not, so `o[+"inf"]`
+/// fabricated the name `Infinity` and read a real, wrong property at exit 0.
+/// Measured at `ff8567e7f4` against node v26.8.1 on
+/// `const o = {Infinity: 9, NaN: 7}`: `o[+"inf"]` and `o[+"infinity"]` printed
+/// 9 where node prints 7. Spec section 4.1 scopes the unary arm to recursing
+/// into a LITERAL, so the fix is to fold only a NUMBER-literal source; every
+/// string spelling now declines and the E5506 gate refuses it.
+#[test]
+fn a_unary_over_a_string_literal_declines() {
+    for source in [
+        "o[+\"inf\"];",
+        "o[+\"infinity\"];",
+        "o[+\"Infinity\"];",
+        "o[-\"inf\"];",
+        "o[+\"nan\"];",
+        "o[+\"NaN\"];",
+        "o[+\"1\"];",
+        "o[+(\"1\")];",
+        "o[+(0, \"1\")];",
+    ] {
+        assert_eq!(
+            computed_member_property(source),
+            None,
+            "{source} must decline: its unary source is a string, not a number"
+        );
+    }
+}
+
+/// The numeric spellings the unary arm reads are unchanged by that narrowing,
+/// including the nested forms whose recursion passes through a parenthesized,
+/// sequence-last or second unary layer, and `+1e400`, which IS `Infinity` in
+/// JavaScript and must keep reading the property named "Infinity".
+#[test]
+fn a_unary_over_a_number_literal_still_reads_its_name() {
+    for (source, name) in [
+        ("o[+1];", "1"),
+        ("o[-1];", "-1"),
+        ("o[+1e21];", "1e+21"),
+        ("o[+1e400];", "Infinity"),
+        ("o[-1e400];", "-Infinity"),
+        ("o[+(1)];", "1"),
+        ("o[-(-1)];", "1"),
+        ("o[+(0, 1)];", "1"),
+        ("o[-0];", "0"),
+    ] {
+        assert_eq!(
+            computed_member_property(source).as_deref(),
+            Some(name),
+            "{source}"
+        );
+    }
+}

@@ -50,14 +50,16 @@ impl Parser {
     /// read it: a string literal (delimiters stripped — escape sequences are
     /// NOT decoded, which is register entry R-57), a number literal rendered
     /// by `format_js_number`, and the parenthesized, sequence-last and `+`/`-`
-    /// unary forms that recurse into one of those.
+    /// unary forms that recurse into one of those. The `+`/`-` arm reads a
+    /// NUMBER-literal source only (see `unary_number_value`); `o[+"inf"]` and
+    /// every other string spelling decline.
     ///
     /// `None` for every other shape — a bare identifier, a binary expression,
     /// a boolean/`null`/BigInt/regex literal, an empty sequence, a unary whose
-    /// argument does not read as a number. There is NO fallback string: this
-    /// function used to fabricate one (the identifier's own text, or the
-    /// literal `"index"`), and the static lanes downstream read it as a real
-    /// property name — register entry R-59, closed by the
+    /// argument is not a number literal under those layers. There is NO
+    /// fallback string: this function used to fabricate one (the identifier's
+    /// own text, or the literal `"index"`), and the static lanes downstream
+    /// read it as a real property name — register entry R-59, closed by the
     /// computed-member-static-name project
     /// (`docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md`).
     /// A `None` here is the whole of what the caller records; the structured
@@ -81,16 +83,54 @@ impl Parser {
             Expression::UnaryExpression(unary)
                 if unary.operator == "+" || unary.operator == "-" =>
             {
-                let value = Self::expression_to_property_name(&unary.argument)?
-                    .parse::<f64>()
-                    .ok()?;
-                let value = if unary.operator == "+" { value } else { -value };
                 // `format_js_number` renders both zeros as "0", so the signed
                 // zero a `-0` index folds to needs no separate branch.
-                Some(format_js_number(value))
+                Some(format_js_number(Self::unary_number_value(expr)?))
             }
             Expression::Literal(LiteralValue::String(s)) => Some(Self::normalize_string_literal(s)),
             Expression::Literal(LiteralValue::Number(n)) => Some(format_js_number(*n)),
+            _ => None,
+        }
+    }
+
+    /// The `f64` a `+`/`-` unary index denotes, when its source is a NUMBER
+    /// literal — directly, or through the parenthesized, sequence-last and
+    /// nested unary layers the readable set already admits.
+    ///
+    /// It exists so the unary arm never re-parses a RENDERED NAME. That is how
+    /// the arm used to work: it called `expression_to_property_name`
+    /// recursively and fed the resulting `String` to `str::parse::<f64>()`.
+    /// Rust's float parser accepts `inf`, `infinity` and `nan`
+    /// case-insensitively; JavaScript's `ToNumber` returns `NaN` for all three.
+    /// So `o[+"inf"]` folded to the name `Infinity` and read a real, wrong
+    /// property at exit 0 — register entry R-59's exact shape, measured at
+    /// `ff8567e7f4` against node v26.8.1: on `const o = {Infinity: 9, NaN: 7}`,
+    /// `o[+"inf"]` and `o[+"infinity"]` printed 9 where node prints 7.
+    ///
+    /// Carrying the NUMBER rather than its rendering also keeps the readable
+    /// set from shrinking anywhere else: `+1`, `-1`, `+1e21`, `+(1)`, `-(-1)`,
+    /// `+(0, 1)` and `-0` all still read their names, and `+1e400` still reads
+    /// `"Infinity"` because that IS its JavaScript value — which is why the
+    /// correction is a narrowing of the SOURCE and not an `is_finite` guard on
+    /// the result.
+    ///
+    /// A string spelling now returns `None`, the access keeps no name, and the
+    /// shared E5506 gate refuses it in both twins.
+    fn unary_number_value(expr: &Expression) -> Option<f64> {
+        match expr {
+            Expression::ParenthesizedExpression(parenthesized) => {
+                Self::unary_number_value(&parenthesized.expression)
+            }
+            Expression::SequenceExpression(sequence) => {
+                Self::unary_number_value(sequence.expressions.last()?)
+            }
+            Expression::UnaryExpression(unary)
+                if unary.operator == "+" || unary.operator == "-" =>
+            {
+                let value = Self::unary_number_value(&unary.argument)?;
+                Some(if unary.operator == "+" { value } else { -value })
+            }
+            Expression::Literal(LiteralValue::Number(n)) => Some(*n),
             _ => None,
         }
     }
