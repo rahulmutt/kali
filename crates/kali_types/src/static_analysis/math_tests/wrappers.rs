@@ -13,7 +13,7 @@ fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpe
                                 MemberExpression {
                                     computed_index: None,
                                     object: Expression::Identifier("Object".to_string()),
-                                    property: "hasOwn".to_string(),
+                                    property: Some("hasOwn".to_string()),
                                 },
                             ))),
                         },
@@ -40,7 +40,7 @@ fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpe
                                 MemberExpression {
                                     computed_index: None,
                                     object: Expression::Identifier("Math".to_string()),
-                                    property: "floor".to_string(),
+                                    property: Some("floor".to_string()),
                                 },
                             ))),
                         },
@@ -70,9 +70,9 @@ fn test_resolution_supports_global_this_math_builtin_slices_for_supported_method
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Math".to_string(),
+                        property: Some("Math".to_string()),
                     })),
-                    property: "min".to_string(),
+                    property: Some("min".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Number(3.0)),
@@ -88,9 +88,9 @@ fn test_resolution_supports_global_this_math_builtin_slices_for_supported_method
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Math".to_string(),
+                        property: Some("Math".to_string()),
                     })),
-                    property: "abs".to_string(),
+                    property: Some("abs".to_string()),
                 })),
                 args: vec![Expression::UnaryExpression(Box::new(
                     kali_ast::UnaryExpression {
@@ -107,9 +107,9 @@ fn test_resolution_supports_global_this_math_builtin_slices_for_supported_method
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Math".to_string(),
+                        property: Some("Math".to_string()),
                     })),
-                    property: "sign".to_string(),
+                    property: Some("sign".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(0.0))],
             }))),
@@ -134,9 +134,9 @@ fn test_resolution_supports_global_this_math_hypot_member_calls_with_empty_argum
                 object: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
-                    property: "Math".to_string(),
+                    property: Some("Math".to_string()),
                 })),
-                property: "hypot".to_string(),
+                property: Some("hypot".to_string()),
             })),
             args: vec![],
         }))),
@@ -150,12 +150,22 @@ fn test_resolution_supports_global_this_math_hypot_member_calls_with_empty_argum
     );
 }
 
+/// 2026-09-09 re-pin (computed-member-static-name Task 5): the mixed-root
+/// line read `globalThis[\"Math\"]` inside a RAW string, so the fixture's
+/// JavaScript carried literal backslashes and the lexer produced a bracket
+/// index of the identifier `unknown`. The old reading was clean only because
+/// the parser FABRICATED a property name for an index it could not read
+/// (register R-59); with the fabrication gone the access is a nameless
+/// computed member and the new checker gate refuses it. The new reading is
+/// the source the test always meant — `globalThis["Math"]` — which resolves
+/// as the mixed-root spelling with no diagnostics, so the assertion below is
+/// unchanged and now actually exercises what the test name claims.
 #[test]
 fn test_resolution_supports_frozen_math_expm1_and_log1p_identity_helpers_across_js_like_extensions()
 {
     let source = r#"const zero = 0;
 const frozenDotRoot = Object.freeze(globalThis.Math);
-const frozenMixedRoot = Object.freeze(globalThis[\"Math\"]);
+const frozenMixedRoot = Object.freeze(globalThis["Math"]);
 const frozenDirectRoot = Object.freeze(Math);
 frozenDotRoot.expm1(zero);
 frozenMixedRoot.expm1(zero);

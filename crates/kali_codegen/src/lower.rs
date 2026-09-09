@@ -4731,12 +4731,74 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
 /// only narrows it further when a taint is found. A field this scan cannot
 /// see at all is simply never added to the taint set.
 ///
-/// **T5 review Important 2 / T6 audit — WRITE-ROUTE INVENTORY, read before
-/// touching either this scan or any of the write routes below.** These are
-/// the source-language routes that can put a value into an admitted field:
+/// **T5 review Important 2 / T6 audit / computed-member-static-name Task 4
+/// follow-up — WRITE-ROUTE INVENTORY, read before touching either this scan
+/// or any of the write routes below.** These are the source-language routes
+/// that can put a value into an admitted field:
 ///   1. an object-literal declarator init — covered;
 ///   2. a static dot-field `=` write off a BARE IDENTIFIER — covered;
-///   3. a computed-key write `o["a"] = <expr>` — NOT covered;
+///   3. a computed-key write `o["a"] = <expr>` — **covered as of the
+///      computed-member-static-name plan's Task 4 follow-up, review round
+///      2 (its own Critical 1)**, for all three spellings a bracket store's
+///      key can take, each gated by a DIFFERENT mechanism today:
+///        - a PARSER-NAMED key (`o["a"] = v`, the index already a literal
+///          the parser reads statically): before Task 4's store choke
+///          point, EVERY bracket store the dot-field arm did not also
+///          match (which was every one, since that arm only ever matched a
+///          1-child target) fell through `emit_assignment` untouched and
+///          the caller silently dropped it — this route could never
+///          actually land a value, which is why this scan could safely
+///          leave it unwalked before. Task 4 gave a named bracket store its
+///          own arm in `emit/literal.rs`'s store choke point, reusing the
+///          same `try_emit_shaped_field_store` the dot arm uses, so the
+///          write now lands for real whenever a shape is found. Lowers to
+///          an ordinary `LirNodeKind::Value`, 2 children (base, index),
+///          text already the field name — walked by the `Value` branch
+///          below, which extracts the exact field the same way the
+///          dot-field-write branch does;
+///        - a `const`-FOLDED key (`const k = "a"; o[k] = v`): the fold that
+///          resolves `k` to `"a"` happens in codegen
+///          (`static_member_name`/Task 4's new arm), which for THIS
+///          spelling never even runs today — `kali_types::resolve`'s own
+///          checker gate on a computed key that is not a `for..in` key over
+///          the same object refuses the program before codegen starts, so
+///          this write cannot land YET. That gate is exactly what Task 5's
+///          `gate_nameless_computed_member` replaces, to ADMIT a
+///          `const`-folded key — the project's headline feature — so this
+///          spelling is refused upstream ONLY UNTIL Task 5 lands, not
+///          permanently. It lowers to `LirNodeKind::ComputedMember` (the
+///          parser declines a bare identifier index regardless of
+///          `const`/`let`, per spec §4.1 — the const/let distinction is
+///          invisible below the fold, which runs later), which the `Value`
+///          branch's structural guard does not match at all. Walked
+///          separately, and conservatively (every field of the shape
+///          tainted, not just the one the fold would name), because this
+///          scan is a free function with no binding table and cannot
+///          itself resolve which field a fold names;
+///        - a plain VARIABLE key that is not `const`-foldable (`let k =
+///          "a"; o[k] = v`): refused by the same checker gate as the fold
+///          spelling ONLY WHEN `k` is not itself a `for..in` key over the
+///          SAME object — the gate's own message says so verbatim ("where
+///          the key is not a `for..in` key over `obj`",
+///          `kali_types/src/resolve/expression.rs`). A `for..in` key over
+///          the same object (`for (let c in obj) { obj[c] = v; }`) is
+///          ADMITTED by that gate and is a live, already-working write
+///          route today, structurally distinct from this route 3 —
+///          `emit/object.rs`'s `computed_forin_object_access`, reused by
+///          the existing for-in store arm in `emit/literal.rs`
+///          (`emit_object_field_write_dynamic`) — and is not itself
+///          enumerated anywhere in this numbered inventory (a pre-existing
+///          gap this entry does not fix). A genuinely arbitrary,
+///          non-for-in variable key stays refused even after Task 5 lands
+///          — Task 5 admits a `const`-folded key specifically (spec §4.4
+///          step 2's fold rule), not an arbitrary variable. No further
+///          coverage needed here for that non-for-in case, as long as that
+///          stays true.
+///          All three are gated somewhere; nothing here claims the checker
+///          gate is permanent for the fold spelling, and nothing here assumes
+///          it is the only gate — the point of walking the `ComputedMember`
+///          shape now is that this scan does not get to assume any upstream
+///          gate at all;
 ///   4. a dot-field write off a PARAMETER (e.g. an arrow-function body
 ///      `(x) => { x.a = <expr>; }`) — NOT covered. Params get their
 ///      `Repr::Object(shape)` via `ReprTable::set_param`, a DIFFERENT
@@ -4766,29 +4828,40 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
 ///      `soundness_bitwise_compound.rs`.
 ///
 /// Routes 1, 2, 6 and 7 all funnel through
-/// `taint_shape_fields_from_object_inflow` / the dot-field arm below; routes
-/// 3, 4 and 5 remain uncovered and are tripwired (see below).
+/// `taint_shape_fields_from_object_inflow` / the dot-field arm below. Route 3
+/// is covered by TWO sibling branches below it, one per LIR shape its two
+/// live spellings take: the parser-named `Value` shape (sharing the
+/// dot-field arm's field/base extraction, just at `children.len() == 2`
+/// instead of `1`, tainting the one resolved field) and the
+/// `LirNodeKind::ComputedMember` shape a `const`-fold or plain variable key
+/// lowers to (tainting every field of the shape, conservatively, since this
+/// scan cannot itself resolve which field a fold names). Routes 4 and 5
+/// remain uncovered and are tripwired (see below).
 ///
-/// Routes 3-5 do not produce a wrong VALUE today only because each of those
+/// Routes 4-5 do not produce a wrong VALUE today only because each of those
 /// WRITES is itself currently silently dropped (a pre-existing gap,
 /// independent of this scan and of bitwise entirely — reproduces with no
 /// bitwise op in the program at all) — the field genuinely keeps its
-/// original, scan-visible value. **The moment any of routes 3-5 starts
+/// original, scan-visible value. **The moment either of routes 4-5 starts
 /// actually storing**, this scan and `shape_field_is_proven_numeric` (which
-/// has the identical blind spot on the same three routes, for the STRING
-/// axis) both go unsound SILENTLY: a BigInt or string could reach an
-/// admitted `Repr::I64` field through one of them and this arm would
-/// `I32WrapI64` it. Do NOT implement routes 3-5 without extending this scan
-/// (and its float-axis analogue, if one is ever added — see the R-11 T5
-/// review's Important 1 note on the arrow-parameter-write route surfacing
-/// `E4201` through the SAME blind spot on the FLOAT axis) FIRST. Tripwire
-/// tests pin the current (write-dropped) behavior for routes 3 and 4 in
+/// has the identical blind spot on the same routes, for the STRING axis)
+/// both go unsound SILENTLY: a BigInt or string could reach an admitted
+/// `Repr::I64` field through one of them and this arm would `I32WrapI64` it.
+/// Do NOT implement routes 4-5 without extending this scan (and its
+/// float-axis analogue, if one is ever added — see the R-11 T5 review's
+/// Important 1 note on the arrow-parameter-write route surfacing `E4201`
+/// through the SAME blind spot on the FLOAT axis) FIRST. Tripwire tests pin
+/// the current (write-dropped) behavior for route 4 in
 /// `crates/kali_cli/tests/soundness_bitwise_compound.rs`
-/// (`bitwise_compound_tripwire_computed_key_write_not_covered_by_bigint_taint_scan`,
-/// `bitwise_compound_tripwire_arrow_parameter_write_not_covered_by_bigint_taint_scan`);
+/// (`bitwise_compound_tripwire_arrow_parameter_write_not_covered_by_bigint_taint_scan`);
 /// route 5 is separately denied by the for-of-over-object-array gate today,
 /// pinned by
 /// `bitwise_compound_tripwire_forof_element_write_not_covered_by_bigint_taint_scan`.
+/// Route 3's own former tripwire,
+/// `bitwise_compound_tripwire_computed_key_write_not_covered_by_bigint_taint_scan`,
+/// now measures the covered, fail-closed reading instead of the old silent
+/// one — see the case file's own re-pin (Task 7's, not this scan's, to make;
+/// this scan only had to make the reading honest).
 pub(crate) fn collect_bigint_tainted_shape_fields(
     lir: &LirProgram,
     repr_table: &kali_common::ReprTable,
@@ -5066,6 +5139,129 @@ fn collect_bigint_tainted_shape_fields_walk(
                                         0,
                                     ) {
                                         tainted.insert((shape, field.to_string()));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // computed-member-static-name Task 4 follow-up, route 3, the
+            // PARSER-NAMED spelling: a computed-key write (`o["a"] = rhs`)
+            // whose bracket index the parser already read statically, so
+            // the node carries the field name as its own `text` — the same
+            // base+field shape as the dot-field-write arm just above, but
+            // the target is the 2-child bracket form (base, index) rather
+            // than the 1-child dot form. The index child itself is not
+            // consulted here: its only job was resolving `field`, already
+            // done by the parser by the time this LIR shape exists. This
+            // branch covers ONLY this one spelling; the `const`-fold and
+            // plain-variable spellings lower to `LirNodeKind::ComputedMember`
+            // instead and are covered by the separate branch below this one
+            // (see the doc header's route-3 entry for why each spelling is
+            // gated where it is, and that the checker's upstream refusal on
+            // the other two spellings is temporary for the fold one).
+            if lhs_node.kind == LirNodeKind::Value
+                && lhs_node.children.len() == 2
+                && !is_binary_operator_text(lhs_node.text.as_deref().unwrap_or_default())
+            {
+                if let Some(field) = lhs_node.text.as_deref().filter(|t| !t.is_empty()) {
+                    let base = unwrap_transparent_value(nodes, lhs_node.children[0]);
+                    if let Some(base_node) = nodes.get(base.0 as usize) {
+                        if base_node.kind == LirNodeKind::Value && base_node.children.is_empty() {
+                            if let Some(base_name) = base_node.text.as_deref() {
+                                if let kali_common::Repr::Object(shape) =
+                                    repr_table.scalar(func, base_name)
+                                {
+                                    if !expr_is_provably_not_bigint(
+                                        nodes,
+                                        node.children[1],
+                                        func,
+                                        function_params,
+                                        call_args,
+                                        // Same as the dot-field arm: a
+                                        // bracket member target has no
+                                        // self-reference to admit here.
+                                        None,
+                                        0,
+                                    ) {
+                                        tainted.insert((shape, field.to_string()));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // computed-member-static-name Task 4 follow-up, route 3
+            // continued — review Critical 1: the CONST-FOLD spelling of a
+            // computed-key write (`const k = "a"; o[k] = rhs`) lowers to
+            // `LirNodeKind::ComputedMember`, not `Value` — Task 4's
+            // `store_target_node` (`emit/computed_member.rs`) only ever
+            // produces a `Value`-shaped CLONE inside the emitter; it never
+            // rewrites the program's own node, and that non-mutation is
+            // load-bearing (it is what keeps every other by-id consumer
+            // seeing the nameless kind and declining). This scan walks the
+            // raw, un-normalized LIR, so the branch above (which matches
+            // `LirNodeKind::Value`) never sees this shape at all, and as a
+            // free function with no binding table this scan cannot call
+            // `static_member_name` to learn WHICH field the fold names.
+            // Conservative default, same fail-toward-more-taint choice
+            // `taint_shape_fields_from_object_inflow` already makes for a
+            // `Partial`/unreadable inflow: taint EVERY field of the shape
+            // rather than none. This branch's structural guard (a 2-child
+            // `ComputedMember` over a `Repr::Object` base) cannot
+            // distinguish this route's own two live spellings (a
+            // `const`-fold, or a plain non-for-in variable) from a THIRD,
+            // unrelated write shape that lowers to the identical LIR
+            // structure: a `for..in` ORDINAL object write (`for (let c in
+            // obj) { obj[c] = v; }`), which the checker ADMITS (it is not
+            // refused at all) and which already has its own live, working
+            // lowering (`emit/object.rs`'s `computed_forin_object_access`,
+            // reused by `emit_object_field_write_dynamic` in
+            // `emit/literal.rs`) — that route is not "route 5" (this
+            // doc header's route 5 is a for..of/for..in ELEMENT DOT-FIELD
+            // write, a structurally distinct 1-child shape this 2-child
+            // branch can never match) and is not itself enumerated
+            // anywhere in this numbered inventory (a pre-existing gap,
+            // not fixed here). Over-tainting that live for-in route too is
+            // still the safe, fail-closed direction — accepted
+            // over-approximation, not a new hole: it can only cost a
+            // refusal on a bitwise compound assign that might otherwise
+            // have been admitted, never a missed taint.
+            //
+            // WHY THIS MUST BE WALKED NOW, NOT LEFT FOR TASK 5: today this
+            // exact spelling is refused further upstream by the checker's
+            // own for..in-only gate on a computed key
+            // (`kali_types::resolve::expression`'s direct-runtime-path
+            // refusal — see this function's own doc header). But Task 5's
+            // `gate_nameless_computed_member` is precisely what REPLACES
+            // that gate to admit a const-folded key — the project's
+            // headline feature. The moment it lands, this program reaches
+            // codegen for the first time and this scan needs to already
+            // cover it, so Task 5's implementer does not have to know about
+            // BigInt taint to avoid reopening this hole.
+            if lhs_node.kind == LirNodeKind::ComputedMember && lhs_node.children.len() == 2 {
+                let base = unwrap_transparent_value(nodes, lhs_node.children[0]);
+                if let Some(base_node) = nodes.get(base.0 as usize) {
+                    if base_node.kind == LirNodeKind::Value && base_node.children.is_empty() {
+                        if let Some(base_name) = base_node.text.as_deref() {
+                            if let kali_common::Repr::Object(shape) =
+                                repr_table.scalar(func, base_name)
+                            {
+                                if !expr_is_provably_not_bigint(
+                                    nodes,
+                                    node.children[1],
+                                    func,
+                                    function_params,
+                                    call_args,
+                                    None,
+                                    0,
+                                ) {
+                                    for (field_name, _) in repr_table.shape_fields(shape) {
+                                        tainted.insert((shape, field_name.clone()));
                                     }
                                 }
                             }
@@ -9092,3 +9288,7 @@ pub(crate) fn emit_literal(
 pub(crate) fn encode_string_handle(offset: u32, len: u32) -> i64 {
     (crate::STRING_HANDLE_TAG | ((offset as u64) << 32) | u64::from(len)) as i64
 }
+
+#[cfg(test)]
+#[path = "lower_tests.rs"]
+mod lower_tests;

@@ -1,6 +1,7 @@
 //! TypeContext struct definition, construction, configuration, and scope-management.
 
 use super::*;
+use std::collections::HashSet;
 
 /// Result of name resolution over a source file/module.
 #[derive(Debug, Clone)]
@@ -52,6 +53,18 @@ pub struct TypeContext {
     /// is not pushed, see `resolve_export_default`; deferred) — before reaching
     /// the scope that `current_function_name()` actually names.
     pub(crate) current_function_scopes: Vec<NodeId>,
+    /// Every `(enclosing function scope, name)` a USER binding has already
+    /// declared. Exists only to spot the second declaration; filled by
+    /// `note_fold_shadow_name` from the two binding chokes. A `HashSet`
+    /// rather than the file's usual `BTreeSet` only because `NodeId` is not
+    /// `Ord`; it is never iterated, so nothing depends on its order.
+    pub(crate) declared_binding_names: HashSet<(Option<NodeId>, String)>,
+    /// `(enclosing function scope, name)` declared MORE THAN ONCE in the same
+    /// function — the poison set for the computed-member fold
+    /// (`const_index_name`). The repr-inference twin is
+    /// `ReprInfer::shadowed_index_names`; both passes must decline together
+    /// or `check` admits a fold `run` resolves to a different binding.
+    pub(crate) shadowed_index_names: HashSet<(Option<NodeId>, String)>,
 }
 
 impl Default for TypeContext {
@@ -94,6 +107,8 @@ impl TypeContext {
             repr_table: kali_common::ReprTable::default(),
             current_function: vec!["_start".to_string()],
             current_function_scopes: Vec::new(),
+            declared_binding_names: HashSet::new(),
+            shadowed_index_names: HashSet::new(),
         }
     }
 
@@ -323,8 +338,35 @@ impl TypeContext {
         true
     }
 
+    /// Record a USER binding's name against the function that encloses it,
+    /// and poison it for the computed-member fold if this is the second
+    /// declaration of that name in that function (Task 6 review follow-up).
+    ///
+    /// Both checker passes fold a computed index through a table that cannot
+    /// express shadowing — this one is scope-precise but is consulted from a
+    /// single-pass walk, `repr_infer`'s is flat and last-write-wins, and
+    /// codegen's `bindings` map is flat per `FunctionEmitter`. A name
+    /// declared twice in one function is therefore ambiguous the moment the
+    /// second declaration is walked, and does not fold from that point on.
+    /// See `ReprInfer::note_abort_shadow_name` for the full rationale and
+    /// the measured symptom; the two passes must decline in lockstep, since
+    /// a gate that admits what `repr_infer` declines leaves the store with
+    /// no materialization evidence and makes `check` disagree with `run`.
+    ///
+    /// Over-poisoning is cheap and fail-closed: only a `const` with a string
+    /// or number literal initializer ever has a `const_index_names` entry to
+    /// lose, so poisoning any other repeated name (two `for (let i …)` loops
+    /// in one function, say) removes nothing.
+    fn note_fold_shadow_name(&mut self, name: &str) {
+        let key = (self.current_function_scope(), name.to_string());
+        if !self.declared_binding_names.insert(key.clone()) {
+            self.shadowed_index_names.insert(key);
+        }
+    }
+
     pub(crate) fn bind_current_scope(&mut self, name: impl Into<String>) {
         let name = name.into();
+        self.note_fold_shadow_name(&name);
         if self.reject_builtin_array_shadow(&name) {
             return;
         }
@@ -350,6 +392,7 @@ impl TypeContext {
 
     pub(crate) fn bind_in_scope(&mut self, scope_id: NodeId, name: impl Into<String>) {
         let name = name.into();
+        self.note_fold_shadow_name(&name);
         if self.reject_builtin_array_shadow(&name) {
             return;
         }

@@ -333,7 +333,7 @@ fn push_scan_expr(expr: &Expression, name: &str) -> bool {
             // THE match: `<name>.push(...)` (paren-stripped receiver).
             if let Expression::MemberExpression(member) = strip_parens(&call.callee) {
                 if member.computed_index.is_none()
-                    && member.property == "push"
+                    && member.dot_name() == Some("push")
                     && matches!(strip_parens(&member.object),
                         Expression::Identifier(object) if object == name)
                 {
@@ -511,7 +511,7 @@ fn strip_parens_and_optional(expr: &Expression) -> &Expression {
 /// `f().push(..)`) is not a bare-binding push and returns `None`.
 fn push_receiver_base(call: &kali_ast::CallExpression) -> Option<&str> {
     if let Expression::MemberExpression(member) = strip_parens(&call.callee) {
-        if member.property == "push" {
+        if member.static_name() == Some("push") {
             if let Expression::Identifier(name) = strip_parens_and_optional(&member.object) {
                 return Some(name);
             }
@@ -730,11 +730,11 @@ impl Scan {
                     if let Expression::MemberExpression(member) = strip_parens(&call.callee) {
                         if member.computed_index.is_none() {
                             if let Expression::Identifier(name) = strip_parens(&member.object) {
-                                match member.property.as_str() {
+                                match member.dot_name() {
                                     // `x.push(v)` — safe receiver iff exactly
                                     // one scalar- or string-literal-shaped
                                     // argument (Task 3: string elements).
-                                    "push"
+                                    Some("push")
                                         if call.args.len() == 1
                                             && push_argument_shape_ok(&call.args[0], true) =>
                                     {
@@ -761,7 +761,7 @@ impl Scan {
                                     // instead of enumerating inapplicable
                                     // positions. Arguments are still scanned
                                     // normally.
-                                    "push" => {
+                                    Some("push") => {
                                         self.malformed_push_receivers.insert(name.clone());
                                         for arg in &call.args {
                                             self.expr(arg, nested);
@@ -770,7 +770,7 @@ impl Scan {
                                     }
                                     // `x.join(sep)` — safe receiver (Task 5
                                     // lowers; E5506 until then).
-                                    "join" if call.args.len() <= 1 => {
+                                    Some("join") if call.args.len() <= 1 => {
                                         for arg in &call.args {
                                             self.expr(arg, nested);
                                         }
@@ -804,7 +804,10 @@ impl Scan {
                         }
                         // `x.length` read, or `x[0]` parsed with the index
                         // stringified into `property`.
-                        if member.property == "length" || member.property.parse::<u64>().is_ok() {
+                        if member
+                            .static_name()
+                            .is_some_and(|name| name == "length" || name.parse::<u64>().is_ok())
+                        {
                             return;
                         }
                         // Any other dot member (`x.pop`, `x.map`, …) — not in

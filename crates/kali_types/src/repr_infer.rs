@@ -51,7 +51,7 @@ fn expr_is_process_argv(expr: &Expression) -> bool {
     let Expression::MemberExpression(member) = expr else {
         return false;
     };
-    if member.computed_index.is_some() || member.property.as_str() != "argv" {
+    if member.computed_index.is_some() || member.dot_name() != Some("argv") {
         return false;
     }
     expr_is_process_root(&member.object)
@@ -62,7 +62,7 @@ fn expr_is_process_root(expr: &Expression) -> bool {
         Expression::Identifier(name) => name == "process",
         Expression::MemberExpression(member) => {
             member.computed_index.is_none()
-                && member.property.as_str() == "process"
+                && member.dot_name() == Some("process")
                 && matches!(&member.object, Expression::Identifier(root) if root == "globalThis")
         }
         _ => false,
@@ -619,6 +619,21 @@ struct ReprInfer {
     /// object_shape_of_node(right).is_some()` check fires (closing the p2a
     /// fail-open) instead of silently falling through to a scalar compare.
     obj_identity_compared: Vec<ObjSlot>,
+    /// `(func, binding)` → the property name a `const`'s string/number
+    /// literal initializer denotes; the computed-member fold's lookup table
+    /// for this pass (`static_analysis::computed_member`).
+    const_index_names: BTreeMap<(String, String), String>,
+    /// Every `(func, name)` this walk has already seen DECLARED, in any
+    /// binding form. Exists only to spot the second declaration; see
+    /// `note_abort_shadow_name`, which is the one frontier that fills it.
+    declared_names: BTreeSet<(String, String)>,
+    /// `(func, name)` declared MORE THAN ONCE in the same function — the
+    /// poison set for `const_index_names`. `const_index_names` is flat and
+    /// last-write-wins, so a shadowed name's entry may belong to a binding
+    /// that is not the one in scope at the use; such a name does not fold.
+    /// The resolver's twin is `TypeContext::shadowed_index_names`, and the
+    /// two must decline together or `check` and `run` disagree.
+    shadowed_index_names: BTreeSet<(String, String)>,
     /// Deferred member accesses (wired in `resolve_objects`).
     obj_accesses: Vec<ObjAccess>,
     /// Per-(slot, field) storage node, unioned across aliased slots.
@@ -1990,6 +2005,29 @@ impl ReprInfer {
         }
     }
 
+    /// The static property name of a member — the parser's (`o.b`, `o["b"]`)
+    /// or the `const` fold's (`const k = "b"; o[k]`) — or `None` for an index
+    /// that must be evaluated.
+    fn static_member_field(
+        &self,
+        func: &str,
+        member: &kali_ast::MemberExpression,
+    ) -> Option<String> {
+        if let Some(name) = member.static_name() {
+            return Some(name.to_string());
+        }
+        let index = member.computed_index.as_deref()?;
+        crate::static_analysis::computed_member::fold_nameless_computed_index(index, |name| {
+            let key = (func.to_string(), name.to_string());
+            if self.shadowed_index_names.contains(&key) {
+                // Declared twice in this function: the flat table cannot say
+                // WHICH binding this use sees, so it does not fold.
+                return None;
+            }
+            self.const_index_names.get(&key).cloned()
+        })
+    }
+
     // ---- Phase A: signature collection ---------------------------------
 
     fn collect_functions(&mut self, statements: &[Statement]) {
@@ -2508,7 +2546,39 @@ impl ReprInfer {
     // construction. INVARIANT: the shadow frontier must cover every
     // position the seeding walk reaches — enforced here by literally being
     // the same code, not by manually mirroring it.
-    fn note_abort_shadow_name(&mut self, name: &str) {
+    fn note_abort_shadow_name(&mut self, func: &str, name: &str) {
+        // Follow-up fix (Task 6 review): this is also the ONE declared-name
+        // frontier the computed-member fold's `const_index_names` needs.
+        // That table is flat — `visit_block` recurses with the same `func`,
+        // so every block-scoped declaration of one name collapses onto the
+        // same `(func, binding)` key and the last `insert` wins. A shadow
+        // therefore made an OUTER `o[k]` fold to an INNER binding's literal:
+        // `const k = "b"; const o = {a:1,b:2}; if (true) { const k = "a"; }`
+        // stored to, and read, field `a` — R-59's defining symptom
+        // (a fabricated name hitting a real property) re-introduced by our
+        // own fold. Poisoning the key is the fix: a name declared twice in
+        // one function does not fold, in either checker pass (the resolver's
+        // twin is `TypeContext::note_fold_shadow_name`). Recorded HERE, at
+        // the same frontier the abort/URL/encoder guards use, so the poison
+        // cannot miss a declaration position the seeding walk reaches —
+        // including a `switch` case body and a nested fn-expr/arrow body.
+        //
+        // ORDER: the poison is recorded as the walk reaches each
+        // declaration, and `static_member_field` consults it at the use. A
+        // use walked BEFORE any second declaration still folds — soundly:
+        // every flat table in the compiler (this one and codegen's
+        // per-`FunctionEmitter` `bindings`) is last-write-wins in the same
+        // source order, so at that point they all hold the one binding that
+        // is in scope. It is only a use walked AFTER a second declaration
+        // whose tables may disagree with JS scoping, and that is exactly
+        // what declines.
+        if !self
+            .declared_names
+            .insert((func.to_string(), name.to_string()))
+        {
+            self.shadowed_index_names
+                .insert((func.to_string(), name.to_string()));
+        }
         if name == "AbortController" || name == "AbortSignal" {
             self.abort_controller_shadowed = true;
         }
@@ -2590,9 +2660,14 @@ impl ReprInfer {
                 // shares this exact traversal with the seeding walk. A
                 // parameter name shadows for the ENTIRE body, exactly like a
                 // declarator (fix-round: params were previously un-noted).
-                self.note_abort_shadow_name(&decl.name);
+                self.note_abort_shadow_name(func, &decl.name);
                 for param in &decl.params {
-                    self.note_abort_shadow_name(param);
+                    // A parameter is declared in the function's OWN scope, so
+                    // it is keyed under `decl.name`, not the enclosing `func`
+                    // — the same keying `visit_declarator_init` uses inside
+                    // the body, and the same one the resolver's twin gets
+                    // from `current_function_scope()`.
+                    self.note_abort_shadow_name(&decl.name, param);
                 }
                 // Walk the body under the function's own name.
                 self.visit_block(&decl.name, &decl.body);
@@ -2600,13 +2675,13 @@ impl ReprInfer {
             Statement::ClassDeclaration(decl) => {
                 // P3 Task 2 shadow guard only — repr_infer otherwise does not
                 // model class bodies (pre-existing, out of this task's scope).
-                self.note_abort_shadow_name(&decl.name);
+                self.note_abort_shadow_name(func, &decl.name);
             }
             Statement::VariableDeclaration(decl) => {
                 for d in &decl.declarations {
                     // P3 Task 2 shadow guard: every declarator name, even one
                     // with no initializer (`let AbortController;`), can shadow.
-                    self.note_abort_shadow_name(&d.id);
+                    self.note_abort_shadow_name(func, &d.id);
                     // Round 3: every declarator is a WRITE against the numeric
                     // binding proof — including one with no initializer, whose
                     // value is `undefined` and which therefore taints.
@@ -2690,7 +2765,7 @@ impl ReprInfer {
                         ForInit::VariableDeclaration(decl) => {
                             for d in &decl.declarations {
                                 // P3 Task 2 shadow guard (see note above).
-                                self.note_abort_shadow_name(&d.id);
+                                self.note_abort_shadow_name(func, &d.id);
                                 // Round 3, same write accounting as a plain
                                 // declaration statement (see above).
                                 self.record_numeric_binding_write(
@@ -2747,7 +2822,7 @@ impl ReprInfer {
                 if let ForInLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
                         // P3 Task 2 shadow guard (see note above).
-                        self.note_abort_shadow_name(&d.id);
+                        self.note_abort_shadow_name(func, &d.id);
                         // Round 3: a `for..in` key is an ORDINAL that a string
                         // USE materializes into an interned STRING handle — the
                         // single most dangerous "looks like a plain I64" value
@@ -2806,7 +2881,7 @@ impl ReprInfer {
                 // P3 Task 2 shadow guard (see note above).
                 if let kali_ast::ForOfLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
-                        self.note_abort_shadow_name(&d.id);
+                        self.note_abort_shadow_name(func, &d.id);
                         // Round 3: a `for..of` element can be a string handle,
                         // an object pointer or a growable element — never a
                         // proven plain number. Taint.
@@ -2881,7 +2956,7 @@ impl ReprInfer {
                 self.visit_block(func, &stmt.block);
                 if let Some(handler) = &stmt.handler {
                     // P3 Task 2 shadow guard (see note above).
-                    self.note_abort_shadow_name(&handler.param);
+                    self.note_abort_shadow_name(func, &handler.param);
                     // Round 3: a caught value is whatever was thrown — never a
                     // proven plain number. Taint.
                     self.record_numeric_binding_write(func, &handler.param, None, false);
@@ -2902,6 +2977,14 @@ impl ReprInfer {
     /// node for `id`; everything else flows the init into `id`'s scalar node
     /// (`init -> id`).
     fn visit_declarator_init(&mut self, func: &str, kind: &str, id: &str, init: &Expression) {
+        if kind == "const" {
+            if let Some(name) =
+                crate::static_analysis::computed_member::fold_const_initializer(init)
+            {
+                self.const_index_names
+                    .insert((func.to_string(), id.to_string()), name);
+            }
+        }
         // P3 Task 2: `const c = new AbortController()` and the same-function
         // forward alias `const s = c.signal` are the only two admitted
         // AbortHandle-seeding shapes (applied in `emit_table`, gated by the
@@ -2928,7 +3011,7 @@ impl ReprInfer {
                 self.abort_controller_origin
                     .insert((func.to_string(), id.to_string()));
             } else if let Expression::MemberExpression(member) = init {
-                if member.computed_index.is_none() && member.property == "signal" {
+                if member.computed_index.is_none() && member.dot_name() == Some("signal") {
                     if let Expression::Identifier(base) = &member.object {
                         if self
                             .abort_controller_origin
@@ -2981,7 +3064,7 @@ impl ReprInfer {
                 self.event_bindings
                     .insert((func.to_string(), id.to_string()));
             } else if let Expression::MemberExpression(member) = init {
-                if member.computed_index.is_none() && member.property == "searchParams" {
+                if member.computed_index.is_none() && member.dot_name() == Some("searchParams") {
                     if let Expression::Identifier(base) = &member.object {
                         if self.url_origin.contains(&(func.to_string(), base.clone())) {
                             self.usp_bindings.insert((func.to_string(), id.to_string()));
@@ -2997,7 +3080,7 @@ impl ReprInfer {
         // reference resolves in this one pass (mirrors the `.searchParams`
         // alias arm); a cross-function base is never admitted.
         if let Expression::MemberExpression(member) = init {
-            if member.computed_index.is_none() && member.property.as_str() == "type" {
+            if member.computed_index.is_none() && member.dot_name() == Some("type") {
                 if let Expression::Identifier(base) = &member.object {
                     if self
                         .event_bindings
@@ -3144,7 +3227,7 @@ impl ReprInfer {
         let Expression::MemberExpression(member) = &call.callee else {
             return false;
         };
-        if member.computed_index.is_some() || member.property.as_str() != "encode" {
+        if member.computed_index.is_some() || member.dot_name() != Some("encode") {
             return false;
         }
         let Expression::Identifier(base) = &member.object else {
@@ -3689,9 +3772,9 @@ impl ReprInfer {
                     // walk (`visit_block(id, body)` just below) reaches
                     // unconditionally, so both must be noted before/alongside
                     // it, same one-traversal invariant as everywhere else.
-                    self.note_abort_shadow_name(id);
+                    self.note_abort_shadow_name(id, id);
                     for param in &f.params {
-                        self.note_abort_shadow_name(&param.name);
+                        self.note_abort_shadow_name(id, &param.name);
                     }
                     // F-AB-2 lockstep: record what walk 4 seeds (see
                     // `nested_fns_seeded`).
@@ -3708,8 +3791,9 @@ impl ReprInfer {
                 // have no source-level named-function-expression syntax), so
                 // it is never a user-authored name that could equal
                 // "AbortController"/"AbortSignal".
+                let arrow_scope = a.id.as_deref().unwrap_or(func);
                 for param in &a.params {
-                    self.note_abort_shadow_name(&param.name);
+                    self.note_abort_shadow_name(arrow_scope, &param.name);
                 }
                 if let Some(id) = a.id.as_deref() {
                     // F-AB-2 lockstep: record what walk 4 seeds (see
@@ -3740,7 +3824,7 @@ impl ReprInfer {
             // guard is already in place rather than being a new fail-open.
             Expression::ClassExpression(c) => {
                 if let Some(id) = c.id.as_deref() {
-                    self.note_abort_shadow_name(id);
+                    self.note_abort_shadow_name(id, id);
                 }
                 self.new_node()
             }
@@ -3925,6 +4009,18 @@ impl ReprInfer {
                     // `break` (outside the loop body). No-ops unless the RHS
                     // was seen as a `for..in` key somewhere in `func`.
                     self.seed_persisted_for_in_key_string_use(func, &assign.right);
+                    // Same as the read: a static-name bracket store is the
+                    // dot store `o.<name> = v` and records the write access
+                    // that materializes the object (follow-up item 2.3,
+                    // R-13's write lane).
+                    if let Some(field) = self.static_member_field(func, member) {
+                        self.obj_accesses.push(ObjAccess {
+                            base: ObjSlot::Binding(func.to_string(), name.clone()),
+                            field,
+                            other: rn,
+                            is_write: true,
+                        });
+                    }
                 } else {
                     self.visit_expr(func, &member.object);
                 }
@@ -3936,7 +4032,10 @@ impl ReprInfer {
             if let Some(base) = self.member_base_slot(func, &member.object) {
                 self.obj_accesses.push(ObjAccess {
                     base,
-                    field: member.property.clone(),
+                    field: member
+                        .dot_name()
+                        .expect("a non-computed member always carries its name (kali_ast::MemberExpression invariant)")
+                        .to_string(),
                     other: rn,
                     is_write: true,
                 });
@@ -4040,6 +4139,7 @@ impl ReprInfer {
                     return result;
                 }
             }
+            let static_field = self.static_member_field(func, member);
             if let Expression::Identifier(name) = &member.object {
                 let elem = self.array_elem_node_for(func, name);
                 let result = self.new_node();
@@ -4053,6 +4153,20 @@ impl ReprInfer {
                 // reads (`resolve_objects`) remain float-only and gated;
                 // fields are a separate, still-excluded axis.
                 self.add_edge(elem, result);
+                // A computed read with a static name is ALSO the dot read
+                // `o.<name>`: record the same deferred object access, so an
+                // object receiver wires the field's repr into the result and
+                // materializes on the same evidence. For an array receiver
+                // `resolve_objects` finds no fields and skips it, which is
+                // why both records can coexist (spec §4.4, checker).
+                if let Some(field) = static_field {
+                    self.obj_accesses.push(ObjAccess {
+                        base: ObjSlot::Binding(func.to_string(), name.clone()),
+                        field,
+                        other: result,
+                        is_write: false,
+                    });
+                }
                 return result;
             }
             self.visit_expr(func, &member.object);
@@ -4067,7 +4181,7 @@ impl ReprInfer {
         // propagation link pass-through callers. Other dot access carries no
         // array signal. Arrays that are also subscripted are already seeded, so
         // integer programs (whose arrays are always indexed) are unaffected.
-        if member.property.as_str() == "length" {
+        if member.static_name() == Some("length") {
             if let Expression::Identifier(name) = &member.object {
                 self.array_elem_node_for(func, name);
             }
@@ -4078,7 +4192,10 @@ impl ReprInfer {
             let result = self.new_node();
             self.obj_accesses.push(ObjAccess {
                 base,
-                field: member.property.as_str().to_string(),
+                field: member
+                    .dot_name()
+                    .expect("a non-computed member always carries its name (kali_ast::MemberExpression invariant)")
+                    .to_string(),
                 other: result,
                 is_write: false,
             });
@@ -4124,7 +4241,7 @@ impl ReprInfer {
             }
             return;
         }
-        if member.property.as_str() == "length" {
+        if member.static_name() == Some("length") {
             if let Expression::Identifier(name) = &member.object {
                 self.array_elem_node_for(func, name);
                 return;
@@ -4140,7 +4257,7 @@ impl ReprInfer {
         match &call.callee {
             // Method call: `obj.method(args)`.
             Expression::MemberExpression(member) if member.computed_index.is_none() => {
-                let method = member.property.as_str();
+                let method = member.dot_name().unwrap_or_default();
                 match method {
                     "sqrt" | "cbrt" if is_math_object(&member.object) => {
                         for arg in &call.args {
@@ -6457,13 +6574,13 @@ fn enumeration_namespace_root(expr: &Expression) -> Option<&str> {
     match strip_parenthesized(expr) {
         Expression::Identifier(name) if name == "Object" || name == "Reflect" => Some(name),
         Expression::MemberExpression(member)
-            if (member.property == "Object" || member.property == "Reflect")
+            if matches!(member.static_name(), Some("Object" | "Reflect"))
                 && matches!(
                     strip_parenthesized(&member.object),
                     Expression::Identifier(root) if root == "globalThis"
                 ) =>
         {
-            Some(&member.property)
+            member.static_name()
         }
         _ => None,
     }
@@ -6510,7 +6627,7 @@ fn for_of_string_items(rhs: &Expression) -> ForOfStringItems<'_> {
             let is_freeze_wrap = matches!(
                 strip_parenthesized(&inner.callee),
                 Expression::MemberExpression(freeze)
-                    if freeze.property == "freeze"
+                    if freeze.static_name() == Some("freeze")
                         && enumeration_namespace_root(&freeze.object) == Some("Object")
             ) && inner.args.len() == 1;
             if !is_freeze_wrap {
@@ -6525,10 +6642,12 @@ fn for_of_string_items(rhs: &Expression) -> ForOfStringItems<'_> {
     };
     match (
         enumeration_namespace_root(&member.object),
-        member.property.as_str(),
+        member.static_name(),
     ) {
-        (Some("Object"), "keys") | (Some("Reflect"), "ownKeys") => ForOfStringItems::Seed,
-        (Some("Object"), "values") if call.args.len() == 1 => {
+        (Some("Object"), Some("keys")) | (Some("Reflect"), Some("ownKeys")) => {
+            ForOfStringItems::Seed
+        }
+        (Some("Object"), Some("values")) if call.args.len() == 1 => {
             match strip_parenthesized(&call.args[0]) {
                 Expression::Literal(kali_ast::LiteralValue::String(_)) => ForOfStringItems::Seed,
                 // `"a" + x` is ALWAYS a string in JS (concat when either
@@ -6574,7 +6693,7 @@ fn is_crypto_subtle_object(expr: &Expression) -> bool {
         expr,
         Expression::MemberExpression(member)
             if member.computed_index.is_none()
-                && member.property.as_str() == "subtle"
+                && member.dot_name() == Some("subtle")
                 && is_crypto_object(&member.object)
     )
 }
@@ -6611,7 +6730,7 @@ fn text_encoder_encode_new(expr: &Expression) -> Option<&kali_ast::CallExpressio
     let Expression::MemberExpression(member) = &call.callee else {
         return None;
     };
-    if member.computed_index.is_some() || member.property.as_str() != "encode" {
+    if member.computed_index.is_some() || member.dot_name() != Some("encode") {
         return None;
     }
     if is_text_encoder_ctor(&member.object) {
@@ -6679,7 +6798,7 @@ fn text_decoder_decode_new(expr: &Expression) -> Option<&kali_ast::CallExpressio
     let Expression::MemberExpression(member) = &call.callee else {
         return None;
     };
-    if member.computed_index.is_some() || member.property.as_str() != "decode" {
+    if member.computed_index.is_some() || member.dot_name() != Some("decode") {
         return None;
     }
     if is_text_decoder_ctor(&member.object) {

@@ -769,11 +769,22 @@ impl Optimizer {
     /// for a key spelled with an ESCAPE SEQUENCE, which both sides carry
     /// undecoded and therefore still agree on (section 6 of
     /// docs/superpowers/followups/property-key-trim-site-classification.md),
-    /// and except for a COMPUTED index this phase cannot read statically, where
-    /// the member node's text is a FABRICATED name rather than `String(key)` --
-    /// register entry **R-59** (§2, Tier 2, filed 2026-09-08) -- so the
-    /// currency claim covers the index shapes `expression_to_property_name`
-    /// actually reads and no others.
+    /// and -- until 2026-09-09 -- except for a COMPUTED index this phase could
+    /// not read statically, where the member node's text was a FABRICATED name
+    /// rather than `String(key)`: register entry **R-59** (§2, Tier 2, filed
+    /// 2026-09-08, **RETIRED 2026-09-09 at `71b5f42f6c`** by the
+    /// computed-member-static-name project, with its last surviving shape --
+    /// the `+`/`-` unary arm re-parsing its own rendered name, which read
+    /// `o[+"inf"]` as `Infinity` where JavaScript's `ToNumber` yields `NaN` --
+    /// closed at `2c31e1d617`). **That exception is gone, and the
+    /// currency claim is now unqualified for every access that HAS a name.** A
+    /// computed access whose index the parser cannot read has none:
+    /// `expression_to_property_name` returns `Option<String>` and declines,
+    /// `MemberExpression.property` is `None`, and the node carries its own kind
+    /// (`LirNodeKind::ComputedMember`) below HIR, so it never reaches a
+    /// name-reading consumer -- this fold included -- and is refused at the
+    /// checker's gate or at codegen's single computed-member gateway instead.
+    /// The escape-sequence exception above is unaffected and still stands.
     /// So the comparisons below are direct. They used to strip quotes off both
     /// sides, which made `delete x.a` erase the unrelated own property `'"a"'`.
     fn apply_timeline_mutation(

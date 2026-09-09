@@ -172,6 +172,26 @@ impl Optimizer {
     /// `lower_property_name` and `expression_to_property_name` use it: one
     /// formatter is what makes the agreement structural rather than lucky.
     ///
+    /// **The one-currency claim is UNQUALIFIED as of 2026-09-09 (`71b5f42f6c`
+    /// for every shape but one, and `2c31e1d617` for the last: the `+`/`-`
+    /// unary arm re-parsed its own RENDERED NAME with Rust's
+    /// `str::parse::<f64>()`, which reads `inf`/`infinity`/`nan` where
+    /// JavaScript's `ToNumber` does not, so `o[+"inf"]` still fabricated
+    /// `Infinity` until that commit narrowed the arm to a number-literal
+    /// source), and it was not before.** Until the
+    /// computed-member-static-name project retired register entry **R-59**,
+    /// `expression_to_property_name` FABRICATED a property name for any
+    /// computed index it could not read statically, so a member node's text was
+    /// not always `String(key)` and every claim in this family had to be read
+    /// as "true of the shapes that function reads". It now returns
+    /// `Option<String>` and declines: a computed access whose index the parser
+    /// cannot read has NO name (`MemberExpression.property` is `None`, and the
+    /// node carries `LirNodeKind::ComputedMember` below HIR), and never reaches
+    /// a name-reading consumer -- it is refused at the checker's gate or at
+    /// codegen's single computed-member gateway. So the currency claim holds
+    /// for every computed access that has a name, which is now exactly the
+    /// accesses a name-reading consumer can see.
+    ///
     /// ONE known gap, pre-existing on the OTHER side and not closed here:
     /// `literal_value` decodes `\\`, `\"`, `\'` and `` \` `` (see
     /// `parse_string_literal`), while a source key slot's text does NOT --

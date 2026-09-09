@@ -32,6 +32,12 @@ pub struct Scope {
     /// cannot lower.
     pub static_string_typed: IndexMap<String, bool>,
     pub static_numeric_values: IndexMap<String, String>,
+    /// `const` declarators whose initializer is a string or number literal,
+    /// mapped to the property name that literal denotes — the only bindings
+    /// the computed-member fold admits (`static_analysis::computed_member`).
+    /// NOT invalidated on reassignment: a `const` cannot be reassigned, and a
+    /// `let`/`var` never enters this map.
+    pub const_index_names: IndexMap<String, String>,
     pub(crate) static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
     pub static_arrays: IndexMap<String, bool>,
     /// Names bound to an array *literal* (`x = ["a", "b"]`) — tracked for
@@ -99,6 +105,7 @@ impl Scope {
             static_values: IndexMap::new(),
             static_string_typed: IndexMap::new(),
             static_numeric_values: IndexMap::new(),
+            const_index_names: IndexMap::new(),
             static_identity_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
             array_literal_bindings: IndexMap::new(),

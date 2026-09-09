@@ -1345,35 +1345,51 @@ name = "r12_alias_defeats_array_store_guard_module_scope"
 kind = "oracle"
 register_entry = "R-12"
 program = "r12_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-12, module scope. §2's `Repro` (`scratchpad/consolidate/al.js`) with its `function f(){ … } f();` wrapper removed and nothing else changed -- the mirror image of the wrapping used elsewhere in this file, because the register states this repro in-function. The alias `const b=a` is the whole point of the entry: it is the single interposed binding that turns a refused store into a silent one.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2's `Correction 2026-07-25` records the aliased form as "silent in **both** scopes (module `1`, in-function `1`; node `7`)", and §0.2's row reads "R-12 alias defeats array-store guard | **SILENT** | both scopes". SILENT.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `b0=1` at exit 0 with empty stderr; node prints `b0=7` at exit 0. The store still vanishes, and the read-back through the alias still reports the pre-store value.
 
-CAREFUL READING OF WHAT THE MODULE SCOPE PROVES. As of `61c2d48ea9` the register's own correction says the un-aliased control is ALSO silent at module scope, so at this scope "the alias defeats a guard" is not the right description -- there is no guard here to defeat, and this case measures the silent store rather than the aliasing mechanism. The mechanism claim belongs to the in-function case, where the un-aliased control does fail closed. This case does not assert it."""
+CAREFUL READING OF WHAT THE MODULE SCOPE PROVES. As of `61c2d48ea9` the register's own correction says the un-aliased control is ALSO silent at module scope, so at this scope "the alias defeats a guard" is not the right description -- there is no guard here to defeat, and this case measures the silent store rather than the aliasing mechanism. The mechanism claim belongs to the in-function case, where the un-aliased control does fail closed. This case does not assert it.
+
+RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and
+
+  error[E5506]: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the receiver is a runtime array or a `for..in` key over the same object
+
+on stderr; node prints `b0=7` at exit 0. The store no longer vanishes -- the silent `b0=1` this case recorded is gone.
+
+MOVED BY A PROJECT THAT DOES NOT NAME R-12. The computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md) put a choke point on every bracket STORE: a store whose target is not an admitted lane refuses instead of falling out of the store arms. `b` is an alias of an array literal, which is not an admitted store lane, so the store now refuses. The un-aliased spelling `const a=[1,2]; a[0]=7;` refuses too, with the neighbouring `mutating a literal array` message -- so the two forms have converged on refusing, from opposite directions.
+
+FAIL_CLOSED IS A REAL IMPROVEMENT HERE AND ALSO LEAVES THE ENTRY OPEN. node's `b0=7` is still not produced; what changed is that kali no longer produces a plausible wrong number at exit 0. Whoever re-derives section 0.2's R-12 row must record FAIL_CLOSED rather than reading this as closed.
+
+A TWIN DISAGREEMENT SITS ON THIS PROGRAM AND IS NOT MEASURED BY THIS CASE. `kali check` on the same program exits 0 (`Checked 1 file(s)`) at `3ef65ef785` while `kali run` refuses. The oracle harness observes `run` only, so this case cannot see it; it is recorded in object/computed_member_static_name.toml and reported to the controller as a spec section 8 defect.
+"""
 
 [[case]]
 name = "r12_alias_defeats_array_store_guard_in_function"
 kind = "oracle"
 register_entry = "R-12"
 program = "r12_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-12, in-function scope. §2's `Repro` (`scratchpad/consolidate/al.js`) verbatim, wrapper and all -- the scope the register states it in, and the scope its `CONFIRMED-BY-CONTROLLER` verification covers.
 
 Expected verdict set from the register's recorded status: SILENT -- §2 records node `b0=7` against kali `b0=1` at exit 0.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `b0=1` at exit 0 with empty stderr; node prints `b0=7` at exit 0.
 
-This is the scope where the entry's headline claim is measurable, because as of `61c2d48ea9` the register records the un-aliased in-function control failing CLOSED with `error[E5506]: mutating a literal array is unavailable …` for `const`, `let` and `var` alike. That control is a DIFFERENT program and is not measured by this case; what this case establishes is that the aliased form is silent, which is the half of the comparison that belongs in a silent-miscompile ranking."""
+This is the scope where the entry's headline claim is measurable, because as of `61c2d48ea9` the register records the un-aliased in-function control failing CLOSED with `error[E5506]: mutating a literal array is unavailable …` for `const`, `let` and `var` alike. That control is a DIFFERENT program and is not measured by this case; what this case establishes is that the aliased form is silent, which is the half of the comparison that belongs in a silent-miscompile ranking.
+
+RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and the shared computed-member E5506 on stderr; node prints `b0=7` at exit 0 -- byte-identical to the module scope. Moved by the computed-member-static-name project's bracket-store choke point, for the reason set out on the module-scope case above; the same twin disagreement (`kali check` clean, `kali run` refusing) applies here and is likewise not observable through the oracle harness. The verdict was flipped only after this reading.
+"""
 
 [[case]]
 name = "r13r_computed_variable_key_read_module_scope"
 kind = "oracle"
 register_entry = "R-13"
 program = "r13r_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-13, READ lane, module scope. §2's "Read repro" verbatim -- the register names `o10_computed_top.js` as its top-level fixture and `o06_computed.js` as its in-function one for the same line, so this program is stated at this scope.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `v=2` against kali `v=0` at exit 0, and §0.2's row reads "R-13 computed var-key get/set | **SILENT** | read ->0, write vanishes; literal-key control correct". SILENT.
@@ -1382,26 +1398,32 @@ RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -
 
 R-13 IS ONE OF THE THREE FRONTIER CANDIDATES §0.1's amendment named (with R-10 and R-14), so this verdict carries weight in the final ranking. The sibling `oracle/classifier_ground_truth.toml` also measures this entry, on §0.2's `var`/`o[k]` spelling of the same read (`silent.js`, kali `read=0` vs node `read=1`); this case takes §2's own `const` spelling and adds the scope coverage that file explicitly leaves to the tier files.
 
-This case measures the READ half. R-13's write half is a different program and has its own pair of cases below."""
+This case measures the READ half. R-13's write half is a different program and has its own pair of cases below.
+
+RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FIXED (was SILENT). kali prints `v=2` at exit 0 with empty stderr; node prints `v=2` at exit 0. Closed by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md): `k` is a `const` with a string-literal initializer, so the index folds to "b" and the read is `o.b`. The verdict was flipped only after this reading.
+"""
 
 [[case]]
 name = "r13r_computed_variable_key_read_in_function"
 kind = "oracle"
 register_entry = "R-13"
 program = "r13r_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-13, READ lane, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-13 records `Verification: sweep-only (both scopes)` and `Scopes affected: both`, and names `o06_computed.js` as the in-function fixture for this same line.
 
-RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `v=0` at exit 0; node prints `v=2` at exit 0. Identical to the module scope."""
+RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `v=0` at exit 0; node prints `v=2` at exit 0. Identical to the module scope.
+
+RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FIXED (was SILENT). kali prints `v=2` at exit 0 with empty stderr; node prints `v=2` at exit 0 -- byte-identical to the module scope, so the fold is scope-independent as the mechanism predicts (a `const` declarator in the same scope as the use). Closed by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md). The verdict was flipped only after this reading.
+"""
 
 [[case]]
 name = "r13w_computed_variable_key_write_module_scope"
 kind = "oracle"
 register_entry = "R-13"
 program = "r13w_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-13, WRITE lane, module scope. §2's "Write repro" verbatim (`o12_computed_write.js`, `o15_computed_write_top.js`): a store through a variable-held computed key, read back through the DOT lane.
 
 THE `.b` READ-BACK IS LOAD-BEARING AND IS KEPT. As of `61c2d48ea9` the register says why in as many words: "the read-back uses `.b`, a lane known good." Reading back through `o[k]` would have confounded the write half with the read half -- the value would be `0` either way -- and the case would no longer observe whether the STORE happened. It also produces the exact shape the entry calls dangerous: `dot=2` is the ORIGINAL field value, so the program looks internally consistent while having silently discarded the write.
@@ -1410,19 +1432,27 @@ Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `dot=2` at exit 0 with empty stderr; node prints `dot=8` at exit 0. The store still vanishes.
 
-WHY THIS LANE HAS ITS OWN CASE. §0.2 gives R-13 a single class, so a reader might expect one pair of cases. But §2 states the read and the write as two separately named fixtures over two different programs, and the entry's own blast-radius note ranks them differently: "The write half is worse than the read half because the read-back path is correct." One case cannot measure two programs, and a file that measured only the read would have recorded a verdict for the half the register calls the milder one."""
+WHY THIS LANE HAS ITS OWN CASE. §0.2 gives R-13 a single class, so a reader might expect one pair of cases. But §2 states the read and the write as two separately named fixtures over two different programs, and the entry's own blast-radius note ranks them differently: "The write half is worse than the read half because the read-back path is correct." One case cannot measure two programs, and a file that measured only the read would have recorded a verdict for the half the register calls the milder one.
+
+RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FIXED (was SILENT). kali prints `dot=8` at exit 0 with empty stderr; node prints `dot=8` at exit 0. Closed by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md): the folded store target takes the dot-store arm, and the checker records the write access that materializes `o`, so the `.b` read-back -- the load-bearing half this rationale defends above -- now reports the stored value. The verdict was flipped only after this reading.
+
+THIS IS THE HALF THE ENTRY CALLS THE WORSE ONE. The register's own blast-radius note ranks the write above the read because the read-back path was correct while the store vanished; that is the shape this case measured from 2026-08-15 to 2026-09-08, and it is now gone.
+"""
 
 [[case]]
 name = "r13w_computed_variable_key_write_in_function"
 kind = "oracle"
 register_entry = "R-13"
 program = "r13w_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-13, WRITE lane, in-function scope. The module-scope repro verbatim -- `.b` read-back included -- inside `function main() { … }` with a trailing `main();`.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope. §2 names both an in-function and a top-level fixture for this repro but records one pair of values for both, so the expected class was set on the assumption that the scopes agree, precisely so a disagreement would show up as a red case rather than as an unmeasured gap.
 
-RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `dot=2` at exit 0; node prints `dot=8` at exit 0. Identical to the module scope, which CONFIRMS rather than adds to the register: as of `61c2d48ea9`, §2's R-13 already records `Scopes affected: both` and names an in-function fixture (`o12_computed_write.js`) alongside the top-level one (`o15_computed_write_top.js`) for this same repro. R-15 is the only entry in the R-06..R-17 pass for which the scopes agreeing is a genuinely NEW observation."""
+RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `dot=2` at exit 0; node prints `dot=8` at exit 0. Identical to the module scope, which CONFIRMS rather than adds to the register: as of `61c2d48ea9`, §2's R-13 already records `Scopes affected: both` and names an in-function fixture (`o12_computed_write.js`) alongside the top-level one (`o15_computed_write_top.js`) for this same repro. R-15 is the only entry in the R-06..R-17 pass for which the scopes agreeing is a genuinely NEW observation.
+
+RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FIXED (was SILENT). kali prints `dot=8` at exit 0 with empty stderr; node prints `dot=8` at exit 0 -- byte-identical to the module scope, which is what the register's `Scopes affected: both` predicted. Closed by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md). The verdict was flipped only after this reading.
+"""
 
 [[case]]
 name = "r14_returned_array_reads_zeros_module_scope"
@@ -2449,7 +2479,7 @@ name = "r59a_computed_index_fabricated_into_a_property_name_module_scope"
 kind = "oracle"
 register_entry = "R-59"
 program = "r59a_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = '''
 R-59, the whole entry (one lane), module scope. Section 2's headline `Repro` verbatim -- an object literal declaring the two properties `index` and `i`, a `let` binding named `i` holding `1`, and two computed member reads whose index expressions this parser cannot read statically.
 
@@ -2466,6 +2496,14 @@ Expected verdict set from the register's recorded status: section 0.2's R-59 row
 MEASURED 2026-09-08 at `35e9ef4ef6` (the tree the binary was built from) against node v26.8.1: SILENT, as recorded. kali prints `7`, `9` at exit 0 with empty stderr (0 bytes, measured); node prints `undefined`, `undefined` at exit 0. Both lines diverge.
 
 WHAT A REGRESSION HERE WOULD MEAN. If `expression_to_property_name` learns to decline -- returning `Option<String>`, with both member-parse sites recording the absence -- these reads stop resolving to a static field and this case moves off SILENT, which is the signal to re-derive the row. WHICH class it moves to is the thing to read, and it is not automatically good news: if the failed static read still emits a placeholder, the lines become `0` and `0`, the case stays SILENT and green, and the entry has moved into R-13's shape rather than closing. Only a case that turns FIXED (`undefined`, `undefined`) or FAIL_CLOSED closes R-59. A fix that merely makes the fabricated name unlikely to COLLIDE -- a reserved prefix or a sigil -- would turn this program's output into `0`, `0` and must not be read as progress; section 2's Fix direction names it as the thing not to do.
+
+RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and TWO copies of
+
+  error[E5506]: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the receiver is a runtime array or a `for..in` key over the same object
+
+on stderr -- one per line, so both fabrication arms are refused, not just the one -- while node prints `undefined`, `undefined` at exit 0. Closed by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md): `expression_to_property_name` now returns `Option<String>` and declines every index shape it cannot read statically, a nameless computed member has its own node kind below HIR, and the codegen read gateway and its checker twin refuse it with one shared message. `let i = 1` is not a `const` with a literal initializer, so nothing folds, and `i + 0` is not in the parser's readable set.
+
+FAIL_CLOSED IS ONE OF THE TWO OUTCOMES THIS CASE'S OWN "WHAT A REGRESSION HERE WOULD MEAN" PARAGRAPH NAMES AS CLOSING R-59 -- the other being FIXED (`undefined`, `undefined`). The outcome that paragraph warns against did NOT happen: the lines did not become `0`, `0`, which would have kept the case SILENT and green while moving the entry into R-13's shape rather than closing it. Measured, not inferred: stdout is empty and the exit code is 1. The verdict was flipped only after this reading.
 '''
 
 [[case]]
@@ -2473,7 +2511,7 @@ name = "r59a_computed_index_fabricated_into_a_property_name_in_function"
 kind = "oracle"
 register_entry = "R-59"
 program = "r59a_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = '''
 R-59, the whole entry (one lane), in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
 
@@ -2482,6 +2520,16 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 MEASURED 2026-09-08 at `35e9ef4ef6` against node v26.8.1: SILENT, as recorded. kali prints `7`, `9` at exit 0 with empty stderr; node prints `undefined`, `undefined` at exit 0. Byte-identical to the module scope.
 
 THE FOUR SHAPES THAT AGREE ARE NOT PINNED BY THIS PAIR AND WERE MEASURED BY HAND at `35e9ef4ef6` against node v26.8.1, in both scopes, over `const o = {1: "one", 2: "two"}`. `o[(1)]`, `o[(0, 1)]` and `o[+1]` each print `one` on both engines -- the parenthesized arm recurses, the sequence arm takes its last element, and the `+`/`-` unary arm parses the recursive result as an `f64` and succeeds -- and `o[-1]` reads the CORRECT name `-1`, a property `o` does not have. Those four are why this entry's blast-radius matcher is narrower than R-13's, which counts all of them: they are a working lane, and counting them as this defect would be counting sites that agree with node. The `new Array(n)` receiver is the other working lane -- `const a = new Array(3); for (let i = 0; i < 3; i++) { a[i] = i * 2; }` then reading `a[i]` prints `0 2 4` on both engines, because that lane evaluates the member node's structured index child instead of its fabricated text -- and it is the reason the count is an upper bound.
+
+RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and TWO copies of
+
+  error[E5506]: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the receiver is a runtime array or a `for..in` key over the same object
+
+on stderr -- one per line, so both fabrication arms are refused, not just the one -- while node prints `undefined`, `undefined` at exit 0. Closed by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md): `expression_to_property_name` now returns `Option<String>` and declines every index shape it cannot read statically, a nameless computed member has its own node kind below HIR, and the codegen read gateway and its checker twin refuse it with one shared message. `let i = 1` is not a `const` with a literal initializer, so nothing folds, and `i + 0` is not in the parser's readable set.
+
+FAIL_CLOSED IS ONE OF THE TWO OUTCOMES THE MODULE-SCOPE CASE'S "WHAT A REGRESSION HERE WOULD MEAN" PARAGRAPH NAMES AS CLOSING R-59 -- the other being FIXED (`undefined`, `undefined`). The outcome that paragraph warns against did NOT happen: the lines did not become `0`, `0`, which would have kept the case SILENT and green while moving the entry into R-13's shape rather than closing it. Measured, not inferred: stdout is empty and the exit code is 1. The verdict was flipped only after this reading.
+
+Byte-identical to the module scope in every observable: same exit code, same empty stdout, same two stderr lines. Section 2's `both scopes` holds through the close as it held through the defect.
 '''
 
 [[case]]

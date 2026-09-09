@@ -8,7 +8,7 @@ fn test_resolution_reports_math_floor_as_available_for_integer_inputs() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "floor".to_string(),
+                property: Some("floor".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(1.0))],
         }))),
@@ -31,7 +31,7 @@ fn test_resolution_supports_math_round_member_calls_for_non_integer_numeric_lite
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "round".to_string(),
+                    property: Some("round".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.6))],
             }))),
@@ -41,7 +41,7 @@ fn test_resolution_supports_math_round_member_calls_for_non_integer_numeric_lite
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "round".to_string(),
+                    property: Some("round".to_string()),
                 })),
                 args: vec![Expression::UnaryExpression(Box::new(
                     kali_ast::UnaryExpression {
@@ -69,7 +69,7 @@ fn test_resolution_supports_math_round_member_calls_through_optional_chain_wrapp
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "round".to_string(),
+                property: Some("round".to_string()),
             })),
             args: vec![Expression::OptionalChainExpression(Box::new(
                 OptionalChainExpression {
@@ -98,7 +98,7 @@ fn test_resolution_supports_math_round_member_calls_through_sequence_wrappers() 
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "round".to_string(),
+                property: Some("round".to_string()),
             })),
             args: vec![sequence_expression(vec![
                 Expression::Literal(LiteralValue::Number(0.0)),
@@ -125,18 +125,18 @@ fn test_resolution_supports_math_round_member_calls_through_conditional_callable
                 consequent: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "round".to_string(),
+                    property: Some("round".to_string()),
                 }))),
                 alternate: Box::new(Expression::CallExpression(Box::new(CallExpression {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
-                        property: "freeze".to_string(),
+                        property: Some("freeze".to_string()),
                     })),
                     args: vec![Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Math".to_string()),
-                        property: "round".to_string(),
+                        property: Some("round".to_string()),
                     }))],
                 }))),
             })),
@@ -160,7 +160,7 @@ fn test_resolution_supports_math_clz32_zero_argument_member_calls() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "clz32".to_string(),
+                property: Some("clz32".to_string()),
             })),
             args: vec![],
         }))),
@@ -182,7 +182,7 @@ fn test_resolution_supports_math_clz32_non_integer_literal_member_calls() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "clz32".to_string(),
+                property: Some("clz32".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(1.6))],
         }))),
@@ -204,7 +204,7 @@ fn test_resolution_supports_non_integer_numeric_literals_in_math_ceil_member_cal
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "ceil".to_string(),
+                property: Some("ceil".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(1.6))],
         }))),
@@ -226,7 +226,7 @@ fn test_resolution_supports_non_integer_numeric_literals_in_math_trunc_member_ca
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "trunc".to_string(),
+                property: Some("trunc".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(1.6))],
         }))),
@@ -248,7 +248,7 @@ fn test_resolution_supports_non_integer_numeric_literals_in_math_sign_member_cal
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "sign".to_string(),
+                property: Some("sign".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(1.6))],
         }))),

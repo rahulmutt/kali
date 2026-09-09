@@ -213,7 +213,7 @@ impl TypeContext {
             return false;
         };
 
-        if member.property.as_str() != "filter" {
+        if member.static_name() != Some("filter") {
             return false;
         }
 
@@ -226,7 +226,7 @@ impl TypeContext {
             return false;
         };
 
-        if member.property.as_str() != "filter" {
+        if member.static_name() != Some("filter") {
             return false;
         }
 
@@ -239,7 +239,7 @@ impl TypeContext {
             return false;
         };
 
-        if member.property.as_str() != "flatMap" {
+        if member.static_name() != Some("flatMap") {
             return false;
         }
 
@@ -258,7 +258,7 @@ impl TypeContext {
             return false;
         };
 
-        if member.property.as_str() != "map" {
+        if member.static_name() != Some("map") {
             return false;
         }
 
@@ -543,7 +543,9 @@ impl TypeContext {
             return;
         };
 
-        let method = member.property.as_str();
+        let Some(method) = member.static_name() else {
+            return;
+        };
         if !matches!(
             method,
             "find"
@@ -669,7 +671,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "slice" {
+        if member.static_name() != Some("slice") {
             return;
         }
 
@@ -718,7 +720,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "concat" {
+        if member.static_name() != Some("concat") {
             return;
         }
 
@@ -769,7 +771,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "at" {
+        if member.static_name() != Some("at") {
             return;
         }
 
@@ -810,7 +812,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "join" {
+        if member.static_name() != Some("join") {
             return;
         }
         // Growable-array receiver (throw-fallout Stage 4 Task 5): a promoted
@@ -999,7 +1001,7 @@ impl TypeContext {
             return;
         };
 
-        if member.property.as_str() != "toString" {
+        if member.static_name() != Some("toString") {
             return;
         }
 
@@ -1027,7 +1029,9 @@ impl TypeContext {
             return;
         };
 
-        let method = member.property.as_str();
+        let Some(method) = member.static_name() else {
+            return;
+        };
         if !matches!(method, "includes" | "indexOf" | "lastIndexOf") {
             return;
         }

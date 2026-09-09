@@ -114,7 +114,7 @@ handle. Multi-argument console lane only.
 
 **Suggested home:** §2, silent.
 
-### 2.3 Bracket assignment to an existing key does not take
+### 2.3 Bracket assignment to an existing key does not take — FIXED at `71b5f42f6c`
 
 ```js
 const o = {5:1};   o[5]   = 7; console.log(o[5]);    // kali 1, node 7
@@ -129,6 +129,63 @@ numeric and string keys both fail.
 **Suggested home:** §1 or §2 depending on whether the write is dropped or the
 read is stale — the two are distinguishable and this project did not distinguish
 them.
+
+**FIXED 2026-09-09, at `71b5f42f6c`, by the computed-member-static-name
+project** (`docs/superpowers/sdd/2026-09-08-computed-member-static-name/`),
+which also answered the question this item left open. **The write was DROPPED,
+not the read stale**: codegen's assignment emitter returned `false` for a
+two-child (bracket-shaped) target and the caller went on to emit a bare read, so
+the store never reached the object. The fix is the project's store choke point —
+`store_target_node` and `emit_computed_member` in
+`crates/kali_codegen/src/emit/computed_member.rs` present a static-name bracket
+target as the `Value`-shaped node the dot-store arm matches on, and refuse the
+nameless case — together with the materialization record in
+`crates/kali_types/src/repr_infer.rs` (`44e8033ae9`), which makes a bracket store
+push the same deferred object access the dot spelling pushes so there is a shape
+to store into. It closed the write lane of register entry **R-13**, which retired
+on the same commit.
+
+**Re-measured 2026-09-09 at `71b5f42f6c` against `node v26.8.1`, and the three
+lines above do NOT all read the same way. Read this before quoting the heading.**
+
+| line | at `dc19c3a040` | at `71b5f42f6c` | node |
+|---|---|---|---|
+| `const p = {a:1}; p["a"] = 7; console.log(p["a"]);` | `1` | **`7`** | `7` |
+| `const q = {a:1}; q.a = 7; console.log(q.a);` (control) | `7` | `7` | `7` |
+| `const o = {5:1}; o[5] = 7; console.log(o[5]);` | `1` | **`E5506`, exit 1** | `7` |
+
+The string-key line is fixed. **The numeric-key line is not, and does not
+land** — it refuses with `error[E5506]: object literal for Binding("_start",
+"o") uses a numeric property name, which is unavailable in the current phase`.
+That gate **predates this project and is not about brackets**: the identical
+program with a **dot** store and no bracket anywhere,
+`const o = {5:1}; o.x = 2; console.log(o[5]);`, refuses with the same message,
+while the read-only `const o = {5:1}; console.log(o[5]);` is admitted and prints
+`1`. `record_object_literal` in `crates/kali_types/src/repr_infer.rs` defers a
+conflict for an unquoted numeric object-literal key and promotes it the moment
+anything forces the slot onto the object lane; the bracket store used to be
+DROPPED, so nothing forced it, and the program printed the pre-store `1`. What
+this project changed on that line is **reachability, not correctness**: a silent
+wrong `1` became an honest refusal. The fold's contract — a bracket access
+behaves exactly as its dot spelling — holds on all three lines, including this
+one.
+
+A neighbouring lane found while measuring and **still silent**, filed here so it
+is not read as covered: the *quoted* numeric-like key,
+`const o = {"5": 1}; o["5"] = 7; console.log(o["5"]);`, prints `0` against
+node's `7` at `71b5f42f6c` (the read alone, without the store, is correct and
+prints `1`). That is a different gate from the unquoted one above and nothing
+pins it.
+
+**Pinned by**, in `crates/kali_cli/tests/cases/object/computed_member_static_name.toml`:
+`a_literal_string_key_bracket_store_lands` (the fixed line),
+`the_dot_store_control_still_lands` (the control),
+`a_literal_number_key_bracket_store_is_refused_by_the_preexisting_numeric_key_gate`
+with its `check` twin, and the two controls that prove the numeric gate predates
+the project — `a_dot_store_on_a_numeric_key_object_refuses_identically_with_no_bracket_in_the_program`
+and `a_numeric_key_object_read_only_is_still_admitted`. The oracle pair
+`r13w_computed_variable_key_write_{module_scope,in_function}` pins the same lane
+through a `const` key and now asserts `fixed`.
 
 ### 2.4 A boolean returned from a function renders as `1`
 

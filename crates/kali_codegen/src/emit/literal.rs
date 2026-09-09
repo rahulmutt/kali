@@ -1,5 +1,6 @@
 use crate::emit::operators::StringSink;
 use crate::*;
+use kali_common::computed_member_access_unavailable_message;
 
 /// Source of a dynamic array element index for `a[...] = v` writes: either a
 /// stringified literal/identifier (`text`) or a structured computed-index node.
@@ -211,6 +212,95 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// `<base>.field = v` on a base with a materialized fixed shape: the typed
+    /// store at the field's static offset, unknown fields gated E5506. Called
+    /// for the dot spelling, and (Task 4 of the computed-member plan) for a
+    /// bracket store whose name folded — the named, one-child twin of the
+    /// bracket target is exactly this arm's shape.
+    pub(crate) fn try_emit_shaped_field_store(
+        &mut self,
+        function: &mut Function,
+        target: &LirNode,
+        right: LirNodeId,
+    ) -> bool {
+        if target.kind != LirNodeKind::Value || target.children.len() != 1 {
+            return false;
+        }
+        let Some(field) = target.text.clone().filter(|text| !text.is_empty()) else {
+            return false;
+        };
+        let base_id = target.children[0];
+        let Some(shape) = self.object_shape_of_node(base_id) else {
+            return false;
+        };
+        let Some((index, repr)) = self.repr_table.shape_field(shape, &field) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "unknown field '{field}' on a fixed-shape object; only declared fields can be assigned"
+                ),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return true;
+        };
+        // Stage P2 review C-1a (silent-corruption close):
+        // reassigning a `GrowableArrayI64` field (`o.values =
+        // [4,5]`) has no sound lowering this phase — the generic
+        // `_ =>` store arm below would `I64Store` a non-handle
+        // over the valid tagged handle (then `o.values.join`
+        // prints empty). Deny is the sound minimal close (no
+        // re-seeding through `emit_growable_field_value` this
+        // wave). Reject BEFORE emitting base/RHS so the value
+        // stack stays balanced (single `I64Const(0)` result).
+        if matches!(repr, kali_common::Repr::GrowableArrayI64) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "reassigning growable-array field '{field}' is unavailable in the current phase"
+                ),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return true;
+        }
+        let scratch = self.locals.len() as u32;
+        let produced = self.emit_node(function, base_id, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::LocalTee(scratch));
+        function.instruction(&Instruction::I32WrapI64);
+        let mem = MemArg {
+            offset: (index * 8) as u64,
+            align: 3,
+            memory_index: 0,
+        };
+        let rhs = self.emit_node(function, right, true);
+        match repr {
+            kali_common::Repr::F64 => {
+                if !rhs.produced {
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                } else if !self.is_float_valued(right) {
+                    function.instruction(&Instruction::F64ConvertI64S);
+                }
+                function.instruction(&Instruction::F64Store(mem));
+                // Assignment expression result: reload the field.
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                function.instruction(&Instruction::F64Load(mem));
+            }
+            _ => {
+                if !rhs.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                function.instruction(&Instruction::I64Store(mem));
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                function.instruction(&Instruction::I64Load(mem));
+            }
+        }
+        true
+    }
+
     pub(crate) fn emit_assignment(
         &mut self,
         function: &mut Function,
@@ -347,78 +437,8 @@ impl<'a> FunctionEmitter<'a> {
         // BASE (not the whole target) carries the object shape.
         if op == "=" {
             let left_node = self.node(left).clone();
-            if left_node.kind == LirNodeKind::Value && left_node.children.len() == 1 {
-                if let Some(field) = left_node.text.clone().filter(|text| !text.is_empty()) {
-                    let base_id = left_node.children[0];
-                    if let Some(shape) = self.object_shape_of_node(base_id) {
-                        let Some((index, repr)) = self.repr_table.shape_field(shape, &field) else {
-                            self.diagnostics.push(Diagnostic::error(
-                                e5::FEATURE_UNAVAILABLE as u32,
-                                format!(
-                                    "unknown field '{field}' on a fixed-shape object; only declared fields can be assigned"
-                                ),
-                            ));
-                            function.instruction(&Instruction::I64Const(0));
-                            return true;
-                        };
-                        // Stage P2 review C-1a (silent-corruption close):
-                        // reassigning a `GrowableArrayI64` field (`o.values =
-                        // [4,5]`) has no sound lowering this phase — the generic
-                        // `_ =>` store arm below would `I64Store` a non-handle
-                        // over the valid tagged handle (then `o.values.join`
-                        // prints empty). Deny is the sound minimal close (no
-                        // re-seeding through `emit_growable_field_value` this
-                        // wave). Reject BEFORE emitting base/RHS so the value
-                        // stack stays balanced (single `I64Const(0)` result).
-                        if matches!(repr, kali_common::Repr::GrowableArrayI64) {
-                            self.diagnostics.push(Diagnostic::error(
-                                e5::FEATURE_UNAVAILABLE as u32,
-                                format!(
-                                    "reassigning growable-array field '{field}' is unavailable in the current phase"
-                                ),
-                            ));
-                            function.instruction(&Instruction::I64Const(0));
-                            return true;
-                        }
-                        let scratch = self.locals.len() as u32;
-                        let produced = self.emit_node(function, base_id, true);
-                        if !produced.produced {
-                            function.instruction(&Instruction::I64Const(0));
-                        }
-                        function.instruction(&Instruction::LocalTee(scratch));
-                        function.instruction(&Instruction::I32WrapI64);
-                        let mem = MemArg {
-                            offset: (index * 8) as u64,
-                            align: 3,
-                            memory_index: 0,
-                        };
-                        let rhs = self.emit_node(function, right, true);
-                        match repr {
-                            kali_common::Repr::F64 => {
-                                if !rhs.produced {
-                                    function.instruction(&Instruction::F64Const(0.0.into()));
-                                } else if !self.is_float_valued(right) {
-                                    function.instruction(&Instruction::F64ConvertI64S);
-                                }
-                                function.instruction(&Instruction::F64Store(mem));
-                                // Assignment expression result: reload the field.
-                                function.instruction(&Instruction::LocalGet(scratch));
-                                function.instruction(&Instruction::I32WrapI64);
-                                function.instruction(&Instruction::F64Load(mem));
-                            }
-                            _ => {
-                                if !rhs.produced {
-                                    function.instruction(&Instruction::I64Const(0));
-                                }
-                                function.instruction(&Instruction::I64Store(mem));
-                                function.instruction(&Instruction::LocalGet(scratch));
-                                function.instruction(&Instruction::I32WrapI64);
-                                function.instruction(&Instruction::I64Load(mem));
-                            }
-                        }
-                        return true;
-                    }
-                }
+            if self.try_emit_shaped_field_store(function, &left_node, right) {
+                return true;
             }
         }
 
@@ -603,7 +623,7 @@ impl<'a> FunctionEmitter<'a> {
         // The static-field store arm above only matches the 1-child dot form,
         // so the computed bracket form falls through to here.
         if op == "=" {
-            let left_node = self.node(left).clone();
+            let left_node = self.store_target_node(left);
             if let Some((base, index, elem)) = self.computed_forin_object_access(&left_node) {
                 self.emit_object_field_write_dynamic(function, base, index, right, elem);
                 return true;
@@ -615,7 +635,7 @@ impl<'a> FunctionEmitter<'a> {
         // the index in `text`; computed indices (`a[r - 1] = v`) lower to a
         // 2-child member node with the index expression in `children[1]`.
         if op == "=" {
-            let left_node = self.node(left).clone();
+            let left_node = self.store_target_node(left);
             if left_node.kind == LirNodeKind::Value {
                 let target = match left_node.children.len() {
                     1 => left_node
@@ -741,13 +761,44 @@ impl<'a> FunctionEmitter<'a> {
         // the `assignment_target_name` fallthrough below, which would otherwise
         // reject this member target fail-closed (E5506).
         if matches!(op, "+=" | "-=" | "*=" | "/=" | "%=" | "**=") {
-            let left_node = self.node(left).clone();
+            let left_node = self.store_target_node(left);
             if let Some((base, index, elem)) = self.computed_forin_object_access(&left_node) {
                 self.emit_object_field_compound_assign_dynamic(
                     function, base, index, right, elem, op,
                 );
                 return true;
             }
+        }
+
+        // A bracket store no runtime lane admitted (spec §4.4, store choke
+        // point): fold the index to a name and take the dot spelling's arm,
+        // or refuse. Never `return false` from here — the caller turns
+        // `false` into a bare read of the target, which is the silently
+        // dropped store the console-render follow-up's item 2.3 and the
+        // register's R-13 write lane record.
+        let target = self.store_target_node(left);
+        if target.kind == LirNodeKind::Value
+            && target.children.len() == 2
+            && !is_binary_operator_text(target.text.as_deref().unwrap_or_default())
+        {
+            if op == "=" {
+                if let Some(name) = self.static_member_name(&target) {
+                    let mut dot = Self::named_twin(&target, name);
+                    dot.children.truncate(1);
+                    if self.try_emit_shaped_field_store(function, &dot, right) {
+                        return true;
+                    }
+                }
+            }
+            let message = if op == "=" {
+                computed_member_access_unavailable_message().to_string()
+            } else {
+                "compound assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path".to_string()
+            };
+            self.diagnostics
+                .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+            function.instruction(&Instruction::I64Const(0));
+            return true;
         }
 
         let Some(name) = self.assignment_target_name(node, left) else {

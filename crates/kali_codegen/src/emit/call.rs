@@ -1,5 +1,6 @@
 use crate::emit::operators::StringSink;
 use crate::*;
+use kali_common::computed_member_access_unavailable_message;
 
 /// Length source for [`FunctionEmitter::emit_array_allocation_with_len`]: either
 /// a dynamically evaluated size-argument AST node (`new Array(n)`) or a
@@ -87,6 +88,18 @@ impl<'a> FunctionEmitter<'a> {
             .resolve_bound_member_callable_node(callee)
             .map(|bound| self.node(bound).clone())
             .unwrap_or_else(|| self.node(callee).clone());
+
+        // A call THROUGH a nameless computed member (`Object[k](o)`) has no
+        // resolvable callee: the read gateway's fold is visible only on the
+        // read path, and this node reaches its callee by id. Deny rather than
+        // fall through to the terminal warn-plus-zero placeholder, which
+        // silently answers 0 — and, one level up, let `.length` render the
+        // CALL node's CHILD COUNT (measured `2` where node prints `4` for
+        // `Object[k](o).length` over a four-key object). Spec §4.3: by-id
+        // consumers decline the kind.
+        if self.node(callee).kind == LirNodeKind::ComputedMember {
+            return self.deny_e5506(function, computed_member_access_unavailable_message());
+        }
 
         // Stage-review F10 (adjudicated deny-now): a `new URL(...)` /
         // `new URLSearchParams(...)` ANYWHERE outside the admitted
@@ -223,6 +236,7 @@ impl<'a> FunctionEmitter<'a> {
                     | LirNodeKind::Instruction
                     | LirNodeKind::Branch
                     | LirNodeKind::Literal
+                    | LirNodeKind::ComputedMember
                     | LirNodeKind::Unknown => false,
                 }
             });
@@ -5437,6 +5451,7 @@ impl<'a> FunctionEmitter<'a> {
                 | LirNodeKind::Block
                 | LirNodeKind::Branch
                 | LirNodeKind::Call
+                | LirNodeKind::ComputedMember
                 | LirNodeKind::Unknown => false,
             }
         })

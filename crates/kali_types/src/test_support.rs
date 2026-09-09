@@ -13,7 +13,7 @@ pub(crate) fn optional_chain_global_this_math() -> Expression {
             object: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("globalThis".to_string()),
-                property: "Math".to_string(),
+                property: Some("Math".to_string()),
             }))),
             optional: true,
         }),
@@ -28,9 +28,9 @@ pub(crate) fn optional_chain_global_this_math_pow() -> Expression {
                 object: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
-                    property: "Math".to_string(),
+                    property: Some("Math".to_string()),
                 })),
-                property: "pow".to_string(),
+                property: Some("pow".to_string()),
             }))),
             optional: true,
         }),
@@ -71,7 +71,7 @@ macro_rules! member {
         kali_ast::Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
             computed_index: None,
             object: $obj,
-            property: $prop.to_string(),
+            property: Some($prop.to_string()),
         }))
     };
 }

@@ -8,7 +8,7 @@ fn test_resolution_reports_math_sqrt_as_available_for_perfect_square_integer_lit
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "sqrt".to_string(),
+                property: Some("sqrt".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(4.0))],
         }))),
@@ -32,12 +32,12 @@ fn test_resolution_supports_math_max_and_min_member_calls_through_object_freeze_
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
-                        property: "freeze".to_string(),
+                        property: Some("freeze".to_string()),
                     })),
                     args: vec![Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Math".to_string()),
-                        property: "max".to_string(),
+                        property: Some("max".to_string()),
                     }))],
                 })),
                 args: vec![
@@ -53,16 +53,16 @@ fn test_resolution_supports_math_max_and_min_member_calls_through_object_freeze_
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
-                        property: "freeze".to_string(),
+                        property: Some("freeze".to_string()),
                     })),
                     args: vec![Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
-                            property: "Math".to_string(),
+                            property: Some("Math".to_string()),
                         })),
-                        property: "min".to_string(),
+                        property: Some("min".to_string()),
                     }))],
                 })),
                 args: vec![
@@ -90,7 +90,7 @@ fn test_resolution_supports_math_cbrt_member_calls_for_perfect_cube_integer_lite
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "cbrt".to_string(),
+                property: Some("cbrt".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(27.0))],
         }))),
@@ -112,7 +112,7 @@ fn test_resolution_supports_math_log2_member_calls_for_positive_power_of_two_int
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "log2".to_string(),
+                property: Some("log2".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(8.0))],
         }))),
@@ -134,7 +134,7 @@ fn test_resolution_supports_math_log10_member_calls_for_positive_power_of_ten_in
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "log10".to_string(),
+                property: Some("log10".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(1000.0))],
         }))),
@@ -171,7 +171,7 @@ fn test_resolution_supports_math_hypot_member_calls_with_const_numeric_alias_cha
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "hypot".to_string(),
+                    property: Some("hypot".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("alias".to_string()),
@@ -197,7 +197,7 @@ fn test_resolution_supports_math_hypot_member_calls_with_empty_argument_list() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "hypot".to_string(),
+                property: Some("hypot".to_string()),
             })),
             args: vec![],
         }))),
@@ -220,7 +220,7 @@ fn test_resolution_supports_math_imul_with_omitted_operands() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "imul".to_string(),
+                    property: Some("imul".to_string()),
                 })),
                 args: vec![],
             }))),
@@ -230,7 +230,7 @@ fn test_resolution_supports_math_imul_with_omitted_operands() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "imul".to_string(),
+                    property: Some("imul".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(7.0))],
             }))),
@@ -253,7 +253,7 @@ fn test_resolution_reports_unsupported_math_cbrt_member_calls_as_unavailable() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "cbrt".to_string(),
+                property: Some("cbrt".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(28.0))],
         }))),
@@ -279,7 +279,7 @@ fn test_resolution_reports_unsupported_math_hypot_member_calls_as_unavailable() 
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "hypot".to_string(),
+                property: Some("hypot".to_string()),
             })),
             args: vec![
                 Expression::Literal(LiteralValue::Number(1.6)),
@@ -309,7 +309,7 @@ fn test_resolution_reports_unsupported_math_log2_member_calls_as_unavailable() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "log2".to_string(),
+                property: Some("log2".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(12.0))],
         }))),
@@ -336,7 +336,7 @@ fn test_resolution_reports_unsupported_math_log10_member_calls_as_unavailable() 
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "log10".to_string(),
+                property: Some("log10".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(12.0))],
         }))),
@@ -378,7 +378,7 @@ fn test_resolution_supports_math_exp_and_log_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "exp".to_string(),
+                    property: Some("exp".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -388,7 +388,7 @@ fn test_resolution_supports_math_exp_and_log_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "log".to_string(),
+                    property: Some("log".to_string()),
                 })),
                 args: vec![Expression::Identifier("one".to_string())],
             }))),
@@ -426,7 +426,7 @@ fn test_resolution_supports_math_exp2_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "exp2".to_string(),
+                    property: Some("exp2".to_string()),
                 })),
                 args: vec![Expression::Identifier("alias".to_string())],
             }))),
@@ -464,7 +464,7 @@ fn test_resolution_supports_math_exp2_non_negative_integer_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "exp2".to_string(),
+                    property: Some("exp2".to_string()),
                 })),
                 args: vec![Expression::Identifier("alias".to_string())],
             }))),
@@ -487,7 +487,7 @@ fn test_resolution_rejects_math_exp2_non_integer_literals_as_unavailable() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "exp2".to_string(),
+                property: Some("exp2".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(1.5))],
         }))),
@@ -529,7 +529,7 @@ fn test_resolution_supports_math_atan2_zero_numerator_and_non_negative_denominat
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "atan2".to_string(),
+                    property: Some("atan2".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("zero".to_string()),
@@ -570,7 +570,7 @@ fn test_resolution_traverses_extra_math_atan2_arguments_after_the_supported_slic
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "atan2".to_string(),
+                    property: Some("atan2".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("zero".to_string()),
@@ -616,7 +616,7 @@ fn test_resolution_traverses_extra_math_tan_arguments_after_the_supported_slice(
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "tan".to_string(),
+                    property: Some("tan".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("zero".to_string()),
@@ -661,7 +661,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_exact_zero_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "expm1".to_string(),
+                    property: Some("expm1".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -671,7 +671,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_exact_zero_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "log1p".to_string(),
+                    property: Some("log1p".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -681,7 +681,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_exact_zero_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "fround".to_string(),
+                    property: Some("fround".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -719,7 +719,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_const_numeric_alias_chai
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "expm1".to_string(),
+                    property: Some("expm1".to_string()),
                 })),
                 args: vec![Expression::Identifier("alias".to_string())],
             }))),
@@ -729,7 +729,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_const_numeric_alias_chai
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "log1p".to_string(),
+                    property: Some("log1p".to_string()),
                 })),
                 args: vec![Expression::Identifier("alias".to_string())],
             }))),
@@ -739,7 +739,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_const_numeric_alias_chai
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "fround".to_string(),
+                    property: Some("fround".to_string()),
                 })),
                 args: vec![Expression::Identifier("alias".to_string())],
             }))),
@@ -763,7 +763,7 @@ fn test_resolution_reports_math_expm1_log1p_and_fround_non_identity_literals_as_
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "expm1".to_string(),
+                    property: Some("expm1".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -773,7 +773,7 @@ fn test_resolution_reports_math_expm1_log1p_and_fround_non_identity_literals_as_
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "log1p".to_string(),
+                    property: Some("log1p".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -783,7 +783,7 @@ fn test_resolution_reports_math_expm1_log1p_and_fround_non_identity_literals_as_
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "fround".to_string(),
+                    property: Some("fround".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -836,7 +836,7 @@ fn test_resolution_supports_math_asin_acos_atan_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "asin".to_string(),
+                    property: Some("asin".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -846,7 +846,7 @@ fn test_resolution_supports_math_asin_acos_atan_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "acos".to_string(),
+                    property: Some("acos".to_string()),
                 })),
                 args: vec![Expression::Identifier("one".to_string())],
             }))),
@@ -856,7 +856,7 @@ fn test_resolution_supports_math_asin_acos_atan_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "atan".to_string(),
+                    property: Some("atan".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -894,7 +894,7 @@ fn test_resolution_supports_math_asinh_acosh_atanh_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "asinh".to_string(),
+                    property: Some("asinh".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -904,7 +904,7 @@ fn test_resolution_supports_math_asinh_acosh_atanh_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "acosh".to_string(),
+                    property: Some("acosh".to_string()),
                 })),
                 args: vec![Expression::Identifier("one".to_string())],
             }))),
@@ -914,7 +914,7 @@ fn test_resolution_supports_math_asinh_acosh_atanh_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "atanh".to_string(),
+                    property: Some("atanh".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -945,7 +945,7 @@ fn test_resolution_supports_math_sinh_cosh_tanh_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "sinh".to_string(),
+                    property: Some("sinh".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -955,7 +955,7 @@ fn test_resolution_supports_math_sinh_cosh_tanh_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "cosh".to_string(),
+                    property: Some("cosh".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -965,7 +965,7 @@ fn test_resolution_supports_math_sinh_cosh_tanh_exact_identity_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "tanh".to_string(),
+                    property: Some("tanh".to_string()),
                 })),
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
@@ -989,7 +989,7 @@ fn test_resolution_reports_math_sinh_cosh_tanh_non_identity_literals_as_unavaila
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "sinh".to_string(),
+                    property: Some("sinh".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -999,7 +999,7 @@ fn test_resolution_reports_math_sinh_cosh_tanh_non_identity_literals_as_unavaila
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "cosh".to_string(),
+                    property: Some("cosh".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -1009,7 +1009,7 @@ fn test_resolution_reports_math_sinh_cosh_tanh_non_identity_literals_as_unavaila
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "tanh".to_string(),
+                    property: Some("tanh".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -1048,7 +1048,7 @@ fn test_resolution_reports_math_asinh_acosh_atanh_non_identity_literals_as_unava
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "asinh".to_string(),
+                    property: Some("asinh".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -1058,7 +1058,7 @@ fn test_resolution_reports_math_asinh_acosh_atanh_non_identity_literals_as_unava
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "acosh".to_string(),
+                    property: Some("acosh".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(0.0))],
             }))),
@@ -1068,7 +1068,7 @@ fn test_resolution_reports_math_asinh_acosh_atanh_non_identity_literals_as_unava
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "atanh".to_string(),
+                    property: Some("atanh".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -1106,7 +1106,7 @@ fn test_resolution_reports_math_atan2_non_matching_literals_as_unavailable() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "atan2".to_string(),
+                property: Some("atan2".to_string()),
             })),
             args: vec![
                 Expression::Literal(LiteralValue::Number(1.0)),
@@ -1164,7 +1164,7 @@ fn test_resolution_supports_math_atan2_member_calls_with_const_numeric_alias_cha
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "atan2".to_string(),
+                    property: Some("atan2".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("zero_alias".to_string()),
@@ -1190,7 +1190,7 @@ fn test_resolution_reports_math_max_without_arguments_as_unavailable() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "max".to_string(),
+                property: Some("max".to_string()),
             })),
             args: vec![],
         }))),
@@ -1230,7 +1230,7 @@ fn test_resolution_supports_math_sqrt_member_calls_with_const_numeric_alias_chai
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "sqrt".to_string(),
+                    property: Some("sqrt".to_string()),
                 })),
                 args: vec![Expression::Identifier("alias".to_string())],
             }))),
@@ -1273,7 +1273,7 @@ fn test_resolution_supports_math_cbrt_member_calls_with_negative_const_numeric_a
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "cbrt".to_string(),
+                    property: Some("cbrt".to_string()),
                 })),
                 args: vec![Expression::Identifier("alias".to_string())],
             }))),
@@ -1296,7 +1296,7 @@ fn test_resolution_supports_math_tan_zero_literal_member_calls() {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "tan".to_string(),
+                property: Some("tan".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(0.0))],
         }))),
@@ -1319,7 +1319,7 @@ fn test_resolution_supports_math_sin_cos_zero_literal_member_calls() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "sin".to_string(),
+                    property: Some("sin".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(0.0))],
             }))),
@@ -1329,7 +1329,7 @@ fn test_resolution_supports_math_sin_cos_zero_literal_member_calls() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "cos".to_string(),
+                    property: Some("cos".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(0.0))],
             }))),
@@ -1352,7 +1352,7 @@ fn test_resolution_rejects_non_zero_literals_in_math_tan_member_calls_as_unavail
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
-                property: "tan".to_string(),
+                property: Some("tan".to_string()),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(1.0))],
         }))),
@@ -1376,7 +1376,7 @@ fn test_resolution_rejects_non_zero_literals_in_math_sin_cos_member_calls_as_una
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "sin".to_string(),
+                    property: Some("sin".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -1386,7 +1386,7 @@ fn test_resolution_rejects_non_zero_literals_in_math_sin_cos_member_calls_as_una
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "cos".to_string(),
+                    property: Some("cos".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -1421,7 +1421,7 @@ fn test_resolution_reports_non_identity_literals_in_math_asin_acos_atan_member_c
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "asin".to_string(),
+                    property: Some("asin".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -1431,7 +1431,7 @@ fn test_resolution_reports_non_identity_literals_in_math_asin_acos_atan_member_c
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "acos".to_string(),
+                    property: Some("acos".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(0.0))],
             }))),
@@ -1441,7 +1441,7 @@ fn test_resolution_reports_non_identity_literals_in_math_asin_acos_atan_member_c
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
-                    property: "atan".to_string(),
+                    property: Some("atan".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),

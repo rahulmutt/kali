@@ -51,15 +51,13 @@ impl Parser {
                     let _ = self.stream.advance();
                     let index = self.parse_expression();
                     let _ = self.stream.accept(TokenType::RightBracket);
-                    // R-59 (register §2, Tier 2): for an index expression
-                    // `expression_to_property_name` cannot read statically this
-                    // is a FABRICATED name, not `String(index)`. The structured
-                    // index below survives beside it, and the runtime-index
-                    // lanes use that; the STATIC lanes read this text.
-                    let index_str = Self::expression_to_property_name(&index);
+                    // The static name of the access, or None when the index is
+                    // not one this parser reads (spec §4.1). The structured
+                    // index below is then the only description of the access.
+                    let property = Self::expression_to_property_name(&index);
                     expr = Expression::MemberExpression(Box::new(MemberExpression {
                         object: expr,
-                        property: index_str,
+                        property,
                         computed_index: Some(Box::new(index)),
                     }));
                 }
@@ -72,13 +70,13 @@ impl Parser {
                                 let prop_name = token.value.clone();
                                 expr = Expression::MemberExpression(Box::new(MemberExpression {
                                     object: expr,
-                                    property: prop_name,
+                                    property: Some(prop_name),
                                     computed_index: None,
                                 }));
                             } else {
                                 expr = Expression::MemberExpression(Box::new(MemberExpression {
                                     object: expr,
-                                    property: "unknown".to_string(),
+                                    property: Some("unknown".to_string()),
                                     computed_index: None,
                                 }));
                             }
@@ -255,7 +253,7 @@ impl Parser {
                     .unwrap_or_else(|| "unknown".to_string());
                 return Expression::MemberExpression(Box::new(MemberExpression {
                     object: optional_object,
-                    property: prop_name,
+                    property: Some(prop_name),
                     computed_index: None,
                 }));
             }
@@ -263,12 +261,13 @@ impl Parser {
                 let _ = self.stream.advance();
                 let index = self.parse_expression();
                 let _ = self.stream.accept(TokenType::RightBracket);
-                // R-59's optional-chained twin: `o?.[i]` fabricates identically
-                // to `o[i]` above (measured, both scopes).
-                let index_str = Self::expression_to_property_name(&index);
+                // The static name of the access, or None when the index is
+                // not one this parser reads (spec §4.1). The structured
+                // index below is then the only description of the access.
+                let property = Self::expression_to_property_name(&index);
                 return Expression::MemberExpression(Box::new(MemberExpression {
                     object: optional_object,
-                    property: index_str,
+                    property,
                     computed_index: Some(Box::new(index)),
                 }));
             }
@@ -338,7 +337,7 @@ impl Parser {
 
     pub(crate) fn member_access_name(member: &MemberExpression) -> Option<String> {
         let object = Self::call_member_access_name(&member.object)?;
-        Some(format!("{object}.{}", member.property))
+        Some(format!("{object}.{}", member.static_name()?))
     }
 }
 

@@ -884,6 +884,22 @@ impl TypeContext {
                         .mutable_bindings
                         .insert(declarator.id.clone(), declaration.kind != "const");
                 }
+                // The computed-member fold's `const` set (spec §4.4 step 2):
+                // a `const` whose initializer is a string or number literal,
+                // recorded under the property name that literal denotes.
+                if declaration.kind == "const" {
+                    if let Some(name) =
+                        crate::static_analysis::computed_member::fold_const_initializer(init)
+                    {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope.const_index_names.insert(declarator.id.clone(), name);
+                        } else if self.global_scope.contains(&declarator.id) {
+                            self.global_scope
+                                .const_index_names
+                                .insert(declarator.id.clone(), name);
+                        }
+                    }
+                }
                 // String-typedness is tracked for every binding kind, including
                 // hoisted `var`, so a `+` on a `var` string is rejected too. The
                 // target scope for `var` is the function/global scope, so the flag

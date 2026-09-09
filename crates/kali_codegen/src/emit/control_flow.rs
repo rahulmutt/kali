@@ -1,4 +1,5 @@
 use crate::*;
+use kali_common::string_index_access_unavailable_message;
 
 impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_break_or_continue(
@@ -1857,6 +1858,9 @@ impl<'a> FunctionEmitter<'a> {
             }
             LirNodeKind::Literal => emit_literal(function, node.text.as_deref(), self.strings),
             LirNodeKind::Value => self.emit_value(function, id, &node, want_value),
+            LirNodeKind::ComputedMember => {
+                self.emit_computed_member(function, id, &node, want_value)
+            }
             LirNodeKind::Call => self.emit_call(function, id, &node),
             LirNodeKind::Branch => match node.text.as_deref() {
                 Some(text) if text.starts_with("break") => {
@@ -3016,6 +3020,23 @@ impl<'a> FunctionEmitter<'a> {
                         node.children[1],
                         &base_name,
                     );
+                }
+
+                // A statically-known string has no INDEX lane in either
+                // spelling (`s[1]` was a silent `0`; `s[k]` with a numeric `k`
+                // folds onto the same lane). Refuse here so the literal
+                // spelling and the folded twin agree (spec §4.4, "String
+                // receivers"), narrowed by the same rule the gateway applies:
+                // only a missing or NUMERIC static name is an index. A static
+                // property NAME on a string (`s["length"]`) keeps its lane, so
+                // the three spellings of `.length` answer alike.
+                if self.is_static_string_receiver(node.children[0])
+                    && self
+                        .static_member_name(node)
+                        .as_deref()
+                        .is_none_or(Self::static_name_is_numeric_index)
+                {
+                    return self.deny_e5506(function, string_index_access_unavailable_message());
                 }
 
                 self.emit_unary(function, node)

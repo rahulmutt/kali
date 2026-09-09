@@ -1269,10 +1269,21 @@ Every expected value here was captured from node v26.5.0.
 
 Task 2 review round 2: Critical 1 was still open on the RHS-IDENTIFIER axis — `bitwise_compound_rhs_is_provably_i64`'s identifier branch admitted via `scalar_repr(name) == Repr::I64`, which is `ReprTable::scalar`'s `#[default]`, indistinguishable from "repr_infer recorded nothing at all." Fixed by requiring an EXPLICIT `ReprTable::scalar_entry` record instead. Five of the six round-2 reproductions are RHS-axis and were closed in that round; the sixth is TARGET-axis and was closed in round 3 by a different mechanism (`binding_is_proven_numeric`) — see `bitwise_compound_fails_closed_on_target_from_string_object_field` below. (An earlier revision of this comment named a `..._is_a_tracked_residual` test that recorded the then-open leak with no assertions; round 3 replaced it with that real pin.)
 
-node: 2. Computed-key variant of the field-read leak above."""
+node: 2. Computed-key variant of the field-read leak above.
+
+RE-PINNED 2026-09-09 at `3ef65ef785` by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md).
+
+THE VERDICT DID NOT MOVE; THE MESSAGE DID, AND IT NOW FIRES EARLIER. Old reading: kali exited 1 with the `&=` fail-closed diagnostic, against node's `2`. New reading at `3ef65ef785` against node v26.8.1: node still prints `2`; kali still exits 1 with empty stdout, but the diagnostic is now
+
+  error[E5506]: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the receiver is a runtime array or a `for..in` key over the same object
+
+under `kali run` and `kali check` alike. The program's `let k = "a"; let s = o[k];` is a `let`-key computed read, which the new gateway refuses before the bitwise RHS ever gets classified: `k` is not a `const` with a literal initializer, so nothing folds. The needle is re-pinned to the message that actually fires.
+
+WHAT THIS COSTS AND WHY THE CASE IS KEPT. This case existed to pin the RHS-axis fail-closed for a COMPUTED-key field read, and that axis is now shadowed by an earlier refusal on this program -- the bitwise gate is no longer what this program proves. It is kept, red-if-it-moves, because the day the computed read is admitted for a `let` key the bitwise gate must be the thing that catches it, and this case going red again is how that would be noticed. The DOT-key sibling `bitwise_compound_fails_closed_on_rhs_from_string_object_field_or_assign` still exercises the bitwise gate directly and is unaffected.
+"""
 args = ["run", "bitwise_compound_fails_closed_on_rhs_from_computed_string_object_field.ts"]
 exit = "failure"
-stderr_contains = ["E5506", "&="]
+stderr_contains = ["E5506", "computed member access `o[k]` is unavailable"]
 
 [[case]]
 name = "bitwise_compound_fails_closed_on_unary_minus_over_string_field_rhs"
@@ -2369,11 +2380,25 @@ Every expected value here was captured from node v26.5.0.
 
 T5 review Important 2: `collect_bigint_tainted_shape_fields` sees only 2 of (at least) 5 source-language write routes into an admitted field. These three tripwires pin the CURRENT (write-silently-dropped) behavior for the uncovered routes — NOT as certified-correct output (all three diverge from node, which throws), but so that a future change which makes any of these writes real is caught immediately if it does not ALSO extend the taint scan first. See the scan's own doc in `lower.rs` for the full route inventory and why partial coverage is dangerous.
 
-`o["a"] = 7n` is a computed-key write the taint scan does not walk. It is currently silently dropped (pre-existing, reproduces with no bitwise op in the program at all), so `o.a` is still `6` when `o.a &= 3` runs: 6 & 3 = 2. node throws `TypeError: Cannot mix BigInt`. If this write ever becomes real, this value must change — if it silently doesn't (this test still passes) while the taint scan is untouched, that is exactly the unsoundness this pin exists to catch."""
-args = ["run", "bitwise_compound_tripwire_computed_key_write_not_covered_by_bigint_taint_scan.ts"]
-exit = "success"
-stdout = """2
+`o["a"] = 7n` is a computed-key write the taint scan does not walk. It is currently silently dropped (pre-existing, reproduces with no bitwise op in the program at all), so `o.a` is still `6` when `o.a &= 3` runs: 6 & 3 = 2. node throws `TypeError: Cannot mix BigInt`. If this write ever becomes real, this value must change — if it silently doesn't (this test still passes) while the taint scan is untouched, that is exactly the unsoundness this pin exists to catch.
+
+THE TRIPWIRE FIRED, AS DESIGNED, AND IT FIRED SAFELY. Re-pinned 2026-09-09 at `3ef65ef785` by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md).
+
+OLD READING: kali printed `2` at exit 0 -- the computed-key write `o["a"] = 7n` was silently dropped, so `o.a` was still `6` when `o.a &= 3` ran. node throws `TypeError: Cannot mix BigInt and other types, use explicit conversions` at exit 1.
+
+NEW READING (`3ef65ef785`, node v26.8.1): kali exits 1 with empty stdout and
+
+  error[E5506]: bitwise compound assignment '&=' on object field 'a' is unavailable in the current phase (a BigInt value was observed for this field elsewhere in the program)
+
+node still throws at exit 1. Both engines now refuse.
+
+THIS IS EXACTLY THE OUTCOME THE PIN PRE-COMMITTED TO. The paragraph above says: "If this write ever becomes real, this value must change -- if it silently doesn't (this test still passes) while the taint scan is untouched, that is exactly the unsoundness this pin exists to catch." The computed-member project made the write real (its bracket-store choke point takes the dot-store arm for a named or folded key) and, in the SAME project, extended `collect_bigint_tainted_shape_fields` to walk the computed-key write route before doing so. So the write became real and the scan saw it: the value did not silently stay `2`, and the field was not admitted with a stale non-BigInt repr. A silent wrong `2` against a node that throws became a fail-closed refusal against a node that throws.
+
+WHAT REMAINS PINNED. The other two tripwires in this group cover write routes the scan still does not walk; they are different programs and are untouched. If a later change makes one of THEM real without extending the scan, that tripwire is what catches it.
 """
+args = ["run", "bitwise_compound_tripwire_computed_key_write_not_covered_by_bigint_taint_scan.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "a BigInt value was observed for this field elsewhere in the program"]
 
 [[case]]
 name = "bitwise_compound_tripwire_arrow_parameter_write_not_covered_by_bigint_taint_scan"
@@ -3050,7 +3075,22 @@ Every expected value here was captured from node v26.5.0.
 
 Task 6 Global-Constraint audit: every remaining `E4201` reachable with a bitwise compound assign in the program. The constraint is that R-11 never turns a clean `E5506` into an internal invalid-module error; these rows are pinned because they are `E4201`, so a future change that makes R-11 the CAUSE of one would have to move a pin instead of landing silently. THE CLAIM THAT HOLDS — and read the next paragraph before strengthening it: **no `E4201` is CAUSED by an R-11 admission.** Every `E4201` shape found so far is `E4201` on the pre-task binary `e416b22a1` as well, with the bitwise line, without it, with `+=` in its place, and on a plain `n & 3` read. The root cause is the standing deferred "float-into-i64-cell storage bug" (and, for the shadow shape, the general shadowing bug). Whoever fixes those flips these pins to value assertions (node's values are in the comments), NOT deletes them. DO NOT restate this as a COUNT. Earlier revisions of this comment said "exactly two such shapes remain, both on the object-field lane". A five-line probe falsified it — a `const` shadow in an unrelated function is a third:   let n = 6; function other() { const n = 6.5; return n; } other();   function f() { n &= 3; } f(); console.log(n);     // E4201; node: 2 That is the THIRD time in this task an absolute derived from a corpus was falsified by an axis the corpus lacked (object-inflow, then self-reference, then shadowing). The census is a lower bound on what exists, never an enumeration of it. State the DIRECTION, not the count, unless the axis is proven exhaustive. Latest census, 2028-row corpus, four binaries: pre-task 59, parent `e2578aa7e` 6, `d61821a46` 12, HEAD 4 — and all 4 of HEAD's are `E4201` on the pre-task binary too. Shapes that used to reach `E4201` and no longer do, each with a fail-closed pin instead of an `E4201` pin:   * a float write to a CAPTURED cell — closed by Task 4's     `collect_float_tainted_captured_cells`, pinned by     `bitwise_compound_fails_closed_on_float_write_reaching_captured_target_from_sibling_function`;   * a float write to a MODULE GLOBAL — closed by Task 6 review round 1's     `collect_float_tainted_module_scalars`, pinned immediately below. That     one E4201'd on `e416b22a1` AND on `e2578aa7e`.
 
-node: 2. Pre-existing: identical with the `o.a &= 3;` line deleted, and identical on `e416b22a1`."""
+node: 2. Pre-existing: identical with the `o.a &= 3;` line deleted, and identical on `e416b22a1`.
+
+RE-PINNED 2026-09-09 at `3ef65ef785` by the computed-member-static-name project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md), IN THE DIRECTION THIS RATIONALE ASKS FOR.
+
+OLD READING: kali exited 1 with `error[E4201]: failed to load WASM module` -- an internal invalid-module error, pinned here precisely because it is E4201 and not a clean E5506. node prints `2`.
+
+NEW READING (`3ef65ef785`, node v26.8.1): node still prints `2`; kali exits 1 with empty stdout and
+
+  error[E5506]: bitwise compound assignment '&=' on a non-integer object field 'a' is unavailable in the current phase
+
+The bracket store `o["a"] = 6.5` now RECORDS the F64 field write instead of vanishing, so the field is seen as non-integer -- the message names it -- and the bitwise gate refuses cleanly before codegen can emit the module that failed to load. The internal error is not reached at all on this program.
+
+THIS IS THE MOVE THE PARAGRAPHS ABOVE PRE-AUTHORISED, AND IT DOES NOT FALSIFY THEIR CLAIM. The standing instruction on this group is: "If a future task closes the underlying float-into-i64-cell bug (or adds the missing parameter-write taint route), this test should start failing with a clean E5506 instead -- that is progress; update this assertion to fail-closed at that point, don't just delete the test." That is what has been done. The claim "no E4201 is CAUSED by an R-11 admission" is untouched: this shape no longer reaches E4201 at all, so it can no longer be evidence either way, and the underlying float-into-i64-cell storage bug is NOT fixed -- it is merely unreachable through THIS program's now-recorded computed-key write.
+
+THE CASE NAME IS NOW HISTORICAL. `..._hits_preexisting_e4201` names the source `#[test]` fn this case was migrated from (rule 6) and is referenced by name from `crates/kali_codegen/src/lower.rs` and `lower_tests.rs`; it is deliberately NOT renamed, because those references and the migration mapping are what the name is for. Read the assertion, not the name.
+"""
 args = ["run", "bitwise_compound_object_field_computed_key_float_write_hits_preexisting_e4201.ts"]
 exit = "failure"
-stderr_contains = ["E4201"]
+stderr_contains = ["E5506", "non-integer object field"]

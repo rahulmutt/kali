@@ -4,6 +4,7 @@ mod abort;
 mod call;
 pub(crate) mod clone;
 mod closure_access;
+mod computed_member;
 mod control_flow;
 pub(crate) mod equality;
 pub(crate) mod growable;

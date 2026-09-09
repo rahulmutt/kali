@@ -717,6 +717,14 @@ impl<'a> FunctionEmitter<'a> {
 
     pub(crate) fn render_static_value(&self, id: LirNodeId) -> Option<String> {
         let node = self.node(id);
+        // A nameless computed member has no static value and no static
+        // length; the text-less arm below would otherwise render its CHILD
+        // COUNT. Measured at dc19c3a040: `o[k].length` printed `2` for every
+        // string and `Object[k](o).length` printed `2` for a four-key object.
+        // Spec §4.3: by-id consumers decline the kind.
+        if node.kind == LirNodeKind::ComputedMember {
+            return None;
+        }
         match node.kind {
             LirNodeKind::Literal => match node.text.as_deref() {
                 Some("true") => Some("true".to_string()),
@@ -1304,6 +1312,27 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let node = self.node(*id);
+        // A nameless computed member has no static value and no static
+        // length; the text-less arm below would otherwise render its CHILD
+        // COUNT. Measured at dc19c3a040: `o[k].length` printed `2` for every
+        // string and `Object[k](o).length` printed `2` for a four-key object.
+        // Spec §4.3: by-id consumers decline the kind.
+        //
+        // `Object[k](o).length` reaches that arm ONE LEVEL UP, as a `Call`
+        // node whose CALLEE is the nameless kind: the call's text is `None`
+        // too, so `children.len()` (callee + arg) renders as the "length".
+        // A call through an unresolvable callee has no static length either,
+        // so it declines by the same rule. (Measured after the kind-only
+        // guard: still printed `2` where node prints `4`.)
+        if node.kind == LirNodeKind::ComputedMember
+            || (node.kind == LirNodeKind::Call
+                && node
+                    .children
+                    .first()
+                    .is_some_and(|callee| self.node(*callee).kind == LirNodeKind::ComputedMember))
+        {
+            return None;
+        }
         if node.text.is_none() {
             return Some(node.children.len().to_string());
         }

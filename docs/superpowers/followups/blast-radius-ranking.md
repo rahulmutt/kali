@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/.cache/cargo-target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `07ad2e6447` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `f9347ead96` | `git rev-parse HEAD`, recorded by the generator |
 
 <!-- GENERATED-PROVENANCE:END -->
 
@@ -132,7 +132,6 @@ A cluster is a **root cause** — the unit a fix ships in — not a topic. Every
 | cluster | origin | why it is a cluster |
 |---|---|---|
 | G2 — call lowering: unresolvable callee folds to constant `0` | register §3 | §3's own header. Its other members (R-02, R-05, R-03) all measure FAIL_CLOSED at `4cfa218814` and do not enter the ranking; R-51 is the cluster's whole silent surface. |
-| G3 — guards whose own diagnostic text names the unsoundness that leaks past them | register §3 | §3's own header. §3 states this cluster asserts NO SHARED CODE PATH -- it is a shape of mistake, six independent instances. Its sum is therefore a sum over a pattern, not over a fix unit, and must not be read as 'one allowlist closes this many sites'. |
 | G4 — there is no value distinct from the scalar `0` | register §3 | §3's own header. |
 | G5 — a string handle reaches a consumer that never proved it was a string | register §3 | §3's own header. |
 | G6 — unresolved or unimplemented builtins fold to a default instead of failing closed | register §3 | §3's own header. |
@@ -149,7 +148,6 @@ A cluster is a **root cause** — the unit a fix ships in — not a topic. Every
 | R-52 (unclustered) | singleton | §2: 'unclustered (an isolated lowering/emit contract mismatch)'. |
 | R-57 (unclustered) | singleton | §2: 'unclustered, and deliberately not added to any of §3's eight ... not G1 ... not G8 ... and not N1, despite the name'. The N1 exclusion is explicit because of a word collision: N1 here is escape/provenance loss in the ARENA-ESCAPE sense (R-14/R-48), not the string-escape sense. |
 | R-58 (unclustered) | singleton | §2: 'unclustered ... It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion'. Declined because G3's stated remedy -- an allowlist at the choke point -- would refuse a program node runs. |
-| R-59 (unclustered) | singleton | §2: 'unclustered, and the decline that matters is G1's ... G1's Members and Traced bullets define it by a mechanism, not by a name ... Nothing desynchronizes here ... It is not G4 either ... It is not G3'. Declined from G1 because `expression_to_property_name` consumes no tokens, so G1's `let _ = accept` sweep would not reach it. |
 
 `aggregate` sums a cluster over its members, so an entry in two clusters would be counted twice; the assignment below is a partition. Where the register names two groups it names them in order, and the first is taken. Counts are per **entry**, not per lane, so a cluster sum carries an entry's whole frequency even where the register splits that entry across two clusters by lane.
 
@@ -159,8 +157,6 @@ A cluster is a **root cause** — the unit a fix ships in — not a topic. Every
 | R-08 | 2 | G4 — there is no value distinct from the scalar `0` | G4 (no value distinct from scalar `0`). | §3's G3 member list also names R-08's `??` half. G3 asserts no shared code path, so the mechanism cluster is taken. |
 | R-09 | 2 | R-09 (unclustered) | unclustered (isolated lowering bug). | — |
 | R-10 | 2 | G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost | G7. | — |
-| R-12 | 2 | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | G3. | — |
-| R-13 | 2 | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | G3. | — |
 | R-14 | 2 | N1 — escape/provenance loss | unclustered (arena/escape suspicion, untraced). | Paired with R-48 by §2's R-48 line, not by R-14's own. |
 | R-15 | 2 | G6 — unresolved or unimplemented builtins fold to a default instead of failing closed | G6 (unimplemented builtin folds to a default instead of failing closed). | §3's G5 also claims R-15's element half, and §0.2 records the live lane as the leaked handle -- the G5 shape -- with the G6 runtime lane deny-set-closed. §2's per-entry line says G6 and is followed. |
 | R-16 | 2 | G5 — a string handle reaches a consumer that never proved it was a string | G5 (string handle reaches a consumer that never proved it was a string). | — |
@@ -184,12 +180,11 @@ A cluster is a **root cause** — the unit a fix ships in — not a topic. Every
 | R-53 | 2 | G4 — there is no value distinct from the scalar `0` | G4 (there is no value distinct from the scalar `0`) by symptom; plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4. | G7, named and declined by the register. |
 | R-57 | 2 | R-57 (unclustered) | unclustered, and deliberately not added to any of §3's eight ... not G1 ... not G8 ... not N1, despite the name ... It shares a shape with R-58 ... but they are not one cluster, by clusters.json's own definition that a cluster is the unit a fix actually ships in. | A shared cluster with R-58 (`kali_parser` converting a literal's source text with Rust's grammar) is named and declined by the register itself, on the fix-unit rule this file states. |
 | R-58 | 2 | R-58 (unclustered) | unclustered, and the interesting part is which group it declines. It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion ... A cluster is the unit a fix ships in; this fix does not ship with G3's. | G3 by shape, named and declined by the register because G3's remedy would refuse valid JavaScript; a shared cluster with R-57 is also named and declined, on the fix-unit rule. |
-| R-59 | 2 | R-59 (unclustered) | unclustered, and the decline that matters is G1's. G1 is named parser fail-open recovery, and 'fails open where it should decline' is this defect in five words -- but G1's Members and Traced bullets define it by a mechanism, not by a name ... Nothing desynchronizes here ... It is not G4 either ... It is not G3: there is no guard, and no diagnostic text, at the fabrication site. | G1 by name, named and declined by the register on G1's own traced mechanism (a token-stream contract), which this site does not share; the register also records that R-13's G3 assignment rested on a mechanism hypothesis this entry disproves, and declines to re-cluster an existing entry. |
 | R-60 | 2 | G6 — unresolved or unimplemented builtins fold to a default instead of failing closed | G6 -- unresolved or unimplemented builtins fold to a default instead of failing closed ... it joins on measurement rather than resemblance ... G6's raising-confidence experiment is what filing this entry ran ... G6's fix unit reaches it ... It is not G2 ... It is not G4. | G2 by the shared zero-placeholder fallback, named and declined by the register because G2's members are all user function values and a missing builtin is what G6 holds; G4 is also named and declined, because the property is PRESENT and there is a right answer for the read to have returned. |
 
 ### 2.2 The reachable axis — the ranking's own definition
 
-Frequency is the count over the 127 corpus programs kali accepts, of which 126 are anchor micro-snippets. This is the axis the design spec §3 defines the ranking on, and in substance it is a ranking over test snippets: 1 of the 40 programs written to do a job rather than to probe the compiler is reachable.
+Frequency is the count over the 126 corpus programs kali accepts, of which 126 are anchor micro-snippets. This is the axis the design spec §3 defines the ranking on, and in substance it is a ranking over test snippets: 0 of the 40 programs written to do a job rather than to probe the compiler is reachable.
 
 **Band 1**
 
@@ -208,27 +203,15 @@ Frequency is the count over the 127 corpus programs kali accepts, of which 126 a
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
-| G3 — guards whose own diagnostic text names the unsoundness that leaks past them | 2 | 45 | R-12, R-13 |
+| N1 — escape/provenance loss | 2 | 7 | R-14, R-48 |
 
 **Band 3**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
-| R-59 (unclustered) | 2 | 27 | R-59 |
-
-**Band 4**
-
-| cluster | worst tier | frequency | members |
-|---|---|---|---|
-| N1 — escape/provenance loss | 2 | 11 | R-14, R-48 |
-
-**Band 5**
-
-| cluster | worst tier | frequency | members |
-|---|---|---|---|
 | G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost | 2 | 2 | R-06, R-10 |
 
-**Band 6**
+**Band 4**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
@@ -241,7 +224,7 @@ Frequency is the count over the 127 corpus programs kali accepts, of which 126 a
 | R-57 (unclustered) | 2 | 0 | R-57 |
 | R-58 (unclustered) | 2 | 0 | R-58 |
 
-**Band 7**
+**Band 5**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
@@ -251,7 +234,7 @@ Frequency is the count over the 127 corpus programs kali accepts, of which 126 a
 
 ### 2.3 The raw axis — published beside it, never instead of it
 
-The same clusters banded on the count over all 177 corpus programs, accepted or not. This is the axis that carries what the extension stratum says, because 39 of its 40 programs are unreachable. It is published so a reader can see how far the reachability gate moved each cluster; it is NOT a substitute for the reachable axis, and the corpus is not widened to make the two agree (spec §4.3 forbids adjusting the corpus once scores are visible).
+The same clusters banded on the count over all 177 corpus programs, accepted or not. This is the axis that carries what the extension stratum says, because 40 of its 40 programs are unreachable. It is published so a reader can see how far the reachability gate moved each cluster; it is NOT a substitute for the reachable axis, and the corpus is not widened to make the two agree (spec §4.3 forbids adjusting the corpus once scores are visible).
 
 **Band 1**
 
@@ -261,7 +244,7 @@ The same clusters banded on the count over all 177 corpus programs, accepted or 
 | G4 — there is no value distinct from the scalar `0` | 2 | n/a — uncountable member | R-08, R-21, R-53 |
 | G5 — a string handle reaches a consumer that never proved it was a string | 2 | n/a — uncountable member | R-16, R-17, R-18 |
 | R-22 (unclustered) | 2 | n/a — uncountable member | R-22 |
-| G3 — guards whose own diagnostic text names the unsoundness that leaks past them | 2 | 305 | R-12, R-13 |
+| N1 — escape/provenance loss | 2 | 99 | R-14, R-48 |
 
 *Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested assignment and finds two that move a band 1: R-21 (both axes) and R-23 (the reachable axis, by changing G8's worst tier). Quote this table with §2.4, not on its own.*
 
@@ -270,52 +253,40 @@ The same clusters banded on the count over all 177 corpus programs, accepted or 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
 | G2 — call lowering: unresolvable callee folds to constant `0` | 1 | 3 | R-51 |
-| R-59 (unclustered) | 2 | 235 | R-59 |
+| G8 — per-sink rendering divergence: direct-log and concat are separate formatters | 2 | 79 | R-23, R-30, R-31 |
 
 **Band 3**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
-| N1 — escape/provenance loss | 2 | 99 | R-14, R-48 |
+| G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost | 2 | 17 | R-06, R-10 |
 
 **Band 4**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
-| G8 — per-sink rendering divergence: direct-log and concat are separate formatters | 2 | 79 | R-23, R-30, R-31 |
+| R-09 (unclustered) | 2 | 16 | R-09 |
 
 **Band 5**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
-| G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost | 2 | 17 | R-06, R-10 |
-
-**Band 6**
-
-| cluster | worst tier | frequency | members |
-|---|---|---|---|
-| R-09 (unclustered) | 2 | 16 | R-09 |
-
-**Band 7**
-
-| cluster | worst tier | frequency | members |
-|---|---|---|---|
 | R-26 (unclustered) | 2 | 12 | R-26 |
 
-**Band 8**
+**Band 6**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
 | G6 — unresolved or unimplemented builtins fold to a default instead of failing closed | 2 | 3 | R-15, R-24, R-25, R-60 |
 | R-34 (unclustered) | 4 | 4 | R-34 |
 
-**Band 9**
+**Band 7**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
 | R-47 (unclustered) | 2 | 1 | R-47 |
 
-**Band 10**
+**Band 8**
 
 | cluster | worst tier | frequency | members |
 |---|---|---|---|
@@ -324,40 +295,37 @@ The same clusters banded on the count over all 177 corpus programs, accepted or 
 | R-57 (unclustered) | 2 | 0 | R-57 |
 | R-58 (unclustered) | 2 | 0 | R-58 |
 
-**Countable-only band 1** (the same computation with every uncountable cluster dropped rather than carried, so a reader can see the measured frontier on its own): R-52 (unclustered) (tier 1, 5); G3 — guards whose own diagnostic text names the unsoundness that leaks past them (tier 2, 305).
+**Countable-only band 1** (the same computation with every uncountable cluster dropped rather than carried, so a reader can see the measured frontier on its own): R-52 (unclustered) (tier 1, 5); N1 — escape/provenance loss (tier 2, 99).
 
 ### 2.4 How much the contested assignments matter
 
-12 of the 31 ranked entries have a second cluster the register names with a concrete destination. Each is moved to it, alone, and both band 1s are recomputed. A clustering that cannot be argued with is not a measurement, so the argument is priced here rather than asserted away.
+11 of the 28 ranked entries have a second cluster the register names with a concrete destination. Each is moved to it, alone, and both band 1s are recomputed. A clustering that cannot be argued with is not a measurement, so the argument is priced here rather than asserted away.
 
 | entry | assigned | moved to | reachable band 1 | raw band 1 |
 |---|---|---|---|---|
-| R-08 | G4 — there is no value distinct from the scalar `0` | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | gains **G3 — guards whose own diagnostic text names the unsoundness that leaks past them**; loses **G8 — per-sink rendering divergence: direct-log and concat are separate formatters** | unchanged |
+| R-08 | G4 — there is no value distinct from the scalar `0` | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | unchanged | unchanged |
 | R-15 | G6 — unresolved or unimplemented builtins fold to a default instead of failing closed | G5 — a string handle reaches a consumer that never proved it was a string | unchanged | unchanged |
 | R-18 | G5 — a string handle reaches a consumer that never proved it was a string | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | unchanged | unchanged |
-| R-21 | G4 — there is no value distinct from the scalar `0` | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | gains **G3 — guards whose own diagnostic text names the unsoundness that leaks past them**; loses **G4 — there is no value distinct from the scalar `0`** | gains **G8 — per-sink rendering divergence: direct-log and concat are separate formatters**; loses **G4 — there is no value distinct from the scalar `0`** |
-| R-23 | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | G4 — there is no value distinct from the scalar `0` | gains **G3 — guards whose own diagnostic text names the unsoundness that leaks past them** | unchanged |
+| R-21 | G4 — there is no value distinct from the scalar `0` | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | unchanged | gains **G8 — per-sink rendering divergence: direct-log and concat are separate formatters**; loses **G4 — there is no value distinct from the scalar `0`** |
+| R-23 | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | G4 — there is no value distinct from the scalar `0` | gains **N1 — escape/provenance loss** | unchanged |
 | R-28 | R-28 (unclustered) | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | unchanged | unchanged |
 | R-34 | R-34 (unclustered) | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | unchanged | unchanged |
 | R-47 | R-47 (unclustered) | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | unchanged | unchanged |
 | R-53 | G4 — there is no value distinct from the scalar `0` | G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost | unchanged | unchanged |
 | R-58 | R-58 (unclustered) | G3 — guards whose own diagnostic text names the unsoundness that leaks past them | unchanged | unchanged |
-| R-59 | R-59 (unclustered) | G1 — parser fail-open recovery | unchanged | unchanged |
 | R-60 | G6 — unresolved or unimplemented builtins fold to a default instead of failing closed | G2 — call lowering: unresolvable callee folds to constant `0` | unchanged | unchanged |
 
 ## 3. The per-entry table
 
-Every input to §2, so a reader who disagrees with the clustering can re-band from here. `raw` counts all 177 programs; `reachable` counts only the 127 kali accepts. `zero` names WHICH KIND of zero a zero is — the three are not the same claim and must never be pooled (`counts.json` `zeroKinds`).
+Every input to §2, so a reader who disagrees with the clustering can re-band from here. `raw` counts all 177 programs; `reachable` counts only the 126 kali accepts. `zero` names WHICH KIND of zero a zero is — the three are not the same claim and must never be pooled (`counts.json` `zeroKinds`).
 
 | entry | tier | raw | reachable | anchor raw/reach | extension raw/reach | §0.2 lanes | zero kind | upper bound | cluster |
 |---|---|---|---|---|---|---|---|---|---|
 | R-06 | 2 | 6 | 1 | 4 / 1 | 2 / 0 | FIXED / SILENT / SILENT | — | — | G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost |
-| R-08 | 2 | 95 | 15 | 14 / 14 | 81 / 1 | FAIL_CLOSED / SILENT | — | yes (disclosed in record) | G4 — there is no value distinct from the scalar `0` |
+| R-08 | 2 | 95 | 14 | 14 / 14 | 81 / 0 | FAIL_CLOSED / SILENT | — | yes (disclosed in record) | G4 — there is no value distinct from the scalar `0` |
 | R-09 | 2 | 16 | 0 | 0 / 0 | 16 / 0 | SILENT / FL_INTERNAL | present-but-unreachable | — | R-09 (unclustered) |
 | R-10 | 2 | 11 | 1 | 1 / 1 | 10 / 0 | SILENT | — | — | G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost |
-| R-12 | 2 | 3 | 0 | 0 / 0 | 3 / 0 | SILENT | present-but-unreachable | — | G3 — guards whose own diagnostic text names the unsoundness that leaks past them |
-| R-13 | 2 | 302 | 45 | 47 / 43 | 255 / 2 | SILENT / SILENT | — | yes (**not** disclosed in record) | G3 — guards whose own diagnostic text names the unsoundness that leaks past them |
-| R-14 | 2 | 99 | 11 | 8 / 7 | 91 / 4 | SILENT | — | yes (**not** disclosed in record) | N1 — escape/provenance loss |
+| R-14 | 2 | 99 | 7 | 8 / 7 | 91 / 0 | SILENT | — | yes (**not** disclosed in record) | N1 — escape/provenance loss |
 | R-15 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | — | G6 — unresolved or unimplemented builtins fold to a default instead of failing closed |
 | R-16 | 2 | 6 | 0 | 0 / 0 | 6 / 0 | SILENT | present-but-unreachable | yes (disclosed in record) | G5 — a string handle reaches a consumer that never proved it was a string |
 | R-17 | 2 | uncountable | uncountable | — | — | SILENT | — | — | G5 — a string handle reaches a consumer that never proved it was a string |
@@ -380,39 +348,41 @@ Every input to §2, so a reader who disagrees with the clustering can re-band fr
 | R-53 | 2 | 1 | 0 | 0 / 0 | 1 / 0 | SILENT / FIXED | present-but-unreachable | — | G4 — there is no value distinct from the scalar `0` |
 | R-57 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | yes (disclosed in record) | R-57 (unclustered) |
 | R-58 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | yes (disclosed in record) | R-58 (unclustered) |
-| R-59 | 2 | 235 | 27 | 27 / 25 | 208 / 2 | SILENT | — | yes (disclosed in record) | R-59 (unclustered) |
 | R-60 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | yes (**not** disclosed in record) | G6 — unresolved or unimplemented builtins fold to a default instead of failing closed |
 
 ### 3.1 What the SILENT filter removed, and what it cost the ranking
 
-Spec §8.1 removes these 15 entries for **two different reasons**, and collapsing them would misdescribe 2 of them:
+Spec §8.1 removes these 18 entries for **two different reasons**, and collapsing them would misdescribe 2 of them:
 
-- **Not damage** — `FIXED`, `FAIL_CLOSED`, `BOTH_REJECT`. kali either agrees with node or refuses honestly. 13 entries leave this way: R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-19, R-20, R-32, R-33, R-49, R-56.
+- **Not damage** — `FIXED`, `FAIL_CLOSED`, `BOTH_REJECT`. kali either agrees with node or refuses honestly. 16 entries leave this way: R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-12, R-13, R-19, R-20, R-32, R-33, R-49, R-56, R-59.
 - **Outside this ranking's question** — `ACCEPTS_INVALID`, `FL_INTERNAL`, `TIMEOUT`, `NONDETERMINISTIC`. §8.1 *reports* these in the regenerated table and keeps them out of the ranking, whose question is *what silent defect should be fixed next*. 2 entries leave this way: R-29, R-54. The distinction is not pedantic: R-29's §0.2 row records kali printing `r=1` at exit 0 with no diagnostic, which is silent by any plain reading. It is out because accepting a program node rejects is a different defect class from giving a wrong answer to a valid one — not because nothing bad happens.
 
 Their counts are printed because the removal is not cosmetic: it takes the largest reachable count in the whole measurement out of the ranking.
 
 | entry | tier | raw | reachable | §0.2 lanes |
 |---|---|---|---|---|
-| R-07 | 2 | 449 | 82 | FIXED |
-| R-04 | 1 | 112 | 5 | FIXED |
-| R-32 | 4 | 6 | 5 | FIXED |
-| R-33 | 4 | 17 | 1 | FIXED |
+| R-07 | 2 | 449 | 78 | FIXED |
+| R-13 | 2 | 302 | 43 | FIXED |
+| R-59 | 2 | 235 | 25 | FAIL_CLOSED |
 | R-01 | 1 | 18 | 0 | FAIL_CLOSED |
 | R-02 | 1 | 2 | 0 | FAIL_CLOSED |
 | R-03 | 1 | 15 | 0 | FAIL_CLOSED |
+| R-04 | 1 | 112 | 0 | FIXED |
 | R-05 | 1 | 6 | 0 | FAIL_CLOSED |
 | R-11 | 2 | 10 | 0 | FIXED |
+| R-12 | 2 | 3 | 0 | FAIL_CLOSED |
 | R-19 | 2 | 27 | 0 | FIXED / FAIL_CLOSED |
 | R-20 | 2 | 4 | 0 | FAIL_CLOSED |
 | R-29 | 3 | uncountable | uncountable | ACCEPTS_INVALID |
+| R-32 | 4 | 6 | 0 | FIXED |
+| R-33 | 4 | 17 | 0 | FIXED |
 | R-49 | 1 | 2 | 0 | FAIL_CLOSED |
 | R-54 | 3 | uncountable | uncountable | ACCEPTS_INVALID |
 | R-56 | 2 | 0 | 0 | FIXED |
 
-Only 4 of the 15 removed entries have a nonzero reachable count at all: R-04 (5) and R-07 (82) and R-32 (5) and R-33 (1). The largest of them, R-07 at 82, is **the largest reachable count anywhere in `counts.json`** — larger than the largest that survives the filter (R-30 at 57). The ranking's numeric input is much thinner than the raw measurement looks.
+Only 3 of the 18 removed entries have a nonzero reachable count at all: R-07 (78) and R-13 (43) and R-59 (25). The largest of them, R-07 at 78, is **the largest reachable count anywhere in `counts.json`** — larger than the largest that survives the filter (R-30 at 57). The ranking's numeric input is much thinner than the raw measurement looks.
 
-And of the 31 entries that do enter, **8 have a reachable count above zero** (R-06 = 1, R-08 = 15, R-10 = 1, R-13 = 45, R-14 = 11, R-30 = 57, R-31 = 2, R-59 = 27); 20 measure zero and 3 have no count at all. The bands below separate 19 clusters on the evidence of 8 nonzero entries.
+And of the 28 entries that do enter, **6 have a reachable count above zero** (R-06 = 1, R-08 = 14, R-10 = 1, R-14 = 7, R-30 = 57, R-31 = 2); 19 measure zero and 3 have no count at all. The bands below separate 17 clusters on the evidence of 6 nonzero entries.
 
 ### 3.2 R-13's number is not R-13's shape
 
@@ -421,19 +391,19 @@ The register's R-13 repro is an **object read with a variable key**. `computedMe
 | axis | total | object-literal receiver | array-like receiver | store target |
 |---|---|---|---|---|
 | raw (all programs) | 302 | 56 | 45 | 67 |
-| reachable (pooled) | 45 | 2 | 26 | 18 |
+| reachable (pooled) | 43 | 0 | 26 | 18 |
 | reachable — anchor | 43 | 0 | 26 | 18 |
-| reachable — extension | 2 | 2 | 0 | 0 |
+| reachable — extension | 0 | 0 | 0 | 0 |
 
-Read down the reachable rows: of R-13's 45 reachable sites, **2 have the object-literal receiver the register's repro describes**, and the anchor's share of those is **0** — so **all 43 reachable anchor sites have none**. Both register-shaped sites are in the extension stratum, whose reachable population is the 1 program kali accepts. A further **18 of the 45 are store targets**, not reads: the register treats the write half as the worse one, but it is a different site class from the read its repro shows. R-13's 45 is an upper bound on a construct family, not a count of how often R-13's defect is triggered.
+Read down the reachable rows: of R-13's 43 reachable sites, **0 have the object-literal receiver the register's repro describes**, and the anchor's share of those is **0** — so **all 43 reachable anchor sites have none**. Both register-shaped sites are in the extension stratum, whose reachable population is the 0 program kali accepts. A further **18 of the 43 are store targets**, not reads: the register treats the write half as the worse one, but it is a different site class from the read its repro shows. R-13's 43 is an upper bound on a construct family, not a count of how often R-13's defect is triggered.
 
 ### 3.3 Which counts are upper bounds
 
-A count is an upper bound when the predicate admits sites the defect does not reach — because the AST cannot see a runtime type, a representation, or a compiler-internal proof. 8 records disclose their own upper bound: R-08, R-16, R-26, R-30, R-56 (not in the ranking), R-57, R-58, R-59. 4 more are upper bounds their records do **not** disclose, found by this measurement: R-07 (not in the ranking), R-13, R-14, R-60. Every note is in `counts.json` under `upperBound`.
+A count is an upper bound when the predicate admits sites the defect does not reach — because the AST cannot see a runtime type, a representation, or a compiler-internal proof. 8 records disclose their own upper bound: R-08, R-16, R-26, R-30, R-56 (not in the ranking), R-57, R-58, R-59 (not in the ranking). 4 more are upper bounds their records do **not** disclose, found by this measurement: R-07 (not in the ranking), R-13 (not in the ranking), R-14, R-60. Every note is in `counts.json` under `upperBound`.
 
 ### 3.4 A lane result is not an entry result
 
-9 of the 31 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). **This list can never hold a retired entry, by construction.** It is built from the entries the SILENT filter admits, and an entry whose every lane has moved has no SILENT lane left, so it is removed by that filter before this list is assembled and leaves the ranking altogether rather than appearing here as all-FIXED. §3.1 is where such an entry surfaces. R-33 left exactly that way on 2026-08-16 — its `console.warn` lane moved and its `console.error` control was already FIXED — and it is genuinely retired. R-32 left by the same door on the same day and is **not** retired: leaving is a statement about the dangerous class, not about being fixed, and §0.2's R-32 row records the `1e21` binding and concat behaviour that still holds it open with no live case pinning it. §0.2 records why in each remaining case — R-47's and R-53's FIXED lanes are the `const` controls those entries declare for themselves. R-30's six FIXED case-lanes are of two kinds, and the difference is worth keeping: four are controls the entry declares for itself (its `const`-scalar lane, its concat/template sinks, and the taint-reaching and proven-`String()` guards at the single-argument sink), while two — its `const`-object-field lane and the taint-reaching `String()`-result lane at the MULTI-argument sink — genuinely moved on 2026-08-16. So *declared control* is the accurate description of the first four and *`const` lane* is not, and neither kind retires the entry, because its plain `var`-binding lane is still SILENT. R-08's `===` half fails closed while its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
+9 of the 28 ranked entries measure something other than SILENT on at least one lane, and none of them is thereby retired: R-06 (FIXED / SILENT / SILENT); R-08 (FAIL_CLOSED / SILENT); R-09 (SILENT / FL_INTERNAL); R-21 (FAIL_CLOSED / SILENT); R-25 (FAIL_CLOSED / SILENT); R-30 (SILENT / FIXED); R-47 (SILENT / FAIL_CLOSED / FIXED); R-52 (SILENT / FL_INTERNAL); R-53 (SILENT / FIXED). **This list can never hold a retired entry, by construction.** It is built from the entries the SILENT filter admits, and an entry whose every lane has moved has no SILENT lane left, so it is removed by that filter before this list is assembled and leaves the ranking altogether rather than appearing here as all-FIXED. §3.1 is where such an entry surfaces. R-33 left exactly that way on 2026-08-16 — its `console.warn` lane moved and its `console.error` control was already FIXED — and it is genuinely retired. R-32 left by the same door on the same day and is **not** retired: leaving is a statement about the dangerous class, not about being fixed, and §0.2's R-32 row records the `1e21` binding and concat behaviour that still holds it open with no live case pinning it. §0.2 records why in each remaining case — R-47's and R-53's FIXED lanes are the `const` controls those entries declare for themselves. R-30's six FIXED case-lanes are of two kinds, and the difference is worth keeping: four are controls the entry declares for itself (its `const`-scalar lane, its concat/template sinks, and the taint-reaching and proven-`String()` guards at the single-argument sink), while two — its `const`-object-field lane and the taint-reaching `String()`-result lane at the MULTI-argument sink — genuinely moved on 2026-08-16. So *declared control* is the accurate description of the first four and *`const` lane* is not, and neither kind retires the entry, because its plain `var`-binding lane is still SILENT. R-08's `===` half fails closed while its `??` half is **still SILENT**, unchanged by that move. R-49 — not in the ranking at all — fails closed by **R-35's** switch allowlist rather than by its own gate. An entry is retired when every lane moves, which is a claim no single lane can make.
 
 ## 4. The uncountable entries
 
@@ -464,7 +434,7 @@ Per stratum, never pooled: the anchor's rate is fixed by which tests happen to e
 | stratum | accepted | programs | rate |
 |---|---|---|---|
 | anchor | 126 | 137 | 92.0% |
-| extension | 1 | 40 | 2.5% |
+| extension | 0 | 40 | 0.0% |
 
 **Two anchor rates, both true, different instruments.** The table above is measured by running `kali check` over every anchor program (`accepts.mjs`, recorded in `accepts.json`). `corpus/README.md` states a different one, from the suite's own run expectation:
 
@@ -486,9 +456,9 @@ Neither number is wrong and neither supersedes the other — they answer two dif
 
 **What the reachable column is a frequency over.**
 
-> 127 of 177 programs are reachable, and 126 of those 127 are ANCHOR programs -- a stratum that is 131 micro-snippets written to probe compiler behaviour plus 6 real CLBG programs. Every reachable ranking is therefore, in substance, a ranking over test snippets. Read the per-entry `strata` split before treating any reachable figure as a frequency in real code.
+> 126 of 177 programs are reachable, and 126 of those 126 are ANCHOR programs -- a stratum that is 131 micro-snippets written to probe compiler behaviour plus 6 real CLBG programs. Every reachable ranking is therefore, in substance, a ranking over test snippets. Read the per-entry `strata` split before treating any reachable figure as a frequency in real code.
 
-> 1/40 extension programs are accepted (2.5%). The extension is the stratum written to do jobs rather than to probe the compiler, so almost everything it measures about real programs lands in the RAW column only. Its accept rate is a finding in its own right, not a defect of the corpus: curation was independent of acceptance.
+> 0/40 extension programs are accepted (0.0%). The extension is the stratum written to do jobs rather than to probe the compiler, so almost everything it measures about real programs lands in the RAW column only. Its accept rate is a finding in its own right, not a defect of the corpus: curation was independent of acceptance.
 
 > The extension is written in the project's imperative-core dialect: no regex, no destructuring, no template literals, no `??`, no class/Map/Set/async. See corpus/README.md for which counts that biases and in which direction. A frequency here is a frequency in *programs of that dialect*, not in JavaScript generally.
 
@@ -1026,6 +996,169 @@ gated it: `check_completeness` checks that every record has a matcher, and the
 freeze checks that no matcher changes without a re-pin, but no gate asks whether
 a matcher counts what its record says. That question is answered by review, and
 this amendment is what answering it late looks like.
+
+**AMENDMENT 2026-09-09, at `71b5f42f6c` — a SEVENTH regeneration, and the first
+in which the ACCEPT SET moved.** The computed-member-static-name project
+(`docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md`) made
+`kali` REFUSE a computed member access whose index it cannot read statically.
+That closed **R-13** (FIXED, both lanes) and **R-59** (FAIL_CLOSED, one lane),
+moved **R-12** to FAIL_CLOSED without closing it, and — for the first time since
+this document existed — changed which corpus programs kali accepts, so
+`accepts.json` and `counts.json` were re-measured against the new binary in
+their own `measure(blast-radius)` commit before the ranking was regenerated. The
+instrument did not move: `predicates.json`, `matchers.mjs` and both frozen SHAs
+in `crates/kali_blast_radius/src/manifest_tests.rs` are untouched, so a
+regression re-lights the same numbers. Every figure below is **read out of the
+regenerated §2–§5 and out of the `counts.json` diff**, not predicted; §6.6 item
+4's instruction is *re-run, do not re-read*.
+
+- **THE ACCEPT SET MOVED, and that is the new thing here.** §5: anchor
+  **126/137 (92.0%) → 126/137 (92.0%)**, unchanged; extension **1/40 (2.5%) →
+  0/40 (0.0%)**; pooled reachable **127 → 126**. Exactly one program left the
+  accept set — `extension/unit_conversions.js`, which reads `PREFIXES[prefix]`
+  off a **parameter** key and now takes the shared computed-member `E5506` in
+  both twins — and it was the extension stratum's last accepted program. The
+  reachable axis is now computed over **anchor programs only**: §2.2's own
+  sentence goes from "126 of those 127 are ANCHOR" to "126 of those 126", and
+  "1 of the 40 programs written to do a job … is reachable" to "0 of the 40".
+  Every previous amendment moved verdicts; this one moved the denominator.
+- **Reachable counts changed on EIGHT entries**, all through that one program:
+  R-04 ~~5~~ → **0**, R-07 ~~82~~ → **78**, R-08 ~~15~~ → **14**,
+  R-13 ~~45~~ → **43**, R-14 ~~11~~ → **7**, R-32 ~~5~~ → **0**,
+  R-33 ~~1~~ → **0**, R-59 ~~27~~ → **25**. Three of them (R-04, R-32, R-33)
+  fall to a zero of a different KIND and `count.mjs` says so: their `zero` field
+  goes from `null` to **`present-but-unreachable`**. No raw count moved at all,
+  because the corpus did not change — only its accepted subset did.
+- **Ranked entries: ~~31~~ → 28**, and **§2's clusters ~~19~~ → 17.** Two
+  clusters left: `R-59 (unclustered)`, whose singleton definition goes with its
+  assignment on the R-56 precedent, and **G3**, which is the first
+  NON-singleton cluster ever removed from this ranking. R-12 and R-13 were G3's
+  only two members and **both** left in this regeneration, so
+  `crates/kali_blast_radius/src/ranking.rs:326` ("an empty cluster ranks
+  nothing") forced the definition out too. G3 survives as a register §3 group;
+  what left is its row in the ranking, which ranks the SILENT class only.
+- **G3's frequency, before → after: reachable ~~45~~ → gone; raw ~~305~~ →
+  gone.** It was reachable band 2 (alone) and raw band 1.
+- **BANDS MOVED ON BOTH AXES, and the raw band 1 changed membership.** Checked by
+  differencing the band blocks of the pre- and post-splice documents, not by eye.
+  *Reachable*: **band 1 is byte-identical**, six rows, unchanged; below it,
+  bands ~~7~~ → **5** — G3 (45) left band 2, `R-59 (unclustered)` (27) left band
+  3, and **N1 — escape/provenance loss rose from band 4 to band 2** while its own
+  frequency FELL from ~~11~~ to **7** (R-14's 11 → 7). A cluster rising two bands
+  while losing frequency is what removing everything above it looks like.
+  *Raw*: bands ~~10~~ → **8**, and **band 1 lost G3 (305) and gained N1 (99)** —
+  the first time a countable cluster has entered or left a band 1 in this
+  document. `G8` rose from raw band 4 to raw band 2 (79, unchanged frequency),
+  and G2 keeps raw band 2 with it. The **countable-only** raw band 1 goes
+  ~~"R-52 (tier 1, 5); G3 (tier 2, 305)"~~ → **"R-52 (tier 1, 5); N1 (tier 2,
+  99)"**; the countable-only reachable band 1 is unchanged.
+- **§2.4's contested assignments: ~~12~~ → 11**, and **THREE surviving rows
+  changed verdict** — the most §2.4 movement any regeneration has produced.
+  R-59's own row left with it. Of what remains: **R-08** goes ~~"gains G3; loses
+  G8"~~ → **`unchanged`** on the reachable axis, **R-21** goes ~~"gains G3;
+  loses G4"~~ → **`unchanged`** on the reachable axis (its raw verdict is
+  unchanged and still moves band 1), and **R-23** goes ~~"gains G3"~~ →
+  **"gains N1"**. All three moved for one reason: their alternate destination
+  was G3, and G3 is no longer a cluster. **This exactly reverses the 2026-08-16
+  amendment's most alarming finding**, which recorded R-08 becoming load-bearing
+  when G8 fell from 65 to 59; the swap is priced `unchanged` again, not because
+  the frontier got robust but because the cluster it moved into stopped
+  existing. §6.3's point stands, with the sign flipped.
+- **§3.1: entries removed by the SILENT filter ~~15~~ → 18**, of which the *not
+  damage* group goes ~~13~~ → **16** — R-12 and R-59 join at FAIL_CLOSED, R-13
+  at FIXED. "Only ~~4 of the 15~~ **3 of the 18** removed entries have a nonzero
+  reachable count at all" and the list is now **R-07 (78), R-13 (43), R-59
+  (25)** where it was R-04 (5), R-07 (82), R-32 (5), R-33 (1) — a complete
+  turnover of that list in one regeneration, three entries falling to zero as
+  the accept set shrank and two arriving with the largest counts they ever
+  carried.
+- **Entries entering with a nonzero reachable count: ~~8~~ → 6** (R-06 = 1,
+  R-08 = 14, R-10 = 1, R-14 = 7, R-30 = 57, R-31 = 2); the zeros go ~~20~~ → 19
+  and the no-count entries stay at 3. §3.1's closing sentence now reads "the
+  bands below separate **17** clusters on the evidence of **6** nonzero
+  entries", from ~~19~~ and ~~8~~. **That is the thinnest numeric evidence this
+  ranking has ever rested on**, and it is the figure to quote when someone asks
+  how much the bands are worth.
+- **`upperBound` disclosures: still 8 disclosed + 4 undisclosed.** Two gained
+  the generator's `(not in the ranking)` annotation — **R-59** among the
+  disclosed and **R-13** among the four this measurement found — joining R-56
+  and R-07. The count is derived from `counts.json` rather than from the SILENT
+  filter, so a retired entry's disclosure survives its departure, exactly as
+  R-56's did.
+
+**Whether the figures matched what was predicted, stated plainly because the
+whole point of this section is that it must not be assumed.** The project's spec
+§7 predicted three things, marked in the spec itself as "Expected, not
+asserted": that **"G3 keeps R-12 alone and drops from 45 to R-12's own count"**,
+that **"R-59's singleton cluster is removed"**, and that **"R-13's
+contested-assignment row leaves §2.4"**.
+
+- The second held exactly.
+- **The first was wrong, and it is the finding of this regeneration.** G3 did
+  not keep R-12: the gate
+  `every_zero_two_row_is_the_class_set_its_live_cases_assert` named **three**
+  entries, not two — R-12's oracle cases had flipped to `fail_closed` as well,
+  because the project's bracket-store choke point refuses an aliased array store
+  — so R-12's §0.2 row was re-derived in the same pass and G3 lost both members
+  and its definition. The spec's prediction was about which rows would move, and
+  it under-counted by one.
+- **The third was wrong in a harmless way**: R-13 has no `alternateCluster` and
+  never had a §2.4 row. The row that left §2.4 is **R-59's**. What the
+  prediction missed is the interesting part — three OTHER entries' §2.4 rows
+  changed verdict, which no prediction anticipated.
+- **Not predicted at all**: the accept-set movement's size (one program, eight
+  entries' reachable counts), the raw band 1 membership change, and N1 rising
+  two bands on the reachable axis while its frequency fell.
+
+**R-12 IS NOT CLOSED, and this amendment is not the place a reader should learn
+otherwise.** It leaves the SILENT filter because its class moved from SILENT to
+FAIL_CLOSED, not because it was fixed: `const a=[1,2]; const b=a; b[0]=7;
+console.log("b0="+b[0])` still does not print node's `b0=7` — it exits 1 with
+the shared computed-member `E5506`. That is the R-32 precedent this document
+already records ("leaving is a statement about the dangerous class, not about
+being fixed"), and R-12's §0.2 row says so at length. A second thing that row
+records and this one repeats: `kali check` exits **0** on that program while
+`kali run` refuses, a spec §8 twin disagreement the oracle harness cannot see
+because it observes `run` only.
+
+**One sentence inside the generated region has gone partly stale, and it is NOT
+edited here.** §2.2's and §2.3's band-1 footnote — "§2.4 … finds two that move a
+band 1: R-21 (both axes) and R-23" — is illustrative prose hard-coded in
+`crates/kali_blast_radius/src/ranking.rs:520`, not a computed figure. After this
+regeneration R-21 moves the **raw** band 1 only, not both, and R-23 moves the
+reachable band 1 by gaining **N1** rather than G3. The count of two is still
+right and both named entries still move a band 1, so the sentence is not false
+in its claim, only in its parenthesis. Correcting it means editing the
+generator, which is apparatus, and this task changed no apparatus — the same
+decision, and the same disclosure, the 2026-08-16 retirement amendment made
+about §3.4's illustrative prose. Recorded here so the omission reads as a
+decision rather than an oversight.
+
+**One divergence was found while measuring and is NOT filed as a register
+entry.** `docs/superpowers/followups/member-length-renders-the-child-count.md`:
+`.length` on a member-expression receiver renders a node's CHILD COUNT rather
+than a length. **This project moved its computed half and left its dot half
+silent** — `const o = {a:"xyz"}; o.a.length` still prints `1` at exit 0 where
+node prints `3`, and `o["a"].length` still prints `2`, while the folded and
+computed-callee spellings now refuse. It is filed as a follow-up rather than as
+a §2 entry because a §2 entry is a dozen coordinated edits (a predicate, a
+matcher, a counts re-freeze, an oracle pair, a clusters row) and that is a task
+of its own. This is the same disclosure R-59's own §2 entry makes about the
+leads it measured and declined to file, and the same one the R-56 retirement
+amendment above makes about the two divergences it found.
+
+**Five further findings this project measured and did not fix are filed
+elsewhere**, listed here so the ranking's reader can find them: the
+release-mode optimizer defect that destroys array identity
+(`docs/superpowers/followups/release-mode-optimizer-inlines-an-allocating-initializer.md`,
+the most consequential of the six and wider than this project's surface), the
+`process.argv` `[2]`-vs-`["2"]` divergence, a BigInt rendering divergence on the
+newly-live bracket-store lane, a `Uint8Array` recognizer tripwire, and the
+batch-3 case generator's ability to silently revert two re-pins
+(`docs/superpowers/followups/computed-member-static-name-discovered-defects.md`).
+None of the six has a §0.2 row, so none of them is in the population this
+document ranks — which is the same shortfall §6's 2026-08-16 note records about
+R-55, and it is now five entries wider.
 
 ### 6.1 The most important thing here is not a rank
 

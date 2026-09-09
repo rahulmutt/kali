@@ -5,6 +5,10 @@ use crate::{
     ObjectExpression,
 };
 
+#[cfg(test)]
+#[path = "expression_tests.rs"]
+mod expression_tests;
+
 // Expression types
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
@@ -110,15 +114,42 @@ pub struct CallExpression {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MemberExpression {
     pub object: Expression,
-    pub property: String,
+    /// `Some(name)`: the property name JavaScript will read is statically
+    /// known — always for dot access, and for a computed access only when the
+    /// parser could read the index (a string or number literal, or a
+    /// parenthesized, sequence-last or `+`/`-` unary form of one). `None`: a
+    /// computed access whose index must be evaluated; `computed_index` is
+    /// `Some`. There is no sentinel value — the parser used to fabricate one
+    /// (register entry R-59), and this field is an `Option` so it cannot.
+    #[serde(default)]
+    pub property: Option<String>,
     /// Structured index expression for computed access `a[<expr>]`.
     ///
-    /// `None` for dot access (`a.b`) and for constructions that only need the
-    /// stringified `property`. `Some(expr)` for bracket access, so codegen can
-    /// evaluate arithmetic/dynamic indices (e.g. `a[i + 1]`) at runtime rather
-    /// than relying on the stringified `property`.
+    /// `None` for dot access (`a.b`). `Some(expr)` for bracket access, so
+    /// codegen can evaluate arithmetic/dynamic indices (e.g. `a[i + 1]`) at
+    /// runtime rather than relying on `property`.
     #[serde(default)]
     pub computed_index: Option<Box<Expression>>,
+}
+
+impl MemberExpression {
+    /// The property name of a DOT access, `None` for any computed access. For
+    /// sites that are only correct on the dot form.
+    pub fn dot_name(&self) -> Option<&str> {
+        if self.computed_index.is_none() {
+            self.property.as_deref()
+        } else {
+            None
+        }
+    }
+
+    /// The statically known property name: dot access, or a computed access
+    /// whose index the parser could read. `None` means the index must be
+    /// evaluated, and a consumer that formats or compares the name must
+    /// decline rather than substitute anything.
+    pub fn static_name(&self) -> Option<&str> {
+        self.property.as_deref()
+    }
 }
 
 // ============== MISSING TYPES TO ADD ==============

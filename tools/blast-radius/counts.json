@@ -5,7 +5,7 @@
   "programs": {
     "pooled": {
       "programs": 177,
-      "accepted": 127
+      "accepted": 126
     },
     "anchor": {
       "programs": 137,
@@ -13,12 +13,12 @@
     },
     "extension": {
       "programs": 40,
-      "accepted": 1
+      "accepted": 0
     }
   },
   "population": {
-    "reachableColumn": "127 of 177 programs are reachable, and 126 of those 127 are ANCHOR programs -- a stratum that is 131 micro-snippets written to probe compiler behaviour plus 6 real CLBG programs. Every reachable ranking is therefore, in substance, a ranking over test snippets. Read the per-entry `strata` split before treating any reachable figure as a frequency in real code.",
-    "extensionStratum": "1/40 extension programs are accepted (2.5%). The extension is the stratum written to do jobs rather than to probe the compiler, so almost everything it measures about real programs lands in the RAW column only. Its accept rate is a finding in its own right, not a defect of the corpus: curation was independent of acceptance.",
+    "reachableColumn": "126 of 177 programs are reachable, and 126 of those 126 are ANCHOR programs -- a stratum that is 131 micro-snippets written to probe compiler behaviour plus 6 real CLBG programs. Every reachable ranking is therefore, in substance, a ranking over test snippets. Read the per-entry `strata` split before treating any reachable figure as a frequency in real code.",
+    "extensionStratum": "0/40 extension programs are accepted (0.0%). The extension is the stratum written to do jobs rather than to probe the compiler, so almost everything it measures about real programs lands in the RAW column only. Its accept rate is a finding in its own right, not a defect of the corpus: curation was independent of acceptance.",
     "dialect": "The extension is written in the project's imperative-core dialect: no regex, no destructuring, no template literals, no `??`, no class/Map/Set/async. See corpus/README.md for which counts that biases and in which direction. A frequency here is a frequency in *programs of that dialect*, not in JavaScript generally."
   },
   "zeroKinds": {
@@ -113,7 +113,7 @@
       "id": "R-04",
       "matcher": "consoleCallWithNonLiteralArgument",
       "raw": 112,
-      "reachable": 5,
+      "reachable": 0,
       "strata": {
         "anchor": {
           "raw": 0,
@@ -121,10 +121,10 @@
         },
         "extension": {
           "raw": 112,
-          "reachable": 5
+          "reachable": 0
         }
       },
-      "zero": null,
+      "zero": "present-but-unreachable",
       "upperBound": null,
       "alternateReading": null
     },
@@ -227,7 +227,7 @@
       "id": "R-07",
       "matcher": "constWithNonLiteralInitializer",
       "raw": 449,
-      "reachable": 82,
+      "reachable": 78,
       "strata": {
         "anchor": {
           "raw": 82,
@@ -235,7 +235,7 @@
         },
         "extension": {
           "raw": 367,
-          "reachable": 4
+          "reachable": 0
         }
       },
       "zero": null,
@@ -249,11 +249,11 @@
         "whyPublishedReadingWasChosen": "the main clause governs and the appositive illustrates; the register bounds the damage the other way round -- 'a `const` bound to a literal is correct' (register:1048-1049) -- and its Repro F is titled a shape SURVEY, not a closed list. But the disputed forms (`new`, object literal, array literal) are named in neither the record's list nor the register's survey, so the choice is an interpretation and is disclosed as one.",
         "published": {
           "raw": 449,
-          "reachable": 82
+          "reachable": 78
         },
         "alternate": {
           "raw": 286,
-          "reachable": 43
+          "reachable": 40
         },
         "alternateStrata": {
           "anchor": {
@@ -262,7 +262,7 @@
           },
           "extension": {
             "raw": 246,
-            "reachable": 3
+            "reachable": 0
           }
         }
       }
@@ -271,7 +271,7 @@
       "id": "R-08",
       "matcher": "equalityOrNullishWithNullLikeOperand",
       "raw": 95,
-      "reachable": 15,
+      "reachable": 14,
       "strata": {
         "anchor": {
           "raw": 14,
@@ -279,7 +279,7 @@
         },
         "extension": {
           "raw": 81,
-          "reachable": 1
+          "reachable": 0
         }
       },
       "zero": null,
@@ -369,7 +369,7 @@
       "id": "R-13",
       "matcher": "computedMemberNonLiteralKey",
       "raw": 302,
-      "reachable": 45,
+      "reachable": 43,
       "strata": {
         "anchor": {
           "raw": 47,
@@ -377,7 +377,7 @@
         },
         "extension": {
           "raw": 255,
-          "reachable": 2
+          "reachable": 0
         }
       },
       "zero": null,
@@ -393,8 +393,8 @@
             "storeTarget": 67
           },
           "reachable": {
-            "total": 45,
-            "objectLiteralReceiver": 2,
+            "total": 43,
+            "objectLiteralReceiver": 0,
             "arrayLikeReceiver": 26,
             "storeTarget": 18
           },
@@ -421,8 +421,8 @@
                 "storeTarget": 47
               },
               "reachable": {
-                "total": 2,
-                "objectLiteralReceiver": 2,
+                "total": 0,
+                "objectLiteralReceiver": 0,
                 "arrayLikeReceiver": 0,
                 "storeTarget": 0
               }
@@ -436,7 +436,7 @@
       "id": "R-14",
       "matcher": "memberReadOnCallResult",
       "raw": 99,
-      "reachable": 11,
+      "reachable": 7,
       "strata": {
         "anchor": {
           "raw": 8,
@@ -444,7 +444,7 @@
         },
         "extension": {
           "raw": 91,
-          "reachable": 4
+          "reachable": 0
         }
       },
       "zero": null,
@@ -830,7 +830,7 @@
       "id": "R-32",
       "matcher": "numericLiteralOutsideExponentThresholds",
       "raw": 6,
-      "reachable": 5,
+      "reachable": 0,
       "strata": {
         "anchor": {
           "raw": 0,
@@ -838,10 +838,10 @@
         },
         "extension": {
           "raw": 6,
-          "reachable": 5
+          "reachable": 0
         }
       },
-      "zero": null,
+      "zero": "present-but-unreachable",
       "upperBound": null,
       "alternateReading": null
     },
@@ -849,7 +849,7 @@
       "id": "R-33",
       "matcher": "consoleWarnCall",
       "raw": 17,
-      "reachable": 1,
+      "reachable": 0,
       "strata": {
         "anchor": {
           "raw": 0,
@@ -857,10 +857,10 @@
         },
         "extension": {
           "raw": 17,
-          "reachable": 1
+          "reachable": 0
         }
       },
-      "zero": null,
+      "zero": "present-but-unreachable",
       "upperBound": null,
       "alternateReading": null
     },
@@ -953,7 +953,7 @@
       "id": "R-59",
       "matcher": "computedMemberFabricatedPropertyName",
       "raw": 235,
-      "reachable": 27,
+      "reachable": 25,
       "strata": {
         "anchor": {
           "raw": 27,
@@ -961,7 +961,7 @@
         },
         "extension": {
           "raw": 208,
-          "reachable": 2
+          "reachable": 0
         }
       },
       "zero": null,

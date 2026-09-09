@@ -387,3 +387,29 @@ fn release_folds_object_has_own_to_true_for_the_quoted_name_itself() {
     assert_eq!(call_node.kind, LirNodeKind::Literal);
     assert_eq!(call_node.text.as_deref(), Some("true"));
 }
+
+#[test]
+fn a_nameless_computed_member_folds_as_no_static_method_name() {
+    // `Object[k]` used to build the name "Object.<fabricated>"; a nameless
+    // member has no name at all, so the fold declines. Built by hand because
+    // this crate's tests do not lower from source.
+    let mut builder = LirBuilder::new();
+    let object = builder.alloc(LirNodeKind::Value);
+    builder.node_mut(object).unwrap().text = Some("Object".to_string());
+    let index = builder.alloc(LirNodeKind::Value);
+    builder.node_mut(index).unwrap().text = Some("k".to_string());
+    let member = builder.alloc(LirNodeKind::ComputedMember);
+    builder.node_mut(member).unwrap().children = vec![object, index];
+    let root = builder.alloc(LirNodeKind::Program);
+    builder.node_mut(root).unwrap().children = vec![member];
+    let program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+    let optimizer = Optimizer::new(OptimizationLevel::Release);
+    assert_eq!(
+        optimizer.member_access_name(&program, &program.nodes[member.0 as usize]),
+        None,
+        "a nameless computed member has no dotted name"
+    );
+}

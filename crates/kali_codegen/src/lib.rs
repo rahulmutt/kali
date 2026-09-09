@@ -103,7 +103,7 @@ pub(crate) const ARRAY_HANDLE_TAG: u64 = 0x4000_0000_0000_0000;
 pub use lower::lower_lir_to_wasm;
 pub(crate) use lower::{
     emit_literal, encode_string_handle, is_binary_operator_text, is_function_like,
-    process_env_property_key,
+    is_unary_operator_text, process_env_property_key,
 };
 
 #[cfg(test)]

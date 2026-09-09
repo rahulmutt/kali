@@ -1546,3 +1546,75 @@ fn searchparams_of_non_url_does_not_seed() {
     let t = reprs("const o = { searchParams: 3 };\nconst sp = o.searchParams;\n");
     assert_eq!(t.scalar("_start", "sp"), Repr::I64);
 }
+
+#[test]
+fn a_bracket_store_with_a_static_name_materializes_the_object_like_the_dot_store() {
+    let dot = reprs("const q = {a: 1}; q.a = 7; console.log(q.a);\n");
+    assert!(
+        matches!(dot.scalar("_start", "q"), Repr::Object(_)),
+        "control: the dot store must materialize q (got {:?})",
+        dot.scalar("_start", "q")
+    );
+    let literal = reprs("const p = {a: 1}; p[\"a\"] = 7; console.log(p.a);\n");
+    assert!(
+        matches!(literal.scalar("_start", "p"), Repr::Object(_)),
+        "p[\"a\"] = 7 must materialize p as the dot store does (got {:?})",
+        literal.scalar("_start", "p")
+    );
+    let folded = reprs("const o = {a: 1}; const k = \"a\"; o[k] = 7; console.log(o.a);\n");
+    assert!(
+        matches!(folded.scalar("_start", "o"), Repr::Object(_)),
+        "o[k] = 7 with const k must materialize o (got {:?})",
+        folded.scalar("_start", "o")
+    );
+    let unfolded = reprs("const o = {a: 1}; let k = \"a\"; o[k] = 7; console.log(o.a);\n");
+    assert!(
+        !matches!(unfolded.scalar("_start", "o"), Repr::Object(_)),
+        "a let key does not fold and records no field write"
+    );
+}
+
+#[test]
+fn a_folded_read_carries_the_field_repr() {
+    let t = reprs("const o = {a: 1.5}; const k = \"a\"; let v = o[k];\n");
+    assert_eq!(
+        t.scalar("_start", "v"),
+        Repr::F64,
+        "v reads the F64 field through the folded name"
+    );
+}
+
+/// The materialization twin of `resolve::member_tests`'
+/// `a_name_declared_twice_in_one_function_does_not_fold`: this pass's
+/// `const_index_names` is keyed `(func, binding)`, so a block-scoped shadow
+/// collapses onto the same key and the last `insert` wins. The name is
+/// poisoned instead, and the store records nothing — which is what makes the
+/// gate's refusal and this pass's silence agree.
+#[test]
+fn a_shadowed_const_name_does_not_fold_and_records_no_field_write() {
+    let shadowed = reprs(
+        "const k = \"b\"; const o = {a:1, b:2};\nif (true) { const k = \"a\"; }\no[k] = 8;\n",
+    );
+    assert!(
+        !matches!(shadowed.scalar("_start", "o"), Repr::Object(_)),
+        "a shadowed key must not fold, so the store records no field write (got {:?})",
+        shadowed.scalar("_start", "o")
+    );
+    // The shadow need not be foldable itself — a `let` of the same name makes
+    // the flat table just as ambiguous.
+    let by_let =
+        reprs("const k = \"b\"; const o = {a:1, b:2};\nif (true) { let k = 1; }\no[k] = 8;\n");
+    assert!(
+        !matches!(by_let.scalar("_start", "o"), Repr::Object(_)),
+        "a `let` shadow poisons the name too (got {:?})",
+        by_let.scalar("_start", "o")
+    );
+    // Control: an UNSHADOWED `const` declared in a nested block still folds,
+    // so the poison is keyed on the name, not on block nesting.
+    let nested = reprs("const o = {a:1, b:2};\nif (true) { const k = \"b\"; o[k] = 8; }\n");
+    assert!(
+        matches!(nested.scalar("_start", "o"), Repr::Object(_)),
+        "an unshadowed const in a nested block still folds (got {:?})",
+        nested.scalar("_start", "o")
+    );
+}

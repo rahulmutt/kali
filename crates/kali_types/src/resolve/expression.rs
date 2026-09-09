@@ -99,7 +99,7 @@ impl TypeContext {
         let Expression::MemberExpression(member) = expr else {
             return false;
         };
-        if member.computed_index.is_some() || member.property.as_str() != "argv" {
+        if member.computed_index.is_some() || member.dot_name() != Some("argv") {
             return false;
         }
         Self::is_process_root_expr(&member.object)
@@ -111,7 +111,7 @@ impl TypeContext {
             Expression::Identifier(name) => name == "process",
             Expression::MemberExpression(member) => {
                 member.computed_index.is_none()
-                    && member.property.as_str() == "process"
+                    && member.dot_name() == Some("process")
                     && matches!(&member.object, Expression::Identifier(root) if root == "globalThis")
             }
             _ => false,
@@ -477,6 +477,27 @@ impl TypeContext {
         let Expression::Identifier(key) = index else {
             return;
         };
+        // Spec §4.4 steps 2-3 carve-out: an index that FOLDS under this
+        // project's one rule (a bare identifier naming a `const` whose
+        // initializer is a string or number literal) is not a general dynamic
+        // string key — it is a STATIC property name, and with a name the
+        // access IS the dot spelling. The literal spelling `obj["b"]` never
+        // reached this gate (the parser reads its name, so its index is not an
+        // identifier and the destructure above returns); the folded spelling
+        // must not either, or the two spellings of one access disagree — which
+        // is the whole claim of the fold. Uses the SHARED rule with the lookup
+        // passed in (`static_analysis::computed_member`, the same call
+        // `gate_nameless_computed_member` makes), so the three passes that
+        // must agree on what folds cannot drift. Everything below is
+        // unchanged: a genuinely dynamic key over a proven shape still fails
+        // closed, and the `for..in` lane keeps its own carve-out.
+        if crate::static_analysis::computed_member::fold_nameless_computed_index(index, |name| {
+            self.const_index_name(name)
+        })
+        .is_some()
+        {
+            return;
+        }
         let Some(obj_shape) = self.object_shape_of_expression(&member.object) else {
             // Not a known object (an array or an unproven base): leave the
             // existing element/host member behavior untouched.
@@ -658,9 +679,10 @@ impl TypeContext {
         if self.repr_table.shape_field(shape, "length").is_some() {
             return false;
         }
-        self.repr_table
-            .shape_field(shape, &member.property)
-            .is_some()
+        let Some(field) = member.static_name() else {
+            return false;
+        };
+        self.repr_table.shape_field(shape, field).is_some()
     }
 
     /// `Some(shape)` iff `expr` is a bare identifier whose `ReprTable` scalar
@@ -704,9 +726,10 @@ impl TypeContext {
             return None;
         };
         let shape = self.object_shape_of_expression(&member.object)?;
-        match self.repr_table.shape_field(shape, &member.property) {
+        let field = member.static_name()?;
+        match self.repr_table.shape_field(shape, field) {
             Some((_, kali_common::Repr::GrowableArrayI64)) => {
-                Some((base.clone(), member.property.clone()))
+                Some((base.clone(), field.to_string()))
             }
             _ => None,
         }
@@ -724,14 +747,25 @@ impl TypeContext {
         match expr {
             // `new Array(n)`: callee is the `CallExpression` `Array(n)` (see
             // `rhs_is_array_shape`); bare `new Array` is the Identifier form.
-            // Arity <= 1 only: `Array(n)` is a length allocation. n >= 2 is
+            // The arity <= 1 rule (`Array(n)` is a length allocation; n >= 2 is
             // desugared to an `ArrayExpression` at parse time and must never
-            // register through this arm either.
+            // register) still holds — the recursion below lands on the
+            // `CallExpression` arm, which enforces it.
+            //
+            // A `new` hangs its arguments on the callee CALL and keeps its own
+            // `args` empty, so `new Array(n)` is `New(Call(Array, [n]))` and the
+            // CHAINED `new Array(n).fill(v)` is `New(Call(Member(Call(Array,
+            // [n]), "fill"), [v]))` — the whole chain under one `new`. Handing
+            // the callee back to this function therefore covers both: the
+            // `Array(n)` arm below answers the first, the `.fill` arm the
+            // second. Before that recursion the chained spelling registered
+            // NOTHING here while codegen's declarator arm inserted it into
+            // `array_bindings` (`emit/control_flow.rs`, "`const u = new
+            // Array(n).fill(v)`"), so `check` refused what `run` admits — it
+            // killed `tests/fixtures/benchmarks/spectral-norm-benchmark-v1.ts`.
             Expression::NewExpression(new_expr) => {
                 matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
-                    || matches!(&new_expr.callee, Expression::CallExpression(call)
-                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array")
-                            && call.args.len() <= 1)
+                    || self.declarator_registers_runtime_array(&new_expr.callee)
             }
             Expression::CallExpression(call) => {
                 // Arity <= 1 only: `Array(n)` is a length allocation. n >= 2 is
@@ -744,15 +778,51 @@ impl TypeContext {
                     return true;
                 }
                 // `<recv>.fill(v)` — recv is a fresh `new Array(n)`/`Array(n)`
-                // allocation or an already-structural runtime array binding.
+                // ALLOCATION or an already-structural runtime array binding,
+                // which is exactly codegen's receiver test
+                // (`array_fill_call_parts`: `resolve_array_alloc_call(receiver)`
+                // or a name already in `array_bindings`). A receiver that is
+                // itself a `.fill` chain is NOT an allocation there, so it must
+                // not be one here: `Array(3).fill(1).fill(2)` was check-clean
+                // while `run` refused it, and this arm's earlier recursion into
+                // the general recognizer is what admitted it.
                 if let Expression::MemberExpression(member) = &call.callee {
-                    if member.computed_index.is_none() && member.property.as_str() == "fill" {
-                        return self.declarator_registers_runtime_array(&member.object)
+                    if member.computed_index.is_none() && member.dot_name() == Some("fill") {
+                        return Self::expression_is_array_allocation(&member.object)
                             || matches!(&member.object, Expression::Identifier(name)
                                 if self.is_structural_runtime_array(name));
                     }
                 }
                 false
+            }
+            _ => false,
+        }
+    }
+
+    /// `new Array(n)` / `Array(n)` / bare `new Array` — the allocation shapes
+    /// codegen's `resolve_array_alloc_call` recognizes, and nothing else. Kept
+    /// separate from `declarator_registers_runtime_array` so the `.fill`
+    /// receiver test cannot drift into accepting whatever else that recognizer
+    /// registers (an identifier copy, another `.fill`).
+    fn expression_is_array_allocation(expr: &Expression) -> bool {
+        match expr {
+            // Codegen reaches the allocation through
+            // `unwrap_transparent_value_node`, so a parenthesized spelling is
+            // the same allocation there. Measured: `const u = (new
+            // Array(3)).fill(1); console.log(u[0]); u.length` prints `1` `3`
+            // under `run`, so declining it here would refuse a live lane.
+            Expression::ParenthesizedExpression(inner) => {
+                Self::expression_is_array_allocation(&inner.expression)
+            }
+            Expression::NewExpression(new_expr) => {
+                matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
+                    || Self::expression_is_array_allocation(&new_expr.callee)
+            }
+            // Arity <= 1 only: `Array(n)` is a length allocation; `n >= 2` is
+            // desugared to an `ArrayExpression` at parse time.
+            Expression::CallExpression(call) => {
+                matches!(&call.callee, Expression::Identifier(name) if name == "Array")
+                    && call.args.len() <= 1
             }
             _ => false,
         }
@@ -1050,7 +1120,7 @@ impl TypeContext {
                 // signal codegen's `is_string_valued` `runtime_join_call_parts`
                 // arm consults.
                 Expression::MemberExpression(member)
-                    if member.computed_index.is_none() && member.property.as_str() == "join" =>
+                    if member.computed_index.is_none() && member.dot_name() == Some("join") =>
                 {
                     matches!(&member.object, Expression::Identifier(base)
                         if self.string_element_array_binding(base))
@@ -1120,7 +1190,7 @@ impl TypeContext {
                 // A chained substring: ASCII iff ITS receiver is.
                 Expression::MemberExpression(member)
                     if member.computed_index.is_none()
-                        && member.property.as_str() == "substring" =>
+                        && member.dot_name() == Some("substring") =>
                 {
                     self.expression_repr_is_ascii_string(&member.object)
                 }
@@ -1170,7 +1240,7 @@ impl TypeContext {
             // this predicate does not fail-close a bound the `.length` access
             // itself is legal to read.
             Expression::MemberExpression(member)
-                if member.computed_index.is_none() && member.property.as_str() == "length" =>
+                if member.computed_index.is_none() && member.dot_name() == Some("length") =>
             {
                 self.expression_is_length_fold_receiver(&member.object)
                     || self.expression_repr_is_ascii_string(&member.object)
@@ -1373,7 +1443,7 @@ impl TypeContext {
     /// for ASCII). Static-foldable receivers stay on the base fold lane,
     /// which counts UTF-16 units and is correct for ANY literal.
     pub(crate) fn reject_unprovable_string_length(&mut self, expr: &MemberExpression) {
-        if expr.computed_index.is_some() || expr.property.as_str() != "length" {
+        if expr.computed_index.is_some() || expr.dot_name() != Some("length") {
             return;
         }
         // `process.argv[<index>].length` where the index is NOT a provable static
@@ -1476,11 +1546,11 @@ impl TypeContext {
                 // alongside the substring fallthrough. Both mirror codegen's
                 // `is_string_valued`. Non-identifier receivers fall through to
                 // the substring check and then to `false` (fail-closed).
-                if member.computed_index.is_none() && member.property.as_str() == "join" {
+                if member.computed_index.is_none() && member.dot_name() == Some("join") {
                     return matches!(&member.object, Expression::Identifier(base)
                         if self.string_element_array_binding(base));
                 }
-                return member.computed_index.is_none() && member.property.as_str() == "substring";
+                return member.computed_index.is_none() && member.dot_name() == Some("substring");
             }
         }
         // Computed element read `a[i]` of a proven `Repr::String` array is a
@@ -1555,24 +1625,23 @@ impl TypeContext {
 
     /// Literal-array mutation gate: a computed subscript STORE whose base
     /// resolves to a static array-LITERAL binding (`resolve_array_literal_binding_name`,
-    /// the Task 7 registry backing `is_static_array_iteration_target`) has no
-    /// correct runtime lowering unless the WHOLE access folds statically.
-    /// Codegen never linearizes a literal array into a mutable runtime buffer
-    /// (the `join`-lane doc comment on `resolve_array_literal_binding_name`
-    /// notes the same absence for reads); probing on this branch: a runtime
-    /// index (`a[k] = 42` for a parameter `k`) and a STATIC index inside a
-    /// named function (`a[1] = 42` inside `function h() {...}`) both compile
-    /// and silently print a stale/wrong value instead of the stored one.
-    /// Rejects when EITHER:
-    ///   (a) the index is not a static numeric literal (no fold target at
-    ///       all — mirrors the slice/join gates' `is_static_numeric_literal_expr`
-    ///       foldability check), OR
-    ///   (b) the store executes inside a named function
-    ///       (`current_function_name() != "_start"`) — even a static index
-    ///       there is not the SAME top-level fold lane that resolves a
-    ///       top-level `var a = [...]; a[1] = 42;` (probed: that top-level
-    ///       shape's behavior is unchanged by this gate, silent-wrong residual
-    ///       or not — out of scope here, no new green lane).
+    /// the Task 7 registry backing `is_static_array_iteration_target`) has NO
+    /// correct runtime lowering at all. Codegen never linearizes a literal
+    /// array into a mutable runtime buffer (the `join`-lane doc comment on
+    /// `resolve_array_literal_binding_name` notes the same absence for reads);
+    /// probing on this branch: a runtime index (`a[k] = 42` for a parameter
+    /// `k`) and a STATIC index inside a named function (`a[1] = 42` inside
+    /// `function h() {...}`) both compile and silently print a stale/wrong
+    /// value instead of the stored one.
+    ///
+    /// This gate used to admit the store when "the whole access folds
+    /// statically" — a static numeric index at module scope. That admit never
+    /// landed anything: codegen DROPS the store (computed-member-static-name
+    /// follow-up item 2.3), so the admitted program read the stale literal
+    /// element. The named-index store therefore refuses UNCONDITIONALLY now.
+    /// A NAMELESS index (`a[k]`, no static name) is not this gate's business:
+    /// `gate_nameless_computed_member` owns it, so one defect gets one
+    /// diagnostic from one owner.
     /// Same dispatch site as `reject_runtime_string_store` (any assignment
     /// operator; a compound `a[1] += 1` on a literal array is exactly as
     /// unsupported as `a[1] = 42`). `new Array(n)` bindings
@@ -1589,20 +1658,32 @@ impl TypeContext {
         let Some(index) = member.computed_index.as_deref() else {
             return;
         };
+        // A nameless index that does NOT fold belongs to
+        // `gate_nameless_computed_member` — one defect, one diagnostic, one
+        // owner. One that DOES fold is this gate's business again: the fold
+        // gives the access a static name, and a named element store on a
+        // literal array has no lane in codegen either. Measured before this
+        // was added: `const a = [5, 6]; const i = 1; a[i] = 9;` was
+        // check-clean while `run` refused it.
+        if member.property.is_none()
+            && crate::static_analysis::computed_member::fold_nameless_computed_index(
+                index,
+                |name| self.const_index_name(name),
+            )
+            .is_none()
+        {
+            return;
+        }
         let Expression::Identifier(base_name) = &member.object else {
             return;
         };
         if !self.resolve_array_literal_binding_name(base_name) {
             return;
         }
-        let index_is_foldable = self.is_static_numeric_literal_expr(index);
-        let in_named_function = self.current_function_name() != "_start";
-        if !index_is_foldable || in_named_function {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "mutating a literal array is unavailable in the current direct-runtime path unless the whole access folds statically; use new Array(n) for runtime mutation".to_string(),
-            ));
-        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "mutating a literal array is unavailable in the current direct-runtime path; use new Array(n) for runtime mutation".to_string(),
+        ));
     }
 
     /// True when `expr` is one of the array-producing reassignment shapes
@@ -1917,8 +1998,9 @@ impl TypeContext {
 
                 if matches!(expr.operator, AssignmentOperator::Assign) {
                     if let Expression::MemberExpression(member) = &expr.left {
-                        let dotted = Self::member_access_name(member)
-                            .unwrap_or_else(|| member.property.clone());
+                        let dotted = Self::member_access_name(member).unwrap_or_else(|| {
+                            member.static_name().unwrap_or_default().to_string()
+                        });
                         if self.api_surface == "node"
                             && Self::is_process_env_mutation_path(&dotted)
                             && !Self::is_process_env_root_path(&dotted)

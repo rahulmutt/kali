@@ -83,7 +83,7 @@ fn test_resolution_supports_object_is_numeric_literal_member_calls() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("zero_alias".to_string()),
@@ -101,9 +101,9 @@ fn test_resolution_supports_object_is_numeric_literal_member_calls() {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Object".to_string(),
+                        property: Some("Object".to_string()),
                     })),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Number(1.0)),
@@ -118,7 +118,7 @@ fn test_resolution_supports_object_is_numeric_literal_member_calls() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::UnaryExpression(Box::new(UnaryExpression {
@@ -164,7 +164,7 @@ fn test_resolution_supports_object_is_through_object_freeze_same_reference() {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
-                        property: "freeze".to_string(),
+                        property: Some("freeze".to_string()),
                     })),
                     args: vec![Expression::Identifier("object".to_string())],
                 }))),
@@ -175,7 +175,7 @@ fn test_resolution_supports_object_is_through_object_freeze_same_reference() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("frozen".to_string()),
@@ -188,14 +188,14 @@ fn test_resolution_supports_object_is_through_object_freeze_same_reference() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::CallExpression(Box::new(CallExpression {
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("Object".to_string()),
-                            property: "freeze".to_string(),
+                            property: Some("freeze".to_string()),
                         })),
                         args: vec![Expression::Identifier("object".to_string())],
                     })),
@@ -251,9 +251,9 @@ fn test_resolution_accepts_object_is_alias_spellings_for_primitive_literals() {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Object".to_string(),
+                        property: Some("Object".to_string()),
                     })),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Boolean(true)),
@@ -268,9 +268,9 @@ fn test_resolution_accepts_object_is_alias_spellings_for_primitive_literals() {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Object".to_string(),
+                        property: Some("Object".to_string()),
                     })),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::String("hello".to_string())),
@@ -283,7 +283,7 @@ fn test_resolution_accepts_object_is_alias_spellings_for_primitive_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::TemplateLiteral(TemplateLiteral {
@@ -321,7 +321,7 @@ fn test_resolution_rejects_object_is_with_non_primitive_literals_as_unavailable(
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Object".to_string()),
-                property: "is".to_string(),
+                property: Some("is".to_string()),
             })),
             args: vec![
                 Expression::Identifier("value".to_string()),
@@ -360,7 +360,7 @@ fn test_resolution_accepts_object_is_with_void_undefined_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("alias".to_string()),
@@ -405,9 +405,9 @@ fn test_resolution_accepts_object_is_alias_spellings() {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Object".to_string(),
+                        property: Some("Object".to_string()),
                     })),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("object".to_string()),
@@ -422,9 +422,9 @@ fn test_resolution_accepts_object_is_alias_spellings() {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Object".to_string(),
+                        property: Some("Object".to_string()),
                     })),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression {
@@ -455,7 +455,7 @@ fn test_resolution_accepts_object_is_for_distinct_object_and_array_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::ObjectExpression(ObjectExpression {
@@ -480,7 +480,7 @@ fn test_resolution_accepts_object_is_for_distinct_object_and_array_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::ArrayExpression(ArrayExpression {
@@ -552,7 +552,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("flag".to_string()),
@@ -565,7 +565,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("text".to_string()),
@@ -578,7 +578,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("bigint".to_string()),
@@ -591,7 +591,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("infinity".to_string()),
@@ -604,7 +604,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("nan".to_string()),
@@ -617,7 +617,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Literal(LiteralValue::Null),
@@ -644,7 +644,7 @@ fn test_resolution_accepts_object_is_signed_zero_literal_pairs() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::UnaryExpression(Box::new(UnaryExpression {
@@ -663,7 +663,7 @@ fn test_resolution_accepts_object_is_signed_zero_literal_pairs() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::UnaryExpression(Box::new(UnaryExpression {
@@ -716,7 +716,7 @@ fn test_resolution_accepts_object_is_with_same_static_reference() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("alias".to_string()),
@@ -729,7 +729,7 @@ fn test_resolution_accepts_object_is_with_same_static_reference() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("object".to_string()),
@@ -762,7 +762,7 @@ fn test_resolution_accepts_object_is_with_optional_chain_wrapped_static_referenc
                                 MemberExpression {
                                     computed_index: None,
                                     object: Expression::Identifier("globalThis".to_string()),
-                                    property: "Object".to_string(),
+                                    property: Some("Object".to_string()),
                                 },
                             ))),
                             optional: true,
@@ -783,7 +783,7 @@ fn test_resolution_accepts_object_is_with_optional_chain_wrapped_static_referenc
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     Expression::Identifier("alias".to_string()),
@@ -807,7 +807,7 @@ fn test_resolution_accepts_object_is_with_optional_chain_wrapped_same_reference(
     let object_root = Expression::MemberExpression(Box::new(MemberExpression {
         computed_index: None,
         object: Expression::Identifier("globalThis".to_string()),
-        property: "Object".to_string(),
+        property: Some("Object".to_string()),
     }));
     let optional_chain_root =
         Expression::OptionalChainExpression(Box::new(OptionalChainExpression {
@@ -821,7 +821,7 @@ fn test_resolution_accepts_object_is_with_optional_chain_wrapped_same_reference(
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 computed_index: None,
                 object: Expression::Identifier("Object".to_string()),
-                property: "is".to_string(),
+                property: Some("is".to_string()),
             })),
             args: vec![optional_chain_root, object_root],
         }))),
@@ -860,7 +860,7 @@ fn test_resolution_accepts_object_is_with_sequence_wrapped_static_primitive_lite
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
-                    property: "is".to_string(),
+                    property: Some("is".to_string()),
                 })),
                 args: vec![
                     sequence_expression(vec![

@@ -1562,10 +1562,138 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         ),
         ("call-inlining-chain-benchmark-v1", "call-inlining-chain"),
         ("nullish-benchmark-v1", "nullish-specialization"),
-        ("spectral-norm-benchmark-v1", "spectral-norm"),
-        ("nbody-benchmark-v1", "nbody"),
+        // RE-PINNED 2026-09-09 at `dbaf05767b` (controller ruling R22), by the
+        // computed-member-static-name project
+        // (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md).
+        // `spectral-norm-benchmark-v1` and `nbody-benchmark-v1` USED TO SIT HERE and
+        // no longer do; the block below pins what they actually do instead. Read that
+        // block before adding either name back.
+        //
+        // ("spectral-norm-benchmark-v1", "spectral-norm"),
+        // ("nbody-benchmark-v1", "nbody"),
     ] {
         assert_optimization_benchmark_fixture(fixture_stem, benchmark_name);
+    }
+
+    // THE TWO BENCHMARKS-GAME FIXTURES BUILD AT `--fast` AND ARE REFUSED AT BOTH
+    // RELEASE TIERS, AND THAT REFUSAL IS THE CORRECT OUTCOME. Ruling R22.
+    //
+    // WHAT MOVED. Before the computed-member-static-name project, all three tiers
+    // "built" for both fixtures and this test was green. It is green on a build, not
+    // on a run: `assert_optimization_benchmark_fixture` counts instructions, adds and
+    // tag-boxing ops in the emitted `.wasm` and NEVER EXECUTES THE MODULE. That is
+    // what let the defect below stay invisible for as long as it did.
+    //
+    // WHAT THE RELEASE TIERS WERE ACTUALLY PRODUCING. Established by the controller
+    // by dumping LIR on both sides of the optimizer: at `--fast` the read base of
+    // `u[i]` is the named binding `u`; at `--release` it is a TEXT-LESS wrapper around
+    // the same node id as the declarator's `new Array(n).fill(v)` initializer -- the
+    // optimizer inlines an ALLOCATING initializer as if it were a pure constant, so
+    // there is no shared array left to name and every refused read carries
+    // `base_text=None, target_name=None`. The controller then reinstated the
+    // pre-project name fabrication behind a temporary env gate and measured what the
+    // old release build had been emitting: `new Array(4).fill(7); u[i]` -> `0` (node
+    // `7`); an 11-line repro -> `0` (node `1`); the array-parameter case -> `0` (node
+    // `8`); and spectral-norm itself -> INVALID WASM. Control, same gate: `--fast`
+    // still gave `1.274219991`. So the release tiers were silently emitting zeros and
+    // an unloadable module, and this test reported them as passing benchmarks.
+    //
+    // Converting that into a visible refusal is precisely what this project exists to
+    // do, so NOTHING IS RESTORED and the fixtures are not rewritten: they are the
+    // upstream Benchmarks Game programs and rewriting them would change the workload.
+    //
+    // WHAT IS MEASURED HERE, at `dbaf05767b` against node v26.8.1:
+    //   * `--fast` builds both, and the `--fast` lane is REAL rather than merely
+    //     quiet: `kali run` prints `1.274219991` for spectral-norm, and
+    //     `-0.169075164` then `-0.169087605` for nbody -- byte-identical to node.
+    //     BOTH of nbody's lines are pinned (it prints the energy before and after
+    //     the advance loop); an earlier draft of this block pinned only the second
+    //     and the assertion caught it. That is why the assertion below keeps a
+    //     positive claim about `--fast` instead of only pinning the refusals.
+    //   * `--release` refuses with 16 (spectral-norm) and 6 (nbody) E5506
+    //     computed-member diagnostics; `--release-advanced` with 12 and 6.
+    //     The counts are deliberately NOT asserted -- they are an artefact of how far
+    //     the optimizer got, not a contract -- only the refusal and its code are.
+    //
+    // THE OTHER 59 FIXTURES ARE UNTOUCHED. `assert_optimization_benchmark_fixture` is
+    // not weakened, no exclusion list grew, and no fixture was removed from the
+    // measured set for any reason other than that it no longer builds at those tiers.
+    // The two `matches!` exclusion lists inside that helper still name
+    // `"spectral-norm"` and `"nbody"`; those arms are now unreached and are LEFT IN
+    // PLACE deliberately, so that restoring either fixture to the list above restores
+    // a working configuration rather than a differently-broken one.
+    //
+    // FOLLOW-UP, WHICH TASK 8 FILES: "the optimizer inlines an allocating array
+    // initializer, destroying the array identity the computed-member gateway needs, so
+    // `--release`/`--release-advanced` refuse programs `--fast` compiles correctly."
+    // That is a real capability gap in the release tiers, distinct from this project's
+    // gateway, and closing it is what would let these two names go back in the list.
+    for (fixture_stem, fast_stdout) in [
+        ("spectral-norm-benchmark-v1", "1.274219991\n"),
+        ("nbody-benchmark-v1", "-0.169075164\n-0.169087605\n"),
+    ] {
+        let source = fixture_path(format!("benchmarks/{fixture_stem}.ts"));
+
+        let fast_dir = tempdir().expect("tempdir");
+        let fast = Command::new(kali_bin())
+            .arg("build")
+            .arg("--fast")
+            .arg("--out-dir")
+            .arg(fast_dir.path())
+            .arg(&source)
+            .output()
+            .expect("run kali build --fast");
+        assert!(
+            fast.status.success(),
+            "{fixture_stem}: --fast must still build; stderr: {}",
+            String::from_utf8_lossy(&fast.stderr)
+        );
+
+        let ran = Command::new(kali_bin())
+            .arg("run")
+            .arg(&source)
+            .output()
+            .expect("run kali run");
+        assert!(
+            ran.status.success(),
+            "{fixture_stem}: the fast lane must still RUN; stderr: {}",
+            String::from_utf8_lossy(&ran.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&ran.stdout),
+            fast_stdout,
+            "{fixture_stem}: the fast lane must agree with node"
+        );
+
+        for mode in ["--release", "--release-advanced"] {
+            let out_dir = tempdir().expect("tempdir");
+            let built = Command::new(kali_bin())
+                .arg("build")
+                .arg(mode)
+                .arg("--out-dir")
+                .arg(out_dir.path())
+                .arg(&source)
+                .output()
+                .expect("run kali build");
+            let stderr = String::from_utf8_lossy(&built.stderr);
+            assert!(
+                !built.status.success(),
+                "{fixture_stem} {mode}: expected the honest refusal, not a build. \
+                 If this now builds, do NOT delete this block -- the release tiers \
+                 used to emit zeros and invalid wasm here (see the comment above); \
+                 verify the emitted module actually RUNS and agrees with node, then \
+                 move the fixture back into the list above. stderr: {stderr}"
+            );
+            assert!(
+                stderr.contains("E5506"),
+                "{fixture_stem} {mode}: stderr: {stderr}"
+            );
+            assert!(
+                stderr
+                    .contains("computed member access `o[k]` is unavailable in the current phase"),
+                "{fixture_stem} {mode}: stderr: {stderr}"
+            );
+        }
     }
 }
 

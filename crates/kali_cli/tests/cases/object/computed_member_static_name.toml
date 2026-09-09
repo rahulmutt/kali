@@ -1,0 +1,637 @@
+# Cases for the computed-member-static-name project (spec
+# docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md).
+#
+# The admitted matrix (dot, literal, const-folded; read and store), the
+# refused matrix (let/var/parameter key, binary index, boolean/null/BigInt
+# literal, string receiver, array-literal store and mutable-index read, a
+# shadowed fold name), and the controls of spec section 2.5. Every refusal is
+# asserted under BOTH `check` and `run` with the one shared message, because
+# `kali check` runs the checker only and the refusal must live in both twins.
+#
+# Every expectation here was measured against node v26.8.1, in both scopes where
+# the program has a function twin, at the commit its own rationale names. THREE
+# COMMITS APPEAR, and the split is not cosmetic: the original 51 cases were
+# measured at `3ef65ef785`; the seven `..._array_fill_...` cases added by
+# this project's review were measured at `dbaf05767b`, the commit that restored
+# the chained-allocation lane this project had briefly refused; and the
+# `..._a_unary_over_a_string_index` pair added by the branch's final review was
+# measured at `2c31e1d617`, the commit that narrowed the parser's `+`/`-` arm to
+# a number-literal source (its rationale also carries the `ff8567e7f4` reading
+# the fabricated name produced BEFORE that narrowing). Reading a
+# rationale's SHA rather than assuming a file-wide one is the point -- a case
+# measured before a fix and a case measured after it are different claims.
+# Nothing here is predicted:
+# where the plan's Task 7 brief dictated an expectation the binary does not
+# produce, the MEASUREMENT is what is pinned and the rationale carries both
+# readings and names the mechanism. Three such divergences exist and each is
+# called out by name in the case that carries it:
+#   * `a_literal_number_key_bracket_store_is_refused_by_the_preexisting_numeric_key_gate`
+#     (the brief predicted `7`; the binary refuses, through a gate that predates
+#     this project and fires for a DOT store too),
+#   * `the_let_object_bracket_read_agrees_with_its_dot_spelling`
+#     (handoff ruling R14 predicted a wrong-on-purpose `0`; it reads correctly
+#     at this commit),
+#   * the two `..._chained_access_...` / `..._computed_callee_...` cases, which
+#     are `run`-only because `check` still admits them (spec section 8 twin
+#     disagreement, recorded rather than papered over).
+#
+# FOUR CASES HERE ARE WRONG ON PURPOSE and no task in this plan owns closing
+# them (spec section 6.3): the absent-property read after a fold, the
+# `process.argv` index divergence, the BigInt field rendering after a
+# bracket store, and -- added by Task 8 at `71b5f42f6c` -- the DOT-spelling
+# `.length` that renders the receiver object's property count. Each says so in
+# its own rationale. (Two further cases, the `check`-admits halves of the
+# chained-access and computed-callee pair, are wrong on purpose in a different
+# sense: they pin a spec-section-8 twin disagreement, and say so.)
+
+[constants]
+COMPUTED = "computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the receiver is a runtime array or a `for..in` key over the same object"
+STRING = "indexing a string `s[i]` is unavailable in the current phase; use `charAt`/`at` on a statically-known ASCII string or the later compatibility path"
+NUMERIC_KEY = "uses a numeric property name, which is unavailable in the current phase"
+
+[source]
+"const_key_read_module.js" = """const o = {a: 1, b: 2}; const k = "b"; console.log(o[k]); console.log(o[k] + 1);
+"""
+"const_key_read_function.js" = """function main() {
+  const o = {a: 1, b: 2}; const k = "b"; console.log(o[k]); console.log(o[k] + 1);
+}
+main();
+"""
+"const_number_key_read.js" = """const o = {1: "one", 2: "two"}; const k = 1; console.log(o[k]);
+"""
+"const_key_store_module.js" = """const o = {a: 1, b: 2}; const k = "b"; o[k] = 8; console.log(o.b);
+"""
+"const_key_store_function.js" = """function main() {
+  const o = {a: 1, b: 2}; const k = "b"; o[k] = 8; console.log(o.b);
+}
+main();
+"""
+"literal_key_store_string.js" = """const p = {a: 1}; p["a"] = 7; console.log(p["a"]);
+"""
+"literal_key_store_number.js" = """const o = {5: 1}; o[5] = 7; console.log(o[5]);
+"""
+"numeric_key_dot_store_control.js" = """const o = {5: 1}; o.x = 2; console.log(o[5]);
+"""
+"numeric_key_read_control.js" = """const o = {5: 1}; console.log(o[5]);
+"""
+"dot_store_control.js" = """const q = {a: 1}; q.a = 7; console.log(q.a);
+"""
+"const_key_optional_chain.js" = """const o = {a: 1, b: 2}; const k = "b"; console.log(o?.[k]);
+"""
+"absent_property_after_fold.js" = """const o = {a: 1, b: 2}; const k = "c"; console.log(o[k]); console.log(o["c"]); console.log(o.c);
+"""
+"let_key_read.js" = """const o = {a: 1, b: 2}; let k = "b"; console.log(o[k]);
+"""
+"var_key_read.js" = """const o = {a: 1, b: 2}; var k = "b"; console.log(o[k]);
+"""
+"parameter_key_read.js" = """const o = {a: 1, b: 2}; function f(k) { return o[k]; }
+console.log(f("b"));
+"""
+"binary_index_read.js" = """const o = {index: 9, i: 7}; let i = 1; console.log(o[i + 0]);
+"""
+"boolean_null_bigint_index.js" = """const o = {index: 5, true: 7}; console.log(o[true]); console.log(o[null]); console.log(o[1n]);
+"""
+"let_key_store.js" = """const o = {a: 1, b: 2}; let k = "b"; o[k] = 8; console.log(o.b);
+"""
+"shadowed_key_read.js" = """const k = "b"; const o = {a: 1, b: 2}; if (true) { const k = "a"; } console.log(o[k]);
+"""
+"shadowed_key_store.js" = """const k = "b"; const o = {a: 1, b: 2}; if (true) { const k = "a"; } o[k] = 8; console.log(o.b);
+"""
+"shadow_after_the_use_control.js" = """const k = "b"; const o = {a: 1, b: 2}; o[k] = 8; console.log(o.b); if (true) { const k = "a"; }
+"""
+"string_receiver_literal.js" = """const s = "abc"; console.log(s[1]);
+"""
+"string_receiver_folded.js" = """const s = "abc"; const k = 1; console.log(s[k]);
+"""
+"string_length_agreement_control.js" = """const s = "abc"; const k = "length"; console.log(s.length); console.log(s["length"]); console.log(s[k]);
+"""
+"array_literal_store.js" = """const a = [5, 6]; a[1] = 9; console.log(a[1]);
+"""
+"array_literal_mutable_index_read.js" = """const a = [5, 6, 7]; for (let j = 0; j < 3; j++) { console.log(a[j]); }
+"""
+"array_literal_const_index_read.js" = """const a = [5, 6]; const i = 1; console.log(a[i]);
+"""
+"runtime_array_control.js" = """const a = new Array(3); for (let i = 0; i < 3; i++) { a[i] = i * 2; } let j = 2; console.log(a[j]);
+"""
+"chained_array_fill_read.js" = """const u = new Array(3).fill(1); let i = 0; console.log(u[i]);
+"""
+"bare_array_fill_read.js" = """const u = Array(3).fill(1); let i = 0; console.log(u[i]);
+"""
+"statement_form_array_fill_read.js" = """const u = new Array(3); u.fill(1); let i = 0; console.log(u[i]);
+"""
+"chained_array_fill_store.js" = """const u = new Array(3).fill(1); let i = 0; u[i] = 9; console.log(u[0]); console.log(u[2]);
+"""
+"double_chained_array_fill_read.js" = """const u = new Array(3).fill(1).fill(2); let i = 0; console.log(u[i]);
+"""
+"readable_string_key_control.js" = """const o = {a: 1, b: 2}; console.log(o["b"]);
+"""
+"readable_numeric_spellings_control.js" = """const o = {1: "one", 2: "two"}; console.log(o[(1)]); console.log(o[(0, 1)]); console.log(o[+1]);
+"""
+"unary_string_index.js" = """const o = {Infinity: 9, NaN: 7}; console.log(o[+"inf"]); console.log(o[+"infinity"]);
+"""
+"chained_access_off_folded_member.js" = """const o = {a: "xyz"}; const k = "a"; console.log(o[k].length);
+"""
+"computed_callee_fold.js" = """const o = {a: 1, b: 2, c: 3, d: 4}; const k = "keys"; console.log(Object[k](o).length);
+"""
+"let_object_bracket_read.js" = """let o = {a: 1, b: 2}; const k = "b"; console.log(o["b"]); console.log(o[k]);
+"""
+"argv_index_divergence.js" = """console.log(process.argv[2]); const i = 2; console.log(process.argv[i]); console.log(process.argv["2"]);
+"""
+"bigint_field_after_bracket_store.js" = """let o = {a: 1, b: 7n}; o["a"] = 5; console.log(o.b);
+"""
+"dot_member_length.js" = """const o = {a: "xyz"}; console.log(o.a.length);
+"""
+
+# ---- admitted: the fold is the dot spelling ---------------------------------
+
+[[case]]
+name = "a_const_string_key_reads_the_property_module_scope"
+rationale = """R-13's read lane, spec section 2.2. node prints 2 then 3. Before this project kali printed 0 then 1 at exit 0: the parser fabricated the name `k`, the fold-lane object had no such field, and the miss was the placeholder 0. Now `k` folds to "b" through the const rule and the read is `o.b`. Measured at `3ef65ef785` against node v26.8.1: kali prints 2 then 3 at exit 0 with empty stderr, `check` clean."""
+args = ["run", "const_key_read_module.js"]
+exit = "success"
+stdout = "2\n3\n"
+
+[[case]]
+name = "a_const_string_key_reads_the_property_in_function"
+rationale = "The module-scope program inside `function main() { ... }`; the fold is scope-independent (a const declarator in the same scope). Measured at `3ef65ef785`: kali prints 2 then 3, byte-identical to node and to the module scope."
+args = ["run", "const_key_read_function.js"]
+exit = "success"
+stdout = "2\n3\n"
+
+[[case]]
+name = "a_const_number_key_folds_through_the_shared_number_formatter"
+rationale = "`const k = 1; o[k]` on `{1: \"one\"}`: the fold renders 1 with format_js_number, the same formatter HIR stored the key with, so probe and key are one spelling. node prints one. Measured at `3ef65ef785`: kali prints one."
+args = ["run", "const_number_key_read.js"]
+exit = "success"
+stdout = "one\n"
+
+[[case]]
+name = "a_const_string_key_store_lands_module_scope"
+rationale = """R-13's write lane, spec section 2.3. node prints 8. Before this project kali printed 2: the bracket store fell out of every store arm and the caller emitted a bare read. Now the folded target takes the dot-store arm, and the checker recorded the write access that materializes `o`. Measured at `3ef65ef785`: kali prints 8, `check` clean."""
+args = ["run", "const_key_store_module.js"]
+exit = "success"
+stdout = "8\n"
+
+[[case]]
+name = "a_const_string_key_store_lands_in_function"
+rationale = "The write lane inside `function main() { ... }`. Measured at `3ef65ef785`: kali prints 8, byte-identical to node and to the module scope."
+args = ["run", "const_key_store_function.js"]
+exit = "success"
+stdout = "8\n"
+
+[[case]]
+name = "a_literal_string_key_bracket_store_lands"
+rationale = "console-render follow-up item 2.3, string key: `p[\"a\"] = 7` then `p[\"a\"]`. node prints 7; kali printed 1 before this project. The named bracket store takes the dot-store arm. Measured at `3ef65ef785`: kali prints 7."
+args = ["run", "literal_key_store_string.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "a_literal_number_key_bracket_store_is_refused_by_the_preexisting_numeric_key_gate"
+rationale = """console-render follow-up item 2.3, numeric key: `o[5] = 7` then `o[5]` on `{5: 1}`.
+
+THE PLAN'S TASK 7 BRIEF PREDICTED `stdout = "7"` HERE AND THE BINARY DOES NOT PRODUCE IT. Measured at `3ef65ef785` against node v26.8.1: node prints 7; kali refuses, exit 1, with
+
+  error[E5506]: object literal for Binding("_start", "o") uses a numeric property name, which is unavailable in the current phase
+
+under `run` AND under `check`. The expectation is pinned to the MEASUREMENT, not to the prediction, and this paragraph is the record of the disagreement; the controller owns deciding whether the prediction or the binary is wrong.
+
+WHY THIS IS NOT A DEFECT IN THIS PROJECT'S FOLD. The message comes from `record_object_literal` in crates/kali_types/src/repr_infer.rs, an "honest fail-closed residue" that predates this branch (present at the baseline `dc19c3a040`): an UNQUOTED numeric object-literal key keeps the slot off the shape lane and records a DEFERRED conflict, which is promoted to a real gate conflict only when something forces the slot onto the object lane. A read-only literal keeps working, which the two controls below pin; ANY store promotes it, which the dot-store control below pins with no bracket in the program at all. What this project changed is reachability, not correctness: at `dc19c3a040` the bracket store was silently dropped, nothing forced the slot, and the program printed the pre-store `1` against node's `7`. It now refuses honestly. A silent wrong 1 became an E5506 at exit 1, which is the direction spec section 2.3 asks for; the numeric-key materialization lane itself is a separate design and no task in this plan owns it."""
+args = ["run", "literal_key_store_number.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NUMERIC_KEY}"]
+
+[[case]]
+name = "check_refuses_a_literal_number_key_bracket_store_too"
+rationale = "The twin of the case above: the numeric-key gate lives in the checker, so `check` refuses the same program with the same message. Measured at `3ef65ef785`."
+args = ["check", "literal_key_store_number.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NUMERIC_KEY}"]
+
+[[case]]
+name = "a_dot_store_on_a_numeric_key_object_refuses_identically_with_no_bracket_in_the_program"
+rationale = """The control that proves the refusal above belongs to the pre-existing numeric-key gate and not to this project's bracket store: `const o = {5: 1}; o.x = 2;` contains no computed member access of any kind, and refuses with the SAME message. Measured at `3ef65ef785`: node prints 1; kali refuses, exit 1, under both `run` and `check`. Without this control a reader could conclude the bracket store caused the refusal."""
+args = ["run", "numeric_key_dot_store_control.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NUMERIC_KEY}"]
+
+[[case]]
+name = "a_numeric_key_object_read_only_is_still_admitted"
+rationale = "The second half of the same control: with no store anywhere, the deferred conflict is never promoted and the read-only fold lane keeps today's behaviour. node prints 1; kali prints 1. Measured at `3ef65ef785`. This is what makes the two cases above a REACHABILITY change rather than a new refusal."
+args = ["run", "numeric_key_read_control.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "an_absent_property_after_a_successful_fold_is_r21s_lane_not_this_projects"
+rationale = """WRONG ON PURPOSE, and NO TASK IN THIS PLAN OWNS CLOSING IT. node prints undefined three times; kali prints 0 three times, at exit 0.
+
+WHAT IT PINS, AND WHY IT IS A CASE AT ALL. Spec section 5 carves this lane out: a `const` key that folds to a name the object does NOT have reads the same placeholder `0` the dot spelling `o.c` reads today. All three spellings are pinned together precisely so they must move together: the fold's whole claim is that a folded bracket access IS the dot access, and if a later change made `o[k]` and `o.c` disagree here, that claim would have quietly broken. The `0` itself is R-21 (there is no value distinct from the scalar 0), which this project does not touch.
+
+Measured at `dc19c3a040` and re-measured at `3ef65ef785`: all three lines print 0 before and after this project, at exit 0, with `check` clean."""
+args = ["run", "absent_property_after_fold.js"]
+exit = "success"
+stdout = "0\n0\n0\n"
+
+[[case]]
+name = "the_dot_store_control_still_lands"
+rationale = "Spec section 2.5 control: `q.a = 7` was correct before and must stay correct. Measured at `3ef65ef785`: kali prints 7, node prints 7."
+args = ["run", "dot_store_control.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "the_optional_chain_spelling_folds_the_same_way"
+rationale = "`o?.[k]` goes through the second parse site, which used to fabricate identically; it now declines identically and the const key folds. node prints 2. Measured at `3ef65ef785`: kali prints 2."
+args = ["run", "const_key_optional_chain.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "the_readable_string_key_spelling_stays_correct"
+rationale = "Spec section 2.5: `o[\"b\"]` on `{a: 1, b: 2}` was correct before and must stay correct. node prints 2. Measured at `3ef65ef785`: kali prints 2."
+args = ["run", "readable_string_key_control.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "the_readable_numeric_spellings_stay_correct"
+rationale = """Spec section 2.5: the parser's readable set is unchanged -- the parenthesized, sequence-last and folded-unary spellings of a numeric literal all read the right property on `{1: "one", 2: "two"}`. node prints one three times. The receiver is a numeric-key object on purpose: `o["b"]` on THIS object would be an absent read, which prints 0 against node's undefined (R-21's lane, not this project's), so the two controls are separate programs. Measured at `3ef65ef785`: kali prints one three times."""
+args = ["run", "readable_numeric_spellings_control.js"]
+exit = "success"
+stdout = "one\none\none\n"
+
+[[case]]
+name = "a_const_index_on_an_array_literal_folds_into_the_element_fold"
+rationale = "`const i = 1; a[i]` on `[5, 6]`: the fold renders \"1\", which the static element fold reads. node prints 6; kali printed 0 before. Measured at `3ef65ef785`: kali prints 6."
+args = ["run", "array_literal_const_index_read.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "the_runtime_array_lane_is_untouched"
+rationale = "Spec section 2.5 control: a `new Array(n)` receiver reads its index child through the linear-memory lane in both the checker and codegen. node prints 4. Measured at `3ef65ef785`: kali prints 4."
+args = ["run", "runtime_array_control.js"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "a_chained_array_allocation_is_the_same_runtime_array_as_the_statement_form"
+rationale = """THE LANE THIS PROJECT BRIEFLY BROKE, PINNED WHERE IT BELONGS. Review finding (2026-09-09): until `dbaf05767b` the shared runtime-array recognizer behind `nameless_computed_member_is_admitted_by_a_runtime_lane` saw `const u = new Array(n); u.fill(v);` but NOT the chained spelling `const u = new Array(n).fill(v)`, so this project's gateway refused a live lane -- `u[i]` on a chained allocation, which node reads and codegen can lower. It surfaced as a red benchmark fixture rather than as a case, because nothing in the black-box suite exercised it.
+
+Measured at `dbaf05767b` against node v26.8.1: node prints 1, kali prints 1 at exit 0, `check` clean. The two spellings are pinned as AGREEING by the control case below, which is the whole claim of the fix: a chained array allocation is the same runtime array as the statement form, so the recognizer must not distinguish them."""
+args = ["run", "chained_array_fill_read.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "check_admits_a_chained_array_allocation_read"
+rationale = "The `check` twin of the case above. An admitted program reaches `run` only through the checker, so `run`-green already implies `check`-green; it is asserted separately anyway because the defect this pair exists to catch was a SHARED admit-list hole, and a case file that only ever spells `run` cannot show that the two passes agree. Measured at `dbaf05767b`: exit 0, `Checked 1 file(s)`."
+args = ["check", "chained_array_fill_read.js"]
+exit = "success"
+
+[[case]]
+name = "the_statement_form_array_fill_control_reads_the_same"
+rationale = "The control that makes the case above a statement about AGREEMENT rather than about one spelling: `const u = new Array(3); u.fill(1);` -- the form that was admitted all along -- reads the same element. node prints 1; measured at `dbaf05767b`, kali prints 1, `check` clean. If a later change ever made the two spellings disagree again, these two cases move apart and the divergence is named rather than inferred."
+args = ["run", "statement_form_array_fill_read.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "the_bare_array_call_spelling_folds_the_same_way"
+rationale = "The mirror hole the same fix closed: `Array(n).fill(v)` without `new` is the same allocation and must be recognized identically. node prints 1; measured at `dbaf05767b`, kali prints 1, `check` clean. Pinned because `new`-less `Array(...)` is a separate parse shape, so a recognizer taught only the `new` spelling would pass the case above and still refuse this one."
+args = ["run", "bare_array_fill_read.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_chained_array_allocation_takes_a_mutable_index_store_too"
+rationale = "The write half of the restored lane, and the discriminator that proves the store LANDS rather than merely being admitted: `u[i] = 9` with `let i = 0` on a chained allocation, read back at two literal indexes. node prints 9 then 1 -- the stored element and an untouched neighbour, so a store that overwrote everything or nothing would fail this case. Measured at `dbaf05767b`: kali prints 9 then 1, `check` clean."
+args = ["run", "chained_array_fill_store.js"]
+exit = "success"
+stdout = "9\n1\n"
+
+[[case]]
+name = "check_refuses_a_doubly_chained_array_fill"
+rationale = """The honest edge of the recognizer, pinned as a NEGATIVE so the lane's boundary is recorded and not just its interior. `new Array(3).fill(1).fill(2)` -- a second `.fill` chained onto the first -- is not recognized, and both twins refuse with the shared computed-member message. node prints 2.
+
+THIS IS FAIL-CLOSED, NOT WRONG ON PURPOSE. kali declines a program node accepts, at exit 1 with a diagnostic, which is the outcome this project exists to produce for anything it cannot prove; no value is silently invented. It is pinned so that widening the recognizer to a `.fill` CHAIN is a deliberate move that turns this case red, rather than something noticed by accident. The same spelling without `new` behaves identically. Measured at `dbaf05767b` against node v26.8.1."""
+args = ["check", "double_chained_array_fill_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_doubly_chained_array_fill"
+rationale = "Twin of the check case. Measured at `dbaf05767b`: exit 1, byte-identical stderr."
+args = ["run", "double_chained_array_fill_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "the_three_string_length_spellings_agree"
+rationale = """The fold's contract stated as an equality rather than as a value: `s.length`, `s[\"length\"]` and `const k = \"length\"; s[k]` must all be the same access. All three print 3, matching node. Measured at `3ef65ef785`. This is the control that separates "a string RECEIVER is refused" (the two `string_receiver_*` cases below) from "any bracket on a string is refused" -- a `length` probe is a named property read, not a character index, and it stays admitted."""
+args = ["run", "string_length_agreement_control.js"]
+exit = "success"
+stdout = "3\n3\n3\n"
+
+[[case]]
+name = "a_shadow_declared_after_the_use_still_folds"
+rationale = """Controller ruling R16's control, and it is deliberate rather than incidental. A name declared twice in one function does not fold (the two cases in the refused matrix below), but the poison is filled by a single source-order walk, so a shadow declared AFTER the use has not been seen yet and the use still folds. That matches codegen's flat source-order `bindings` map, which is the thing the refusal exists to stay in step with. node prints 8; measured at `3ef65ef785`: kali prints 8, `check` clean. If the poison were ever made order-insensitive this case must move together with the two refusals."""
+args = ["run", "shadow_after_the_use_control.js"]
+exit = "success"
+stdout = "8\n"
+
+[[case]]
+name = "the_let_object_bracket_read_agrees_with_its_dot_spelling"
+rationale = """CONTROLLER RULING R14, RE-MEASURED AND PINNED CORRECT RATHER THAN WRONG ON PURPOSE. The Task 7 handoff ruled that this pair be pinned WRONG ON PURPOSE on the strength of a reading taken earlier on this branch: `let o = {a:1,b:2}` with nothing else materializing `o` gave `o.b` 2 but `o[\"b\"]` 0 and `const k = \"b\"; o[k]` 0, against node 2/2/2 -- the LITERAL bracket spelling missing too, which is what made it a pre-existing bracket-read defect rather than a fold defect.
+
+RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: kali prints 2 then 2, node prints 2 then 2, exit 0, `check` clean. The defect no longer reproduces at this commit. The isolated one-line probes read correctly too (`let o = {a:1,b:2}; console.log(o[\"b\"]);` -> 2; `let o = {a:1,b:2}; const k=\"b\"; console.log(o[k]);` -> 2), so this is not an artefact of the two probes sharing a program. The mechanism is Task 6's `44e8033ae9` (\"a static-name bracket access records the dot form's deferred object access\"): the bracket read now records the same deferred access the dot form records, which is exactly what materializes the `let` object.
+
+An expectation of `0` was NOT written here, because writing an expectation the binary does not produce is the one thing this task is forbidden to do. The case is kept -- with the ruling's coverage intact -- as the CONTROL that the fold agrees with its literal bracket spelling on a `let` receiver. If the defect returns, this case goes red and the paragraph above is the record of what it looked like."""
+args = ["run", "let_object_bracket_read.js"]
+exit = "success"
+stdout = "2\n2\n"
+
+# ---- refused: one shared message, in both check and run ---------------------
+
+[[case]]
+name = "check_refuses_a_let_key"
+rationale = "Spec section 5: a `let` key does not fold -- the checker could, codegen cannot, and refusing is the only answer the twins share. The refusal must live in `check`, which runs the checker only. Measured at `3ef65ef785`: exit 1 with the shared message."
+args = ["check", "let_key_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_let_key"
+rationale = "The same program under `run`, the same message: codegen's gateway is the checker's twin. node prints 2; before this project kali printed 0 at exit 0. Measured at `3ef65ef785`: exit 1, byte-identical stderr to the `check` case."
+args = ["run", "let_key_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "json_check_refuses_a_let_key_with_the_canonical_message"
+rationale = "The JSON envelope carries the same code and message byte for byte. Measured at `3ef65ef785`."
+args = ["--output", "json", "check", "let_key_read.js"]
+exit = "failure"
+json.errors.0.code = "E5506"
+json.errors.0.message = "${COMPUTED}"
+
+[[case]]
+name = "check_refuses_a_var_key"
+rationale = "The ground-truth classifier's old SILENT fixture spelling (var k; o[k]). node prints 2; kali printed 0 before. Measured at `3ef65ef785`: exit 1 with the shared message."
+args = ["check", "var_key_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_var_key"
+rationale = "Twin of the check case. Measured at `3ef65ef785`: exit 1, same message."
+args = ["run", "var_key_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_refuses_a_parameter_key"
+rationale = """A parameter is not a const declarator and folds nowhere.
+
+THE PROGRAM IS NOT THE PLAN'S. Controller ruling R12: the brief pinned `function get(o, k) { return o[k]; } console.log(get({a: 1}, "a"));`, and measured at `3ef65ef785` that program is refused by an UNRELATED pre-existing gate -- `error[E5506]: an object literal passed directly as a call argument is unavailable in the current phase; bind it to a const first` -- so the case would have gone green for a reason that has nothing to do with this project. Task 5 also established that `function f(o, k) { return o[k]; }` must be ADMITTED, because a subscripted parameter is a structural runtime-array binding and `f(new Array(2), 1)` really prints its element; refusing that would kill a live lane. The shape pinned instead isolates a parameter key over a NON-array receiver: `const o = {a:1,b:2}; function f(k) { return o[k]; }`. Measured at `3ef65ef785`: node prints 2, kali refuses with the shared message at exit 1 under both twins."""
+args = ["check", "parameter_key_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_parameter_key"
+rationale = "Twin of the check case, on the R12 replacement program. Measured at `3ef65ef785`."
+args = ["run", "parameter_key_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_refuses_a_binary_index"
+rationale = "R-59's second line: `o[i + 0]` used to read the property literally named `index` (9). node prints undefined. Measured at `3ef65ef785`: exit 1 with the shared message."
+args = ["check", "binary_index_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_binary_index"
+rationale = "Twin of the check case. Measured at `3ef65ef785`."
+args = ["run", "binary_index_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_refuses_boolean_null_and_bigint_indexes"
+rationale = "Spec section 5: the parser's readable set does not grow; `o[true]`, `o[null]`, `o[1n]` used to fabricate `index` (5, 5, 5 against node's 7, undefined, undefined). Measured at `3ef65ef785`: three copies of the shared message at exit 1, one per line."
+args = ["check", "boolean_null_bigint_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_boolean_null_and_bigint_indexes"
+rationale = "Twin of the check case. Measured at `3ef65ef785`."
+args = ["run", "boolean_null_bigint_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_refuses_a_unary_over_a_string_index"
+rationale = """R-59's LAST SURVIVING SHAPE, closed by the final review of this branch (finding 1). Spec section 4.1 scopes the `+`/`-` unary arm to recursing into a LITERAL, and the implementation was wider than the spec: it re-parsed its recursive result's RENDERED NAME with Rust's `str::parse::<f64>()`, which accepts `inf`, `infinity` and `nan` case-insensitively where JavaScript's `ToNumber` returns `NaN` for all three.
+
+MEASURED AT `ff8567e7f4` against node v26.8.1 on `const o = {Infinity: 9, NaN: 7}`:
+
+  console.log(o[+"inf"]);        kali 9   node 7
+  console.log(o[+"infinity"]);   kali 9   node 7
+
+both at exit 0 with `check` clean -- a fabricated name (one that is not `String(key)`) hitting a real, wrong property, silently. That is the defect class this whole branch exists to end, and three doc comments (`kali_optimize/src/helpers.rs`, `kali_optimize/src/object_fold.rs`, `kali_codegen/src/intrinsics/object.rs`) assert the fabricated-name qualification is withdrawn, which was false while this arm stood.
+
+FIXED BY NARROWING THE SOURCE, NOT BY GUARDING THE RESULT. `+1e400` legitimately IS `Infinity` in JavaScript, so an `is_finite` guard would break `o[1e400]`, which must keep reading the property named "Infinity". `unary_number_value` carries the f64 instead of a rendering, so the arm folds only over a NUMBER literal.
+
+MEASURED AT `2c31e1d617` (the fix) against node v26.8.1: node prints 7 then 7 at exit 0; kali refuses at exit 1 under BOTH `check` and `run`, two copies of the shared computed-member message, one per access. Refusing is conservative and correct: the index is not in the parser's readable set, so it has no name.
+
+`o[+"nan"]` is refused by the same narrowing. It had AGREED with node before (7 against 7) -- by coincidence, since Rust's `"nan"` and JavaScript's `ToNumber("nan")` both land on NaN and `format_js_number(NaN)` is "NaN". An accidental agreement is not a lane, and no rule distinguished it from the two wrong ones.
+
+The numeric spellings do not move: `readable_numeric_spellings_control` above still reads `o[(1)]`, `o[(0, 1)]` and `o[+1]`, and `a_unary_over_a_number_literal_still_reads_its_name` in crates/kali_parser/src/literal_tests.rs pins `+1`, `-1`, `+1e21`, `+1e400`, `+(1)`, `-(-1)`, `+(0, 1)` and `-0`."""
+args = ["check", "unary_string_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_unary_over_a_string_index"
+rationale = "Twin of the check case. Measured at `2c31e1d617`: exit 1, two copies of the shared computed-member message, byte-identical to the `check` reading."
+args = ["run", "unary_string_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_refuses_a_let_key_store"
+rationale = "The store choke point's twin: a nameless bracket store refuses instead of vanishing. node prints 8; kali printed 2 before. Measured at `3ef65ef785`: exit 1 with the shared message."
+args = ["check", "let_key_store.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_let_key_store"
+rationale = "Twin of the check case. Measured at `3ef65ef785`."
+args = ["run", "let_key_store.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_refuses_a_shadowed_fold_name_read"
+rationale = """CONTROLLER RULING R16, a refusal shape the plan's refused matrix did not carry. A name declared more than once in the same function does not fold, in either checker pass: `repr_infer`'s `const_index_names` is keyed (func, binding) and codegen's `bindings` map is flat per FunctionEmitter, so a block-scoped shadow collapses onto one key and the LAST insert wins.
+
+Measured before `3ef65ef785`: `const k = "b"; const o = {a:1,b:2}; if (true) { const k = "a"; } console.log(o[k]);` printed `1` -- field `a`, the shadow's value -- at exit 0 with `check` clean, against node's `2`. A name that hits a real, WRONG property is R-59's own defining symptom, on the lane this project opened. Measured at `3ef65ef785` against node v26.8.1: node prints 2, kali refuses with the shared message at exit 1 under BOTH twins. The order-sensitivity is deliberate and has its own control case above."""
+args = ["check", "shadowed_key_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_shadowed_fold_name_read"
+rationale = "Twin of the check case. Both passes must decline together: a gate that admitted here while `repr_infer` declined would leave the store with no materialization evidence and make `check` clean where `run` refuses. Measured at `3ef65ef785`."
+args = ["run", "shadowed_key_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_refuses_a_shadowed_fold_name_store"
+rationale = "Ruling R16's write half. Measured before `3ef65ef785`: this program stored to field `a` and the `.b` read-back printed `2` at exit 0, against node's `8` -- the store landed on the wrong field and the program looked internally consistent. Measured at `3ef65ef785`: node prints 8, kali refuses with the shared message at exit 1 under both twins."
+args = ["check", "shadowed_key_store.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_shadowed_fold_name_store"
+rationale = "Twin of the check case. Measured at `3ef65ef785`."
+args = ["run", "shadowed_key_store.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_refuses_a_string_receiver_literal_index"
+rationale = "Spec section 4.4 string receivers: `s[1]` was a silent 0 (node: b). No character fold is added; both spellings refuse with the string message. Measured at `3ef65ef785`: exit 1."
+args = ["check", "string_receiver_literal.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${STRING}"]
+
+[[case]]
+name = "run_refuses_a_string_receiver_literal_index"
+rationale = "Twin of the check case. Measured at `3ef65ef785`."
+args = ["run", "string_receiver_literal.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${STRING}"]
+
+[[case]]
+name = "check_refuses_a_string_receiver_folded_index"
+rationale = "`const k = 1; s[k]` folds onto the same lane and refuses the same way. Measured at `3ef65ef785`: node prints b, kali refuses under both twins."
+args = ["check", "string_receiver_folded.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${STRING}"]
+
+[[case]]
+name = "run_refuses_a_string_receiver_folded_index"
+rationale = "Twin of the check case. Measured at `3ef65ef785`."
+args = ["run", "string_receiver_folded.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${STRING}"]
+
+[[case]]
+name = "check_refuses_an_array_literal_element_store"
+rationale = "Spec section 2.3: `a[1] = 9` on an array literal vanished (kali 6, node 9). There is no store lane for an array literal; the checker's literal-array mutation gate now refuses unconditionally. Measured at `3ef65ef785`: exit 1 with `error[E5506]: mutating a literal array is unavailable in the current direct-runtime path; use new Array(n) for runtime mutation`."
+args = ["check", "array_literal_store.js"]
+exit = "failure"
+stderr_contains = ["E5506", "mutating a literal array"]
+
+[[case]]
+name = "run_refuses_an_array_literal_element_store"
+rationale = "Twin of the check case; `run` runs the checker first, so the same message appears. Measured at `3ef65ef785`."
+args = ["run", "array_literal_store.js"]
+exit = "failure"
+stderr_contains = ["E5506", "mutating a literal array"]
+
+[[case]]
+name = "check_refuses_a_mutable_index_read_over_an_array_literal"
+rationale = "Spec section 5 non-goal: `for (let j...) a[j]` over an array literal printed 0 0 0 (node 5 6 7). The linear-memory lane exists for `new Array(n)` receivers; extending it to literals is its own design. Measured at `3ef65ef785`: exit 1 with the shared computed-member message."
+args = ["check", "array_literal_mutable_index_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_mutable_index_read_over_an_array_literal"
+rationale = "Twin of the check case. Measured at `3ef65ef785`."
+args = ["run", "array_literal_mutable_index_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "run_refuses_a_chained_access_off_a_folded_member"
+rationale = """Spec section 4.5: `o[k].length` with a const key -- the outer access sees the inner node by id, and by id it is the nameless kind, so it refuses. node prints 3.
+
+THIS IS NOT A WORKING LANE BEING REGRESSED. Measured at `dc19c3a040`: this program printed `2`, and so did the same program with `"xyzwv"` -- the value is `render_length`'s text-less arm returning the member node's CHILD COUNT, not the string's length. Refusing replaces a silent wrong answer with an honest one. The dot spelling `o.a.length` prints `1` by the same arm and is NOT fixed here; it is recorded as a separate divergence in the follow-up this project files.
+
+NO `check` TWIN IS ASSERTED, AND THAT IS A RECORDED DISAGREEMENT, NOT AN OVERSIGHT. Measured at `3ef65ef785`: `kali run` refuses at exit 1 with the shared message, while `kali check` on the SAME program exits 0 with `Checked 1 file(s)`. Binding constraint 8 (spec section 8) says codegen may fold a strict superset but the checker admitting what codegen refuses is a defect, so this is one. Task 7 owns case files only and does not change compiler source, so the twin is left unasserted here and the disagreement is reported to the controller instead of being papered over with a `run`-shaped claim about `check`.
+
+THE NEEDLE NAMES THE MESSAGE, NOT JUST THE CODE. Review finding (2026-09-09): the brief dictated a bare `E5506` needle here, and E5506 is shared -- the numeric-key gate, `mutating a literal array` and `an object literal passed directly as a call argument` all carry it, and all three fire elsewhere in THIS file. A bare code needle would let this program start refusing for an entirely unrelated reason while the case stayed green and this rationale went on claiming a mechanism that was gone. The shared computed-member message is now asserted alongside the code."""
+args = ["run", "chained_access_off_folded_member.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_still_admits_the_chained_access_off_a_folded_member"
+rationale = """The other half of the disagreement above, pinned so it is visible rather than inferred: `kali check` on `const o = {a: \"xyz\"}; const k = \"a\"; console.log(o[k].length);` exits 0 at `3ef65ef785` while `kali run` refuses. This case is WRONG ON PURPOSE in the sense that the project's own twin rule (spec section 8) says it should refuse; it is pinned at the measurement so that the day the checker's admit list is closed, this case goes red and has to be flipped deliberately. No task in this plan owns closing it."""
+args = ["check", "chained_access_off_folded_member.js"]
+exit = "success"
+
+[[case]]
+name = "run_refuses_a_computed_callee"
+rationale = """`Object[k](o)` with `const k = "keys"`: the optimizer's name-string fold declines a nameless member, so the call has no resolvable callee and refuses.
+
+ALSO NOT A WORKING LANE. Measured at `dc19c3a040`, this printed `2` for a FOUR-key object -- the child count again, through the same renderer. node prints 4. Measured at `3ef65ef785`: `kali run` refuses at exit 1 with the shared computed-member message.
+
+Like the chained-access case above, `kali check` still admits this program at `3ef65ef785` (exit 0), which is the same spec-section-8 twin disagreement and is pinned by its own case below.
+
+The needle names the shared computed-member message and not just `E5506`, for the reason given on the chained-access case above: the code alone is shared by three other gates that fire in this same file."""
+args = ["run", "computed_callee_fold.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${COMPUTED}"]
+
+[[case]]
+name = "check_still_admits_the_computed_callee"
+rationale = "The other half of the computed-callee disagreement, pinned at the measurement for the same reason as the chained-access pair: `kali check` exits 0 at `3ef65ef785` where `kali run` refuses. Twin disagreement under spec section 8; no task in this plan owns closing it, and this task changes no compiler source."
+args = ["check", "computed_callee_fold.js"]
+exit = "success"
+
+# ---- wrong on purpose: divergences this project does not own ----------------
+
+[[case]]
+name = "the_argv_index_lane_disagrees_with_itself_between_a_number_and_a_string_spelling"
+rationale = """CONTROLLER RULING R15. WRONG ON PURPOSE, and NO TASK IN THIS PLAN OWNS CLOSING IT; Task 8 files it as a follow-up.
+
+Measured at `3ef65ef785` under `--api node` with `-- 5`, against node v26.8.1 run as `node argv.js 5`: node prints 5, 5, 5. kali prints 5, 0, 0 -- `process.argv[2]` is correct, `const i = 2; process.argv[i]` is 0, and `process.argv["2"]` is 0.
+
+WHY IT IS PINNED HERE RATHER THAN READ AS A FOLD DEFECT. The folded spelling agrees EXACTLY with the equivalent string-literal spelling, which is this project's whole contract: a folded bracket access is the literal bracket access. The root defect is that kali's argv intrinsic keys on the index child's LITERAL FORM, so `argv[2]` and `argv["2"]` disagree where JavaScript treats them as the same property key. It is pre-existing and unchanged from `dc19c3a040`, and it is a defect in the argv intrinsic rather than in the fold. `check` is clean on this program in both readings."""
+args = ["run", "--api", "node", "argv_index_divergence.js", "--", "5"]
+exit = "success"
+stdout = "5\n0\n0\n"
+
+[[case]]
+name = "a_bracket_store_reaches_the_same_bigint_rendering_hole_the_dot_spelling_has"
+rationale = """WRONG ON PURPOSE, and NO TASK IN THIS PLAN OWNS CLOSING IT.
+
+`let o = {a: 1, b: 7n}; o["a"] = 5; console.log(o.b);` -- measured at `3ef65ef785`: node prints `7n`, kali prints `7`, both at exit 0, `check` clean.
+
+THE DIVERGENCE IS BIGINT RENDERING, NOT A WRONG VALUE. The field's value is right; the `n` suffix is missing. What this case adds is the observation that the newly-real bracket store reaches the same materialization hole the DOT spelling has always had, so the store lane this project opened inherits the existing defect rather than introducing a new one. Pinned so that a later BigInt rendering fix moves this case deliberately."""
+args = ["run", "bigint_field_after_bracket_store.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "a_dot_member_length_still_renders_the_child_count"
+rationale = """WRONG ON PURPOSE, and NO TASK IN THIS PLAN OWNS CLOSING IT. node prints 3; kali prints 1. The value is NOT the string's length and does not track it: measured at `71b5f42f6c` against node v26.8.1, `{a: "xyz"}` and `{a: "xyzwv"}` both print 1, `{a: "xyz", z: 1}` prints 2, and `{a: "xyz", z: 1, y: 2}` prints 3 -- which agrees with node by coincidence. See docs/superpowers/followups/member-length-renders-the-child-count.md.
+
+THE MECHANISM, MEASURED RATHER THAN ASSUMED. The plan's Task 8 brief described this as `the member node's child count`. That is the BRACKET spelling: `o["a"].length` returns 2 for every object and every string, because `render_length` stops at the two-child member node. The DOT spelling recurses one level through the receiver binding into the OBJECT LITERAL and returns ITS property count, which is why the number tracks the object's width and not the string. Both arms are `crates/kali_codegen/src/intrinsics/host.rs`'s `render_length` fallbacks (`:1336-1338` and `:1373-1377`), reached from `render_static_value`'s `"length"` member arm.
+
+WHY IT IS HERE. The computed half of this defect (`o[k].length`) refuses as of this project, and `run_refuses_a_chained_access_off_a_folded_member` above pins that. Without this case the dot half would be silently unpinned, and a reader would reasonably infer from the refusal that the whole family was handled. It was not: the dot spelling and the string-literal bracket spelling are both still silent, and the bracket-literal one is not pinned anywhere at all."""
+args = ["run", "dot_member_length.js"]
+exit = "success"
+stdout = "1\n"

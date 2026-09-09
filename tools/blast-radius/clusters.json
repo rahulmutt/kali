@@ -136,18 +136,54 @@
     "differ (8 of the 14 reachable ones), and R-59's count exceeds R-13's in ZERO files -- so on",
     "THIS CORPUS R-59's sites are a strict subset of R-13's, which is a fact about the corpus and",
     "still not containment between the shapes. The double-counting warning survives unchanged in",
-    "substance and is now PARTIAL rather than total: a reader must still not add the two counts."
+    "substance and is now PARTIAL rather than total: a reader must still not add the two counts.",
+    "",
+    "REMOVED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project: R-12, R-13 and",
+    "R-59. THREE entries left in one regeneration, not the two the project's plan predicted, and the",
+    "gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named all three before any row",
+    "was touched. R-13 (a G3 member) is RETIRED -- both its lanes measure FIXED, `o[k]` reads 2 and",
+    "`o[k]=8` lands, matching node in both scopes. R-59 (a singleton, so its cluster DEFINITION goes",
+    "with it, on the R-56 precedent above) is RETIRED at FAIL_CLOSED: the parser declines an index it",
+    "cannot read instead of fabricating a name, and the refusal is honest rather than fixed because",
+    "the runtime lookup `o[i]` needs is not built. R-12 (the other G3 member) is NOT retired and must",
+    "not be read as closed -- node's `b0=7` is still not produced; its aliased array store moved from",
+    "vanishing silently to refusing with the shared computed-member E5506, which is the R-32",
+    "precedent already recorded above: an entry can leave this file without being fixed.",
+    "",
+    "AND SO G3'S CLUSTER DEFINITION IS REMOVED TOO, which is the FIRST time a NON-singleton cluster",
+    "has left this file. R-12 and R-13 were G3's only two members and both left in the same",
+    "regeneration, so the divergence from the R-32/R-33 case (`G8 survives them`) is not a choice:",
+    "crates/kali_blast_radius/src/ranking.rs:326 asserts every declared cluster has at least one",
+    "member, so leaving G3 behind would have made the generator refuse to run. G3 SURVIVES AS A",
+    "REGISTER SECTION-3 GROUP; what left is its row in the RANKING, which ranks the SILENT class",
+    "only. Four assignments still name G3 as their `alternateCluster` (R-08, R-18, R-47, R-58) and",
+    "those rows are deliberately left standing: an alternate naming an unranked cluster is already",
+    "how R-59's own `G1` alternate behaved, and the generator prices such a move as the entry",
+    "leaving its cluster and joining nothing. A reader of section 2.4 should read those four rows",
+    "that way.",
+    "",
+    "R-59 IS THE FIRST NONZERO ENTRY EVER REMOVED FROM THIS FILE. R-32, R-33 and R-56 all measured",
+    "raw 0 / reachable 0 on departure, so none of them could move another cluster's band. R-13 and",
+    "R-59 do not; what their departure actually moved is read out of the generator's stdout in the",
+    "ranking's section 6 amendment, and the accept set was re-measured in the same regeneration",
+    "because a program containing a computed member the parser cannot read is now REFUSED, which",
+    "changes `reachable` for every entry whose sites live in such a program.",
+    "",
+    "AND SO TWO FIGURES IN THE PARAGRAPHS ABOVE HAVE MOVED, corrected here rather than overwritten.",
+    "R-59 measures raw 235 / reachable 25 (anchor 27/25, extension 208/0) as of 2026-09-09 at",
+    "`71b5f42f6c`, not reachable 27 (extension 208/2); R-13 measures raw 302 / reachable 43, not 45.",
+    "The raw figures are unchanged -- the corpus did not change, only its accepted subset. One",
+    "extension program left the accept set, extension/unit_conversions.js, which indexes an object",
+    "with a PARAMETER key. Reachable counts moved on eight entries in all (R-04, R-07, R-08, R-13,",
+    "R-14, R-32, R-33, R-59); the ranking's section 6 amendment carries the full list. The",
+    "file-by-file overlap claim above (of 51 files with a nonzero count under either matcher, 30",
+    "differ) is a RAW comparison and is unaffected."
   ],
   "clusters": [
     {
       "name": "G2 — call lowering: unresolvable callee folds to constant `0`",
       "origin": "register §3",
       "why": "§3's own header. Its other members (R-02, R-05, R-03) all measure FAIL_CLOSED at `4cfa218814` and do not enter the ranking; R-51 is the cluster's whole silent surface."
-    },
-    {
-      "name": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them",
-      "origin": "register §3",
-      "why": "§3's own header. §3 states this cluster asserts NO SHARED CODE PATH -- it is a shape of mistake, six independent instances. Its sum is therefore a sum over a pattern, not over a fix unit, and must not be read as 'one allowlist closes this many sites'."
     },
     {
       "name": "G4 — there is no value distinct from the scalar `0`",
@@ -228,11 +264,6 @@
       "name": "R-58 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered ... It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion'. Declined because G3's stated remedy -- an allowlist at the choke point -- would refuse a program node runs."
-    },
-    {
-      "name": "R-59 (unclustered)",
-      "origin": "singleton",
-      "why": "§2: 'unclustered, and the decline that matters is G1's ... G1's Members and Traced bullets define it by a mechanism, not by a name ... Nothing desynchronizes here ... It is not G4 either ... It is not G3'. Declined from G1 because `expression_to_property_name` consumes no tokens, so G1's `let _ = accept` sweep would not reach it."
     }
   ],
   "assignments": [
@@ -261,20 +292,6 @@
       "id": "R-10",
       "cluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost",
       "registerSource": "G7.",
-      "alternate": null,
-      "alternateCluster": null
-    },
-    {
-      "id": "R-12",
-      "cluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them",
-      "registerSource": "G3.",
-      "alternate": null,
-      "alternateCluster": null
-    },
-    {
-      "id": "R-13",
-      "cluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them",
-      "registerSource": "G3.",
       "alternate": null,
       "alternateCluster": null
     },
@@ -438,13 +455,6 @@
       "registerSource": "unclustered, and the interesting part is which group it declines. It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion ... A cluster is the unit a fix ships in; this fix does not ship with G3's.",
       "alternate": "G3 by shape, named and declined by the register because G3's remedy would refuse valid JavaScript; a shared cluster with R-57 is also named and declined, on the fix-unit rule.",
       "alternateCluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them"
-    },
-    {
-      "id": "R-59",
-      "cluster": "R-59 (unclustered)",
-      "registerSource": "unclustered, and the decline that matters is G1's. G1 is named parser fail-open recovery, and 'fails open where it should decline' is this defect in five words -- but G1's Members and Traced bullets define it by a mechanism, not by a name ... Nothing desynchronizes here ... It is not G4 either ... It is not G3: there is no guard, and no diagnostic text, at the fabrication site.",
-      "alternate": "G1 by name, named and declined by the register on G1's own traced mechanism (a token-stream contract), which this site does not share; the register also records that R-13's G3 assignment rested on a mechanism hypothesis this entry disproves, and declines to re-cluster an existing entry.",
-      "alternateCluster": "G1 — parser fail-open recovery"
     },
     {
       "id": "R-60",

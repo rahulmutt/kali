@@ -99,8 +99,27 @@ impl<'a> FunctionEmitter<'a> {
     /// both scopes: over
     /// `const o = {index: 9, i: 7}; let i = 1;`, `o[i]` reads `7` and
     /// `o[i + 0]` reads `9` where node reads `undefined` twice. The un-quoting
-    /// symmetry this comment establishes is real; the currency claim holds only
-    /// for the index shapes that phase actually reads.
+    /// symmetry this comment establishes is real; the currency claim held only
+    /// for the index shapes that phase actually read.
+    ///
+    /// **RESOLVED 2026-09-09 at `71b5f42f6c` -- and, for the one shape that
+    /// outlived it, at `2c31e1d617`: the `+`/`-` unary arm re-parsed its own
+    /// RENDERED NAME with Rust's `str::parse::<f64>()`, which accepts `inf`,
+    /// `infinity` and `nan` where JavaScript's `ToNumber` returns `NaN`, so
+    /// `o[+"inf"]` fabricated `Infinity` until that commit narrowed the arm to
+    /// a number-literal source. The qualification is
+    /// withdrawn.** R-59 is retired (FAIL_CLOSED) by the
+    /// computed-member-static-name project. The one-currency claim now holds
+    /// for **every** computed access that HAS a name, because a computed access
+    /// whose index the parser cannot read no longer has one:
+    /// `expression_to_property_name` returns `Option<String>` and declines,
+    /// `MemberExpression.property` is `None`, and the node carries its own kind
+    /// (`LirNodeKind::ComputedMember`) below HIR, so it never reaches a
+    /// name-reading consumer such as this scan -- it is refused at the
+    /// checker's gate or at codegen's single computed-member gateway first.
+    /// There is no longer a fabricated name for `field` to be, so both sides
+    /// are `String(key)` unconditionally, and the paragraph above is kept as
+    /// the record of what was true until that commit.
     ///
     /// The one pre-existing exception is ESCAPE SEQUENCES: `{"a\"b": 1}` stores
     /// the undecoded four-character text `a\"b` (the delimiters are stripped,

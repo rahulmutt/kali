@@ -12,7 +12,7 @@ fn test_resolution_supports_promise_all_settled_member_calls() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Promise".to_string()),
-                    property: "allSettled".to_string(),
+                    property: Some("allSettled".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -24,9 +24,9 @@ fn test_resolution_supports_promise_all_settled_member_calls() {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Promise".to_string(),
+                        property: Some("Promise".to_string()),
                     })),
-                    property: "allSettled".to_string(),
+                    property: Some("allSettled".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(2.0))],
             }))),
@@ -50,7 +50,7 @@ fn test_resolution_supports_promise_any_member_calls() {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     computed_index: None,
                     object: Expression::Identifier("Promise".to_string()),
-                    property: "any".to_string(),
+                    property: Some("any".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
@@ -62,9 +62,9 @@ fn test_resolution_supports_promise_any_member_calls() {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
-                        property: "Promise".to_string(),
+                        property: Some("Promise".to_string()),
                     })),
-                    property: "any".to_string(),
+                    property: Some("any".to_string()),
                 })),
                 args: vec![Expression::Literal(LiteralValue::Number(2.0))],
             }))),

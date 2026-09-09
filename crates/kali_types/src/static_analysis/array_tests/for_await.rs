@@ -103,7 +103,7 @@ fn test_resolution_supports_for_await_of_array_iteration_in_js_input() {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
                         computed_index: None,
                         object: Expression::Identifier("console".to_string()),
-                        property: "log".to_string(),
+                        property: Some("log".to_string()),
                     })),
                     args: vec![Expression::Identifier("value".to_string())],
                 }))),
@@ -169,7 +169,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_sequence_wrappers_
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("console".to_string()),
-                            property: "log".to_string(),
+                            property: Some("log".to_string()),
                         })),
                         args: vec![Expression::Identifier("item".to_string())],
                     }))),
@@ -240,7 +240,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("console".to_string()),
-                            property: "log".to_string(),
+                            property: Some("log".to_string()),
                         })),
                         args: vec![Expression::Identifier("item".to_string())],
                     }))),
@@ -311,7 +311,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("console".to_string()),
-                            property: "log".to_string(),
+                            property: Some("log".to_string()),
                         })),
                         args: vec![Expression::Identifier("item".to_string())],
                     }))),
@@ -382,7 +382,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("console".to_string()),
-                            property: "log".to_string(),
+                            property: Some("log".to_string()),
                         })),
                         args: vec![Expression::Identifier("item".to_string())],
                     }))),
@@ -453,7 +453,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("console".to_string()),
-                            property: "log".to_string(),
+                            property: Some("log".to_string()),
                         })),
                         args: vec![Expression::Identifier("item".to_string())],
                     }))),
@@ -545,7 +545,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_spread_t
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("console".to_string()),
-                            property: "log".to_string(),
+                            property: Some("log".to_string()),
                         })),
                         args: vec![Expression::Identifier("item".to_string())],
                     }))),
@@ -610,7 +610,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_spread_t
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("console".to_string()),
-                            property: "log".to_string(),
+                            property: Some("log".to_string()),
                         })),
                         args: vec![Expression::Identifier("item".to_string())],
                     }))),
@@ -673,7 +673,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_const_alias_in_js_
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("console".to_string()),
-                            property: "log".to_string(),
+                            property: Some("log".to_string()),
                         })),
                         args: vec![Expression::Identifier("item".to_string())],
                     }))),
@@ -736,7 +736,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_const_alias_in_ts_
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
                             computed_index: None,
                             object: Expression::Identifier("console".to_string()),
-                            property: "log".to_string(),
+                            property: Some("log".to_string()),
                         })),
                         args: vec![Expression::Identifier("item".to_string())],
                     }))),

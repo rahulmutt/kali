@@ -99,6 +99,23 @@ pub const fn generator_function_lowering_unavailable_message_for_flavors(
     }
 }
 
+/// Canonical feature-unavailable wording for a computed member access whose
+/// index neither the parser nor the `const` fold can name, and which no
+/// runtime lane admits. Used verbatim by `kali_types` (so `kali check`
+/// refuses) and `kali_codegen` (so `kali build`/`run` refuse the same way).
+/// Spec: docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md §4.4.
+pub const fn computed_member_access_unavailable_message() -> &'static str {
+    "computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the receiver is a runtime array or a `for..in` key over the same object"
+}
+
+/// Canonical feature-unavailable wording for indexing a statically-known
+/// string, in both the literal (`s[1]`) and the folded (`const k = 1; s[k]`)
+/// spelling. The literal spelling was a silent `0` before; there is no
+/// character fold here on purpose (spec §4.4, "String receivers").
+pub const fn string_index_access_unavailable_message() -> &'static str {
+    "indexing a string `s[i]` is unavailable in the current phase; use `charAt`/`at` on a statically-known ASCII string or the later compatibility path"
+}
+
 #[cfg(test)]
 #[path = "messages_tests.rs"]
 mod messages_tests;

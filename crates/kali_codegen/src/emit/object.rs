@@ -205,7 +205,37 @@ impl<'a> FunctionEmitter<'a> {
         &self,
         node: &LirNode,
     ) -> Option<(LirNodeId, LirNodeId, kali_common::Repr)> {
-        if node.kind != LirNodeKind::Value || node.children.len() != 2 {
+        // Both spellings of a 2-child computed member reach here: the named
+        // `Value` (`obj["c"]`, and the folded twin the read gateway
+        // re-dispatches) and the nameless `ComputedMember` the parser now
+        // produces for `obj[c]`. This lane never reads the node's text for a
+        // NAME -- the key it needs is the index CHILD -- so the nameless kind
+        // is admitted on exactly the same terms.
+        //
+        // THE `ComputedMember` ARM IS LOAD-BEARING, AND ITS LIVE CONSUMER IS
+        // `is_float_valued` (`emit/operators.rs`, the 2-child arm), which is a
+        // QUERY rather than an emit: it is called on a node id directly, never
+        // through the read gateway, so it hands this function the raw node with
+        // its `ComputedMember` kind intact and asks for the uniform element
+        // repr. The other call sites do not: the two STORE arms
+        // (`emit/literal.rs`, `obj[c] = v` and `obj[c] op= v`) and the read
+        // path in `emit/control_flow.rs` go through `store_target_node` /
+        // the gateway's text-less probe, both of which normalize
+        // `ComputedMember` to `Value` first.
+        //
+        // Measured at `826861b32d` with an `eprintln!` at each of those call
+        // sites, over every program in `runtime/forin.toml`,
+        // `soundness/in_operator.toml` and
+        // `object/computed_member_static_name.toml`: 36 arrivals with a
+        // `ComputedMember` kind through `is_float_valued`, ZERO through the two
+        // store arms and zero through `control_flow.rs`. Dropping the arm turns
+        // 8 cases red (7 in `runtime/forin`, 1 in `soundness/in_operator`), so
+        // do not delete it on the strength of the store sites alone -- this
+        // comment used to name them as the reason and they had already stopped
+        // being it.
+        if !matches!(node.kind, LirNodeKind::Value | LirNodeKind::ComputedMember)
+            || node.children.len() != 2
+        {
             return None;
         }
         // A binary expression also lowers to a 2-child `Value` node; its

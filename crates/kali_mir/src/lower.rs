@@ -43,7 +43,11 @@ impl MirLowerer {
         hir: &HirLoweringResult,
     ) -> MirNodeId {
         let node = &nodes[id.0 as usize];
-        let kind = map_kind(&node.kind);
+        let kind = if node.kind == HirNodeKind::MemberExpr && node.text.is_none() {
+            MirNodeKind::ComputedMember
+        } else {
+            map_kind(&node.kind)
+        };
         let mir_id = match node.text.as_ref() {
             Some(text) => builder.alloc_text(kind, text.clone()),
             None => builder.alloc(kind),
