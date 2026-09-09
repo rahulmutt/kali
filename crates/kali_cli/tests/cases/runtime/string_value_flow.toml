@@ -8,18 +8,36 @@
 # rationale appended -- never deleted, never re-pinned silently. The case's own
 # rationale carries the old and new readings and the mechanism.
 #
-# WHY IT COULD NOT GO THROUGH THE GENERATOR. This file's expectations are
-# DERIVED from the assertions of a deleted `.rs` source read at the Task 19
-# deletion ref, and the generator has no re-pin channel: re-running it with
-# --write would re-render the old expectation, which the binary no longer
-# produces. The two are irreconcilable once behaviour moves, so the hand edit is
-# the only representation of the measurement. `python3
-# tools/migration/gen_task19_batch3.py` now reports DRIFT for this file, and
-# `audit-case-migration.py` and `check_extra_claims.py` go red with it (the
-# re-pin necessarily drops a source literal that no longer appears in stderr).
-# `scripts/test-gate.sh --gates-only` is a developer command that no CI job
-# runs; the plain gate is green. This is reported to the controller as a plan
-# defect rather than papered over.
+# WHY IT COULD NOT GO THROUGH THE GENERATOR AS THE GENERATOR STANDS. This
+# file's expectations are DERIVED from the assertions of a deleted `.rs` source
+# read at the Task 19 deletion ref (`t19b3_extract.claims_of`), and the
+# generator has no re-pin channel: `--write` re-renders the old expectation,
+# which the binary no longer produces. So `--write` WOULD SILENTLY REVERT THE
+# MEASURED RE-PIN. Do not run it against this file without reading the next
+# paragraph first.
+#
+# WHAT A REGENERATING FIX WOULD NEED -- it is expressible, just not present.
+# The generator already has ONE out-of-band precedent, `t19b3_extract.COMPUTED`
+# / gen_task19_batch3's LCG_STDOUT: a declared table for the single case whose
+# expected stdout exists as no literal in the source, re-derived and
+# cross-checked against the real binary. A re-pin channel is that shape,
+# generalized, and needs three things: (1) a declared (stem, fn) table that
+# overrides the derived exit / stdout / stderr_contains and carries the dated
+# measurement; (2) an arm in gen_task19_batch3's claim-sentence renderer so the
+# rationale narrates the override instead of claiming the pin came from the
+# source; (3) `EXPECTED-RED (rc=1)` header declarations for
+# audit-case-migration.py and check_extra_claims.py, because a re-pin
+# necessarily DROPS a source literal that no longer appears in the binary's
+# output and those two gates are literal-coverage checks. Until that exists,
+# the hand edit is the only representation of the measurement.
+#
+# WHAT IS RED TODAY BECAUSE OF THIS. `python3
+# tools/migration/gen_task19_batch3.py` reports DRIFT for this file, plus
+# audit-case-migration.py and check_extra_claims.py as undeclared reds. Those
+# run only under `scripts/test-gate.sh --gates-only`, a developer command no CI
+# job invokes; a bare `scripts/test-gate.sh` does not run them and does not see
+# this drift. Reported to the controller as a plan defect rather than papered
+# over; Task 8 carries it.
 #
 # Migrated from tests/runtime_string_value_flow.rs.
 #   SOURCE REF: 020b5c33707052455d68dc44cac72a12e961f6ae
