@@ -4,11 +4,13 @@ mod compile;
 mod entrypoint;
 mod eval;
 mod exports;
+mod fingerprint;
 mod helpers;
 mod metadata;
 pub mod module_link;
 pub mod name_anon_functions;
 mod paths;
+mod reap;
 mod wit;
 
 pub use compile::{

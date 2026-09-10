@@ -2,9 +2,11 @@
 
 use super::entrypoint::validate_unique_export_names_from_statements;
 use super::eval::{rewrite_eval_compat_source, source_uses_eval_compat};
+use super::fingerprint::compiler_build_fingerprint;
 use super::helpers::*;
 use super::metadata::{append_metadata_section, build_artifact_metadata};
 use super::paths::executable_output_path_for;
+use super::reap::maybe_reap;
 
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
@@ -271,6 +273,12 @@ pub fn compile_source_file_with_cache_state_and_profile_data_and_validation(
         if let Some(parent) = cache_path.parent() {
             let _ = fs::create_dir_all(parent);
             let _ = fs::write(&cache_path, &wasm_bytes);
+            // After the write, so a fresh entry is practically never the one
+            // evicted for being over budget on the sweep its own write
+            // triggered -- eviction is oldest-mtime-first, and in the worst
+            // case (a tie with older entries under coarse mtime resolution)
+            // the cost is one extra recompile, which is self-healing.
+            maybe_reap(parent);
         }
 
         Ok(CompileOutput {
@@ -542,6 +550,40 @@ pub(crate) fn incremental_cache_path(
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
+    incremental_cache_path_with_fingerprint(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        runtime_profiles,
+        profile_data,
+        compat_eval,
+        coverage,
+        compiler_build_fingerprint(),
+    )
+}
+
+/// The key builder, taking compiler identity as a parameter so tests can assert
+/// composition without relinking a binary.
+#[allow(clippy::too_many_arguments)]
+fn incremental_cache_path_with_fingerprint(
+    source_path: &Path,
+    mode: BuildMode,
+    max_specializations: usize,
+    api_surface: ApiSurface,
+    runtime_profiles: &[String],
+    profile_data: Option<&ProfileData>,
+    compat_eval: bool,
+    coverage: bool,
+    fingerprint: Option<&str>,
+) -> Result<Option<PathBuf>, Vec<Diagnostic>> {
+    // Fail closed. A cache we cannot prove is ours is a cache we do not read,
+    // and a version-only fallback is exactly the defect this replaces. Checked
+    // before hashing the source, which is the expensive part.
+    let Some(fingerprint) = fingerprint else {
+        return Ok(None);
+    };
+
     let source_hash = source_hash_for_file(source_path).map_err(|error| {
         vec![Diagnostic::error(
             e8::INTERNAL_ERROR as u32,
@@ -555,6 +597,9 @@ pub(crate) fn incremental_cache_path(
     let Some(project_root) = project_root_for_source(source_path) else {
         return Ok(None);
     };
+    if !project_incremental_cache_enabled(&project_root) {
+        return Ok(None);
+    }
     let normalized_runtime_profiles = normalize_runtime_profiles(runtime_profiles.to_vec());
     let profile_key = profile_data
         .map(|profile| {
@@ -565,7 +610,7 @@ pub(crate) fn incremental_cache_path(
         })
         .unwrap_or_else(|| "profile:none".to_string());
     let cache_key = format!(
-        "{}-{}-{}-{}-profiles:{}-{}-{}-{}-{}",
+        "{}-{}-{}-{}-profiles:{}-{}-{}-{}-{}-{}",
         source_hash,
         build_mode_name(mode),
         api_surface,
@@ -574,7 +619,8 @@ pub(crate) fn incremental_cache_path(
         profile_key,
         compat_eval,
         coverage,
-        env!("CARGO_PKG_VERSION")
+        env!("CARGO_PKG_VERSION"),
+        fingerprint
     );
     Ok(Some(
         project_root
@@ -592,6 +638,31 @@ fn project_root_for_source(source_path: &Path) -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// `incrementalCache: false` in the project manifest declines the on-disk
+/// artifact cache. Omitted, `true`, or anything unreadable means enabled, which
+/// is the behaviour every existing project already has.
+///
+/// Deliberately tolerant of a missing or malformed manifest, matching
+/// `load_exclude_set` in `crates/kali_cli/src/lib.rs`: a broken manifest must
+/// not silently change caching behaviour. That tolerance matters for library
+/// embedders and in-process tests that call this directly; a CLI user instead
+/// hits `kali_npm::ProjectManifest`'s `#[serde(deny_unknown_fields)]` and
+/// strict `Option<bool>` in `crates/kali_cli/src/bin/config.rs`'s early
+/// `load_manifest` call, which hard-fails on a malformed manifest (e.g.
+/// `"incrementalCache": "false"`) before this function is ever reached.
+fn project_incremental_cache_enabled(project_root: &Path) -> bool {
+    let Ok(raw) = fs::read_to_string(project_root.join("kali.json")) else {
+        return true;
+    };
+    let Ok(manifest) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return true;
+    };
+    manifest
+        .get("incrementalCache")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(true)
 }
 
 fn analyze_source_file(
@@ -1069,3 +1140,7 @@ main();
         );
     }
 }
+
+#[cfg(test)]
+#[path = "compile_cache_tests.rs"]
+mod compile_cache_tests;

@@ -193,10 +193,12 @@ fn fannkuch_fixture() -> PathBuf {
 // `compile_source_file` before codegen, so this test read three cached 2026-07-16
 // builds and passed in ~0.00s on the machine doing the sweep. CI runners are cold
 // and compile for real, which is why PR #36 went red on both. The cache key
-// (`crates/kali_cli/src/build/compile.rs:567-578`) carries no compiler-build
-// identity at all -- it ends in a frozen `CARGO_PKG_VERSION` of `"0.1.0"` -- so
-// an artifact survives arbitrary compiler-semantics changes. That is filed as its
-// own entry in the discovered-defects document.
+// USED TO carry no compiler-build identity at all -- it ended in a frozen
+// `CARGO_PKG_VERSION` of `"0.1.0"` -- so an artifact survived arbitrary
+// compiler-semantics changes. Fixed: the key now folds in a fingerprint of the
+// running compiler build (`crates/kali_cli/src/build/fingerprint.rs`), and the
+// fixtures decline the on-disk cache outright. Design:
+// `docs/superpowers/specs/2026-09-09-incremental-cache-compiler-identity-design.md`.
 //
 // IF THE RELEASE TIERS BUILD THIS AGAIN, do NOT just delete this block: the
 // release tiers used to emit zeros here and, for spectral-norm, invalid wasm.
