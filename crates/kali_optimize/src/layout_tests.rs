@@ -291,3 +291,42 @@ fn array_literal_accepts_a_nested_array_literal() {
 
     assert!(Optimizer::new(OptimizationLevel::Release).is_array_literal(&program, outer));
 }
+
+#[test]
+fn array_literal_accepts_a_value_node_carrying_literal_text() {
+    // Covers `is_materializable_element`'s arm 2: a `Value` node with no
+    // children whose text parses as a literal (e.g. lowering's numeric-text
+    // `Value` shape), distinct from a `LirNodeKind::Literal` node.
+    let mut builder = LirBuilder::new();
+    let array = builder.alloc(LirNodeKind::Value);
+    let value_literal = builder.alloc_text(LirNodeKind::Value, "1");
+    builder.node_mut(array).unwrap().children = vec![value_literal];
+
+    let program = LirProgram {
+        root: array,
+        nodes: builder.into_nodes(),
+    };
+
+    assert!(Optimizer::new(OptimizationLevel::Release).is_array_literal(&program, array));
+}
+
+#[test]
+fn array_literal_rejects_an_identifier_element() {
+    // `[x]` -- an identifier read, not a value. Under the pre-2026-09-10
+    // predicate this qualified (any text-less Value that isn't an object
+    // literal admitted its parent regardless of what the element itself
+    // was); now an identifier element is not materializable, so the whole
+    // array declines. This is the widest new rejection and the one most
+    // likely to change what real programs compile to.
+    let mut builder = LirBuilder::new();
+    let array = builder.alloc(LirNodeKind::Value);
+    let x = builder.alloc_text(LirNodeKind::Value, "x");
+    builder.node_mut(array).unwrap().children = vec![x];
+
+    let program = LirProgram {
+        root: array,
+        nodes: builder.into_nodes(),
+    };
+
+    assert!(!Optimizer::new(OptimizationLevel::Release).is_array_literal(&program, array));
+}

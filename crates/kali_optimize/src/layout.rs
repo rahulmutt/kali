@@ -175,7 +175,8 @@ impl Optimizer {
     }
 
     /// True when `id` is an array literal: a text-less `Value` node whose
-    /// children are ALL materializable elements.
+    /// child list is non-empty, is not an object literal, and whose children
+    /// are ALL materializable elements.
     ///
     /// POSITIVE BY CONSTRUCTION, deliberately. Until 2026-09-10 this was
     /// negative space -- "a text-less `Value` that is not an object literal" --
@@ -213,6 +214,11 @@ impl Optimizer {
     /// array/object literal. A `Call`, a `ComputedMember` or an `Unknown` is
     /// NOT materializable -- evaluating it can allocate, and substituting it
     /// would duplicate the allocation rather than copy a value.
+    ///
+    /// Mutually recurses with `is_array_literal`/`is_object_literal` with no
+    /// depth cap; termination relies on the pre-existing invariant that the
+    /// LIR node graph is acyclic (the same invariant `specialize.rs`'s
+    /// uncapped recursion at `:481-531` already depends on).
     pub(crate) fn is_materializable_element(&self, program: &LirProgram, id: LirNodeId) -> bool {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
