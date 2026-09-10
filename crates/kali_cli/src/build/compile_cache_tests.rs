@@ -10,8 +10,7 @@ use tempfile::TempDir;
 /// A project root with a manifest, plus one compilable source file in it.
 fn project_with_source() -> (TempDir, PathBuf) {
     let dir = TempDir::new().expect("create temp project root");
-    std::fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#)
-        .expect("write manifest");
+    std::fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
     let source = dir.path().join("main.ts");
     std::fs::write(&source, "console.log(1);\n").expect("write source");
     (dir, source)
@@ -149,8 +148,7 @@ fn project_with_manifest(manifest: &str) -> (TempDir, PathBuf) {
 
 #[test]
 fn a_project_can_decline_the_incremental_cache() {
-    let (_dir, source) =
-        project_with_manifest(r#"{"schemaVersion":1,"incrementalCache":false}"#);
+    let (_dir, source) = project_with_manifest(r#"{"schemaVersion":1,"incrementalCache":false}"#);
 
     assert_eq!(
         path_for(&source, Some("aaaaaaaaaaaaaaaa")),
@@ -171,8 +169,7 @@ fn an_omitted_incremental_cache_field_leaves_the_cache_enabled() {
 
 #[test]
 fn an_explicit_true_leaves_the_cache_enabled() {
-    let (_dir, source) =
-        project_with_manifest(r#"{"schemaVersion":1,"incrementalCache":true}"#);
+    let (_dir, source) = project_with_manifest(r#"{"schemaVersion":1,"incrementalCache":true}"#);
 
     assert!(
         path_for(&source, Some("aaaaaaaaaaaaaaaa")).is_some(),

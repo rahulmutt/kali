@@ -32,7 +32,7 @@ static WRITES_SINCE_SWEEP: AtomicUsize = AtomicUsize::new(0);
 /// `SWEEP_INTERVAL` writes thereafter.
 pub(crate) fn maybe_reap(cache_dir: &Path) {
     let previous = WRITES_SINCE_SWEEP.fetch_add(1, Ordering::Relaxed);
-    if previous % SWEEP_INTERVAL == 0 {
+    if previous.is_multiple_of(SWEEP_INTERVAL) {
         reap(cache_dir);
     }
 }
@@ -75,7 +75,7 @@ pub(crate) fn reap(cache_dir: &Path) {
     }
 
     // Oldest first: those are evicted first when over budget.
-    kept.sort_by(|left, right| left.0.cmp(&right.0));
+    kept.sort_by_key(|entry| entry.0);
 
     let mut count = kept.len();
     let mut bytes: u64 = kept.iter().map(|(_, len, _)| *len).sum();
