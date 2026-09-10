@@ -174,9 +174,10 @@ impl Optimizer {
         })
     }
 
-    /// True when `id` is an array literal: a text-less `Value` node whose
-    /// child list is non-empty, is not an object literal, and whose children
-    /// are ALL materializable elements.
+    /// True when `id` is an array literal: a text-less `Value` node that is
+    /// not an object literal and whose children (zero or more) are ALL
+    /// materializable elements. An empty child list is accepted (vacuously
+    /// true) -- see the note below the guard for why.
     ///
     /// POSITIVE BY CONSTRUCTION, deliberately. Until 2026-09-10 this was
     /// negative space -- "a text-less `Value` that is not an object literal" --
@@ -197,13 +198,28 @@ impl Optimizer {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
         };
-        if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.is_empty() {
+        if node.kind != LirNodeKind::Value || node.text.is_some() {
             return false;
         }
         if self.is_object_literal(program, id) {
             return false;
         }
 
+        // Deliberately no `node.children.is_empty()` rejection: `[]` returning
+        // `true` here (vacuously, via `all()` over an empty iterator) is a
+        // restoration of the pre-2026-09-10 baseline, not a widening past it --
+        // that baseline always accepted an empty text-less `Value`. A rejection
+        // was tried and measured on 2026-09-10: it made `Object.fromEntries([])`
+        // fail to build with `E5506` at `--release` and `--release-advanced`
+        // (`fold_object_from_entries_call`, `object_fold.rs:252`, declines
+        // before its per-entry loop ever runs on zero entries) -- a correct
+        // program broken, which the fail-closed rule forbids in this direction.
+        // It also wasn't load-bearing for the fix: the shape that caused the
+        // miscompile (a text-less `Value` wrapping a `Call`) has one child, not
+        // zero, and an empty array can never reach the spec env regardless of
+        // what this function returns, because `is_materializable_element`'s own
+        // `node.children.is_empty()` arm (below) shadows arm 3's call into this
+        // function before it would ever run on an empty node.
         node.children
             .iter()
             .all(|child| self.is_materializable_element(program, *child))

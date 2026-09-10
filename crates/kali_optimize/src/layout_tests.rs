@@ -260,9 +260,21 @@ fn array_literal_rejects_a_wrapper_around_a_call() {
 }
 
 #[test]
-fn array_literal_rejects_an_empty_text_less_value() {
-    // A text-less `Value` with no children carries no elements to materialize.
-    // Declining costs an optimization; accepting invents an empty array.
+fn array_literal_accepts_an_empty_text_less_value() {
+    // Reversed from the plan's original direction (which mandated REJECTING
+    // an empty child list as the fail-closed choice) after measurement on
+    // 2026-09-10 showed that direction breaks a correct program: declining
+    // here makes `Object.fromEntries([])` fail to build with `E5506` at
+    // `--release` and `--release-advanced`, which the fail-closed rule
+    // forbids -- a wrong answer may cost an optimization, never a correct
+    // program. Accepting `[]` is a restoration of the pre-2026-09-10
+    // baseline, not a widening past it: that baseline already accepted an
+    // empty text-less `Value`, and this predicate's `Call`-wrapper rejection
+    // (the actual fix; see `array_literal_rejects_a_wrapper_around_a_call`)
+    // is unaffected either way. An empty array also can never reach the spec
+    // env regardless of what this function returns: `is_materializable_element`'s
+    // own empty-children arm shadows the recursive call into this function
+    // before it would ever see an empty node.
     let mut builder = LirBuilder::new();
     let empty = builder.alloc(LirNodeKind::Value);
 
@@ -271,7 +283,7 @@ fn array_literal_rejects_an_empty_text_less_value() {
         nodes: builder.into_nodes(),
     };
 
-    assert!(!Optimizer::new(OptimizationLevel::Release).is_array_literal(&program, empty));
+    assert!(Optimizer::new(OptimizationLevel::Release).is_array_literal(&program, empty));
 }
 
 #[test]

@@ -108,6 +108,41 @@ fn release_folds_object_from_entries_calls_over_literal_entry_arrays() {
 }
 
 #[test]
+fn release_folds_object_from_entries_calls_over_an_empty_entries_array() {
+    // Regression test (round 2 of the release-tier allocation identity fix,
+    // 2026-09-10). `is_array_literal` briefly rejected a text-less `Value`
+    // with zero children (the "fail-closed" direction the plan originally
+    // specified), which made `fold_object_from_entries_call` decline before
+    // its per-entry loop ever ran on `[]` -- so `Object.fromEntries([])`
+    // failed to build with E5506 at `--release`/`--release-advanced`. A
+    // correct program broken is the wrong side of the project's fail-closed
+    // rule, so the rejection was reverted (see `is_array_literal`'s doc
+    // comment in `layout.rs`). This pins that `Object.fromEntries([])` keeps
+    // materializing to an (empty) object literal.
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, "fromEntries");
+    let object_object = builder.alloc_text(LirNodeKind::Value, "Object");
+    builder.node_mut(callee).unwrap().children = vec![object_object];
+    let entries = builder.alloc(LirNodeKind::Value);
+    builder.node_mut(call).unwrap().children = vec![callee, entries];
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Value);
+    assert!(call_node.text.is_none());
+    assert!(call_node.children.is_empty());
+}
+
+#[test]
 fn release_folds_global_this_object_from_entries_calls_over_literal_entry_arrays() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
