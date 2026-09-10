@@ -171,23 +171,15 @@ impl Optimizer {
         None
     }
 
+    /// A binding is specializable exactly when its initializer is
+    /// materializable as a value: substituting the initializer for the name
+    /// (`specialize_layout_bindings_inner` above) is only sound when
+    /// evaluating that initializer allocates nothing, which is precisely what
+    /// `is_materializable_element` (`layout.rs`) checks for an array element.
+    /// Delegating keeps that one definition in one place instead of two
+    /// copies that could drift out of step.
     pub(crate) fn is_specializable_binding(&self, program: &LirProgram, id: LirNodeId) -> bool {
-        let Some(node) = program.nodes.get(id.0 as usize) else {
-            return false;
-        };
-
-        match node.kind {
-            LirNodeKind::Literal => true,
-            LirNodeKind::Value if node.children.is_empty() => node
-                .text
-                .as_deref()
-                .and_then(|text| parse_literal_text(Some(text)))
-                .is_some(),
-            LirNodeKind::Value if node.text.is_none() => {
-                self.is_object_literal(program, id) || self.is_array_literal(program, id)
-            }
-            _ => false,
-        }
+        self.is_materializable_element(program, id)
     }
 
     #[allow(clippy::too_many_arguments)]

@@ -219,3 +219,75 @@ fn release_specializes_const_array_element_access() {
     assert_eq!(node.kind, LirNodeKind::Literal);
     assert_eq!(node.text.as_deref(), Some("20"));
 }
+
+#[test]
+fn array_literal_accepts_a_node_whose_children_are_all_literals() {
+    let mut builder = LirBuilder::new();
+    let array = builder.alloc(LirNodeKind::Value);
+    let one = literal(&mut builder, "1");
+    let two = literal(&mut builder, "2");
+    builder.node_mut(array).unwrap().children = vec![one, two];
+
+    let program = LirProgram {
+        root: array,
+        nodes: builder.into_nodes(),
+    };
+
+    assert!(Optimizer::new(OptimizationLevel::Release).is_array_literal(&program, array));
+}
+
+#[test]
+fn array_literal_rejects_a_wrapper_around_a_call() {
+    // The shape of a lowered `new Array(n).fill(v)` declarator initializer: a
+    // text-less `Value` wrapping a `Call`. Under the pre-2026-09-10 definition
+    // ("text-less Value that is not an object literal") this returned true, so
+    // the binding entered the spec env and every read of the name was
+    // overwritten with a clone of this node -- destroying the array identity.
+    let mut builder = LirBuilder::new();
+    let wrapper = builder.alloc(LirNodeKind::Value);
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, "Array");
+    let arg = literal(&mut builder, "4");
+    builder.node_mut(call).unwrap().children = vec![callee, arg];
+    builder.node_mut(wrapper).unwrap().children = vec![call];
+
+    let program = LirProgram {
+        root: wrapper,
+        nodes: builder.into_nodes(),
+    };
+
+    assert!(!Optimizer::new(OptimizationLevel::Release).is_array_literal(&program, wrapper));
+}
+
+#[test]
+fn array_literal_rejects_an_empty_text_less_value() {
+    // A text-less `Value` with no children carries no elements to materialize.
+    // Declining costs an optimization; accepting invents an empty array.
+    let mut builder = LirBuilder::new();
+    let empty = builder.alloc(LirNodeKind::Value);
+
+    let program = LirProgram {
+        root: empty,
+        nodes: builder.into_nodes(),
+    };
+
+    assert!(!Optimizer::new(OptimizationLevel::Release).is_array_literal(&program, empty));
+}
+
+#[test]
+fn array_literal_accepts_a_nested_array_literal() {
+    let mut builder = LirBuilder::new();
+    let outer = builder.alloc(LirNodeKind::Value);
+    let inner = builder.alloc(LirNodeKind::Value);
+    let one = literal(&mut builder, "1");
+    let two = literal(&mut builder, "2");
+    builder.node_mut(inner).unwrap().children = vec![one];
+    builder.node_mut(outer).unwrap().children = vec![inner, two];
+
+    let program = LirProgram {
+        root: outer,
+        nodes: builder.into_nodes(),
+    };
+
+    assert!(Optimizer::new(OptimizationLevel::Release).is_array_literal(&program, outer));
+}
