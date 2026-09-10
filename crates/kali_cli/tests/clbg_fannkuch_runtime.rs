@@ -1,4 +1,6 @@
-use kali_common::computed_member_access_unavailable_message;
+use kali_cli::build::{compile_source_file, BuildMode};
+use kali_cli::ApiSurface;
+use kali_runtime::RuntimeCtx;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf, process::Command};
@@ -32,42 +34,37 @@ fn fannkuch_redux_runs_and_matches_canonical_output() {
     );
 }
 
-// RE-PINNED 2026-09-09 at `6b59ddeef9`, by the computed-member-static-name
-// project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md),
-// on controller ruling R22 -- the same ruling and the same defect that re-pinned
-// `spectral-norm` and `nbody`. This block mirrors theirs; read either of those
-// files for the full mechanism.
+// RESTORED 2026-09-10 by the release-tier-allocation-identity project
+// (docs/superpowers/specs/2026-09-10-release-tier-allocation-identity-design.md),
+// discharging the 2026-09-09 re-pin below.
 //
-// WHAT `buildModes` MEANS NOW. The metadata declares `["--fast", "--release",
-// "--release-advanced"]`, and that was read as three modes that BUILD. TWO OF
-// THE THREE NOW REFUSE. Measured at `6b59ddeef9` against node v26.8.1: `--fast`
-// builds and runs correctly (`228` / `Pfannkuchen(7) = 16`), `--release` and
-// `--release-advanced` both exit 1 with `error[E5506]: computed member access
-// `o[k]` is unavailable ...` plus `warning[E3100]: undefined call target 'Array'
-// reached codegen and was lowered through a zero placeholder compatibility
-// fallback`. The optimizer inlines an ALLOCATING array initializer as if it were
-// a pure constant, destroying the array identity the computed-member gateway
-// needs. So the field is a DECLARATION OF THE MEASUREMENT MATRIX, not a claim
-// that all three succeed, and the per-mode truth is asserted below so the record
-// cannot drift from the measurement again.
+// WHAT WAS WRONG. `is_array_literal` in `kali_optimize` was negative space: a
+// lowered `new Array(n).fill(v)` initializer qualified as a specializable
+// binding, so every read of its name was overwritten with a clone of the
+// initializer -- destroying the array identity the computed-member gateway
+// needs and producing the `--release`/`--release-advanced` refusals described
+// below. That predicate is fixed.
 //
-// The JSON value itself is unchanged, for the reason spelled out at length in
-// `clbg_spectral_norm_runtime.rs`: `buildModes` is schema-locked by
-// `schemas/benchmark/v1.json` and asserted corpus-wide by
-// `tests/schema_docs/misc.rs`, so shortening it is a controller call.
+// WHAT IS MEASURED NOW, against node v26.8.2: all three modes -- `--fast`,
+// `--release`, `--release-advanced` -- build AND RUN, agreeing with node
+// byte-for-byte (`228` / `Pfannkuchen(7) = 16`). Asserted below per-mode so the
+// record cannot silently drift from the measurement again. The standing gate
+// for this (all 68 benchmark fixtures, all three tiers, executed and compared
+// to node) is `crates/kali_cli/tests/inprocess/benchmark_execution.rs`, which
+// pins fannkuch as `Expectation::Runs`.
 //
-// WHY THIS FIXTURE WAS MISSED WHEN ITS TWO SIBLINGS WERE RE-PINNED. A stale
-// pre-project wasm artifact in the gitignored on-disk incremental cache
-// (`crates/kali_cli/tests/fixtures/.kali-cache/incremental/`) short-circuited
-// `compile_source_file` before codegen, so fannkuch stayed green on the machine
-// that swept the other two. See
-// `docs/superpowers/followups/computed-member-static-name-discovered-defects.md`
-// §6 for the cache-key defect that allows it.
+// The original 2026-09-09 re-pin (by the computed-member-static-name project,
+// controller ruling R22, at `6b59ddeef9`) recorded `--release` and
+// `--release-advanced` exiting 1 with `error[E5506]: computed member access
+// `o[k]` is unavailable ...`. `spectral-norm` and `nbody` were re-pinned under
+// the same ruling at the same time; unlike fannkuch, closing this defect did
+// NOT restore them -- see `clbg_spectral_norm_runtime.rs` and
+// `clbg_nbody_runtime.rs` (still `KnownBroken` in `benchmark_execution.rs` for
+// a different, still-open mechanism).
 //
-// FOLLOW-UP:
-// `docs/superpowers/followups/release-mode-optimizer-inlines-an-allocating-initializer.md`.
-// Closing that is what would make all three modes true again -- and at that
-// point these assertions go red and must be flipped deliberately.
+// The JSON value itself is unchanged (it always declared all three modes);
+// `buildModes` is schema-locked by `schemas/benchmark/v1.json` and asserted
+// corpus-wide by `tests/schema_docs/misc.rs`.
 #[test]
 fn fannkuch_redux_metadata_is_consistent() {
     let meta: Value = serde_json::from_str(
@@ -95,44 +92,32 @@ fn fannkuch_redux_metadata_is_consistent() {
         "metadata sha256 must match the source file"
     );
 
-    // The measured per-mode truth, asserted rather than described.
-    let fast_dir = tempfile::tempdir().expect("tempdir");
-    let fast = Command::new(kali_bin())
-        .arg("build")
-        .arg("--fast")
-        .arg("--out-dir")
-        .arg(fast_dir.path())
-        .arg(fixture("fannkuch-redux-benchmark-v1.ts"))
-        .output()
-        .expect("run kali build --fast");
-    assert!(
-        fast.status.success(),
-        "--fast must still build; stderr: {}",
-        String::from_utf8_lossy(&fast.stderr)
-    );
-    for mode in ["--release", "--release-advanced"] {
-        let out_dir = tempfile::tempdir().expect("tempdir");
-        let built = Command::new(kali_bin())
-            .arg("build")
-            .arg(mode)
-            .arg("--out-dir")
-            .arg(out_dir.path())
-            .arg(fixture("fannkuch-redux-benchmark-v1.ts"))
-            .output()
-            .expect("run kali build");
-        let stderr = String::from_utf8_lossy(&built.stderr);
-        assert!(
-            !built.status.success(),
-            "{mode}: expected the honest refusal, not a build. If this now \
-             builds, do NOT just delete this -- the release tiers used to emit \
-             zeros and invalid wasm for this defect; verify the emitted module \
-             RUNS and agrees with node, then update `buildModes` and its schema. \
-             stderr: {stderr}"
-        );
-        assert!(stderr.contains("E5506"), "{mode}: stderr: {stderr}");
-        assert!(
-            stderr.contains(computed_member_access_unavailable_message()),
-            "{mode}: stderr: {stderr}"
+    // The measured per-mode truth, asserted rather than described: all three
+    // modes build AND the emitted module runs, agreeing with node.
+    for mode in [
+        BuildMode::Fast,
+        BuildMode::Release,
+        BuildMode::ReleaseAdvanced,
+    ] {
+        let wasm = compile_source_file(
+            fixture("fannkuch-redux-benchmark-v1.ts"),
+            mode,
+            ApiSurface::Deno,
+            &[],
+            false,
+            false,
+        )
+        .unwrap_or_else(|diagnostics| {
+            panic!("fannkuch build failed under {mode:?}: {diagnostics:?}")
+        });
+        let outcome = RuntimeCtx::new(None)
+            .execute(&wasm)
+            .unwrap_or_else(|diagnostics| {
+                panic!("fannkuch execute failed under {mode:?}: {diagnostics:?}")
+            });
+        assert_eq!(
+            outcome.stdout, "228\nPfannkuchen(7) = 16\n",
+            "{mode:?}: fannkuch must agree with node"
         );
     }
 }

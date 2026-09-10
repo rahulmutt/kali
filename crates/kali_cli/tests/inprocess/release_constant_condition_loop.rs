@@ -11,15 +11,16 @@
 //! benchmark, whose two main loops use `while (true)`.
 //!
 //! THAT FOLD IS STILL FIXED and the four loop tests below still pass in all
-//! three modes. The fannkuch fixture at the bottom of this file is now refused
-//! at both release tiers again, for an unrelated and wider defect -- read the
-//! block above `fannkuch_redux_builds_and_runs_at_fast_and_is_refused_at_both_release_tiers`
-//! before reading that refusal as a regression of this one.
+//! three modes. The fannkuch fixture at the bottom of this file was refused at
+//! both release tiers for an unrelated, wider defect (the release-mode
+//! optimizer inlining an allocating array initializer as if it were a pure
+//! constant); that defect is fixed as of 2026-09-10 by the
+//! release-tier-allocation-identity project, and the fixture now builds AND
+//! RUNS at all three modes, agreeing with node -- read the block above
+//! `fannkuch_redux_runs_at_all_three_modes` for the restoration record.
 
 use kali_cli::build::{compile_source_file, BuildMode};
 use kali_cli::ApiSurface;
-use kali_common::computed_member_access_unavailable_message;
-use kali_error::_error_codes::e5;
 use kali_runtime::RuntimeCtx;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -159,96 +160,55 @@ fn fannkuch_fixture() -> PathBuf {
         .join("tests/fixtures/benchmarks/fannkuch-redux-benchmark-v1.ts")
 }
 
-// RE-PINNED 2026-09-09 at `6b59ddeef9`, by the computed-member-static-name
-// project (docs/superpowers/specs/2026-09-08-computed-member-static-name-design.md),
-// on the same controller ruling R22 that re-pinned `spectral-norm` and `nbody`
-// (see `crates/kali_cli/tests/clbg_spectral_norm_runtime.rs` and
-// `crates/kali_cli/tests/clbg_nbody_runtime.rs`, whose blocks this mirrors).
+// RESTORED 2026-09-10 by the release-tier-allocation-identity project
+// (docs/superpowers/specs/2026-09-10-release-tier-allocation-identity-design.md).
 //
-// WHAT THIS TEST USED TO CLAIM. It was named
-// `fannkuch_redux_builds_in_all_release_modes` and asserted a successful build
-// under `Fast`, `Release` and `ReleaseAdvanced`. TWO OF THE THREE NOW REFUSE.
-// Measured at `6b59ddeef9`: `Fast` builds AND RUNS (`228` / `Pfannkuchen(7) =
-// 16`, byte-identical to node); `Release` and `ReleaseAdvanced` both fail to
-// build with `error[E5506]: computed member access `o[k]` is unavailable ...`
-// plus a `warning[E3100]: undefined call target 'Array' reached codegen and was
-// lowered through a zero placeholder compatibility fallback`.
+// This test used to be named
+// `fannkuch_redux_builds_and_runs_at_fast_and_is_refused_at_both_release_tiers`
+// and, per the 2026-09-09 re-pin below (controller ruling R22, at
+// `6b59ddeef9`, by the computed-member-static-name project), asserted `Fast`
+// builds and runs while `Release`/`ReleaseAdvanced` refuse with
+// `error[E5506]: computed member access `o[k]` is unavailable ...`.
 //
-// WHY, AND WHY IT IS NOT THIS FILE'S OWN REGRESSION. The constant-condition
-// fold this file exists to pin is fine -- the four `while (true)` / `while (1)`
-// / `do-while` / `for (;true;)` tests above still pass in all three modes.
-// fannkuch is refused for a DIFFERENT, wider defect: the release-mode optimizer
-// inlines an ALLOCATING array initializer (`new Array(n)`) as if it were a pure
-// constant, destroying the array identity the computed-member gateway needs, so
-// the release tiers refuse programs `--fast` compiles correctly and silently
-// miscompile others. Filed in
-// `docs/superpowers/followups/release-mode-optimizer-inlines-an-allocating-initializer.md`
-// and named in
-// `docs/superpowers/followups/computed-member-static-name-discovered-defects.md`.
+// The panic message this test used to carry at its `Release`/`ReleaseAdvanced`
+// loop said exactly what would authorize reversing that: "verify the emitted
+// module RUNS and agrees with node, then restore the three-mode build
+// assertion deliberately." That verification is
+// `crates/kali_cli/tests/inprocess/benchmark_execution.rs`, which compiles and
+// executes all 68 benchmark fixtures (fannkuch included) at all three tiers
+// against node v26.8.2 and pins fannkuch as `Expectation::Runs`. The root
+// cause was `is_array_literal` in `kali_optimize` being negative space: a
+// lowered `new Array(n).fill(v)` initializer qualified as a specializable
+// binding, so every read of its name was overwritten with a clone of the
+// initializer, destroying the array identity the computed-member gateway
+// needs. That predicate is fixed, so the three-mode assertion is restored
+// here too.
 //
-// WHY FANNKUCH WAS MISSED WHEN SPECTRAL-NORM AND NBODY WERE SWEPT. A stale
-// pre-project wasm artifact in the gitignored on-disk incremental cache
-// (`crates/kali_cli/tests/fixtures/.kali-cache/incremental/`, live because
-// `tests/fixtures/kali.json` makes that directory a project root) short-circuited
-// `compile_source_file` before codegen, so this test read three cached 2026-07-16
-// builds and passed in ~0.00s on the machine doing the sweep. CI runners are cold
-// and compile for real, which is why PR #36 went red on both. The cache key
-// USED TO carry no compiler-build identity at all -- it ended in a frozen
-// `CARGO_PKG_VERSION` of `"0.1.0"` -- so an artifact survived arbitrary
-// compiler-semantics changes. Fixed: the key now folds in a fingerprint of the
-// running compiler build (`crates/kali_cli/src/build/fingerprint.rs`), and the
-// fixtures decline the on-disk cache outright. Design:
-// `docs/superpowers/specs/2026-09-09-incremental-cache-compiler-identity-design.md`.
-//
-// IF THE RELEASE TIERS BUILD THIS AGAIN, do NOT just delete this block: the
-// release tiers used to emit zeros here and, for spectral-norm, invalid wasm.
-// Verify the emitted module actually RUNS and agrees with node, then restore the
-// three-mode build assertion deliberately.
+// `spectral-norm` and `nbody` were re-pinned under the same 2026-09-09 ruling
+// at the same time as fannkuch; unlike fannkuch, closing this defect did NOT
+// restore them (they fail differently and remain `Expectation::KnownBroken` in
+// `benchmark_execution.rs`) -- see `clbg_spectral_norm_runtime.rs` and
+// `clbg_nbody_runtime.rs`.
 #[test]
-fn fannkuch_redux_builds_and_runs_at_fast_and_is_refused_at_both_release_tiers() {
+fn fannkuch_redux_runs_at_all_three_modes() {
     let source = fannkuch_fixture();
 
-    // `Fast` is not merely quiet: it builds AND the module runs, byte-identical
-    // to node. Keeping a positive claim here is what stops this test from
-    // degrading into "everything refuses, therefore green".
-    let wasm = compile_source_file(
-        &source,
+    for mode in [
         BuildMode::Fast,
-        ApiSurface::Deno,
-        &[],
-        false,
-        false,
-    )
-    .unwrap_or_else(|diagnostics| panic!("fannkuch build failed under Fast: {diagnostics:?}"));
-    let runtime = RuntimeCtx::new(None);
-    let outcome = runtime.execute(&wasm).unwrap_or_else(|diagnostics| {
-        panic!("fannkuch execute failed under Fast: {diagnostics:?}")
-    });
-    assert_eq!(
-        outcome.stdout, "228\nPfannkuchen(7) = 16\n",
-        "the fast lane must agree with node"
-    );
-
-    for mode in [BuildMode::Release, BuildMode::ReleaseAdvanced] {
-        let diagnostics =
-            match compile_source_file(&source, mode, ApiSurface::Deno, &[], false, false) {
-                Ok(_) => panic!(
-                    "{mode:?}: expected the honest refusal, not a build. If this now builds, \
-                     do NOT just delete this -- the release tiers used to emit zeros and \
-                     invalid wasm for this defect; verify the emitted module RUNS and agrees \
-                     with node, then restore the three-mode build assertion deliberately."
-                ),
-                Err(diagnostics) => diagnostics,
-            };
-        assert!(
-            diagnostics.iter().any(|diagnostic| {
-                diagnostic.code == Some(u32::from(e5::FEATURE_UNAVAILABLE))
-                    && diagnostic
-                        .message
-                        .contains(computed_member_access_unavailable_message())
-            }),
-            "{mode:?}: expected an E5506 carrying the canonical computed-member wording; \
-             got {diagnostics:?}"
+        BuildMode::Release,
+        BuildMode::ReleaseAdvanced,
+    ] {
+        let wasm = compile_source_file(&source, mode, ApiSurface::Deno, &[], false, false)
+            .unwrap_or_else(|diagnostics| {
+                panic!("fannkuch build failed under {mode:?}: {diagnostics:?}")
+            });
+        let runtime = RuntimeCtx::new(None);
+        let outcome = runtime.execute(&wasm).unwrap_or_else(|diagnostics| {
+            panic!("fannkuch execute failed under {mode:?}: {diagnostics:?}")
+        });
+        assert_eq!(
+            outcome.stdout, "228\nPfannkuchen(7) = 16\n",
+            "{mode:?}: fannkuch must agree with node"
         );
     }
 }
