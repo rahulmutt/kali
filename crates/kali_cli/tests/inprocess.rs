@@ -16,8 +16,14 @@
 //! belongs in `tests/cases/` (see
 //! `docs/superpowers/specs/2026-07-29-test-binary-consolidation-design.md`).
 
+#[path = "inprocess/benchmark_execution.rs"]
+mod benchmark_execution;
+
 #[path = "inprocess/browser_harness_cdp_in_page_trap_propagates.rs"]
 mod browser_harness_cdp_in_page_trap_propagates;
+
+#[path = "inprocess/release_allocation_identity.rs"]
+mod release_allocation_identity;
 
 #[path = "inprocess/release_constant_condition_loop.rs"]
 mod release_constant_condition_loop;

@@ -127,8 +127,8 @@ fn parses_the_real_register_and_finds_all_four_tiers() {
     let entries = parse_register(&text).expect("the real register parses");
     assert_eq!(
         entries.len(),
-        46,
-        "expected exactly 46 tier-ranked entries (§2's total from the register's numbering note); \
+        47,
+        "expected exactly 47 tier-ranked entries (§2's total from the register's numbering note); \
          this count must be updated deliberately when §2 gains an entry, got {}",
         entries.len()
     );

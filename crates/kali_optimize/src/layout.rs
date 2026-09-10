@@ -174,6 +174,26 @@ impl Optimizer {
         })
     }
 
+    /// True when `id` is an array literal: a text-less `Value` node that is
+    /// not an object literal and whose children (zero or more) are ALL
+    /// materializable elements. An empty child list is accepted (vacuously
+    /// true) -- see the note below the guard for why.
+    ///
+    /// POSITIVE BY CONSTRUCTION, deliberately. Until 2026-09-10 this was
+    /// negative space -- "a text-less `Value` that is not an object literal" --
+    /// which admitted every shape nobody had thought about. The shape that
+    /// mattered was a lowered `new Array(n).fill(v)` declarator initializer (a
+    /// text-less `Value` wrapping a `Call`): it qualified, so
+    /// `is_specializable_binding` let the binding into the spec env at
+    /// `specialize.rs:82`/`:109`, and `specialize.rs:120-127` then overwrote
+    /// every read of the name with a clone of the initializer node. The array
+    /// the reads indexed was no longer the array the declarator allocated.
+    ///
+    /// A predicate defined as "not the other thing" cannot be audited. This one
+    /// declines anything it cannot positively account for, which costs an
+    /// optimization and never a correct program.
+    ///
+    /// Spec: `docs/superpowers/specs/2026-09-10-release-tier-allocation-identity-design.md` §3.1
     pub(crate) fn is_array_literal(&self, program: &LirProgram, id: LirNodeId) -> bool {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
@@ -181,8 +201,57 @@ impl Optimizer {
         if node.kind != LirNodeKind::Value || node.text.is_some() {
             return false;
         }
+        if self.is_object_literal(program, id) {
+            return false;
+        }
 
-        !self.is_object_literal(program, id)
+        // Deliberately no `node.children.is_empty()` rejection: `[]` returning
+        // `true` here (vacuously, via `all()` over an empty iterator) is a
+        // restoration of the pre-2026-09-10 baseline, not a widening past it --
+        // that baseline always accepted an empty text-less `Value`. A rejection
+        // was tried and measured on 2026-09-10: it made `Object.fromEntries([])`
+        // fail to build with `E5506` at `--release` and `--release-advanced`
+        // (`fold_object_from_entries_call`, `object_fold.rs:252`, declines
+        // before its per-entry loop ever runs on zero entries) -- a correct
+        // program broken, which the fail-closed rule forbids in this direction.
+        // It also wasn't load-bearing for the fix: the shape that caused the
+        // miscompile (a text-less `Value` wrapping a `Call`) has one child, not
+        // zero, and an empty array can never reach the spec env regardless of
+        // what this function returns, because `is_materializable_element`'s own
+        // `node.children.is_empty()` arm (below) shadows arm 3's call into this
+        // function before it would ever run on an empty node.
+        node.children
+            .iter()
+            .all(|child| self.is_materializable_element(program, *child))
+    }
+
+    /// True when `id` can be materialized as an array element without
+    /// evaluating anything: a literal, a literal-valued `Value`, or a nested
+    /// array/object literal. A `Call`, a `ComputedMember` or an `Unknown` is
+    /// NOT materializable -- evaluating it can allocate, and substituting it
+    /// would duplicate the allocation rather than copy a value.
+    ///
+    /// Mutually recurses with `is_array_literal`/`is_object_literal` with no
+    /// depth cap; termination relies on the pre-existing invariant that the
+    /// LIR node graph is acyclic (the same invariant `specialize.rs`'s
+    /// uncapped recursion at `:481-531` already depends on).
+    pub(crate) fn is_materializable_element(&self, program: &LirProgram, id: LirNodeId) -> bool {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return false;
+        };
+
+        match node.kind {
+            LirNodeKind::Literal => true,
+            LirNodeKind::Value if node.children.is_empty() => node
+                .text
+                .as_deref()
+                .and_then(|text| parse_literal_text(Some(text)))
+                .is_some(),
+            LirNodeKind::Value if node.text.is_none() => {
+                self.is_object_literal(program, id) || self.is_array_literal(program, id)
+            }
+            _ => false,
+        }
     }
 }
 

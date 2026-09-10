@@ -6178,6 +6178,16 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "array-literal-arguments"
             | "numeric-literal-arguments"
             | "math-max-min-builtin-js"
+            // As of 2026-09-10 (release-tier-allocation-identity project), these two
+            // arms are UNREACHED: `spectral-norm-benchmark-v1` and `nbody-benchmark-v1`
+            // stay out of the `optimization_benchmark_suite_tracks_compile_time_size_and_speed`
+            // measured list in `runtime_smoke/misc.rs` (spectral-norm's release tiers emit
+            // an unloadable module, E4201; nbody's release tiers refuse outright with
+            // E5506 -- neither builds a `.wasm` for this footprint check to run on). Left
+            // in place deliberately so that restoring either name to that list restores a
+            // working configuration rather than a differently-broken one. Their actual
+            // measured behaviour is pinned in
+            // `crates/kali_cli/tests/inprocess/benchmark_execution.rs`.
             | "spectral-norm"
             | "nbody"
             // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0): this fixture's `layerN`
@@ -6219,6 +6229,10 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "numeric-literal-arguments"
             | "nested-call-inlining-chain"
             | "math-max-min-builtin-js"
+            // As of 2026-09-10, unreached for the same reason as the exclusion above:
+            // neither fixture stays in the measured list in `runtime_smoke/misc.rs`, so
+            // this arm is a deliberate leftover, not dead weight to prune. See that
+            // exclusion's comment and `inprocess/benchmark_execution.rs` for the pin.
             | "spectral-norm"
             | "nbody"
             // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0): see the exclusion above —
