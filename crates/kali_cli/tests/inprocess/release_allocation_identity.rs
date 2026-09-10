@@ -57,3 +57,69 @@ fn literal_index_read_off_an_allocation_agrees_with_node_at_every_tier() {
         );
     }
 }
+
+/// The LOUD declarator half. A non-literal index reaches the computed-member
+/// gateway, which cannot resolve a base with no name -- `E5506` at the release
+/// tiers before 2026-09-10.
+const DYNAMIC_INDEX: &str = "\
+const u = new Array(4).fill(7);
+let i = 0;
+console.log(u[i]);
+";
+
+/// The LOUD parameter half. Ruling R22 recorded this as a SECOND class,
+/// "deliberately NOT admitted". It is the same substitution arriving through an
+/// inlined argument: measured `fast=0 / release>=1`, and correct at the default
+/// tier. Spec §2.4 overturns R22 on that evidence.
+const PARAMETER_READ: &str = "\
+function f(a) { let i = 0; return a[i]; }
+const u = new Array(2).fill(8);
+console.log(f(u));
+";
+
+/// The parameter half with a STORE through the alias, which is the shape
+/// spectral-norm's `Au(u, v)` actually has.
+const PARAMETER_STORE: &str = "\
+function g(a, b) { for (let i = 0; i < a.length; i = i + 1) { b[i] = a[i]; } }
+const u = new Array(3).fill(5);
+const v = new Array(3);
+g(u, v);
+console.log(v[0]);
+";
+
+/// The spectral-norm inner-loop shape at n=3, reduced.
+const SPECTRAL_SHAPE: &str = "\
+function Au(u, v) {
+  for (let i = 0; i < u.length; i = i + 1) {
+    let t = 0;
+    for (let j = 0; j < u.length; j = j + 1) { t = t + u[j]; }
+    v[i] = t;
+  }
+}
+const u = new Array(3).fill(1);
+const v = new Array(3);
+Au(u, v);
+console.log(v[0]);
+";
+
+#[test]
+fn allocation_backed_reads_agree_with_node_at_every_tier() {
+    for (label, source, expected) in [
+        ("dynamic index off a declarator", DYNAMIC_INDEX, "7\n"),
+        ("read through a parameter", PARAMETER_READ, "8\n"),
+        ("store through a parameter", PARAMETER_STORE, "5\n"),
+        ("the spectral-norm shape", SPECTRAL_SHAPE, "3\n"),
+    ] {
+        for mode in [
+            BuildMode::Fast,
+            BuildMode::Release,
+            BuildMode::ReleaseAdvanced,
+        ] {
+            assert_eq!(
+                run_at(source, mode),
+                expected,
+                "{label} under {mode:?}: must agree with node, as --fast already does"
+            );
+        }
+    }
+}
