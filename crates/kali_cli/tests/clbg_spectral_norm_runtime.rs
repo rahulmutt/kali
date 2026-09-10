@@ -167,7 +167,14 @@ fn spectral_norm_metadata_is_consistent() {
     }
     // The E4201 load-time failure this fixture still has at both release
     // tiers is NOT asserted here -- this test binary has no wasmtime access
-    // (see the comment above). It is asserted by
-    // `inprocess/benchmark_execution.rs`'s `Expectation::KnownBroken` entry
-    // for this stem, which does have wasmtime access and executes the module.
+    // (see the comment above). `inprocess/benchmark_execution.rs`'s
+    // `Expectation::KnownBroken` entry for this stem does have wasmtime
+    // access and executes the module: it pins `--fast`'s exact byte-for-byte
+    // stdout (`"1.274219991\n"`) via `fast:`, and its backstop requires that
+    // at least one tier actually fail to build, execute, or agree with node
+    // -- Release/ReleaseAdvanced's execute-time E4201 failure is what
+    // satisfies that requirement. That entry does NOT check for the E4201
+    // code specifically (it carries no `release_refusal_code`: E4201 is a
+    // load failure, not a diagnosed build refusal), only that the tier
+    // fails.
 }

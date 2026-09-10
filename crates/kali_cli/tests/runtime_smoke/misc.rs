@@ -1597,9 +1597,13 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
     // different, still-open mechanism. This dedicated block used to pin exactly
     // that; it is superseded by the standing gate
     // `crates/kali_cli/tests/inprocess/benchmark_execution.rs`, which compiles
-    // AND EXECUTES both fixtures at all three tiers against node and pins their
-    // full per-tier behaviour (strictly more than this block asserted), so it is
-    // deleted rather than kept in parallel.
+    // AND EXECUTES both fixtures at all three tiers against node. Its
+    // `Expectation::KnownBroken` entries for both stems carry `fast:`, pinning
+    // the exact byte-for-byte `--fast` stdout this block used to assert
+    // (`"1.274219991\n"` for spectral-norm, `"-0.169075164\n-0.169087605\n"`
+    // for nbody), and nbody's entry additionally carries
+    // `release_refusal_code: Some(5506)`, pinning nbody's E5506 at both
+    // release tiers. So this block is deleted rather than kept in parallel.
 }
 
 // EXECUTION GUARD (soundness-batch1-pra wave 0, close-out fix round 1): the

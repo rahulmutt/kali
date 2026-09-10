@@ -43,12 +43,16 @@ pub(crate) enum Expectation {
     /// here needs a comment saying why the refusal is the correct outcome.
     ///
     /// No fixture in the current directory needs this arm: Ruling 1 restores
-    /// the three Benchmarks Game fixtures to `Runs`, and every other
-    /// non-`Runs` fixture this gate found is either a full-tier refusal
-    /// (`RefusedEverywhere`) or a load-time failure rather than a diagnosed
-    /// build refusal (`KnownBroken`). Kept for the next fixture that is a
-    /// genuine, diagnosed release-only refusal; `#[allow(dead_code)]` below is
-    /// deliberate, not an oversight.
+    /// the three Benchmarks Game fixtures to `Runs`, `RefusedEverywhere`
+    /// covers the one full-tier refusal, and every other non-`Runs` fixture
+    /// is `KnownBroken` -- including `fasta-benchmark-v1`, a diagnosed,
+    /// release-only BUILD refusal (E5506) that still belongs there rather
+    /// than here because its `--fast` tier does not byte-exactly agree with
+    /// node (the pre-existing `console.log(undefined)` -> `"0"` defect, not a
+    /// content difference), which this arm's hard `--fast`-agrees-with-node
+    /// assertion would reject. Kept for the next fixture that is a genuine,
+    /// diagnosed release-only refusal AND agrees with node at `--fast`;
+    /// `#[allow(dead_code)]` below is deliberate, not an oversight.
     #[allow(dead_code)]
     RefusedAtRelease,
     /// Refused at every tier, on purpose, with the SPECIFIC diagnostic code
@@ -63,7 +67,27 @@ pub(crate) enum Expectation {
     /// defect is told by a red test to reclassify this entry to `Runs`.
     /// Every entry carries a comment with the exact diagnostic, the tier
     /// pattern, and the followup it is filed under.
-    KnownBroken { reason: &'static str },
+    ///
+    /// `fast` and `release_refusal_code` turn the prose `reason` into real
+    /// assertions instead of leaving it read-only commentary: without them
+    /// this arm only ever proved "at least one tier failed" and "not all
+    /// three tiers agreed," which stays true even if `--fast` itself
+    /// regresses to a wrong value. Populate them from a RECORDED
+    /// measurement (this entry's own `reason`, or an existing report it
+    /// cites) -- never a guess.
+    KnownBroken {
+        /// Expected `--fast` stdout when the fast tier is known-good. `None`
+        /// when the fixture has no usable oracle at `--fast` (no recorded
+        /// byte-exact value, `--fast` is itself wrong, or the fixture uses a
+        /// different output channel entirely).
+        fast: Option<&'static str>,
+        /// The diagnostic code the release tiers must carry when the fixture
+        /// is pinned on a diagnosed build refusal. `None` when the failure is
+        /// not a diagnosed build refusal (a load failure, a wrong value, a
+        /// crash).
+        release_refusal_code: Option<u32>,
+        reason: &'static str,
+    },
 }
 
 fn benchmarks_dir() -> PathBuf {
@@ -327,7 +351,11 @@ fn assert_fixture(stem: &str, expectation: Expectation) {
                 );
             }
         }
-        Expectation::KnownBroken { reason } => {
+        Expectation::KnownBroken {
+            fast,
+            release_refusal_code,
+            reason,
+        } => {
             // A real assertion, not a hole: this fails the moment the underlying
             // defect is fixed, which is the direction that matters for a defect
             // pin. A node oracle may not even be obtainable (e.g. a fixture that
@@ -394,6 +422,62 @@ fn assert_fixture(stem: &str, expectation: Expectation) {
                     );
                 }
                 return;
+            }
+
+            // Pinned `--fast` oracle: when `fast` is recorded, this fixture's
+            // fast tier is known-good, so it must keep building, running, and
+            // matching that exact recorded stdout -- not just "compiling
+            // successfully" (the generic loop below, which compares against
+            // node dynamically and only when node itself succeeds, cannot by
+            // itself catch a `--fast` regression to a DIFFERENT wrong value
+            // that node also happens to fail to produce an oracle for).
+            if let Some(expected_fast) = fast {
+                let wasm = compile_wrapped(&wrapped, stem, BuildMode::Fast).unwrap_or_else(|d| {
+                    panic!(
+                        "{stem} --fast: this KNOWN-BROKEN entry pins a --fast oracle, so --fast \
+                         must still build. Got {d:?}. Recorded reason: {reason}"
+                    )
+                });
+                let outcome = RuntimeCtx::new(policy.clone())
+                    .execute(&wasm)
+                    .unwrap_or_else(|d| {
+                        panic!(
+                            "{stem} --fast: this KNOWN-BROKEN entry pins a --fast oracle, so \
+                             --fast must still run. Got {d:?}. Recorded reason: {reason}"
+                        )
+                    });
+                assert_eq!(
+                    outcome.stdout, expected_fast,
+                    "{stem} --fast: pinned --fast oracle regressed -- do NOT relax this entry, \
+                     the compiler broke a previously-good tier. Recorded reason: {reason}"
+                );
+            }
+
+            // Pinned release-tier refusal code: when `release_refusal_code`
+            // is recorded, this fixture's release tiers are pinned on a
+            // DIAGNOSED build refusal, not merely "some failure" -- a
+            // surface mismatch or any other harness-caused refusal would
+            // otherwise be indistinguishable from the genuine, intentional
+            // one this entry documents.
+            if let Some(code) = release_refusal_code {
+                for mode in [BuildMode::Release, BuildMode::ReleaseAdvanced] {
+                    let diagnostics =
+                        compile_wrapped(&wrapped, stem, mode)
+                            .err()
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "{stem} {mode:?}: this KNOWN-BROKEN entry pins a diagnosed \
+                                 refusal (code {code}), so {mode:?} must still refuse to build. \
+                                 It built instead. Do NOT relax this entry -- verify \
+                                 independently, then reclassify. Recorded reason: {reason}"
+                                )
+                            });
+                    assert!(
+                        diagnostics.iter().any(|d| d.code == Some(code)),
+                        "{stem} {mode:?}: expected the pinned refusal to carry diagnostic code \
+                         {code}, got {diagnostics:?}. Recorded reason: {reason}"
+                    );
+                }
             }
 
             let dir = tempdir().expect("tempdir");
@@ -484,18 +568,24 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "math-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("24\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"24\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "math-benchmark-v1-js",
         Expectation::KnownBroken {
+            fast: Some("24\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"24\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "math-trunc-benchmark-v1",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: None,
             reason: "Fast/Release build but the wasm fails to load (E4201, wasm[0]::function[41]); ReleaseAdvanced loads and agrees with node (24). Pre-existing, confirmed at baseline eec408d000. See task-5-report.md.",
         },
     ),
@@ -506,6 +596,8 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "math-ceil-benchmark-v1",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: None,
             reason: "Fast/Release build but the wasm fails to load (E4201, wasm[0]::function[41]); ReleaseAdvanced loads and agrees with node (24). Pre-existing, confirmed at baseline eec408d000. See task-5-report.md.",
         },
     ),
@@ -523,6 +615,8 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "multiplication-by-one-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("24\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"24\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
@@ -530,12 +624,16 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "dead-inlined-function-pruning-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("39\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"39\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "call-inlining-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("24\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"24\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
@@ -543,84 +641,112 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "nested-call-inlining-chain-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("42\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"2\" where node/Fast say \"42\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "object-enumeration-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("9\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"9\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "object-string-enumeration-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("12\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"12\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "reflect-own-keys-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("3\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"3\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "reflect-own-keys-const-bound-literal-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("3\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"3\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "reflect-own-keys-alias-chain-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("3\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"3\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "integer-like-object-enumeration-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("21\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"21\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "object-enumeration-alias-chain-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("9\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"9\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "object-enumeration-alias-chain-benchmark-v1-js",
         Expectation::KnownBroken {
+            fast: Some("9\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"9\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "object-enumeration-const-bound-literal-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("9\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"9\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "object-enumeration-delete-reinsert-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("15\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"10\" where node/Fast say \"15\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "object-literal-property-order-canonicalization-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("9\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"9\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "object-literal-property-order-canonicalization-benchmark-v1-js",
         Expectation::KnownBroken {
+            fast: Some("9\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"9\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "identity-chain-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("38\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"38\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
@@ -628,12 +754,16 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "algebraic-simplification-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("24\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"24\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "duplicate-pure-expression-elimination-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("140\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"140\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
@@ -641,84 +771,112 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "specialization-reuse-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("114\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"3\" where node/Fast say \"114\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "bigint-literal-arguments-benchmark-v1",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: None,
             reason: "BigInt literal prints \"112\" (missing the 'n' suffix) at every tier, node says \"112n\"; Release/ReleaseAdvanced additionally print \"3\". Pre-existing, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "bigint-addition-chain-benchmark-v1",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: None,
             reason: "BigInt literal prints \"112\" (missing the 'n' suffix) at every tier, node says \"112n\"; Release/ReleaseAdvanced additionally print \"3\". Pre-existing, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "bigint-multiplication-chain-benchmark-v1",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: None,
             reason: "BigInt literal prints \"93312\" (missing the 'n' suffix) at every tier, node says \"93312n\"; Release/ReleaseAdvanced additionally print \"1\". Pre-existing, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "numeric-literal-arguments-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("151\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"4\" where node/Fast say \"151\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "boolean-literal-arguments-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("36\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"36\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "branch-specialization-repeat-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("36\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"36\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "const-array-element-access-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("23\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"23\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "const-object-property-access-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("35\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"35\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "math-variant-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("24\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"24\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "math-variant-benchmark-v1-js",
         Expectation::KnownBroken {
+            fast: Some("24\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"24\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "string-concatenation-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("start-ahead-of-time-end\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"start-ahead-of-time-end\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "template-literal-concatenation-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("start-ahead-of-time-end\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"start-ahead-of-time-end\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
     (
         "template-literal-concatenation-benchmark-v1-js",
         Expectation::KnownBroken {
+            fast: Some("start-ahead-of-time-end\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"start-ahead-of-time-end\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
@@ -726,6 +884,8 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "call-inlining-chain-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("27\n"),
+            release_refusal_code: None,
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"27\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
@@ -736,12 +896,16 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "spectral-norm-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("1.274219991\n"),
+            release_refusal_code: None,
             reason: "Builds at every tier; Fast agrees with node (1.274219991), but Release/ReleaseAdvanced fail to load the wasm (E4201, wasm[0]::function[46]/[41]). Confirmed NOT entering the spec env this project's fix narrowed (is_specializable_binding declines it) -- a different, still-open mechanism (Ruling 2, round 2: \"different mechanism\"). See task-5-report.md.",
         },
     ),
     (
         "nbody-benchmark-v1",
         Expectation::KnownBroken {
+            fast: Some("-0.169075164\n-0.169087605\n"),
+            release_refusal_code: Some(5506),
             reason: "Fast builds and agrees with node (both energy lines); Release/ReleaseAdvanced refuse to build with E5506 (computed member access unavailable) plus an E8001 warning cascade. Confirmed NOT entering the spec env this project's fix narrowed -- a different, still-open mechanism (Ruling 2, round 2: \"different mechanism\"). See task-5-report.md.",
         },
     ),
@@ -775,6 +939,8 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "fasta-benchmark-v1",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: Some(5506),
             reason: "Under the correct ApiSurface::Node surface: Fast builds and runs (header \
                      lines match node); Release/ReleaseAdvanced refuse with E5506 (module-level \
                      const bindings read from inside a function) plus for..in shape errors. \
@@ -784,18 +950,24 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "math-ceil-benchmark-v1-js",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: None,
             reason: "Same wasm[0]::function[41] unloadable-module defect as math-ceil-benchmark-v1/math-trunc-benchmark-v1; Fast/Release fail to load, ReleaseAdvanced agrees with node (24). Pre-existing, baseline eec408d000. See task-5-report.md.",
         },
     ),
     (
         "math-trunc-benchmark-v1-js",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: None,
             reason: "Same wasm[0]::function[41] unloadable-module defect as math-ceil-benchmark-v1/math-trunc-benchmark-v1; Fast/Release fail to load, ReleaseAdvanced agrees with node (24). Pre-existing, baseline eec408d000. See task-5-report.md.",
         },
     ),
     (
         "mandelbrot-benchmark-v1",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: None,
             reason: "No node oracle exists (Kali.writeStdoutBytes has no Node equivalent); independently, Release/ReleaseAdvanced fail to load the wasm (E4201, wasm[0]::function[43]/[42]) while Fast matches the committed .expected.pbm golden exactly. Pre-existing, baseline eec408d000. See task-5-report.md.",
         },
     ),
@@ -819,6 +991,8 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
     (
         "binary-trees-benchmark-v1",
         Expectation::KnownBroken {
+            fast: None,
+            release_refusal_code: None,
             reason: "Compiling (not executing) this fixture at --release/--release-advanced \
                      crashes the compiler with a native stack overflow (SIGABRT) -- confirmed \
                      in-process (isolated to a bare compile_source_file call) and via an \
@@ -855,11 +1029,43 @@ fn the_table_covers_every_fixture_with_metadata() {
     );
 }
 
+/// Runs every fixture even when earlier ones fail: `assert_fixture` panics on
+/// the first violation, and a bare loop of panicking calls would abort this
+/// test at the FIRST red fixture, hiding every other fixture's result behind
+/// it. With 45 pinned-`KnownBroken` entries, that is exactly the shape of
+/// change most likely to flip a whole class of entries red at once (fixing
+/// the wrong-value defect the `reason` strings describe would flip roughly
+/// 35 `fast:` pins simultaneously) -- and a panic-on-first loop would surface
+/// them one `cargo test` run at a time instead of as one report. Each
+/// fixture's `assert_fixture` call is isolated with `catch_unwind` instead,
+/// every failure is collected, and the test fails once at the end with the
+/// full list -- still red the moment anything regresses, just not blind to
+/// everything after the first regression.
 #[test]
 fn every_benchmark_fixture_runs_and_agrees_with_node() {
+    let mut failures: Vec<String> = Vec::new();
     for (stem, expectation) in FIXTURES {
-        assert_fixture(stem, *expectation);
+        let expectation = *expectation;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            assert_fixture(stem, expectation);
+        }));
+        if let Err(payload) = result {
+            let message = payload
+                .downcast_ref::<String>()
+                .cloned()
+                .or_else(|| payload.downcast_ref::<&str>().map(|s| s.to_string()))
+                .unwrap_or_else(|| "<non-string panic payload>".to_string());
+            failures.push(format!("{stem}: {message}"));
+        }
     }
+
+    assert!(
+        failures.is_empty(),
+        "{} of {} benchmark fixtures failed:\n\n{}",
+        failures.len(),
+        FIXTURES.len(),
+        failures.join("\n\n")
+    );
 }
 
 /// Committed `.ts`/`.js` sources with NO fixture metadata -- `on_disk` in
