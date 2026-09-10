@@ -11,6 +11,8 @@
 
 use kali_cli::build::{compile_source_file, BuildMode};
 use kali_cli::ApiSurface;
+use kali_common::computed_member_access_unavailable_message;
+use kali_error::_error_codes::e5;
 use kali_error::Diagnostic;
 use kali_runtime::RuntimeCtx;
 use std::fs;
@@ -121,5 +123,45 @@ fn allocation_backed_reads_agree_with_node_at_every_tier() {
                 "{label} under {mode:?}: must agree with node, as --fast already does"
             );
         }
+    }
+}
+
+/// NOT this defect, and must keep refusing. Measured at `eec408d000`:
+/// `fast=1 / release=1` -- no tier split, so nothing here is caused by the
+/// binding substitution. This is the pre-existing computed-member gateway gap.
+/// It is pinned so that a change which accidentally ADMITS it is caught, and so
+/// that a later reader does not read the refusal as fallout from this project.
+const ARRAY_LITERAL_DYNAMIC_INDEX: &str = "\
+const u = [7, 7, 7, 7];
+let i = 0;
+console.log(u[i]);
+";
+
+#[test]
+fn a_plain_array_literal_with_a_dynamic_index_still_refuses_at_every_tier() {
+    for mode in [
+        BuildMode::Fast,
+        BuildMode::Release,
+        BuildMode::ReleaseAdvanced,
+    ] {
+        let diagnostics = compile_at(ARRAY_LITERAL_DYNAMIC_INDEX, mode)
+            .err()
+            .unwrap_or_else(|| {
+                panic!(
+                    "{mode:?}: this shape is expected to REFUSE. If it now builds, that is a \
+                     capability change this project did not intend and did not verify -- \
+                     confirm the emitted module actually runs and agrees with node (7) \
+                     before relaxing this test."
+                )
+            });
+        assert!(
+            diagnostics.iter().any(|d| {
+                d.code == Some(u32::from(e5::FEATURE_UNAVAILABLE))
+                    && d.message
+                        .contains(computed_member_access_unavailable_message())
+            }),
+            "{mode:?}: expected an E5506 carrying the canonical computed-member \
+             wording; got {diagnostics:?}"
+        );
     }
 }
