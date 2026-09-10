@@ -323,8 +323,35 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// corpus does exercise. `computedMemberFabricatedPropertyName counts reads
 /// only, not assignment or update targets` in `matchers.test.mjs` pins the third
 /// direction (9 under R-13's matcher, 4 under R-59's, over the same program).
+/// **Re-frozen 2026-09-10**, the sixth movement of these constants, by the
+/// release-tier-allocation-identity project filing **R-61** (§2, Tier 2 — the
+/// release tiers substitute an allocating array initializer for its own
+/// name, so a literal-index read off it returns the initializer's raw form).
+/// One more §2 entry, one more catalogue record, and **`matchers.mjs` did
+/// NOT move** — the record is honestly `uncountable`, the first entry to be
+/// filed that way since R-54, and for a NEW reason none of the four existing
+/// `uncountable` records carry (R-17/R-21: representation; R-22: runtime-
+/// type; R-54: parseability). This one is a **build-tier condition**: the
+/// triggering source is identical text whether it compiles correctly at
+/// `--fast` or wrongly at `--release`/`--release-advanced`, so no acorn AST
+/// shape distinguishes a corpus file this matters for from one it does not —
+/// the corpus matchers run once, over source text, with no concept of build
+/// tier at all. Writing a matcher for it would silently claim a frequency
+/// this instrument cannot see.
+///
+/// A second §7 entry, **R-62**, was filed alongside R-61 (the refusing half
+/// of the same substitution). It needs no catalogue record: `parse_register`
+/// excludes every `### R-` header that appears after a non-tier `## `
+/// heading, exactly as it already does for R-50 and R-55, so §7 entries never
+/// reach `check_completeness` at all.
+///
+/// `counts.json` was **not** regenerated — R-61 has no matcher to run and no
+/// frequency to publish, and no other entry's matcher body changed, so every
+/// figure already in that file is unaffected. This is the first re-freeze in
+/// this series that touches `predicates.json` without touching
+/// `counts.json`.
 const FROZEN_PREDICATES_SHA256: &str =
-    "dffeb59fc3af02a5b582478edb498628394558b50cce741886784ebaafcd293e";
+    "ba31ac0d4a5a480f8e0cfb17949f6e68352909d2d4e8834b23512c0fa3083bd2";
 const FROZEN_MATCHERS_SHA256: &str =
     "19d2520978c3fa3afb96f3ca8a2c5035107e623f0925a5e976212fd86cefd701";
 

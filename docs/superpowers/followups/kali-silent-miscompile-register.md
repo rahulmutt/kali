@@ -738,7 +738,7 @@ Severity split (each entry ranked at the most severe class it carries):
 | tier | class | count (historical R-01..R-34 / now) |
 |---|---|---|
 | 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 / **8** |
-| 2 | **silently produces a wrong value** | 23 / **31** |
+| 2 | **silently produces a wrong value** | 23 / **32** |
 | 3 | **silently wrong control flow only** (value otherwise intact) | 1 / **2** |
 | 4 | **rendering-only** (in-memory value is correct) | 4 (see note) / 5 |
 
@@ -814,6 +814,26 @@ completes the filing of the four divergences PR #34 measured and left unfiled. E
 in both was re-taken at `35e9ef4ef6` against `node v26.8.1` rather than carried across, and
 in both cases the re-taking contradicted a written explanation — R-13's mechanism hypothesis
 for R-59, and all three of R-60's leads for R-60.
+
+**Updated 2026-09-10 (release-tier-allocation-identity, Task 8).** The
+right-hand column moved once more: **R-61** was added as a tier-ranked §2
+**Tier 2** entry — the release tiers substitute an allocating array
+initializer for its own name, so a literal-index read off it returns the
+initializer's raw form — so the Tier-2 cell reads **32** where it read 31,
+and the right-hand column is now **47** tier-ranked entries in §2 (8 + 32 + 2
++ 5). The register holds **62** numbered entries in total (R-01..R-62), the
+other 15 being the same un-ranked §0.3 set (R-35..R-46) plus §7's R-50, R-55
+and the new **R-62** (filed alongside R-61, the refusing half of the same
+substitution — not tier-ranked, for the same reason R-50 and R-55 are not).
+Both figures were re-counted by `### R-` headers per tier heading rather than
+incremented. **R-61 carries no §0.2 row** — its entry explains why: the
+register's oracle-case harness measures the default build tier only, and this
+defect is release-tier-specific, so there is no live case to back a row with.
+Both R-61 and R-62 are filed as **CLOSED** — Stage 1 of the filing project
+fixed the shape both entries measure, on the same day they were filed — kept
+as the historical record per this file's standing convention (R-49, R-11,
+R-56 and R-59 were each filed and closed inside one project's own timeline
+too).
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -4127,6 +4147,147 @@ tier, ordering is by blast radius.
 
 ---
 
+### R-61: `--release`/`--release-advanced` substitute an allocating array initializer for its own name, so a literal-index read off it returns the initializer's raw form, not the array's runtime value — **CLOSED 2026-09-10 for this repro; the root-cause predicate is not**
+
+- **Added**: 2026-09-10, by the **release-tier-allocation-identity** project
+  (`docs/superpowers/specs/2026-09-10-release-tier-allocation-identity-design.md`,
+  `docs/superpowers/sdd/2026-09-10-release-tier-allocation-identity/`), filed at
+  Task 8 per the design spec's §6 ledger obligations and the followup
+  `release-mode-optimizer-inlines-an-allocating-initializer.md`'s own §7
+  "Suggested home" note. This is the **silent** half of that followup's
+  defect; the refusing half is filed separately as **R-62** in §7, per the
+  same note.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` in the sense this register uses
+  the term for a reading a project's own Task 1 measured directly, in-process,
+  and reported — not re-taken fresh for this filing, per Task 8's own
+  instruction to cite rather than re-derive Task 1's number. Measured
+  **before** the fix that closes it (Task 2, same project), on a binary built
+  from this branch, against **`node v26.8.2`** (this machine's oracle — see
+  the note at the top of §0.2 on why earlier entries in this file pin
+  `v26.8.1`; this one does not repeat that claim).
+- **Root-cause group**: **unclustered**, and named precisely rather than
+  folded into an existing group. The mechanism is **layout-binding
+  specialization** (`crates/kali_optimize/src/specialize.rs:120-127`):
+  reached because `is_array_literal` (`crates/kali_optimize/src/layout.rs`,
+  pre-Stage-1) was negative space — "a text-less `Value` that is not an
+  object literal" — so a `new Array(n).fill(v)` declarator initializer
+  qualified as a specializable binding
+  (`is_specializable_binding`/`specialize.rs:82`,`:109`), and step 4 of that
+  pass overwrote every read of the binding's name with a **clone of the
+  initializer node**: `program.nodes[id] = program.nodes[bound].clone()`. It
+  is not **G6** (unresolved builtins folding to a zero placeholder): `new
+  Array(n)` here is not unresolved, it is *resolved and then duplicated*. It
+  is not **G7** (`const` has no cell): the cell exists; the substitution
+  replaces what the cell's *name* resolves to at codegen time, not the
+  runtime storage. **The predicate that caused it is a TRIPLET, not a single
+  mistake — Stage 1 fixed one copy of three.** Two more textually identical
+  negative-space copies are live and unfixed, in a different crate, on the
+  declarator-initializer path this defect lived on:
+  `crates/kali_codegen/src/intrinsics/array.rs:5` (`node.kind ==
+  LirNodeKind::Value && node.text.is_none() && !self.is_object_literal(node)`
+  — character-for-character the same mistake) and
+  `crates/kali_codegen/src/lower.rs:7189`
+  (`declarator_init_is_array_literal`, whose own doc comment says it mirrors
+  the first, called from `lower.rs:5975` and `:6049`). Neither was touched by
+  Stage 1, which fixed only `kali_optimize`'s copy. Whether either is
+  load-bearing for `nbody-benchmark-v1`'s own, separate, still-open `E5506`
+  is undetermined (`task-5-report.md`, "Ruling 2 verdict"), but both are
+  real, unfixed instances of this entry's root cause living in codegen rather
+  than in the optimizer.
+- **Repro**, measured by **Task 1**
+  (`crates/kali_cli/tests/inprocess/release_allocation_identity.rs`), before
+  the Stage 1 fix landed:
+  ```js
+  const u = new Array(4).fill(7);
+  console.log(u[0]);
+  ```
+  `--fast`: `7\n`, agrees with node and with `--fast`. **`--release`: `4144\n`
+  — WRONG, exit 0, no diagnostic.** `--release-advanced`'s own value was
+  **never captured**: the test's loop asserts all three tiers in sequence and
+  aborts on the first failing `assert_eq!`, which fires on `Release` before
+  `ReleaseAdvanced` is reached (`task-1-report.md`). Do not attribute `4144`,
+  or any other number, to `--release-advanced` — none was measured.
+- **Why a literal index is the silent half and a dynamic index is the loud
+  half of the SAME substitution.** A literal index (`u[0]`) has a static
+  name and takes the ordinary member lane, which never consults the
+  computed-member gateway `release-mode-optimizer-inlines-an-allocating-initializer.md`'s
+  §3 filed against — so it reads whatever the substituted node resolves to
+  and returns silently, exit 0. A dynamic index (`u[i]`) reaches that
+  gateway, finds `base_text=None` (the read base is a text-less wrapper
+  around the same node id as the initializer, not the named binding `u`),
+  and refuses loudly with `E5506` — see **R-62**.
+- **Severity**: **Tier 2** — silently produces a wrong value. Not Tier 1: the
+  statement executes, `console.log` runs, a value is printed — it is simply
+  the wrong one. Not Tier 4: the wrongness is not a rendering artifact of a
+  correct in-memory value; the in-memory value read is itself wrong (a raw
+  form of the initializer node, not the array's element).
+- **Blast radius**: **uncountable**, and the reason is different from every
+  other uncountable entry in this file (R-17, R-21, R-22, R-54): those are
+  representation- or runtime-typed conditions, or a parseability one. **This
+  one is a BUILD-TIER condition.** The triggering source — `new Array(n)`
+  (optionally `.fill(v)`) read by a later index — is identical text whether
+  it is compiled `--fast` (correct) or `--release`/`--release-advanced`
+  (wrong); no acorn-visible AST shape distinguishes a corpus file this
+  matters for from one it does not, because the corpus matchers in
+  `tools/blast-radius/matchers.mjs` run once, over source text, and have no
+  concept of build tier at all. See `predicates.json`'s record for the exact
+  reason string.
+- **THE §0.2 GAP, NAMED RATHER THAN PAPERED OVER.** This entry has **no §0.2
+  row**, and that is not an oversight: §0.2's own preamble states every row
+  is "produced from the oracle cases in `crates/kali_cli/tests/cases/oracle/`"
+  and "the verdict a live case asserts." The oracle-case harness
+  (`kali_case_runner`) that backs every other row in this file compiles and
+  runs the **default tier only** — it has no way to build, load and execute a
+  `--release`/`--release-advanced` artifact and compare it against node, the
+  way `crates/kali_cli/tests/inprocess/benchmark_execution.rs` (an entirely
+  separate, `kali_cli`-internal harness, not the register's oracle-case
+  machinery) now does for the benchmark fixtures. Writing a §0.2 row without
+  a live case behind it would misrepresent what that column has meant in
+  every other entry in this file. **This is an instrument gap, not a defect
+  gap** — the defect is real and measured (above); the register's own
+  measuring instrument cannot currently reach the tier it lives at.
+- **Pinned by**: `crates/kali_cli/tests/inprocess/release_allocation_identity.rs`'s
+  `literal_index_read_off_an_allocation_agrees_with_node_at_every_tier`
+  (Task 1) — a regression test in `kali_cli`'s own test suite, **not** an
+  oracle case in `kali_case_runner`'s sense, per the gap above. It now passes
+  (Stage 1 closed the defect for this shape), which is what a fix showing up
+  as a previously-red, now-green assertion looks like for an entry with no
+  oracle case. **What is NOT pinned by any case, oracle or otherwise**: the
+  two live negative-space copies named in the root-cause bullet
+  (`intrinsics/array.rs:5`, `lower.rs:7189`) — they are unfixed and
+  unreachable-by-this-entry's-repro today only because Stage 1 closed the one
+  path that reached them from `kali_optimize`; a future change routing
+  through either directly would not be caught by anything this entry names.
+- **Confidence**: high on behaviour (measured directly by Task 1, in-process,
+  against a live node oracle, reproduced identically by every downstream task
+  that touched this shape — Task 2's round 0/1/2 reports, Task 3's four-shape
+  sweep); high on mechanism (`specialize.rs:82-127` read in source by both
+  the design spec and Task 2's implementation report; the LIR dump cited in
+  the parent followup's §2 independently corroborates the same node-id
+  sharing).
+- **CLOSED for this repro, 2026-09-10, by Task 2 (Stage 1) of the
+  release-tier-allocation-identity project.** `is_array_literal` gained a
+  positive element check (`is_materializable_element`,
+  `crates/kali_optimize/src/layout.rs`): every child of a text-less `Value`
+  node must itself be materializable — a `Literal`, a `Value` whose text
+  parses as a literal, or a nested array/object literal. `new
+  Array(n).fill(v)`'s wrapper has a `Call` child, so it no longer qualifies,
+  the binding never enters the spec env, and the substitution never fires.
+  Re-measured by Task 1's own test, now green at all three tiers; re-measured
+  independently by Task 3's four-shape sweep (dynamic-index declarator,
+  parameter read, parameter store, reduced spectral-norm shape — all four,
+  all three tiers, first run, no failures; `task-3-4-report.md`). **NOT
+  closed as a class.** Stage 1 fixes this defect by exclusion — narrowing
+  which initializers specialization admits — not by representing
+  array-literal-ness positively in the LIR, so it does not close the
+  root-cause bullet's two live codegen copies, and it does not close **R-62**,
+  which documents what still refuses. Stage 2 (representing the property
+  instead of inferring it) was sized and explicitly stopped before shipping
+  any code (`task-7-report.md`) — see that report's own site list for what a
+  follow-on project starts from.
+
+---
+
 ## Tier 3 — silently wrong control flow (value otherwise intact)
 
 ### R-29: Assignment to a `const` is silently ignored (node throws)
@@ -5275,6 +5436,23 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   consecutive re-count in which the difference held at 2, and the second in which
   the constants and this line moved in one commit rather than one chasing the
   other.
+  **Re-counted 2026-09-10**, by the release-tier-allocation-identity project,
+  after filing **R-61** in §2's Tier 2 and **R-62** in §7: `grep -c "^### R-"`
+  now returns **50** while §2 holds **47** tier-ranked entries (8 + 32 + 2 +
+  5). Both numbers were measured the same way, not incremented. **The
+  difference moved from 2 to 3, and it is now R-50, R-55 and the new R-62** —
+  the first time this series has recorded a difference other than 2, because
+  this is the first time a project has filed a §7 entry alongside a §2 one in
+  the same commit rather than filing only §2 entries. §1's severity table
+  moved with it (Tier-2 "now" cell 31 -> 32). `catalogue_tests.rs`'s
+  `the_shipped_catalogue_covers_the_real_register_exactly` now asserts **47**
+  catalogue records (R-61's, added as `uncountable` — see that record's own
+  reason string) — R-62 needs no catalogue record, because `parse_register`
+  never sees it (it is filed after the non-tier `## 7.` heading, exactly as
+  R-50 and R-55 are). `oracle_tests.rs`'s totals are **unmoved** by this
+  filing: R-61 has no oracle case (its own entry explains why — the harness
+  measures the default tier only), and R-62 is outside §2 entirely, so
+  neither brought a scope pair the way R-56 through R-60 each did.
 - **Cross-referenced 2026-07-29** from
   `docs/superpowers/followups/r35-switch-boundary-rederived.md` ("What this matrix does NOT
   cover, and the entry that does"). That file had no reference to R-50 at all, which meant a
@@ -5512,6 +5690,86 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   magnitude: no case in the corpus runs `var x = 1e21; console.log(x)` or
   `console.log("v=" + 1e21)`, so if either moved — in either direction — nothing would
   notice.
+
+---
+
+### R-62: A dynamic-index read off an allocation-backed array correctly refused at `--release`/`--release-advanced` — honest, but a capability gap `--fast` did not have — **CLOSED 2026-09-10, same fix as R-61**
+
+- **Added**: 2026-09-10, by the **release-tier-allocation-identity** project,
+  filed at Task 8 per `release-mode-optimizer-inlines-an-allocating-initializer.md`'s
+  §7 "Suggested home" note, alongside **R-61** (§2, the silent half of the
+  same substitution).
+- **Numbering note**: filed in **§7**, not §2, for the same reason R-50 and
+  R-55 are — it is **not** a silent miscompile. `parse_register` (the parser
+  behind `crates/kali_blast_radius/src/register.rs`) treats any `### R-`
+  header appearing after a non-tier `## ` heading as outside §2's tier table,
+  so this entry does not require a catalogue record and does not appear in
+  the ranking. It is not counted in §1's severity table.
+- **This is NOT the same shape as FL-01.** FL-01 is titled for a diagnostic
+  of the **wrong kind** — an opaque `E4201` internal-translation failure
+  standing in for a limitation the compiler could have named honestly. This
+  entry's diagnostic is the **right kind**: `error[E5506]`, the project's own
+  fail-closed code, naming exactly the limitation that exists (a computed
+  member read cannot resolve its base). R-50 is the closer precedent: a
+  correct, honest refusal of something that could, in principle, work.
+- **Mechanism.** The same layout-binding specialization step R-61 documents
+  (`specialize.rs:120-127`) substitutes a clone of the initializer node for
+  every read of an allocation-backed `const` array's name. A **dynamic**
+  index read (`u[i]`, where `i` is not a compile-time constant) reaches the
+  computed-member gateway the `computed-member-static-name` project built
+  (`docs/superpowers/sdd/2026-09-08-computed-member-static-name/`) and that
+  gateway resolves the read's base — but the base is now a text-less wrapper
+  around the initializer's own node id, not the named binding `u`, so
+  `base_text=None` / `target_name=None` and the gateway correctly declines
+  with `error[E5506]`.
+- **Repro**, measured at the baseline this project started from
+  (`release-mode-optimizer-inlines-an-allocating-initializer.md` §2, "Also
+  established by the controller" table):
+
+  ```js
+  const u = new Array(4).fill(7);
+  let i = 0;
+  console.log(u[i]);
+  ```
+
+  `--fast`: builds, `kali run` prints `7`, agreeing with node. `--release` /
+  `--release-advanced`: `error[E5506]`, exit 1. This is a **real** capability
+  gap `--fast` does not have: the identical program, differing only in
+  optimization tier, goes from working to refusing.
+- **Severity**: fail-closed, not a miscompile. No exit-0 wrong answer is
+  produced and no trust is misplaced — the release tiers refuse a program
+  `--fast` compiles correctly, loudly, with the project's own honest
+  diagnostic code. Ruling **R22** (the project's controller ruling) held this
+  refusal to be **correct**, not a regression to reverse: "the pre-project
+  release tiers were emitting zeros and, for spectral-norm, an invalid
+  module. Converting that into a visible refusal is what this project exists
+  to do" (`release-mode-optimizer-inlines-an-allocating-initializer.md` §5).
+- **Blast radius**: not measured by any corpus matcher, for the same
+  build-tier reason R-61's Blast-radius bullet gives — this is a §7 entry,
+  outside the ranking's SILENT filter, and no frequency is claimed for it.
+- **What is NOT this entry.** A plain array *literal* (not an allocation)
+  with a dynamic index refuses at **both** `--fast` and `--release` —
+  `fast=1 / release=1`, no tier split, so no part of it is caused by the
+  substitution this entry and R-61 are about. It is a pre-existing
+  computed-member gateway gap, out of scope for this project, and pinned
+  separately as `a_plain_array_literal_with_a_dynamic_index_still_refuses_at_every_tier`
+  in `crates/kali_cli/tests/inprocess/release_allocation_identity.rs` (Task 4)
+  so it is not misread as fallout from this work.
+- **Pinned by**: `crates/kali_cli/tests/inprocess/release_allocation_identity.rs`'s
+  `allocation_backed_reads_agree_with_node_at_every_tier` (Task 3) pins the
+  four shapes that **used to** hit this refusal and now no longer do (see
+  R-61's CLOSED note — Stage 1 closed the substitution, so these four shapes
+  moved from refusing to agreeing with node, and this entry's own repro above
+  is now historical: re-measuring it after Stage 1 would show it building
+  clean, matching `--fast`, exactly as R-61's dynamic-index sibling does).
+  **This entry is therefore also CLOSED as of Stage 1** for every shape this
+  project measured — recorded here as the historical account of a refusal
+  that was, for one day, both correct and real, per R22's own ruling.
+- **Confidence**: high on behaviour (the design spec's §2.1 "Also established
+  by the controller" table and Task 4's regression test both measured it
+  directly); high on mechanism (the same `specialize.rs:120-127` chain R-61
+  traces, independently corroborated by the LIR dump the parent followup's §2
+  cites).
 
 ---
 

@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/.cache/cargo-target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `f9347ead96` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `d67d820f98` | `git rev-parse HEAD`, recorded by the generator |
 
 <!-- GENERATED-PROVENANCE:END -->
 
@@ -416,6 +416,7 @@ No frequency exists for these, so they are banded on **tier alone** and are neve
 | R-22 | 2 | yes — SILENT | no syntactic predicate (representation- or runtime-typed) | a runtime-type condition -- the missing rung is number/string coercion, so it fires only when the two operands actually hold a number and a string at run time; same-type `==` comparisons are correct, and the operator alone does not identify the case |
 | R-29 | 3 | no — removed by the SILENT filter | structurally uncountable | An assignment to a `const` binding is a TypeError at run time, so no program that runs clean under node can execute one; the construct and this corpus's runnability requirement are mutually exclusive (corpus/README.md). This zero is not a frequency and must never be ranked as one. |
 | R-54 | 3 | no — removed by the SILENT filter | no syntactic predicate (representation- or runtime-typed) | only invalid JavaScript triggers it -- acorn, like node, rejects a second `default` clause as a SyntaxError, so the shape can never appear in a corpus file that parses |
+| R-61 | 2 | no — removed by the SILENT filter | no syntactic predicate (representation- or runtime-typed) | a BUILD-TIER condition, not a syntactic one -- the triggering source (`new Array(n)`, optionally `.fill(v)`, later read by a literal index) is identical text whether it compiles correctly at --fast or wrongly at --release/--release-advanced, so no acorn-visible AST shape distinguishes a corpus file this matters for from one it does not; the corpus matchers run once over source text and have no concept of build tier |
 
 **Banded on tier alone** (only the entries the SILENT filter admits):
 
