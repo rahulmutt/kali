@@ -398,10 +398,30 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// `counts.json` **was** regenerated (`accepts.json` did not move — no
 /// compiler code changed in this task either), and the only change is R-65's
 /// own new record: raw 58, reachable 5. No other entry's figures moved.
+///
+/// **Re-frozen 2026-09-11 a fourth time**, the tenth movement of these
+/// constants, by the inline-allocation-value-position project filing **R-66**
+/// and **R-67** together, in one commit (§2, Tier 2 — a one-element array
+/// literal of an allocation IS that allocation; `.fill(v)` evaluates `v` once
+/// per element). Two more §2 entries, two more catalogue records, and
+/// **`matchers.mjs` moved**: the records are countable, `oneElementLiteralOfAllocation`
+/// (raw 0 / reachable 0 over the frozen corpus, `unsampled` — no anchor or
+/// extension program contains this shape, matching the spec's own zero-hit
+/// `grep`) and `fillValueReevaluated` (raw 12 / reachable 7, anchor 7/7,
+/// extension 5/0). Neither has an `UPPER_BOUNDS` note: both matchers count
+/// exactly the construct their entry names. No other matcher body changed;
+/// `isArrayAllocation` (R-64's helper) is called unchanged by
+/// `oneElementLiteralOfAllocation`, exactly as R-64's own re-freeze paragraph
+/// anticipated when it named this matcher as one of the two sibling
+/// consumers.
+///
+/// `counts.json` **was** regenerated (`accepts.json` did not move — no
+/// compiler code changed in this task either), and the only changes are
+/// R-66's and R-67's own new records. No other entry's figures moved.
 const FROZEN_PREDICATES_SHA256: &str =
-    "d18b63f6623b678d1dc696440c20554f359e8b24732c9bfd57b00c542790eff8";
+    "5410dcd6233ca92343aa3c38e5d75ac297f24b55d43003bb0bfb1205e92ee7f8";
 const FROZEN_MATCHERS_SHA256: &str =
-    "cd49486ed6c1a6ed9ff1bdf3affb1e9dbef1fc60d13a8c2ac9963eb740ffbe0a";
+    "eb2e74dc9f39517fe418cb0b05a4acaa0003ad1c684084d9ea8930d20bacce17";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {

@@ -239,8 +239,8 @@ entry's own repro; those cases agree with the tier files. *(**Corrected
 `var`-key computed read, which now refuses; the computed-member-static-name
 project replaced it with R-10's block-scoped shadow read — `let x = 1; { let x =
 2; } console.log("r=" + x);`, kali `r=2`, node `r=1`, exit 0 both — so the
-classifier still has a SILENT specimen and the count of five is unchanged.)* **169 cases back the 49
-rows.** ~~167 cases back the 48 rows … holds 171~~ (superseded 2026-09-11, when the inline-allocation-value-position project added **R-65** with its own two-case scope pair), ~~165 cases back the 47 rows … holds 169~~ (superseded 2026-09-11, when the same project added **R-64** with its own two-case scope pair), ~~163 cases back the 47 rows … holds 167~~ (superseded 2026-09-11, when the same project added R-15's element-only lane `r15e`), ~~161 cases back the 46 rows … holds 165~~ (superseded 2026-09-11, when the length-fails-closed project added **R-63** with its own two-case scope pair), ~~157 cases back the 44 rows … holds 161~~, ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
+classifier still has a SILENT specimen and the count of five is unchanged.)* **173 cases back the 51
+rows.** ~~169 cases back the 49 rows … holds 173~~ (superseded 2026-09-11, when the inline-allocation-value-position project added **R-66** and **R-67** together, in one commit, each with its own two-case scope pair), ~~167 cases back the 48 rows … holds 171~~ (superseded 2026-09-11, when the same project added **R-65** with its own two-case scope pair), ~~165 cases back the 47 rows … holds 169~~ (superseded 2026-09-11, when the same project added **R-64** with its own two-case scope pair), ~~163 cases back the 47 rows … holds 167~~ (superseded 2026-09-11, when the same project added R-15's element-only lane `r15e`), ~~161 cases back the 46 rows … holds 165~~ (superseded 2026-09-11, when the length-fails-closed project added **R-63** with its own two-case scope pair), ~~157 cases back the 44 rows … holds 161~~, ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
 holds 155~~ — superseded 2026-08-16 at
 `3a636f62fb`, when the console-render-unification project's final whole-branch
 review added **R-56** with its own two-case scope pair, and twice on 2026-09-08 at
@@ -249,7 +249,7 @@ review added **R-56** with its own two-case scope pair, and twice on 2026-09-08 
 branch added **R-59** and **R-60** the same way (~~`dde0f083c0`~~ — that is this
 branch's BASE and carries none of the four; corrected 2026-09-08 in final
 review). The oracle directory holds
-173 (~~171~~, ~~169~~, ~~167~~, ~~165~~, ~~161~~, ~~157~~); the other four carry
+177 (~~173~~, ~~171~~, ~~169~~, ~~167~~, ~~165~~, ~~161~~, ~~157~~); the other four carry
 `register_entry = "GROUND-TRUTH"`, measure the classifier rather than any entry,
 and are therefore attributable to no row — `agree.js`, `both_reject.js`,
 `hang.js` and `nondeterministic.js`. A reader auditing the mapping should expect
@@ -308,6 +308,8 @@ a defect.
 | R-63 `.length` renders a node's child count, or `0`, for a receiver with no length lane | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-11 by the length-fails-closed project — its one lane moved.** Re-derived from the two `r63a` cases, which now assert `fail_closed`: kali exits 1 with empty stdout and the `.length` floor's `E5506`; node prints `3`. FAIL_CLOSED, not FIXED: no lane computes this length yet, and kali now says so. Originally **added 2026-09-11 by the same project**, off `152fdd5364`; **measured at `152fdd5364` against `node v26.8.2`, both scopes**: `const o = {a: "xyz"}; console.log(o.a.length)` prints `1` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r63a`. §2's entry carries ten more lanes measured by hand. |
 | R-64 an allocation outside the materializing lanes → 0 | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x.length; } console.log(f(new Array(6)));` prints `0` in kali at exit 0 with empty stderr where node prints `6` at exit 0. Lane `r64a`. §2's entry carries ten more lanes from the spec's own table plus one measured correction. |
 | R-65 a fold-lane array argument → zeros in the callee | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x[0]; } const k = 3; console.log(f([k]));` prints `0` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r65a`. §2's entry carries eight more lanes from the spec's own table. |
+| R-66 a one-element literal of an allocation IS that allocation | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`, in the same commit as R-67; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `const xs = [new Array(3)]; console.log(xs.length);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r66a`. §2's entry carries three more lanes from the spec's own table. |
+| R-67 `.fill(v)` evaluates `v` once per element | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`, in the same commit as R-66; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `let n = 0; function g() { n = n + 1; return 1; } const a = new Array(3).fill(g()); console.log(n);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r67a`. §2's entry carries two more lanes from the spec's own table. |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
 neither has an oracle case, and a row with no case behind it is what this
@@ -886,6 +888,29 @@ same project (Task 9) to record as a separate, auditable step, the same as
 R-64's above — unlike R-64, which is retired FIXED, R-65's own entry records
 that its retirement is expected to land FAIL_CLOSED, not FIXED (spec §3.4
 widens the argument guard rather than routing the value through).
+
+**Updated 2026-09-11 a fourth time (inline-allocation-value-position, Task 5).**
+The right-hand column moved twice at once, in one commit: **R-66** (a
+one-element array literal of an allocation IS that allocation) and **R-67**
+(`.fill(v)` evaluates `v` once per element) were both added as further
+tier-ranked §2 **Tier 2** entries, so the Tier-2 cell reads **37** where it
+read 35 (per the paragraph immediately above), and the right-hand column is
+now **52** tier-ranked entries in §2 (8 + 37 + 2 + 5). The register holds
+**67** numbered entries in total (R-01..R-67), the other 15 being the same
+un-ranked §0.3 set (R-35..R-46) plus §7's R-50, R-55 and R-62. Both figures
+were re-counted by `### R-` headers per tier heading rather than incremented.
+Both R-66 and R-67 are filed SILENT, in the same commit, with their
+retirements left for later tasks in the same project to record as separate,
+auditable steps: R-66's own entry records that its retirement (Task 6) is
+expected to land FAIL_CLOSED (a widened `kali_types` refusal, not a fix that
+routes a value through — the literal and the allocation remain indistinguishable
+at the LIR level), the same shape as R-65's above; R-67's own entry records
+that its retirement (Task 7) is expected to land FIXED (allocation and fill
+own dedicated scratch slots and the fill value is evaluated once before the
+loop), the same shape as R-64's above. Filed together because neither matcher
+nor either retirement depends on the other — R-66 is a lowering-identity
+collision and R-67 is an emission-order bug in an unrelated codegen helper —
+but both are a handful of lines, so the controller chose one commit for both.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -4614,6 +4639,144 @@ tier, ordering is by blast radius.
   than independently re-measured this task); high on mechanism (the guard's
   exact `all-Literal` condition read directly from `call.rs:3573-3615` at this
   baseline).
+
+---
+
+### R-66: A one-element array literal of an allocation IS that allocation
+
+- **Added**: 2026-09-11, by the **inline-allocation-value-position** project
+  (`docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`),
+  off `733cd26125`, in the same commit as R-67 below — both matchers are a
+  handful of lines and neither is fixed by the other's task, but they were
+  filed together. Filed SILENT so the retirement that follows (Task 6 of the
+  same project) is a separate step a reader can audit.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured at `733cd26125` against
+  **`node v26.8.2`**, in **both** scopes, on `.cache/cargo-target/debug/kali`
+  built from that commit.
+- **Root-cause group**: **unclustered** — traced to one specific lowering site,
+  declined by name against §3's existing clusters rather than assumed. Not
+  **G7** (binding storage: `const` has no cell, non-`const` composite
+  initializers are lost): G7's traced mechanism is a `const` binding with no
+  slot re-emitting its *initializer node id* at each *read*
+  (`crates/kali_codegen/src/emit/control_flow.rs:1284-1286`, `:1614-1616`) —
+  a binding-table decision keyed on declarator kind. This entry's site is
+  earlier and unconditional: HIR keeps `NewExpr` and `ArrayExpr` apart, but MIR
+  erases both to the same `MirNodeKind::Expr` (`crates/kali_mir/src/lower.rs:108`,
+  `:116`), so `new Array(3)` and `[Array(3)]` are literally the same node by the
+  time codegen ever sees either — no `const`/`let`/`var` decision is involved,
+  and the collision fires identically for every declarator kind and for the
+  argument position (row 4 below). Not **G4** (there is no value distinct from
+  the scalar `0`): the collision does not produce `0` — it produces the
+  allocation's own real length (`3`), a value distinct from and larger than the
+  literal's correct answer (`1`); this is two different SOURCE shapes reading
+  as one VALUE, not a value collapsing into `0`'s representation. Not **G3**
+  (guards whose own diagnostic text names the unsoundness that leaks past
+  them): no guard exists at this site to leak past — `resolve_array_alloc_call`
+  (`emit/call.rs:5464`) unwraps a text-less `Value` node unconditionally, and
+  there is no diagnostic anywhere describing the hazard it walks into.
+- **Repro**: `const xs = [new Array(3)]; console.log(xs.length);` → node `1`;
+  kali `3` (exit 0, empty stderr). Measured baseline for this exact program is
+  Task 2's `literal_of_allocation.js`
+  (`crates/kali_cli/tests/cases/runtime/inline_allocation_value_position.toml`,
+  case `a_one_element_literal_of_an_allocation_refuses`).
+- **Every lane, measured at `733cd26125` against node v26.8.2, both engines at
+  exit 0, kali with empty stderr (spec §2.3, verbatim):**
+
+  | program | kali | node |
+  |---|---|---|
+  | `const xs = [new Array(3)]; console.log(xs.length);` (both scopes) | `3` | `1` |
+  | `const xs = [Array(3)]; console.log(xs.length);` | `3` | `1` |
+  | `const xs = [Array(3).fill(1)]; console.log(xs.length);` | `3` | `1` |
+  | `function f(x) { return x.length; } console.log(f([new Array(3)]));` | `0` | `1` |
+
+  All four rows are independently corroborated by Task 2's own baseline
+  measurement table (`task-2-report.md`): row 1 (both scopes) =
+  `literal_of_allocation.js` / `literal_of_allocation_fn.js`
+  (kali `3`, node `1`), row 2 = `literal_of_bare_allocation.js` (kali `3`,
+  node `1`), row 3 = `literal_of_fill.js` (kali `3`, node `1`), row 4 =
+  `literal_of_allocation_argument.js` (kali `0`, node `1`). **Row 4 is the same
+  collision reaching a non-materializing lane**: the literal is the identical
+  LIR node as `new Array(3)`, and a bare allocation in a call-argument position
+  is R-64's own shape (an allocation outside the three materializing lanes
+  evaluates to `0`), so the collision inherits R-64's zero rather than the
+  declarator lane's `3` once it lands there — this row is filed under R-66
+  because the *matcher* (`oneElementLiteralOfAllocation`) counts the syntactic
+  collision regardless of where it lands, not because its runtime value
+  matches the other three rows.
+- **Severity**: **Tier 2** — silently produces a wrong value.
+- **Blast radius**: countable, matcher `oneElementLiteralOfAllocation`: raw 0 /
+  reachable 0 over the frozen corpus (`unsampled`) — no anchor or extension
+  program contains this shape, matching the spec's own `grep` over
+  `crates/kali_cli/tests` (§2.3: 0 hits).
+- **Pinned by**: two oracle cases (`r66a`, both scopes, `tier2.toml`) asserting
+  the SILENT class.
+- **Confidence**: high on behaviour (all four lanes independently re-measured
+  at this baseline via Task 2's own case files); high on mechanism (the exact
+  MIR erasure sites named above, spec §2.3).
+
+---
+
+### R-67: `.fill(v)` evaluates `v` once per element
+
+- **Added**: 2026-09-11, by the **inline-allocation-value-position** project
+  (`docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`),
+  off `733cd26125`, in the same commit as R-66 above. Filed SILENT so the
+  retirement that follows (Task 7 of the same project) is a separate step a
+  reader can audit.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured at `733cd26125` against
+  **`node v26.8.2`**, in **both** scopes, on `.cache/cargo-target/debug/kali`
+  built from that commit.
+- **Root-cause group**: **unclustered** — traced to one specific codegen
+  emission order, declined by name against §3's existing clusters rather than
+  assumed. Not **G7** (binding storage: `const` has no cell, non-`const`
+  composite initializers are lost): the shared word is "re-emit", but the site
+  and trigger are both different — G7's mechanism re-emits a *binding's own
+  initializer* at each *read* of that binding, keyed on declarator kind
+  (`const` vs `let`/`var`); this entry's mechanism is `emit_array_fill`
+  (`crates/kali_codegen/src/emit/call.rs:5991`) re-emitting the *fill call's
+  own argument expression* once per loop iteration inside its own emission
+  (`:6052`), independent of how (or whether) the result is ever bound — `a.fill(g())`
+  with no declarator at all still runs `g` three times (this entry's third
+  row). Not **G4** (there is no value distinct from the scalar `0`): every
+  call to `g` in the repro below returns a real, distinct value (`1`); the
+  defect is call *count*, not value representation. Not **G2** (call lowering:
+  unresolvable callee folds to constant `0`): `g` is a resolved, compiled
+  callee that runs to completion every time — three times where it should run
+  once — not a callee that fails to run or folds to a placeholder.
+- **Repro**: `let n = 0; function g() { n = n + 1; return 1; } const a = new
+  Array(3).fill(g()); console.log(n);` → node `1`; kali `3` (exit 0, empty
+  stderr). Measured baseline for this exact program is Task 2's
+  `fill_value_once.js`
+  (`crates/kali_cli/tests/cases/runtime/inline_allocation_value_position.toml`,
+  case `a_fill_value_is_evaluated_once`, `stdout = "1,1\n"` on node against
+  kali's measured `3,1`, the `n` component of each matching this entry's repro
+  exactly).
+- **Every lane, measured at `733cd26125` against node v26.8.2, both engines at
+  exit 0, kali with empty stderr (spec §2.6, verbatim):**
+
+  | program | kali | node |
+  |---|---|---|
+  | `let n = 0; function g() { n = n + 1; return 1; } const a = new Array(3).fill(g()); console.log(n + "," + a[2]);` | `3,1` | `1,1` |
+  | the same inside `function main`, length 4 | `4,1` | `1,1` |
+  | `let n = 0; function g() { n = n + 1; return 2; } const a = new Array(3).fill(0); a.fill(g()); console.log(n + "," + a[1]);` | `3,2` | `1,2` |
+
+  All three rows are independently corroborated by Task 2's own baseline
+  measurement table (`task-2-report.md`): row 1 = `fill_value_once.js` (kali
+  `3,1`, node `1,1`), row 2 = `fill_value_once_fn.js` (kali `4,1`, node `1,1`
+  — a four-element array, so `n` reaches `4`, not `3`; the mechanism is
+  identical), row 3 = `fill_value_once_rebound.js` (kali `3,2`, node `1,2`,
+  the second `.fill` call on an already-bound array). Every row's `n` in kali
+  equals the array length: the loop re-emits `g()` once per element rather
+  than once before the loop.
+- **Severity**: **Tier 2** — silently produces a wrong value.
+- **Blast radius**: countable, matcher `fillValueReevaluated`: raw 12 /
+  reachable 7 over the frozen corpus (anchor 7/7, extension 5/0).
+- **Pinned by**: two oracle cases (`r67a`, both scopes, `tier2.toml`) asserting
+  the SILENT class.
+- **Confidence**: high on behaviour (all three lanes independently re-measured
+  at this baseline via Task 2's own case files); high on mechanism (the exact
+  emission-order sites named above, spec §2.6, `emit/call.rs:5991` and
+  `:6052`).
 
 ---
 

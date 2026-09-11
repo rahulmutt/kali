@@ -144,6 +144,12 @@
       "description": "an `Array`/`Uint8Array` allocation (`new Array(n)`, `Array(n)`, at most one argument) whose value is used outside codegen's three materializing lanes -- a declarator initializer, an assignment right-hand side, or a `.fill` receiver; upper bound, because an acorn AST cannot see that a callee ignores the parameter it is passed to, and such a call prints correctly" },
     { "id": "R-65", "kind": "countable",
       "matcher": "foldLaneArrayArgument",
-      "description": "an argument to a call that is an array literal (inline or through a binding), a spread of one, or a constructed value that lowers to the same text-less node; upper bound, because an acorn AST cannot see whether the callee resolves to a compiled function, which is what the guard requires" }
+      "description": "an argument to a call that is an array literal (inline or through a binding), a spread of one, or a constructed value that lowers to the same text-less node; upper bound, because an acorn AST cannot see whether the callee resolves to a compiled function, which is what the guard requires" },
+    { "id": "R-66", "kind": "countable",
+      "matcher": "oneElementLiteralOfAllocation",
+      "description": "a one-element array literal whose only element is an `Array`/`Uint8Array` allocation, optionally `.fill`ed -- the shape that lowers to the same LIR node as the allocation itself" },
+    { "id": "R-67", "kind": "countable",
+      "matcher": "fillValueReevaluated",
+      "description": "a `.fill(v)` member call with exactly one argument, whose value codegen re-emits once per element" }
   ]
 }

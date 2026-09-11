@@ -208,7 +208,24 @@
     "R-65's fix (the widened argument guard) ships in no code any G3 member's fix touches. It",
     "declines G4, G6 and G2 the same way R-64 did, for reasons specific to this entry (see the",
     "register). It is filed SILENT in its own commit and is expected to leave this file when a",
-    "later task in the same project (Task 9) retires it."
+    "later task in the same project (Task 9) retires it.",
+    "",
+    "ADDED 2026-09-11 by the same project, a third time, in one commit: R-66 (a one-element array",
+    "literal of an allocation IS that allocation) and R-67 (`.fill(v)` evaluates `v` once per",
+    "element) both take their own singleton definitions. Neither shares a cluster with the other",
+    "or with R-64/R-65 above -- R-66's mechanism is an HIR/MIR erasure at lowering, R-67's is an",
+    "emission-order bug in the fill codegen helper, and both are traced to one specific site rather",
+    "than a shared root. Each declines G7 by name -- the tempting match, since both this pair and",
+    "G7 involve a node or value being 're-emitted' or reduced to 'the same node' -- because G7's",
+    "traced mechanism is specifically a `const` binding with no slot re-emitting its own initializer",
+    "at each read, keyed on declarator kind; neither R-66's unconditional HIR/MIR collision nor",
+    "R-67's per-iteration fill-value re-emission involves a binding-storage decision at all. Both",
+    "also decline G4 (a real, distinct value is produced in each case, not a collapse into 0's own",
+    "representation) and R-66 additionally declines G3 (no guard exists at this site to leak past)",
+    "while R-67 additionally declines G2 (the callee is resolved and runs to completion). Both are",
+    "filed SILENT in the same commit and are expected to leave this file on separate schedules: R-66",
+    "when a later task in the same project (Task 6) retires it FAIL_CLOSED, and R-67 when a later",
+    "task (Task 7) retires it FIXED."
   ],
   "clusters": [
     {
@@ -305,6 +322,16 @@
       "name": "R-65 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered ... this has G3's shape exactly ... It is nonetheless not added to G3's member list, on the criterion clusters.json itself states and that R-47 and R-58 already decided the same way ... Not G4 ... Not G6 ... Not G2'. Declined G3 on the fix-unit rule, the same criterion R-47 and R-58 already applied to their own G3-shaped guards; declined G4 because the array or constructed value produces a real, distinct handle wherever a materializing lane reaches it; declined G6 because an array literal and a user class constructor are fully implemented language features, not unresolved builtins; declined G2 because the callee is resolved and compiled in every repro."
+    },
+    {
+      "name": "R-66 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered -- traced to one specific lowering site ... Not G7 ... Not G4 ... Not G3'. Declined G7 because G7's traced mechanism re-emits a const binding's own initializer at each read, a binding-table decision keyed on declarator kind, where this entry's HIR/MIR erasure is earlier and unconditional -- no const/let/var decision is involved; declined G4 because the collision produces the allocation's own real length, not 0 -- two different source shapes reading as one value, not a value collapsing into 0's representation; declined G3 because no guard exists at this site to leak past."
+    },
+    {
+      "name": "R-67 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered -- traced to one specific codegen emission order ... Not G7 ... Not G4 ... Not G2'. Declined G7 because the shared word is 're-emit', but the site and trigger differ -- G7 re-emits a binding's own initializer at each read of that binding, while this entry re-emits the fill call's own argument expression once per loop iteration, independent of how or whether the result is ever bound; declined G4 because every call returns a real, distinct value and the defect is call count, not value representation; declined G2 because the callee is resolved and runs to completion every time."
     }
   ],
   "assignments": [
@@ -517,6 +544,20 @@
       "registerSource": "unclustered -- this has G3's shape exactly ... It is nonetheless not added to G3's member list, on the criterion clusters.json itself states and that R-47 and R-58 already decided the same way for their own G3-shaped guards: a cluster there is the unit a fix actually ships in, and this entry's fix ships in no code any G3 member's fix touches. Not G4 ... Not G6 ... Not G2.",
       "alternate": "G3 by shape (a guard keyed on one syntactic form, with a sibling form slipping past into the miscompile the guard's own diagnostic describes), named and declined by the register on the fix-unit rule R-47 and R-58 already established for their own G3-shaped guards.",
       "alternateCluster": null
+    },
+    {
+      "id": "R-66",
+      "cluster": "R-66 (unclustered)",
+      "registerSource": "unclustered -- traced to one specific lowering site, declined by name against §3's existing clusters rather than assumed. Not G7 (binding storage) ... a binding-table decision keyed on declarator kind, where this entry's site is earlier and unconditional -- HIR keeps NewExpr and ArrayExpr apart, but MIR erases both to the same node, so no const/let/var decision is involved. Not G4 ... the collision produces the allocation's own real length, not 0 -- two different SOURCE shapes reading as one VALUE, not a value collapsing into 0's representation. Not G3 ... no guard exists at this site to leak past.",
+      "alternate": "G7 by the shared word \"re-emit\"/\"same node\", named and declined by the register because G7's traced mechanism is a const binding with no slot re-emitting its own initializer at each read, a different site and trigger from this entry's HIR/MIR erasure.",
+      "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
+    },
+    {
+      "id": "R-67",
+      "cluster": "R-67 (unclustered)",
+      "registerSource": "unclustered -- traced to one specific codegen emission order, declined by name against §3's existing clusters rather than assumed. Not G7 (binding storage) ... the shared word is \"re-emit\", but the site and trigger are both different -- G7 re-emits a binding's own initializer at each read of that binding, keyed on declarator kind; this entry re-emits the fill call's own argument expression once per loop iteration, independent of how or whether the result is ever bound. Not G4 ... every call returns a real, distinct value; the defect is call count, not value representation. Not G2 ... the callee is resolved and runs to completion every time, not folding to a placeholder.",
+      "alternate": "G7 by the shared word \"re-emit\", named and declined by the register because G7's mechanism is binding-storage re-emission on read, a different site and trigger from this entry's fill-loop emission order.",
+      "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
     }
   ]
 }

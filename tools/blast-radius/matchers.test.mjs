@@ -345,7 +345,7 @@ test("the module exports exactly the catalogue's countable matchers, by name", (
   const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
   const catalogueNames = countable.map((entry) => entry.matcher).sort();
   assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
-  assert.equal(catalogueNames.length, 45);
+  assert.equal(catalogueNames.length, 47);
 });
 
 test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling", () => {
@@ -691,4 +691,37 @@ test("foldLaneArrayArgument counts array arguments kali cannot pass as a handle"
     const standalone = [1, 2];         // not an argument, does not count
   `;
   assert.equal(count("foldLaneArrayArgument", src), 7);
+});
+
+test("oneElementLiteralOfAllocation counts literals that collide with an allocation", () => {
+  // Positives: a one-element literal of `new Array(n)`, of a bare `Array(n)`, of a
+  // `.fill` on one, and of a `Uint8Array`. Negatives: two elements (no collision),
+  // an empty literal, a literal of a non-array constructor, and the allocation
+  // itself outside a literal.
+  const src = `
+    const a = [new Array(3)];        // counts
+    const b = [Array(3)];            // counts
+    const c = [Array(3).fill(1)];    // counts
+    const d = [new Uint8Array(2)];   // counts
+    const e = [new Array(3), new Array(2)];  // two elements, does not count
+    const f = [];                    // empty, does not count
+    const g = [new Map()];           // not an array allocation, does not count
+    const h = new Array(3);          // not in a literal, does not count
+  `;
+  assert.equal(count("oneElementLiteralOfAllocation", src), 4);
+});
+
+test("fillValueReevaluated counts fill calls whose value is re-emitted per element", () => {
+  // Positives: `.fill(v)` on an allocation and on a bound array, whatever the
+  // value. Negatives: the zero-argument `fill()`, and a non-`fill` method.
+  const src = `
+    function g() { return 1; }
+    const a = new Array(3).fill(g());  // counts
+    const b = new Array(2).fill(0);    // counts
+    a.fill(g());                       // counts
+    const c = new Array(2);
+    c.fill();                          // zero-argument, does not count
+    a.join(",");                       // not fill, does not count
+  `;
+  assert.equal(count("fillValueReevaluated", src), 3);
 });

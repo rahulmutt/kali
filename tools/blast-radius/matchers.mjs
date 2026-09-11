@@ -1382,6 +1382,50 @@ export const MATCHERS = {
     }
     return total;
   },
+
+  // R-66: a one-element array literal whose only element is an array allocation.
+  // `[Array(3)]` and `new Array(3)` are the SAME LIR node -- a text-less `Value`
+  // with one `Call` child (`crates/kali_mir/src/lower.rs:108`, `:116` erase the
+  // HIR distinction) -- so `resolve_array_alloc_call` reads the literal as the
+  // allocation and the declarator lane answers the allocation's length.
+  oneElementLiteralOfAllocation(ast) {
+    const analysis = analysisOf(ast);
+    return analysis
+      .of("ArrayExpression")
+      .filter((node) => {
+        if (node.elements.length !== 1) return false;
+        let only = node.elements[0];
+        if (!only) return false;
+        if (
+          only.type === "CallExpression" &&
+          only.callee.type === "MemberExpression" &&
+          only.callee.property.name === "fill"
+        ) {
+          only = only.callee.object;
+        }
+        return (
+          (only.type === "CallExpression" || only.type === "NewExpression") &&
+          isArrayAllocation(only)
+        );
+      })
+      .length;
+  },
+
+  // R-67: a `.fill(v)` whose value is re-emitted inside the loop body
+  // (`crates/kali_codegen/src/emit/call.rs:6052` at `733cd26125`), so `v`'s side
+  // effects run once per element where JavaScript evaluates it once.
+  fillValueReevaluated(ast) {
+    const analysis = analysisOf(ast);
+    return analysis
+      .of("CallExpression")
+      .filter(
+        (node) =>
+          node.callee.type === "MemberExpression" &&
+          node.callee.property.name === "fill" &&
+          node.arguments.length === 1,
+      )
+      .length;
+  },
 };
 
 /** Every matcher's count for one source string. */

@@ -8,22 +8,23 @@
 # ---------------------------------------------------------------------------
 # COVERAGE -- THIS FILE IS COMPLETE FOR TIER 2.
 #
-# Tier 2 holds THIRTY-FOUR entries with oracle cases: R-06, R-07, R-08, R-09,
+# Tier 2 holds THIRTY-SIX entries with oracle cases: R-06, R-07, R-08, R-09,
 # R-10, R-11, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-19, R-20, R-21, R-22,
 # R-23, R-24, R-25, R-26, R-27, R-28, R-47, R-48, R-53, R-56, R-57, R-58, R-59,
-# R-60, R-63, R-64, R-65. (R-61 is also Tier 2, but it is a release-tier condition and
-# this harness measures the default tier only; see its section 2 entry.)
+# R-60, R-63, R-64, R-65, R-66, R-67. (R-61 is also Tier 2, but it is a release-tier
+# condition and this harness measures the default tier only; see its section 2 entry.)
+# ~~THIRTY-FOUR ... R-60, R-63, R-64, R-65.~~
 # ~~THIRTY-THREE ... R-60, R-63, R-64.~~
 # ~~THIRTY-TWO ... R-60, R-63.~~
 # ~~THIRTY-ONE ... R-59, R-60.~~
 # ~~TWENTY-NINE ... R-56, R-57, R-58.~~
 # ~~TWENTY-SEVEN ... R-53, R-56.~~
 #
-# ALL THIRTY-FOUR ARE COVERED HERE, in ONE HUNDRED AND EIGHT cases (~~one hundred and six~~; ~~one
-# hundred and four~~; ~~one hundred and two~~; ~~thirty-one / one hundred~~; ~~twenty-nine / ninety-six~~; ~~twenty-seven /
+# ALL THIRTY-SIX ARE COVERED HERE, in ONE HUNDRED AND TWELVE cases (~~one hundred and eight~~; ~~one
+# hundred and six~~; ~~one hundred and four~~; ~~one hundred and two~~; ~~thirty-one / one hundred~~; ~~twenty-nine / ninety-six~~; ~~twenty-seven /
 # ninety-two~~).
 # Nothing in Tier 2 is left unauthored. The file was written in
-# eight passes -- R-06..R-17
+# nine passes -- R-06..R-17
 # (thirty-four cases, 2026-08-15, `2a49fa1f3f`), R-18..R-53 (fifty-six cases,
 # 2026-08-15, `36f9c814a2`), R-56 (two cases, 2026-08-16, at `3a636f62fb`,
 # by the console-render-unification project's final whole-branch review),
@@ -33,8 +34,10 @@
 # R-63 (two cases, 2026-09-11, off `152fdd5364`, by the length-fails-closed
 # project), plus R-15's element-only lane r15e (two cases, same date, same
 # project), R-64 (two cases, 2026-09-11, off `733cd26125`, by the
-# inline-allocation-value-position project), and R-65 (two cases, 2026-09-11,
-# off `733cd26125`, the same project's second filing) -- and
+# inline-allocation-value-position project), R-65 (two cases, 2026-09-11,
+# off `733cd26125`, the same project's second filing), and R-66/R-67 (four
+# cases, 2026-09-11, off `733cd26125`, the same project's third filing, in one
+# commit because neither retirement fixes the other) -- and
 # the passes' measurement summaries are kept separate below because they were
 # taken at different commits.
 #
@@ -127,6 +130,8 @@
 #   R-63   member receiver            r63a_..._module_scope  r63a_..._in_function
 #   R-64   allocation-argument lane   r64a_..._module_scope  r64a_..._in_function
 #   R-65   fold-lane argument lane    r65a_..._module_scope  r65a_..._in_function
+#   R-66   one-element literal lane   r66a_..._module_scope  r66a_..._in_function
+#   R-67   fill-value-reevaluated lane r67a_..._module_scope  r67a_..._in_function
 #
 # R-57 AND R-58 EACH GET ONE PAIR, NOT MORE, and the rule below is what decides
 # that. Neither entry states a second class or a separately named repro program:
@@ -1105,6 +1110,28 @@ console.log(f([k]));
   function f(x) { return x[0]; }
   const k = 3;
   console.log(f([k]));
+}
+main();
+"""
+"r66a_module.js" = """const xs = [new Array(3)];
+console.log(xs.length);
+"""
+"r66a_function.js" = """function main() {
+  const xs = [new Array(3)];
+  console.log(xs.length);
+}
+main();
+"""
+"r67a_module.js" = """let n = 0;
+function g() { n = n + 1; return 1; }
+const a = new Array(3).fill(g());
+console.log(n);
+"""
+"r67a_function.js" = """function main() {
+  let n = 0;
+  function g() { n = n + 1; return 1; }
+  const a = new Array(3).fill(g());
+  console.log(n);
 }
 main();
 """
@@ -2747,4 +2774,68 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `0` at exit 0 with empty stderr; node prints `3` at exit 0. Byte-identical to the module scope.
 
 WHAT A REGRESSION HERE WOULD MEAN. Filed SILENT by the inline-allocation-value-position project; expected to flip to FAIL_CLOSED in Task 9's commit, byte-identical to the module-scope case's note. After that flip, a return to SILENT means the widened guard has a hole again, in this scope too.
+'''
+
+[[case]]
+name = "r66a_one_element_literal_module_scope"
+kind = "oracle"
+register_entry = "R-66"
+program = "r66a_module.js"
+verdict = "silent"
+rationale = '''
+R-66, the one-element-literal-collides-with-an-allocation lane, module scope. Section 2's `Repro` verbatim: a one-element array literal whose only element is `new Array(3)`.
+
+Expected verdict set from the register's recorded status: section 0.2's R-66 row and section 2's entry both record SILENT in both scopes, so SILENT.
+
+MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `3` at exit 0 with empty stderr; node prints `1` at exit 0. `[new Array(3)]` lowers to the same LIR node as `new Array(3)` itself (`crates/kali_mir/src/lower.rs:108`, `:116` erase the HIR distinction), so `xs` binds the allocation directly and `xs.length` answers the allocation's own length instead of the one-element literal's length. Corroborated directly by Task 2's `literal_of_allocation.js` (case `a_one_element_literal_of_an_allocation_refuses`, `inline_allocation_value_position.toml`), which measured the identical program at this same baseline.
+
+WHAT A REGRESSION HERE WOULD MEAN. This pair is filed SILENT by the inline-allocation-value-position project and is expected to flip to FAIL_CLOSED in Task 6's commit, which widens `kali_types`'s `ArrayExpression` resolution to refuse a one-element literal whose only element is an array allocation (spec `docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`, section 3.1) rather than fix it -- the literal and the allocation remain indistinguishable at the LIR level, so kali refuses to compile the collision instead of silently reading the literal as the allocation. After that flip, a return to SILENT means the refusal has a hole again.
+'''
+
+[[case]]
+name = "r66a_one_element_literal_in_function"
+kind = "oracle"
+register_entry = "R-66"
+program = "r66a_function.js"
+verdict = "silent"
+rationale = '''
+R-66, the one-element-literal-collides-with-an-allocation lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope.
+
+MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `3` at exit 0 with empty stderr; node prints `1` at exit 0. Byte-identical to the module scope. Corroborated directly by Task 2's `literal_of_allocation_fn.js` (case `a_one_element_literal_of_an_allocation_refuses_in_a_function`), which measured the identical program at this same baseline.
+
+WHAT A REGRESSION HERE WOULD MEAN. Filed SILENT by the inline-allocation-value-position project; expected to flip to FAIL_CLOSED in Task 6's commit, byte-identical to the module-scope case's note. After that flip, a return to SILENT means the refusal has a hole again, in this scope too.
+'''
+
+[[case]]
+name = "r67a_fill_value_reevaluated_module_scope"
+kind = "oracle"
+register_entry = "R-67"
+program = "r67a_module.js"
+verdict = "silent"
+rationale = '''
+R-67, the fill-value-evaluated-once lane, module scope. Section 2's `Repro` verbatim: a `.fill(g())` on a fresh allocation, where `g` has a side effect that counts how many times it ran.
+
+Expected verdict set from the register's recorded status: section 0.2's R-67 row and section 2's entry both record SILENT in both scopes, so SILENT.
+
+MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `3` at exit 0 with empty stderr; node prints `1` at exit 0. The fill loop re-emits the value expression once per element (`crates/kali_codegen/src/emit/call.rs:6052` at `733cd26125`) instead of evaluating it once and storing the result, so `g` runs three times for a three-element array where JavaScript evaluates `v` exactly once. Corroborated directly by Task 2's `fill_value_once.js` (case `a_fill_value_is_evaluated_once`, `inline_allocation_value_position.toml`), whose `n` component of `stdout = "1,1\n"` (node) versus kali's measured `3,1` matches this program's `n` values exactly (node `1`, kali `3`).
+
+WHAT A REGRESSION HERE WOULD MEAN. This pair is filed SILENT by the inline-allocation-value-position project and is expected to flip to FIXED in Task 7's commit, which makes allocation and fill own dedicated scratch slots and evaluates the fill value once before the loop (spec `docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`, section 3.3). After that flip, a return to SILENT means the fill value is being re-evaluated per element again.
+'''
+
+[[case]]
+name = "r67a_fill_value_reevaluated_in_function"
+kind = "oracle"
+register_entry = "R-67"
+program = "r67a_function.js"
+verdict = "silent"
+rationale = '''
+R-67, the fill-value-evaluated-once lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope.
+
+MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `3` at exit 0 with empty stderr; node prints `1` at exit 0. Byte-identical to the module scope. Corroborated directly by Task 2's `fill_value_once_fn.js` (case `a_fill_value_is_evaluated_once_in_a_function`), whose measured kali reading (`4,1`) differs from this program's array length (this task's program allocates length 3, not Task 2's length 4) but confirms the same mechanism: kali's `n` exceeds node's `n` by exactly the array length in both cases (Task 2: kali `4` vs node `1` over a 4-element array; this program: kali `3` vs node `1` over a 3-element array).
+
+WHAT A REGRESSION HERE WOULD MEAN. Filed SILENT by the inline-allocation-value-position project; expected to flip to FIXED in Task 7's commit, byte-identical to the module-scope case's note. After that flip, a return to SILENT means the fill value is being re-evaluated per element again, in this scope too.
 '''
