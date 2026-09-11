@@ -345,7 +345,7 @@ test("the module exports exactly the catalogue's countable matchers, by name", (
   const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
   const catalogueNames = countable.map((entry) => entry.matcher).sort();
   assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
-  assert.equal(catalogueNames.length, 42);
+  assert.equal(catalogueNames.length, 43);
 });
 
 test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling", () => {
@@ -536,6 +536,40 @@ test("memberReadOnObjectFromEntriesResult follows the receiver, and counts reads
     console.log(p.a);                                    // plain literal, does not count
   `;
   assert.equal(count("memberReadOnObjectFromEntriesResult", src), 5);
+});
+
+test("lengthReadOnUnprovenReceiver counts the measured receivers, and reads only", () => {
+  // Positives: the four receiver shapes R-63 measured -- member, element, `let`,
+  // and an awaited Promise.all/allSettled result inline, through a binding and
+  // `globalThis`-qualified. Negatives: `const` array and string bindings and a
+  // string literal (lanes that read `.length` correctly), a call receiver, a
+  // `var` receiver (not measured), a store target, and a non-`.length` property.
+  const src = `
+    const o = {a: "xyz"};
+    console.log(o.a.length);          // member receiver, counts
+    console.log(o["a"].length);       // element receiver, counts
+    console.log(["abc"][0].length);   // element of a literal, counts
+    let s = [1, 2];
+    console.log(s.length);            // let receiver, counts
+    async function main() {
+      const d = await Promise.all([Promise.resolve(1)]);
+      console.log(d.length);          // awaited Promise.all through a binding, counts
+      console.log((await Promise.allSettled([Promise.resolve(1)])).length); // inline, counts
+      console.log((await globalThis.Promise["all"]([Promise.resolve(1)])).length); // qualified, counts
+    }
+    const a = [1, 2, 3];
+    console.log(a.length);            // const array literal, does not count
+    console.log("abc".length);        // string literal, does not count
+    const t = "xyz";
+    console.log(t.length);            // const string, does not count
+    function f() { return [1]; }
+    console.log(f().length);          // call receiver, does not count
+    var v = [1];
+    console.log(v.length);            // var receiver, does not count
+    o.a.length = 3;                   // store target, does not count
+    console.log(o.a.size);            // not .length, does not count
+  `;
+  assert.equal(count("lengthReadOnUnprovenReceiver", src), 7);
 });
 
 test("the disclosure instruments name real entries and stay out of MATCHERS", () => {

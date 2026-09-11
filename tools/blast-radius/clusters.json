@@ -177,7 +177,13 @@
     "with a PARAMETER key. Reachable counts moved on eight entries in all (R-04, R-07, R-08, R-13,",
     "R-14, R-32, R-33, R-59); the ranking's section 6 amendment carries the full list. The",
     "file-by-file overlap claim above (of 51 files with a nonzero count under either matcher, 30",
-    "differ) is a RAW comparison and is unaffected."
+    "differ) is a RAW comparison and is unaffected.",
+    "",
+    "ADDED 2026-09-11 by the length-fails-closed project: R-63 (`.length` renders a node's child",
+    "count, or `0`, for a receiver with no length lane) joins G6 on the register's own §2",
+    "Root-cause line. It is filed SILENT in its own commit and is expected to leave G6 when the",
+    "same project's fix retires it (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md",
+    "section 6.1)."
   ],
   "clusters": [
     {
@@ -461,6 +467,13 @@
       "cluster": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed",
       "registerSource": "G6 -- unresolved or unimplemented builtins fold to a default instead of failing closed ... it joins on measurement rather than resemblance ... G6's raising-confidence experiment is what filing this entry ran ... G6's fix unit reaches it ... It is not G2 ... It is not G4.",
       "alternate": "G2 by the shared zero-placeholder fallback, named and declined by the register because G2's members are all user function values and a missing builtin is what G6 holds; G4 is also named and declined, because the property is PRESENT and there is a right answer for the read to have returned.",
+      "alternateCluster": "G2 — call lowering: unresolvable callee folds to constant `0`"
+    },
+    {
+      "id": "R-63",
+      "cluster": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed",
+      "registerSource": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed. A `.length` read on a receiver no codegen lane understands is a builtin property read that yields a type-plausible integer instead of a diagnostic ... It is not G2 (no callee is unresolved) and not G4 (the property is present and has a right answer).",
+      "alternate": "G2 by the shared zero-emitting floor, declined because no call is unresolved; G4 declined because the property is present and node has a right answer for it.",
       "alternateCluster": "G2 — call lowering: unresolvable callee folds to constant `0`"
     }
   ]
