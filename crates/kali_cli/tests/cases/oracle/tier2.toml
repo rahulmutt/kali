@@ -8,22 +8,28 @@
 # ---------------------------------------------------------------------------
 # COVERAGE -- THIS FILE IS COMPLETE FOR TIER 2.
 #
-# Tier 2 holds THIRTY-ONE entries: R-06, R-07, R-08, R-09, R-10, R-11, R-12,
-# R-13, R-14, R-15, R-16, R-17, R-18, R-19, R-20, R-21, R-22, R-23, R-24, R-25,
-# R-26, R-27, R-28, R-47, R-48, R-53, R-56, R-57, R-58, R-59, R-60.
+# Tier 2 holds THIRTY-TWO entries with oracle cases: R-06, R-07, R-08, R-09,
+# R-10, R-11, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-19, R-20, R-21, R-22,
+# R-23, R-24, R-25, R-26, R-27, R-28, R-47, R-48, R-53, R-56, R-57, R-58, R-59,
+# R-60, R-63. (R-61 is also Tier 2, but it is a release-tier condition and this
+# harness measures the default tier only; see its section 2 entry.)
+# ~~THIRTY-ONE ... R-59, R-60.~~
 # ~~TWENTY-NINE ... R-56, R-57, R-58.~~
 # ~~TWENTY-SEVEN ... R-53, R-56.~~
 #
-# ALL THIRTY-ONE ARE COVERED HERE, in ONE HUNDRED cases (~~twenty-nine /
-# ninety-six~~; ~~twenty-seven / ninety-two~~). Nothing in Tier 2 is left
-# unauthored. The file was written in
-# five passes -- R-06..R-17
+# ALL THIRTY-TWO ARE COVERED HERE, in ONE HUNDRED AND FOUR cases (~~one hundred and two~~; ~~thirty-one /
+# one hundred~~; ~~twenty-nine / ninety-six~~; ~~twenty-seven / ninety-two~~).
+# Nothing in Tier 2 is left unauthored. The file was written in
+# six passes -- R-06..R-17
 # (thirty-four cases, 2026-08-15, `2a49fa1f3f`), R-18..R-53 (fifty-six cases,
 # 2026-08-15, `36f9c814a2`), R-56 (two cases, 2026-08-16, at `3a636f62fb`,
 # by the console-render-unification project's final whole-branch review),
 # R-57/R-58 (four cases, 2026-09-08, at `b13c890330`, by the
-# register-property-key-followups branch, off `dde0f083c0`) and R-59/R-60
-# (four cases, 2026-09-08, at `02297ca6c2`, the same branch's second pair) -- and
+# register-property-key-followups branch, off `dde0f083c0`), R-59/R-60
+# (four cases, 2026-09-08, at `02297ca6c2`, the same branch's second pair) and
+# R-63 (two cases, 2026-09-11, off `152fdd5364`, by the length-fails-closed
+# project), plus R-15's element-only lane r15e (two cases, same date, same
+# project) -- and
 # the passes' measurement summaries are kept separate below because they were
 # taken at different commits.
 #
@@ -76,7 +82,8 @@
 #   R-13   read repro                 r13r_..._module_scope  r13r_..._in_function
 #   R-13   write repro                r13w_..._module_scope  r13w_..._in_function
 #   R-14   --                         r14_..._module_scope   r14_..._in_function
-#   R-15   --                         r15_..._module_scope   r15_..._in_function
+#   R-15   .length + element read     r15_..._module_scope   r15_..._in_function
+#   R-15   element read alone         r15e_..._module_scope  r15e_..._in_function
 #   R-16   --                         r16_..._module_scope   r16_..._in_function
 #   R-17   --                         r17_..._module_scope   r17_..._in_function
 #   R-18   --                         r18_..._module_scope   r18_..._in_function
@@ -112,6 +119,7 @@
 #   R-58   --                         r58a_..._module_scope  r58a_..._in_function
 #   R-59   --                         r59a_..._module_scope  r59a_..._in_function
 #   R-60   --                         r60a_..._module_scope  r60a_..._in_function
+#   R-63   member receiver            r63a_..._module_scope  r63a_..._in_function
 #
 # R-57 AND R-58 EACH GET ONE PAIR, NOT MORE, and the rule below is what decides
 # that. Neither entry states a second class or a separately named repro program:
@@ -719,6 +727,13 @@ main();
 }
 main();
 """
+"r15e_module.js" = """const s="a,b,c"; const p=s.split(","); console.log("1="+p[1]);
+"""
+"r15e_function.js" = """function main() {
+  const s="a,b,c"; const p=s.split(","); console.log("1="+p[1]);
+}
+main();
+"""
 "r16_module.js" = """const s="hello world"; console.log("c=" + s.slice(0,3));
 """
 "r16_function.js" = """function main() {
@@ -1054,6 +1069,15 @@ console.log(o.a);
 "r60a_function.js" = """function main() {
   const o = Object.fromEntries([["a", 1]]);
   console.log(o.a);
+}
+main();
+"""
+"r63a_module.js" = """const o = {a: "xyz"};
+console.log(o.a.length);
+"""
+"r63a_function.js" = """function main() {
+  const o = {a: "xyz"};
+  console.log(o.a.length);
 }
 main();
 """
@@ -1487,26 +1511,52 @@ name = "r15_split_returns_empty_array_module_scope"
 kind = "oracle"
 register_entry = "R-15"
 program = "r15_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-15, module scope. §2's `Repro` (`s06_split.js`) verbatim: a `const` string literal split on a comma, with BOTH consumers the register states -- the `.length` read and the element read. Both are kept because the register's severity claim is "a wrong length *and* a leaked handle", which one consumer alone cannot show.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `len=3` / `1=b` against kali `len=0` / `1=-9223354418898927615` at exit 0, and §0.2's row reads "R-15 `.split()` result | **SILENT** | element-read shape -> len 0 + garbage handle; `.length`-only folds correctly". SILENT.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `len=0` then `1=-9223354418898927615` at exit 0 with empty stderr; node prints `len=3` then `1=b` at exit 0. The leaked handle is the same bit pattern the register recorded, digit for digit.
 
-WHY THIS DID NOT MOVE, GIVEN THE ENTRY'S PARTIAL CLOSURE. As of `61c2d48ea9` §2 carries a `STATUS 2026-07-20` recording R-15 PARTIALLY CLOSED: the RUNTIME `.split()` fallback was added to the Stream-A value-builtin deny-set and now fails closed with `E5506`, while "the static-ASCII fold lane … is preserved". The register's own repro binds a string LITERAL to a `const`, so it reaches the preserved static-fold lane rather than the runtime terminal, and the deny-set never sees it. The measurement is consistent with that STATUS line rather than in tension with it, and §0.2's SILENT row is the one that describes this repro. A case built on a runtime-constructed receiver would be a different program and would likely classify FAIL_CLOSED; this case does not measure it and does not claim it."""
+WHY THIS DID NOT MOVE, GIVEN THE ENTRY'S PARTIAL CLOSURE. As of `61c2d48ea9` §2 carries a `STATUS 2026-07-20` recording R-15 PARTIALLY CLOSED: the RUNTIME `.split()` fallback was added to the Stream-A value-builtin deny-set and now fails closed with `E5506`, while "the static-ASCII fold lane … is preserved". The register's own repro binds a string LITERAL to a `const`, so it reaches the preserved static-fold lane rather than the runtime terminal, and the deny-set never sees it. The measurement is consistent with that STATUS line rather than in tension with it, and §0.2's SILENT row is the one that describes this repro. A case built on a runtime-constructed receiver would be a different program and would likely classify FAIL_CLOSED; this case does not measure it and does not claim it.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the length-fails-closed project's fix (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md): FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and `error[E5506]: `.length` is unavailable in the current phase for this receiver: no lane proves its length, so kali refuses rather than emit a placeholder 0` on stderr; node prints `len=3` then `1=b` at exit 0. The `len=0` was the `.length` floor's placeholder `0` in `emit_unary`, not a `render_length` fallback: measured with the fix's `operators.rs` change alone (all three `render_length` fallbacks put back), this program still refuses at the floor. The fix refuses the `.length` read, so the whole program stops at compile time. That also means this program no longer observes the ELEMENT half, which is still wrong: the `r15e` pair measures it alone and still asserts SILENT. R-15 is not fixed, and is not retired. The verdict was flipped only after this reading."""
 
 [[case]]
 name = "r15_split_returns_empty_array_in_function"
 kind = "oracle"
 register_entry = "R-15"
 program = "r15_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-15, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
 
 THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-15 carries `Verification: sweep-only-top-level-only` and has no `Scopes affected` line at all, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree, precisely so a disagreement would surface as a red case rather than as an unmeasured gap.
 
-RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `len=0` then `1=-9223354418898927615` at exit 0; node prints `len=3` then `1=b` at exit 0. Byte-identical to the module scope, including the leaked handle's bit pattern. The scopes agree, and that agreement is itself the new datum: the entry can stop carrying `sweep-only-top-level-only` for this repro."""
+RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `len=0` then `1=-9223354418898927615` at exit 0; node prints `len=3` then `1=b` at exit 0. Byte-identical to the module scope, including the leaked handle's bit pattern. The scopes agree, and that agreement is itself the new datum: the entry can stop carrying `sweep-only-top-level-only` for this repro.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the length-fails-closed project's fix: FAIL_CLOSED (was SILENT), byte-identical to the module scope -- exit 1, empty stdout, the same `.length` floor diagnostic; node `len=3` / `1=b`. The element half is measured alone by `r15e`. The verdict was flipped only after this reading."""
+
+[[case]]
+name = "r15e_split_element_leaks_a_handle_module_scope"
+kind = "oracle"
+register_entry = "R-15"
+program = "r15e_module.js"
+verdict = "silent"
+rationale = """R-15, the element-read lane on its own, module scope. The register's repro without the `.length` consumer: `const s="a,b,c"; const p=s.split(","); console.log("1="+p[1]);`.
+
+WHY THIS LANE EXISTS. Added 2026-09-11 by the length-fails-closed project (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.4). That project makes a `.length` read with no length lane refuse, so the `r15` pair's program, which prints `len=` before the element, stops at compile time and can no longer observe the element half. This lane keeps the leaking half measured by itself.
+
+MEASURED 2026-09-11 at `152fdd5364` against node v26.8.2: SILENT. kali prints `1=-9223354418898927615` at exit 0 with empty stderr; node prints `1=b` at exit 0. The handle's bit pattern is the one the register recorded. The same reading holds with that project's fix applied: this program reads no `.length`."""
+
+[[case]]
+name = "r15e_split_element_leaks_a_handle_in_function"
+kind = "oracle"
+register_entry = "R-15"
+program = "r15e_function.js"
+verdict = "silent"
+rationale = """R-15, the element-read lane on its own, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`.
+
+MEASURED 2026-09-11 at `152fdd5364` against node v26.8.2: SILENT, byte-identical to the module scope: kali `1=-9223354418898927615` at exit 0, node `1=b`."""
 
 [[case]]
 name = "r16_string_method_handle_leak_in_concat_module_scope"
@@ -2572,4 +2622,38 @@ MEASURED 2026-09-08 at `35e9ef4ef6` against node v26.8.1: SILENT, as recorded. k
 THE RECEIVER SPELLINGS AND THE TWO CONTROLS ARE NOT PINNED BY THIS PAIR AND WERE MEASURED BY HAND at `35e9ef4ef6` against node v26.8.1, in both scopes, all at exit 0 with empty stderr and node correct in every one. Every way of reaching the same receiver diverges identically: `o["a"]` -> `0`; the direct `Object.fromEntries([["a", 1]]).a` -> `0`; through `Object.freeze(...)` -> `0`; with the entries array itself bound (`const e = [["a",1]]; Object.fromEntries(e).a`) -> `0`; and a second property on a two-entry object -> `0`. The two controls are what locate the fault in the RECEIVER rather than in the member read: `({a: 1}).a` prints `1` on both engines, and `function f() { return {a: 1}; } const o = f(); console.log(o.a)` prints `1` on both engines. A member read on a plain literal is correct, and a member read on a USER function's call result is correct; it is specifically the unresolved builtin's result that reads `0`. Run with diagnostics forced to the surface, the `fromEntries` version emits both warnings and the plain-literal version emits neither.
 
 THE `--release` LANE WAS NOT MEASURED AND IS NOT PINNED. Section 7 of `docs/superpowers/followups/property-key-trim-site-classification.md` records `fold_object_from_entries_call`'s binding path as gated to Release/ReleaseAdvanced while `kali run` is Fast. There is no runner for a built artifact on this machine, so every reading above is the Fast lane and section 2's entry says so rather than guessing. A later task with a runner owes this file a Release-mode measurement before anyone claims the entry is mode-independent.
+'''
+
+[[case]]
+name = "r63a_length_renders_a_child_count_module_scope"
+kind = "oracle"
+register_entry = "R-63"
+program = "r63a_module.js"
+verdict = "fail_closed"
+rationale = '''
+R-63, the member-receiver lane, module scope. Section 2's `Repro` verbatim: a `.length` read off a named member whose value is a string.
+
+Expected verdict set from the register's recorded status: section 0.2's R-63 row and section 2's entry both record SILENT in both scopes, so SILENT.
+
+MEASURED 2026-09-11 at `152fdd5364` against node v26.8.2: SILENT. kali prints `1` at exit 0 with empty stderr; node prints `3` at exit 0. The `1` is the object literal's PROPERTY COUNT: `render_length`'s tail fallback (`crates/kali_codegen/src/intrinsics/host.rs:1373-1377` at `152fdd5364`) recursed through the receiver binding into the object literal and rendered its child count.
+
+WHAT A REGRESSION HERE WOULD MEAN. This pair is filed SILENT by the length-fails-closed project and flips to FAIL_CLOSED in the commit that fixes it (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 6.1). After that flip, a return to SILENT means a `.length` fallback fabricates a number again.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and `error[E5506]` naming "no lane proves its length" on stderr; node prints `3` at exit 0. Closed by the length-fails-closed project: `render_length`'s three fallbacks decline and `emit_unary`'s `.length` floor refuses. FAIL_CLOSED, not FIXED, on purpose: kali still has no lane that computes this length, and says so. The verdict was flipped only after this reading.
+'''
+
+[[case]]
+name = "r63a_length_renders_a_child_count_in_function"
+kind = "oracle"
+register_entry = "R-63"
+program = "r63a_function.js"
+verdict = "fail_closed"
+rationale = '''
+R-63, the member-receiver lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope.
+
+MEASURED 2026-09-11 at `152fdd5364` against node v26.8.2: SILENT. kali prints `1` at exit 0 with empty stderr; node prints `3` at exit 0. Byte-identical to the module scope.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FAIL_CLOSED (was SILENT), byte-identical to the module scope. The verdict was flipped only after this reading.
 '''

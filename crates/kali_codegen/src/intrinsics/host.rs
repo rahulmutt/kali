@@ -1333,9 +1333,13 @@ impl<'a> FunctionEmitter<'a> {
         {
             return None;
         }
-        if node.text.is_none() {
-            return Some(node.children.len().to_string());
-        }
+        // A text-less node that no arm above resolved has no static length. This
+        // arm used to render its CHILD COUNT (a member node's 2, a call's callee
+        // plus arguments, an object literal's property count) as the length,
+        // silently. Declining sends the read to the runtime lanes, whose floor
+        // (`emit_unary`'s `"length"` arm) computes it or refuses.
+        // Spec: docs/superpowers/specs/2026-09-11-length-fails-closed-design.md §3.2
+        node.text.as_ref()?;
 
         if node.children.is_empty() {
             if let Some(text) = node.text.as_deref() {
@@ -1366,15 +1370,20 @@ impl<'a> FunctionEmitter<'a> {
                     // baking in a wrong constant.
                     return None;
                 }
-                return Some("0".to_string());
+                // No binding, no array or growable lane: this identifier's length
+                // is not statically known. This used to bake in `0`.
+                return None;
             }
         }
 
-        if node.children.len() == 1 {
-            self.render_length(&node.children[0])
-        } else {
-            Some(node.children.len().to_string())
-        }
+        // What is left has no static length either. This tail used to branch on
+        // child count: a one-child node (a named member such as `o.a`, whose one
+        // child is the receiver) recursed into that child and rendered ITS child
+        // count, so `o.a.length` printed the object's property count; a
+        // two-or-more-child node (a sequence, a binary operator) rendered its own
+        // child count directly, e.g. `(a, b).length` printed `2`. Both decline
+        // instead.
+        None
     }
 
     /// Recognize `new EventTarget()` (Stage D event lane) with the `EventTarget`

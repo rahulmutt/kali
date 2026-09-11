@@ -1,0 +1,478 @@
+# Cases for the length-fails-closed project (spec
+# docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2).
+#
+# A `.length` read either computes the real value or refuses with E5506. The
+# `_is_correct` cases read `.length` through a lane that computes it and must keep
+# node's exact output. The `_refuses` cases read it on a receiver no lane proves:
+# each printed a wrong number at exit 0 at `152fdd5364` -- a node's child count, or
+# a baked `0` -- or the right number only by coincidence, and each rationale records
+# kali's and node's output there. Every expectation was measured against node
+# v26.8.2 at `152fdd5364` (controls and refusals) and against the fix (refusals).
+#
+# `[source]` keys are one file per program, named for the shape, because
+# `[source]` is file-wide (see this directory's README).
+
+[constants]
+FLOOR = "no lane proves its length"
+
+[source]
+"string_binding.js" = '''
+const s = "xyz"; console.log(s.length);
+'''
+"array_literal_binding.js" = '''
+const a = [1, 2, 3]; console.log(a.length);
+'''
+"member_array_dot.js" = '''
+const o = {a: [1, 2, 3]}; console.log(o.a.length);
+'''
+"nested_element_length.js" = '''
+const m = [[1, 2], [3, 4, 5]]; console.log(m[1].length);
+'''
+"empty_array.js" = '''
+const a = []; console.log(a.length);
+'''
+"object_keys_length.js" = '''
+const o = {a: 1, b: 2, c: 3, d: 4}; console.log(Object.keys(o).length);
+'''
+"allocation_binding.js" = '''
+const a = new Array(5); console.log(a.length);
+'''
+"fill_binding.js" = '''
+const a = new Array(4).fill(7); console.log(a.length);
+'''
+"split_length.js" = '''
+console.log("a,b,c".split(",").length);
+'''
+"one_call_element.js" = '''
+function f() { return 3; } const a = [f()]; console.log(a.length, a[0]);
+'''
+"concat_length.js" = '''
+const a = [1, 2, 3]; console.log("n=" + a.length);
+'''
+"string_parameter.js" = '''
+function f(s) { return s.length; } console.log(f("hello"));
+'''
+"random_uuid_length.js" = '''
+const u = crypto.randomUUID(); console.log(u.length);
+'''
+"string_of_bigint_array_length_two.js" = '''
+const a = [1n, 2n]; console.log(String(a.length));
+'''
+"string_of_bigint_array_length_three.js" = '''
+const a = [1n, 2n, 3n]; console.log(String(a.length));
+'''
+"member_string_one_prop.js" = '''
+const o = {a: "xyz"}; console.log(o.a.length);
+'''
+"member_string_five_chars.js" = '''
+const o = {a: "xyzwv"}; console.log(o.a.length);
+'''
+"member_string_two_props.js" = '''
+const o = {a: "xyz", z: 1}; console.log(o.a.length);
+'''
+"member_string_in_function.js" = '''
+function main() { const o = {a: "xyz"}; console.log(o.a.length); } main();
+'''
+"bracket_member_string.js" = '''
+const o = {a: "xyz"}; console.log(o["a"].length);
+'''
+"bracket_member_array.js" = '''
+const o = {a: [1, 2, 3]}; console.log(o["a"].length);
+'''
+"let_receiver.js" = '''
+let o = {a: "xyz"}; console.log(o.a.length);
+'''
+"element_string.js" = '''
+console.log(["abc"][0].length);
+'''
+"let_array_in_function.js" = '''
+function main() { let a = [1, 2]; console.log(a.length); } main();
+'''
+"length_field_object.js" = '''
+const o = {length: "abc"}; console.log(o.length);
+'''
+"string_of_member_length.js" = '''
+const o = {a: "xyz"}; console.log(String(o.a.length));
+'''
+"string_of_length_field.js" = '''
+const o = {length: "abc"}; console.log(String(o.length));
+'''
+"promise_all_three.js" = '''
+async function main() { const d = await Promise.all([Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)]); console.log(d.length); } main();
+'''
+"promise_all_one.js" = '''
+async function main() { const d = await Promise.all([Promise.resolve(1)]); console.log(d.length); } main();
+'''
+"promise_all_settled_three.js" = '''
+async function main() { const d = await Promise.allSettled([Promise.resolve(1), Promise.resolve(2), Promise.resolve(3)]); console.log(d.length); } main();
+'''
+"member_string_three_props.js" = '''
+const o = {a: "xyz", z: 1, y: 2}; console.log(o.a.length);
+'''
+"keys_element_length.js" = '''
+const o = {ab: 1, c: 2}; console.log(Object.keys(o)[0].length);
+'''
+"promise_all_two.js" = '''
+async function main() { const d = await Promise.all([Promise.resolve(1), Promise.resolve(2)]); console.log(d.length); } main();
+'''
+"member_string_five_chars_in_function.js" = '''
+function main() { const o = {a: "xyzwv"}; console.log(o.a.length); } main();
+'''
+"member_string_two_props_in_function.js" = '''
+function main() { const o = {a: "xyz", z: 1}; console.log(o.a.length); } main();
+'''
+"bracket_member_string_in_function.js" = '''
+function main() { const o = {a: "xyz"}; console.log(o["a"].length); } main();
+'''
+"bracket_member_array_in_function.js" = '''
+function main() { const o = {a: [1, 2, 3]}; console.log(o["a"].length); } main();
+'''
+"let_receiver_in_function.js" = '''
+function main() { let o = {a: "xyz"}; console.log(o.a.length); } main();
+'''
+"element_string_in_function.js" = '''
+function main() { console.log(["abc"][0].length); } main();
+'''
+"length_field_object_in_function.js" = '''
+function main() { const o = {length: "abc"}; console.log(o.length); } main();
+'''
+"string_of_length_field_in_function.js" = '''
+function main() { const o = {length: "abc"}; console.log(String(o.length)); } main();
+'''
+"member_string_three_props_in_function.js" = '''
+function main() { const o = {a: "xyz", z: 1, y: 2}; console.log(o.a.length); } main();
+'''
+"keys_element_length_in_function.js" = '''
+function main() { const o = {ab: 1, c: 2}; console.log(Object.keys(o)[0].length); } main();
+'''
+"let_array_module.js" = '''
+let a = [1, 2]; console.log(a.length);
+'''
+"new_precedence.js" = '''
+console.log(new Array(3).length);
+'''
+"new_precedence_in_function.js" = '''
+function main() { console.log(new Array(3).length); } main();
+'''
+
+[[case]]
+name = "a_const_string_binding_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `3` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "string_binding.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "a_const_array_literal_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `3` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "array_literal_binding.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "an_array_valued_member_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `3` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "member_array_dot.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "a_nested_array_element_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `3` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "nested_element_length.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "an_empty_array_literal_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `0` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "empty_array.js"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "an_object_keys_result_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `4` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "object_keys_length.js"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "a_new_array_binding_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `5` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "allocation_binding.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "a_filled_new_array_binding_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `4` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "fill_binding.js"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "a_static_split_result_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `3` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "split_length.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "a_one_call_element_array_literal_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `1 3` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "one_call_element.js"]
+exit = "success"
+stdout = "1 3\n"
+
+[[case]]
+name = "a_length_in_string_concatenation_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `n=3` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "concat_length.js"]
+exit = "success"
+stdout = "n=3\n"
+
+[[case]]
+name = "a_string_parameter_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `5` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "string_parameter.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "a_random_uuid_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `36` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "random_uuid_length.js"]
+exit = "success"
+stdout = "36\n"
+
+[[case]]
+name = "string_of_a_two_element_array_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `2` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "string_of_bigint_array_length_two.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "string_of_a_three_element_array_length_is_correct"
+rationale = """A `.length` read through a lane that computes it. Measured at `152fdd5364` against node v26.8.2: kali and node both print `3` at exit 0. It must keep doing so once the `.length` floor refuses (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2)."""
+args = ["run", "string_of_bigint_array_length_three.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "a_string_member_length_refuses"
+rationale = """At `152fdd5364` kali printed `1` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "member_string_one_prop.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_five_character_string_member_length_refuses"
+rationale = """At `152fdd5364` kali printed `1` at exit 0 with no diagnostic where node v26.8.2 prints `5`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "member_string_five_chars.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_string_member_of_a_two_property_object_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "member_string_two_props.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_string_member_length_in_a_function_refuses"
+rationale = """At `152fdd5364` kali printed `1` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "member_string_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_string_bracket_member_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "bracket_member_string.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_array_bracket_member_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2). The floor emits the receiver first, so this receiver's own refusal is the one reported and the needle names it."""
+args = ["run", "bracket_member_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "reading growable-array field 'a' as a plain value"]
+
+[[case]]
+name = "a_let_object_member_length_refuses"
+rationale = """At `152fdd5364` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "let_receiver.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_string_element_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "element_string.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_let_array_length_in_a_function_refuses"
+rationale = """At `152fdd5364` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `2`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "let_array_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_object_length_field_refuses"
+rationale = """At `152fdd5364` kali printed `1` at exit 0 with no diagnostic where node v26.8.2 prints `abc`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "length_field_object.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "string_of_a_string_member_length_refuses"
+rationale = """At `152fdd5364` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "string_of_member_length.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "string_of_an_object_length_field_refuses"
+rationale = """At `152fdd5364` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `abc`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "string_of_length_field.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_awaited_promise_all_of_three_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "promise_all_three.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_awaited_promise_all_of_one_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `1`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "promise_all_one.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_awaited_promise_all_settled_of_three_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "promise_all_settled_three.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_string_member_of_a_three_property_object_length_refuses"
+rationale = """At `152fdd5364` kali printed `3` at exit 0 with no diagnostic where node v26.8.2 prints `3`: right only by coincidence: the number kali rendered was a node's child count that happened to equal the real length. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "member_string_three_props.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_object_keys_element_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `2`: right only by coincidence: the number kali rendered was a node's child count that happened to equal the real length. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "keys_element_length.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_awaited_promise_all_of_two_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `2`: right only by coincidence: the number kali rendered was a node's child count that happened to equal the real length. No lane proves this receiver's length, so it must refuse (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2)."""
+args = ["run", "promise_all_two.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_five_character_string_member_length_in_a_function_refuses"
+rationale = """The in-function form of `a_five_character_string_member_length_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `1` at exit 0 with no diagnostic where node v26.8.2 prints `5`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "member_string_five_chars_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_string_member_of_a_two_property_object_length_in_a_function_refuses"
+rationale = """The in-function form of `a_string_member_of_a_two_property_object_length_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "member_string_two_props_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_string_bracket_member_length_in_a_function_refuses"
+rationale = """The in-function form of `a_string_bracket_member_length_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "bracket_member_string_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_array_bracket_member_length_in_a_function_refuses"
+rationale = """The in-function form of `an_array_bracket_member_length_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2). The floor emits the receiver first, so this receiver's own refusal is the one reported and the needle names it."""
+args = ["run", "bracket_member_array_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "reading growable-array field 'a' as a plain value"]
+
+[[case]]
+name = "a_let_object_member_length_in_a_function_refuses"
+rationale = """The in-function form of `a_let_object_member_length_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "let_receiver_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_string_element_length_in_a_function_refuses"
+rationale = """The in-function form of `a_string_element_length_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "element_string_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_object_length_field_in_a_function_refuses"
+rationale = """The in-function form of `an_object_length_field_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `1` at exit 0 with no diagnostic where node v26.8.2 prints `abc`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "length_field_object_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "string_of_an_object_length_field_in_a_function_refuses"
+rationale = """The in-function form of `string_of_an_object_length_field_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `abc`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "string_of_length_field_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_string_member_of_a_three_property_object_length_in_a_function_refuses"
+rationale = """The in-function form of `a_string_member_of_a_three_property_object_length_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `3` at exit 0 with no diagnostic where node v26.8.2 prints `3`: right only by coincidence, exactly as the module form: the number kali rendered was a node's child count that happened to equal the real length. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "member_string_three_props_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "an_object_keys_element_length_in_a_function_refuses"
+rationale = """The in-function form of `an_object_keys_element_length_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `2`: right only by coincidence, exactly as the module form: the number kali rendered was a node's child count that happened to equal the real length. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "keys_element_length_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_let_array_length_at_module_scope_refuses"
+rationale = """The module-scope form of `a_let_array_length_in_a_function_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `2`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
+args = ["run", "let_array_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_new_array_member_chain_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 2.6): silently wrong. `new` parses its callee with `parse_call_expression()`, so this is `new (Array(3).length)`, and `render_length`'s tail fallback rendered the `Array(3)` call node's child count. That fallback now declines (section 3.2), so the read refuses. Fail-closed, not fixed: the misparse is filed in docs/superpowers/followups/length-fails-closed-discovered-defects.md section 2. The spec's section 2.6 predicted this value would not move; it did, by the mechanism section 3.2 removes."""
+args = ["run", "new_precedence.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_new_array_member_chain_length_in_a_function_refuses"
+rationale = """The in-function form of `a_new_array_member_chain_length_refuses`. Its baseline value in this scope was not measured (old commits are not rebuilt); node v26.8.2 prints `3`, and kali now refuses as the module form does."""
+args = ["run", "new_precedence_in_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]

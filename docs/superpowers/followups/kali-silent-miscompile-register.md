@@ -239,8 +239,8 @@ entry's own repro; those cases agree with the tier files. *(**Corrected
 `var`-key computed read, which now refuses; the computed-member-static-name
 project replaced it with R-10's block-scoped shadow read — `let x = 1; { let x =
 2; } console.log("r=" + x);`, kali `r=2`, node `r=1`, exit 0 both — so the
-classifier still has a SILENT specimen and the count of five is unchanged.)* **161 cases back the 46
-rows.** ~~157 cases back the 44 rows … holds 161~~, ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
+classifier still has a SILENT specimen and the count of five is unchanged.)* **165 cases back the 47
+rows.** ~~163 cases back the 47 rows … holds 167~~ (superseded 2026-09-11, when the same project added R-15's element-only lane `r15e`), ~~161 cases back the 46 rows … holds 165~~ (superseded 2026-09-11, when the length-fails-closed project added **R-63** with its own two-case scope pair), ~~157 cases back the 44 rows … holds 161~~, ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
 holds 155~~ — superseded 2026-08-16 at
 `3a636f62fb`, when the console-render-unification project's final whole-branch
 review added **R-56** with its own two-case scope pair, and twice on 2026-09-08 at
@@ -249,7 +249,7 @@ review added **R-56** with its own two-case scope pair, and twice on 2026-09-08 
 branch added **R-59** and **R-60** the same way (~~`dde0f083c0`~~ — that is this
 branch's BASE and carries none of the four; corrected 2026-09-08 in final
 review). The oracle directory holds
-165 (~~161~~, ~~157~~); the other four carry
+169 (~~167~~, ~~165~~, ~~161~~, ~~157~~); the other four carry
 `register_entry = "GROUND-TRUTH"`, measure the classifier rather than any entry,
 and are therefore attributable to no row — `agree.js`, `both_reject.js`,
 `hang.js` and `nondeterministic.js`. A reader auditing the mapping should expect
@@ -273,7 +273,7 @@ a defect.
 | R-12 alias defeats array-store guard | **FAIL_CLOSED** (both scopes) | **RE-DERIVED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project, and NOT RETIRED.** The two `r12` cases now assert `fail_closed`; the gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named this row alongside R-13's and R-59's, and it is re-derived here rather than left to ride along. Measured at `71b5f42f6c` against `node v26.8.1`, both scopes: `const a=[1,2]; const b=a; b[0]=7; console.log("b0="+b[0]);` exits 1 with empty stdout and the shared `E5506: computed member access …` under `kali run`, where node prints `b0=7` at exit 0. **node's `b0=7` is still not produced, so the behaviour this entry names is NOT fixed** — what moved is the class, from a store that vanished silently to one that refuses loudly, which is the R-32 precedent this file already records (an entry can leave the SILENT filter without being fixed). Two readings this row must not be given: the un-aliased spelling `const a=[1,2]; a[0]=7;` refuses too, with the neighbouring `mutating a literal array` message, so the alias is no longer the discriminator between refusal and silence; and **`kali check` still exits 0 on the aliased program** while `run` refuses — a spec §8 twin disagreement the oracle harness cannot see, because it observes `run` only. **Consequence for the ranking**: with no SILENT lane left R-12 leaves the SILENT filter and `tools/blast-radius/clusters.json`, and because R-13 leaves in the same regeneration **G3 loses both of its members, so G3's cluster definition goes with them** — forced by `crates/kali_blast_radius/src/ranking.rs:326`, not chosen. ~~the store vanishes and the read-back through the alias reports the pre-store value (kali `b0=1`, node `b0=7`). The discriminator is **SCOPE, not declarator kind**, per the 2026-07-25 correction on `372a3f440`; both scopes measure SILENT here because both cases carry the alias.~~ |
 | R-13 computed var-key get/set | **FIXED** (read `r13r`; write `r13w`), both scopes | **RETIRED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project — every lane of this entry moved, which is the rule §3.4 of the ranking states.** Re-derived from the four `r13r`/`r13w` cases, which now assert `fixed`; the gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named the mismatch first and the row followed it. ~~SILENT (read `r13r`) / SILENT (write `r13w`), both scopes: read →`v=0` where node reads `2`; write vanishes (kali `dot=2`, node `dot=8`). Two repros, two lanes, one class. A third case in `classifier_ground_truth.toml` pins the SILENT class on the read repro. One of the three frontier candidates, and still silent at `4cfa218814`.~~ **WHAT IS PINNED BY A LIVE CASE**: the `const` key, read and store, both scopes. **WHAT IS NOT PINNED HERE AND IS PINNED ELSEWHERE**: the `var`-key spelling this entry's ground-truth fixture used is now FAIL_CLOSED (`object/computed_member_static_name.toml`, `check_refuses_a_var_key` and `run_refuses_a_var_key`), so the classifier's SILENT fixture moved to R-10. |
 | R-14 returned array reads zeros | **SILENT** (both scopes) | kali `r=0`, node `r=1`, exit 0. One of the three frontier candidates, and still silent at `4cfa218814`. The "object-return is correct" control that FLIPPED is **R-44**, a different entry with no case here. Arrays are broken even when bound, not only when indexed off the call expression. |
-| R-15 `.split()` result | **SILENT** (both scopes) | element-read shape → `len=0` plus a leaked handle (`1=-9223354418898927615`, node `1=b`). The `STATUS 2026-07-20` partial closure added the *runtime* `.split()` fallback to the deny-set; the register's own repro binds a string **literal**, so it reaches the preserved static-ASCII fold lane and the deny-set never sees it. Partial closure, live defect. |
+| R-15 `.split()` result | **FAIL_CLOSED** (`.length` + element lane `r15`, both scopes) / **SILENT** (element-only lane `r15e`, both scopes) | **Moved 2026-09-11 by the length-fails-closed project, NOT fixed and NOT retired:** the `r15` program's `.length` read now refuses (`E5506`, the `.length` floor), which stops the whole program before its element read; the element read alone still leaks the handle and `r15e` pins that. Before 2026-09-11: element-read shape → `len=0` plus a leaked handle (`1=-9223354418898927615`, node `1=b`). The `STATUS 2026-07-20` partial closure added the *runtime* `.split()` fallback to the deny-set; the register's own repro binds a string **literal**, so it reaches the preserved static-ASCII fold lane and the deny-set never sees it. Partial closure, live defect. Lane `r15e` (added 2026-09-11 by the length-fails-closed project) reads the element alone, so the leaking half stays measured by itself when the `r15` program's `.length` read refuses. |
 | R-16 per-method string repr leak | **SILENT** (both scopes) | `.slice()`/`.charAt()`/`.toUpperCase()`/`.repeat()` leak the raw handle in concat position (kali `c=-9223354388834156541`, node `c=hel`). The handle's bit pattern is allocation-dependent and differs from the one recorded in 2026-07; the two kali runs of the case agree with each other, so the pair does not rank NONDETERMINISTIC. |
 | R-17 string handles escape as ints | **SILENT** (both scopes) | join/element/`Object.keys` concat lanes; both handles match the recorded bit patterns digit for digit and both consumers still leak, so neither lane was closed and neither masks the other. |
 | R-18 string literal `&&`/`\|\|` leaks handle | **SILENT** (both scopes) | two leaked handles plus case-3's inverted truthiness, all four lines reproducing exactly as recorded. |
@@ -305,6 +305,7 @@ a defect.
 | R-58 a legacy-octal numeric key is read as decimal | **SILENT** (both scopes) | **added 2026-09-08 at `b13c890330`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate. **Measured at `dde0f083c0` against `node v26.8.1`, both scopes, byte-identical**: over `const o = {042: 1}`, kali prints `42`, `false`, `true` at exit 0 with empty stderr where node prints `34`, `true`, `false` at exit 0. `042` is a `LegacyOctalIntegerLiteral` denoting decimal 34 in sloppy mode, which is what a `.js` entry file runs in on both engines; `numeric_property_name`'s `f64` arm parses the digits with Rust's grammar, which has no legacy octal in it. The last two lines are R-56's signature at a second address — one run denies a property the object has and affirms one it does not. **WHAT IS PINNED BY A LIVE CASE**: those three lines, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `dde0f083c0`: the member reads (`o[34]` → `0` against node's `1`, `o[42]` → `1` against node's `undefined`); the value lane outside key position (`console.log(042)` → `42` against node's `34`, and the same through a `const` binding), which no lead recorded and which widens the entry past its own title; the three non-decimal controls (`{042n: 1}` and, for a cruder lexer reason, `{0o42: 1}` and `{0x10: 1}` all fail LOUDLY at exit 1); and the upper-bound boundary (`{07: 1}` agrees with node, `{010: 1}` does not). **A SECOND LANE IS MEASURED AND IS NOT IN THIS ROW'S CLASS SET**: under `"use strict"` — and in an ES module — node refuses the file with `SyntaxError: Octal literals are not allowed in strict mode.` at exit 1 while kali accepts it and prints `42` at exit 0, which classifies **ACCEPTS_INVALID**, not SILENT. It carries no oracle case by deliberate choice, so this row records SILENT alone and §2's entry says why; a later task that pins it owes this row a second class. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`). |
 | R-59 a computed member index that is not a literal is fabricated into a property name | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project — its one lane moved.** Re-derived from the two `r59a` cases, which now assert `fail_closed`: kali refuses both lines with the shared computed-member `E5506` (``computed member access `o[k]` is unavailable in the current phase …``) at exit 1 with empty stdout; node prints `undefined` twice at exit 0. FAIL_CLOSED, not FIXED, on purpose: `let i = 1; o[i]` needs a runtime lookup this project does not build (spec §5), and a fix that printed `0`, `0` would have been R-13's shape, not a closure — the case's own regression note says so. The fabrication itself is gone at the address this entry named: `expression_to_property_name` returns `Option<String>`, both parse sites record the absence, and a nameless member is its own node kind (`LirNodeKind::ComputedMember`). ~~**added 2026-09-08 at `02297ca6c2`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate; **measured at `35e9ef4ef6`** (this branch's documentation-only tip, and the tree the binary was built from) **against `node v26.8.1`, both scopes, byte-identical**: over `const o = {index: 9, i: 7}; let i = 1;`, kali prints `7` for `o[i]` and `9` for `o[i + 0]` at exit 0 with empty stderr where node prints `undefined` twice at exit 0.~~ **THE REST OF THIS ROW IS THE ORIGINAL AND IS KEPT**, because it describes the mechanism, the matchers and the corpus rather than the verdict — but it is written in the PRESENT TENSE OF `35e9ef4ef6` and must be read as history from here on: the fabricating behaviour it describes is gone as of `71b5f42f6c`, and **one figure in it has moved**. **Corrected 2026-09-09 at `71b5f42f6c`**: the reachable counts below were re-measured against the binary that refuses nameless computed members, and R-59 now reads **raw 235 / reachable 25** (anchor 27/25 unchanged, extension 208/~~2~~**0**), not reachable 27 — one extension program, `extension/unit_conversions.js`, left the accept set because it indexes an object with a parameter key. The raw figures are unchanged, because the corpus did not change; only its accepted subset did. Everything after this sentence is the original text: `expression_to_property_name` reads an index statically for a literal, a sequence ending in one, and a folded `+`/`-` unary on one; for every other shape it does not decline but FABRICATES a name — the identifier's own text for `o[i]`, the literal string `index` for the catch-all — and the static consumers read that name out of the member node's text slot. When it collides with a real property the read returns THAT property's value. **WHAT IS PINNED BY A LIVE CASE**: the two fabrication arms, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `35e9ef4ef6`: the optional-chained, parenthesized and sequence spellings (all `7`) and the two unary spellings (`o[+i]`/`o[-i]`, both `9` through a guard that parses and then still does not decline); the FOUR shapes that AGREE with node (`o[(1)]`, `o[(0, 1)]`, `o[+1]` all print `one` over `{1: "one"}`, and `o[-1]` reads the correct name `-1`), which is one of the two families that separate this entry's matcher from R-13's; the array and string lanes, where the fabricated name can never hit and the answer is the fabricated `0` (`[5,6][i]` → `0` against node's `6`; an ordinary `for` loop over an array LITERAL prints `0 0 0` against node's `5 6 7`; `"abc"[k]` → `0` against node's `b`), and the `new Array(n)` receiver that AGREES (`0 2 4` on both engines), which is the count's upper bound; and the WRITE half, which does NOT fabricate (`o[i] = 8` leaves `o.i` at `7` on both engines), which is why this is a read-lane entry. **THIS ROW CORRECTS R-13's**: R-13's mechanism hypothesis is an admit-list falling through to a default-`0` read, and it is measurably wrong — adding one property named `k` to R-13's own repro object turns its `0` into `99`. Countable, **raw 235 / reachable 27** over the frozen corpus (anchor 27/25, extension 208/2) — the only nonzero count among the four entries this branch filed. (~~raw 302 / reachable 45 ... to the digit the same four numbers R-13's matcher prints~~ — **corrected 2026-09-08 in final review at `07ad2e6447`**: that matcher counted assignment and update TARGETS, and the write half measured in this very row does not fabricate, so 67 raw and 18 reachable store sites left the count. The deltas are exactly R-13's record's own `breakdown` storeTarget figures.) **The two matchers OVERLAP AND NEITHER CONTAINS THE OTHER** (measured on the shipped module: `o[true]`/`o[null]`/`o[/x/]`/`o[1n]` count 0 under R-13's and 4 under this one; `o[(1)]`/`o[(0,1)]`/`o[+1]`/`o[-1]` count 3 under R-13's and 0 under this one; and a store target counts under R-13's and not under this one). The two no longer print the same figures: measured over the frozen corpus file by file, of the **51** files with a nonzero count under either, **30** differ (8 of the 14 reachable ones) and this matcher exceeds R-13's in **zero** files — a strict subset ON THIS CORPUS, which is a fact about the corpus and not containment between the shapes. Do not add the two counts together. |
 | R-60 a present property on an `Object.fromEntries` object reads `0` | **SILENT** (both scopes) | **added 2026-09-08 at `02297ca6c2`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate; **measured at `35e9ef4ef6` against `node v26.8.1`, both scopes, byte-identical**: `const o = Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0` in kali at exit 0 with empty stderr where node prints `1` at exit 0. `o` HAS an own enumerable `a` worth `1`, so this is a wrong VALUE for a property that exists and not an `undefined` rendered as `0`. Two zero-emitting sites stack: `Object.fromEntries` reaches codegen unresolved and is lowered through the zero-placeholder call fallback, and the member read on that scalar then falls to `emit_unary`'s default arm, which drops the receiver and pushes its own `I64Const(0)` — the one that prints. Both sites push a WARNING and `kali run` shows neither. **WHAT IS PINNED BY A LIVE CASE**: that one read, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `35e9ef4ef6`: the two `hasOwn` probes on the same object, which AGREE with node (`"a"` → `true`, `"b"` → `false`), because `static_object_has_own` recognizes a `fromEntries` operand directly — so the object's shape IS statically known, which contradicts the explanation every lead for this entry carried; the receiver spellings that diverge identically (`o["a"]`, the direct `Object.fromEntries([...]).a`, through `Object.freeze`, and with the entries array bound); and the two controls that locate the fault in the receiver (`({a: 1}).a` and a member read on a USER function's object result both print `1` on both engines). **A SECOND LANE IS MEASURED AND IS NOT IN THIS ROW'S CLASS SET**: `Object.keys(o)` / `Object.values(o)` / `Object.entries(o)` on the same receiver REFUSE the file (`error[E5506]: Object enumeration is only supported where the object has a compile-time-known fixed shape`, exit 1) where node prints the array — that classifies **FAIL_CLOSED**, not SILENT, so it cannot share an oracle case with the read, and this row records SILENT alone. The `--release` lane was NOT measured (no runner for a built artifact on this machine) and §2's entry says so. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`). |
+| R-63 `.length` renders a node's child count, or `0`, for a receiver with no length lane | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-11 by the length-fails-closed project — its one lane moved.** Re-derived from the two `r63a` cases, which now assert `fail_closed`: kali exits 1 with empty stdout and the `.length` floor's `E5506`; node prints `3`. FAIL_CLOSED, not FIXED: no lane computes this length yet, and kali now says so. Originally **added 2026-09-11 by the same project**, off `152fdd5364`; **measured at `152fdd5364` against `node v26.8.2`, both scopes**: `const o = {a: "xyz"}; console.log(o.a.length)` prints `1` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r63a`. §2's entry carries ten more lanes measured by hand. |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
 neither has an oracle case, and a row with no case behind it is what this
@@ -536,6 +537,13 @@ entries, **31 carry at least one SILENT lane** and **15 carry none**
   `tools/blast-radius/clusters.json` with them — the first non-singleton cluster
   ever removed from the ranking. See the ranking's §6 SEVENTH amendment, which is
   also the first regeneration in which the ACCEPT SET moved.
+  **2026-09-11: R-63 arrives, taking 28 to 29** — the length-fails-closed
+  project files a class it measured and is about to fix, in a commit of its own,
+  so its retirement is a separate step with its own intermediate figure (the
+  R-56 precedent of 2026-08-16). See the ranking's §6 EIGHTH amendment.
+  **2026-09-11, next commit: R-63 leaves, RETIRED, taking 29 back to 28**, and
+  R-15 gains a FAIL_CLOSED lane without leaving the silent set (its `r15e` element
+  lane is still SILENT). See the ranking's §6 NINTH amendment.
 
 **The 2026-07-24 sweep's own net is preserved below, unrewritten,** because it is
 that sweep's record and the table above supersedes it rather than editing it. It
@@ -2388,6 +2396,11 @@ tier, ordering is by blast radius.
   at exit 0 — a per-lane repr leak (G5-flavored), pre-existing, not closed. Note: the `split`
   deny-set entry is belt-and-suspenders; the primary fail-close for constructible member forms
   is upstream (`String.prototype.split` receiver guard).
+- **STATUS 2026-09-11 (length-fails-closed)**: the repro's `.length` read now
+  refuses with `E5506` (the `.length` floor), so the repro as written fails closed
+  at compile time. **The entry is not fixed**: `p[1]` alone still prints the leaked
+  handle at exit 0, measured by the `r15e` oracle lane. §0.2's row carries both
+  classes.
 
 ### R-16: Per-method string-repr gap — `.slice()` / `.charAt()` / `.toUpperCase()` / `.repeat()` leak the handle in concat position
 
@@ -4285,6 +4298,115 @@ tier, ordering is by blast radius.
   instead of inferring it) was sized and explicitly stopped before shipping
   any code (`task-7-report.md`) — see that report's own site list for what a
   follow-on project starts from.
+
+### R-63: `.length` renders a node's child count, or `0`, for a receiver with no length lane — **CLOSED 2026-09-11 (FAIL_CLOSED)**
+
+- **Added**: 2026-09-11, by the **length-fails-closed** project
+  (`docs/superpowers/specs/2026-09-11-length-fails-closed-design.md`), off
+  `152fdd5364`. Filed SILENT in its own commit so the retirement that follows is
+  a separate step a reader can audit; the retirement is recorded as a bullet
+  below when it lands.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured at `152fdd5364` against
+  **`node v26.8.2`**, in **both** scopes, on `.cache/cargo-target/debug/kali`
+  built from that commit.
+- **Root-cause group**: **G6** — *unresolved or unimplemented builtins fold to a
+  default instead of failing closed*. A `.length` read on a receiver no codegen
+  lane understands is a builtin property read that yields a type-plausible
+  integer instead of a diagnostic, which is the signature §3 gives G6. It is not
+  G2 (no callee is unresolved) and not G4 (the property is present and has a
+  right answer).
+- **Repro** (module scope; the in-function form is the same two statements
+  inside `function main() { ... } main();`):
+  `const o = {a: "xyz"}; console.log(o.a.length);` → node `3`; kali `1` (exit 0,
+  empty stderr).
+- **Every lane, measured at `152fdd5364` against node v26.8.2, both engines at
+  exit 0, kali with empty stderr:**
+
+  | program | kali | node |
+  |---|---|---|
+  | `const o = {a: "xyzwv"}; console.log(o.a.length);` | `1` | `5` |
+  | `const o = {a: "xyz", z: 1}; console.log(o.a.length);` | `2` | `3` |
+  | `const o = {a: "xyz"}; console.log(o["a"].length);` | `2` | `3` |
+  | `let o = {a: "xyz"}; console.log(o.a.length);` | `0` | `3` |
+  | `console.log(["abc"][0].length);` | `2` | `3` |
+  | `const o = {length: "abc"}; console.log(o.length);` | `1` | `abc` |
+  | `function main() { let a = [1, 2]; console.log(a.length); } main();` | `0` | `2` |
+  | `(await Promise.all([p1, p2, p3])).length` in an async function | `2` | `3` |
+  | `(await Promise.all([p1])).length` | `2` | `1` |
+  | `(await Promise.allSettled([p1, p2, p3])).length` | `2` | `3` |
+
+  The two-promise `Promise.all` form prints `2` on both engines by coincidence,
+  and so do `{a: "xyz", z: 1, y: 2}`'s `o.a.length` (`3`) and
+  `Object.keys({ab: 1, c: 2})[0].length` (`2`). The value tracks a node's arity,
+  never the string or the array.
+- **Mechanism, traced.** As of `152fdd5364`, a `.length` read passes three rungs (spec §2.3). Rung 1,
+  `render_length` (`crates/kali_codegen/src/intrinsics/host.rs:1194`), ends in
+  three fallbacks: a text-less node renders `children.len()` (`:1336-1338`), an
+  unbound identifier renders `Some("0")` (`:1369`), and the tail recurses into a
+  one-child node or renders its child count (`:1373-1377`). Rung 3,
+  `emit_unary`'s `"length"` arm (`crates/kali_codegen/src/emit/operators.rs:368`),
+  ends in a floor that emits the receiver, drops it and pushes `I64Const(0)` with
+  no diagnostic (`:427-435`). `emit/call.rs:4096-4103` also accepts rung 1's
+  `Some("0")` as proof that `String(x.length)` is an integer.
+- **Severity**: **Tier 2** — silently produces a wrong value.
+- **Blast radius**: countable, matcher `lengthReadOnUnprovenReceiver`: raw 35 /
+  reachable 0, every site in the extension stratum, zero kind
+  `present-but-unreachable`. An upper bound for the reasons `count.mjs`'s
+  `UPPER_BOUNDS` records.
+- **Fix direction, and what NOT to do.** Make the floor refuse, and make the
+  fallbacks decline onto it (spec §3). **Do not start by narrowing
+  `kali_codegen`'s `is_array_literal`**: spec §2.2 measured that move turning
+  three suite tests and five probe programs silently wrong, because every
+  "not an array literal" branch lands on one of these fallbacks.
+- **Pinned by**: two oracle cases (`r63a`, both scopes, `tier2.toml`) ~~asserting
+  the SILENT class~~ — **updated 2026-09-11 by the length-fails-closed fix: the two
+  cases now assert `fail_closed`.**
+- **Related**: `docs/superpowers/followups/member-length-renders-the-child-count.md`
+  described the member lane first and suggested this home for it (its §6).
+- **Confidence**: high on behaviour (both scopes, ten lanes, a sixteen-position
+  consumer matrix measured while planning, extending spec §4.1's nine positions);
+  high on mechanism (three reverted spikes, spec §2.2-§2.5).
+- **RETIRED 2026-09-11, by the length-fails-closed project, in the commit that
+  fixes it.**
+  - `emit_unary`'s `.length` floor (`crates/kali_codegen/src/emit/operators.rs`)
+    emits the receiver and then refuses with `E5506` instead of pushing `0`;
+    `render_length`'s three fallbacks return `None`; and `emit/call.rs`'s
+    `String(x.length)` proof is keyed on the member shape, so `String(a.length)`
+    over `[1n, 2n]` still prints `2`.
+  - Every lane in the table above now refuses (pinned in
+    `crates/kali_cli/tests/cases/runtime/length_fails_closed.toml`), and so does
+    the same receiver in thirteen consumer positions, both scopes (pinned in
+    `length_fails_closed_consumers.toml`). The consumer matrix went from 29 silent
+    readings to 0 with no control lost.
+  - **What this does NOT close**: `(new Array(3)).length` still prints `1`, through
+    the array-literal arms of the same two rungs (`host.rs:1267-1285`,
+    `operators.rs:389-413`), which accept a `new` wrapper as a one-element array
+    literal. Filed in
+    `docs/superpowers/followups/length-fails-closed-discovered-defects.md`.
+  - **Also NOT closed: mutated array literals.** The same two array-literal arms
+    (`host.rs:1267-1285`, `operators.rs:389-413`) return the literal's element
+    count inferred from source, not instrumented, so `.length` after a mutating
+    call or store is stale. All exit 0: `const a = []; a.push(1); a.push(2);
+    console.log(a.length);` → `0` (node `2`); `const a = [1, 2, 3]; a.pop();
+    console.log(a.length)` → `3` (node `2`), also in-function; `a.length = 1` →
+    `3` (node `1`); `splice`/`shift` → `2` (node `1`); `unshift` → `1` (node `2`);
+    a module-scope `for (...) a.push(i)` → `0` (node `3`); and
+    `if (a.length === 0)` after a push takes the wrong branch (`empty` vs node's
+    `nonempty`). Not new: this is the register's own **R-39** (`.pop()` returns
+    `0`) and **R-40** (`.push` on a `const` array literal is silently ignored,
+    both scopes, with the module-scope growable case cross-referenced to §7.9's
+    "Module-scope growable `push` is a silent no-op"). Filed with the measured
+    table in `docs/superpowers/followups/length-fails-closed-discovered-defects.md`
+    §7.
+  - **Also NOT closed: `.length` on a non-array argument.** `function f(x) {
+    return x.length; } console.log(f(42));` → `0` at exit 0; node `undefined`.
+    Same for `f(0)`, `f(8)`, `f(1024)`, `f(true)`, the in-function form, and
+    `const n = 7; f(n)`. Mechanism not traced (likely the runtime array-header
+    lane registering any `.length` receiver as an array binding). This is not
+    R-63's own receiver-with-no-length-lane shape (a parameter is not a text-less
+    node), and no existing register entry names it — **not filed**; recorded as a
+    candidate in
+    `docs/superpowers/followups/length-fails-closed-discovered-defects.md` §8.
 
 ---
 

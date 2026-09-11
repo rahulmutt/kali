@@ -1,5 +1,26 @@
 # The negative-space array-literal predicate is a TRIPLET, not a single mistake — two copies are still live
 
+> **CORRECTED 2026-09-11** by the **length-fails-closed** project
+> (`docs/superpowers/specs/2026-09-11-length-fails-closed-design.md`). **§4's
+> ranking is withdrawn, and the prescription in §3 and §4 is falsified by
+> measurement.** That project picked this document as its item and spiked exactly
+> the move §4 calls "small and well-scoped": both codegen copies narrowed to
+> decline the one-child shape a `new` wrapper shares. The full workspace suite
+> went from 0 to 32 failures, **three of them silent** (`const arr = [mk(0)]`
+> printed `0` where its pin expects `201`, and two `E5506` fail-closed pins started
+> exiting 0), and 5 of 12 one-element probe programs went from correct to silently
+> wrong, with none improving (spec §2.2). In `kali_codegen`, "not an array literal"
+> falls through to fallbacks that fabricate a number, so **narrowing this predicate
+> is fail-OPEN until the consumer's floor refuses.** Two facts this document did
+> not have: `new C(x)` and `[C(x)]` lower to the **same** LIR node (spec §2.1), so
+> no shape check can tell them apart; and the predicate does produce one measured
+> wrong value, `(new Array(3)).length` → `1` (node `3`), through the array-literal
+> arms of `render_length` and `emit_unary`. That value is still open, and is filed
+> in `length-fails-closed-discovered-defects.md` §3. The
+> `docs/superpowers/sdd/2026-09-10-release-tier-allocation-identity/` directory and
+> the `task-5-report.md`, `task-7-report.md` and `task-8-report.md` files cited
+> below were never committed and do not exist in this repository.
+
 **Filed** 2026-09-10, by the **release-tier-allocation-identity** project
 (`docs/superpowers/specs/2026-09-10-release-tier-allocation-identity-design.md`,
 `docs/superpowers/sdd/2026-09-10-release-tier-allocation-identity/`), Task 8,

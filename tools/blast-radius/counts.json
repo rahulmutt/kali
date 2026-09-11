@@ -1,6 +1,6 @@
 {
   "corpusHash": "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f",
-  "nodeVersion": "v26.8.1",
+  "nodeVersion": "v26.8.2",
   "acornVersion": "8.18.0",
   "programs": {
     "pooled": {
@@ -990,6 +990,38 @@
       "upperBound": {
         "disclosedInRecord": false,
         "note": "Upper bound NOT disclosed by the record, and a LOWER bound as well; neither direction is a defect in the matcher, and both are about what a member read's RECEIVER is. Upper: the record counts every member read on a `fromEntries` result, and the measurements behind R-60 are all reads of a property the object HAS or does not have under the default `kali run` (Fast) build mode. Whether the same read diverges under `--release`, where `fold_object_from_entries_call`'s binding path runs, was NOT measured -- there is no runner for a built artifact on this machine -- so a corpus counted here is counted for the mode the oracle cases pin and no other. Lower: the fabricated `0` is what an unresolvable static member read emits generally, and `Object.fromEntries` is one producer of an unresolvable receiver. The matcher counts that producer alone and carries no evidence about the rest of the family (R-21's, and the `o[1]` read in R-59's own repro). The neighbouring ENUMERATION consumers of the same receiver are excluded correctly and for a reason worth stating: `Object.keys(o)` / `Object.values(o)` / `Object.entries(o)` on a `fromEntries` result fail LOUDLY (`error[E5506]: Object enumeration is only supported where the object has a compile-time-known fixed shape`, exit 1, measured at `35e9ef4ef6` in both scopes, directly and through a binding), which is a different verdict class, and in any case the receiver is an ARGUMENT there rather than a member receiver."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-61",
+      "matcher": null,
+      "raw": null,
+      "reachable": null,
+      "strata": null,
+      "zero": null,
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-63",
+      "matcher": "lengthReadOnUnprovenReceiver",
+      "raw": 35,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 35,
+          "reachable": 0
+        }
+      },
+      "zero": "present-but-unreachable",
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the matcher counts every `.length` READ on a member or element receiver, an awaited `Promise.all`/`allSettled` result, or a `let`-bound identifier, and an acorn AST cannot see which codegen lane proves the receiver. Several counted shapes read correctly, measured at `152fdd5364` against node v26.8.2: `const o = {a: [1, 2, 3]}; o.a.length` prints `3` and `const m = [[1, 2], [3, 4, 5]]; m[1].length` prints `3`, both on both engines. The entry's own lanes are the ones that diverge: a string-valued member (`o.a.length` over `{a: \"xyz\"}` prints `1`), a `let` array read in a function (`0`), and an awaited combinator result (always `2`)."
       },
       "alternateReading": null
     }

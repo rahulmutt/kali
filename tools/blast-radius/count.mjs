@@ -214,6 +214,19 @@ const UPPER_BOUNDS = {
       "verdict class, and in any case the receiver is an ARGUMENT there rather than a member " +
       "receiver.",
   },
+  "R-63": {
+    disclosedInRecord: true,
+    note:
+      "Upper bound, per the record: the matcher counts every `.length` READ on a member or " +
+      "element receiver, an awaited `Promise.all`/`allSettled` result, or a `let`-bound " +
+      "identifier, and an acorn AST cannot see which codegen lane proves the receiver. Several " +
+      "counted shapes read correctly, measured at `152fdd5364` against node v26.8.2: " +
+      "`const o = {a: [1, 2, 3]}; o.a.length` prints `3` and `const m = [[1, 2], [3, 4, 5]]; " +
+      "m[1].length` prints `3`, both on both engines. The entry's own " +
+      "lanes are the ones that diverge: a string-valued member (`o.a.length` over " +
+      "`{a: \"xyz\"}` prints `1`), a `let` array read in a function (`0`), and an awaited " +
+      "combinator result (always `2`).",
+  },
 };
 
 /**

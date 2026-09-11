@@ -431,6 +431,45 @@ function resolvesToObjectFromEntriesCall(node, analysis, seen = new Set()) {
 // The matchers
 // --------------------------------------------------------------------------
 
+/** `x.length` or `x["length"]` -- the property a `.length` read names. */
+function isLengthProperty(member) {
+  return member.computed
+    ? staticPropertyNameOf(member.property) === "length"
+    : member.property.type === "Identifier" && member.property.name === "length";
+}
+
+/** `Promise.all(...)` / `Promise.allSettled(...)`, dotted or string-bracket, bare or `globalThis.`-qualified. */
+function isPromiseCombinatorCall(node) {
+  if (!node || node.type !== "CallExpression" || node.callee.type !== "MemberExpression") return false;
+  const callee = node.callee;
+  const method = callee.computed ? staticPropertyNameOf(callee.property) : callee.property.name;
+  if (method !== "all" && method !== "allSettled") return false;
+  const root = callee.object;
+  if (root.type === "Identifier") return root.name === "Promise";
+  if (root.type !== "MemberExpression" || root.object.type !== "Identifier" || root.object.name !== "globalThis") return false;
+  return (root.computed ? staticPropertyNameOf(root.property) : root.property.name) === "Promise";
+}
+
+/** `await Promise.all(...)` / `await Promise.allSettled(...)`. */
+function isAwaitedPromiseCombinator(node) {
+  return Boolean(node) && node.type === "AwaitExpression" && isPromiseCombinatorCall(node.argument);
+}
+
+/**
+ * The receivers R-63 measured reaching a `.length` fallback: a member or element
+ * receiver, an awaited `Promise.all`/`allSettled` result (inline or through a
+ * binding), and a `let`-bound identifier.
+ */
+function isUnprovenLengthReceiver(receiver, analysis) {
+  if (receiver.type === "MemberExpression") return true;
+  if (isAwaitedPromiseCombinator(receiver)) return true;
+  if (receiver.type !== "Identifier") return false;
+  const binding = analysis.binding(receiver);
+  if (!binding) return false;
+  if (binding.kind === "let") return true;
+  return isAwaitedPromiseCombinator(binding.init);
+}
+
 export const MATCHERS = {
   // R-01: a `function` declaration or function expression with a default-valued
   // parameter (arrow forms excluded -- they fail closed).
@@ -1241,6 +1280,35 @@ export const MATCHERS = {
     return analysis
       .of("MemberExpression")
       .filter((node) => !stores.has(node) && resolvesToObjectFromEntriesCall(node.object, analysis))
+      .length;
+  },
+
+  // R-63: a `.length` READ whose receiver no codegen length lane proves, so
+  // `render_length`'s fallbacks render a node's child count or `0`
+  // (`crates/kali_codegen/src/intrinsics/host.rs:1336-1338`, `:1369`,
+  // `:1373-1377` at `152fdd5364`) or `emit_unary`'s floor pushes `0`
+  // (`crates/kali_codegen/src/emit/operators.rs:427-435`). The four receiver
+  // shapes are the ones the entry measured: a member or element receiver
+  // (`o.a.length`, `o["a"].length`, `["abc"][0].length`), an awaited
+  // `Promise.all`/`allSettled` result (always `2`: the call node's callee plus
+  // one argument), and a `let`-bound identifier.
+  //
+  // Reads only, as R-60's matcher: a store to `.length` is a different site class
+  // and was not measured.
+  //
+  // Upper bound, disclosed in `count.mjs`'s UPPER_BOUNDS: a member receiver whose
+  // value is a real array field (`{a: [1, 2, 3]}.a.length` prints `3` correctly),
+  // a nested array element (`m[1].length` prints `3`), and a `let` binding a
+  // runtime lane proves all read `.length` correctly and are counted, because an
+  // acorn AST cannot see which lane codegen proves.
+  lengthReadOnUnprovenReceiver(ast) {
+    const analysis = analysisOf(ast);
+    const stores = new Set();
+    for (const node of analysis.of("AssignmentExpression")) stores.add(node.left);
+    for (const node of analysis.of("UpdateExpression")) stores.add(node.argument);
+    return analysis
+      .of("MemberExpression")
+      .filter((node) => !stores.has(node) && isLengthProperty(node) && isUnprovenLengthReceiver(node.object, analysis))
       .length;
   },
 };

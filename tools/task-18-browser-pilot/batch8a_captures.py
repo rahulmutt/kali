@@ -21,7 +21,11 @@ the dump has to live in the module that includes them). Run as
 `include!` rather than a retyped copy, so the executed `format!` /
 `indent_source` / `kali_common` call is literally the one in the shipped
 source. Every constant below came from that one run; none was edited
-afterwards.
+afterwards, EXCEPT two. AMENDED 2026-09-11 by the length-fails-closed project
+(docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section
+4.3): CAP_PROMISE_ALL_BUNDLE and CAP_PROMISE_ALL_SETTLED_BUNDLE each had every
+`X.length !== 2 ||` guard line deleted by hand (24 and 28 lines). The rationale
+gen_batch8a.py renders for those two targets says so.
 
 WHY EACH ONE IS HERE (i.e. why it is not a plain string literal the lexer could
 have pulled straight out of the `.rs`):
@@ -96,76 +100,52 @@ CAP_PROMISE_ALL_BUNDLE = (
     '  const frozenGlobal = await Object.freeze(globalThis.Promise.all)([Promise.resolve(1), Promise.resolve(2)]);\n'
     '  const parenthesizedFrozenGlobal = await Object.freeze((globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);\n'
     '  if (\n'
-    '    direct.length !== 2 ||\n'
     '    direct[0] !== 1 ||\n'
     '    direct[1] !== 2 ||\n'
-    '    mixed.length !== 2 ||\n'
     '    mixed[0] !== 1 ||\n'
     '    mixed[1] !== 2 ||\n'
-    '    singleMixed.length !== 2 ||\n'
     '    singleMixed[0] !== 1 ||\n'
     '    singleMixed[1] !== 2 ||\n'
-    '    dotted.length !== 2 ||\n'
     '    dotted[0] !== 1 ||\n'
     '    dotted[1] !== 2 ||\n'
-    '    mixedDotted.length !== 2 ||\n'
     '    mixedDotted[0] !== 1 ||\n'
     '    mixedDotted[1] !== 2 ||\n'
-    '    singleDotted.length !== 2 ||\n'
     '    singleDotted[0] !== 1 ||\n'
     '    singleDotted[1] !== 2 ||\n'
-    '    bracketed.length !== 2 ||\n'
     '    bracketed[0] !== 1 ||\n'
     '    bracketed[1] !== 2 ||\n'
-    '    mixedBracketed.length !== 2 ||\n'
     '    mixedBracketed[0] !== 1 ||\n'
     '    mixedBracketed[1] !== 2 ||\n'
-    '    singleBracketed.length !== 2 ||\n'
     '    singleBracketed[0] !== 1 ||\n'
     '    singleBracketed[1] !== 2 ||\n'
-    '    singleMixedBracketed.length !== 2 ||\n'
     '    singleMixedBracketed[0] !== 1 ||\n'
     '    singleMixedBracketed[1] !== 2 ||\n'
-    '    nullishRoot.length !== 2 ||\n'
     '    nullishRoot[0] !== 1 ||\n'
     '    nullishRoot[1] !== 2 ||\n'
-    '    logicalAndRoot.length !== 2 ||\n'
     '    logicalAndRoot[0] !== 1 ||\n'
     '    logicalAndRoot[1] !== 2 ||\n'
-    '    logicalOrRoot.length !== 2 ||\n'
     '    logicalOrRoot[0] !== 1 ||\n'
     '    logicalOrRoot[1] !== 2 ||\n'
-    '    nullishDotted.length !== 2 ||\n'
     '    nullishDotted[0] !== 1 ||\n'
     '    nullishDotted[1] !== 2 ||\n'
-    '    logicalAndDotted.length !== 2 ||\n'
     '    logicalAndDotted[0] !== 1 ||\n'
     '    logicalAndDotted[1] !== 2 ||\n'
-    '    logicalOrDotted.length !== 2 ||\n'
     '    logicalOrDotted[0] !== 1 ||\n'
     '    logicalOrDotted[1] !== 2 ||\n'
-    '    frozenRoot.length !== 2 ||\n'
     '    frozenRoot[0] !== 1 ||\n'
     '    frozenRoot[1] !== 2 ||\n'
-    '    parenthesizedFrozenRoot.length !== 2 ||\n'
     '    parenthesizedFrozenRoot[0] !== 1 ||\n'
     '    parenthesizedFrozenRoot[1] !== 2 ||\n'
-    '    frozenBracketedRoot.length !== 2 ||\n'
     '    frozenBracketedRoot[0] !== 1 ||\n'
     '    frozenBracketedRoot[1] !== 2 ||\n'
-    '    parenthesizedFrozenBracketedRoot.length !== 2 ||\n'
     '    parenthesizedFrozenBracketedRoot[0] !== 1 ||\n'
     '    parenthesizedFrozenBracketedRoot[1] !== 2 ||\n'
-    '    frozenSingleBracketedRoot.length !== 2 ||\n'
     '    frozenSingleBracketedRoot[0] !== 1 ||\n'
     '    frozenSingleBracketedRoot[1] !== 2 ||\n'
-    '    parenthesizedFrozenSingleBracketedRoot.length !== 2 ||\n'
     '    parenthesizedFrozenSingleBracketedRoot[0] !== 1 ||\n'
     '    parenthesizedFrozenSingleBracketedRoot[1] !== 2 ||\n'
-    '    frozenGlobal.length !== 2 ||\n'
     '    frozenGlobal[0] !== 1 ||\n'
     '    frozenGlobal[1] !== 2 ||\n'
-    '    parenthesizedFrozenGlobal.length !== 2 ||\n'
     '    parenthesizedFrozenGlobal[0] !== 1 ||\n'
     '    parenthesizedFrozenGlobal[1] !== 2\n'
     '  ) {\n'
@@ -464,142 +444,114 @@ CAP_PROMISE_ALL_SETTLED_BUNDLE = (
     "  const rootFrozenSettled = await Object.freeze(Promise.allSettled)([Promise.resolve(1), Promise.reject('boom')]);\n"
     "  const parenthesizedRootFrozenSettled = await Object.freeze((Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);\n"
     '  if (\n'
-    '    settled.length !== 2 ||\n'
     "    settled[0].status !== 'fulfilled' ||\n"
     '    settled[0].value !== 1 ||\n'
     "    settled[1].status !== 'rejected' ||\n"
     "    settled[1].reason !== 'boom' ||\n"
-    '    mixedSettled.length !== 2 ||\n'
     "    mixedSettled[0].status !== 'fulfilled' ||\n"
     '    mixedSettled[0].value !== 1 ||\n'
     "    mixedSettled[1].status !== 'rejected' ||\n"
     "    mixedSettled[1].reason !== 'boom' ||\n"
-    '    dottedSettled.length !== 2 ||\n'
     "    dottedSettled[0].status !== 'fulfilled' ||\n"
     '    dottedSettled[0].value !== 1 ||\n'
     "    dottedSettled[1].status !== 'rejected' ||\n"
     "    dottedSettled[1].reason !== 'boom' ||\n"
-    '    mixedDottedSettled.length !== 2 ||\n'
     "    mixedDottedSettled[0].status !== 'fulfilled' ||\n"
     '    mixedDottedSettled[0].value !== 1 ||\n'
     "    mixedDottedSettled[1].status !== 'rejected' ||\n"
     "    mixedDottedSettled[1].reason !== 'boom' ||\n"
-    '    mixedBracketedSettled.length !== 2 ||\n'
     "    mixedBracketedSettled[0].status !== 'fulfilled' ||\n"
     '    mixedBracketedSettled[0].value !== 1 ||\n'
     "    mixedBracketedSettled[1].status !== 'rejected' ||\n"
     "    mixedBracketedSettled[1].reason !== 'boom' ||\n"
-    '    bracketedSettled.length !== 2 ||\n'
     "    bracketedSettled[0].status !== 'fulfilled' ||\n"
     '    bracketedSettled[0].value !== 1 ||\n'
     "    bracketedSettled[1].status !== 'rejected' ||\n"
     "    bracketedSettled[1].reason !== 'boom' ||\n"
-    '    nullishRootSettled.length !== 2 ||\n'
     "    nullishRootSettled[0].status !== 'fulfilled' ||\n"
     '    nullishRootSettled[0].value !== 1 ||\n'
     "    nullishRootSettled[1].status !== 'rejected' ||\n"
     "    nullishRootSettled[1].reason !== 'boom' ||\n"
-    '    logicalAndRootSettled.length !== 2 ||\n'
     "    logicalAndRootSettled[0].status !== 'fulfilled' ||\n"
     '    logicalAndRootSettled[0].value !== 1 ||\n'
     "    logicalAndRootSettled[1].status !== 'rejected' ||\n"
     "    logicalAndRootSettled[1].reason !== 'boom' ||\n"
-    '    logicalOrRootSettled.length !== 2 ||\n'
     "    logicalOrRootSettled[0].status !== 'fulfilled' ||\n"
     '    logicalOrRootSettled[0].value !== 1 ||\n'
     "    logicalOrRootSettled[1].status !== 'rejected' ||\n"
     "    logicalOrRootSettled[1].reason !== 'boom' ||\n"
-    '    nullishDottedSettled.length !== 2 ||\n'
     "    nullishDottedSettled[0].status !== 'fulfilled' ||\n"
     '    nullishDottedSettled[0].value !== 1 ||\n'
     "    nullishDottedSettled[1].status !== 'rejected' ||\n"
     "    nullishDottedSettled[1].reason !== 'boom' ||\n"
-    '    logicalAndDottedSettled.length !== 2 ||\n'
     "    logicalAndDottedSettled[0].status !== 'fulfilled' ||\n"
     '    logicalAndDottedSettled[0].value !== 1 ||\n'
     "    logicalAndDottedSettled[1].status !== 'rejected' ||\n"
     "    logicalAndDottedSettled[1].reason !== 'boom' ||\n"
-    '    logicalOrDottedSettled.length !== 2 ||\n'
     "    logicalOrDottedSettled[0].status !== 'fulfilled' ||\n"
     '    logicalOrDottedSettled[0].value !== 1 ||\n'
     "    logicalOrDottedSettled[1].status !== 'rejected' ||\n"
     "    logicalOrDottedSettled[1].reason !== 'boom' ||\n"
-    '    wrappedBracketedDotRootFrozenSettled.length !== 2 ||\n'
     "    wrappedBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    wrappedBracketedDotRootFrozenSettled[0].value !== 1 ||\n'
     "    wrappedBracketedDotRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    wrappedBracketedDotRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    wrappedSingleBracketedDotRootFrozenSettled.length !== 2 ||\n'
     "    wrappedSingleBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    wrappedSingleBracketedDotRootFrozenSettled[0].value !== 1 ||\n'
     "    wrappedSingleBracketedDotRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    wrappedSingleBracketedDotRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    frozenBracketedSettled.length !== 2 ||\n'
     "    frozenBracketedSettled[0].status !== 'fulfilled' ||\n"
     '    frozenBracketedSettled[0].value !== 1 ||\n'
     "    frozenBracketedSettled[1].status !== 'rejected' ||\n"
     "    frozenBracketedSettled[1].reason !== 'boom' ||\n"
-    '    parenthesizedFrozenBracketedSettled.length !== 2 ||\n'
     "    parenthesizedFrozenBracketedSettled[0].status !== 'fulfilled' ||\n"
     '    parenthesizedFrozenBracketedSettled[0].value !== 1 ||\n'
     "    parenthesizedFrozenBracketedSettled[1].status !== 'rejected' ||\n"
     "    parenthesizedFrozenBracketedSettled[1].reason !== 'boom' ||\n"
-    '    mixedBracketedRootFrozenSettled.length !== 2 ||\n'
     "    mixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    mixedBracketedRootFrozenSettled[0].value !== 1 ||\n'
     "    mixedBracketedRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    mixedBracketedRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    parenthesizedMixedBracketedRootFrozenSettled.length !== 2 ||\n'
     "    parenthesizedMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    parenthesizedMixedBracketedRootFrozenSettled[0].value !== 1 ||\n'
     "    parenthesizedMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    parenthesizedMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    singleMixedBracketedRootFrozenSettled.length !== 2 ||\n'
     "    singleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    singleMixedBracketedRootFrozenSettled[0].value !== 1 ||\n'
     "    singleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    singleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    fullyBracketedSingleRootFrozenSettled.length !== 2 ||\n'
     "    fullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    fullyBracketedSingleRootFrozenSettled[0].value !== 1 ||\n'
     "    fullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    fullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    parenthesizedFullyBracketedSingleRootFrozenSettled.length !== 2 ||\n'
     "    parenthesizedFullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    parenthesizedFullyBracketedSingleRootFrozenSettled[0].value !== 1 ||\n'
     "    parenthesizedFullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    parenthesizedFullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    parenthesizedSingleMixedBracketedRootFrozenSettled.length !== 2 ||\n'
     "    parenthesizedSingleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    parenthesizedSingleMixedBracketedRootFrozenSettled[0].value !== 1 ||\n'
     "    parenthesizedSingleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    parenthesizedSingleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    mixedRootFrozenSettled.length !== 2 ||\n'
     "    mixedRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    mixedRootFrozenSettled[0].value !== 1 ||\n'
     "    mixedRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    mixedRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    parenthesizedMixedRootFrozenSettled.length !== 2 ||\n'
     "    parenthesizedMixedRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    parenthesizedMixedRootFrozenSettled[0].value !== 1 ||\n'
     "    parenthesizedMixedRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    parenthesizedMixedRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    bracketedRootFrozenSettled.length !== 2 ||\n'
     "    bracketedRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    bracketedRootFrozenSettled[0].value !== 1 ||\n'
     "    bracketedRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    bracketedRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    parenthesizedBracketedRootFrozenSettled.length !== 2 ||\n'
     "    parenthesizedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    parenthesizedBracketedRootFrozenSettled[0].value !== 1 ||\n'
     "    parenthesizedBracketedRootFrozenSettled[1].status !== 'rejected' ||\n"
     "    parenthesizedBracketedRootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    rootFrozenSettled.length !== 2 ||\n'
     "    rootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    rootFrozenSettled[0].value !== 1 ||\n'
     "    rootFrozenSettled[1].status !== 'rejected' ||\n"
     "    rootFrozenSettled[1].reason !== 'boom' ||\n"
-    '    parenthesizedRootFrozenSettled.length !== 2 ||\n'
     "    parenthesizedRootFrozenSettled[0].status !== 'fulfilled' ||\n"
     '    parenthesizedRootFrozenSettled[0].value !== 1 ||\n'
     "    parenthesizedRootFrozenSettled[1].status !== 'rejected' ||\n"

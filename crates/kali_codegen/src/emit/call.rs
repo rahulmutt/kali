@@ -4093,12 +4093,13 @@ impl<'a> FunctionEmitter<'a> {
                 return true;
             }
         }
-        // A statically-known `.length` (`String(a.length)`): the fold renders the
-        // count as a plain integer.
-        if member_node.text.as_deref() == Some("length")
-            && member_node.children.len() == 1
-            && self.render_length(&member).is_some()
-        {
+        // A `.length` read (`String(a.length)`) is an integer or it does not
+        // compile: every `.length` lane yields a count, and the one that cannot
+        // prove a length refuses (`emit_unary`'s `"length"` floor). So the member
+        // shape is the proof. This used to require `render_length(..).is_some()`,
+        // which a baked `Some("0")` satisfied for receivers with no length at all.
+        // Spec: docs/superpowers/specs/2026-09-11-length-fails-closed-design.md §3.3
+        if member_node.text.as_deref() == Some("length") && member_node.children.len() == 1 {
             return true;
         }
         // Bare identifier, checked BEFORE `resolve_bound_node`: a fold-lane

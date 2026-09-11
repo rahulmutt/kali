@@ -424,15 +424,29 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 }
 
+                // The floor. Every lane above declined, so nothing proves a length
+                // for this receiver. It used to push `I64Const(0)` here: a silent
+                // wrong `.length` for every receiver that reached it. Emit the
+                // receiver first, so a refusal specific to it (a computed member, a
+                // module-binding read) is the one reported, and add this arm's own
+                // refusal only when the receiver raised none.
+                // Spec: docs/superpowers/specs/2026-09-11-length-fails-closed-design.md §3.1
+                let errors_before = self.diagnostics.iter().filter(|d| d.is_error()).count();
                 let produced = self.emit_node(function, arg, true);
                 if produced.produced {
                     function.instruction(&Instruction::Drop);
                 }
-                function.instruction(&Instruction::I64Const(0));
-                EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                if self.diagnostics.iter().filter(|d| d.is_error()).count() > errors_before {
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
                 }
+                self.deny_e5506(
+                    function,
+                    "`.length` is unavailable in the current phase for this receiver: no lane proves its length, so kali refuses rather than emit a placeholder 0",
+                )
             }
             op if op.parse::<usize>().is_ok() || op.parse::<isize>().is_ok() => {
                 // `process.argv[<int literal>]` (Spec 5 Task 5): read the arg's

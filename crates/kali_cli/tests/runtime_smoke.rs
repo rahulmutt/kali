@@ -148,7 +148,7 @@ fn browser_bundle_promise_all_sequencing_source() -> &'static str {
     r#"// kali-tree-shake: promiseAllSmoke
 export async function promiseAllSmoke(left, right) {
   const values = await Promise.all([Promise.resolve(left), Promise.resolve(right)]);
-  if (values.length !== 2 || values[0] !== left || values[1] !== right) {
+  if (values[0] !== left || values[1] !== right) {
     throw new Error(`unexpected Promise.all result ${values.join(',')}`);
   }
   return 0n;

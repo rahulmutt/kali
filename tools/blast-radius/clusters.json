@@ -177,7 +177,17 @@
     "with a PARAMETER key. Reachable counts moved on eight entries in all (R-04, R-07, R-08, R-13,",
     "R-14, R-32, R-33, R-59); the ranking's section 6 amendment carries the full list. The",
     "file-by-file overlap claim above (of 51 files with a nonzero count under either matcher, 30",
-    "differ) is a RAW comparison and is unaffected."
+    "differ) is a RAW comparison and is unaffected.",
+    "",
+    "ADDED 2026-09-11 by the length-fails-closed project: R-63 (`.length` renders a node's child",
+    "count, or `0`, for a receiver with no length lane) joins G6 on the register's own §2",
+    "Root-cause line. It is filed SILENT in its own commit and is expected to leave G6 when the",
+    "same project's fix retires it (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md",
+    "section 6.1).",
+    "",
+    "REMOVED 2026-09-11, next commit: R-63 leaves G6. Its one lane moved to FAIL_CLOSED when the",
+    "length-fails-closed project's fix landed, so it left the SILENT filter, and an entry outside",
+    "that filter carries no assignment. G6 keeps its other members, so its definition stays."
   ],
   "clusters": [
     {
