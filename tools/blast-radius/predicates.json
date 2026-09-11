@@ -141,6 +141,9 @@
       "description": "a `.length` READ (not a store: assignment and update targets are excluded, as R-60's matcher excludes them) spelled `x.length` or `x[\"length\"]`, whose receiver is a member or element expression, an awaited `Promise.all(...)` / `Promise.allSettled(...)` result written inline or through a binding whose initializer is one (bare or `globalThis.`-qualified, dotted or string-bracket), or an identifier bound by `let`; upper bound, because a member whose value is a real array or string field and a `let` binding a runtime lane proves both read `.length` correctly, and an acorn AST cannot see which lane codegen proves" },
     { "id": "R-64", "kind": "countable",
       "matcher": "allocationOutsideMaterializingLane",
-      "description": "an `Array`/`Uint8Array` allocation (`new Array(n)`, `Array(n)`, at most one argument) whose value is used outside codegen's three materializing lanes -- a declarator initializer, an assignment right-hand side, or a `.fill` receiver; upper bound, because an acorn AST cannot see that a callee ignores the parameter it is passed to, and such a call prints correctly" }
+      "description": "an `Array`/`Uint8Array` allocation (`new Array(n)`, `Array(n)`, at most one argument) whose value is used outside codegen's three materializing lanes -- a declarator initializer, an assignment right-hand side, or a `.fill` receiver; upper bound, because an acorn AST cannot see that a callee ignores the parameter it is passed to, and such a call prints correctly" },
+    { "id": "R-65", "kind": "countable",
+      "matcher": "foldLaneArrayArgument",
+      "description": "an argument to a call that is an array literal (inline or through a binding), a spread of one, or a constructed value that lowers to the same text-less node; upper bound, because an acorn AST cannot see whether the callee resolves to a compiled function, which is what the guard requires" }
   ]
 }

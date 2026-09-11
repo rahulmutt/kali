@@ -239,8 +239,8 @@ entry's own repro; those cases agree with the tier files. *(**Corrected
 `var`-key computed read, which now refuses; the computed-member-static-name
 project replaced it with R-10's block-scoped shadow read — `let x = 1; { let x =
 2; } console.log("r=" + x);`, kali `r=2`, node `r=1`, exit 0 both — so the
-classifier still has a SILENT specimen and the count of five is unchanged.)* **167 cases back the 48
-rows.** ~~165 cases back the 47 rows … holds 169~~ (superseded 2026-09-11, when the inline-allocation-value-position project added **R-64** with its own two-case scope pair), ~~163 cases back the 47 rows … holds 167~~ (superseded 2026-09-11, when the same project added R-15's element-only lane `r15e`), ~~161 cases back the 46 rows … holds 165~~ (superseded 2026-09-11, when the length-fails-closed project added **R-63** with its own two-case scope pair), ~~157 cases back the 44 rows … holds 161~~, ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
+classifier still has a SILENT specimen and the count of five is unchanged.)* **169 cases back the 49
+rows.** ~~167 cases back the 48 rows … holds 171~~ (superseded 2026-09-11, when the inline-allocation-value-position project added **R-65** with its own two-case scope pair), ~~165 cases back the 47 rows … holds 169~~ (superseded 2026-09-11, when the same project added **R-64** with its own two-case scope pair), ~~163 cases back the 47 rows … holds 167~~ (superseded 2026-09-11, when the same project added R-15's element-only lane `r15e`), ~~161 cases back the 46 rows … holds 165~~ (superseded 2026-09-11, when the length-fails-closed project added **R-63** with its own two-case scope pair), ~~157 cases back the 44 rows … holds 161~~, ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
 holds 155~~ — superseded 2026-08-16 at
 `3a636f62fb`, when the console-render-unification project's final whole-branch
 review added **R-56** with its own two-case scope pair, and twice on 2026-09-08 at
@@ -249,7 +249,7 @@ review added **R-56** with its own two-case scope pair, and twice on 2026-09-08 
 branch added **R-59** and **R-60** the same way (~~`dde0f083c0`~~ — that is this
 branch's BASE and carries none of the four; corrected 2026-09-08 in final
 review). The oracle directory holds
-171 (~~169~~, ~~167~~, ~~165~~, ~~161~~, ~~157~~); the other four carry
+173 (~~171~~, ~~169~~, ~~167~~, ~~165~~, ~~161~~, ~~157~~); the other four carry
 `register_entry = "GROUND-TRUTH"`, measure the classifier rather than any entry,
 and are therefore attributable to no row — `agree.js`, `both_reject.js`,
 `hang.js` and `nondeterministic.js`. A reader auditing the mapping should expect
@@ -307,6 +307,7 @@ a defect.
 | R-60 a present property on an `Object.fromEntries` object reads `0` | **SILENT** (both scopes) | **added 2026-09-08 at `02297ca6c2`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate; **measured at `35e9ef4ef6` against `node v26.8.1`, both scopes, byte-identical**: `const o = Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0` in kali at exit 0 with empty stderr where node prints `1` at exit 0. `o` HAS an own enumerable `a` worth `1`, so this is a wrong VALUE for a property that exists and not an `undefined` rendered as `0`. Two zero-emitting sites stack: `Object.fromEntries` reaches codegen unresolved and is lowered through the zero-placeholder call fallback, and the member read on that scalar then falls to `emit_unary`'s default arm, which drops the receiver and pushes its own `I64Const(0)` — the one that prints. Both sites push a WARNING and `kali run` shows neither. **WHAT IS PINNED BY A LIVE CASE**: that one read, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `35e9ef4ef6`: the two `hasOwn` probes on the same object, which AGREE with node (`"a"` → `true`, `"b"` → `false`), because `static_object_has_own` recognizes a `fromEntries` operand directly — so the object's shape IS statically known, which contradicts the explanation every lead for this entry carried; the receiver spellings that diverge identically (`o["a"]`, the direct `Object.fromEntries([...]).a`, through `Object.freeze`, and with the entries array bound); and the two controls that locate the fault in the receiver (`({a: 1}).a` and a member read on a USER function's object result both print `1` on both engines). **A SECOND LANE IS MEASURED AND IS NOT IN THIS ROW'S CLASS SET**: `Object.keys(o)` / `Object.values(o)` / `Object.entries(o)` on the same receiver REFUSE the file (`error[E5506]: Object enumeration is only supported where the object has a compile-time-known fixed shape`, exit 1) where node prints the array — that classifies **FAIL_CLOSED**, not SILENT, so it cannot share an oracle case with the read, and this row records SILENT alone. The `--release` lane was NOT measured (no runner for a built artifact on this machine) and §2's entry says so. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`). |
 | R-63 `.length` renders a node's child count, or `0`, for a receiver with no length lane | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-11 by the length-fails-closed project — its one lane moved.** Re-derived from the two `r63a` cases, which now assert `fail_closed`: kali exits 1 with empty stdout and the `.length` floor's `E5506`; node prints `3`. FAIL_CLOSED, not FIXED: no lane computes this length yet, and kali now says so. Originally **added 2026-09-11 by the same project**, off `152fdd5364`; **measured at `152fdd5364` against `node v26.8.2`, both scopes**: `const o = {a: "xyz"}; console.log(o.a.length)` prints `1` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r63a`. §2's entry carries ten more lanes measured by hand. |
 | R-64 an allocation outside the materializing lanes → 0 | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x.length; } console.log(f(new Array(6)));` prints `0` in kali at exit 0 with empty stderr where node prints `6` at exit 0. Lane `r64a`. §2's entry carries ten more lanes from the spec's own table plus one measured correction. |
+| R-65 a fold-lane array argument → zeros in the callee | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x[0]; } const k = 3; console.log(f([k]));` prints `0` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r65a`. §2's entry carries eight more lanes from the spec's own table. |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
 neither has an oracle case, and a row with no case behind it is what this
@@ -869,6 +870,22 @@ were re-counted by `### R-` headers per tier heading rather than incremented.
 R-64 is filed SILENT, in its own commit, with its retirement left for a later
 task in the same project (Task 8) to record as a separate, auditable step —
 the R-56 precedent of 2026-08-16, not the R-63 shortcut recorded above.
+
+**Updated 2026-09-11 a third time (inline-allocation-value-position, Task 4).**
+The right-hand column moved once more: **R-65** (a fold-lane array, or a
+constructed value that lowers like one, passed to a user function reads as
+zeros in the callee) was added as a further tier-ranked §2 **Tier 2** entry,
+so the Tier-2 cell reads **35** where it read 34 (per the paragraph
+immediately above), and the right-hand column is now **50** tier-ranked
+entries in §2 (8 + 35 + 2 + 5). The register holds **65** numbered entries in
+total (R-01..R-65), the other 15 being the same un-ranked §0.3 set
+(R-35..R-46) plus §7's R-50, R-55 and R-62. Both figures were re-counted by
+`### R-` headers per tier heading rather than incremented. R-65 is filed
+SILENT, in its own commit, with its retirement left for a later task in the
+same project (Task 9) to record as a separate, auditable step, the same as
+R-64's above — unlike R-64, which is retired FIXED, R-65's own entry records
+that its retirement is expected to land FAIL_CLOSED, not FIXED (spec §3.4
+widens the argument guard rather than routing the value through).
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -4508,6 +4525,95 @@ tier, ordering is by blast radius.
 - **Confidence**: high on behaviour (both scopes, the eleven §2.2 lanes plus
   the size-position correction, all re-measured at this baseline); high on
   mechanism (four exact source sites named above, spec §2.1).
+
+---
+
+### R-65: A fold-lane array, or a constructed value that lowers like one, passed to a user function reads as zeros in the callee
+
+- **Added**: 2026-09-11, by the **inline-allocation-value-position** project
+  (`docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`),
+  off `733cd26125`. Filed SILENT in its own commit so the retirement that
+  follows (Task 9 of the same project) is a separate step a reader can audit.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured at `733cd26125` against
+  **`node v26.8.2`**, in **both** scopes, on `.cache/cargo-target/debug/kali`
+  built from that commit.
+- **Root-cause group**: **unclustered** — this has **G3**'s shape exactly
+  (`docs/superpowers/followups/kali-silent-miscompile-register.md` §3: "a guard
+  keyed on one syntactic form ... with a sibling form slipping past into
+  precisely the miscompile the guard's own diagnostic describes"), and the
+  match is unusually direct here: the argument guard
+  (`crates/kali_codegen/src/emit/call.rs:3573-3615`) refuses an array-literal
+  argument only when every element is a `Literal`; an identifier, expression,
+  call, spread or constructed-value element is a sibling form the same guard
+  does not recognize, and its own diagnostic text ("the callee would read zero
+  placeholders, not the elements") names the exact miscompile that leaks past
+  it for every one of those siblings. It is nonetheless **not** added to G3's
+  member list, on the criterion `clusters.json` itself states and that R-47
+  and R-58 already decided the same way for their own G3-shaped guards: a
+  cluster there is the unit a fix actually ships in, not a shared shape of
+  mistake, and this entry's fix (§3.4's widened argument guard) ships in no
+  code that R-47's or R-58's fixes touch. Not **G4** (there is no value
+  distinct from the scalar `0`): the array or constructed value produces a
+  real, distinct handle wherever a materializing lane reaches it -- R-64's
+  own bound-allocation control, `const a = new Array(6); f(a)`, prints `6`.
+  `f(arr)` (this entry's row 4) is SILENT not because the handle collapses
+  into `0`'s own representation but because it never reaches the
+  CALL-ARGUMENT position for a non-allocation aggregate in the first place.
+  Not **G6** (unresolved or unimplemented builtins fold to
+  a default instead of failing closed): an array literal and a user `class`
+  constructor are both fully implemented language features, not unresolved
+  builtins — `new C()` computes `this.v` correctly inside its own constructor
+  (spec §2.4's last row prints `4` on node, and kali runs the constructor; the
+  defect is only that the resulting handle reads as zeros once it crosses the
+  call boundary into `f`). Not **G2** (call lowering: unresolvable callee
+  folds to constant `0`): `f` is a resolved, compiled callee in every repro
+  here — the call happens and `f` runs; only the argument it receives is a
+  placeholder.
+- **Repro**: `function f(x) { return x[0]; } const k = 3; console.log(f([k]));`
+  → node `3`; kali `0` (exit 0, empty stderr). Measured baseline for this exact
+  program is Task 2's `arg_literal_identifier.js`
+  (`crates/kali_cli/tests/cases/runtime/inline_allocation_value_position.toml`,
+  case `an_array_literal_argument_holding_an_identifier_refuses`).
+- **Every lane, measured at `733cd26125` against node v26.8.2, both engines at
+  exit 0, kali with empty stderr (spec §2.4, verbatim):**
+
+  | program | kali | node |
+  |---|---|---|
+  | `function f(x) { return x[0]; } const k = 3; console.log(f([k]));` (both scopes) | `0` | `3` |
+  | `function f(x) { return x[0]; } console.log(f([1 + 1]));` | `0` | `2` |
+  | `function f(x) { return x[0] + x[1]; } const k = 3; console.log(f([k, 1]));` | `0` | `4` |
+  | `function f(x) { return x[0]; } const k = 3; const arr = [k]; console.log(f(arr));` | `0` | `3` |
+  | `function show(v) { console.log(v.length + "," + v[0] + "," + v[1]); } const fe = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]); const collected = [...Object.values(fe)]; show(collected);` (both scopes) | `0,0,0` | `2,3,2` |
+  | `function show(e) { console.log(e.length + "," + e[0][0] + "," + e[0][1]); } function main() { const alias = {b: 1, a: 2}; const entries = Object.entries(alias); show(entries); } main();` | `0,0,0` | `2,b,1` |
+  | `function show(k) { console.log(k.length + "," + k[0] + "," + k[1]); } function main() { const o = {b: 1, a: 2}; const keys = [...Object.keys(o)]; show(keys); } main();` | `0,0,0` | `2,b,a` |
+  | `function f(x) { return x[0]; } function g() { return 5; } console.log(f([g()]));` | `0` | `5` |
+  | `class C { constructor() { this.v = 4; } } function f(x) { return x.v; } console.log(f(new C()));` | `0` | `4` |
+
+  Eight of these nine rows are independently corroborated by Task 2's own
+  baseline measurement table (`task-2-report.md`), matching program shape to
+  Task 2's per-file kali/node readings: row 1 = `arg_literal_identifier.js`,
+  row 2 = `arg_literal_expression.js`, row 3 = `arg_literal_two_elements.js`,
+  row 4 = `arg_literal_bound.js`, row 5 = `arg_values_spread.js`, row 6 =
+  `arg_entries.js`, row 8 = `arg_literal_call_element.js`, row 9 =
+  `arg_construction.js`. **Row 7 (the `Object.keys` spread) is carried from
+  the spec's own table as written** — Task 2's 46-program baseline sweep has
+  no corresponding case file for this exact shape, so this one row is quoted,
+  not independently re-measured this task, and is flagged here rather than
+  silently presented as Task-2-corroborated like the other eight.
+- **Severity**: **Tier 2** — silently produces a wrong value.
+- **Blast radius**: countable, matcher `foldLaneArrayArgument`: raw 58 /
+  reachable 5 over the frozen corpus (anchor 5/5, extension 53/0), an upper
+  bound for the reason `count.mjs`'s `UPPER_BOUNDS` records — an acorn AST
+  cannot see whether a call's callee resolves to a compiled kali function,
+  which the argument guard requires before it fires.
+- **Pinned by**: two oracle cases (`r65a`, both scopes, `tier2.toml`) asserting
+  the SILENT class.
+- **Confidence**: high on behaviour for eight of the nine lanes (independently
+  re-measured at this baseline via Task 2's own case file), medium-high on the
+  ninth (the `Object.keys` spread row, carried from the spec's table rather
+  than independently re-measured this task); high on mechanism (the guard's
+  exact `all-Literal` condition read directly from `call.rs:3573-3615` at this
+  baseline).
 
 ---
 

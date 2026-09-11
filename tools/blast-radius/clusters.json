@@ -195,7 +195,20 @@
     "Root-cause line names and declines G6 by name -- the allocation is not an unimplemented",
     "builtin, it materializes correctly in three lanes and the callee side is proven innocent -- and",
     "declines G4 and G2 the same way. It is filed SILENT in its own commit and is expected to leave",
-    "this file when a later task in the same project (Task 8) retires it."
+    "this file when a later task in the same project (Task 8) retires it.",
+    "",
+    "ADDED 2026-09-11 by the same project, a second time: R-65 (a fold-lane array, or a",
+    "constructed value that lowers like one, passed to a user function reads as zeros in the",
+    "callee) also takes its own singleton definition, and the reasoning is worth reading in",
+    "full because the shape match is closer than usual: the register's own §2 Root-cause line",
+    "names G3 explicitly and states the match is exact -- the argument guard's diagnostic text",
+    "names the miscompile that leaks past it for every non-all-literal element -- and still",
+    "declines to add R-65 to G3's member list, on the same criterion R-47 and R-58 already",
+    "applied to their own G3-shaped guards: a cluster here is the unit a fix ships in, and",
+    "R-65's fix (the widened argument guard) ships in no code any G3 member's fix touches. It",
+    "declines G4, G6 and G2 the same way R-64 did, for reasons specific to this entry (see the",
+    "register). It is filed SILENT in its own commit and is expected to leave this file when a",
+    "later task in the same project (Task 9) retires it."
   ],
   "clusters": [
     {
@@ -287,6 +300,11 @@
       "name": "R-64 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered -- traced to one specific codegen floor, not a shared cluster ... Not G6 ... Not G4 ... Not G2'. Declined G6 because the allocation is not unimplemented -- it materializes correctly in three named lanes and the callee side is proven innocent by a bound-argument control; declined G4 because the allocation produces a real, distinct handle, not a value collapsing into 0's own representation; declined G2 because no callee is unresolved."
+    },
+    {
+      "name": "R-65 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered ... this has G3's shape exactly ... It is nonetheless not added to G3's member list, on the criterion clusters.json itself states and that R-47 and R-58 already decided the same way ... Not G4 ... Not G6 ... Not G2'. Declined G3 on the fix-unit rule, the same criterion R-47 and R-58 already applied to their own G3-shaped guards; declined G4 because the array or constructed value produces a real, distinct handle wherever a materializing lane reaches it; declined G6 because an array literal and a user class constructor are fully implemented language features, not unresolved builtins; declined G2 because the callee is resolved and compiled in every repro."
     }
   ],
   "assignments": [
@@ -492,6 +510,13 @@
       "registerSource": "unclustered -- traced to one specific codegen floor, not a shared cluster; §3's existing clusters are declined by name rather than assumed. Not G6 ... Not G4 ... Not G2 ... The value is dropped and a type-plausible 0 is pushed in its place, with no diagnostic.",
       "alternate": "G6 by surface resemblance (a type-plausible zero instead of a diagnostic), named and declined by the register because the allocation is not an unimplemented builtin -- it materializes correctly through three named lanes and a bound-argument control proves the callee side innocent.",
       "alternateCluster": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed"
+    },
+    {
+      "id": "R-65",
+      "cluster": "R-65 (unclustered)",
+      "registerSource": "unclustered -- this has G3's shape exactly ... It is nonetheless not added to G3's member list, on the criterion clusters.json itself states and that R-47 and R-58 already decided the same way for their own G3-shaped guards: a cluster there is the unit a fix actually ships in, and this entry's fix ships in no code any G3 member's fix touches. Not G4 ... Not G6 ... Not G2.",
+      "alternate": "G3 by shape (a guard keyed on one syntactic form, with a sibling form slipping past into the miscompile the guard's own diagnostic describes), named and declined by the register on the fix-unit rule R-47 and R-58 already established for their own G3-shaped guards.",
+      "alternateCluster": null
     }
   ]
 }

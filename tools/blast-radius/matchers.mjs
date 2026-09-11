@@ -1354,6 +1354,34 @@ export const MATCHERS = {
       .filter((node) => isArrayAllocation(node) && !materialized.has(node))
       .length;
   },
+
+  // R-65: an argument to a user function that kali cannot pass as a runtime
+  // handle -- an array literal (bound or inline, whatever its elements), a spread
+  // of one, or a constructed value, which lowers to the same text-less `Value`
+  // node as a one-element literal. The callee reads zero placeholders
+  // (`crates/kali_codegen/src/emit/call.rs:3573-3615` at `733cd26125`).
+  //
+  // Upper bound, disclosed in `count.mjs`'s UPPER_BOUNDS: an acorn AST cannot see
+  // whether the callee resolves to a compiled function, and the guard fires only
+  // when it does.
+  foldLaneArrayArgument(ast) {
+    const analysis = analysisOf(ast);
+    const arrayNames = new Set();
+    for (const node of analysis.of("VariableDeclarator")) {
+      if (node.id.type === "Identifier" && node.init && node.init.type === "ArrayExpression") {
+        arrayNames.add(node.id.name);
+      }
+    }
+    let total = 0;
+    for (const call of analysis.of("CallExpression")) {
+      for (const arg of call.arguments) {
+        if (arg.type === "ArrayExpression") total += 1;
+        else if (arg.type === "NewExpression" && !isArrayAllocation(arg)) total += 1;
+        else if (arg.type === "Identifier" && arrayNames.has(arg.name)) total += 1;
+      }
+    }
+    return total;
+  },
 };
 
 /** Every matcher's count for one source string. */

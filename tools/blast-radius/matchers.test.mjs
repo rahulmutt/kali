@@ -345,7 +345,7 @@ test("the module exports exactly the catalogue's countable matchers, by name", (
   const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
   const catalogueNames = countable.map((entry) => entry.matcher).sort();
   assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
-  assert.equal(catalogueNames.length, 44);
+  assert.equal(catalogueNames.length, 45);
 });
 
 test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling", () => {
@@ -662,4 +662,33 @@ test("allocationOutsideMaterializingLane counts allocations no lane materializes
     const e = new Map();                 // not an array allocation, does not count
   `;
   assert.equal(count("allocationOutsideMaterializingLane", src), 7);
+});
+
+test("foldLaneArrayArgument counts array arguments kali cannot pass as a handle", () => {
+  // Positives: an array literal argument (all-literal, identifier, expression,
+  // call element), a spread of an Object.values/keys result, a bound literal, and
+  // a constructed value -- which lowers to the same node as a one-element literal.
+  // Negatives: an allocation argument (a real handle after this project), a bound
+  // allocation, a scalar, and an array literal that is NOT an argument.
+  const src = `
+    function f(x) { return x[0]; }
+    const k = 3;
+    console.log(f([1, 2]));            // all-literal, counts
+    console.log(f([k]));               // identifier element, counts
+    console.log(f([1 + 1]));           // expression element, counts
+    function g() { return 5; }
+    console.log(f([g()]));             // call element, counts
+    const arr = [k];
+    console.log(f(arr));               // bound literal, counts
+    const o = {b: 1};
+    console.log(f([...Object.values(o)]));  // spread of a fold-lane result, counts
+    class C {}
+    console.log(f(new C()));           // constructed value, counts
+    console.log(f(new Array(3)));      // allocation, does not count
+    const a = new Array(2);
+    console.log(f(a));                 // bound allocation, does not count
+    console.log(f(7));                 // scalar, does not count
+    const standalone = [1, 2];         // not an argument, does not count
+  `;
+  assert.equal(count("foldLaneArrayArgument", src), 7);
 });

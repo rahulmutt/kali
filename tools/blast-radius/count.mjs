@@ -235,6 +235,16 @@ const UPPER_BOUNDS = {
       "Measured at `733cd26125` against node v26.8.2, `function f(x) { return 1; } " +
       "f(new Array(3))` prints `1` on both engines and is counted.",
   },
+  "R-65": {
+    disclosedInRecord: true,
+    note:
+      "Upper bound, per the record: the matcher counts every array-literal, bound-literal, " +
+      "spread, and constructed-value argument to a call, and an acorn AST cannot see whether " +
+      "the callee resolves to a compiled kali function -- which is what the argument guard " +
+      "(`crates/kali_codegen/src/emit/call.rs:3573-3615`) requires before it fires. An " +
+      "argument passed to a builtin, or to a callee this static pass never resolves, is " +
+      "counted here without ever reaching the guard.",
+  },
 };
 
 /**

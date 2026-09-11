@@ -382,10 +382,26 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// compiler code changed in this task, so the accept set is unchanged from
 /// R-63's re-freeze), and the only change is R-64's own new record: raw 0,
 /// reachable 0, `unsampled`. No other entry's figures moved.
+///
+/// **Re-frozen 2026-09-11 a third time**, the ninth movement of these
+/// constants, by the inline-allocation-value-position project filing **R-65**
+/// (§2, Tier 2 — a fold-lane array, or a constructed value that lowers like
+/// one, passed to a user function reads as zeros in the callee). One more §2
+/// entry, one more catalogue record, and **`matchers.mjs` moved**: the record
+/// is countable, `foldLaneArrayArgument`, raw 58 / reachable 5 over the frozen
+/// corpus (anchor 5/5, extension 53/0), an upper bound disclosed in
+/// `count.mjs`'s `UPPER_BOUNDS`. No other matcher body changed; `isArrayAllocation`
+/// (R-64's helper) is called unchanged, exactly as R-64's own re-freeze
+/// paragraph anticipated, to recognize the allocation argument this matcher's
+/// negative case excludes.
+///
+/// `counts.json` **was** regenerated (`accepts.json` did not move — no
+/// compiler code changed in this task either), and the only change is R-65's
+/// own new record: raw 58, reachable 5. No other entry's figures moved.
 const FROZEN_PREDICATES_SHA256: &str =
-    "59eeb67c0b012d344c0cb1468585e5d5dba811cb9b7efaa3db7ae04775f532a4";
+    "d18b63f6623b678d1dc696440c20554f359e8b24732c9bfd57b00c542790eff8";
 const FROZEN_MATCHERS_SHA256: &str =
-    "4ff80f5953fd40031de9cb57e7124cb03e6c5e688125033f053e234456db3ed5";
+    "cd49486ed6c1a6ed9ff1bdf3affb1e9dbef1fc60d13a8c2ac9963eb740ffbe0a";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {
