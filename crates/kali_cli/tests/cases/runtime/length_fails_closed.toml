@@ -148,6 +148,12 @@ function main() { const o = {ab: 1, c: 2}; console.log(Object.keys(o)[0].length)
 "let_array_module.js" = '''
 let a = [1, 2]; console.log(a.length);
 '''
+"new_precedence.js" = '''
+console.log(new Array(3).length);
+'''
+"new_precedence_in_function.js" = '''
+function main() { console.log(new Array(3).length); } main();
+'''
 
 [[case]]
 name = "a_const_string_binding_length_is_correct"
@@ -454,5 +460,19 @@ stderr_contains = ["E5506", "${FLOOR}"]
 name = "a_let_array_length_at_module_scope_refuses"
 rationale = """The module-scope form of `a_let_array_length_in_a_function_refuses` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.2: both scopes wherever the shape allows). Measured at `41307551cf`, whose compiler source is unchanged from `152fdd5364`: kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `2`: silently wrong. No lane proves this receiver's length, so it must refuse (sections 3.1-3.2)."""
 args = ["run", "let_array_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_new_array_member_chain_length_refuses"
+rationale = """At `152fdd5364` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `3` (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 2.6): silently wrong. `new` parses its callee with `parse_call_expression()`, so this is `new (Array(3).length)`, and `render_length`'s tail fallback rendered the `Array(3)` call node's child count. That fallback now declines (section 3.2), so the read refuses. Fail-closed, not fixed: the misparse is filed in docs/superpowers/followups/length-fails-closed-discovered-defects.md section 2. The spec's section 2.6 predicted this value would not move; it did, by the mechanism section 3.2 removes."""
+args = ["run", "new_precedence.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${FLOOR}"]
+
+[[case]]
+name = "a_new_array_member_chain_length_in_a_function_refuses"
+rationale = """The in-function form of `a_new_array_member_chain_length_refuses`. Its baseline value in this scope was not measured (old commits are not rebuilt); node v26.8.2 prints `3`, and kali now refuses as the module form does."""
+args = ["run", "new_precedence_in_function.js"]
 exit = "failure"
 stderr_contains = ["E5506", "${FLOOR}"]
