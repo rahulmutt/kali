@@ -350,6 +350,8 @@ Order: the generator question; the §4.2 pins, red; the R-64..R-67 filings; §3.
    go through the generators; if not, the re-pins are hand edits and each file's
    header records the divergence from its generator. Either way the plan records
    the route before editing.
+
+   **Route, measured 2026-09-11 at `733cd26125`:** running `gen_batch6a.py object_entries_iteration` and `gen_batch7b.py object_keys_entries_spread_bundle object_keys_entries_spread_harness object_values_spread_bundle object_values_spread_harness` produced no diff against the shipped case files. Task 9 therefore edits the generators and re-runs them.
 2. **After §3.3 lands, before §3.2:** the suite diff against the baseline contains
    only the fill-once pins of §4.2 turning green. Any other test moving, including
    from the reservation alone, stops the plan and goes back to the human partner.
