@@ -626,12 +626,8 @@ exit = "success"
 stdout = "7\n"
 
 [[case]]
-name = "a_dot_member_length_still_renders_the_child_count"
-rationale = """WRONG ON PURPOSE, and NO TASK IN THIS PLAN OWNS CLOSING IT. node prints 3; kali prints 1. The value is NOT the string's length and does not track it: measured at `71b5f42f6c` against node v26.8.1, `{a: "xyz"}` and `{a: "xyzwv"}` both print 1, `{a: "xyz", z: 1}` prints 2, and `{a: "xyz", z: 1, y: 2}` prints 3 -- which agrees with node by coincidence. See docs/superpowers/followups/member-length-renders-the-child-count.md.
-
-THE MECHANISM, MEASURED RATHER THAN ASSUMED. The plan's Task 8 brief described this as `the member node's child count`. That is the BRACKET spelling: `o["a"].length` returns 2 for every object and every string, because `render_length` stops at the two-child member node. The DOT spelling recurses one level through the receiver binding into the OBJECT LITERAL and returns ITS property count, which is why the number tracks the object's width and not the string. Both arms are `crates/kali_codegen/src/intrinsics/host.rs`'s `render_length` fallbacks (`:1336-1338` and `:1373-1377`), reached from `render_static_value`'s `"length"` member arm.
-
-WHY IT IS HERE. The computed half of this defect (`o[k].length`) refuses as of this project, and `run_refuses_a_chained_access_off_a_folded_member` above pins that. Without this case the dot half would be silently unpinned, and a reader would reasonably infer from the refusal that the whole family was handled. It was not: the dot spelling and the string-literal bracket spelling are both still silent, and the bracket-literal one is not pinned anywhere at all."""
+name = "a_dot_member_length_refuses_instead_of_rendering_the_child_count"
+rationale = """Was `a_dot_member_length_still_renders_the_child_count`, WRONG ON PURPOSE: at `152fdd5364` kali printed `1` -- the object literal's PROPERTY COUNT, through `render_length`'s tail fallback -- where node prints `3`, and no task in the plan that wrote it owned closing it. The length-fails-closed project owns it (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, sections 3.1-3.2): `render_length`'s fallbacks decline and `emit_unary`'s `.length` floor refuses, so the dot spelling now fails closed with E5506 instead of printing a child count. The bracket-literal spelling `o["a"].length`, which this file noted was pinned nowhere, is pinned refusing in runtime/length_fails_closed.toml. See docs/superpowers/followups/member-length-renders-the-child-count.md, which that project closes."""
 args = ["run", "dot_member_length.js"]
-exit = "success"
-stdout = "1\n"
+exit = "failure"
+stderr_contains = ["E5506", "no lane proves its length"]

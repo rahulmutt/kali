@@ -1511,26 +1511,30 @@ name = "r15_split_returns_empty_array_module_scope"
 kind = "oracle"
 register_entry = "R-15"
 program = "r15_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-15, module scope. §2's `Repro` (`s06_split.js`) verbatim: a `const` string literal split on a comma, with BOTH consumers the register states -- the `.length` read and the element read. Both are kept because the register's severity claim is "a wrong length *and* a leaked handle", which one consumer alone cannot show.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `len=3` / `1=b` against kali `len=0` / `1=-9223354418898927615` at exit 0, and §0.2's row reads "R-15 `.split()` result | **SILENT** | element-read shape -> len 0 + garbage handle; `.length`-only folds correctly". SILENT.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `len=0` then `1=-9223354418898927615` at exit 0 with empty stderr; node prints `len=3` then `1=b` at exit 0. The leaked handle is the same bit pattern the register recorded, digit for digit.
 
-WHY THIS DID NOT MOVE, GIVEN THE ENTRY'S PARTIAL CLOSURE. As of `61c2d48ea9` §2 carries a `STATUS 2026-07-20` recording R-15 PARTIALLY CLOSED: the RUNTIME `.split()` fallback was added to the Stream-A value-builtin deny-set and now fails closed with `E5506`, while "the static-ASCII fold lane … is preserved". The register's own repro binds a string LITERAL to a `const`, so it reaches the preserved static-fold lane rather than the runtime terminal, and the deny-set never sees it. The measurement is consistent with that STATUS line rather than in tension with it, and §0.2's SILENT row is the one that describes this repro. A case built on a runtime-constructed receiver would be a different program and would likely classify FAIL_CLOSED; this case does not measure it and does not claim it."""
+WHY THIS DID NOT MOVE, GIVEN THE ENTRY'S PARTIAL CLOSURE. As of `61c2d48ea9` §2 carries a `STATUS 2026-07-20` recording R-15 PARTIALLY CLOSED: the RUNTIME `.split()` fallback was added to the Stream-A value-builtin deny-set and now fails closed with `E5506`, while "the static-ASCII fold lane … is preserved". The register's own repro binds a string LITERAL to a `const`, so it reaches the preserved static-fold lane rather than the runtime terminal, and the deny-set never sees it. The measurement is consistent with that STATUS line rather than in tension with it, and §0.2's SILENT row is the one that describes this repro. A case built on a runtime-constructed receiver would be a different program and would likely classify FAIL_CLOSED; this case does not measure it and does not claim it.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the length-fails-closed project's fix (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md): FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and `error[E5506]: `.length` is unavailable in the current phase for this receiver: no lane proves its length, so kali refuses rather than emit a placeholder 0` on stderr; node prints `len=3` then `1=b` at exit 0. The `len=0` was the `.length` floor's placeholder `0` in `emit_unary`, not a `render_length` fallback: measured with the fix's `operators.rs` change alone (all three `render_length` fallbacks put back), this program still refuses at the floor. The fix refuses the `.length` read, so the whole program stops at compile time. That also means this program no longer observes the ELEMENT half, which is still wrong: the `r15e` pair measures it alone and still asserts SILENT. R-15 is not fixed, and is not retired. The verdict was flipped only after this reading."""
 
 [[case]]
 name = "r15_split_returns_empty_array_in_function"
 kind = "oracle"
 register_entry = "R-15"
 program = "r15_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-15, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
 
 THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-15 carries `Verification: sweep-only-top-level-only` and has no `Scopes affected` line at all, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree, precisely so a disagreement would surface as a red case rather than as an unmeasured gap.
 
-RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `len=0` then `1=-9223354418898927615` at exit 0; node prints `len=3` then `1=b` at exit 0. Byte-identical to the module scope, including the leaked handle's bit pattern. The scopes agree, and that agreement is itself the new datum: the entry can stop carrying `sweep-only-top-level-only` for this repro."""
+RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `len=0` then `1=-9223354418898927615` at exit 0; node prints `len=3` then `1=b` at exit 0. Byte-identical to the module scope, including the leaked handle's bit pattern. The scopes agree, and that agreement is itself the new datum: the entry can stop carrying `sweep-only-top-level-only` for this repro.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the length-fails-closed project's fix: FAIL_CLOSED (was SILENT), byte-identical to the module scope -- exit 1, empty stdout, the same `.length` floor diagnostic; node `len=3` / `1=b`. The element half is measured alone by `r15e`. The verdict was flipped only after this reading."""
 
 [[case]]
 name = "r15e_split_element_leaks_a_handle_module_scope"
@@ -2625,7 +2629,7 @@ name = "r63a_length_renders_a_child_count_module_scope"
 kind = "oracle"
 register_entry = "R-63"
 program = "r63a_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = '''
 R-63, the member-receiver lane, module scope. Section 2's `Repro` verbatim: a `.length` read off a named member whose value is a string.
 
@@ -2634,6 +2638,8 @@ Expected verdict set from the register's recorded status: section 0.2's R-63 row
 MEASURED 2026-09-11 at `152fdd5364` against node v26.8.2: SILENT. kali prints `1` at exit 0 with empty stderr; node prints `3` at exit 0. The `1` is the object literal's PROPERTY COUNT: `render_length`'s tail fallback (`crates/kali_codegen/src/intrinsics/host.rs:1373-1377` at `152fdd5364`) recursed through the receiver binding into the object literal and rendered its child count.
 
 WHAT A REGRESSION HERE WOULD MEAN. This pair is filed SILENT by the length-fails-closed project and flips to FAIL_CLOSED in the commit that fixes it (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 6.1). After that flip, a return to SILENT means a `.length` fallback fabricates a number again.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and `error[E5506]` naming "no lane proves its length" on stderr; node prints `3` at exit 0. Closed by the length-fails-closed project: `render_length`'s three fallbacks decline and `emit_unary`'s `.length` floor refuses. FAIL_CLOSED, not FIXED, on purpose: kali still has no lane that computes this length, and says so. The verdict was flipped only after this reading.
 '''
 
 [[case]]
@@ -2641,11 +2647,13 @@ name = "r63a_length_renders_a_child_count_in_function"
 kind = "oracle"
 register_entry = "R-63"
 program = "r63a_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = '''
 R-63, the member-receiver lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope.
 
 MEASURED 2026-09-11 at `152fdd5364` against node v26.8.2: SILENT. kali prints `1` at exit 0 with empty stderr; node prints `3` at exit 0. Byte-identical to the module scope.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FAIL_CLOSED (was SILENT), byte-identical to the module scope. The verdict was flipped only after this reading.
 '''
