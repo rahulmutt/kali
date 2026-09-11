@@ -4358,8 +4358,9 @@ tier, ordering is by blast radius.
   `kali_codegen`'s `is_array_literal`**: spec §2.2 measured that move turning
   three suite tests and five probe programs silently wrong, because every
   "not an array literal" branch lands on one of these fallbacks.
-- **Pinned by**: two oracle cases (`r63a`, both scopes, `tier2.toml`) asserting
-  the SILENT class.
+- **Pinned by**: two oracle cases (`r63a`, both scopes, `tier2.toml`) ~~asserting
+  the SILENT class~~ — **updated 2026-09-11 by the length-fails-closed fix: the two
+  cases now assert `fail_closed`.**
 - **Related**: `docs/superpowers/followups/member-length-renders-the-child-count.md`
   described the member lane first and suggested this home for it (its §6).
 - **Confidence**: high on behaviour (both scopes, ten lanes, a sixteen-position
