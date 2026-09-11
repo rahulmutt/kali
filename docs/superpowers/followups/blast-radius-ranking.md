@@ -1172,8 +1172,17 @@ extension stratum, so it enters §3 as `present-but-unreachable` and adds nothin
 to G6's reachable figure. G6's §2 row is now `| G6 — unresolved or unimplemented
 builtins fold to a default instead of failing closed | 2 | 0 | R-15, R-24, R-25,
 R-60, R-63 |` (was `| G6 — unresolved or unimplemented builtins fold to a
-default instead of failing closed | 2 | 0 | R-15, R-24, R-25, R-60 |`).
-`counts.json` was regenerated, which also moved
+default instead of failing closed | 2 | 0 | R-15, R-24, R-25, R-60 |`). **On the
+raw axis (§2.3), G6 moves from Band 6 to Band 3** — `| G6 — unresolved or
+unimplemented builtins fold to a default instead of failing closed | 2 | 38 |
+R-15, R-24, R-25, R-60, R-63 |` (was `| G6 — unresolved or unimplemented
+builtins fold to a default instead of failing closed | 2 | 3 | R-15, R-24, R-25,
+R-60 |` in what was then Band 6) — frequency 3 → 38, R-63's raw 35 accounting
+for the jump and by far the largest frequency swing anywhere in the regenerated
+tables. That move displaces G7 from Band 3 to Band 4, R-09 from Band 4 to Band
+5, and R-26 from Band 5 to Band 6, and merges R-34 into Band 7 alongside R-47;
+none of those four entries' own frequency changed, only the band the peeling
+computation assigns them. `counts.json` was regenerated, which also moved
 `nodeVersion` from `v26.8.1` to `v26.8.2` and added R-61's null record; no other
 matcher body changed. **The accept set was re-measured at the baseline binary
 `152fdd5364`**, so that the next regeneration's movement belongs to this project
