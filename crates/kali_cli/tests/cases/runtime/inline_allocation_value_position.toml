@@ -14,9 +14,9 @@
 #
 # NOTE ON MEASUREMENT: this file's baseline readings were re-measured directly
 # against `733cd26125` (task 2), not copied from the task-2 brief's draft
-# without checking. Two of the brief's six flagged SPIKE-vs-baseline rationales
-# disagreed with what was actually measured at the baseline; both are corrected
-# below and called out in the corrected case's own rationale, and again in
+# without checking. Of the brief's six flagged SPIKE-vs-baseline rationales,
+# one disagreed with what was actually measured at the baseline; it is
+# corrected below and called out in that case's own rationale, and again in
 # task 2's report.
 
 [constants]
@@ -315,7 +315,7 @@ stdout = "7\n"
 
 [[case]]
 name = "an_allocation_argument_in_string_concatenation_computes"
-rationale = """CORRECTED FROM THE TASK-2 BRIEF: the brief's step 2 draft quoted kali's baseline output as `0` here, but that was measured on the SPIKE build, not the baseline -- this is one of the six rationales task 2's step 1 exists to re-measure. Measured directly against `733cd26125`, kali prints `ab0` at exit 0 with no diagnostic where node v26.8.2 prints `ab4`. A concat sink holds the general scratch slot while emitting its operand, so this pins that the allocation does not clobber it (spec section 3.3)."""
+rationale = """This is one of the six rationales task 2's step 1 flagged for re-measurement against the baseline rather than the spike. Measured directly against `733cd26125`, kali prints `ab0` at exit 0 with no diagnostic where node v26.8.2 prints `ab4` -- matching what was already recorded here. A concat sink holds the general scratch slot while emitting its operand, so this pins that the allocation does not clobber it (spec section 3.3)."""
 args = ["run", "arg_in_concat.js"]
 exit = "success"
 stdout = "ab4\n"
