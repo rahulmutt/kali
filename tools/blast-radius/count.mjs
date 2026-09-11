@@ -227,6 +227,14 @@ const UPPER_BOUNDS = {
       "`{a: \"xyz\"}` prints `1`), a `let` array read in a function (`0`), and an awaited " +
       "combinator result (always `2`).",
   },
+  "R-64": {
+    disclosedInRecord: true,
+    note:
+      "Upper bound, per the record: the matcher counts every allocation outside the three " +
+      "materializing lanes, and an acorn AST cannot see whether the value is ever read. " +
+      "Measured at `733cd26125` against node v26.8.2, `function f(x) { return 1; } " +
+      "f(new Array(3))` prints `1` on both engines and is counted.",
+  },
 };
 
 /**

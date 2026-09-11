@@ -187,7 +187,15 @@
     "",
     "REMOVED 2026-09-11, next commit: R-63 leaves G6. Its one lane moved to FAIL_CLOSED when the",
     "length-fails-closed project's fix landed, so it left the SILENT filter, and an entry outside",
-    "that filter carries no assignment. G6 keeps its other members, so its definition stays."
+    "that filter carries no assignment. G6 keeps its other members, so its definition stays.",
+    "",
+    "ADDED 2026-09-11 by the inline-allocation-value-position project: R-64 (an array allocation",
+    "outside a declarator, assignment or `.fill` receiver evaluates to `0`) DECLINES every one of",
+    "the register's eight clusters and takes its own singleton definition. The register's own §2",
+    "Root-cause line names and declines G6 by name -- the allocation is not an unimplemented",
+    "builtin, it materializes correctly in three lanes and the callee side is proven innocent -- and",
+    "declines G4 and G2 the same way. It is filed SILENT in its own commit and is expected to leave",
+    "this file when a later task in the same project (Task 8) retires it."
   ],
   "clusters": [
     {
@@ -274,6 +282,11 @@
       "name": "R-58 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered ... It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion'. Declined because G3's stated remedy -- an allowlist at the choke point -- would refuse a program node runs."
+    },
+    {
+      "name": "R-64 (unclustered)",
+      "origin": "singleton",
+      "why": "§2: 'unclustered -- traced to one specific codegen floor, not a shared cluster ... Not G6 ... Not G4 ... Not G2'. Declined G6 because the allocation is not unimplemented -- it materializes correctly in three named lanes and the callee side is proven innocent by a bound-argument control; declined G4 because the allocation produces a real, distinct handle, not a value collapsing into 0's own representation; declined G2 because no callee is unresolved."
     }
   ],
   "assignments": [
@@ -472,6 +485,13 @@
       "registerSource": "G6 -- unresolved or unimplemented builtins fold to a default instead of failing closed ... it joins on measurement rather than resemblance ... G6's raising-confidence experiment is what filing this entry ran ... G6's fix unit reaches it ... It is not G2 ... It is not G4.",
       "alternate": "G2 by the shared zero-placeholder fallback, named and declined by the register because G2's members are all user function values and a missing builtin is what G6 holds; G4 is also named and declined, because the property is PRESENT and there is a right answer for the read to have returned.",
       "alternateCluster": "G2 — call lowering: unresolvable callee folds to constant `0`"
+    },
+    {
+      "id": "R-64",
+      "cluster": "R-64 (unclustered)",
+      "registerSource": "unclustered -- traced to one specific codegen floor, not a shared cluster; §3's existing clusters are declined by name rather than assumed. Not G6 ... Not G4 ... Not G2 ... The value is dropped and a type-plausible 0 is pushed in its place, with no diagnostic.",
+      "alternate": "G6 by surface resemblance (a type-plausible zero instead of a diagnostic), named and declined by the register because the allocation is not an unimplemented builtin -- it materializes correctly through three named lanes and a bound-argument control proves the callee side innocent.",
+      "alternateCluster": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed"
     }
   ]
 }

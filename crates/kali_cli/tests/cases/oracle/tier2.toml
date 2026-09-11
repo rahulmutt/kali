@@ -8,28 +8,31 @@
 # ---------------------------------------------------------------------------
 # COVERAGE -- THIS FILE IS COMPLETE FOR TIER 2.
 #
-# Tier 2 holds THIRTY-TWO entries with oracle cases: R-06, R-07, R-08, R-09,
+# Tier 2 holds THIRTY-THREE entries with oracle cases: R-06, R-07, R-08, R-09,
 # R-10, R-11, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-19, R-20, R-21, R-22,
 # R-23, R-24, R-25, R-26, R-27, R-28, R-47, R-48, R-53, R-56, R-57, R-58, R-59,
-# R-60, R-63. (R-61 is also Tier 2, but it is a release-tier condition and this
-# harness measures the default tier only; see its section 2 entry.)
+# R-60, R-63, R-64. (R-61 is also Tier 2, but it is a release-tier condition and
+# this harness measures the default tier only; see its section 2 entry.)
+# ~~THIRTY-TWO ... R-60, R-63.~~
 # ~~THIRTY-ONE ... R-59, R-60.~~
 # ~~TWENTY-NINE ... R-56, R-57, R-58.~~
 # ~~TWENTY-SEVEN ... R-53, R-56.~~
 #
-# ALL THIRTY-TWO ARE COVERED HERE, in ONE HUNDRED AND FOUR cases (~~one hundred and two~~; ~~thirty-one /
-# one hundred~~; ~~twenty-nine / ninety-six~~; ~~twenty-seven / ninety-two~~).
+# ALL THIRTY-THREE ARE COVERED HERE, in ONE HUNDRED AND SIX cases (~~one hundred and four~~; ~~one
+# hundred and two~~; ~~thirty-one / one hundred~~; ~~twenty-nine / ninety-six~~; ~~twenty-seven /
+# ninety-two~~).
 # Nothing in Tier 2 is left unauthored. The file was written in
-# six passes -- R-06..R-17
+# seven passes -- R-06..R-17
 # (thirty-four cases, 2026-08-15, `2a49fa1f3f`), R-18..R-53 (fifty-six cases,
 # 2026-08-15, `36f9c814a2`), R-56 (two cases, 2026-08-16, at `3a636f62fb`,
 # by the console-render-unification project's final whole-branch review),
 # R-57/R-58 (four cases, 2026-09-08, at `b13c890330`, by the
 # register-property-key-followups branch, off `dde0f083c0`), R-59/R-60
-# (four cases, 2026-09-08, at `02297ca6c2`, the same branch's second pair) and
+# (four cases, 2026-09-08, at `02297ca6c2`, the same branch's second pair),
 # R-63 (two cases, 2026-09-11, off `152fdd5364`, by the length-fails-closed
 # project), plus R-15's element-only lane r15e (two cases, same date, same
-# project) -- and
+# project), and R-64 (two cases, 2026-09-11, off `733cd26125`, by the
+# inline-allocation-value-position project) -- and
 # the passes' measurement summaries are kept separate below because they were
 # taken at different commits.
 #
@@ -120,6 +123,7 @@
 #   R-59   --                         r59a_..._module_scope  r59a_..._in_function
 #   R-60   --                         r60a_..._module_scope  r60a_..._in_function
 #   R-63   member receiver            r63a_..._module_scope  r63a_..._in_function
+#   R-64   allocation-argument lane   r64a_..._module_scope  r64a_..._in_function
 #
 # R-57 AND R-58 EACH GET ONE PAIR, NOT MORE, and the rule below is what decides
 # that. Neither entry states a second class or a separately named repro program:
@@ -1078,6 +1082,15 @@ console.log(o.a.length);
 "r63a_function.js" = """function main() {
   const o = {a: "xyz"};
   console.log(o.a.length);
+}
+main();
+"""
+"r64a_module.js" = """function f(x) { return x.length; }
+console.log(f(new Array(6)));
+"""
+"r64a_function.js" = """function main() {
+  function f(x) { return x.length; }
+  console.log(f(new Array(6)));
 }
 main();
 """
@@ -2656,4 +2669,36 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 MEASURED 2026-09-11 at `152fdd5364` against node v26.8.2: SILENT. kali prints `1` at exit 0 with empty stderr; node prints `3` at exit 0. Byte-identical to the module scope.
 
 RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FAIL_CLOSED (was SILENT), byte-identical to the module scope. The verdict was flipped only after this reading.
+'''
+
+[[case]]
+name = "r64a_allocation_argument_module_scope"
+kind = "oracle"
+register_entry = "R-64"
+program = "r64a_module.js"
+verdict = "silent"
+rationale = '''
+R-64, the allocation-as-call-argument lane, module scope. Section 2's `Repro` verbatim: an inline `new Array(n)` passed straight into a call whose parameter reads `.length`.
+
+Expected verdict set from the register's recorded status: section 0.2's R-64 row and section 2's entry both record SILENT in both scopes, so SILENT.
+
+MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `0` at exit 0 with empty stderr; node prints `6` at exit 0. The allocation reaches `f` as an argument, which is none of codegen's three materializing lanes, so `emit_aggregate_literal` drops it and pushes `0`; `f` then reads a length header at address zero.
+
+WHAT A REGRESSION HERE WOULD MEAN. This pair is filed SILENT by the inline-allocation-value-position project and is expected to flip to FIXED in Task 8's commit, which routes an allocation in value position through a real handle (spec `docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`, section 3.2). After that flip, a return to SILENT means an allocation argument reads zeros again.
+'''
+
+[[case]]
+name = "r64a_allocation_argument_in_function"
+kind = "oracle"
+register_entry = "R-64"
+program = "r64a_function.js"
+verdict = "silent"
+rationale = '''
+R-64, the allocation-as-call-argument lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
+
+Expected verdict set from the register's recorded status: SILENT, as for the module scope.
+
+MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `0` at exit 0 with empty stderr; node prints `6` at exit 0. Byte-identical to the module scope.
+
+WHAT A REGRESSION HERE WOULD MEAN. Filed SILENT by the inline-allocation-value-position project; expected to flip to FIXED in Task 8's commit, byte-identical to the module-scope case's note. After that flip, a return to SILENT means an allocation argument reads zeros again, in this scope too.
 '''

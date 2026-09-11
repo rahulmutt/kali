@@ -345,7 +345,7 @@ test("the module exports exactly the catalogue's countable matchers, by name", (
   const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
   const catalogueNames = countable.map((entry) => entry.matcher).sort();
   assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
-  assert.equal(catalogueNames.length, 43);
+  assert.equal(catalogueNames.length, 44);
 });
 
 test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling", () => {
@@ -638,4 +638,28 @@ test("R-13's breakdown counts a store target as a store, not a read", () => {
   assert.equal(breakdown.total, 2);
   assert.equal(breakdown.storeTarget, 1);
   assert.equal(breakdown.arrayLikeReceiver, 2);
+});
+
+test("allocationOutsideMaterializingLane counts allocations no lane materializes", () => {
+  // Positives: an allocation as a call argument, as a `.fill` argument's own
+  // receiver-free value, in a ternary arm, returned, in an object property, and
+  // the bare `Array(n)` spelling. Negatives: the three lanes that DO materialize
+  // -- a declarator init, an assignment right-hand side, and a `.fill` receiver
+  // -- and a non-array constructor.
+  const src = `
+    function f(x) { return x.length; }
+    console.log(f(new Array(6)));        // argument, counts
+    console.log(f(Array(6)));            // bare call argument, counts
+    console.log(f(new Uint8Array(4)));   // typed-array argument, counts
+    const c = true;
+    console.log(f(c ? new Array(2) : new Array(3))); // two ternary arms, counts twice
+    function mk() { return new Array(3); }           // returned, counts
+    const o = { arr: new Array(3) };                 // property value, counts
+    const a = new Array(5);              // declarator init, does not count
+    let b;
+    b = new Array(2);                    // assignment rhs, does not count
+    const d = new Array(4).fill(1);      // fill receiver + declarator, does not count
+    const e = new Map();                 // not an array allocation, does not count
+  `;
+  assert.equal(count("allocationOutsideMaterializingLane", src), 7);
 });

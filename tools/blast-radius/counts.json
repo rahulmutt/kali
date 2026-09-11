@@ -1024,6 +1024,28 @@
         "note": "Upper bound, per the record: the matcher counts every `.length` READ on a member or element receiver, an awaited `Promise.all`/`allSettled` result, or a `let`-bound identifier, and an acorn AST cannot see which codegen lane proves the receiver. Several counted shapes read correctly, measured at `152fdd5364` against node v26.8.2: `const o = {a: [1, 2, 3]}; o.a.length` prints `3` and `const m = [[1, 2], [3, 4, 5]]; m[1].length` prints `3`, both on both engines. The entry's own lanes are the ones that diverge: a string-valued member (`o.a.length` over `{a: \"xyz\"}` prints `1`), a `let` array read in a function (`0`), and an awaited combinator result (always `2`)."
       },
       "alternateReading": null
+    },
+    {
+      "id": "R-64",
+      "matcher": "allocationOutsideMaterializingLane",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the matcher counts every allocation outside the three materializing lanes, and an acorn AST cannot see whether the value is ever read. Measured at `733cd26125` against node v26.8.2, `function f(x) { return 1; } f(new Array(3))` prints `1` on both engines and is counted."
+      },
+      "alternateReading": null
     }
   ]
 }

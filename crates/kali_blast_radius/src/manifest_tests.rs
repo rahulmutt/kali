@@ -363,10 +363,29 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// are not R-63: `nodeVersion` went from `v26.8.1` to `v26.8.2` (the node this
 /// machine runs), and R-61 gained the null record `count.mjs` writes for every
 /// uncountable entry, which R-61's own filing had deliberately not generated.
+///
+/// **Re-frozen 2026-09-11 a second time**, the eighth movement of these
+/// constants, by the inline-allocation-value-position project filing **R-64**
+/// (§2, Tier 2 — an `Array`/`Uint8Array` allocation whose value is used outside
+/// codegen's three materializing lanes evaluates to `0`). One more §2 entry,
+/// one more catalogue record, and **`matchers.mjs` moved**: the record is
+/// countable, `allocationOutsideMaterializingLane`, raw 0 / reachable 0 over
+/// the frozen corpus (`unsampled` — no anchor or extension program contains
+/// this shape), an upper bound disclosed in `count.mjs`'s `UPPER_BOUNDS`. No
+/// other matcher body changed; the new helper `isArrayAllocation` beside
+/// `isUnprovenLengthReceiver` is used only by this one matcher so far, and is
+/// written for reuse by the two sibling matchers a later task in the same
+/// project adds (R-65's `foldLaneArrayArgument`, R-66's
+/// `oneElementLiteralOfAllocation`).
+///
+/// `counts.json` **was** regenerated (`accepts.json` did not move — no
+/// compiler code changed in this task, so the accept set is unchanged from
+/// R-63's re-freeze), and the only change is R-64's own new record: raw 0,
+/// reachable 0, `unsampled`. No other entry's figures moved.
 const FROZEN_PREDICATES_SHA256: &str =
-    "d3176fb7f5dd4c65f0868f810e163a5b12f5027f0a2cd4d6831beac3e366285e";
+    "59eeb67c0b012d344c0cb1468585e5d5dba811cb9b7efaa3db7ae04775f532a4";
 const FROZEN_MATCHERS_SHA256: &str =
-    "6873427fde225a24997ac7f7c9dcd9cae64a29c2c02d75051ad72aaa6db34e4b";
+    "4ff80f5953fd40031de9cb57e7124cb03e6c5e688125033f053e234456db3ed5";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {

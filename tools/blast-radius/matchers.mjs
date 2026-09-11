@@ -470,6 +470,18 @@ function isUnprovenLengthReceiver(receiver, analysis) {
   return isAwaitedPromiseCombinator(binding.init);
 }
 
+/**
+ * `Array(n)` / `new Array(n)` / `Uint8Array(n)` / `new Uint8Array(n)`, the callee
+ * spellings `FunctionEmitter::is_array_like_constructor`
+ * (`crates/kali_codegen/src/emit/call.rs:5510`) accepts, with at most one argument.
+ */
+function isArrayAllocation(node) {
+  const callee = node.callee;
+  if (!callee || callee.type !== "Identifier") return false;
+  if (callee.name !== "Array" && callee.name !== "Uint8Array") return false;
+  return node.arguments.length <= 1;
+}
+
 export const MATCHERS = {
   // R-01: a `function` declaration or function expression with a default-valued
   // parameter (arrow forms excluded -- they fail closed).
@@ -1309,6 +1321,37 @@ export const MATCHERS = {
     return analysis
       .of("MemberExpression")
       .filter((node) => !stores.has(node) && isLengthProperty(node) && isUnprovenLengthReceiver(node.object, analysis))
+      .length;
+  },
+
+  // R-64: an `Array`/`Uint8Array` allocation whose value is used somewhere none
+  // of codegen's three materializing lanes reaches -- the declarator init
+  // (`crates/kali_codegen/src/emit/control_flow.rs:1690`, `:1711`), the
+  // assignment right-hand side (`emit/literal.rs:1043`) and the `.fill` receiver
+  // (`emit/call.rs:6004`). Everywhere else the node is a text-less `Value` and
+  // `emit_aggregate_literal` drops it and pushes `0`.
+  //
+  // Upper bound, disclosed in `count.mjs`'s UPPER_BOUNDS: an acorn AST cannot see
+  // that a callee ignores its parameter, and such a call is counted even though
+  // it prints correctly.
+  allocationOutsideMaterializingLane(ast) {
+    const analysis = analysisOf(ast);
+    const materialized = new Set();
+    for (const node of analysis.of("VariableDeclarator")) {
+      if (node.init) materialized.add(node.init);
+    }
+    for (const node of analysis.of("AssignmentExpression")) {
+      materialized.add(node.right);
+    }
+    for (const node of analysis.of("CallExpression")) {
+      if (node.callee.type === "MemberExpression" && node.callee.property.name === "fill") {
+        materialized.add(node.callee.object);
+      }
+    }
+    return analysis
+      .of("CallExpression")
+      .concat(analysis.of("NewExpression"))
+      .filter((node) => isArrayAllocation(node) && !materialized.has(node))
       .length;
   },
 };
