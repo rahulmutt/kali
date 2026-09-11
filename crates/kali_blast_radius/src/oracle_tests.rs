@@ -181,7 +181,7 @@ fn every_zero_two_row_is_the_class_set_its_live_cases_assert() {
 /// The four instrument-only cases must stay unattributed, and must stay four.
 /// If one of them ever acquired a real `register_entry`, the test above would
 /// fold an instrument measurement into an entry's class set and could still be
-/// green; §0.2's own paragraph commits to exactly four, out of exactly 167.
+/// green; §0.2's own paragraph commits to exactly four, out of exactly 169.
 #[test]
 fn exactly_four_oracle_cases_are_unattributed_and_all_of_them_are_ground_truth() {
     let cases = all_oracle_cases();
@@ -197,8 +197,8 @@ fn exactly_four_oracle_cases_are_unattributed_and_all_of_them_are_ground_truth()
     );
     assert_eq!(
         cases.len(),
-        167,
-        "§0.2 states that 167 oracle cases exist and that 163 of them back its 47 rows; a \
+        169,
+        "§0.2 states that 169 oracle cases exist and that 165 of them back its 47 rows; a \
          changed total needs that sentence regenerated with it"
     );
 }

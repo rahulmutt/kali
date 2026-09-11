@@ -22,7 +22,7 @@ fn crypto_get_random_values_lowers_to_kalirt_import() {
 
 #[test]
 fn crypto_random_uuid_lowers_to_kalirt_import() {
-    let program = parse_and_lower_lir("const u = crypto.randomUUID(); console.log(u.length);");
+    let program = parse_and_lower_lir("const u = crypto.randomUUID(); console.log(u);");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,

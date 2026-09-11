@@ -283,6 +283,20 @@ RULING16_NOTE = [
 #            targets. 8 fns = ext(4) x json_output(2), uniform over ext.
 # =========================================================================
 
+# 2026-09-11, length-fails-closed: the Promise.all and Promise.allSettled bundle
+# captures had their `.length !== 2 ||` guard lines deleted by hand, so their
+# rendered rationale must not go on claiming byte-exact builder output unqualified.
+LENGTH_GUARDS_AMENDMENT = (
+    "AMENDED 2026-09-11 by the length-fails-closed project (spec "
+    "docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.3): every "
+    "`X.length !== 2 ||` clause was deleted from this capture by hand, so the program is no "
+    "longer byte-exact builder output. Those guards passed only because kali rendered an "
+    "awaited Promise.all or Promise.allSettled result's `.length` as the call node's child "
+    "count, which is 2 for any number of promises. The element checks beside every deleted "
+    "guard are unchanged, and runtime/length_fails_closed.toml pins that `.length` read "
+    "refusing."
+)
+
 BUNDLE_TARGETS = {
     "promise_all_bundle": dict(
         helper="assert_browser_bundle_promise_all",
@@ -295,6 +309,7 @@ BUNDLE_TARGETS = {
         kc_fn="promise_all_browser_body_source",
         kc_doc="Canonical browser smoke body for the supported `Promise.all` slice.",
         what="the browser `Promise.all` smoke body",
+        amended=LENGTH_GUARDS_AMENDMENT,
     ),
     "promise_all_settled_bundle": dict(
         helper="assert_browser_bundle_promise_all_settled",
@@ -307,6 +322,7 @@ BUNDLE_TARGETS = {
         kc_fn="promise_all_settled_browser_body_source",
         kc_doc="Canonical browser smoke body for the supported `Promise.allSettled` slice.",
         what="the browser `Promise.allSettled` smoke body",
+        amended=LENGTH_GUARDS_AMENDMENT,
     ),
     "promise_race_bundle": dict(
         helper="assert_browser_bundle_promise_race",
@@ -534,6 +550,8 @@ def _bundle_rationale(name, spec, json_output, fn_names, repin, docs,
         f"RULE 12 -- the Rust comment prose of browser_{name}.rs, carried verbatim: "
         f"\"{repin}\"",
     ]
+    if spec.get("amended"):
+        parts.insert(4, spec["amended"])
     if docs:
         parts.append(P.rule13_carried(docs) + " That doc belongs to "
                      + spec["kc_fn"] + " (named plainly rather than backticked: U8's gate "

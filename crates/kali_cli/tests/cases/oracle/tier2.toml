@@ -17,7 +17,7 @@
 # ~~TWENTY-NINE ... R-56, R-57, R-58.~~
 # ~~TWENTY-SEVEN ... R-53, R-56.~~
 #
-# ALL THIRTY-TWO ARE COVERED HERE, in ONE HUNDRED AND TWO cases (~~thirty-one /
+# ALL THIRTY-TWO ARE COVERED HERE, in ONE HUNDRED AND FOUR cases (~~one hundred and two~~; ~~thirty-one /
 # one hundred~~; ~~twenty-nine / ninety-six~~; ~~twenty-seven / ninety-two~~).
 # Nothing in Tier 2 is left unauthored. The file was written in
 # six passes -- R-06..R-17
@@ -28,6 +28,7 @@
 # register-property-key-followups branch, off `dde0f083c0`), R-59/R-60
 # (four cases, 2026-09-08, at `02297ca6c2`, the same branch's second pair) and
 # R-63 (two cases, 2026-09-11, off `152fdd5364`, by the length-fails-closed
+# project), plus R-15's element-only lane r15e (two cases, same date, same
 # project) -- and
 # the passes' measurement summaries are kept separate below because they were
 # taken at different commits.
@@ -81,7 +82,8 @@
 #   R-13   read repro                 r13r_..._module_scope  r13r_..._in_function
 #   R-13   write repro                r13w_..._module_scope  r13w_..._in_function
 #   R-14   --                         r14_..._module_scope   r14_..._in_function
-#   R-15   --                         r15_..._module_scope   r15_..._in_function
+#   R-15   .length + element read     r15_..._module_scope   r15_..._in_function
+#   R-15   element read alone         r15e_..._module_scope  r15e_..._in_function
 #   R-16   --                         r16_..._module_scope   r16_..._in_function
 #   R-17   --                         r17_..._module_scope   r17_..._in_function
 #   R-18   --                         r18_..._module_scope   r18_..._in_function
@@ -722,6 +724,13 @@ main();
 """
 "r15_function.js" = """function main() {
   const s="a,b,c"; const p=s.split(","); console.log("len="+p.length); console.log("1="+p[1]);
+}
+main();
+"""
+"r15e_module.js" = """const s="a,b,c"; const p=s.split(","); console.log("1="+p[1]);
+"""
+"r15e_function.js" = """function main() {
+  const s="a,b,c"; const p=s.split(","); console.log("1="+p[1]);
 }
 main();
 """
@@ -1522,6 +1531,28 @@ rationale = """R-15, in-function scope. The module-scope repro verbatim inside `
 THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-15 carries `Verification: sweep-only-top-level-only` and has no `Scopes affected` line at all, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree, precisely so a disagreement would surface as a red case rather than as an unmeasured gap.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `len=0` then `1=-9223354418898927615` at exit 0; node prints `len=3` then `1=b` at exit 0. Byte-identical to the module scope, including the leaked handle's bit pattern. The scopes agree, and that agreement is itself the new datum: the entry can stop carrying `sweep-only-top-level-only` for this repro."""
+
+[[case]]
+name = "r15e_split_element_leaks_a_handle_module_scope"
+kind = "oracle"
+register_entry = "R-15"
+program = "r15e_module.js"
+verdict = "silent"
+rationale = """R-15, the element-read lane on its own, module scope. The register's repro without the `.length` consumer: `const s="a,b,c"; const p=s.split(","); console.log("1="+p[1]);`.
+
+WHY THIS LANE EXISTS. Added 2026-09-11 by the length-fails-closed project (spec docs/superpowers/specs/2026-09-11-length-fails-closed-design.md, section 4.4). That project makes a `.length` read with no length lane refuse, so the `r15` pair's program, which prints `len=` before the element, stops at compile time and can no longer observe the element half. This lane keeps the leaking half measured by itself.
+
+MEASURED 2026-09-11 at `152fdd5364` against node v26.8.2: SILENT. kali prints `1=-9223354418898927615` at exit 0 with empty stderr; node prints `1=b` at exit 0. The handle's bit pattern is the one the register recorded. The same reading holds with that project's fix applied: this program reads no `.length`."""
+
+[[case]]
+name = "r15e_split_element_leaks_a_handle_in_function"
+kind = "oracle"
+register_entry = "R-15"
+program = "r15e_function.js"
+verdict = "silent"
+rationale = """R-15, the element-read lane on its own, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();`.
+
+MEASURED 2026-09-11 at `152fdd5364` against node v26.8.2: SILENT, byte-identical to the module scope: kali `1=-9223354418898927615` at exit 0, node `1=b`."""
 
 [[case]]
 name = "r16_string_method_handle_leak_in_concat_module_scope"
