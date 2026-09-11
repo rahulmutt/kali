@@ -1376,10 +1376,13 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        // What is left (a named member such as `o.a`, whose one child is the
-        // receiver) has no static length either. This tail used to recurse into
-        // that child and render ITS child count, so `o.a.length` printed the
-        // object's property count; it declines instead.
+        // What is left has no static length either. This tail used to branch on
+        // child count: a one-child node (a named member such as `o.a`, whose one
+        // child is the receiver) recursed into that child and rendered ITS child
+        // count, so `o.a.length` printed the object's property count; a
+        // two-or-more-child node (a sequence, a binary operator) rendered its own
+        // child count directly, e.g. `(a, b).length` printed `2`. Both decline
+        // instead.
         None
     }
 
