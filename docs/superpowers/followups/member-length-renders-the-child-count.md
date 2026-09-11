@@ -1,5 +1,23 @@
 # `.length` on a member-expression receiver renders a NODE'S CHILD COUNT, not a length
 
+> **CLOSED 2026-09-11** by the **length-fails-closed** project
+> (`docs/superpowers/specs/2026-09-11-length-fails-closed-design.md`), filed and
+> retired in the register as **R-63**, the home §6 below suggested. Every silent
+> row of §1's table now refuses with `E5506` at exit 1: `render_length`'s arity
+> fallbacks (§2's `:1336-1338` and `:1373-1377`) and its baked `0` decline, and
+> `emit_unary`'s `.length` floor refuses instead of pushing `0`. The three-property
+> row §1 marks "agrees by coincidence" refuses too, which is the honest outcome:
+> its `3` was never computed. The `{a: [1,2,3]}` dot row still prints `3`, now
+> through a lane that computes it. §4's pin
+> `a_dot_member_length_still_renders_the_child_count` is now
+> `a_dot_member_length_refuses_instead_of_rendering_the_child_count`, and the
+> bracket-literal spelling and the `let` receiver that §4 says nothing pinned are
+> pinned refusing in `crates/kali_cli/tests/cases/runtime/length_fails_closed.toml`,
+> as is §5's `["abc"][0].length`. **Not closed here:** §2's sibling arm in
+> `render_static_value` (`host.rs:928-942`), which is R-31's mechanism. The
+> `docs/superpowers/sdd/2026-09-08-computed-member-static-name/` directory cited
+> below was never committed.
+
 **Filed** 2026-09-09, at `71b5f42f6c`, by the **computed-member-static-name**
 project (`docs/superpowers/sdd/2026-09-08-computed-member-static-name/`), which
 met it while measuring the chained-access lane. It is **not R-13**, **not

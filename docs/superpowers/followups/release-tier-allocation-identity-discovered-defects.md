@@ -27,6 +27,9 @@ document:
    on the exact code path (declarator initializers) that caused the headline
    defect. **This is the single most important thing to read out of Task 8's
    filing**, and it says so itself, with the reasoning.
+   **Withdrawn 2026-09-11:** the length-fails-closed project measured that
+   document's prescription fail-open; read the correction at its top first. The
+   `task-N-report.md` files this document cites were never committed.
 2. **Which of the three target Benchmarks Game fixtures Stage 1 actually
    restored** — one of three (`fannkuch-redux`), not all three. Filed as a
    new "Status as of Task 8" section inside
