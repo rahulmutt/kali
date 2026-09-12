@@ -5546,13 +5546,28 @@ impl<'a> FunctionEmitter<'a> {
     /// Checking the object name closes that: with `globalThis` itself bound,
     /// this returns `false`, Task 8's arms decline, and the program reaches
     /// the same `E5506` first-class-function-value refusal as its controls
-    /// (kali cannot call a method on a user object at all). Note the guard
-    /// still checks a NAME, not an identity: an object expression whose own
-    /// text is `globalThis` but which is not a bare binding (`a.globalThis
-    /// .Uint8Array(5)`) is still matched by `is_array_like_constructor`'s
-    /// text-only object match and is not something this guard can see -- that
-    /// recognizer-level gap is filed, not fixed (Task 8 report §13.2), and
-    /// affects the pre-existing declarator lane identically.
+    /// (kali cannot call a method on a user object at all).
+    ///
+    /// **The accepted qualified set is finite and stated positively: exactly
+    /// one shape, a BARE identifier named `globalThis`, whose binding is then
+    /// checked.** Anything else -- a member-expression object
+    /// (`a.globalThis.Uint8Array(5)`), or an object node with no text at all
+    /// -- returns `false`. That is not an exclusion list of known-bad
+    /// spellings; it is the complement of the one admitted shape, which is
+    /// why the nested spelling cannot reopen the hazard the way rounds 1-4
+    /// each did. It matters because a member-expression node carries its
+    /// PROPERTY name as its own text, so reading that text alone would check
+    /// `globalThis` while the binding that actually decides the meaning is
+    /// the base identifier (`a`) -- measured, before this was closed: `const
+    /// a = {globalThis:{Uint8Array:(n)=>n+1}};` with
+    /// `f(a.globalThis.Uint8Array(5))` gave kali `4104` at exit 0 where node
+    /// prints `6`, while the renamed-property, renamed-object and
+    /// two-argument controls all refused with `E5506`. The one casualty is
+    /// `globalThis.globalThis.Uint8Array(n)`, which names the real builtin
+    /// and now refuses instead of allocating -- accepted deliberately: this
+    /// spec is "a real array, OR a refusal", and a refusal on a pathological
+    /// spelling is the direction it prefers.
+    ///
     /// (`"Array"` has no qualified form at all in
     /// `is_array_like_constructor`, so the split is a no-op for it.)
     ///
@@ -5604,12 +5619,26 @@ impl<'a> FunctionEmitter<'a> {
         // and `is_array_like_constructor` matches that object by text alone.
         let guarded = match callee_node.children.first() {
             None => ctor,
-            Some(&object) => match self.node(object).text.as_deref() {
-                Some(object_name) => object_name,
-                // A qualifying object with no name of its own is not a
-                // binding this guard can resolve: decline rather than route.
-                None => return false,
-            },
+            Some(&object) => {
+                let object_node = self.node(object);
+                // A qualifying object that is not a BARE identifier names no
+                // binding this guard can check: a member-expression object
+                // (`a.globalThis`) carries its PROPERTY name as its own text,
+                // so reading that text would check `globalThis` while the
+                // binding that decides the meaning is the base (`a`). Decline
+                // -- the accepted qualified set is exactly one shape, a bare
+                // identifier named `globalThis`, whose binding is then
+                // checked below.
+                if !object_node.children.is_empty() {
+                    return false;
+                }
+                match object_node.text.as_deref() {
+                    Some(object_name) => object_name,
+                    // A qualifying object with no name of its own is not a
+                    // binding this guard can resolve: decline rather than route.
+                    None => return false,
+                }
+            }
         };
         !(self.locals.contains_key(guarded)
             || self.bindings.contains_key(guarded)

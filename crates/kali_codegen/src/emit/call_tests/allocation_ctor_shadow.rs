@@ -1,14 +1,27 @@
-//! Task 8's `allocation_ctor_unshadowed` guard (`crates/kali_codegen/src/emit/call.rs`):
-//! a bare `Array`/`Uint8Array` allocation callee must decline routing to the
-//! shared `__alloc` helper when a user binding of the same name shadows it,
-//! but a `globalThis`-qualified callee must ALWAYS route, because qualifying
-//! through `globalThis` names the real builtin no matter what bare-name
-//! binding exists. Both facts were regressions found by code review after
-//! this task's first landing (round 1: the bare-name case was unguarded at
-//! all; round 2: the guard, once added, over-blocked the qualified
-//! spelling) -- these two tests pin the corrected behaviour so neither
-//! regresses silently again. Deliberately structural (wasm-shape) rather
-//! than an oracle `.toml` pin: Task 2 owns
+//! Task 8's `allocation_ctor_unshadowed` guard (`crates/kali_codegen/src/emit/call.rs`)
+//! decides when a text-matched `Array`/`Uint8Array` callee may route to the
+//! shared `__alloc` helper. The rule these four tests pin, in both
+//! directions:
+//!
+//! - a BARE callee routes only while the ctor name is unbound -- a user
+//!   `function Uint8Array` / `const Uint8Array` must be called, not allocated;
+//! - a QUALIFIED callee routes only in exactly one shape, a bare identifier
+//!   named `globalThis` whose own name is unbound. A bare-name `Uint8Array`
+//!   shadow must NOT block it (qualifying through the real global names the
+//!   real property), but a user binding named `globalThis` must, and so must
+//!   a nested/member-expression object (`a.globalThis.Uint8Array(n)`), whose
+//!   node carries its PROPERTY name as its text while the deciding binding is
+//!   the base identifier.
+//!
+//! Every one of those facts was a regression found by code review after this
+//! task's first landing -- round 1: the bare-name case was unguarded at all;
+//! round 2: the guard then over-blocked the qualified spelling; round 4: the
+//! wholesale qualified exemption that fixed round 2 routed a user object
+//! bound to the name `globalThis`; round 5: reading the object's text alone
+//! still routed the nested spelling. Each was silent (exit 0, wrong number)
+//! where the near-miss spellings refuse, so these tests pin the corrected
+//! behaviour structurally. Deliberately structural (wasm-shape) rather than
+//! an oracle `.toml` pin: Task 2 owns
 //! `runtime/inline_allocation_value_position.toml` and its expected case set
 //! is fixed.
 use super::*;
@@ -191,5 +204,43 @@ fn globalthis_qualified_uint8array_allocation_does_not_route_under_a_shadowed_ob
          `globalThis` to NOT route through the __alloc helper (index \
          {alloc_index}): the qualifying object is the user's own object, not \
          the real global, so the allocation arm must decline:\n{start_body}"
+    );
+}
+
+#[test]
+fn nested_globalthis_qualified_uint8array_allocation_does_not_route() {
+    // Round 5's regression: reading the qualifying object's own `text`
+    // checks the wrong name when that object is itself a member expression.
+    // `a.globalThis.Uint8Array(5)`'s object node carries the PROPERTY name
+    // `globalThis` as its text, while the binding that decides the meaning
+    // is the base identifier `a` -- so the round-4 guard saw an unbound
+    // `globalThis` and routed a user object's method through the allocator
+    // (measured kali `4104` at exit 0 where node prints `6`, while the
+    // renamed-property, renamed-object and two-argument controls all refuse
+    // with `E5506`). The guard now admits exactly one qualified shape, a
+    // BARE identifier named `globalThis`, so this must NOT reach `__alloc`.
+    let src = "const a = { globalThis: { Uint8Array: (n) => n + 1 } }; \
+               function f(x) { return x; } \
+               f(a.globalThis.Uint8Array(5));";
+    let program = parse_and_lower_lir(src);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    ctx.arena_table.set_arena_eligible("_start");
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    let text = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    let alloc_index = exported_function_index(&text, "__alloc");
+    let start_index = exported_function_index(&text, "_start");
+    let start_body = function_body(&text, start_index);
+    let call_needle = format!("call {alloc_index}");
+    assert!(
+        !start_body.lines().any(|line| line.trim() == call_needle),
+        "expected the nested `a.globalThis.Uint8Array(5)` spelling to NOT \
+         route through the __alloc helper (index {alloc_index}): the \
+         qualifying object is a member expression, not the real global, so \
+         the allocation arm must decline:\n{start_body}"
     );
 }
