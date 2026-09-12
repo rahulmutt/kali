@@ -4606,12 +4606,33 @@ tier, ordering is by blast radius.
     2026-09-11 against node v26.8.2, all eleven rows plus the size-position
     correction), pinned in
     `crates/kali_cli/tests/cases/runtime/inline_allocation_value_position.toml`
-    (26 `_computes`/`_is_correct` cases newly green, 7 controls unmoved).
+    (the file went from 17 of 46 to 38 of 46 passing across this commit — 21
+    cases newly green, not 26: the 3 `fill_value_once*` cases and the 2
+    `keeps_the_receivers_length*` cases were already green under Task 7 and
+    Task 2 respectively, and the earlier `26 … / 7 controls` phrasing also
+    double-counted, since the 7 controls are themselves `_is_correct` cases).
     `r64a_allocation_argument_module_scope` and `r64a_allocation_argument_in_function`
     (`tier2.toml`) both now print `6` at exit 0 with empty stderr, matching node
     v26.8.2's `6`. FIXED, not FAIL_CLOSED: the allocation now materializes a real
     handle at every value position named in the repro table, rather than kali
     refusing to compile any of them.
+  - **Review-found-and-fixed regression, same commit**: the first draft of
+    both new arms routed a bare `Uint8Array(n)` unconditionally, with no
+    shadow check — but bare `Uint8Array` is not a kali builtin at all
+    (`new Uint8Array(4)` with no user binding refuses `error[E3100]: undefined
+    identifier 'Uint8Array'`), so a user `function Uint8Array(n) { return n +
+    1; }` compiled and reached codegen, where the draft's bare-callee arm
+    treated the user's own function as the allocator: kali printed `4104`
+    where node prints `4`, exit 0, no diagnostic. Closed in review by gating
+    both new arms on a new `allocation_ctor_unshadowed` (`emit/call.rs`), the
+    same five-namespace shadow guard `url_ctor_unshadowed` already applies to
+    `URL`/`URLSearchParams`. The **pre-existing declarator-lane instance of
+    the same shadow hazard is UNCHANGED and stays** — `function Uint8Array(n)
+    { return n + 1; } const y = Uint8Array(3); console.log(y);` still prints
+    kali `4104` against node `4`, because the guard is scoped to this task's
+    two new arms only, not to `resolve_array_alloc_call`'s three pre-existing
+    callers. Not filed as its own register entry by this commit; recorded for
+    a later task's discovered-defects sweep (Task 8 report).
   - **What this does NOT close**: R-65 (a fold-lane array, or a constructed
     value that lowers like one, reads as zeros in the callee) is an unrelated
     matcher and stays filed SILENT — its fix is Task 9's widened argument guard,

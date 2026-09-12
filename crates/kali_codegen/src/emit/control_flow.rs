@@ -2191,12 +2191,25 @@ impl<'a> FunctionEmitter<'a> {
             // Sound only because `kali_types` refuses the one-element array
             // literal of an allocation (`resolve/expression.rs`): `[Array(3)]`
             // is otherwise this exact node.
-            if let Some(size_arg) = self.resolve_array_alloc_call(id) {
-                return self.emit_array_allocation(function, size_arg);
+            //
+            // Gated on `allocation_ctor_unshadowed` (`emit/call.rs`): a user
+            // `function Uint8Array(n) { ... }` compiles (bare `Uint8Array` is
+            // not a kali builtin at all, so there is no redeclaration for
+            // `kali_types` to refuse), and without the guard this arm would
+            // route the user's own function through the allocator instead of
+            // calling it (review-found regression). `new <user fn>(n)` was
+            // already the pre-existing placeholder `0` before this task, so
+            // the guard costs nothing here, but is applied for the same
+            // reason it is applied at Site 2: consistency between the two new
+            // arms, not reliance on a hazard that happens not to fire today.
+            if self.allocation_ctor_unshadowed(id) {
+                if let Some(size_arg) = self.resolve_array_alloc_call(id) {
+                    return self.emit_array_allocation(function, size_arg);
+                }
             }
             // `new Array(n).fill(v)` arrives as the hoisted-`new` wrapper around
             // the `.fill` call (the parser's `new` precedence). Pass through to
-            // the fill arm (`emit/call.rs:1037`), which allocates the receiver and
+            // the fill arm (`emit/call.rs:1057`), which allocates the receiver and
             // runs the init loop, rather than dropping the whole chain.
             if node.children.len() == 1 && self.resolve_array_fill_call(node.children[0]).is_some()
             {

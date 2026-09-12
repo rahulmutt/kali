@@ -101,13 +101,26 @@ impl<'a> FunctionEmitter<'a> {
             return self.deny_e5506(function, computed_member_access_unavailable_message());
         }
 
-        // A bare `Array(n)` / `Uint8Array(n)` call (no `new`) in value position:
-        // the declarator, assignment and `.fill`-receiver lanes intercept their
-        // own copies before `emit_call`, so anything arriving here is a value
-        // whose allocation nobody has made. Without this arm it falls through to
-        // the unresolved-callee placeholder and answers `0` (register entry R-64).
-        if let Some(size_arg) = self.resolve_array_alloc_call(id) {
-            return self.emit_array_allocation(function, size_arg);
+        // A bare, no-`new` `Array(n)` call in value position -- kali's own
+        // allocation spelling; `Uint8Array(n)` with no `new` is NOT valid
+        // JavaScript (node: `TypeError: Constructor Uint8Array requires
+        // 'new'`), so only the `Array` half of `is_array_like_constructor` can
+        // ever legitimately reach this arm as the builtin. The declarator,
+        // assignment and `.fill`-receiver lanes intercept their own copies
+        // before `emit_call`, so anything arriving here is a value whose
+        // allocation nobody has made. Without this arm it falls through to
+        // the unresolved-callee placeholder and answers `0` (register entry
+        // R-64). Gated on `allocation_ctor_unshadowed`: a user
+        // `function Array(n) { ... }` cannot compile (`kali_types`'s
+        // `reject_builtin_array_shadow` refuses the redeclaration), but a
+        // user `function Uint8Array(n) { ... }` compiles fine -- bare
+        // `Uint8Array` is not a kali builtin at all -- so without the guard
+        // this arm would treat the user's own function as the allocator
+        // (review-found regression: kali `4104` against node's `4`).
+        if self.allocation_ctor_unshadowed(id) {
+            if let Some(size_arg) = self.resolve_array_alloc_call(id) {
+                return self.emit_array_allocation(function, size_arg);
+            }
         }
 
         // Stage-review F10 (adjudicated deny-now): a `new URL(...)` /
@@ -5482,6 +5495,56 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         Some(node.children.get(1).copied())
+    }
+
+    /// Five-namespace shadow guard for a bare `Array`/`Uint8Array` allocation
+    /// callee (mirrors `url_ctor_unshadowed`/`is_event_target_new`'s guard for
+    /// the same hazard): a user binding of the ctor name in ANY codegen
+    /// namespace means `is_array_like_constructor`'s text match is not
+    /// actually the builtin, so `id`'s two Task 8 call sites must decline
+    /// rather than route a user function/value through the allocator.
+    ///
+    /// Scoped to Task 8's two NEW routing arms only (`emit_value`'s Arm A and
+    /// `emit_call`'s bare-call arm) -- deliberately NOT consulted by
+    /// `resolve_array_alloc_call`'s three PRE-EXISTING callers (the
+    /// declarator initializer, the assignment right-hand side, the `.fill`
+    /// receiver test), which stay exactly as they were. That is why `Array`
+    /// needs this guard at all despite `kali_types`'s `reject_builtin_array_shadow`
+    /// (`crates/kali_types/src/context.rs`) already refusing to let a user
+    /// redeclare `Array`: this task made the TWO NEW ARMS consistent with each
+    /// other rather than relying on `Array`'s refusal alone. `Uint8Array` is
+    /// the real hazard -- it is not a kali builtin at all (`new Uint8Array(4)`
+    /// with no user binding refuses with `error[E3100]: undefined identifier
+    /// 'Uint8Array'`), so there is nothing for `kali_types` to refuse a
+    /// shadow of, and a user `function Uint8Array(n) { ... }` or
+    /// `const Uint8Array = (n) => ...` compiles and reaches codegen, where the
+    /// bare-`Uint8Array` half of `is_array_like_constructor` would otherwise
+    /// treat the user's own function as the allocator (measured: kali `4104`
+    /// against node's `4` for `function Uint8Array(n){return n+1;}
+    /// console.log(Uint8Array(3));`, a review-found regression this guard
+    /// closes). The pre-existing declarator-lane instance of the same shadow
+    /// hazard (`const y = Uint8Array(3)`) is UNCHANGED by this guard and is
+    /// filed, not fixed, per the controller's ruling (Task 8 report).
+    pub(crate) fn allocation_ctor_unshadowed(&self, id: LirNodeId) -> bool {
+        let target = self.unwrap_transparent_value_node(id);
+        let node = self.node(target);
+        if node.kind != LirNodeKind::Call {
+            return true;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return true;
+        };
+        let Some(ctor) = self.node(callee).text.as_deref() else {
+            return true;
+        };
+        if !matches!(ctor, "Array" | "Uint8Array") {
+            return true;
+        }
+        !(self.locals.contains_key(ctor)
+            || self.bindings.contains_key(ctor)
+            || self.module_binding_names.contains(ctor)
+            || self.fn_valued_locals.contains_key(ctor)
+            || self.functions.contains_key(ctor))
     }
 
     /// Push the i32 linear-memory pointer of a tagged string handle held in
