@@ -3033,17 +3033,40 @@ fn bitwise_compound_assign_op_text(op: &AssignmentOperator) -> Option<&'static s
     }
 }
 
-/// `Array(n)` / `new Array(n)` / `Uint8Array(n)` / `new Uint8Array(n)`, optionally
-/// `.fill(v)`ed, parenthesized or awaited — the shapes
-/// `FunctionEmitter::resolve_array_alloc_call` and `array_fill_call_parts`
-/// (`crates/kali_codegen/src/emit/call.rs:5464`, `:5649`) accept after unwrapping
-/// transparent value wrappers.
+/// `Array(n)` / `new Array(n)` / `Uint8Array(n)` / `new Uint8Array(n)` (bare or
+/// `globalThis`-qualified), optionally `.fill(v)`ed, parenthesized, awaited, or
+/// wrapped in a type-only annotation (`as`/`satisfies`/a decorator) — a STRICT
+/// SUBSET of the shapes `FunctionEmitter::resolve_array_alloc_call` accepts
+/// after unwrapping transparent value wrappers (`crates/kali_codegen/src/emit/call.rs:5464`).
+///
+/// It does NOT cover `array_fill_call_parts`'s (`emit/call.rs:5649`) full
+/// receiver test: that recognizer also accepts a `.fill(v)` whose receiver is a
+/// bare identifier already in `self.array_bindings` (an existing array
+/// binding, not a fresh allocation) — `const ys = new Array(2); const xs =
+/// [ys.fill(0)];` measures kali `2`, node `1`, live and UNCLOSED by this
+/// function. `kali_types` cannot make that receiver test here: distinguishing
+/// an array binding from a user object with its own `.fill` method needs
+/// `is_structural_runtime_array`-style scope state this free function does not
+/// have, and guessing would trade a measured miscompile for an unmeasured
+/// over-refusal of legitimate `.fill` calls on non-array objects. Out of scope
+/// for this project's spec §3.1 (a one-element literal of an ALLOCATION) and
+/// pre-existing; left to a later, scoped project.
 ///
 /// This MUST stay in lockstep with `FunctionEmitter::is_array_like_constructor`
 /// (`emit/call.rs:5510`), the same way `declarator_init_is_array_alloc`
 /// (`crates/kali_codegen/src/lower.rs:6535`) records its own lockstep with it: a
 /// spelling codegen treats as an allocation but this function does not is a
-/// spelling whose one-element literal reaches codegen and is miscompiled.
+/// spelling whose one-element literal reaches codegen and is miscompiled. Two
+/// such gaps were found and closed by code review after this function's first
+/// landing: `new globalThis.Uint8Array(3)` (`is_array_like_constructor`'s own
+/// second, `globalThis`-qualified branch, named in its doc comment as the
+/// throw-fallout Stage 3 form) and `new Array(3) as number[]` /
+/// `new Array(3) satisfies unknown` (`crates/kali_hir/src/lowering/expression.rs:207,210-211`
+/// erase `DecoratedExpression`/`TypeAssertion`/`SatisfiesExpression` outright,
+/// and the parser accepts `as`/`satisfies` in a plain `.js` file too —
+/// `crates/kali_parser/src/expression/call.rs:122-140` has no TS-only gate).
+/// Both measured `kali` printing the allocation's real length where node
+/// printed `1`, i.e. R-66's miscompile reopened after its retirement.
 fn expression_is_array_allocation(expr: &Expression) -> bool {
     match expr {
         Expression::ParenthesizedExpression(paren) => {
@@ -3052,15 +3075,30 @@ fn expression_is_array_allocation(expr: &Expression) -> bool {
         Expression::AwaitExpression(await_expr) => {
             expression_is_array_allocation(&await_expr.argument)
         }
+        Expression::DecoratedExpression(decorated) => {
+            expression_is_array_allocation(&decorated.expression)
+        }
+        Expression::TypeAssertion(assertion) => {
+            expression_is_array_allocation(&assertion.expression)
+        }
+        Expression::SatisfiesExpression(satisfies) => {
+            expression_is_array_allocation(&satisfies.expression)
+        }
         Expression::NewExpression(new_expr) => match &new_expr.callee {
             Expression::Identifier(name) => {
                 (name == "Array" || name == "Uint8Array") && new_expr.args.len() <= 1
+            }
+            Expression::MemberExpression(member) if is_global_this_uint8array(member) => {
+                new_expr.args.len() <= 1
             }
             callee => new_expr.args.is_empty() && expression_is_array_allocation(callee),
         },
         Expression::CallExpression(call) => match &call.callee {
             Expression::Identifier(name) => {
                 (name == "Array" || name == "Uint8Array") && call.args.len() <= 1
+            }
+            Expression::MemberExpression(member) if is_global_this_uint8array(member) => {
+                call.args.len() <= 1
             }
             Expression::MemberExpression(member) => {
                 member.property.as_deref() == Some("fill")
@@ -3071,6 +3109,18 @@ fn expression_is_array_allocation(expr: &Expression) -> bool {
         },
         _ => false,
     }
+}
+
+/// `globalThis.Uint8Array` / `globalThis["Uint8Array"]` — the `MemberExpression`
+/// shape `FunctionEmitter::is_array_like_constructor`'s second `Uint8Array`
+/// branch accepts (`emit/call.rs:5510-5521`, the throw-fallout Stage 3 form).
+/// Both dot and bracket-literal spellings reach here with `property =
+/// Some("Uint8Array")` (`MemberExpression::property`'s own doc comment: it is
+/// populated for a computed access whose index the parser could read
+/// statically, not only for dot access), so one check covers both.
+fn is_global_this_uint8array(member: &MemberExpression) -> bool {
+    member.property.as_deref() == Some("Uint8Array")
+        && matches!(&member.object, Expression::Identifier(name) if name == "globalThis")
 }
 
 #[cfg(test)]

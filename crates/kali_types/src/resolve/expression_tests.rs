@@ -82,3 +82,22 @@ fn a_two_element_array_literal_of_allocations_is_admitted() {
 
     assert_resolution!(statements, diagnostics: 0);
 }
+
+#[test]
+fn a_one_element_array_literal_of_a_non_allocation_is_admitted() {
+    // The over-refusal direction: a one-element literal whose element is not
+    // an array allocation at all must stay silent on this gate.
+    let statements = vec![Statement::VariableDeclaration(VariableDeclaration {
+        kind: "const".to_string(),
+        declarations: vec![VariableDeclarator {
+            id: "xs".to_string(),
+            init: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                elements: vec![Some(kali_ast::ExpressionOrSpread::Expression(
+                    Expression::Literal(LiteralValue::Number(1.0)),
+                ))],
+            })),
+        }],
+    })];
+
+    assert_resolution!(statements, diagnostics: 0);
+}
