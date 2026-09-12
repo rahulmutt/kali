@@ -2178,6 +2178,30 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
             }
+            // An `Array`/`Uint8Array` allocation reaching the generic value path
+            // is OUTSIDE the three lanes that materialize one -- a declarator
+            // init (`:1690`, `:1711`), an assignment right-hand side
+            // (`emit/literal.rs:1043`) and a `.fill` receiver
+            // (`emit/call.rs:6004`), each of which intercepts before here. The
+            // aggregate placeholder below would drop it and push `0`, which the
+            // callee then reads as a length header at address zero (register
+            // entry R-64). Allocate instead, so every position -- argument,
+            // return, property, element, ternary arm -- passes a real handle.
+            //
+            // Sound only because `kali_types` refuses the one-element array
+            // literal of an allocation (`resolve/expression.rs`): `[Array(3)]`
+            // is otherwise this exact node.
+            if let Some(size_arg) = self.resolve_array_alloc_call(id) {
+                return self.emit_array_allocation(function, size_arg);
+            }
+            // `new Array(n).fill(v)` arrives as the hoisted-`new` wrapper around
+            // the `.fill` call (the parser's `new` precedence). Pass through to
+            // the fill arm (`emit/call.rs:1037`), which allocates the receiver and
+            // runs the init loop, rather than dropping the whole chain.
+            if node.children.len() == 1 && self.resolve_array_fill_call(node.children[0]).is_some()
+            {
+                return self.emit_node(function, node.children[0], want_value);
+            }
             return self.emit_aggregate_literal(function, node, want_value);
         }
 

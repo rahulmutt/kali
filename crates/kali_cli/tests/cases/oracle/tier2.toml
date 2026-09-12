@@ -2717,7 +2717,7 @@ name = "r64a_allocation_argument_module_scope"
 kind = "oracle"
 register_entry = "R-64"
 program = "r64a_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = '''
 R-64, the allocation-as-call-argument lane, module scope. Section 2's `Repro` verbatim: an inline `new Array(n)` passed straight into a call whose parameter reads `.length`.
 
@@ -2726,6 +2726,8 @@ Expected verdict set from the register's recorded status: section 0.2's R-64 row
 MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `0` at exit 0 with empty stderr; node prints `6` at exit 0. The allocation reaches `f` as an argument, which is none of codegen's three materializing lanes, so `emit_aggregate_literal` drops it and pushes `0`; `f` then reads a length header at address zero.
 
 WHAT A REGRESSION HERE WOULD MEAN. This pair is filed SILENT by the inline-allocation-value-position project and is expected to flip to FIXED in Task 8's commit, which routes an allocation in value position through a real handle (spec `docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`, section 3.2). After that flip, a return to SILENT means an allocation argument reads zeros again.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FIXED (was SILENT). kali now prints `6` at exit 0 with empty stderr, byte-identical to node's `6`. `emit_value`'s text-less branch (`crates/kali_codegen/src/emit/control_flow.rs`) now checks `resolve_array_alloc_call` before falling through to `emit_aggregate_literal`, and allocates a real handle via `emit_array_allocation` instead of dropping the argument and pushing `0`; `f` now reads the allocation's own length header. The verdict was flipped only after this reading.
 '''
 
 [[case]]
@@ -2733,7 +2735,7 @@ name = "r64a_allocation_argument_in_function"
 kind = "oracle"
 register_entry = "R-64"
 program = "r64a_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = '''
 R-64, the allocation-as-call-argument lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
 
@@ -2742,6 +2744,8 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `0` at exit 0 with empty stderr; node prints `6` at exit 0. Byte-identical to the module scope.
 
 WHAT A REGRESSION HERE WOULD MEAN. Filed SILENT by the inline-allocation-value-position project; expected to flip to FIXED in Task 8's commit, byte-identical to the module-scope case's note. After that flip, a return to SILENT means an allocation argument reads zeros again, in this scope too.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FIXED (was SILENT), byte-identical to the module scope. kali now prints `6` at exit 0 with empty stderr, matching node's `6`. The verdict was flipped only after this reading.
 '''
 
 [[case]]

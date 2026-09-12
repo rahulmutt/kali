@@ -306,7 +306,7 @@ a defect.
 | R-59 a computed member index that is not a literal is fabricated into a property name | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project — its one lane moved.** Re-derived from the two `r59a` cases, which now assert `fail_closed`: kali refuses both lines with the shared computed-member `E5506` (``computed member access `o[k]` is unavailable in the current phase …``) at exit 1 with empty stdout; node prints `undefined` twice at exit 0. FAIL_CLOSED, not FIXED, on purpose: `let i = 1; o[i]` needs a runtime lookup this project does not build (spec §5), and a fix that printed `0`, `0` would have been R-13's shape, not a closure — the case's own regression note says so. The fabrication itself is gone at the address this entry named: `expression_to_property_name` returns `Option<String>`, both parse sites record the absence, and a nameless member is its own node kind (`LirNodeKind::ComputedMember`). ~~**added 2026-09-08 at `02297ca6c2`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate; **measured at `35e9ef4ef6`** (this branch's documentation-only tip, and the tree the binary was built from) **against `node v26.8.1`, both scopes, byte-identical**: over `const o = {index: 9, i: 7}; let i = 1;`, kali prints `7` for `o[i]` and `9` for `o[i + 0]` at exit 0 with empty stderr where node prints `undefined` twice at exit 0.~~ **THE REST OF THIS ROW IS THE ORIGINAL AND IS KEPT**, because it describes the mechanism, the matchers and the corpus rather than the verdict — but it is written in the PRESENT TENSE OF `35e9ef4ef6` and must be read as history from here on: the fabricating behaviour it describes is gone as of `71b5f42f6c`, and **one figure in it has moved**. **Corrected 2026-09-09 at `71b5f42f6c`**: the reachable counts below were re-measured against the binary that refuses nameless computed members, and R-59 now reads **raw 235 / reachable 25** (anchor 27/25 unchanged, extension 208/~~2~~**0**), not reachable 27 — one extension program, `extension/unit_conversions.js`, left the accept set because it indexes an object with a parameter key. The raw figures are unchanged, because the corpus did not change; only its accepted subset did. Everything after this sentence is the original text: `expression_to_property_name` reads an index statically for a literal, a sequence ending in one, and a folded `+`/`-` unary on one; for every other shape it does not decline but FABRICATES a name — the identifier's own text for `o[i]`, the literal string `index` for the catch-all — and the static consumers read that name out of the member node's text slot. When it collides with a real property the read returns THAT property's value. **WHAT IS PINNED BY A LIVE CASE**: the two fabrication arms, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `35e9ef4ef6`: the optional-chained, parenthesized and sequence spellings (all `7`) and the two unary spellings (`o[+i]`/`o[-i]`, both `9` through a guard that parses and then still does not decline); the FOUR shapes that AGREE with node (`o[(1)]`, `o[(0, 1)]`, `o[+1]` all print `one` over `{1: "one"}`, and `o[-1]` reads the correct name `-1`), which is one of the two families that separate this entry's matcher from R-13's; the array and string lanes, where the fabricated name can never hit and the answer is the fabricated `0` (`[5,6][i]` → `0` against node's `6`; an ordinary `for` loop over an array LITERAL prints `0 0 0` against node's `5 6 7`; `"abc"[k]` → `0` against node's `b`), and the `new Array(n)` receiver that AGREES (`0 2 4` on both engines), which is the count's upper bound; and the WRITE half, which does NOT fabricate (`o[i] = 8` leaves `o.i` at `7` on both engines), which is why this is a read-lane entry. **THIS ROW CORRECTS R-13's**: R-13's mechanism hypothesis is an admit-list falling through to a default-`0` read, and it is measurably wrong — adding one property named `k` to R-13's own repro object turns its `0` into `99`. Countable, **raw 235 / reachable 27** over the frozen corpus (anchor 27/25, extension 208/2) — the only nonzero count among the four entries this branch filed. (~~raw 302 / reachable 45 ... to the digit the same four numbers R-13's matcher prints~~ — **corrected 2026-09-08 in final review at `07ad2e6447`**: that matcher counted assignment and update TARGETS, and the write half measured in this very row does not fabricate, so 67 raw and 18 reachable store sites left the count. The deltas are exactly R-13's record's own `breakdown` storeTarget figures.) **The two matchers OVERLAP AND NEITHER CONTAINS THE OTHER** (measured on the shipped module: `o[true]`/`o[null]`/`o[/x/]`/`o[1n]` count 0 under R-13's and 4 under this one; `o[(1)]`/`o[(0,1)]`/`o[+1]`/`o[-1]` count 3 under R-13's and 0 under this one; and a store target counts under R-13's and not under this one). The two no longer print the same figures: measured over the frozen corpus file by file, of the **51** files with a nonzero count under either, **30** differ (8 of the 14 reachable ones) and this matcher exceeds R-13's in **zero** files — a strict subset ON THIS CORPUS, which is a fact about the corpus and not containment between the shapes. Do not add the two counts together. |
 | R-60 a present property on an `Object.fromEntries` object reads `0` | **SILENT** (both scopes) | **added 2026-09-08 at `02297ca6c2`** (off `dde0f083c0`, this branch's base, which carries no entry) by the register-property-key-followups branch, from the same instruction and the same gate; **measured at `35e9ef4ef6` against `node v26.8.1`, both scopes, byte-identical**: `const o = Object.fromEntries([["a", 1]]); console.log(o.a)` prints `0` in kali at exit 0 with empty stderr where node prints `1` at exit 0. `o` HAS an own enumerable `a` worth `1`, so this is a wrong VALUE for a property that exists and not an `undefined` rendered as `0`. Two zero-emitting sites stack: `Object.fromEntries` reaches codegen unresolved and is lowered through the zero-placeholder call fallback, and the member read on that scalar then falls to `emit_unary`'s default arm, which drops the receiver and pushes its own `I64Const(0)` — the one that prints. Both sites push a WARNING and `kali run` shows neither. **WHAT IS PINNED BY A LIVE CASE**: that one read, one lane, both scopes. **WHAT IS NOT PINNED, AND WAS MEASURED BY HAND** at `35e9ef4ef6`: the two `hasOwn` probes on the same object, which AGREE with node (`"a"` → `true`, `"b"` → `false`), because `static_object_has_own` recognizes a `fromEntries` operand directly — so the object's shape IS statically known, which contradicts the explanation every lead for this entry carried; the receiver spellings that diverge identically (`o["a"]`, the direct `Object.fromEntries([...]).a`, through `Object.freeze`, and with the entries array bound); and the two controls that locate the fault in the receiver (`({a: 1}).a` and a member read on a USER function's object result both print `1` on both engines). **A SECOND LANE IS MEASURED AND IS NOT IN THIS ROW'S CLASS SET**: `Object.keys(o)` / `Object.values(o)` / `Object.entries(o)` on the same receiver REFUSE the file (`error[E5506]: Object enumeration is only supported where the object has a compile-time-known fixed shape`, exit 1) where node prints the array — that classifies **FAIL_CLOSED**, not SILENT, so it cannot share an oracle case with the read, and this row records SILENT alone. The `--release` lane was NOT measured (no runner for a built artifact on this machine) and §2's entry says so. Countable, raw 0 / reachable 0 over the frozen corpus (`unsampled`). |
 | R-63 `.length` renders a node's child count, or `0`, for a receiver with no length lane | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-11 by the length-fails-closed project — its one lane moved.** Re-derived from the two `r63a` cases, which now assert `fail_closed`: kali exits 1 with empty stdout and the `.length` floor's `E5506`; node prints `3`. FAIL_CLOSED, not FIXED: no lane computes this length yet, and kali now says so. Originally **added 2026-09-11 by the same project**, off `152fdd5364`; **measured at `152fdd5364` against `node v26.8.2`, both scopes**: `const o = {a: "xyz"}; console.log(o.a.length)` prints `1` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r63a`. §2's entry carries ten more lanes measured by hand. |
-| R-64 an allocation outside the materializing lanes → 0 | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x.length; } console.log(f(new Array(6)));` prints `0` in kali at exit 0 with empty stderr where node prints `6` at exit 0. Lane `r64a`. §2's entry carries ten more lanes from the spec's own table plus one measured correction. |
+| R-64 an allocation outside the materializing lanes → 0 | **FIXED** (both scopes) | **RETIRED 2026-09-11 by the inline-allocation-value-position project (Task 8) — its one lane moved.** Re-derived from the two `r64a` cases, which now assert `fixed`: kali prints `6` at exit 0 with empty stderr, matching node's `6`. FIXED: `emit_value`'s text-less branch and `emit_call` both now allocate a real handle (`resolve_array_alloc_call`/`emit_array_allocation`) instead of falling through to the drop-and-push-`0` placeholder, sound because Task 6 already refused the one-element-literal ambiguity. Originally **added 2026-09-11 by the same project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x.length; } console.log(f(new Array(6)));` prints `0` in kali at exit 0 with empty stderr where node prints `6` at exit 0. Lane `r64a`. §2's entry carries ten more lanes from the spec's own table plus one measured correction. |
 | R-65 a fold-lane array argument → zeros in the callee | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x[0]; } const k = 3; console.log(f([k]));` prints `0` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r65a`. §2's entry carries eight more lanes from the spec's own table. |
 | R-66 a one-element literal of an allocation IS that allocation | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-11 by the inline-allocation-value-position project (Task 6) — its one lane moved.** Re-derived from the two `r66a` cases, which now assert `fail_closed`: kali exits 1 with empty stdout and `error[E5506]` naming the collision ("lowers to the same node as the allocation itself"); node prints `1`. FAIL_CLOSED, not FIXED: the literal and the allocation remain indistinguishable at the LIR level, so kali refuses the collision rather than routing a value through it. Originally **added 2026-09-11 by the same project**, off `733cd26125`, in the same commit as R-67; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `const xs = [new Array(3)]; console.log(xs.length);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r66a`. §2's entry carries three more lanes from the spec's own table. |
 | R-67 `.fill(v)` evaluates `v` once per element | **FIXED** (both scopes) | **RETIRED 2026-09-11 by the inline-allocation-value-position project (Task 7) — its one lane moved.** Re-derived from the two `r67a` cases, which now assert `fixed`: kali prints `1` at exit 0 with empty stderr, matching node's `1`. FIXED: `emit_array_fill` now evaluates its value argument once, into a dedicated scratch slot, and loads it on every loop iteration instead of re-emitting the AST node. Originally **added 2026-09-11 by the same project**, off `733cd26125`, in the same commit as R-66; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `let n = 0; function g() { n = n + 1; return 1; } const a = new Array(3).fill(g()); console.log(n);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r67a`. §2's entry carries two more lanes from the spec's own table. |
@@ -935,6 +935,17 @@ own retirement took immediately above. What changed is the two `r67a` cases
 (`fixed`, not `silent`) and §0.2's row. R-64 and R-65 are untouched by this
 commit and remain filed SILENT, their own retirements left for Task 8 and
 Task 9 respectively.
+
+**Updated 2026-09-11 a seventh time (inline-allocation-value-position, Task 8).**
+**R-64** retires FIXED, in the commit that fixes it, exactly as the paragraph
+recording its filing predicted. This movement does **not** move either
+right-hand-column count: the Tier-2 cell stays **37** and the register still
+holds **67** numbered entries in total (R-01..R-67) — a retirement keeps the
+entry (marked `### R-64 ... — CLOSED 2026-09-11 (FIXED)`) rather than removing
+it, the same no-op-on-the-count shape R-66's and R-67's own retirements took
+immediately above. What changed is the two `r64a` cases (`fixed`, not
+`silent`) and §0.2's row. R-65 is untouched by this commit and remains filed
+SILENT, its own retirement left for Task 9.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -4501,7 +4512,7 @@ tier, ordering is by blast radius.
     candidate in
     `docs/superpowers/followups/length-fails-closed-discovered-defects.md` §8.
 
-### R-64: An array allocation outside a declarator, assignment or `.fill` receiver evaluates to `0`
+### R-64: An array allocation outside a declarator, assignment or `.fill` receiver evaluates to `0` — **CLOSED 2026-09-11 (FIXED)**
 
 - **Added**: 2026-09-11, by the **inline-allocation-value-position** project
   (`docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`),
@@ -4569,11 +4580,62 @@ tier, ordering is by blast radius.
   extension program contains this shape. An upper bound for the reasons
   `count.mjs`'s `UPPER_BOUNDS` records, for the corpus this defect turns out
   not to sample.
-- **Pinned by**: two oracle cases (`r64a`, both scopes, `tier2.toml`) asserting
-  the SILENT class.
+- **Pinned by**: two oracle cases (`r64a`, both scopes, `tier2.toml`) ~~asserting
+  the SILENT class~~ — **updated 2026-09-11 by the inline-allocation-value-position
+  fix: the two cases now assert `fixed`.**
 - **Confidence**: high on behaviour (both scopes, the eleven §2.2 lanes plus
   the size-position correction, all re-measured at this baseline); high on
   mechanism (four exact source sites named above, spec §2.1).
+- **RETIRED 2026-09-11, by the inline-allocation-value-position project, in the
+  commit that fixes it (Task 8).**
+  - `emit_value`'s text-less branch (`crates/kali_codegen/src/emit/control_flow.rs`,
+    immediately before the `emit_aggregate_literal` call) now checks
+    `resolve_array_alloc_call` first and allocates a real handle via
+    `emit_array_allocation` instead of falling through to the drop-and-push-`0`
+    placeholder; a one-child text-less node whose child is a `new Array(n).fill(v)`
+    call passes through to that call's own `.fill` arm instead. `emit_call`
+    (`crates/kali_codegen/src/emit/call.rs`, right after the computed-member
+    deny) gained the matching arm for the bare, no-`new` `Array(n)`/`Uint8Array(n)`
+    spelling, which previously took a different route to the same `0` because
+    `emit_call` had no allocation arm for it at all. Both arms are sound only
+    because Task 6 already made `kali_types` refuse the one-element array
+    literal of an allocation, so a text-less wrapper reaching either site can
+    no longer be that literal in disguise — it is a `new`, a parenthesis, an
+    `await`, an `as`/`satisfies`/decorator or an optional chain (spec §3.2).
+  - Every lane in the table above now prints node's exact output (re-measured
+    2026-09-11 against node v26.8.2, all eleven rows plus the size-position
+    correction), pinned in
+    `crates/kali_cli/tests/cases/runtime/inline_allocation_value_position.toml`
+    (26 `_computes`/`_is_correct` cases newly green, 7 controls unmoved).
+    `r64a_allocation_argument_module_scope` and `r64a_allocation_argument_in_function`
+    (`tier2.toml`) both now print `6` at exit 0 with empty stderr, matching node
+    v26.8.2's `6`. FIXED, not FAIL_CLOSED: the allocation now materializes a real
+    handle at every value position named in the repro table, rather than kali
+    refusing to compile any of them.
+  - **What this does NOT close**: R-65 (a fold-lane array, or a constructed
+    value that lowers like one, reads as zeros in the callee) is an unrelated
+    matcher and stays filed SILENT — its fix is Task 9's widened argument guard,
+    not this routing. The eight `_refuses` cases pinned by R-65's own two-case
+    scope pair in `inline_allocation_value_position.toml` are unmoved by this
+    commit.
+  - **Also NOT closed, and not newly introduced by this commit**: the
+    documented, out-of-scope `.fill`-on-a-bound-receiver ambiguity
+    (`crates/kali_types/src/resolve/expression.rs`, the `[ys.fill(0)]` note):
+    `const ys = new Array(2); const xs = [ys.fill(0)];` still prints kali `2`
+    against node `1` — unchanged by this commit, because that program's
+    declarator lane (`control_flow.rs:1711`, from Task 7) intercepts before
+    either of this task's two routing sites is reached. The SAME ambiguity is
+    now also reachable through this task's fill-passthrough arm when the
+    one-element literal appears OUTSIDE a declarator (for example, as a call
+    argument: `f([ys.fill(0)])`) — the literal already exited 0 with a wrong
+    value in that position before this commit (that position was, itself,
+    R-64's own defect), so this commit does not turn a correct case wrong, but
+    it does change which specific wrong number that already-silent case
+    prints, and reaches it from more syntactic positions than before. Not
+    pinned by any case in this suite; flagged for the controller in Task 8's
+    report rather than fixed here, since closing it needs the same
+    scope-aware receiver test `kali_types` already declined for the
+    declarator case.
 
 ---
 

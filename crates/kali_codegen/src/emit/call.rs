@@ -101,6 +101,15 @@ impl<'a> FunctionEmitter<'a> {
             return self.deny_e5506(function, computed_member_access_unavailable_message());
         }
 
+        // A bare `Array(n)` / `Uint8Array(n)` call (no `new`) in value position:
+        // the declarator, assignment and `.fill`-receiver lanes intercept their
+        // own copies before `emit_call`, so anything arriving here is a value
+        // whose allocation nobody has made. Without this arm it falls through to
+        // the unresolved-callee placeholder and answers `0` (register entry R-64).
+        if let Some(size_arg) = self.resolve_array_alloc_call(id) {
+            return self.emit_array_allocation(function, size_arg);
+        }
+
         // Stage-review F10 (adjudicated deny-now): a `new URL(...)` /
         // `new URLSearchParams(...)` ANYWHERE outside the admitted
         // `const <name> = new <ctor>(<string-literal>)` declarator intercept —
