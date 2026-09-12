@@ -4801,6 +4801,28 @@ tier, ordering is by blast radius.
     runtime representation the callee could read, so the fix refuses the call
     instead of routing a value through it — the same shape R-63's and R-66's
     own retirements already took.
+  - **CAPABILITY LOSS — the guard's full blast radius (added 2026-09-12 by
+    the branch's final whole-branch review; a disclosure, not a change of
+    decision).** The retirement text above, and the spec's §2.5, name
+    `new AbortController()` / `new C()` as the capability this fix costs.
+    That understates the class by roughly six times. The widened guard
+    refuses **every text-less-`Value` argument to a user function, which is
+    every `new X(…)` argument, not only `new C()`** — `new C()` and `[C()]`
+    are the same LIR node and no shape check can separate them, so the
+    refusal cannot be narrowed to user-defined constructors. Measured at this
+    branch's HEAD (`b070ea5f82`) against `node v26.8.2`, each with an
+    argument-ignoring callee: `f(new Error("e"))`, `f(new Map())`,
+    `f(new Date())`, `f(new URL("http://a.b/c"))`, `f(new Event("x"))` and
+    `f(new TextEncoder().encode("hi"))` all give kali `error[E5506]` where
+    node prints `1`. At the merge base each of these COMPILED AND RAN
+    CORRECTLY whenever the callee ignored the argument — the old
+    all-`Literal` condition could not match a `Call` child — so this is a
+    real, measured capability loss across the whole `new X(…)` family, not
+    only the two constructors previously named. **The decision stands**:
+    refusing beats silently reading zeros, which is the whole point of this
+    entry's FAIL_CLOSED retirement. Recorded here so the next reader who hits
+    `f(new Error(e))` finds it foreseen in the ledger rather than concluding
+    it was missed.
   - **What this does NOT close**: an allocation argument is exempt from this
     guard (Task 8 routes it through a real handle instead), and G3's own
     criterion still declines to cluster this entry with R-47's or R-58's
@@ -4889,11 +4911,12 @@ tier, ordering is by blast radius.
     whose only element is an array allocation — `Array(n)` / `new Array(n)` /
     `Uint8Array(n)` / `new Uint8Array(n)`, optionally `.fill(v)`ed,
     parenthesized or awaited (the new `expression_is_array_allocation`
-    recognizer, kept in lockstep with `FunctionEmitter::is_array_like_constructor`,
-    `emit/call.rs:5510`). The refusal fires wherever the literal is resolved as
-    a value — declarator init, call argument, or any other expression
-    position — because it sits in `resolve_expression`'s shared
-    `ArrayExpression` arm.
+    recognizer, kept in lockstep with `FunctionEmitter::is_array_like_constructor`
+    (`emit/call.rs:5510`) **for every spelling EXCEPT a qualifying object that
+    is not a bare `globalThis` identifier** — see the exclusion note below).
+    The refusal fires wherever the literal is resolved as a value —
+    declarator init, call argument, or any other expression position —
+    because it sits in `resolve_expression`'s shared `ArrayExpression` arm.
   - Both `r66a` cases now read FAIL_CLOSED: `kali exits 1` with empty stdout
     and `error[E5506]` naming the collision ("lowers to the same node as the
     allocation itself"); node still prints `1`. FAIL_CLOSED, not FIXED, on
@@ -4908,6 +4931,37 @@ tier, ordering is by blast radius.
     `a_two_element_literal_of_allocations_is_correct`) is untouched — a
     two-child text-less `Value` is not a shape `resolve_array_alloc_call`
     accepts, so it never collided and the refusal does not widen to it.
+  - **EXCLUSION from the lockstep claim above (added 2026-09-12 by the
+    branch's final whole-branch review; not a regression, and not a reopening
+    of this entry).** The lockstep is not total. `is_array_like_constructor`
+    accepts ANY callee object node whose TEXT is `"globalThis"`, and a
+    member-expression node carries its PROPERTY name as its own text, while
+    `is_global_this_uint8array` (the recognizer's qualified arm) requires a
+    bare `Identifier`. So a one-element literal of an allocation reached
+    through a NON-BARE qualifying object is still read as the allocation.
+    Measured at this branch's HEAD (`b070ea5f82`) against `node v26.8.2`,
+    every row silent at exit 0, with `const a = {globalThis: {Uint8Array:
+    function (n) { return n; }}};` in scope:
+
+    | program | kali | node |
+    |---|---|---|
+    | `const xs = [a.globalThis.Uint8Array(5)]; xs.length` | `5` | `1` |
+    | `const xs = [new a.globalThis.Uint8Array(5)];` | `5` | `1` |
+    | `const xs = [a["globalThis"].Uint8Array(5)];` | `5` | `1` |
+    | `const xs = [globalThis.globalThis.Uint8Array(5)]; xs.length` | `5` | throws |
+
+    This is this entry's exact defect in spellings this retirement does not
+    cover, and it is **PRE-EXISTING**: the declarator lane and
+    `is_array_like_constructor` are byte-identical to this branch's merge
+    base, so every row measures the same before Task 6. The entry stays
+    CLOSED — its own two `r66a` scope cases still assert `fail_closed` — and
+    the residue is filed, not fixed, in
+    `docs/superpowers/followups/inline-allocation-value-position-discovered-defects.md`.
+    Task 8's two new routing arms are NOT affected: `allocation_ctor_unshadowed`
+    declines a non-bare qualifying object outright, which is what keeps this
+    collision closed there — a coupling now recorded in both functions'
+    rustdocs, because relaxing that check on shadow-identity grounds alone
+    would reopen this entry in Arm A.
   - **What this does NOT close**: R-64, R-65 and R-67 are unrelated matchers
     and unrelated fixes, filed in the same project and left for later tasks
     (R-64/R-67 → Task 8/Task 7 respectively; R-65 → Task 9).

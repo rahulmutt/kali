@@ -243,7 +243,11 @@ const UPPER_BOUNDS = {
       "the callee resolves to a compiled kali function -- which is what the argument guard " +
       "(`crates/kali_codegen/src/emit/call.rs:3573-3615`) requires before it fires. An " +
       "argument passed to a builtin, or to a callee this static pass never resolves, is " +
-      "counted here without ever reaching the guard.",
+      "counted here without ever reaching the guard. Callee resolution is not the only " +
+      "source of the over-count: `foldLaneArrayArgument` counts an ArrayExpression argument, " +
+      "and an identifier bound to an ArrayExpression, with no regard for emptiness, while " +
+      "the guard requires a NON-EMPTY aggregate (`!aggregate.children.is_empty()`), so " +
+      "`f([])` and `const xs = []; f(xs)` are counted here and never refuse.",
   },
   "R-67": {
     disclosedInRecord: true,

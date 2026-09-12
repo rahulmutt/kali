@@ -7,17 +7,21 @@ predecessors use: a project that measures more than it fixes writes down what
 it left, so the silence is not read as absence.
 
 **Oracle:** `node v26.8.2`. **Measured at:** each row's own task (Tasks 6-9,
-cited per section) for §3's first two rows, §4, §6-§12 and §14-§15; §1, §2,
+cited per section) for §3's first two rows, §4, §7-§13 and §15-§16; §1, §2,
 §3's third row (`Array.from`) and §5 were re-measured directly at this
 branch's HEAD (`a09a468516`), on the existing binary
 (`/workspace/.cache/cargo-target/debug/kali`, no rebuild), against
 `node v26.8.2`, as part of filing this document — they come from the
 project's own Task 10 brief rather than from `task-10-measurements.md`, and
-are re-derived here rather than copied, per the brief's own instruction. None
+are re-derived here rather than copied, per the brief's own instruction. **§6
+was added later, on 2026-09-12**, by the branch's final whole-branch review,
+measured at `b070ea5f82` on the same binary against the same oracle; the same
+review corrected §12's B1/B2 provenance and widened §5's scope claim (both
+noted in place). None
 of these rows is proposed as a new register entry: §1 and §2 cross-reference
 two *existing* entries (R-14, R-48) rather than filing new ones, and every
 other row's own task report explicitly deferred it to this document rather
-than to `kali-silent-miscompile-register.md`; §15 is the one exception, which
+than to `kali-silent-miscompile-register.md`; §16 is the one exception, which
 the register already documents independently.
 
 This project's four register filings — **R-64** (an allocation outside the
@@ -35,16 +39,20 @@ object field — and are pre-existing, general escape/provenance defects this
 project's own work never reaches; a reader chasing either should look at the
 named register entry, not at this project's code. §3-§5 are silent-or-loud
 wrong values immediately adjacent to the guards this project built, each with
-a plausible, scoped next step. §6-§9 are silent wrong values further inside
-the same shadow-checking machinery, in decreasing order of how directly this
-project's own new code is implicated. §10 is a silent wrong value this
+a plausible, scoped next step. §6-§10 are silent wrong values further inside
+the recognizer and shadow-checking machinery, in decreasing order of how
+directly this project's own new code is implicated — §6 leads that group
+because it is R-66's own defect in spellings the recognizer this project
+shipped does not cover, and because it carries a coupling warning anyone
+working on §8-§10 must read first. §11 is a silent wrong value this
 project deliberately left out of scope on a correctness trade-off, not an
-oversight. §11 groups the loud, fail-closed exceptions, which are already
-safe and need no urgent attention. §12 is a behaviour this project changed
+oversight. §12 groups the loud, fail-closed exceptions, which are already
+safe and need no urgent attention. §13 is a behaviour this project changed
 correctly but left unpinned — the cheapest item in this whole document to
-close. §13 is an unaudited risk, not a confirmed defect — scoped work with an
-unknown outcome. §14 is maintenance hazards. §15 is a cross-cutting
-architectural note for whoever makes cross-module calls real.
+close. §14 is an unaudited risk, not a confirmed defect — scoped work with an
+unknown outcome. §15 is maintenance hazards and recorded refactor
+suggestions. §16 is a cross-cutting architectural note for whoever makes
+cross-module calls real.
 
 ---
 
@@ -117,6 +125,13 @@ scope.
 
 ## §3. Three call-shaped array producers slip past the widened argument guard
 
+(This section is about what still slips *past* the guard. The guard's own
+*capability loss* — which previously-working programs it newly refuses — is a
+separate question, recorded in R-65's retirement in
+`kali-silent-miscompile-register.md`, which the branch's final whole-branch
+review widened from `new C()` / `new AbortController()` to the whole
+`new X(…)` family.)
+
 Task 9's guard (the `_refuses` fix behind R-65) is keyed on **text-less,
 aggregate** LIR nodes — the shape a fold-lane array literal or a constructed
 value lowers to. A call whose *result* is an array, but which is itself an
@@ -170,30 +185,51 @@ cause (the size argument is unvalidated) but is silent, not loud — it belongs
 in a silent-wrong-value reading despite measurements.md filing it alongside
 the loud row it shares a mechanism with.
 
+**The negative row's severity is worse than a wrong printed number
+(sharpened 2026-09-12 by the branch's final whole-branch review).** The
+mechanism is a memory-safety defect, not a display defect:
+`emit_array_allocation_with_len` computes the byte size as `(n + 1) * 8`,
+which for `n = -1` is `(-1 + 1) * 8 = 0`; it then calls `__alloc(0)` and
+**stores an 8-byte length header at the returned pointer — a write past the
+end of a zero-byte allocation**, into whatever the next bump hands out. The
+printed `-1` is the visible symptom; corrupting an adjacent allocation is the
+actual cost, and it is not observable from the output at all. Task 8 widened
+this from the declarator lane to every value position, so the out-of-bounds
+write is now reachable from argument, return, property, element and
+ternary-arm positions too.
+
 **What it would cost:** validate the size argument before allocating (reject
 a non-integer or negative value with a real diagnostic, matching node's
 `RangeError`). This is a size-argument validation gap, not a routing gap —
 smaller in scope than §3, but untouched by this project because size
 validation was never in its brief.
 
-## §5. A float `.fill` array passed to a function fails to load — loud, not silent
+## §5. EVERY float `.fill` produces an invalid module — loud, not silent
 
 | program | node | kali |
 |---|---|---|
 | `function f(x) { return x[0]; } console.log(f(new Array(3).fill(1.5)));` | `1.5` | `error[E4201]`, failed to load WASM module (exit 1) |
 | `function f(x) { return x[0]; } const a = new Array(3).fill(1.5); console.log(f(a));` (bound form) | `1.5` | `error[E4201]`, failed to load WASM module (exit 1) |
+| `const b = new Array(3).fill(2.5); console.log("ok");` (**no call at all; the array is never read**) | `ok` | `error[E4201]`, failed to load WASM module (exit 1) |
 
-Both re-measured directly against this branch's HEAD. **This one is loud,
-not silent — worth keeping visible as a different class of cost to the next
-reader than every silent row above it.** Both the inline and the bound
-spelling fail identically, so this is not specific to the inline-argument
-routing this project built: the bound form (`const a = ...; f(a)`), which
-this project never touched at all, fails the same way. The mechanism was not
+Re-measured directly against this branch's HEAD; the third row was added
+2026-09-12 by the branch's final whole-branch review, which found this
+section's original scope claim ("passed to a function") too narrow. **The
+failure needs no call, and no read of the array, at all: EVERY float `.fill`
+produces an invalid module**, whatever is done with the result. **This one is
+loud, not silent — worth keeping visible as a different class of cost to the
+next reader than every silent row above it.** The inline, bound and
+never-passed spellings fail identically, so this is not specific to the
+inline-argument routing this project built — nor to argument position at all;
+it is a property of emitting a float `.fill`. The mechanism was not
 traced by reading the emitter, but the shape (only the *float-valued*
 `.fill` fails; the integer-valued `.fill` cases throughout this document
 materialize correctly) suggests a `.fill` value's scratch slot is typed for
 the integer case and a float value does not fit it, producing an invalid
-compiled module rather than a valid one with a wrong number in it.
+compiled module rather than a valid one with a wrong number in it. The
+widened scope does not disturb that hypothesis — it is right in kind, and the
+no-call row is if anything cleaner evidence for it, since nothing downstream
+of the `.fill` is involved at all.
 
 **What it would cost:** this is a compile-failure/repr-mismatch bug, not a
 wrong-value or a routing bug — diagnosing why a float `.fill` value produces
@@ -203,7 +239,64 @@ already fails closed (loud, exit 1, no silent wrong value shipped), it is
 lower urgency than §1-§4 despite being closer to this project's own recent
 work on `.fill`.
 
-## §6. The declarator lane and Arm B were never gated against a shadowed constructor name
+## §6. The allocation recognizer and codegen are NOT in lockstep for a qualified object that is not bare `globalThis`
+
+| program (with `const a = {globalThis: {Uint8Array: function (n) { return n; }}};` in scope) | node | kali |
+|---|---|---|
+| `const xs = [a.globalThis.Uint8Array(5)]; console.log(xs.length);` | `1` | `5` |
+| `const xs = [new a.globalThis.Uint8Array(5)]; console.log(xs.length);` | `1` | `5` |
+| `const xs = [a["globalThis"].Uint8Array(5)]; console.log(xs.length);` | `1` | `5` |
+| `const xs = [globalThis.globalThis.Uint8Array(5)]; console.log(xs.length);` | throws | `5` |
+
+All four are silent in kali — exit 0, no diagnostic — measured at this
+branch's HEAD (`b070ea5f82`). (Row 4 names the real builtin, so node throws
+rather than printing `1`; kali still answers `5` silently, which is the same
+divergence class.)
+**This is R-66's exact defect — a one-element array literal read as the
+allocation itself — in a spelling family R-66's retirement does not cover.**
+
+The mechanism is a false lockstep claim, not a missing guard.
+`expression_is_array_allocation`'s rustdoc
+(`crates/kali_types/src/resolve/expression.rs`) asserts it stays in lockstep
+with `FunctionEmitter::is_array_like_constructor`
+(`crates/kali_codegen/src/emit/call.rs`), naming exactly one exception
+(`new new Array(3)`). The two disagree on a whole family besides:
+`is_array_like_constructor` accepts any callee object node whose **text** is
+`"globalThis"`, and a member-expression node carries its *property* name as
+its own text — so codegen reads `a.globalThis.Uint8Array` as
+`globalThis`-qualified, while `is_global_this_uint8array` requires a bare
+`Identifier` and declines. The literal is therefore never refused, and the
+declarator lane answers the allocation's length.
+
+**Pre-existing, not a regression.** The declarator lane and
+`is_array_like_constructor` are byte-identical to this branch's merge base, so
+every row above measures the same before Task 6. R-66's retirement in
+`kali-silent-miscompile-register.md` now records the same exclusion, and both
+rustdocs now name this family.
+
+**Task 8's two new routing arms are NOT affected, and the reason is a
+coupling worth stating out loud.** Arm A (`emit_value`) and `emit_call`'s
+bare-call arm stay sound here only because `allocation_ctor_unshadowed`
+returns `false` for any qualifying object that is not a bare identifier — it
+declines exactly the shapes `expression_is_array_allocation` fails to refuse.
+That line is justified in its own rustdoc as *shadow identity*, and §10 below
+invites a future project to replace it with real identity resolution.
+**Relaxing it without widening the recognizer in the same change reopens R-66
+in Arm A.** Both rustdocs, and Arm A's own comment, now carry that warning;
+it is repeated here because a reader picking up §8/§9/§10 is the person most
+likely to relax it.
+
+**What it would cost:** widening `is_global_this_uint8array` to match
+codegen's text rule exactly (accept any object whose text is `"globalThis"`)
+would close the collision but would ALSO refuse `a.globalThis.Uint8Array(5)`
+in the declarator lane, where the object is a user value and the refusal is
+wrong in a different direction — so the honest fix is the same
+identity-resolution work §8-§10 name, applied to both sides at once, not a
+one-line widening of either. There is no cheap interim fix, and none is
+urgent — the shape is exotic — but whoever touches either side must move
+both, which is what the coupling note above exists to enforce.
+
+## §7. The declarator lane and Arm B were never gated against a shadowed constructor name
 
 Task 8 built `allocation_ctor_unshadowed`, a five-namespace shadow guard, and
 applied it to exactly the two new arms Task 8 itself added. Two
@@ -229,7 +322,7 @@ design risk since the guard's bare-identifier logic is already built and
 tested (`emit/call_tests/allocation_ctor_shadow.rs`); the work is call-site
 wiring plus new pins for both lanes, not a new predicate.
 
-## §7. Two remaining identity gaps in the globalThis-qualified shadow gate
+## §8. Two remaining identity gaps in the globalThis-qualified shadow gate
 
 `allocation_ctor_unshadowed`'s qualified-callee arm (round 5,
 `4f9298fe37`) accepts exactly one shape — a bare identifier named
@@ -243,18 +336,18 @@ by name-matching rather than identity resolution stay silently wrong:
 
 The first: `is_array_like_constructor` matches the qualifying object by
 **text only**, with no binding resolution; it is pre-existing and reproduces
-identically before Task 8, on the same ungated declarator lane §6 names. The
+identically before Task 8, on the same ungated declarator lane §7 names. The
 second: pre-existing, routed identically before Task 8's gate — node throws
 because `globalThis["Uint8Array"]` is not a constructor without `new`, and
 kali's placeholder still fires.
 
 **What it would cost:** the first needs the same declarator-lane wiring as
-§6. The second needs `is_array_like_constructor` (or its caller) to
+§7. The second needs `is_array_like_constructor` (or its caller) to
 distinguish a bracket-property access from a dot-property access, which
 today it does not; both are narrower instances of the same "matched by text,
 not identity" limitation named in `allocation_ctor_unshadowed`'s own rustdoc.
 
-## §8. The shadow gate is blind to imports
+## §9. The shadow gate is blind to imports
 
 | program | node | kali |
 |---|---|---|
@@ -267,7 +360,7 @@ an imported binding. This is not unique to this project's guard: codebase-wide,
 misses imports identically, so this is a shared, pre-existing limitation, not
 something this project introduced. It converts no refusal into a silent
 value — the un-intercepted path was already a silent placeholder `0` before
-this project's work. §15 below is the broader cross-module-call defect this
+this project's work. §16 below is the broader cross-module-call defect this
 row is one instance of.
 
 **What it would cost:** the shadow gate needs a name set threaded from the
@@ -276,7 +369,7 @@ module linker into codegen — a structural change reaching outside
 fix should close both gates' import blindness at once rather than
 special-casing the allocation gate alone.
 
-## §9. A nested-`globalThis` casualty this project could not cheaply avoid
+## §10. A nested-`globalThis` casualty this project could not cheaply avoid
 
 | program | node | kali |
 |---|---|---|
@@ -284,7 +377,7 @@ special-casing the allocation gate alone.
 
 **NET-NEUTRAL against the pre-Task-8 baseline `733cd26125`, where this program
 was also `0`.** Task 8 round 4 incidentally made it correct (`5`); round 5's
-bare-identifier restriction (§7's "exactly one shape" rule) returned it to
+bare-identifier restriction (§8's "exactly one shape" rule) returned it to
 the baseline value. This is not a regression this project introduced and
 left — it is a pathological spelling nothing was ever designed to handle,
 that briefly worked by accident and now doesn't, at the same value it had
@@ -294,10 +387,10 @@ before this project began (`task-8-report.md` §15.4).
 "decline ⇒ deny (refuse)" was considered and rejected: it would re-break the
 ordinary case where a *declined* bare `Uint8Array(3)` must fall through and
 call the user's own function rather than refuse. Closing this needs the same
-identity-resolution work as §7 and §8, generalized to an arbitrary property
+identity-resolution work as §8 and §9, generalized to an arbitrary property
 chain, not a special case for two levels of `globalThis`.
 
-## §10. `.fill` on a bound receiver inside an array literal — deliberately left open
+## §11. `.fill` on a bound receiver inside an array literal — deliberately left open
 
 | program | node | kali |
 |---|---|---|
@@ -322,23 +415,31 @@ capability `kali_types` already declined to build for the declarator case.
 Not a small addition; it is a new binding-type inference this project
 scoped out deliberately.
 
-## §11. Loud, fail-closed exceptions — safe as-is, no urgency
+## §12. Loud, fail-closed exceptions — safe as-is, no urgency
 
 These three all fail closed (exit 1, node-divergent, or an intentional
-exception), and none of them is new:
+exception). **Two of the three ARE new — introduced by this branch's Task 6**
+(corrected 2026-09-12 by the branch's final whole-branch review, which found
+the earlier "none of them is new" framing and B1's "pre-existing" label
+wrong). The deferral is unchanged and still right: both are loud refusals,
+not wrong values, and both are exotic. Only the provenance was misstated.
 
 | # | program | node | kali | status |
 |---|---|---|---|---|
-| B1 | `[new Array(3).fill(0).fill(1)]` | `1` | refuses | Pre-existing since the array-literal-of-an-allocation recognizer's first landing. |
-| B2 | `new (await globalThis).Uint8Array(3)` | — | refuses | Codegen reads the object child's text directly and declines; `kali_types` unwraps `await` and refuses independently. Exotic. |
-| B5 | `[new new Array(3)]` | throws `TypeError` | `3` | A documented, named exception in `expression_is_array_allocation`. Cannot affect a valid program: a `new` expression's result is never itself constructible, so node throws for *every* value the inner `new` can produce — there is no input on which kali's `3` and node's behaviour could both be observed as a program result. |
+| B1 | `[new Array(3).fill(0).fill(1)]` | `1` | refuses | **Introduced by Task 6** (`81b0c409e8`), which is the array-literal-of-an-allocation recognizer's FIRST landing — so "pre-existing since that landing" was self-contradictory. At the merge base this printed `1`, matching node: `array_fill_call_parts` does not accept a fill-chain receiver, nothing recognized the element as an allocation, and the literal lane answered correctly. Same-lane control at HEAD: `[g()]` → kali `1`, node `1`. At HEAD it refuses. Accepted as the safe direction. |
+| B2 | `new (await globalThis).Uint8Array(3)` | — | refuses | **Introduced by Task 6**, same story: codegen reads the `await` node's text as `"await"` and declines, so the baseline answered `1`; the new `kali_types` recognizer unwraps `await` and refuses independently. Exotic; accepted as the safe direction. |
+| B5 | `[new new Array(3)]` | throws `TypeError` | `3` | A documented, named exception in `expression_is_array_allocation`. Cannot affect a valid program: a `new` expression's result is never itself constructible, so node throws for *every* value the inner `new` can produce — there is no input on which kali's `3` and node's behaviour could both be observed as a program result. Genuinely not new in the sense that matters: it is an un-refusal, not a new refusal. |
 
-**What it would cost:** nothing needs doing here. B1 and B2 are already the
+**What it would cost:** nothing needs doing here. B1 and B2 are new refusals
+of programs that used to run correctly, but each is loud, exotic, and in the
 safe direction (a wrong program refuses instead of running with a wrong
-value); B5 cannot diverge on any program node itself accepts. Recorded so a
-future sweep does not re-discover and re-triage them as if they were new.
+value) — the cost is a narrowed capability, not a wrong answer, and it is
+recorded rather than reversed. B5 cannot diverge on any program node itself
+accepts. Recorded so a future sweep does not re-discover and re-triage them
+as if they were unknown — and, for B1 and B2, so nobody reads "pre-existing"
+and looks for the cause outside this branch.
 
-## §12. An unpinned behaviour change: `.fill` on a zero-length array now evaluates its argument
+## §13. An unpinned behaviour change: `.fill` on a zero-length array now evaluates its argument
 
 | program | before this project | after this project |
 |---|---|---|
@@ -352,7 +453,7 @@ the zero-length receiver specifically. It is the cheapest item in this whole
 document to close: add one pinned case exercising `new Array(0).fill(g())`
 with a call counter, alongside the existing fill-once pins.
 
-## §13. An audit left undone: the 36 scratch-slot holders' mutual safety is unproven
+## §14. An audit left undone: the 36 scratch-slot holders' mutual safety is unproven
 
 This project (Task 7) took allocation and `.fill` off the list of things
 that clobber the function-body trailing scratch reservation, by giving each
@@ -378,7 +479,7 @@ fixed for two of them. Scoped work someone could pick up on its own account,
 with a genuinely unknown outcome — it might find nothing, or it might find
 this project's own bug class recurring elsewhere.
 
-## §14. Maintenance hazards
+## §15. Maintenance hazards
 
 None of these are wrong values — they are traps for the next person to touch
 this code:
@@ -388,14 +489,16 @@ this code:
 | D1 | `crates/kali_types/src/resolve/expression.rs` has **two** same-named recognizers: an associated `Self::expression_is_array_allocation` (handles `Array` only — no `Uint8Array`, `await`, `as`, `satisfies`, or `globalThis`) and the free function this project hardened. The gate calls the free one correctly, but neither's doc comment mentions the other exists. | A doc-comment cross-reference on both, naming which one the gate actually calls and why the other is narrower. No behaviour change. |
 | D2 | The Task 7 reservation test pins the trailing scratch reservation's SIZE (2→5 slots) but not the INDICES (`+2`/`+3`/`+4`), which is the interface Task 8's two new arms actually consume. A refactor that moves the allocation to, say, `+5` keeps this test green and surfaces only as a downstream breakage in Task 8's code. | Extend the reservation unit test to assert the specific offsets, not just the count. |
 | D3 | `tools/blast-radius/counts.json` still describes the pre-Task-9 argument guard: a stale line range and the old all-`Literal` condition. Left deliberately — correcting it would force a `FROZEN_PREDICATES_SHA256` re-freeze for a non-gating note field that no test checks (`task-9-report.md`, "Minor 2"). | Only worth doing at the next re-freeze this file needs for an unrelated reason; not worth a re-freeze on its own. |
-| D4 | `crates/kali_codegen/src/emit/control_flow.rs` Arm A's comment describes Task 8's round-4 rule without round-5's bare-identifier restriction, and misnumbers the round it came from. | A comment-only correction; no behaviour change. |
+| D4 | ~~`crates/kali_codegen/src/emit/control_flow.rs` Arm A's comment describes Task 8's round-4 rule without round-5's bare-identifier restriction, and misnumbers the round it came from.~~ **CLOSED 2026-09-12** by the branch's final whole-branch review: the comment now states the final narrowing (only a BARE identifier named `globalThis` is admitted; every other qualifying object is declined outright, with no namespace lookup), names it as what makes the arm sound against §6's spelling family, and carries §6's coupling warning. The round numbers were dropped rather than renumbered — `control_flow.rs` and `call.rs` disagreed by one and this review had no independent basis to adjudicate which index was right — and the final narrowing is now cited by commit (`4f9298fe37`) instead. | Done; comment-only, no behaviour change. |
+| D5 | **Recorded suggestion, deliberately NOT applied** (reviewer's, from the final whole-branch review): the pairing of `allocation_ctor_unshadowed` (the outer guard) with `resolve_array_alloc_call` (the recognizer) is spelled out by hand at each of the two Task 8 routing sites, so a **third** routing site added later could call `resolve_array_alloc_call` and forget the guard — which would be **unsound**, not merely untidy: it would route a user's own `function Uint8Array(n)` through the allocator (`4104` where node prints `4`), the exact review-found regression the guard exists to close. The reviewer proposed encapsulating the two into one helper so the pairing cannot be split. Not applied because this fix wave was documentation-only and is the last work before hand-off: there is no second wave to catch a refactor error. | Introduce a single helper that performs the guard and the resolve together, and route all call sites through it, so the unsound half-call is not expressible. Small and mechanical, but it touches emitted-code paths, so it needs its own change with the gate and the `allocation_ctor_shadow` pins re-run. |
+| D6 | **Recorded suggestion, deliberately NOT applied** (same review): `allocation_ctor_unshadowed`'s NAME misleads. It returns `false` in cases that have nothing to do with shadowing — most importantly for any qualifying object that is not a bare identifier (§6's family, §8's second row), where nothing is shadowed and the guard declines on identity-resolvability grounds instead. A reader who trusts the name will mis-predict the function, and §6's coupling makes that mis-prediction dangerous. Not applied for the same reason as D5: a rename touches every call site, and there is no second fix wave. | Rename to something that names the real postcondition (e.g. "the callee is provably the builtin allocator"), updating both call sites, the `call_tests/allocation_ctor_shadow.rs` references, and the rustdoc cross-references in `expression.rs`, `control_flow.rs` and this document. Mechanical but wide; worth doing at the same time as D5. |
 
-## §15. Cross-cutting note for whoever makes cross-module calls real
+## §16. Cross-cutting note for whoever makes cross-module calls real
 
 kali's whole cross-module call lane is already silently wrong, independent
 of this project: `import { K }` of `export const K = 7` yields `0`, and a
 renamed imported function call yields `0`. The register documents this
-already — it is not a new finding. §8's import-shadow gap is one instance of
+already — it is not a new finding. §9's import-shadow gap is one instance of
 the same underlying blindness, and closing either needs the shadow-gate
 namespace extended at the same time as the cross-module call lane itself,
 not as two separate pieces of work.

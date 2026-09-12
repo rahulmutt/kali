@@ -2203,13 +2203,28 @@ impl<'a> FunctionEmitter<'a> {
             // pre-existing placeholder `0` here before this task, so nothing
             // regresses), and it checks the OBJECT name instead for a
             // `globalThis`-qualified callee: a bare-name shadow must not
-            // block the real builtin (review round 2), but a user binding
-            // named `globalThis` must block it, because
-            // `is_array_like_constructor` matches the qualifying object by
-            // text alone and a user object bound to that name is otherwise
-            // routed through the allocator (review round 3's defect: kali
-            // `4104` at exit 0 where node prints `6`, and where every
-            // near-miss spelling refuses with `E5506`).
+            // block the real builtin (an earlier review round over-blocked
+            // it), but a user binding named `globalThis` must block it,
+            // because `is_array_like_constructor` matches the qualifying
+            // object by text alone and a user object bound to that name is
+            // otherwise routed through the allocator (the following round's
+            // defect: kali `4104` at exit 0 where node prints `6`, and where
+            // every near-miss spelling refuses with `E5506`).
+            //
+            // The FINAL narrowing (`4f9298fe37`) is the property this arm
+            // most depends on, and it is stronger than "check the object
+            // name": the ONLY qualifying object admitted is a BARE identifier
+            // named `globalThis`, whose binding is then checked; every other
+            // qualifying object -- a member expression
+            // (`a.globalThis.Uint8Array(5)`), or a node with no text of its
+            // own -- is DECLINED outright, with no namespace lookup at all.
+            // That is exactly what keeps this arm sound for the spelling
+            // family `kali_types`'s `expression_is_array_allocation` does NOT
+            // refuse (its second NAMED EXCEPTION: a one-element literal of a
+            // non-bare qualified allocation is still read as the allocation,
+            // kali `5` where node prints `1`, silent and pre-existing), so
+            // relaxing `allocation_ctor_unshadowed` without widening that
+            // recognizer in the same change reopens R-66 here.
             if self.allocation_ctor_unshadowed(id) {
                 if let Some(size_arg) = self.resolve_array_alloc_call(id) {
                     return self.emit_array_allocation(function, size_arg);

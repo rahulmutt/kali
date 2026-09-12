@@ -5579,6 +5579,25 @@ impl<'a> FunctionEmitter<'a> {
     /// was already the placeholder half of that pair before this guard
     /// existed.
     ///
+    /// **COUPLING: this restriction is ALSO Task 6's collision guard for
+    /// qualified spellings -- do not relax it on shadow-identity grounds
+    /// alone.** `kali_types`'s `expression_is_array_allocation`
+    /// (`crates/kali_types/src/resolve/expression.rs`) requires a BARE
+    /// `globalThis` identifier for the same reason this function does, so it
+    /// does NOT refuse the one-element array literal of a qualified allocation
+    /// whose object is anything else: `const a = {globalThis: {Uint8Array:
+    /// function (n) { return n; }}}; const xs = [a.globalThis.Uint8Array(5)];
+    /// xs.length` measures kali `5` against node's `1`, silent at exit 0, and
+    /// is PRE-EXISTING (see that function's second NAMED EXCEPTION, and the
+    /// lockstep row in
+    /// `docs/superpowers/followups/inline-allocation-value-position-discovered-defects.md`).
+    /// Task 8's two arms are sound against that whole family ONLY because
+    /// this function declines a non-bare qualifying object outright. The followups
+    /// document's nested-`globalThis` casualty section invites a future
+    /// project to replace this name check with real identity resolution;
+    /// doing so without widening `expression_is_array_allocation` in the same
+    /// change reopens R-66 in Arm A.
+    ///
     /// (`"Array"` has no qualified form at all in
     /// `is_array_like_constructor`, so the split is a no-op for it.)
     ///

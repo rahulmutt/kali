@@ -3159,6 +3159,43 @@ fn unwrap_transparent(expr: &Expression) -> &Expression {
 /// Restoring the descent (recursing when a zero-arg `new`'s callee is another
 /// `new`) was considered and rejected as unneeded complexity for a shape that
 /// can never be the difference between a passing and failing program.
+///
+/// SECOND NAMED EXCEPTION to the lockstep claim, measured at this branch's
+/// HEAD and deliberately left open: a QUALIFYING OBJECT that is not a bare
+/// `globalThis` identifier. `is_array_like_constructor` accepts any callee
+/// object node whose TEXT is `"globalThis"`, and a member-expression node
+/// carries its PROPERTY name as its own text — so codegen reads
+/// `a.globalThis.Uint8Array` (property text `"globalThis"`) as the qualifying
+/// object, while `is_global_this_uint8array` below requires a bare
+/// `Identifier` and declines. That is R-66's exact defect — a one-element
+/// literal read as the allocation — across a whole spelling family R-66's
+/// retirement does not cover. Measured against `node v26.8.2`, every row
+/// silent at exit 0, with `const a = {globalThis: {Uint8Array: function (n) {
+/// return n; }}};` in scope:
+///
+/// - `const xs = [a.globalThis.Uint8Array(5)]; xs.length` — kali `5`, node `1`
+/// - `const xs = [new a.globalThis.Uint8Array(5)];` — kali `5`, node `1`
+/// - `const xs = [a["globalThis"].Uint8Array(5)];` — kali `5`, node `1`
+/// - `const xs = [globalThis.globalThis.Uint8Array(5)]; xs.length` — kali `5`,
+///   node THROWS
+///
+/// PRE-EXISTING, not a regression: the declarator lane and
+/// `is_array_like_constructor` are byte-identical to this branch's merge base,
+/// so every row above measures the same before this project's work. Filed, not
+/// fixed, in
+/// `docs/superpowers/followups/inline-allocation-value-position-discovered-defects.md`.
+///
+/// **COUPLING — do not relax `allocation_ctor_unshadowed` without widening
+/// this recognizer in the same change.** Task 8's two new routing arms
+/// (`emit_value`'s Arm A, `emit_call`'s bare-call arm) stay sound against the
+/// whole family above ONLY because `FunctionEmitter::allocation_ctor_unshadowed`
+/// (`crates/kali_codegen/src/emit/call.rs`) returns `false` for any qualifying
+/// object that is not a BARE identifier, so those arms decline exactly the
+/// shapes this function fails to refuse. That check is justified there as
+/// shadow identity, and the followups document's nested-`globalThis` casualty
+/// section invites a future project to replace it with real identity
+/// resolution — but it is ALSO what keeps Task 6's collision closed for these
+/// spellings, and relaxing it alone reopens R-66 in the new arms.
 fn expression_is_array_allocation(expr: &Expression) -> bool {
     match unwrap_transparent(expr) {
         Expression::NewExpression(new_expr) => match unwrap_transparent(&new_expr.callee) {
