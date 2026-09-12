@@ -5,8 +5,9 @@ use kali_ast::{
     DecoratedExpression, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier,
     Expression, ExpressionStatement, FunctionDeclaration, LiteralValue, LogicalExpression,
     LogicalOperator, MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind,
-    ParenthesizedExpression, PropertyName, TemplateElement, TemplateLiteral, UnaryExpression,
-    UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator,
+    OptionalChainExpression, OptionalChainInner, ParenthesizedExpression, PropertyName,
+    TemplateElement, TemplateLiteral, UnaryExpression, UpdateExpression, UpdateOperator,
+    VariableDeclaration, VariableDeclarator,
 };
 use kali_error::_error_codes::{e3, e5};
 use kali_test_support::fixtures;
@@ -237,4 +238,162 @@ fn a_one_element_literal_of_a_parenless_new_global_this_uint8array_is_admitted()
         one_element_literal_statements(parenless_new_uint8array),
         diagnostics: 0
     );
+}
+
+/// Asserts `statements` resolves to exactly one diagnostic and that its
+/// message contains the `ALLOC_IN_LITERAL` needle
+/// (`crates/kali_cli/tests/cases/runtime/inline_allocation_value_position.toml`'s
+/// `[constants]` block), shared by every regression test below so each one
+/// states only its own AST shape.
+fn assert_refused_by_the_allocation_literal_gate(statements: Vec<Statement>) {
+    let result = assert_resolution!(statements, diagnostics: 1);
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains("lowers to the same node as the allocation itself"),
+        "unexpected message: {}",
+        result.diagnostics[0].message
+    );
+}
+
+// --- Round 1 and round 2 regression coverage ---
+//
+// Rounds 1-2 each closed a live miscompile in `expression_is_array_allocation`
+// / `unwrap_transparent` that had NO unit test of its own (only the round-2
+// paren spellings above got one at the time). Per the round-3 ruling: an
+// untested guarantee is not established, so every spelling closed in rounds
+// 1-2 gets its own test here, plus one admitted control that shares the same
+// `globalThis`-qualified machinery but must NOT refuse.
+
+#[test]
+fn a_one_element_literal_of_a_global_this_uint8array_allocation_is_refused() {
+    // `[new globalThis.Uint8Array(3)]` — round 1's first closure.
+    // `is_array_like_constructor`'s own second, `globalThis`-qualified branch
+    // (`emit/call.rs:5510-5521`).
+    let allocation = Expression::NewExpression(Box::new(kali_ast::NewExpression {
+        callee: Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("globalThis".to_string()),
+                property: Some("Uint8Array".to_string()),
+                computed_index: None,
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(3.0))],
+        })),
+        args: vec![],
+    }));
+
+    assert_refused_by_the_allocation_literal_gate(one_element_literal_statements(allocation));
+}
+
+#[test]
+fn a_one_element_literal_of_a_bracket_global_this_uint8array_call_is_refused() {
+    // `[globalThis["Uint8Array"](3)]` — the bracket-literal spelling of the
+    // same `globalThis`-qualified member, as a bare call (no `new`).
+    // `MemberExpression::property`'s own doc comment: a computed access is
+    // populated with `Some(name)` too when the parser can read the index
+    // statically, which is exactly what `is_global_this_uint8array` relies on
+    // to cover both spellings with one check.
+    let allocation = Expression::CallExpression(Box::new(CallExpression {
+        callee: Expression::MemberExpression(Box::new(MemberExpression {
+            object: Expression::Identifier("globalThis".to_string()),
+            property: Some("Uint8Array".to_string()),
+            computed_index: Some(Box::new(Expression::Literal(LiteralValue::String(
+                "Uint8Array".to_string(),
+            )))),
+        })),
+        args: vec![Expression::Literal(LiteralValue::Number(3.0))],
+    }));
+
+    assert_refused_by_the_allocation_literal_gate(one_element_literal_statements(allocation));
+}
+
+#[test]
+fn a_one_element_literal_of_an_allocation_wrapped_in_as_is_refused() {
+    // `[new Array(3) as number[]]` — round 1's second closure.
+    // `crates/kali_hir/src/lowering/expression.rs:210` erases `TypeAssertion`
+    // outright, and the parser accepts `as` in a plain `.js` file too.
+    let allocation = Expression::TypeAssertion(Box::new(kali_ast::TypeAssertion {
+        type_name: "number[]".to_string(),
+        expression: Box::new(Expression::NewExpression(Box::new(
+            kali_ast::NewExpression {
+                callee: Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::Identifier("Array".to_string()),
+                    args: vec![Expression::Literal(LiteralValue::Number(3.0))],
+                })),
+                args: vec![],
+            },
+        ))),
+    }));
+
+    assert_refused_by_the_allocation_literal_gate(one_element_literal_statements(allocation));
+}
+
+#[test]
+fn a_one_element_literal_of_an_allocation_wrapped_in_satisfies_is_refused() {
+    // `[new Array(3) satisfies unknown]` — round 1's third closure.
+    // `crates/kali_hir/src/lowering/expression.rs:211` erases
+    // `SatisfiesExpression` outright, same as `TypeAssertion`.
+    let allocation = Expression::SatisfiesExpression(Box::new(kali_ast::SatisfiesExpression {
+        type_name: "unknown".to_string(),
+        expression: Box::new(Expression::NewExpression(Box::new(
+            kali_ast::NewExpression {
+                callee: Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::Identifier("Array".to_string()),
+                    args: vec![Expression::Literal(LiteralValue::Number(3.0))],
+                })),
+                args: vec![],
+            },
+        ))),
+    }));
+
+    assert_refused_by_the_allocation_literal_gate(one_element_literal_statements(allocation));
+}
+
+#[test]
+fn a_one_element_literal_of_a_paren_wrapped_optional_chain_global_this_uint8array_is_refused() {
+    // `[new (globalThis?.Uint8Array)(3)]` — the optional-chain escape found
+    // and closed while verifying round 2: `unwrap_transparent`'s
+    // `OptionalChainExpression` arm falls out of the same generic recursion
+    // that closes the plain-paren forms, since `new` requires the chain to be
+    // parenthesized to be syntactically valid at all.
+    let optional_chain_global_this_uint8array =
+        Expression::OptionalChainExpression(Box::new(OptionalChainExpression {
+            inner: Box::new(OptionalChainInner::NonNull {
+                object: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("globalThis".to_string()),
+                    property: Some("Uint8Array".to_string()),
+                    computed_index: None,
+                }))),
+                optional: true,
+            }),
+        }));
+    let allocation = Expression::NewExpression(Box::new(kali_ast::NewExpression {
+        callee: Expression::CallExpression(Box::new(CallExpression {
+            callee: parenthesized(optional_chain_global_this_uint8array),
+            args: vec![Expression::Literal(LiteralValue::Number(3.0))],
+        })),
+        args: vec![],
+    }));
+
+    assert_refused_by_the_allocation_literal_gate(one_element_literal_statements(allocation));
+}
+
+#[test]
+fn a_one_element_literal_of_a_global_this_array_call_is_admitted() {
+    // `[globalThis.Array(3)]` — the boundary `is_global_this_uint8array` pins:
+    // codegen's `is_array_like_constructor` special-cases a `globalThis`
+    // qualifier ONLY for `Uint8Array` (`emit/call.rs:5510-5521`); a
+    // `globalThis`-qualified `Array` has no such branch and is not an
+    // allocation shape at all, so this must stay silent even though it shares
+    // every other piece of the `globalThis`-qualified machinery.
+    let non_allocation = Expression::CallExpression(Box::new(CallExpression {
+        callee: Expression::MemberExpression(Box::new(MemberExpression {
+            object: Expression::Identifier("globalThis".to_string()),
+            property: Some("Array".to_string()),
+            computed_index: None,
+        })),
+        args: vec![Expression::Literal(LiteralValue::Number(3.0))],
+    }));
+
+    assert_resolution!(one_element_literal_statements(non_allocation), diagnostics: 0);
 }

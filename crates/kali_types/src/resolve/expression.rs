@@ -3142,6 +3142,23 @@ fn unwrap_transparent(expr: &Expression) -> &Expression {
 /// Every one of the round-1/round-2 escapes measured `kali` printing the
 /// allocation's real length where node printed `1` — R-66's miscompile
 /// reopened after its retirement, three times over.
+///
+/// NAMED EXCEPTION to the lockstep claim above, found and deliberately left
+/// open in round 3: a nested `new new Array(3)` (the OUTER `new`'s callee is
+/// itself a `NewExpression`, not a `CallExpression`) is no longer recognized
+/// — the pre-round-2 code had a generic `callee => ... &&
+/// expression_is_array_allocation(callee)` fallback that recursed into ANY
+/// callee shape, including another `new`; round 2's rewrite requires the
+/// (unwrapped) callee to be a `CallExpression` specifically, which a bare
+/// `NewExpression` is not, so `[new new Array(3)]` now falls through to
+/// `false` and reaches codegen unrefused (measured: kali prints `3`). This is
+/// harmless rather than silently fixed: `new` applied to an `Array` instance
+/// is never a constructor, so **node throws `TypeError` on every spelling in
+/// this family**, unconditionally — there is no valid, clean-running program
+/// this shape can appear in, unlike every other gap this comment documents.
+/// Restoring the descent (recursing when a zero-arg `new`'s callee is another
+/// `new`) was considered and rejected as unneeded complexity for a shape that
+/// can never be the difference between a passing and failing program.
 fn expression_is_array_allocation(expr: &Expression) -> bool {
     match unwrap_transparent(expr) {
         Expression::NewExpression(new_expr) => match unwrap_transparent(&new_expr.callee) {
