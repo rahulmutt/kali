@@ -5510,11 +5510,24 @@ impl<'a> FunctionEmitter<'a> {
     /// global property no matter what local/module binding of the bare name
     /// exists -- that is exactly what qualifying through `globalThis` means,
     /// and a same-named binding cannot shadow it. This function returns
-    /// `true` (unshadowed, safe to route) immediately for a qualified callee,
-    /// WITHOUT consulting the namespaces at all. A first-round version of
-    /// this guard consulted the namespaces unconditionally regardless of
-    /// qualification and over-blocked the qualified builtin spelling under an
-    /// unrelated bare-name shadow: `function Uint8Array(n){return n+1;}`
+    /// `true` (unshadowed, safe to route) immediately for ANY callee with a
+    /// child (arity alone -- `!callee_node.children.is_empty()`), WITHOUT
+    /// consulting the namespaces at all and WITHOUT checking that the child
+    /// is actually `globalThis`. That is deliberately more permissive than
+    /// `is_array_like_constructor`'s own qualified arm, which additionally
+    /// requires the object's text be `globalThis`
+    /// (`self.node(obj).text.as_deref() == Some("globalThis")`) -- this
+    /// function does NOT mirror that check, and is sound ONLY because both
+    /// call sites conjoin it with `resolve_array_alloc_call`, which IS the
+    /// authority on whether the callee is really a `globalThis`-qualified
+    /// allocation. A caller that consulted this predicate on its own,
+    /// without also requiring `resolve_array_alloc_call` to agree, would be
+    /// relying on a guarantee this function does not provide.
+    ///
+    /// A first-round version of this guard consulted the namespaces
+    /// unconditionally regardless of qualification and over-blocked the
+    /// qualified builtin spelling under an unrelated bare-name shadow:
+    /// `function Uint8Array(n){return n+1;}`
     /// followed by `f(new globalThis.Uint8Array(5))` measured kali `0` where
     /// node prints `5`, exit 0, no diagnostic, a review-found regression this
     /// bare/qualified split closes. (`"Array"` has no qualified form at all
