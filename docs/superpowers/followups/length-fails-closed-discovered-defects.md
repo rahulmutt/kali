@@ -17,6 +17,35 @@ ranking was written; by consequence, §8 (a silent wrong value on ordinary code)
 would rank alongside §1-§2, and §7 (already in the register as R-39/R-40) would
 rank alongside §4.
 
+> **Notice, 2026-09-12, by the inline-allocation-value-position project**
+> (`docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`,
+> Task 10):
+>
+> - **§1 is closed.** Its two silent rows are retired register entries: **R-64**
+>   (an allocation outside the materializing lanes evaluates to `0`, closed
+>   FIXED) covers the argument-position rows, and **R-65** (a fold-lane array
+>   argument reads as zeros in the callee, closed FAIL_CLOSED) covers the
+>   fold-lane-literal row. Both were closed 2026-09-11 by the
+>   inline-allocation-value-position project's Tasks 8 and 9. §1's own repro
+>   table is left as measured history; do not re-open it as still-open.
+> - **§2 gains a measured row.** `console.log((new Array(3).fill(2))[1]);` →
+>   kali `undefined`, node `2` — re-verified 2026-09-12 against this branch's
+>   HEAD (`a09a468516`) with the existing binary and `node v26.8.2`, no rebuild.
+>   The `new` misparse (§2's own subject) still swallows the trailing index
+>   access the same way it swallows `.length` and `.message`; the
+>   length-fails-closed fix's floor does not reach an index read.
+> - **§3's row is unchanged.** `(new Array(3)).length` still prints `1`
+>   (node `3`) — re-verified 2026-09-12 against the same HEAD and binary. This
+>   is expected, not a regression: the value comes from `render_length`'s
+>   array-literal arm (`intrinsics/host.rs:1267-1285`), which accepts a
+>   text-less one-`Call`-child node as a one-element array literal and returns
+>   its child count *before* `emit_value`'s floor or fallbacks are ever
+>   reached — the inline-allocation-value-position project's routing lives in
+>   `emit_value`/`emit_call`, downstream of this arm, so it cannot see this
+>   value. See this repository's
+>   `inline-allocation-value-position-discovered-defects.md` for what that
+>   project measured and left open in the lanes it did touch.
+
 ---
 
 ## §1. An inline allocation passed as an argument reaches the callee as zeros

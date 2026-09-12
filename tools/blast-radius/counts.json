@@ -1024,6 +1024,91 @@
         "note": "Upper bound, per the record: the matcher counts every `.length` READ on a member or element receiver, an awaited `Promise.all`/`allSettled` result, or a `let`-bound identifier, and an acorn AST cannot see which codegen lane proves the receiver. Several counted shapes read correctly, measured at `152fdd5364` against node v26.8.2: `const o = {a: [1, 2, 3]}; o.a.length` prints `3` and `const m = [[1, 2], [3, 4, 5]]; m[1].length` prints `3`, both on both engines. The entry's own lanes are the ones that diverge: a string-valued member (`o.a.length` over `{a: \"xyz\"}` prints `1`), a `let` array read in a function (`0`), and an awaited combinator result (always `2`)."
       },
       "alternateReading": null
+    },
+    {
+      "id": "R-64",
+      "matcher": "allocationOutsideMaterializingLane",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the matcher counts every allocation outside the three materializing lanes, and an acorn AST cannot see whether the value is ever read. Measured at `733cd26125` against node v26.8.2, `function f(x) { return 1; } f(new Array(3))` prints `1` on both engines and is counted."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-65",
+      "matcher": "foldLaneArrayArgument",
+      "raw": 58,
+      "reachable": 5,
+      "strata": {
+        "anchor": {
+          "raw": 5,
+          "reachable": 5
+        },
+        "extension": {
+          "raw": 53,
+          "reachable": 0
+        }
+      },
+      "zero": null,
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the matcher counts every array-literal, bound-literal, spread, and constructed-value argument to a call, and an acorn AST cannot see whether the callee resolves to a compiled kali function -- which is what the argument guard (`crates/kali_codegen/src/emit/call.rs:3573-3615`) requires before it fires. An argument passed to a builtin, or to a callee this static pass never resolves, is counted here without ever reaching the guard. Callee resolution is not the only source of the over-count: `foldLaneArrayArgument` counts an ArrayExpression argument, and an identifier bound to an ArrayExpression, with no regard for emptiness, while the guard requires a NON-EMPTY aggregate (`!aggregate.children.is_empty()`), so `f([])` and `const xs = []; f(xs)` are counted here and never refuse."
+      },
+      "alternateReading": null
+    },
+    {
+      "id": "R-66",
+      "matcher": "oneElementLiteralOfAllocation",
+      "raw": 0,
+      "reachable": 0,
+      "strata": {
+        "anchor": {
+          "raw": 0,
+          "reachable": 0
+        },
+        "extension": {
+          "raw": 0,
+          "reachable": 0
+        }
+      },
+      "zero": "unsampled",
+      "upperBound": null,
+      "alternateReading": null
+    },
+    {
+      "id": "R-67",
+      "matcher": "fillValueReevaluated",
+      "raw": 12,
+      "reachable": 7,
+      "strata": {
+        "anchor": {
+          "raw": 7,
+          "reachable": 7
+        },
+        "extension": {
+          "raw": 5,
+          "reachable": 0
+        }
+      },
+      "zero": null,
+      "upperBound": {
+        "disclosedInRecord": true,
+        "note": "Upper bound, per the record: the matcher counts every `.fill(v)` member call with exactly one argument, regardless of receiver, and an acorn AST cannot see whether the receiver is a proven array. `array_fill_call_parts` (`crates/kali_codegen/src/emit/call.rs`) returns `None` unless the receiver is a proven array allocation (`resolve_array_alloc_call(receiver).is_some()`) or a tracked array binding (`self.array_bindings.contains(&name)`), and only a receiver that passes routes to `emit_array_fill`, whose loop is what re-emits the value per element. A `.fill(v)` call on a user class or plain object with its own `fill` method is syntactically identical to acorn but does not reach `emit_array_fill` at all, and is counted here without ever exhibiting the defect."
+      },
+      "alternateReading": null
     }
   ]
 }

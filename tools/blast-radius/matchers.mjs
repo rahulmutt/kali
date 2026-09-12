@@ -470,6 +470,18 @@ function isUnprovenLengthReceiver(receiver, analysis) {
   return isAwaitedPromiseCombinator(binding.init);
 }
 
+/**
+ * `Array(n)` / `new Array(n)` / `Uint8Array(n)` / `new Uint8Array(n)`, the callee
+ * spellings `FunctionEmitter::is_array_like_constructor`
+ * (`crates/kali_codegen/src/emit/call.rs:5510`) accepts, with at most one argument.
+ */
+function isArrayAllocation(node) {
+  const callee = node.callee;
+  if (!callee || callee.type !== "Identifier") return false;
+  if (callee.name !== "Array" && callee.name !== "Uint8Array") return false;
+  return node.arguments.length <= 1;
+}
+
 export const MATCHERS = {
   // R-01: a `function` declaration or function expression with a default-valued
   // parameter (arrow forms excluded -- they fail closed).
@@ -1309,6 +1321,109 @@ export const MATCHERS = {
     return analysis
       .of("MemberExpression")
       .filter((node) => !stores.has(node) && isLengthProperty(node) && isUnprovenLengthReceiver(node.object, analysis))
+      .length;
+  },
+
+  // R-64: an `Array`/`Uint8Array` allocation whose value is used somewhere none
+  // of codegen's three materializing lanes reaches -- the declarator init
+  // (`crates/kali_codegen/src/emit/control_flow.rs:1690`, `:1711`), the
+  // assignment right-hand side (`emit/literal.rs:1043`) and the `.fill` receiver
+  // (`emit/call.rs:6004`). Everywhere else the node is a text-less `Value` and
+  // `emit_aggregate_literal` drops it and pushes `0`.
+  //
+  // Upper bound, disclosed in `count.mjs`'s UPPER_BOUNDS: an acorn AST cannot see
+  // that a callee ignores its parameter, and such a call is counted even though
+  // it prints correctly.
+  allocationOutsideMaterializingLane(ast) {
+    const analysis = analysisOf(ast);
+    const materialized = new Set();
+    for (const node of analysis.of("VariableDeclarator")) {
+      if (node.init) materialized.add(node.init);
+    }
+    for (const node of analysis.of("AssignmentExpression")) {
+      materialized.add(node.right);
+    }
+    for (const node of analysis.of("CallExpression")) {
+      if (node.callee.type === "MemberExpression" && node.callee.property.name === "fill") {
+        materialized.add(node.callee.object);
+      }
+    }
+    return analysis
+      .of("CallExpression")
+      .concat(analysis.of("NewExpression"))
+      .filter((node) => isArrayAllocation(node) && !materialized.has(node))
+      .length;
+  },
+
+  // R-65: an argument to a user function that kali cannot pass as a runtime
+  // handle -- an array literal (bound or inline, whatever its elements), a spread
+  // of one, or a constructed value, which lowers to the same text-less `Value`
+  // node as a one-element literal. The callee reads zero placeholders
+  // (`crates/kali_codegen/src/emit/call.rs:3573-3615` at `733cd26125`).
+  //
+  // Upper bound, disclosed in `count.mjs`'s UPPER_BOUNDS: an acorn AST cannot see
+  // whether the callee resolves to a compiled function, and the guard fires only
+  // when it does.
+  foldLaneArrayArgument(ast) {
+    const analysis = analysisOf(ast);
+    const arrayNames = new Set();
+    for (const node of analysis.of("VariableDeclarator")) {
+      if (node.id.type === "Identifier" && node.init && node.init.type === "ArrayExpression") {
+        arrayNames.add(node.id.name);
+      }
+    }
+    let total = 0;
+    for (const call of analysis.of("CallExpression")) {
+      for (const arg of call.arguments) {
+        if (arg.type === "ArrayExpression") total += 1;
+        else if (arg.type === "NewExpression" && !isArrayAllocation(arg)) total += 1;
+        else if (arg.type === "Identifier" && arrayNames.has(arg.name)) total += 1;
+      }
+    }
+    return total;
+  },
+
+  // R-66: a one-element array literal whose only element is an array allocation.
+  // `[Array(3)]` and `new Array(3)` are the SAME LIR node -- a text-less `Value`
+  // with one `Call` child (`crates/kali_mir/src/lower.rs:108`, `:116` erase the
+  // HIR distinction) -- so `resolve_array_alloc_call` reads the literal as the
+  // allocation and the declarator lane answers the allocation's length.
+  oneElementLiteralOfAllocation(ast) {
+    const analysis = analysisOf(ast);
+    return analysis
+      .of("ArrayExpression")
+      .filter((node) => {
+        if (node.elements.length !== 1) return false;
+        let only = node.elements[0];
+        if (!only) return false;
+        if (
+          only.type === "CallExpression" &&
+          only.callee.type === "MemberExpression" &&
+          only.callee.property.name === "fill"
+        ) {
+          only = only.callee.object;
+        }
+        return (
+          (only.type === "CallExpression" || only.type === "NewExpression") &&
+          isArrayAllocation(only)
+        );
+      })
+      .length;
+  },
+
+  // R-67: a `.fill(v)` whose value is re-emitted inside the loop body
+  // (`crates/kali_codegen/src/emit/call.rs:6052` at `733cd26125`), so `v`'s side
+  // effects run once per element where JavaScript evaluates it once.
+  fillValueReevaluated(ast) {
+    const analysis = analysisOf(ast);
+    return analysis
+      .of("CallExpression")
+      .filter(
+        (node) =>
+          node.callee.type === "MemberExpression" &&
+          node.callee.property.name === "fill" &&
+          node.arguments.length === 1,
+      )
       .length;
   },
 };

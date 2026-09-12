@@ -101,6 +101,28 @@ impl<'a> FunctionEmitter<'a> {
             return self.deny_e5506(function, computed_member_access_unavailable_message());
         }
 
+        // A bare, no-`new` `Array(n)` call in value position -- kali's own
+        // allocation spelling; `Uint8Array(n)` with no `new` is NOT valid
+        // JavaScript (node: `TypeError: Constructor Uint8Array requires
+        // 'new'`), so only the `Array` half of `is_array_like_constructor` can
+        // ever legitimately reach this arm as the builtin. The declarator,
+        // assignment and `.fill`-receiver lanes intercept their own copies
+        // before `emit_call`, so anything arriving here is a value whose
+        // allocation nobody has made. Without this arm it falls through to
+        // the unresolved-callee placeholder and answers `0` (register entry
+        // R-64). Gated on `allocation_ctor_unshadowed`: a user
+        // `function Array(n) { ... }` cannot compile (`kali_types`'s
+        // `reject_builtin_array_shadow` refuses the redeclaration), but a
+        // user `function Uint8Array(n) { ... }` compiles fine -- bare
+        // `Uint8Array` is not a kali builtin at all -- so without the guard
+        // this arm would treat the user's own function as the allocator
+        // (review-found regression: kali `4104` against node's `4`).
+        if self.allocation_ctor_unshadowed(id) {
+            if let Some(size_arg) = self.resolve_array_alloc_call(id) {
+                return self.emit_array_allocation(function, size_arg);
+            }
+        }
+
         // Stage-review F10 (adjudicated deny-now): a `new URL(...)` /
         // `new URLSearchParams(...)` ANYWHERE outside the admitted
         // `const <name> = new <ctor>(<string-literal>)` declarator intercept —
@@ -3571,39 +3593,34 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         for (arg_index, arg) in node.children.iter().skip(1).enumerate() {
-            // An UNMATERIALIZED array literal (a direct `f([1, 2])` argument,
-            // or a fold-lane `const arr = [1, 2]` alias) has no runtime
-            // representation: `emit_aggregate_literal` pushes a zero
-            // placeholder, so every element read in the callee silently
-            // yielded 0 (`g([1, 2]) { return items[0] }` → 0, node says 1).
-            // Materialized arrays (`new Array(n)`, `.fill()`, object-element
-            // literals) live in locals — NOT the fold-lane `bindings` map that
-            // `resolve_literal_aggregate` follows — and pass a real handle,
-            // so they are untouched here. REJECT-DON'T-MISCOMPILE.
+            // An array kali cannot pass as a runtime handle: the callee would
+            // read zero placeholders where the elements should be, silently
+            // (`g([1, 2]) { return items[0] }` → 0, node says 1). That is every
+            // fold-lane array literal, whatever its elements -- the earlier
+            // all-`Literal` condition let `f([k])`, `f([1 + 1])` and
+            // `[...Object.values(o)]` through to the placeholder (register entry
+            // R-65) -- and every constructed value, because `new C()` and
+            // `[C()]` are the SAME text-less LIR node and no shape check can
+            // separate them.
+            //
+            // An ALLOCATION argument is exempt: `emit_value` and `emit_call` now
+            // allocate one in value position, so it arrives as a real handle.
+            // REJECT-DON'T-MISCOMPILE.
             if resolved.is_some() {
-                // Shape-strict: `new X(1)` and `[X, 1]` are the SAME LIR shape
-                // (textless Value), so `is_array_literal` alone would also
-                // catch NewExpr nodes (observed: the release pipeline leaves
-                // `new Array(3)` unrecognized and this reject misfired on it).
-                // Requiring every element to be a Literal keeps the reject on
-                // the proven array-literal class (`f([1, 2])`) and leaves
-                // call-shaped nodes on their pre-existing lanes.
-                let fold_lane_array = self
-                    .resolve_literal_aggregate(*arg)
-                    .map(|id| self.node(id).clone())
-                    .is_some_and(|aggregate| {
-                        self.is_array_literal(&aggregate)
-                            && !aggregate.children.is_empty()
-                            && aggregate.children.iter().all(|&child| {
-                                self.node(self.unwrap_transparent(child)).kind
-                                    == LirNodeKind::Literal
-                            })
-                    });
+                let arg_is_allocation = self.resolve_array_alloc_call(*arg).is_some()
+                    || self.resolve_array_fill_call(*arg).is_some();
+                let fold_lane_array = !arg_is_allocation
+                    && self
+                        .resolve_literal_aggregate(*arg)
+                        .map(|id| self.node(id).clone())
+                        .is_some_and(|aggregate| {
+                            self.is_array_literal(&aggregate) && !aggregate.children.is_empty()
+                        });
                 if fold_lane_array {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
                         format!(
-                            "passing an array literal to function '{callee_name}' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead"
+                            "passing an array literal to function '{callee_name}' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead. A constructed value (`new C()`) is refused here too: it lowers to the same node as a one-element array literal"
                         ),
                     ));
                     function.instruction(&Instruction::I64Const(0));
@@ -5475,6 +5492,191 @@ impl<'a> FunctionEmitter<'a> {
         Some(node.children.get(1).copied())
     }
 
+    /// Five-namespace shadow guard for a BARE `Array`/`Uint8Array` allocation
+    /// callee (mirrors `url_ctor_unshadowed`/`is_event_target_new`'s guard for
+    /// the same hazard): a user binding of the ctor name in ANY codegen
+    /// namespace means `is_array_like_constructor`'s text match is not
+    /// actually the builtin, so `id`'s two Task 8 call sites must decline
+    /// rather than route a user function/value through the allocator.
+    ///
+    /// **Which name is checked depends on the spelling.** The five-namespace
+    /// lookup runs either way; what changes is the name it runs on:
+    ///
+    /// - **bare** callee (`Uint8Array(n)`, `new Uint8Array(n)`) -- the CTOR
+    ///   name must be unbound. A user `function Uint8Array` /
+    ///   `const Uint8Array` is what `is_array_like_constructor`'s bare arm
+    ///   would otherwise mistake for the builtin.
+    /// - **qualified** callee (`new globalThis.Uint8Array(n)`, the other half
+    ///   of `is_array_like_constructor`'s `"Uint8Array"` arm) -- the OBJECT
+    ///   name (`globalThis`) must be unbound. Qualifying through the real
+    ///   global names the real global property no matter what BARE
+    ///   `Uint8Array` binding exists, so a bare-name shadow is irrelevant
+    ///   here; what is NOT irrelevant is a user binding of `globalThis`
+    ///   itself, because `is_array_like_constructor` matches the qualifying
+    ///   object by TEXT alone (`self.node(obj).text.as_deref() ==
+    ///   Some("globalThis")`) and cannot tell the real global from a user
+    ///   object that happens to be bound to that name.
+    ///
+    /// Both round-1 and round-2 regressions came from getting this split
+    /// wrong in one direction or the other:
+    ///
+    /// - round 1 consulted the namespaces on the ctor name regardless of
+    ///   qualification, which over-blocked the genuine builtin:
+    ///   `function Uint8Array(n){return n+1;}` followed by
+    ///   `f(new globalThis.Uint8Array(5))` measured kali `0` where node
+    ///   prints `5`, exit 0, no diagnostic;
+    /// - round 2 over-corrected by exempting EVERY qualified callee (arity
+    ///   alone -- `!callee_node.children.is_empty()`, without consulting any
+    ///   namespace and without checking the object's identity), which let a
+    ///   user object bound to the name `globalThis` route through the
+    ///   allocator: `const globalThis = {Uint8Array:(n)=>n+1};`
+    ///   `function f(x){return x;} console.log(f(globalThis.Uint8Array(5)));`
+    ///   measured kali `4104` at exit 0 with no diagnostic where node prints
+    ///   `6`, and where every structurally identical program that escapes the
+    ///   text match (two arguments, a renamed property, a renamed object)
+    ///   refuses with `E5506` -- i.e. the exemption converted a refusal into
+    ///   a silent wrong number, inverting this spec's "a real array, or a
+    ///   refusal".
+    ///
+    /// Checking the object name closes that: with `globalThis` itself bound,
+    /// this returns `false`, Task 8's arms decline, and the program reaches
+    /// the same `E5506` first-class-function-value refusal as its controls
+    /// (kali cannot call a method on a user object at all).
+    ///
+    /// **The accepted qualified set is finite and stated positively: exactly
+    /// one shape, a BARE identifier named `globalThis`, whose binding is then
+    /// checked.** Anything else -- a member-expression object
+    /// (`a.globalThis.Uint8Array(5)`), or an object node with no text at all
+    /// -- returns `false`. That is not an exclusion list of known-bad
+    /// spellings; it is the complement of the one admitted shape, which is
+    /// why the nested spelling cannot reopen the hazard the way rounds 1-4
+    /// each did. It matters because a member-expression node carries its
+    /// PROPERTY name as its own text, so reading that text alone would check
+    /// `globalThis` while the binding that actually decides the meaning is
+    /// the base identifier (`a`) -- measured, before this was closed: `const
+    /// a = {globalThis:{Uint8Array:(n)=>n+1}};` with
+    /// `f(a.globalThis.Uint8Array(5))` gave kali `4104` at exit 0 where node
+    /// prints `6`, while the renamed-property, renamed-object and
+    /// two-argument controls all refused with `E5506`. The one casualty is
+    /// `globalThis.globalThis.Uint8Array(n)`, which names the real builtin
+    /// and is DECLINED by this guard rather than routed through it --
+    /// measured, not merely predicted, on the exact spelling: `function f(x)
+    /// { return x; } console.log(f(globalThis.globalThis.Uint8Array(5)));`
+    /// (a bare call, no `new`) gives kali `0` at exit 0 -- the declined arm
+    /// falls into the aggregate placeholder and answers silently -- where
+    /// node THROWS `TypeError: Constructor Uint8Array requires 'new'` at a
+    /// nonzero exit and prints nothing at all; the two sides disagree on
+    /// more than the value. The `new` + `.length` sibling
+    /// (`function f(x) { return x.length; } console.log(f(new
+    /// globalThis.globalThis.Uint8Array(5)));`) is the pair that actually
+    /// matches the pre-Task-8 baseline shape: kali still answers `0`, and
+    /// node prints `5`. Both are the same placeholder mechanism this file's
+    /// (now-closed, FIXED) R-64 filing already described for a bare
+    /// allocation reaching a non-materializing lane -- named here for that
+    /// mechanism, not because R-64 itself is still open -- and neither is
+    /// newly introduced by this guard: accepted deliberately, since this
+    /// spec is "a real array, OR a refusal", and this pathological spelling
+    /// was already the placeholder half of that pair before this guard
+    /// existed.
+    ///
+    /// **COUPLING: this restriction is ALSO Task 6's collision guard for
+    /// qualified spellings -- do not relax it on shadow-identity grounds
+    /// alone.** `kali_types`'s `expression_is_array_allocation`
+    /// (`crates/kali_types/src/resolve/expression.rs`) requires a BARE
+    /// `globalThis` identifier for the same reason this function does, so it
+    /// does NOT refuse the one-element array literal of a qualified allocation
+    /// whose object is anything else: `const a = {globalThis: {Uint8Array:
+    /// function (n) { return n; }}}; const xs = [a.globalThis.Uint8Array(5)];
+    /// xs.length` measures kali `5` against node's `1`, silent at exit 0, and
+    /// is PRE-EXISTING (see that function's second NAMED EXCEPTION, and the
+    /// lockstep row in
+    /// `docs/superpowers/followups/inline-allocation-value-position-discovered-defects.md`).
+    /// Task 8's two arms are sound against that whole family ONLY because
+    /// this function declines a non-bare qualifying object outright. The followups
+    /// document's nested-`globalThis` casualty section invites a future
+    /// project to replace this name check with real identity resolution;
+    /// doing so without widening `expression_is_array_allocation` in the same
+    /// change reopens R-66 in Arm A.
+    ///
+    /// (`"Array"` has no qualified form at all in
+    /// `is_array_like_constructor`, so the split is a no-op for it.)
+    ///
+    /// Scoped to Task 8's two NEW routing arms only (`emit_value`'s Arm A and
+    /// `emit_call`'s bare-call arm) -- deliberately NOT consulted by
+    /// `resolve_array_alloc_call`'s three PRE-EXISTING callers (the
+    /// declarator initializer, the assignment right-hand side, the `.fill`
+    /// receiver test), which stay exactly as they were. That is why `Array`
+    /// needs this guard at all despite `kali_types`'s `reject_builtin_array_shadow`
+    /// (`crates/kali_types/src/context.rs`) already refusing to let a user
+    /// redeclare `Array`: this task made the TWO NEW ARMS consistent with each
+    /// other rather than relying on `Array`'s refusal alone. `Uint8Array` is
+    /// the real hazard -- it is not a kali builtin at all (`new Uint8Array(4)`
+    /// with no user binding refuses with `error[E3100]: undefined identifier
+    /// 'Uint8Array'`), so there is nothing for `kali_types` to refuse a
+    /// shadow of, and a user `function Uint8Array(n) { ... }` or
+    /// `const Uint8Array = (n) => ...` compiles and reaches codegen, where the
+    /// bare-`Uint8Array` half of `is_array_like_constructor` would otherwise
+    /// treat the user's own function as the allocator (measured: kali `4104`
+    /// against node's `4` for `function Uint8Array(n){return n+1;}
+    /// console.log(Uint8Array(3));`, a round-1 review-found regression this
+    /// guard closes). The pre-existing declarator-lane instance of the same
+    /// bare-name shadow hazard (`const y = Uint8Array(3)`) is UNCHANGED by
+    /// this guard and is filed, not fixed, per the controller's ruling (Task
+    /// 8 report), as is the import-namespace half of the same hazard and
+    /// Arm B's own shadowed-fill-chain gap (also filed, not fixed -- see the
+    /// report).
+    pub(crate) fn allocation_ctor_unshadowed(&self, id: LirNodeId) -> bool {
+        let target = self.unwrap_transparent_value_node(id);
+        let node = self.node(target);
+        if node.kind != LirNodeKind::Call {
+            return true;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return true;
+        };
+        let callee_node = self.node(callee);
+        let Some(ctor) = callee_node.text.as_deref() else {
+            return true;
+        };
+        if !matches!(ctor, "Array" | "Uint8Array") {
+            return true;
+        }
+        // The name whose binding decides whether this text match is really
+        // the builtin. Bare callee: the ctor name itself. Qualified callee
+        // (`globalThis.Uint8Array`): the OBJECT name, since a bare-name
+        // binding cannot shadow a real global property, but a binding of
+        // `globalThis` makes the whole spelling a user object's method --
+        // and `is_array_like_constructor` matches that object by text alone.
+        let guarded = match callee_node.children.first() {
+            None => ctor,
+            Some(&object) => {
+                let object_node = self.node(object);
+                // A qualifying object that is not a BARE identifier names no
+                // binding this guard can check: a member-expression object
+                // (`a.globalThis`) carries its PROPERTY name as its own text,
+                // so reading that text would check `globalThis` while the
+                // binding that decides the meaning is the base (`a`). Decline
+                // -- the accepted qualified set is exactly one shape, a bare
+                // identifier named `globalThis`, whose binding is then
+                // checked below.
+                if !object_node.children.is_empty() {
+                    return false;
+                }
+                match object_node.text.as_deref() {
+                    Some(object_name) => object_name,
+                    // A qualifying object with no name of its own is not a
+                    // binding this guard can resolve: decline rather than route.
+                    None => return false,
+                }
+            }
+        };
+        !(self.locals.contains_key(guarded)
+            || self.bindings.contains_key(guarded)
+            || self.module_binding_names.contains(guarded)
+            || self.fn_valued_locals.contains_key(guarded)
+            || self.functions.contains_key(guarded))
+    }
+
     /// Push the i32 linear-memory pointer of a tagged string handle held in
     /// `handle_local` (an i64 local): `((handle >> 32) & 0x7fff_ffff) as i32`.
     /// Matches the host's `read_guest_string_handle` decode (offset = bits
@@ -5569,12 +5771,11 @@ impl<'a> FunctionEmitter<'a> {
         function: &mut Function,
         len: ArrayLen,
     ) -> EmittedValue {
-        let scratch = self.locals.len() as u32;
-        // Second scratch slot (see the `+ 2` extra-locals count in `lower.rs`): holds the
-        // evaluated size argument so its AST node is emitted exactly once, then reused for
-        // both the length-header store and the `(n+1)*8` byte-count math. Evaluating it
-        // once also avoids a double-evaluation of any side effect in the size expression
-        // and avoids re-emitting into the `scratch` slot in between the two uses below.
+        // Dedicated slots (see `lower.rs`'s reservation comment): never the two
+        // general-purpose scratch slots, so an allocation nested inside another
+        // emitter's scratch-holding window cannot overwrite it. Both are written
+        // only AFTER the size argument has been emitted.
+        let scratch = self.locals.len() as u32 + 2;
         let size_scratch = scratch + 1;
 
         // size = evaluated size argument (emitted exactly once) or a constant.
@@ -5980,10 +6181,14 @@ impl<'a> FunctionEmitter<'a> {
     /// the stack as the expression result (so the call is bindable/chainable).
     ///
     /// Mirrors the `block { loop { <test ⇒ br out>; body; br loop } }` idiom used by
-    /// [`Self::emit_loop`]. Uses the two trailing i64 scratch locals reserved in
-    /// `lower.rs`: `base_local` holds the array base handle (also the result) and
-    /// `counter_local` the loop counter `i`. The length bound is re-read each pass
-    /// from the i64 header at `offset: 0`, so no third local is needed.
+    /// [`Self::emit_loop`]. Uses three of the five trailing i64 scratch locals
+    /// reserved in `lower.rs`, dedicated to this function and
+    /// `emit_array_allocation_with_len` alone: `base_local` (`+2`) holds the array
+    /// base handle (also the result), `counter_local` (`+3`) the loop counter `i`,
+    /// and `value_local` (`+4`) the fill value, evaluated exactly once before the
+    /// loop and reused on every pass (JavaScript's `.fill(v)` evaluates `v` once,
+    /// not once per element). The length bound is re-read each pass from the i64
+    /// header at `offset: 0`, so no further local is needed.
     ///
     /// `binding_name` selects the element repr (F64 vs I64) and hence the store
     /// width: an f64 array filled with an integer literal stores it as `1.0` via a
@@ -5995,12 +6200,17 @@ impl<'a> FunctionEmitter<'a> {
         value: LirNodeId,
         binding_name: &str,
     ) -> EmittedValue {
-        let base_local = self.locals.len() as u32;
+        // Dedicated slots (see `lower.rs`'s reservation comment). Both the
+        // receiver and the value are emitted BEFORE any of them is written, so a
+        // nested allocation or fill in either one completes first and cannot
+        // clobber this call's handle, counter or value.
+        let base_local = self.locals.len() as u32 + 2;
         let counter_local = base_local + 1;
+        let value_local = base_local + 2;
 
-        // Materialize the array base handle (i64) into `base_local`. A fresh
-        // `new Array(n)` receiver allocates (writing its length header); an existing
-        // binding just loads its handle.
+        // Receiver first, then value: JavaScript's evaluation order. A fresh
+        // `new Array(n)` receiver allocates (writing its length header); an
+        // existing binding just loads its handle. Both leave an i64 on the stack.
         if let Some(size_arg) = self.resolve_array_alloc_call(receiver) {
             let allocated = self.emit_array_allocation(function, size_arg);
             if !allocated.produced {
@@ -6012,14 +6222,33 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(0));
             }
         }
+
+        // `.fill(v)` evaluates `v` ONCE in JavaScript. Emitting it inside the loop
+        // ran its side effects once per element (register entry R-67:
+        // `new Array(3).fill(g())` called `g` three times where node calls it
+        // once), so it is evaluated here and held in a slot. An f64 element repr
+        // stores the promoted float's BITS, restored at each store below, because
+        // the reserved slots are i64.
+        let elem_is_float = self.array_elem_repr(binding_name) == kali_common::Repr::F64;
+        let value_is_float = self.is_float_valued(value);
+        let produced = self.emit_node(function, value, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        if elem_is_float {
+            if !produced.produced || !value_is_float {
+                function.instruction(&Instruction::F64ConvertI64S);
+            }
+            function.instruction(&Instruction::I64ReinterpretF64);
+        }
+
+        // The stack holds [handle, value]; pop in that order.
+        function.instruction(&Instruction::LocalSet(value_local));
         function.instruction(&Instruction::LocalSet(base_local));
 
         // i = 0
         function.instruction(&Instruction::I64Const(0));
         function.instruction(&Instruction::LocalSet(counter_local));
-
-        let elem_is_float = self.array_elem_repr(binding_name) == kali_common::Repr::F64;
-        let value_is_float = self.is_float_valued(value);
 
         function.instruction(&Instruction::Block(BlockType::Empty));
         function.instruction(&Instruction::Loop(BlockType::Empty));
@@ -6047,16 +6276,10 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::I32Mul);
         function.instruction(&Instruction::I32Add);
 
-        // Push `value` at the array's element width. An integer literal/expr stored
-        // into an f64 array is promoted to f64 first.
-        let produced = self.emit_node(function, value, true);
-        if !produced.produced {
-            function.instruction(&Instruction::I64Const(0));
-        }
+        // Push the once-evaluated `value` at the array's element width.
+        function.instruction(&Instruction::LocalGet(value_local));
         if elem_is_float {
-            if !produced.produced || !value_is_float {
-                function.instruction(&Instruction::F64ConvertI64S);
-            }
+            function.instruction(&Instruction::F64ReinterpretI64);
             function.instruction(&Instruction::F64Store(MemArg {
                 offset: 8,
                 align: 3,

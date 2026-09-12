@@ -345,7 +345,7 @@ test("the module exports exactly the catalogue's countable matchers, by name", (
   const countable = CATALOGUE.entries.filter((entry) => entry.kind === "countable");
   const catalogueNames = countable.map((entry) => entry.matcher).sort();
   assert.deepEqual(Object.keys(MATCHERS).sort(), catalogueNames);
-  assert.equal(catalogueNames.length, 43);
+  assert.equal(catalogueNames.length, 47);
 });
 
 test("objectLiteralQuotedNumericStringKey counts only the colliding key spelling", () => {
@@ -638,4 +638,90 @@ test("R-13's breakdown counts a store target as a store, not a read", () => {
   assert.equal(breakdown.total, 2);
   assert.equal(breakdown.storeTarget, 1);
   assert.equal(breakdown.arrayLikeReceiver, 2);
+});
+
+test("allocationOutsideMaterializingLane counts allocations no lane materializes", () => {
+  // Positives: an allocation as a call argument, as a `.fill` argument's own
+  // receiver-free value, in a ternary arm, returned, in an object property, and
+  // the bare `Array(n)` spelling. Negatives: the three lanes that DO materialize
+  // -- a declarator init, an assignment right-hand side, and a `.fill` receiver
+  // -- and a non-array constructor.
+  const src = `
+    function f(x) { return x.length; }
+    console.log(f(new Array(6)));        // argument, counts
+    console.log(f(Array(6)));            // bare call argument, counts
+    console.log(f(new Uint8Array(4)));   // typed-array argument, counts
+    const c = true;
+    console.log(f(c ? new Array(2) : new Array(3))); // two ternary arms, counts twice
+    function mk() { return new Array(3); }           // returned, counts
+    const o = { arr: new Array(3) };                 // property value, counts
+    const a = new Array(5);              // declarator init, does not count
+    let b;
+    b = new Array(2);                    // assignment rhs, does not count
+    const d = new Array(4).fill(1);      // fill receiver + declarator, does not count
+    const e = new Map();                 // not an array allocation, does not count
+  `;
+  assert.equal(count("allocationOutsideMaterializingLane", src), 7);
+});
+
+test("foldLaneArrayArgument counts array arguments kali cannot pass as a handle", () => {
+  // Positives: an array literal argument (all-literal, identifier, expression,
+  // call element), a spread of an Object.values/keys result, a bound literal, and
+  // a constructed value -- which lowers to the same node as a one-element literal.
+  // Negatives: an allocation argument (a real handle after this project), a bound
+  // allocation, a scalar, and an array literal that is NOT an argument.
+  const src = `
+    function f(x) { return x[0]; }
+    const k = 3;
+    console.log(f([1, 2]));            // all-literal, counts
+    console.log(f([k]));               // identifier element, counts
+    console.log(f([1 + 1]));           // expression element, counts
+    function g() { return 5; }
+    console.log(f([g()]));             // call element, counts
+    const arr = [k];
+    console.log(f(arr));               // bound literal, counts
+    const o = {b: 1};
+    console.log(f([...Object.values(o)]));  // spread of a fold-lane result, counts
+    class C {}
+    console.log(f(new C()));           // constructed value, counts
+    console.log(f(new Array(3)));      // allocation, does not count
+    const a = new Array(2);
+    console.log(f(a));                 // bound allocation, does not count
+    console.log(f(7));                 // scalar, does not count
+    const standalone = [1, 2];         // not an argument, does not count
+  `;
+  assert.equal(count("foldLaneArrayArgument", src), 7);
+});
+
+test("oneElementLiteralOfAllocation counts literals that collide with an allocation", () => {
+  // Positives: a one-element literal of `new Array(n)`, of a bare `Array(n)`, of a
+  // `.fill` on one, and of a `Uint8Array`. Negatives: two elements (no collision),
+  // an empty literal, a literal of a non-array constructor, and the allocation
+  // itself outside a literal.
+  const src = `
+    const a = [new Array(3)];        // counts
+    const b = [Array(3)];            // counts
+    const c = [Array(3).fill(1)];    // counts
+    const d = [new Uint8Array(2)];   // counts
+    const e = [new Array(3), new Array(2)];  // two elements, does not count
+    const f = [];                    // empty, does not count
+    const g = [new Map()];           // not an array allocation, does not count
+    const h = new Array(3);          // not in a literal, does not count
+  `;
+  assert.equal(count("oneElementLiteralOfAllocation", src), 4);
+});
+
+test("fillValueReevaluated counts fill calls whose value is re-emitted per element", () => {
+  // Positives: `.fill(v)` on an allocation and on a bound array, whatever the
+  // value. Negatives: the zero-argument `fill()`, and a non-`fill` method.
+  const src = `
+    function g() { return 1; }
+    const a = new Array(3).fill(g());  // counts
+    const b = new Array(2).fill(0);    // counts
+    a.fill(g());                       // counts
+    const c = new Array(2);
+    c.fill();                          // zero-argument, does not count
+    a.join(",");                       // not fill, does not count
+  `;
+  assert.equal(count("fillValueReevaluated", src), 3);
 });

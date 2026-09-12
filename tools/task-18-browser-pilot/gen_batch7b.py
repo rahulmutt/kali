@@ -90,6 +90,16 @@ from gen_batch7a import (  # noqa: E402
 
 REGISTRY = {}
 
+# TASK 9 (spec 3.4, register R-65 retirement) -- the fold-lane-array-argument
+# guard widened to refuse every such array literal, not only the all-`Literal`
+# ones. This exact sentence is appended, verbatim, to every re-pinned
+# rationale this task touches (`task-9-brief.md`'s required addition).
+TASK9_REPIN_SENTENCE = (
+    " At `733cd26125` this program built and then threw in the harness because "
+    "the callee read zeros (`0,0,0` where node v26.8.2 prints `2,3,2`); it now "
+    "refuses at build time."
+)
+
 
 def target(name):
     def deco(fn):
@@ -544,7 +554,7 @@ RULE11_HEADER_INTRO = [
 ]
 
 
-def rule11_block(*, disjunction, cite_text, per_mode, needle, also_true, needles):
+def rule11_block(*, disjunction, cite_text, per_mode, needle, also_true, needles, superseded=False):
     lines = list(RULE11_HEADER_INTRO)
     lines.append(f"  {disjunction}")
     lines.append(f"  -- whose cited construct is {cite_text}.")
@@ -568,24 +578,47 @@ def rule11_block(*, disjunction, cite_text, per_mode, needle, also_true, needles
               "FIRST disjunct the source spells that holds on EVERY cell -- "
               + Q + needle + Q + " -- and "
               "raises if no disjunct is universal.", 86)
-    lines += [
-        "This is a PRESENCE claim, so narrowing it is a verified strengthening (every run",
-        "satisfying the new assertion satisfies the old); rule 2's asymmetry forbids the same",
-        "narrowing for an ABSENCE claim, and none is made here. The source's full disjunction",
-        "sentence is carried into every affected rationale, so the narrowing is recorded rather",
-        "than silent.",
-    ]
+    if superseded:
+        lines += wrap(
+            "TASK 9 CHANGED WHICH CLAIM THIS IS: the pinned needle "
+            + Q + needle + Q
+            + " is NOT one of the source's own disjuncts above, so this is a SUPERSESSION, not"
+              " a narrowing -- a run satisfying the pinned `*_contains` claim does NOT thereby"
+              " satisfy the source's original OR (the source's disjuncts no longer hold on"
+              " either stream at all; the widened argument guard changed the underlying"
+              " construct's behaviour, not merely which already-true disjunct gets asserted)."
+              " The source's full disjunction sentence above is carried for provenance -- what"
+              " the pre-migration test asserted, and why the harness OR machinery below this"
+              " file's construct once needed -- and each affected rationale's own Task 9 note"
+              " names what replaced it.", 86)
+    else:
+        lines += [
+            "This is a PRESENCE claim, so narrowing it is a verified strengthening (every run",
+            "satisfying the new assertion satisfies the old); rule 2's asymmetry forbids the same",
+            "narrowing for an ABSENCE claim, and none is made here. The source's full disjunction",
+            "sentence is carried into every affected rationale, so the narrowing is recorded rather",
+            "than silent.",
+        ]
     return lines
 
 
-def rule11_rationale(disjunction, cite_text, stream, needle, also_true):
+def rule11_rationale(disjunction, cite_text, stream, needle, also_true, superseded=False):
     out = (f" The source's full disjunction sentence, carried verbatim per rule 11: "
            f"{disjunction}; its cited construct is {cite_text}. The case format has no "
            f"disjunction, so that OR was resolved against the real binary rather than "
            f"reproduced: in this output mode the diagnostic text lands on {stream}, so the "
-           f"claim is carried as `{stream}_contains`. Narrowing a PRESENCE claim to the stream "
-           "that actually carries it is a verified strengthening -- every run satisfying it "
-           "satisfies the original OR.")
+           f"claim is carried as `{stream}_contains`.")
+    if superseded:
+        out += (
+            f" `{needle}` is NOT one of the source's own disjuncts, so this SUPERSEDES the"
+            " source's original OR rather than narrowing it -- a run satisfying"
+            f" `{stream}_contains` does not thereby satisfy the original claim, because neither"
+            " disjunct holds on either stream any more. What actually replaced it is described"
+            " next."
+        )
+    else:
+        out += (" Narrowing a PRESENCE claim to the stream that actually carries it is a "
+                 "verified strengthening -- every run satisfying it satisfies the original OR.")
     if also_true:
         out += (" More than one disjunct is in fact true on that stream ("
                 + ", ".join(Q + n + Q for n in also_true)
@@ -1203,24 +1236,23 @@ def gen_object_keys_entries_spread_bundle():
         text, "browser_bundle_object_keys_entries_spread_source"),
         must_contain="function browserObjectKeysEntriesSpread()")
     source = {"app.${ext}": program}
-    harness_body = check_program(
-        "harness body", fixture_starting(text, helper, "const mod = await import("),
-        must_contain="await mod.browserObjectKeysEntriesSpread();")
 
     # Two lines carry this construct -- the build's `assert!(output.status.success(),` and the
     # harness's `assert!(!output.status.success(),` -- so the occurrence is picked explicitly
     # rather than defaulted, and `expect` raises if a third ever appears.
     c_build_ok = cite(text, "output.status.success(),", occurrence=1, expect=2)
-    c_meta = cite(text, 'assert_eq!(metadata["apiSurface"], "browser")')
-    c_errors = cite(text, 'assert!(envelope["errors"]')
-    c_payload = cite(text, 'assert_eq!(envelope["exitCode"], 0)')
     c_fail = cite(text, "assert!(!output.status.success()")
     c_or = cite(text, 'stderr.contains("Uncaught Error") || stderr.contains("unreachable")')
 
-    needles = ["Uncaught Error", "unreachable"]
-    disjunction = ('`assert!(stderr.contains("Uncaught Error") || '
-                   'stderr.contains("unreachable"), "stderr: {stderr}")`')
-    stream, also = harness_or(stem, program, harness_body, needles)
+    # TASK 9 (spec 3.4, register R-65 retirement): PROVE, not assume, that the
+    # widened fold-lane-array-argument guard now refuses this program's BUILD
+    # outright. `assertObjectKeysIteration`/`assertObjectEntriesIteration` each
+    # take a fold-lane array-literal argument (the spread results
+    # `[...Object.keys(fromEntries)]` / `[...Object.entries(fromEntries)]`),
+    # which the guard now refuses at BUILD TIME (E5506), before the metadata
+    # write or the `browser_bundle_harness` step this file used to run
+    # afterward ever executes.
+    build_refusal(stem, program, "E5506")
 
     header = hdr(
         f"Migrated from tests/browser_{stem}.rs.",
@@ -1251,24 +1283,25 @@ def gen_object_keys_entries_spread_bundle():
         "",
         ARGV_ORDER_BUILD_ONLY,
         "",
-        RUNNER_HARNESS_STEP,
+        "TASK 9 RE-PIN (spec 3.4, retires register entry R-65) -- THE BUILD NOW FAILS,",
+        "so neither the `file_json` metadata step nor the `browser_bundle_harness` step",
+        "this file used to run after a successful build is emitted any more.",
+        f"  * At the time this file was migrated, the source's own assertions held: the",
+        f"    build succeeded {c_build_ok} and only the harness failed closed afterward",
+        f"    {c_fail}, resolving the harness's own OR-shaped stream claim {c_or} against",
+        "    the real binary.",
+        "  * That is superseded by Task 9's widened argument guard: an array-literal",
+        "    argument -- here, the fold-lane `[...Object.keys(...)]`/",
+        "    `[...Object.entries(...)]` spread results passed straight to",
+        "    `assertObjectKeysIteration`/`assertObjectEntriesIteration` -- now refuses at",
+        "    BUILD TIME (E5506), before the metadata write or the harness ever runs.",
+        "  * ASSERTION SHAPE, verified directly against the real binary rather than",
+        "    reproducing the OLD harness-stream OR (which no longer applies -- the harness",
+        "    is never reached): `exit = \"failure\"` on the build, with `E5506` on stderr in",
+        "    text mode and inside the JSON envelope's success/exitCode (false/1) and",
+        "    `errors[0].code` on stdout in `--output json` mode (the other stream is",
+        "    empty in both modes).",
         "",
-        "ASSERTION SHAPE, mirrored from the source and nothing more.",
-        f"  * `exit = \"success\"` on the build {c_build_ok}.",
-        "  * In json mode, the envelope's schemaVersion/command/success/exitCode",
-        f"    {c_payload} and an empty `errors` array {c_errors}. THERE IS NO",
-        "    payload artifactKind/bundleFormat CLAIM HERE: this source reads the emitted",
-        "    metadata file for those instead, and rule 2 forbids adding an envelope claim it",
-        "    never made.",
-        f"  * `app/app.meta.json`'s apiSurface/artifactKind {c_meta}, asserted in BOTH modes,",
-        "    because the source reads that file outside the `if json_output` block.",
-        f"  * The browser-bundle harness FAILS CLOSED {c_fail} -- `exit = \"failure\"`, not",
-        "    `\"success\"`. This is the one file in this batch where the build succeeds and the",
-        "    harness does not.",
-        "",
-        rule11_block(disjunction=disjunction, cite_text=c_or,
-                     per_mode=[("the browser-bundle harness, both output modes", stream)],
-                     needle=needles[0], also_true=also, needles=needles),
     )
 
     prose = prose_of(distinct_texts(blocks_in_fn(text, helper)), stem)
@@ -1282,32 +1315,34 @@ def gen_object_keys_entries_spread_bundle():
                 f"Migrated from browser_{stem}.rs, the three `{base}_in_*_input` fns -- one for "
                 "js, one for ts, and one that loops `[\"app.jsx\", \"app.tsx\"]` and so supplies "
                 f"the jsx and tsx cells of this matrix. `{helper}` writes the keys/entries "
-                "spread fixture, builds it with `kali build --bundle --api browser`"
+                "spread fixture and builds it with `kali build --bundle --api browser`"
                 + (" with `--output json`" if json_output else "")
-                + ", asserts the emitted app/app.meta.json metadata, then runs the bundle glue "
-                  "under the browser-bundle-harness contract backed by node. The program "
-                  "spreads Object.keys and Object.entries over a frozen Object.fromEntries "
-                  "result through ten and nine root spellings respectively -- dotted, mixed, "
-                  "bracketed, single-quoted, and frozen parenthesized-receiver -- and checks "
-                  f"every collected array. The build succeeds {c_build_ok} and the metadata "
-                  f"pins apiSurface/artifactKind {c_meta}, but the emitted bundle does not run: "
-                  f"the harness FAILS CLOSED {c_fail}."
-                + rule11_rationale(disjunction, c_or, stream, needles[0], also)
-                + (" This sibling additionally asserts the build JSON envelope -- "
-                   f"schemaVersion/command/success/exitCode {c_payload} and an empty `errors` "
-                   f"array {c_errors} -- rather than plain text; output shape is not a matrix "
-                   "axis because it changes the assertion shape, so it is a separate case. Note "
-                   "the source makes no payload artifactKind/bundleFormat claim on the "
-                   "envelope, so none is asserted here (rule 2)."
-                   if json_output else "")
+                + ". At the time of migration the build succeeded "
+                + f"{c_build_ok} and the metadata was asserted, then the bundle glue was run "
+                  "under the browser-bundle-harness contract backed by node, where it FAILED "
+                  f"CLOSED {c_fail}, resolving the harness's own OR-shaped stream claim {c_or} "
+                  "against the real binary. The program spreads Object.keys and Object.entries "
+                  "over a frozen Object.fromEntries result through ten and nine root spellings "
+                  "respectively -- dotted, mixed, bracketed, single-quoted, and frozen "
+                  "parenthesized-receiver -- and checks every collected array by passing it "
+                  "straight to an assert helper as a bare argument."
+                + TASK9_REPIN_SENTENCE
+                + " Task 9 (spec 3.4) widens the fold-lane-array-argument guard to refuse "
+                  "every such argument, not only the all-`Literal` ones this program's spread "
+                  "results never were, so the build now fails closed with E5506 before the "
+                  "metadata write or the harness ever runs -- verified directly against the "
+                  "real binary, across all four extensions and both output modes: `E5506` "
+                  "lands on stderr only in text mode, and only inside the JSON envelope's "
+                  "success/exitCode (false/1) and `errors[0].code` on stdout in "
+                  "`--output json` mode."
                 + prose),
             "steps": [
-                build_step("app.${ext}", json_output, asserts={"exit": "success"},
-                           json_claims={"schemaVersion": 1, "command": "build", "success": True,
-                                        "exitCode": 0, "errors": []}),
-                meta_step("app"),
-                harness_step("app", harness_body,
-                             {"exit": "failure", f"{stream}_contains": [needles[0]]}),
+                build_step(
+                    "app.${ext}", json_output,
+                    asserts=({"exit": "failure", "stderr_contains": ["E5506"]} if not json_output
+                              else {"exit": "failure"}),
+                    json_claims=({"success": False, "exitCode": 1, "errors": {"0": {"code": "E5506"}}} if json_output else None),
+                ),
             ],
         })
     arithmetic(stem, fns=6, invocations=8, cases=len(cases), axis_len=4)
@@ -1397,6 +1432,52 @@ def harness_or(label, program, harness_body, needles):
     return streams.pop(), universal[1:]
 
 
+def build_refusal(label, program, code):
+    """Task 9 (spec 3.4): PROVE, not assume, that the widened fold-lane-array-
+    argument guard now refuses this program's BUILD outright, before either the
+    metadata-file step or the `browser_bundle_harness` step this target used to
+    run afterward ever executes -- `harness_or` above cannot be reused here
+    because its very first act is to build and raise if that build FAILS, which
+    is now the expected outcome.
+
+    Every extension is built twice against the real binary -- once in text
+    mode, once under `--output json` -- and `code` must appear EXACTLY once:
+    stderr-only in text mode, and only inside the JSON envelope's
+    `errors[].code` (stdout) in json mode, with the other stream empty in both
+    modes. That is what replaces the harness-stream OR this file used to
+    resolve, because the OLD OR's two streams (the harness's own stdout/
+    stderr) are never reached any more.
+    """
+    from kali_run import KALI, run_kali
+    if not os.path.exists(KALI):
+        raise AssertionError(f"{KALI} absent -- {label}'s build refusal cannot be verified")
+    for ext in EXTS4:
+        entry = f"app.{ext}"
+        rc, out, err, _d = run_kali(
+            {entry: program}, ["build", "--bundle", "--api", "browser", entry])
+        if rc == 0:
+            raise AssertionError(f"{label} {entry}: build unexpectedly succeeded")
+        out_s, err_s = out.decode(), err.decode()
+        if code not in err_s or code in out_s:
+            raise AssertionError(
+                f"{label} {entry}: expected {code!r} on stderr only; "
+                f"stdout={out_s!r} stderr={err_s!r}")
+
+        rc, out, err, _d = run_kali(
+            {entry: program},
+            ["build", "--bundle", "--api", "browser", "--output", "json", entry])
+        if rc == 0:
+            raise AssertionError(f"{label} {entry} (json): build unexpectedly succeeded")
+        out_s, err_s = out.decode(), err.decode()
+        if err_s.strip():
+            raise AssertionError(f"{label} {entry} (json): expected empty stderr, got {err_s!r}")
+        envelope = _json.loads(out_s)
+        codes = [e.get("code") for e in envelope.get("errors", [])]
+        if code not in codes:
+            raise AssertionError(
+                f"{label} {entry} (json): expected {code!r} in errors[].code, got {codes!r}")
+
+
 # ==========================================================================
 # T3. browser_object_keys_entries_spread_harness.rs
 #     2 fns / 32 invocations, [matrix] ext, fail-closed, rule-8 captures.
@@ -1436,7 +1517,18 @@ def gen_object_keys_entries_spread_harness():
     c_replace = cite(text, f"    browser_harness_object_keys_entries_spread_source(test_mode)"
                            f".replace(")
 
-    needles = ["Uncaught Error", "unreachable"]
+    # TASK 9 (spec 3.4, register R-65 retirement): at migration time the source's
+    # OR-shaped runtime-diagnostic claim ("Uncaught Error"/"unreachable" on either
+    # stream) held, because the callee silently read zero placeholders and the
+    # PROGRAM ITSELF threw. The widened fold-lane-array-argument guard now refuses
+    # this program's own `assertObjectKeysIteration`/`assertObjectEntriesIteration`
+    # calls (fold-lane spread-result arguments) at BUILD TIME instead, before `run`/
+    # `test` ever reach node -- so neither "Uncaught Error" nor "unreachable"
+    # appears on either stream any more. `E5506` is the ONLY candidate that holds,
+    # on the SAME stream per mode as before (stderr text / stdout json) -- proved
+    # by re-running `_stream`/`_needle` against the real (fixed) binary below,
+    # exactly as this file always has.
+    needles = ["E5506"]
     disjunction = ('`assert!(stderr.contains("Uncaught Error") || '
                    'stderr.contains("unreachable") || stdout.contains("Uncaught Error") || '
                    'stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`')
@@ -1518,7 +1610,8 @@ def gen_object_keys_entries_spread_harness():
         rule11_block(disjunction=disjunction, cite_text=c_or,
                      per_mode=[("text mode", streams[False]),
                                ("`--output json`", streams[True])],
-                     needle=needles[0], also_true=also, needles=needles),
+                     needle=needles[0], also_true=also, needles=needles,
+                     superseded=True),
     )
 
     prose = prose_of(distinct_texts(blocks), stem)
@@ -1555,7 +1648,15 @@ def gen_object_keys_entries_spread_harness():
                        if variant == "frozen" else "")
                     + f". kali fails closed on it: the source asserts the process fails {c_fail} "
                       "and that a runtime diagnostic appears."
-                    + rule11_rationale(disjunction, c_or, stream, needles[0], also)
+                    + rule11_rationale(disjunction, c_or, stream, needles[0], also,
+                                        superseded=True)
+                    + TASK9_REPIN_SENTENCE
+                    + " Task 9 (spec 3.4) widens the fold-lane-array-argument guard to refuse "
+                      "the fold-lane spread-result arguments this program's own "
+                      "`assertObjectKeysIteration`/`assertObjectEntriesIteration` calls pass, "
+                      "so kali now fails closed with E5506 -- the only candidate that holds -- "
+                      "before `run`/`test` ever reach node, superseding \"Uncaught Error\" and "
+                      "\"unreachable\" on the same stream this file always pinned."
                     + prose),
                 "steps": [harness_cli_step(
                     command, entry, json_output, json_claims=None,
@@ -2950,17 +3051,17 @@ def gen_object_values_spread_bundle():
         text, "browser_bundle_object_values_spread_source"),
         must_contain="function browserObjectValuesSpreadIteration()")
     source = {"app.${ext}": program}
-    harness_body = check_program(
-        "harness body", fixture_starting(text, helper, "const mod = await import("),
-        must_contain="await mod.browserObjectValuesSpreadIteration();")
 
     # Two lines carry this construct -- the build's `assert!(output.status.success(),` and the
     # harness's `assert!(!output.status.success(),` -- so the occurrence is picked explicitly.
     c_build_ok = cite(text, "output.status.success(),", occurrence=1, expect=2)
-    c_meta = cite(text, 'assert_eq!(metadata["apiSurface"], "browser")')
-    c_payload = cite(text, 'assert_eq!(payload["bundleFormat"], "esm")')
-    c_errors = cite(text, 'assert!(envelope["errors"]')
     c_fail = cite(text, "assert!(!output.status.success()")
+
+    # TASK 9 (spec 3.4, register R-65 retirement): PROVE, not assume, that the
+    # widened fold-lane-array-argument guard now refuses this program's BUILD
+    # outright -- the spread results this program passes straight to its
+    # assert helper are fold-lane array literals too.
+    build_refusal(stem, program, "E5506")
 
     blocks = blocks_in_fn(text, helper)
     header = hdr(
@@ -2986,19 +3087,22 @@ def gen_object_values_spread_bundle():
         "",
         ARGV_ORDER_BUILD_ONLY,
         "",
-        RUNNER_HARNESS_STEP,
+        "TASK 9 RE-PIN (spec 3.4, retires register entry R-65) -- THE BUILD NOW FAILS,",
+        "so neither the `file_json` metadata step nor the `browser_bundle_harness` step",
+        "this file used to run after a successful build is emitted any more.",
+        f"  * At the time this file was migrated, the source's own assertions held: the",
+        f"    build succeeded {c_build_ok} and only the harness failed closed afterward",
+        f"    {c_fail} (the source's only claim about the harness -- no stdout/stderr needle",
+        "    at all).",
+        "  * That is superseded by Task 9's widened argument guard: the fold-lane",
+        "    `[...Object.values(...)]` spread results this program passes straight to its",
+        "    assert helper now refuse at BUILD TIME (E5506), before the metadata write or",
+        "    the harness ever runs.",
+        "  * ASSERTION SHAPE, verified directly against the real binary: `exit = \"failure\"`",
+        "    on the build, with `E5506` on stderr in text mode and inside the JSON",
+        "    envelope's success/exitCode (false/1) and `errors[0].code` on stdout in",
+        "    `--output json` mode (the other stream is empty in both modes).",
         "",
-        "ASSERTION SHAPE, mirrored from the source and nothing more.",
-        f"  * `exit = \"success\"` on the build {c_build_ok}.",
-        "  * In json mode, the envelope's schemaVersion/command/success/exitCode, the payload's",
-        f"    artifactKind/bundleFormat {c_payload}, and an empty `errors` array {c_errors}.",
-        f"  * `app/app.meta.json`'s apiSurface/artifactKind {c_meta}, asserted in BOTH modes,",
-        "    because the source reads that file outside the `if json_output` block.",
-        f"  * The browser-bundle harness FAILS CLOSED {c_fail}, and that is the source's ONLY",
-        "    claim about it -- no stdout or stderr needle at all, unlike this batch's other",
-        "    succeed-then-fail bundle target. `exit = \"failure\"` is exactly as strong as the",
-        "    assertion it replaces, and adding a needle the source never wrote would be a",
-        "    rule-2 invention.",
     )
 
     prose = prose_of(distinct_texts(blocks), stem)
@@ -3010,28 +3114,34 @@ def gen_object_values_spread_bundle():
             "name": base,
             "rationale": (
                 f"Migrated from browser_{stem}.rs, the four `{base}_in_*_input` fns (one per "
-                f"extension). `{helper}` writes the Object.values spread fixture, builds it with "
-                "`kali build --bundle --api browser`"
+                f"extension). `{helper}` writes the Object.values spread fixture and builds it "
+                "with `kali build --bundle --api browser`"
                 + (" with `--output json`" if json_output else "")
-                + ", asserts the emitted app/app.meta.json metadata, then runs the bundle glue "
-                  "under the browser-bundle-harness contract backed by node. The program spreads "
-                  "Object.values over three differently-spelled Object.fromEntries results "
-                  "through seventeen root spellings -- dotted, mixed, bracketed, single-quoted, "
-                  "frozen bracket-root and frozen parenthesized-receiver -- and checks every "
-                  f"collected array. The build succeeds {c_build_ok} and the metadata pins "
-                  f"apiSurface/artifactKind {c_meta}, but the emitted bundle does not run: the "
-                  f"harness FAILS CLOSED {c_fail}, which is the source's only claim about it."
-                + (" This sibling additionally asserts the build JSON envelope -- "
-                   f"schemaVersion/command/success/exitCode, payload artifactKind/bundleFormat "
-                   f"{c_payload} and an empty `errors` array {c_errors} -- rather than plain "
-                   "text; output shape is not a matrix axis because it changes the assertion "
-                   "shape, so it is a separate case." if json_output else "")
+                + ". At the time of migration the build succeeded "
+                + f"{c_build_ok} and the metadata was asserted, then the bundle glue was run "
+                  "under the browser-bundle-harness contract backed by node, where it FAILED "
+                  f"CLOSED {c_fail} (the source's only claim about the harness -- no "
+                  "stdout/stderr needle at all). The program spreads Object.values over three "
+                  "differently-spelled Object.fromEntries results through seventeen root "
+                  "spellings -- dotted, mixed, bracketed, single-quoted, frozen bracket-root "
+                  "and frozen parenthesized-receiver -- and checks every collected array by "
+                  "passing it straight to an assert helper as a bare argument."
+                + TASK9_REPIN_SENTENCE
+                + " Task 9 (spec 3.4) widens the fold-lane-array-argument guard to refuse "
+                  "every such argument, so the build now fails closed with E5506 before the "
+                  "metadata write or the harness ever runs -- verified directly against the "
+                  "real binary, across all four extensions and both output modes: `E5506` "
+                  "lands on stderr only in text mode, and only inside the JSON envelope's "
+                  "success/exitCode (false/1) and `errors[0].code` on stdout in "
+                  "`--output json` mode."
                 + prose),
             "steps": [
-                build_step("app.${ext}", json_output, asserts={"exit": "success"},
-                           json_claims=envelope_build(errors=True)),
-                meta_step("app"),
-                harness_step("app", harness_body, {"exit": "failure"}),
+                build_step(
+                    "app.${ext}", json_output,
+                    asserts=({"exit": "failure", "stderr_contains": ["E5506"]} if not json_output
+                              else {"exit": "failure"}),
+                    json_claims=({"success": False, "exitCode": 1, "errors": {"0": {"code": "E5506"}}} if json_output else None),
+                ),
             ],
         })
     arithmetic(stem, fns=8, invocations=8, cases=len(cases), axis_len=4)
@@ -3062,7 +3172,17 @@ def gen_object_values_spread_harness():
     c_env = cite(text, "kali_runtime_contract::BROWSER_HARNESS_COMMAND_ENV")
     c_or = cite(text, 'stderr.contains("Uncaught Error")')
 
-    needles = ["Uncaught Error", "unreachable"]
+    # TASK 9 (spec 3.4, register R-65 retirement): at migration time the source's
+    # OR-shaped runtime-diagnostic claim ("Uncaught Error"/"unreachable" on either
+    # stream) held, because the callee silently read zero placeholders and the
+    # PROGRAM ITSELF threw. The widened fold-lane-array-argument guard now refuses
+    # this program's own assert-helper calls (fold-lane spread-result arguments) at
+    # BUILD TIME instead, before `run`/`test` ever reach node -- so neither
+    # "Uncaught Error" nor "unreachable" appears on either stream any more. `E5506`
+    # is the ONLY candidate that holds, on the SAME stream per mode as before
+    # (stderr text / stdout json) -- proved by re-running `_stream`/`_needle`
+    # against the real (fixed) binary below, exactly as this file always has.
+    needles = ["E5506"]
     disjunction = ('`assert!(stderr.contains("Uncaught Error") || '
                    'stderr.contains("unreachable") || stdout.contains("Uncaught Error") || '
                    'stdout.contains("unreachable"), "stdout: {stdout}\\nstderr: {stderr}")`')
@@ -3112,7 +3232,8 @@ def gen_object_values_spread_harness():
         rule11_block(disjunction=disjunction, cite_text=c_or,
                      per_mode=[("text mode", streams[False]),
                                ("`--output json`", streams[True])],
-                     needle=needles[0], also_true=also, needles=needles),
+                     needle=needles[0], also_true=also, needles=needles,
+                     superseded=True),
     )
 
     prose = prose_of(distinct_texts(blocks), stem)
@@ -3140,7 +3261,15 @@ def gen_object_values_spread_harness():
                       "results through thirteen root spellings and checks every collected array. "
                       f"kali fails closed on it: the source asserts the process fails {c_fail} "
                       "and that a runtime diagnostic appears."
-                    + rule11_rationale(disjunction, c_or, stream, needles[0], also)
+                    + rule11_rationale(disjunction, c_or, stream, needles[0], also,
+                                        superseded=True)
+                    + TASK9_REPIN_SENTENCE
+                    + " Task 9 (spec 3.4) widens the fold-lane-array-argument guard to refuse "
+                      "the fold-lane spread-result arguments this program's own assert-helper "
+                      "calls pass, so kali now fails closed with E5506 -- the only candidate "
+                      "that holds -- before `run`/`test` ever reach node, superseding "
+                      "\"Uncaught Error\" and \"unreachable\" on the same stream this file "
+                      "always pinned."
                     + prose),
                 "steps": [harness_cli_step(
                     command, entry, json_output, json_claims=None,

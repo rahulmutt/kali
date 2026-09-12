@@ -1439,23 +1439,34 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
-        // Two extra i64 scratch locals: `self.locals.len()` is the general-purpose
+        // Five extra i64 scratch locals: `self.locals.len()` is the general-purpose
         // scratch used throughout codegen (temp locals, tee targets, etc.), and
-        // `self.locals.len() + 1` is a second scratch reserved for array allocation so
-        // the size argument can be evaluated exactly once and reused for both the
-        // length-header store and the `(n+1)*8` byte-count math (see
-        // `emit_array_allocation` in `emit/call.rs`).
+        // `self.locals.len() + 1` is a second general-purpose scratch (temp locals,
+        // tee targets, etc., same as the first). `self.locals.len() + 2` through
+        // `+ 4` are owned EXCLUSIVELY by `emit_array_allocation_with_len` and
+        // `emit_array_fill` in `emit/call.rs`: `+ 2` is the allocation handle /
+        // fill base, `+ 3` is the allocation size scratch / fill loop counter, and
+        // `+ 4` is the fill value, evaluated once and reused for every element
+        // store instead of being re-evaluated per iteration. Those two functions
+        // never write one of their three dedicated slots until every child node
+        // they emit (the size/receiver/value expressions, each of which may itself
+        // contain a nested allocation or fill) has been fully emitted — so a
+        // nested allocation or fill, wherever it lands in the tree, always runs
+        // and finishes before this call's own slots are written, and can never
+        // clobber them. This is what makes an allocation safe to nest inside
+        // ANY other emitter's scratch-holding window, including its own.
         // Per-named-local ValType is repr-directed: an F64 scalar binding gets an
         // f64 slot, everything else (array handles and unrecorded names) defaults
-        // to i64. The two trailing scratch locals (general-purpose + array-alloc)
-        // always stay i64. Consecutive same-type locals are grouped into runs; for
-        // an all-i64 function this yields the single `(len + 2, I64)` run emitted
-        // before, keeping the code section byte-identical for integer programs.
+        // to i64. The five trailing scratch locals (two general-purpose + three
+        // dedicated to allocation/fill) always stay i64. Consecutive same-type
+        // locals are grouped into runs; for an all-i64 function this yields the
+        // single `(len + 5, I64)` run emitted before, keeping the code section
+        // byte-identical for integer programs.
         //
         // The four synthetic page-pool functions are hand-emitted (not
         // lowered from LIR, have no `function.locals` names, and are not
         // repr-directed), and each needs its own fixed set of i32 scratch
-        // locals instead of the two i64 scratch locals every other function
+        // locals instead of the five i64 scratch locals every other function
         // gets:
         //   `__alloc`/`__alloc_global` (`emit_bump_body`): 2 — `cur`, `p`
         //     (locals 1, 2; local/param 0 is `size`).
@@ -1551,8 +1562,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 }
             }
             match local_decls.last_mut() {
-                Some((count, ValType::I64)) => *count += 2,
-                _ => local_decls.push((2, ValType::I64)),
+                Some((count, ValType::I64)) => *count += 5,
+                _ => local_decls.push((5, ValType::I64)),
             }
         }
         let mut body = Function::new(local_decls);

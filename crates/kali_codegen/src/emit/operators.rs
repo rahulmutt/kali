@@ -1283,9 +1283,11 @@ impl<'a> FunctionEmitter<'a> {
     /// `__streq` tag guard keeps `undefined === s` false — turning 0 into a
     /// tagged empty-string handle here would break both.
     ///
-    /// Uses the two trailing i64 scratch locals (`self.locals.len()` and `+1`),
-    /// live only within this sequence; the following right-operand `env.get`
-    /// reuses `self.locals.len()` transiently after this returns.
+    /// Uses two of the five trailing i64 scratch locals (`self.locals.len()`
+    /// and `+1` — the two general-purpose ones, never the three dedicated to
+    /// array allocation/fill), live only within this sequence; the following
+    /// right-operand `env.get` reuses `self.locals.len()` transiently after
+    /// this returns.
     fn emit_env_get_streq_relocate(&mut self, function: &mut Function) {
         let handle_local = self.locals.len() as u32;
         let dst_local = handle_local + 1;
@@ -2558,7 +2560,7 @@ impl<'a> FunctionEmitter<'a> {
             // defect stayed invisible in condition position.
             //
             // The lowering mirrors the `??` arm below — same reserved scratch
-            // local (`self.locals.len()`, see `lower.rs`'s two trailing i64
+            // local (`self.locals.len()`, see `lower.rs`'s five trailing i64
             // scratch slots), same `If(BlockType::Result(ValType::I64))` shape.
             // Nesting is safe for the same reason it is safe there: the scratch
             // is read only on the path that does NOT re-emit an operand, so an

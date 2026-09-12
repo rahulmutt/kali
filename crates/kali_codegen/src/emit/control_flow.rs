@@ -2178,6 +2178,67 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
             }
+            // An `Array`/`Uint8Array` allocation reaching the generic value path
+            // is OUTSIDE the three lanes that materialize one -- a declarator
+            // init (`:1690`, `:1711`), an assignment right-hand side
+            // (`emit/literal.rs:1043`) and a `.fill` receiver
+            // (`emit/call.rs:6004`), each of which intercepts before here. The
+            // aggregate placeholder below would drop it and push `0`, which the
+            // callee then reads as a length header at address zero (register
+            // entry R-64). Allocate instead, so every position -- argument,
+            // return, property, element, ternary arm -- passes a real handle.
+            //
+            // Sound only because `kali_types` refuses the one-element array
+            // literal of an allocation (`resolve/expression.rs`): `[Array(3)]`
+            // is otherwise this exact node.
+            //
+            // Gated on `allocation_ctor_unshadowed` (`emit/call.rs`): a user
+            // `function Uint8Array(n) { ... }` compiles (bare `Uint8Array` is
+            // not a kali builtin at all, so there is no redeclaration for
+            // `kali_types` to refuse), and without the guard this arm would
+            // route the user's own function through the allocator instead of
+            // calling it (review-found regression). The guard is NOT free:
+            // it declines this arm for a bare `Uint8Array(n)` under a same-
+            // named binding (correctly -- `new <user fn>(n)` was already the
+            // pre-existing placeholder `0` here before this task, so nothing
+            // regresses), and it checks the OBJECT name instead for a
+            // `globalThis`-qualified callee: a bare-name shadow must not
+            // block the real builtin (an earlier review round over-blocked
+            // it), but a user binding named `globalThis` must block it,
+            // because `is_array_like_constructor` matches the qualifying
+            // object by text alone and a user object bound to that name is
+            // otherwise routed through the allocator (the following round's
+            // defect: kali `4104` at exit 0 where node prints `6`, and where
+            // every near-miss spelling refuses with `E5506`).
+            //
+            // The FINAL narrowing (`4f9298fe37`) is the property this arm
+            // most depends on, and it is stronger than "check the object
+            // name": the ONLY qualifying object admitted is a BARE identifier
+            // named `globalThis`, whose binding is then checked; every other
+            // qualifying object -- a member expression
+            // (`a.globalThis.Uint8Array(5)`), or a node with no text of its
+            // own -- is DECLINED outright, with no namespace lookup at all.
+            // That is exactly what keeps this arm sound for the spelling
+            // family `kali_types`'s `expression_is_array_allocation` does NOT
+            // refuse (its second NAMED EXCEPTION: a one-element literal of a
+            // non-bare qualified allocation is still read as the allocation,
+            // kali `5` where node prints `1`, silent and pre-existing), so
+            // relaxing `allocation_ctor_unshadowed` without widening that
+            // recognizer in the same change reopens R-66 here.
+            if self.allocation_ctor_unshadowed(id) {
+                if let Some(size_arg) = self.resolve_array_alloc_call(id) {
+                    return self.emit_array_allocation(function, size_arg);
+                }
+            }
+            // `new Array(n).fill(v)` arrives as the hoisted-`new` wrapper around
+            // the `.fill` call (the parser's `new` precedence). Pass through to
+            // the fill arm's call to `array_fill_call_parts` (`emit/call.rs:1059`),
+            // which allocates the receiver and runs the init loop, rather than
+            // dropping the whole chain.
+            if node.children.len() == 1 && self.resolve_array_fill_call(node.children[0]).is_some()
+            {
+                return self.emit_node(function, node.children[0], want_value);
+            }
             return self.emit_aggregate_literal(function, node, want_value);
         }
 

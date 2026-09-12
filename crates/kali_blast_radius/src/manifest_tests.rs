@@ -363,10 +363,93 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// are not R-63: `nodeVersion` went from `v26.8.1` to `v26.8.2` (the node this
 /// machine runs), and R-61 gained the null record `count.mjs` writes for every
 /// uncountable entry, which R-61's own filing had deliberately not generated.
+///
+/// **Re-frozen 2026-09-11 a second time**, the eighth movement of these
+/// constants, by the inline-allocation-value-position project filing **R-64**
+/// (§2, Tier 2 — an `Array`/`Uint8Array` allocation whose value is used outside
+/// codegen's three materializing lanes evaluates to `0`). One more §2 entry,
+/// one more catalogue record, and **`matchers.mjs` moved**: the record is
+/// countable, `allocationOutsideMaterializingLane`, raw 0 / reachable 0 over
+/// the frozen corpus (`unsampled` — no anchor or extension program contains
+/// this shape), an upper bound disclosed in `count.mjs`'s `UPPER_BOUNDS`. No
+/// other matcher body changed; the new helper `isArrayAllocation` beside
+/// `isUnprovenLengthReceiver` is used only by this one matcher so far, and is
+/// written for reuse by the two sibling matchers a later task in the same
+/// project adds (R-65's `foldLaneArrayArgument`, R-66's
+/// `oneElementLiteralOfAllocation`).
+///
+/// `counts.json` **was** regenerated (`accepts.json` did not move — no
+/// compiler code changed in this task, so the accept set is unchanged from
+/// R-63's re-freeze), and the only change is R-64's own new record: raw 0,
+/// reachable 0, `unsampled`. No other entry's figures moved.
+///
+/// **Re-frozen 2026-09-11 a third time**, the ninth movement of these
+/// constants, by the inline-allocation-value-position project filing **R-65**
+/// (§2, Tier 2 — a fold-lane array, or a constructed value that lowers like
+/// one, passed to a user function reads as zeros in the callee). One more §2
+/// entry, one more catalogue record, and **`matchers.mjs` moved**: the record
+/// is countable, `foldLaneArrayArgument`, raw 58 / reachable 5 over the frozen
+/// corpus (anchor 5/5, extension 53/0), an upper bound disclosed in
+/// `count.mjs`'s `UPPER_BOUNDS`. No other matcher body changed; `isArrayAllocation`
+/// (R-64's helper) is called unchanged, exactly as R-64's own re-freeze
+/// paragraph anticipated, to recognize the allocation argument this matcher's
+/// negative case excludes.
+///
+/// `counts.json` **was** regenerated (`accepts.json` did not move — no
+/// compiler code changed in this task either), and the only change is R-65's
+/// own new record: raw 58, reachable 5. No other entry's figures moved.
+///
+/// **Re-frozen 2026-09-11 a fourth time**, the tenth movement of these
+/// constants, by the inline-allocation-value-position project filing **R-66**
+/// and **R-67** together, in one commit (§2, Tier 2 — a one-element array
+/// literal of an allocation IS that allocation; `.fill(v)` evaluates `v` once
+/// per element). Two more §2 entries, two more catalogue records, and
+/// **`matchers.mjs` moved**: the records are countable, `oneElementLiteralOfAllocation`
+/// (raw 0 / reachable 0 over the frozen corpus, `unsampled` — no anchor or
+/// extension program contains this shape, matching the spec's own zero-hit
+/// `grep`) and `fillValueReevaluated` (raw 12 / reachable 7, anchor 7/7,
+/// extension 5/0). `oneElementLiteralOfAllocation` needs no `UPPER_BOUNDS`
+/// note: it counts exactly the construct R-66 names. **This paragraph
+/// originally claimed `fillValueReevaluated` needed none either; that claim
+/// was wrong and is corrected in the next movement below.** No other matcher
+/// body changed in this movement; `isArrayAllocation` (R-64's helper) is
+/// called unchanged by `oneElementLiteralOfAllocation`, exactly as R-64's own
+/// re-freeze paragraph anticipated when it named this matcher as one of the
+/// two sibling consumers.
+///
+/// `counts.json` **was** regenerated (`accepts.json` did not move — no
+/// compiler code changed in this task either), and the only changes are
+/// R-66's and R-67's own new records. No other entry's figures moved.
+///
+/// **Re-frozen 2026-09-12**, the eleventh movement of these constants, a
+/// correction to the tenth: code review found that `fillValueReevaluated`
+/// over-counts and that fact was undisclosed. The matcher counts every
+/// `.fill(v)` member call with exactly one argument regardless of receiver,
+/// but the codegen bug R-67 names only fires when the receiver is a proven
+/// array -- `array_fill_call_parts` (`crates/kali_codegen/src/emit/call.rs`)
+/// returns `None` unless the receiver is a proven array allocation or a
+/// tracked array binding, and only a receiver that passes routes to
+/// `emit_array_fill`'s loop, which is what actually re-emits the value. A
+/// `.fill(v)` on a user class or plain object with its own `fill` method is
+/// syntactically identical to acorn and is counted, but does not exhibit the
+/// defect. **The ruling: disclose the over-count in `count.mjs`'s
+/// `UPPER_BOUNDS`, matching R-08/R-16/R-26/R-57/R-58/R-64/R-65's own
+/// convention for a fact an acorn AST cannot see; do NOT narrow the matcher**
+/// -- narrowing to a proven-array receiver would trade a disclosed over-count
+/// for an undisclosed under-count of array bindings acorn cannot prove, which
+/// is worse for a number that feeds the ranking. `predicates.json`'s R-67
+/// description now states the upper bound explicitly instead of asserting
+/// unconditionally that the matcher's construct is what codegen re-emits, and
+/// **`matchers.mjs` did NOT move** -- only `predicates.json`'s prose changed,
+/// so `FROZEN_MATCHERS_SHA256` is unchanged from the tenth movement and only
+/// `FROZEN_PREDICATES_SHA256` moves here. The raw 12 / reachable 7 figures
+/// are unchanged: they were already upper bounds by construction, and
+/// disclosing that fact changes no number in `counts.json`, only the prose
+/// that explains it.
 const FROZEN_PREDICATES_SHA256: &str =
-    "d3176fb7f5dd4c65f0868f810e163a5b12f5027f0a2cd4d6831beac3e366285e";
+    "e956118cdf0dd70d1dfa43a0383c3db5b4adff306b4751c2d815e29f98be4655";
 const FROZEN_MATCHERS_SHA256: &str =
-    "6873427fde225a24997ac7f7c9dcd9cae64a29c2c02d75051ad72aaa6db34e4b";
+    "eb2e74dc9f39517fe418cb0b05a4acaa0003ad1c684084d9ea8930d20bacce17";
 
 #[test]
 fn the_frozen_corpus_still_holds_the_programs_it_was_frozen_with() {

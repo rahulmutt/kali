@@ -21,6 +21,31 @@
 > the `task-5-report.md`, `task-7-report.md` and `task-8-report.md` files cited
 > below were never committed and do not exist in this repository.
 
+> **Notice, 2026-09-12, by the inline-allocation-value-position project**
+> (`docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`,
+> Task 6, retiring register entry **R-66**): the LIR collision this document
+> describes — `new C(x)` and `[C(x)]` lowering to the same node — is now
+> broken, **but only for allocation shapes, and only at the AST, not the
+> LIR**. `crates/kali_types/src/resolve/expression.rs`'s
+> `expression_is_array_allocation` now refuses a one-element array literal
+> whose sole element is an `Array`/`Uint8Array` allocation (including through
+> `new`, a bare call, `await`, `as`/`satisfies`, or a `globalThis`-qualified
+> callee) *before* it ever reaches codegen, at type-resolution time — so the
+> LIR-level collision this document's §1 and §2 describe is never actually
+> exercised for an allocation on that path; the AST-level check catches it
+> first and fails closed (`E5506`, both scopes; register R-66). **The
+> underlying LIR node sharing this document is about is completely
+> unchanged**: `[f()]` and `new f()` — an ordinary function call, not a
+> recognized allocation — still lower to the identical LIR node described in
+> §1, because `expression_is_array_allocation`'s refusal is scoped to the
+> allocation-constructor shapes named above, not to "any call wrapped in a
+> one-element array literal or a bare `new`." §1's claim of ~45 call sites
+> still answering "is this an array literal?" the negative-space way, and §2's
+> reach/consolidation argument, are both unaffected by this narrower,
+> AST-level fix. See this repository's
+> `inline-allocation-value-position-discovered-defects.md` for what that
+> project measured and left open.
+
 **Filed** 2026-09-10, by the **release-tier-allocation-identity** project
 (`docs/superpowers/specs/2026-09-10-release-tier-allocation-identity-design.md`,
 `docs/superpowers/sdd/2026-09-10-release-tier-allocation-identity/`), Task 8,

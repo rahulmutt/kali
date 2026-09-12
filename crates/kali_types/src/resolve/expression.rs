@@ -1860,6 +1860,30 @@ impl TypeContext {
             Expression::CallExpression(expr) => self.resolve_call_expression(expr),
             Expression::MemberExpression(expr) => self.resolve_member_expression(expr),
             Expression::ArrayExpression(ArrayExpression { elements }) => {
+                // `[Array(n)]`, `[new Array(n)]` and `[Array(n).fill(v)]` lower to
+                // the SAME LIR node as `new Array(n)` itself: a text-less `Value`
+                // with one `Call` child. `kali_mir` erases the HIR `NewExpr` /
+                // `ArrayExpr` distinction (`crates/kali_mir/src/lower.rs:108`,
+                // `:116`), so no codegen shape check can tell them apart, and
+                // `resolve_array_alloc_call` (`emit/call.rs:5464`) reads the
+                // literal AS the allocation -- `[new Array(3)].length` answered
+                // `3` where node says `1`. Refusing the collision here is what
+                // lets codegen route an allocation in value position (spec
+                // docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md
+                // sections 3.1-3.2). Only the one-element form collides; a
+                // two-child literal is a shape the recognizer never accepts.
+                if let [Some(ExpressionOrSpread::Expression(only))] = elements.as_slice() {
+                    if expression_is_array_allocation(only) {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            "a one-element array literal holding an array allocation is \
+                             unavailable in the current direct-runtime path: it lowers to the \
+                             same node as the allocation itself, so codegen cannot tell them \
+                             apart (fail-closed)"
+                                .to_string(),
+                        ));
+                    }
+                }
                 for element in elements.iter().flatten() {
                     match element {
                         ExpressionOrSpread::Expression(expr) => self.resolve_expression(expr),
@@ -3007,6 +3031,218 @@ fn bitwise_compound_assign_op_text(op: &AssignmentOperator) -> Option<&'static s
         AssignmentOperator::AndAssign => None,
         AssignmentOperator::OrAssign => None,
     }
+}
+
+/// Peels off every expression wrapper `kali_hir`'s lowering treats as
+/// transparent — fully, recursively, so a chain of them (`((Array))`, `as
+/// unknown as number[]`) unwraps in one call. Applied at every position this
+/// recognizer inspects a SHAPE (the literal's element, a `new`/call callee, and
+/// `is_global_this_uint8array`'s object), not only the outermost one, because
+/// HIR's own erasure is structural, not top-level-only: `new (Array)(3)` erases
+/// the parenthesized CALLEE exactly as `(new Array(3))` erases a parenthesized
+/// whole expression.
+///
+/// Enumerated against every wrapper arm in
+/// `crates/kali_hir/src/lowering/expression.rs`'s `lower_expression` (and
+/// `lower_optional_chain`) that lowers straight through to its own inner
+/// expression with no node of its own:
+/// - `ParenthesizedExpression` (`:158`)
+/// - `DecoratedExpression` (`:207`)
+/// - `TypeAssertion` (`:210`, TypeScript `as`)
+/// - `SatisfiesExpression` (`:211`, TypeScript `satisfies`)
+/// - `OptionalChainExpression` (`lower_optional_chain`, `:251-274`): also fully
+///   transparent — it lowers to the chained object's own id with no wrapper
+///   node, by the same "so `o?.b?.c` fails closed identically to `o.b.c`"
+///   reasoning that motivated the design. Included because it falls out of
+///   this generic helper for free; NOT independently confirmed as a live
+///   escape for this gate (`new` cannot take an optional-chain callee at all —
+///   real engines throw `SyntaxError: Invalid optional chaining from new
+///   expression` on `new globalThis?.Uint8Array(3)` — and the only other
+///   position this gate inspects a chain-shaped node, a `.fill` receiver or a
+///   bare call callee, could not be measured with a clean node comparison
+///   either). Handling it here costs nothing and is the same call this
+///   function already makes for `AwaitExpression`: match what codegen treats
+///   as transparent, not only what has a confirmed exploit today.
+///
+/// `AwaitExpression` is different in kind from the five above: HIR gives it
+/// its own real, tagged `AwaitExpr` node (`:169-181`, a `"await"` text
+/// marker), it is NOT erased. It is unwrapped here anyway because codegen's
+/// OWN `unwrap_transparent_value_node` tunnels through that tagged node
+/// (`:178-179`'s comment says so directly), so this recognizer stays in
+/// lockstep with what codegen treats as see-through, not only with what HIR
+/// erases outright.
+fn unwrap_transparent(expr: &Expression) -> &Expression {
+    match expr {
+        Expression::ParenthesizedExpression(inner) => unwrap_transparent(&inner.expression),
+        Expression::AwaitExpression(inner) => unwrap_transparent(&inner.argument),
+        Expression::DecoratedExpression(inner) => unwrap_transparent(&inner.expression),
+        Expression::TypeAssertion(inner) => unwrap_transparent(&inner.expression),
+        Expression::SatisfiesExpression(inner) => unwrap_transparent(&inner.expression),
+        Expression::OptionalChainExpression(chain) => match chain.inner.as_ref() {
+            kali_ast::OptionalChainInner::NonNull { object, .. } => unwrap_transparent(object),
+        },
+        _ => expr,
+    }
+}
+
+/// `Array(n)` / `new Array(n)` / `Uint8Array(n)` / `new Uint8Array(n)` (bare or
+/// `globalThis`-qualified), optionally `.fill(v)`ed, under any number of
+/// `unwrap_transparent` wrappers at any of the three positions above — a
+/// STRICT SUBSET of the shapes `FunctionEmitter::resolve_array_alloc_call`
+/// accepts after unwrapping transparent value wrappers
+/// (`crates/kali_codegen/src/emit/call.rs:5464`).
+///
+/// A genuinely PARENLESS `new Array` / `new globalThis.Uint8Array` (no `()` at
+/// all) is deliberately NOT recognized: the parser attaches any argument list
+/// to an inner `CallExpression` (`crates/kali_parser/src/expression/primary.rs`'s
+/// `TokenType::New` arm — `parse_call_expression` consumes `Array(3)` whole,
+/// leaving `NewExpression.args` empty), so a bare-identifier or bare-member
+/// `new` callee with no `CallExpression` anywhere in the chain never lowers to
+/// a `Call` node at all — `resolve_array_alloc_call` requires
+/// `LirNodeKind::Call` and declines it (`emit/call.rs:5462-5475`). An earlier
+/// version of this function treated the parenless form as a collision anyway
+/// (matching a bare `Identifier`/`MemberExpression` callee directly), which
+/// measured as pure OVER-refusal: `[new Array]` and `[new globalThis.Uint8Array]`
+/// both refused with no LIR collision behind the refusal, where node prints
+/// `1`. Fixed by requiring an actual `CallExpression` in the callee position
+/// (after unwrapping) before treating a `new` as an allocation at all.
+///
+/// It does NOT cover `array_fill_call_parts`'s (`emit/call.rs:5649`) full
+/// receiver test: that recognizer also accepts a `.fill(v)` whose receiver is a
+/// bare identifier already in `self.array_bindings` (an existing array
+/// binding, not a fresh allocation) — `const ys = new Array(2); const xs =
+/// [ys.fill(0)];` measures kali `2`, node `1`, live and UNCLOSED by this
+/// function. `kali_types` cannot make that receiver test here: distinguishing
+/// an array binding from a user object with its own `.fill` method needs
+/// `is_structural_runtime_array`-style scope state this free function does not
+/// have, and guessing would trade a measured miscompile for an unmeasured
+/// over-refusal of legitimate `.fill` calls on non-array objects. Out of scope
+/// for this project's spec §3.1 (a one-element literal of an ALLOCATION) and
+/// pre-existing; left to a later, scoped project.
+///
+/// This MUST stay in lockstep with `FunctionEmitter::is_array_like_constructor`
+/// (`emit/call.rs:5510`), the same way `declarator_init_is_array_alloc`
+/// (`crates/kali_codegen/src/lower.rs:6535`) records its own lockstep with it: a
+/// spelling codegen treats as an allocation but this function does not is a
+/// spelling whose one-element literal reaches codegen and is miscompiled.
+/// Three such gaps were found and closed by code review after this function's
+/// first landing, across two rounds: round 1 found `new globalThis.Uint8Array(3)`
+/// (`is_array_like_constructor`'s own second, `globalThis`-qualified branch,
+/// its doc comment names it the throw-fallout Stage 3 form) and `new Array(3)
+/// as number[]` / `new Array(3) satisfies unknown`
+/// (`crates/kali_hir/src/lowering/expression.rs:207,210-211` erase
+/// `DecoratedExpression`/`TypeAssertion`/`SatisfiesExpression`, and the parser
+/// accepts `as`/`satisfies` in a plain `.js` file too —
+/// `crates/kali_parser/src/expression/call.rs:122-140` has no TS-only gate).
+/// Round 1's fix unwrapped those wrappers only at the expression ROOT; round 2
+/// found the same erasure reached the CALLEE and member-OBJECT positions too
+/// (`new (Array)(3)`, `new (globalThis).Uint8Array(3)`, `new
+/// (globalThis.Uint8Array)(3)`), which is why `unwrap_transparent` above is
+/// applied structurally at every position rather than patched a third time.
+/// Every one of the round-1/round-2 escapes measured `kali` printing the
+/// allocation's real length where node printed `1` — R-66's miscompile
+/// reopened after its retirement, three times over.
+///
+/// NAMED EXCEPTION to the lockstep claim above, found and deliberately left
+/// open in round 3: a nested `new new Array(3)` (the OUTER `new`'s callee is
+/// itself a `NewExpression`, not a `CallExpression`) is no longer recognized
+/// — the pre-round-2 code had a generic `callee => ... &&
+/// expression_is_array_allocation(callee)` fallback that recursed into ANY
+/// callee shape, including another `new`; round 2's rewrite requires the
+/// (unwrapped) callee to be a `CallExpression` specifically, which a bare
+/// `NewExpression` is not, so `[new new Array(3)]` now falls through to
+/// `false` and reaches codegen unrefused (measured: kali prints `3`). This is
+/// harmless rather than silently fixed: `new` applied to an `Array` instance
+/// is never a constructor, so **node throws `TypeError` on every spelling in
+/// this family**, unconditionally — there is no valid, clean-running program
+/// this shape can appear in, unlike every other gap this comment documents.
+/// Restoring the descent (recursing when a zero-arg `new`'s callee is another
+/// `new`) was considered and rejected as unneeded complexity for a shape that
+/// can never be the difference between a passing and failing program.
+///
+/// SECOND NAMED EXCEPTION to the lockstep claim, measured at this branch's
+/// HEAD and deliberately left open: a QUALIFYING OBJECT that is not a bare
+/// `globalThis` identifier. `is_array_like_constructor` accepts any callee
+/// object node whose TEXT is `"globalThis"`, and a member-expression node
+/// carries its PROPERTY name as its own text — so codegen reads
+/// `a.globalThis.Uint8Array` (property text `"globalThis"`) as the qualifying
+/// object, while `is_global_this_uint8array` below requires a bare
+/// `Identifier` and declines. That is R-66's exact defect — a one-element
+/// literal read as the allocation — across a whole spelling family R-66's
+/// retirement does not cover. Measured against `node v26.8.2`, every row
+/// silent at exit 0, with `const a = {globalThis: {Uint8Array: function (n) {
+/// return n; }}};` in scope:
+///
+/// - `const xs = [a.globalThis.Uint8Array(5)]; xs.length` — kali `5`, node `1`
+/// - `const xs = [new a.globalThis.Uint8Array(5)];` — kali `5`, node `1`
+/// - `const xs = [a["globalThis"].Uint8Array(5)];` — kali `5`, node `1`
+/// - `const xs = [globalThis.globalThis.Uint8Array(5)]; xs.length` — kali `5`,
+///   node THROWS
+///
+/// PRE-EXISTING, not a regression: the declarator lane and
+/// `is_array_like_constructor` are byte-identical to this branch's merge base,
+/// so every row above measures the same before this project's work. Filed, not
+/// fixed, in
+/// `docs/superpowers/followups/inline-allocation-value-position-discovered-defects.md`.
+///
+/// **COUPLING — do not relax `allocation_ctor_unshadowed` without widening
+/// this recognizer in the same change.** Task 8's two new routing arms
+/// (`emit_value`'s Arm A, `emit_call`'s bare-call arm) stay sound against the
+/// whole family above ONLY because `FunctionEmitter::allocation_ctor_unshadowed`
+/// (`crates/kali_codegen/src/emit/call.rs`) returns `false` for any qualifying
+/// object that is not a BARE identifier, so those arms decline exactly the
+/// shapes this function fails to refuse. That check is justified there as
+/// shadow identity, and the followups document's nested-`globalThis` casualty
+/// section invites a future project to replace it with real identity
+/// resolution — but it is ALSO what keeps Task 6's collision closed for these
+/// spellings, and relaxing it alone reopens R-66 in the new arms.
+fn expression_is_array_allocation(expr: &Expression) -> bool {
+    match unwrap_transparent(expr) {
+        Expression::NewExpression(new_expr) => match unwrap_transparent(&new_expr.callee) {
+            Expression::CallExpression(call) => {
+                new_expr.args.is_empty() && call_is_array_allocation(call)
+            }
+            _ => false,
+        },
+        Expression::CallExpression(call) => call_is_array_allocation(call),
+        _ => false,
+    }
+}
+
+/// The bare-call half of `expression_is_array_allocation`: `Array(n)` /
+/// `Uint8Array(n)` / `globalThis.Uint8Array(n)` (arity <= 1), or `<recv>.fill(v)`
+/// where `<recv>` is itself recognized. Split out so `expression_is_array_allocation`'s
+/// `NewExpression` arm can require an actual `CallExpression` in the (unwrapped)
+/// callee position without duplicating this match.
+fn call_is_array_allocation(call: &kali_ast::CallExpression) -> bool {
+    match unwrap_transparent(&call.callee) {
+        Expression::Identifier(name) => {
+            (name == "Array" || name == "Uint8Array") && call.args.len() <= 1
+        }
+        Expression::MemberExpression(member) if is_global_this_uint8array(member) => {
+            call.args.len() <= 1
+        }
+        Expression::MemberExpression(member) => {
+            member.property.as_deref() == Some("fill")
+                && call.args.len() == 1
+                && expression_is_array_allocation(&member.object)
+        }
+        _ => false,
+    }
+}
+
+/// `globalThis.Uint8Array` / `globalThis["Uint8Array"]` — the `MemberExpression`
+/// shape `FunctionEmitter::is_array_like_constructor`'s second `Uint8Array`
+/// branch accepts (`emit/call.rs:5510-5521`, the throw-fallout Stage 3 form).
+/// Both dot and bracket-literal spellings reach here with `property =
+/// Some("Uint8Array")` (`MemberExpression::property`'s own doc comment: it is
+/// populated for a computed access whose index the parser could read
+/// statically, not only for dot access), so one check covers both. The OBJECT
+/// side is unwrapped too (`new (globalThis).Uint8Array(3)`), completing the
+/// third position `unwrap_transparent`'s own doc comment names.
+fn is_global_this_uint8array(member: &MemberExpression) -> bool {
+    member.property.as_deref() == Some("Uint8Array")
+        && matches!(unwrap_transparent(&member.object), Expression::Identifier(name) if name == "globalThis")
 }
 
 #[cfg(test)]

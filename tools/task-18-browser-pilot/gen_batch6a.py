@@ -80,6 +80,59 @@ def target(name):
     return deco
 
 
+# TASK 9 (spec 3.4, register R-65 retirement) -- the fold-lane-array-argument
+# guard widened to refuse every such array literal, not only the all-`Literal`
+# ones. This exact sentence is appended, verbatim, to every re-pinned
+# rationale this task touches (`task-9-brief.md`'s required addition).
+TASK9_REPIN_SENTENCE = (
+    " At `733cd26125` this program built and then threw in the harness because "
+    "the callee read zeros (`0,0,0` where node v26.8.2 prints `2,3,2`); it now "
+    "refuses at build time."
+)
+
+
+def build_refusal(label, program, code):
+    """Task 9 (spec 3.4): PROVE, not assume, that the widened fold-lane-array-
+    argument guard now refuses this program's BUILD outright, before either the
+    metadata-file step or the `browser_bundle_harness` step this target used to
+    run afterward ever executes.
+
+    Every extension is built twice against the real binary -- once in text
+    mode, once under `--output json` -- and `code` must appear EXACTLY once:
+    stderr-only in text mode, and only inside the JSON envelope's
+    `errors[].code` (stdout) in json mode, with the other stream empty in both
+    modes.
+    """
+    from kali_run import KALI, run_kali
+    if not os.path.exists(KALI):
+        raise AssertionError(f"{KALI} absent -- {label}'s build refusal cannot be verified")
+    for ext in EXTS4:
+        entry = f"{label}.{ext}"
+        rc, out, err, _d = run_kali(
+            {entry: program}, ["build", "--bundle", "--api", "browser", entry])
+        if rc == 0:
+            raise AssertionError(f"{label} {entry}: build unexpectedly succeeded")
+        out_s, err_s = out.decode(), err.decode()
+        if code not in err_s or code in out_s:
+            raise AssertionError(
+                f"{label} {entry}: expected {code!r} on stderr only; "
+                f"stdout={out_s!r} stderr={err_s!r}")
+
+        rc, out, err, _d = run_kali(
+            {entry: program},
+            ["build", "--bundle", "--api", "browser", "--output", "json", entry])
+        if rc == 0:
+            raise AssertionError(f"{label} {entry} (json): build unexpectedly succeeded")
+        out_s, err_s = out.decode(), err.decode()
+        if err_s.strip():
+            raise AssertionError(f"{label} {entry} (json): expected empty stderr, got {err_s!r}")
+        envelope = _json.loads(out_s)
+        codes = [e.get("code") for e in envelope.get("errors", [])]
+        if code not in codes:
+            raise AssertionError(
+                f"{label} {entry} (json): expected {code!r} in errors[].code, got {codes!r}")
+
+
 def rs(name):
     """The source a case file is generated FROM.
 
@@ -2040,6 +2093,21 @@ def gen_object_entries_iteration():
     global_body = check_program("global harness body", fixture_starting(
         text, global_helper, "const mod = await import("), must_contain="await import(")
 
+    # TASK 9 (spec 3.4, register R-65 retirement): PROVE, not assume, which of
+    # these three programs the widened fold-lane-array-argument guard now
+    # refuses at BUILD TIME. `alias_program` already failed to build before
+    # Task 9, for an UNRELATED reason (a growable-array `.push` shape escape),
+    # so it is exempt from this proof -- its `exit = "failure"` claim (with no
+    # stdout/stderr needle at all) does not change either way. `direct_program`
+    # and `global_program` each fold `Object.entries({...})` on a
+    # compile-time-known receiver into a literal array bound to a `const`, then
+    # pass that binding straight to `assertObjectEntriesIteration` -- a
+    # fold-lane array-literal argument -- so both now refuse at build time,
+    # before the metadata write or the harness this file used to run
+    # afterward ever executes.
+    build_refusal("object_entries_iteration_direct", direct_program, "E5506")
+    build_refusal("object_entries_iteration_global", global_program, "E5506")
+
     renames = [
         ("app.${ext} (aliased receiver, build fails)", "app_alias.${ext}",
          "the source writes THREE different programs to the same `app.<ext>` filename in "
@@ -2117,7 +2185,7 @@ def gen_object_entries_iteration():
             "    mode, no metadata file and runs no harness -- the build never emits one. So",
             "    its two cases are a single `cli` step with `exit = \"failure\"`, and the json",
             "    sibling differs from the text one on argv alone.",
-            f"  * `{direct_helper}` asserts the build SUCCEEDS",
+            f"  * `{direct_helper}` asserted, AT MIGRATION TIME, that the build SUCCEEDS",
             f"    (:{c_direct_build_ok}); in json mode the envelope's",
             f"    schemaVersion/command/success/exitCode (:{c_env_first}-{c_env_exit}) and the",
             f"    empty `errors` array (:{c_env_errors}) -- and NO payload claim, unlike every",
@@ -2125,10 +2193,27 @@ def gen_object_entries_iteration():
             f"    normalised; the emitted metadata's apiSurface/artifactKind",
             f"    (:{c_meta_api}-{c_meta_kind}) in BOTH modes; and then that the",
             f"    browser-bundle HARNESS process fails (:{fails[1]}).",
-            f"  * `{global_helper}` is the same shape as the",
+            f"  * `{global_helper}` was the same shape as the",
             f"    direct one, on its own fixture, ending in the same harness-level failure",
             f"    (:{fails[2]}); its build-success assert is at :{c_global_build_ok}.",
             "No helper makes any stdout, stderr or count claim, so none is written.",
+            "",
+            "TASK 9 RE-PIN (spec 3.4, retires register entry R-65) -- THE `direct`/`global`",
+            "BUILDS NOW FAIL, so neither the `file_json` metadata step nor the",
+            "`browser_bundle_harness` step either used to run after a successful build is",
+            "emitted any more. `direct_program`/`global_program` each fold",
+            "`Object.entries({...})` on a compile-time-known receiver into a literal array",
+            "bound to a `const`, then pass that binding straight to",
+            "`assertObjectEntriesIteration` -- a fold-lane array-literal argument -- which",
+            "Task 9's widened guard now refuses at BUILD TIME (E5506). Verified directly",
+            "against the real binary, across all four extensions and both output modes:",
+            "`E5506` lands on stderr only in text mode, and only inside the JSON envelope's",
+            "success/exitCode (false/1) and `errors[0].code` on stdout in `--output json`",
+            "mode (the other stream is empty in both modes).",
+            "`alias_program` is UNCHANGED -- it already failed to build",
+            "before Task 9, for an unrelated growable-array `.push` shape reason, so its",
+            "single `exit = \"failure\"` claim (no stdout/stderr needle at all) still holds",
+            "and is not re-pinned.",
         ],
     )
 
@@ -2166,15 +2251,12 @@ def gen_object_entries_iteration():
             steps = [
                 {"args": ["build", "--bundle", "--api", "browser"]
                  + (["--output", "json"] if jo else []) + [f"{entry_stem}.${{ext}}"],
-                 "exit": "success"},
-                {"kind": "file_json", "path": f"{entry_stem}/{entry_stem}.meta.json",
-                 "fields": META},
-                {"kind": "browser_bundle_harness", "entry": entry_stem, "body": body,
                  "exit": "failure"},
             ]
             if jo:
-                steps[0]["json"] = {"schemaVersion": 1, "command": "build",
-                                    "success": True, "exitCode": 0, "errors": []}
+                steps[0]["json"] = {"success": False, "exitCode": 1, "errors": {"0": {"code": "E5506"}}}
+            else:
+                steps[0]["stderr_contains"] = ["E5506"]
             cases.append({
                 "name": name,
                 "rationale": para(
@@ -2187,18 +2269,29 @@ def gen_object_entries_iteration():
                     "reads Object.entries through "
                     + ("twelve direct-object-literal access forms" if key == "direct"
                        else "nine globalThis-rooted access forms")
-                    + ", asserts the build SUCCEEDS and that the emitted metadata names the "
-                    "browser bundle, then runs the emitted bundle under the "
-                    "browser-bundle-harness contract and asserts THAT process fails closed.",
+                    + " and passes the (fold-lane, compile-time-folded) result straight to an "
+                      "assert helper. At the time of migration the build SUCCEEDED and the "
+                      "emitted metadata named the browser bundle, then the emitted bundle was "
+                      "run under the browser-bundle-harness contract, where it failed closed.",
                     comments[key][1],
                     "MIGRATION NOTE (controller ruling 8): the source fn name says \"emits\", "
-                    "which is true of the build step, but the test's terminal claim is that "
+                    "which is true of the build step, but the test's terminal claim was that "
                     "the harness run fails. The name is carried unchanged; see this file's "
-                    "header for why.",
-                    ("On the json branch the source additionally reads the build envelope's "
-                     "schemaVersion/command/success/exitCode and asserts the `errors` array "
-                     "is empty -- and asserts NO payload field, which is preserved rather "
-                     "than normalised against the other bundle helpers in this batch."
+                    "header for why."
+                    + TASK9_REPIN_SENTENCE
+                    + " Task 9 (spec 3.4) widens the fold-lane-array-argument guard to refuse "
+                      "the folded `Object.entries({...})` result this program passes straight "
+                      "to its assert helper, so the build now fails closed with E5506 before "
+                      "the metadata write or the harness ever runs -- verified directly "
+                      "against the real binary, across all four extensions and both output "
+                      "modes: `E5506` lands on stderr only in text mode, and only inside the "
+                      "JSON envelope's success/exitCode (false/1) and `errors[0].code` "
+                      "on stdout in `--output json` mode.",
+                    ("On the json branch this used to additionally read the build envelope's "
+                     "schemaVersion/command/success/exitCode and assert the `errors` array "
+                     "was empty -- and asserted NO payload field, which was preserved rather "
+                     "than normalised against the other bundle helpers in this batch; none of "
+                     "that applies now that the build itself fails."
                      if jo else None)),
                 "steps": steps,
             })

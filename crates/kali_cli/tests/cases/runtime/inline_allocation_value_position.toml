@@ -1,0 +1,531 @@
+# Cases for the inline-allocation-value-position project (spec
+# docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md,
+# section 4.2).
+#
+# An `Array`/`Uint8Array` allocation in value position is a real array handle; an
+# array kali cannot pass as a handle refuses; `.fill(v)` evaluates `v` once. Every
+# `_computes` and `_is_correct` case must print node's exact output. Every
+# `_refuses` case printed a wrong value at exit 0 with no diagnostic at
+# `733cd26125`, and its rationale records kali's and node's output there. Measured
+# against node v26.8.2.
+#
+# `[source]` keys are one file per program, named for the shape, because
+# `[source]` is file-wide (see this directory's README).
+#
+# NOTE ON MEASUREMENT: this file's baseline readings were re-measured directly
+# against `733cd26125` (task 2), not copied from the task-2 brief's draft
+# without checking. Of the brief's six flagged SPIKE-vs-baseline rationales,
+# one disagreed with what was actually measured at the baseline; it is
+# corrected below and called out in that case's own rationale, and again in
+# task 2's report.
+
+[constants]
+ALLOC_IN_LITERAL = "lowers to the same node as the allocation itself"
+NOT_PASSABLE = "the callee would read zero placeholders"
+
+[source]
+"arg_length.js" = '''
+function f(x) { return x.length; } console.log(f(new Array(6)));
+'''
+"arg_length_fn.js" = '''
+function main() { function f(x) { return x.length; } console.log(f(new Array(6))); }
+main();
+'''
+"arg_fill_element.js" = '''
+function f(x) { return x[0]; } console.log(f(new Array(3).fill(2)));
+'''
+"arg_fill_sum.js" = '''
+function f(x) { let s = 0; for (let i = 0; i < x.length; i++) { s = s + x[i]; } return s; }
+console.log(f(new Array(5).fill(2)));
+'''
+"arg_second_position.js" = '''
+function f(a, x) { return a + x[0]; } console.log(f(1, new Array(3).fill(9)));
+'''
+"arg_beside_bound.js" = '''
+function f(x, y) { return x.length + y.length; }
+const a = new Array(2);
+console.log(f(a, new Array(3)));
+'''
+"arg_returned_allocation.js" = '''
+function mk() { return new Array(3).fill(4); }
+function f(x) { return x[2]; }
+console.log(f(mk()));
+'''
+"arg_through_wrapper.js" = '''
+function f(x) { return x.length; } function g(y) { return f(y); } console.log(g(new Array(7)));
+'''
+"arg_ternary_arm.js" = '''
+function f(x) { return x[0]; }
+const c = true;
+console.log(f(c ? new Array(2).fill(7) : new Array(2).fill(8)));
+'''
+"arg_dynamic_size.js" = '''
+function main() { const n = 4; function f(x) { return x.length; } console.log(f(new Array(n))); }
+main();
+'''
+"arg_bare_array_call.js" = '''
+function f(x) { return x.length; } console.log(f(Array(6)));
+'''
+"arg_size_from_allocation.js" = '''
+function f(x) { return x.length; } const a = new Array(f(new Array(3))); console.log(a.length);
+'''
+"arg_nested_call.js" = '''
+function f(x) { return x.length; } function g(n) { return n + 1; } console.log(g(f(new Array(5))));
+'''
+"arg_in_loop.js" = '''
+function f(x) { return x.length; }
+let s = 0;
+for (let i = 1; i < 4; i++) { s = s + f(new Array(i)); }
+console.log(s);
+'''
+"arg_fill_from_binding.js" = '''
+function main() { const v = 7; function f(x) { return x[1]; } console.log(f(new Array(3).fill(v))); }
+main();
+'''
+"arg_in_concat.js" = '''
+function f(x) { return x.length; } const s = "ab" + f(new Array(4)); console.log(s);
+'''
+"arg_in_field_store.js" = '''
+function f(x) { return x.length; } const o = {k: 1}; o.k = f(new Array(9)); console.log(o.k);
+'''
+"arg_in_compound_assign.js" = '''
+function f(x) { return x.length; } let t = 0; t += f(new Array(3)); console.log(t);
+'''
+"arg_in_element_store.js" = '''
+function f(x) { return x.length; }
+const a = new Array(2).fill(0);
+a[1] = f(new Array(6));
+console.log(a[0] + "," + a[1]);
+'''
+"fill_value_allocation.js" = '''
+const a = new Array(2).fill(new Array(3)); console.log(a.length);
+'''
+"fill_value_allocation_fn.js" = '''
+function main() { const a = new Array(2).fill(new Array(3)); console.log(a.length); }
+main();
+'''
+"fill_value_call_allocation.js" = '''
+function f(x) { return x.length; }
+const a = new Array(2).fill(f(new Array(5)));
+console.log(a.length + "," + a[0]);
+'''
+"fill_value_ternary_allocation.js" = '''
+function f(x) { return x.length; }
+const c = 1;
+const a = new Array(2).fill(c ? f(new Array(4)) : 0);
+console.log(a[1] + "," + a.length);
+'''
+"fill_value_once.js" = '''
+let n = 0;
+function g() { n = n + 1; return 1; }
+const a = new Array(3).fill(g());
+console.log(n + "," + a[2]);
+'''
+"fill_value_once_fn.js" = '''
+function main() {
+  let n = 0;
+  function g() { n = n + 1; return 1; }
+  const a = new Array(4).fill(g());
+  console.log(n + "," + a[0]);
+}
+main();
+'''
+"fill_value_once_rebound.js" = '''
+let n = 0;
+function g() { n = n + 1; return 2; }
+const a = new Array(3).fill(0);
+a.fill(g());
+console.log(n + "," + a[1]);
+'''
+"literal_of_allocation.js" = '''
+const xs = [new Array(3)]; console.log(xs.length);
+'''
+"literal_of_allocation_fn.js" = '''
+function main() { const xs = [new Array(3)]; console.log(xs.length); }
+main();
+'''
+"literal_of_bare_allocation.js" = '''
+const xs = [Array(3)]; console.log(xs.length);
+'''
+"literal_of_fill.js" = '''
+const xs = [Array(3).fill(1)]; console.log(xs.length);
+'''
+"literal_of_allocation_argument.js" = '''
+function f(x) { return x.length; } console.log(f([new Array(3)]));
+'''
+"arg_literal_identifier.js" = '''
+function f(x) { return x[0]; } const k = 3; console.log(f([k]));
+'''
+"arg_literal_expression.js" = '''
+function f(x) { return x[0]; } console.log(f([1 + 1]));
+'''
+"arg_literal_two_elements.js" = '''
+function f(x) { return x[0] + x[1]; } const k = 3; console.log(f([k, 1]));
+'''
+"arg_literal_bound.js" = '''
+function f(x) { return x[0]; } const k = 3; const arr = [k]; console.log(f(arr));
+'''
+"arg_literal_call_element.js" = '''
+function g() { return 5; } function f(x) { return x[0]; } console.log(f([g()]));
+'''
+"arg_values_spread.js" = '''
+function show(v) { console.log(v.length + "," + v[0] + "," + v[1]); }
+const fe = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+const collected = [...Object.values(fe)];
+show(collected);
+'''
+"arg_entries.js" = '''
+function show(e) { console.log(e.length + "," + e[0][0] + "," + e[0][1]); }
+function main() { const alias = {b: 1, a: 2}; const entries = Object.entries(alias); show(entries); }
+main();
+'''
+"arg_construction.js" = '''
+class C { constructor() { this.v = 4; } }
+function f(x) { return x.v; }
+console.log(f(new C()));
+'''
+"control_bound_allocation.js" = '''
+function f(x) { return x.length; } const a = new Array(6); console.log(f(a));
+'''
+"control_let_fill.js" = '''
+let a = new Array(3).fill(2); console.log(a[1]);
+'''
+"control_const_fill_fn.js" = '''
+function main() { const a = new Array(3).fill(2); console.log(a[1]); } main();
+'''
+"control_expression_statement.js" = '''
+new Array(3); console.log("ok");
+'''
+"control_ignored_argument.js" = '''
+function f(x) { return 1; } console.log(f(new Array(3)));
+'''
+"control_two_element_literal.js" = '''
+const xs = [new Array(3), new Array(2)]; console.log(xs.length);
+'''
+"control_bound_returned_allocation.js" = '''
+function mk() { const a = new Array(3).fill(4); return a; }
+function f(x) { return x[2]; }
+console.log(f(mk()));
+'''
+
+[[case]]
+name = "an_allocation_argument_length_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `6`: silently wrong. An allocation in value position must pass a real handle (spec sections 3.2-3.3)."""
+args = ["run", "arg_length.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "an_allocation_argument_length_computes_in_a_function"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `6`: silently wrong, identically to the module scope (spec sections 3.2-3.3)."""
+args = ["run", "arg_length_fn.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "a_fill_argument_element_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `2`: silently wrong (spec sections 3.2-3.3)."""
+args = ["run", "arg_fill_element.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "a_fill_argument_summed_in_the_callee_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `10`: the callee's loop read a length header at address zero (spec sections 3.2-3.3)."""
+args = ["run", "arg_fill_sum.js"]
+exit = "success"
+stdout = "10\n"
+
+[[case]]
+name = "an_allocation_in_second_argument_position_computes"
+rationale = """At `733cd26125` kali printed `1` at exit 0 with no diagnostic where node v26.8.2 prints `10`: the zero handle reached the second parameter (spec sections 3.2-3.3)."""
+args = ["run", "arg_second_position.js"]
+exit = "success"
+stdout = "10\n"
+
+[[case]]
+name = "an_allocation_beside_a_bound_argument_computes"
+rationale = """At `733cd26125` kali printed `2` at exit 0 with no diagnostic where node v26.8.2 prints `5`: the bound argument was right and the inline one was zero (spec sections 3.2-3.3)."""
+args = ["run", "arg_beside_bound.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "an_allocation_returned_and_passed_on_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `4` (spec sections 3.2-3.3)."""
+args = ["run", "arg_returned_allocation.js"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "an_allocation_through_a_wrapper_function_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `7` (spec sections 3.2-3.3)."""
+args = ["run", "arg_through_wrapper.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "an_allocation_in_a_ternary_arm_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `7` (spec sections 3.2-3.3)."""
+args = ["run", "arg_ternary_arm.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "an_allocation_with_a_dynamic_size_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `4` (spec sections 3.2-3.3)."""
+args = ["run", "arg_dynamic_size.js"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "a_bare_array_call_argument_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `6`. `Array(n)` without `new` reaches `emit_call`, which had no allocation arm (spec section 3.2)."""
+args = ["run", "arg_bare_array_call.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "an_allocation_sized_from_another_allocation_computes"
+rationale = """CORRECTED FROM THE TASK-2 BRIEF: the brief's step 2 draft claimed this was already correct at `733cd26125` ("kali and node v26.8.2 both print `3`"), but that value was measured on the SPIKE build, not the baseline -- this is one of the six rationales task 2's step 1 exists to re-measure. Measured directly against `733cd26125`, kali prints `0` at exit 0 with no diagnostic where node v26.8.2 prints `3`. The size argument is itself an allocation-argument call (`f(new Array(3))`), so it suffers the identical zero-handle bug as every other `_computes` case in this file; it does not get special treatment just because it feeds a `new Array(...)` size position. It must become correct once allocations nest (spec section 3.3)."""
+args = ["run", "arg_size_from_allocation.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "an_allocation_inside_a_nested_call_computes"
+rationale = """At `733cd26125` kali printed `1` at exit 0 with no diagnostic where node v26.8.2 prints `6` (spec sections 3.2-3.3)."""
+args = ["run", "arg_nested_call.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "an_allocation_argument_inside_a_loop_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `6` (spec sections 3.2-3.3)."""
+args = ["run", "arg_in_loop.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "a_fill_argument_whose_value_is_a_binding_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `7` (spec sections 3.2-3.3)."""
+args = ["run", "arg_fill_from_binding.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "an_allocation_argument_in_string_concatenation_computes"
+rationale = """This is one of the six rationales task 2's step 1 flagged for re-measurement against the baseline rather than the spike. Measured directly against `733cd26125`, kali prints `ab0` at exit 0 with no diagnostic where node v26.8.2 prints `ab4` -- matching what was already recorded here. A concat sink holds the general scratch slot while emitting its operand, so this pins that the allocation does not clobber it (spec section 3.3)."""
+args = ["run", "arg_in_concat.js"]
+exit = "success"
+stdout = "ab4\n"
+
+[[case]]
+name = "an_allocation_argument_in_a_field_store_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `9`. A field store holds the general scratch slot across its value emission (spec section 3.3)."""
+args = ["run", "arg_in_field_store.js"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "an_allocation_argument_in_a_compound_assignment_computes"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `3` (spec sections 3.2-3.3)."""
+args = ["run", "arg_in_compound_assign.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "an_allocation_argument_in_an_element_store_computes"
+rationale = """At `733cd26125` kali printed `0,0` at exit 0 with no diagnostic where node v26.8.2 prints `0,6`. An element store holds an address across its value emission (spec section 3.3)."""
+args = ["run", "arg_in_element_store.js"]
+exit = "success"
+stdout = "0,6\n"
+
+[[case]]
+name = "an_allocation_as_a_fill_value_keeps_the_receivers_length"
+rationale = """Correct at `733cd26125` (kali and node v26.8.2 both print `2`) only because the fill value was a placeholder zero. Once the value allocates it must not overwrite the receiver's base handle: the spike measured `3` here (spec section 3.3)."""
+args = ["run", "fill_value_allocation.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "an_allocation_as_a_fill_value_keeps_the_receivers_length_in_a_function"
+rationale = """Correct at `733cd26125`, identically to the module scope: kali and node v26.8.2 both print `2`. The spike measured `3`, the same clobber (spec section 3.3)."""
+args = ["run", "fill_value_allocation_fn.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "a_call_on_an_allocation_as_a_fill_value_computes"
+rationale = """At `733cd26125` kali printed `2,0` at exit 0 with no diagnostic where node v26.8.2 prints `2,5`; the spike printed `5,0`, clobbering the receiver's handle with the value's allocation (spec sections 3.2-3.3)."""
+args = ["run", "fill_value_call_allocation.js"]
+exit = "success"
+stdout = "2,5\n"
+
+[[case]]
+name = "a_ternary_over_an_allocation_as_a_fill_value_computes"
+rationale = """At `733cd26125` kali printed `0,2` at exit 0 with no diagnostic where node v26.8.2 prints `4,2`; the spike printed `0,4` (spec sections 3.2-3.3)."""
+args = ["run", "fill_value_ternary_allocation.js"]
+exit = "success"
+stdout = "4,2\n"
+
+[[case]]
+name = "a_fill_value_is_evaluated_once"
+rationale = """At `733cd26125` kali printed `3,1` at exit 0 with no diagnostic where node v26.8.2 prints `1,1`: the fill loop re-emitted the value for every element, so `g` ran three times (spec section 3.3)."""
+args = ["run", "fill_value_once.js"]
+exit = "success"
+stdout = "1,1\n"
+
+[[case]]
+name = "a_fill_value_is_evaluated_once_in_a_function"
+rationale = """At `733cd26125` kali printed `4,1` at exit 0 with no diagnostic where node v26.8.2 prints `1,1` (spec section 3.3)."""
+args = ["run", "fill_value_once_fn.js"]
+exit = "success"
+stdout = "1,1\n"
+
+[[case]]
+name = "a_fill_value_on_a_bound_array_is_evaluated_once"
+rationale = """At `733cd26125` kali printed `3,2` at exit 0 with no diagnostic where node v26.8.2 prints `1,2` (spec section 3.3)."""
+args = ["run", "fill_value_once_rebound.js"]
+exit = "success"
+stdout = "1,2\n"
+
+[[case]]
+name = "a_one_element_literal_of_an_allocation_refuses"
+rationale = """At `733cd26125` kali printed `3` at exit 0 with no diagnostic where node v26.8.2 prints `1`: the literal lowers to the same LIR node as `new Array(3)`, and the declarator lane read it as the allocation (spec section 3.1)."""
+args = ["run", "literal_of_allocation.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${ALLOC_IN_LITERAL}"]
+
+[[case]]
+name = "a_one_element_literal_of_an_allocation_refuses_in_a_function"
+rationale = """At `733cd26125` kali printed `3` at exit 0 with no diagnostic where node v26.8.2 prints `1`, identically to the module scope (spec section 3.1)."""
+args = ["run", "literal_of_allocation_fn.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${ALLOC_IN_LITERAL}"]
+
+[[case]]
+name = "a_one_element_literal_of_a_bare_array_call_refuses"
+rationale = """At `733cd26125` kali printed `3` at exit 0 with no diagnostic where node v26.8.2 prints `1` (spec section 3.1)."""
+args = ["run", "literal_of_bare_allocation.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${ALLOC_IN_LITERAL}"]
+
+[[case]]
+name = "a_one_element_literal_of_a_fill_refuses"
+rationale = """At `733cd26125` kali printed `3` at exit 0 with no diagnostic where node v26.8.2 prints `1` (spec section 3.1)."""
+args = ["run", "literal_of_fill.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${ALLOC_IN_LITERAL}"]
+
+[[case]]
+name = "a_one_element_literal_of_an_allocation_as_an_argument_refuses"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `1` (spec section 3.1)."""
+args = ["run", "literal_of_allocation_argument.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${ALLOC_IN_LITERAL}"]
+
+[[case]]
+name = "an_array_literal_argument_holding_an_identifier_refuses"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `3`: the guard only refused arrays whose elements are all literals (spec section 3.4)."""
+args = ["run", "arg_literal_identifier.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NOT_PASSABLE}"]
+
+[[case]]
+name = "an_array_literal_argument_holding_an_expression_refuses"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `2` (spec section 3.4)."""
+args = ["run", "arg_literal_expression.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NOT_PASSABLE}"]
+
+[[case]]
+name = "an_array_literal_argument_of_two_elements_refuses"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `4` (spec section 3.4)."""
+args = ["run", "arg_literal_two_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NOT_PASSABLE}"]
+
+[[case]]
+name = "a_bound_array_literal_argument_refuses"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `3`: binding the literal first changes nothing, because the guard resolves the fold lane (spec section 3.4)."""
+args = ["run", "arg_literal_bound.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NOT_PASSABLE}"]
+
+[[case]]
+name = "an_array_literal_argument_holding_a_call_refuses"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `5`. This shape lowers identically to `new g()`, which is why the guard refuses both (spec section 3.4)."""
+args = ["run", "arg_literal_call_element.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NOT_PASSABLE}"]
+
+[[case]]
+name = "an_object_values_spread_argument_refuses"
+rationale = """At `733cd26125` kali printed `0,0,0` at exit 0 with no diagnostic where node v26.8.2 prints `2,3,2`. Five browser case files program this shape and failed only because their assert helpers throw (spec section 3.4)."""
+args = ["run", "arg_values_spread.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NOT_PASSABLE}"]
+
+[[case]]
+name = "an_object_entries_argument_refuses"
+rationale = """At `733cd26125` kali printed `0,0,0` at exit 0 with no diagnostic where node v26.8.2 prints `2,b,1` (spec section 3.4)."""
+args = ["run", "arg_entries.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NOT_PASSABLE}"]
+
+[[case]]
+name = "a_constructed_argument_refuses"
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `4`. `new C()` lowers to the same LIR node as `[C()]`, so the guard cannot admit one without admitting the other; the human partner ruled the wide guard (spec section 3.4)."""
+args = ["run", "arg_construction.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NOT_PASSABLE}"]
+
+[[case]]
+name = "a_bound_allocation_argument_is_correct"
+rationale = """Correct at `733cd26125`: kali and node v26.8.2 both print `6`. The control that locates the fault in the inline allocation rather than in the callee (spec section 2.2)."""
+args = ["run", "control_bound_allocation.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "a_let_fill_declarator_is_correct"
+rationale = """Correct at `733cd26125`: kali and node v26.8.2 both print `2`. The declarator lane must not move (spec section 3.2)."""
+args = ["run", "control_let_fill.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "a_const_fill_declarator_in_a_function_is_correct"
+rationale = """Correct at `733cd26125`: kali and node v26.8.2 both print `2` (spec section 3.2)."""
+args = ["run", "control_const_fill_fn.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "an_allocation_expression_statement_is_correct"
+rationale = """Correct at `733cd26125`: kali and node v26.8.2 both print `ok`. An allocation whose value is discarded must still compile (spec section 3.2)."""
+args = ["run", "control_expression_statement.js"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "an_ignored_allocation_argument_is_correct"
+rationale = """Correct at `733cd26125`: kali and node v26.8.2 both print `1`. A callee that ignores its parameter never reads the zero handle (spec section 2.2)."""
+args = ["run", "control_ignored_argument.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_two_element_literal_of_allocations_is_correct"
+rationale = """Correct at `733cd26125`: kali and node v26.8.2 both print `2`. Only the ONE-element literal collides with an allocation's LIR node, so the refusal must not widen to this (spec section 3.1)."""
+args = ["run", "control_two_element_literal.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "a_bound_returned_allocation_argument_is_correct"
+rationale = """Correct at `733cd26125`: kali and node v26.8.2 both print `4`. The allocation is bound inside `mk` before being returned, so a real handle crosses the call (spec section 2.2)."""
+args = ["run", "control_bound_returned_allocation.js"]
+exit = "success"
+stdout = "4\n"

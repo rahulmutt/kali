@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/.cache/cargo-target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `41307551cf` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `4f9298fe37` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -351,9 +351,9 @@ Every input to §2, so a reader who disagrees with the clustering can re-band fr
 
 ### 3.1 What the SILENT filter removed, and what it cost the ranking
 
-Spec §8.1 removes these 19 entries for **two different reasons**, and collapsing them would misdescribe 2 of them:
+Spec §8.1 removes these 23 entries for **two different reasons**, and collapsing them would misdescribe 2 of them:
 
-- **Not damage** — `FIXED`, `FAIL_CLOSED`, `BOTH_REJECT`. kali either agrees with node or refuses honestly. 17 entries leave this way: R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-12, R-13, R-19, R-20, R-32, R-33, R-49, R-56, R-59, R-63.
+- **Not damage** — `FIXED`, `FAIL_CLOSED`, `BOTH_REJECT`. kali either agrees with node or refuses honestly. 21 entries leave this way: R-01, R-02, R-03, R-04, R-05, R-07, R-11, R-12, R-13, R-19, R-20, R-32, R-33, R-49, R-56, R-59, R-63, R-64, R-65, R-66, R-67.
 - **Outside this ranking's question** — `ACCEPTS_INVALID`, `FL_INTERNAL`, `TIMEOUT`, `NONDETERMINISTIC`. §8.1 *reports* these in the regenerated table and keeps them out of the ranking, whose question is *what silent defect should be fixed next*. 2 entries leave this way: R-29, R-54. The distinction is not pedantic: R-29's §0.2 row records kali printing `r=1` at exit 0 with no diagnostic, which is silent by any plain reading. It is out because accepting a program node rejects is a different defect class from giving a wrong answer to a valid one — not because nothing bad happens.
 
 Their counts are printed because the removal is not cosmetic: it takes the largest reachable count in the whole measurement out of the ranking.
@@ -363,6 +363,8 @@ Their counts are printed because the removal is not cosmetic: it takes the large
 | R-07 | 2 | 449 | 78 | FIXED |
 | R-13 | 2 | 302 | 43 | FIXED |
 | R-59 | 2 | 235 | 25 | FAIL_CLOSED |
+| R-67 | 2 | 12 | 7 | FIXED |
+| R-65 | 2 | 58 | 5 | FAIL_CLOSED |
 | R-01 | 1 | 18 | 0 | FAIL_CLOSED |
 | R-02 | 1 | 2 | 0 | FAIL_CLOSED |
 | R-03 | 1 | 15 | 0 | FAIL_CLOSED |
@@ -379,8 +381,10 @@ Their counts are printed because the removal is not cosmetic: it takes the large
 | R-54 | 3 | uncountable | uncountable | ACCEPTS_INVALID |
 | R-56 | 2 | 0 | 0 | FIXED |
 | R-63 | 2 | 35 | 0 | FAIL_CLOSED |
+| R-64 | 2 | 0 | 0 | FIXED |
+| R-66 | 2 | 0 | 0 | FAIL_CLOSED |
 
-Only 3 of the 19 removed entries have a nonzero reachable count at all: R-07 (78) and R-13 (43) and R-59 (25). The largest of them, R-07 at 78, is **the largest reachable count anywhere in `counts.json`** — larger than the largest that survives the filter (R-30 at 57). The ranking's numeric input is much thinner than the raw measurement looks.
+Only 5 of the 23 removed entries have a nonzero reachable count at all: R-07 (78) and R-13 (43) and R-59 (25) and R-65 (5) and R-67 (7). The largest of them, R-07 at 78, is **the largest reachable count anywhere in `counts.json`** — larger than the largest that survives the filter (R-30 at 57). The ranking's numeric input is much thinner than the raw measurement looks.
 
 And of the 28 entries that do enter, **6 have a reachable count above zero** (R-06 = 1, R-08 = 14, R-10 = 1, R-14 = 7, R-30 = 57, R-31 = 2); 19 measure zero and 3 have no count at all. The bands below separate 17 clusters on the evidence of 6 nonzero entries.
 
@@ -399,7 +403,7 @@ Read down the reachable rows: of R-13's 43 reachable sites, **0 have the object-
 
 ### 3.3 Which counts are upper bounds
 
-A count is an upper bound when the predicate admits sites the defect does not reach — because the AST cannot see a runtime type, a representation, or a compiler-internal proof. 9 records disclose their own upper bound: R-08, R-16, R-26, R-30, R-56 (not in the ranking), R-57, R-58, R-59 (not in the ranking), R-63 (not in the ranking). 4 more are upper bounds their records do **not** disclose, found by this measurement: R-07 (not in the ranking), R-13 (not in the ranking), R-14, R-60. Every note is in `counts.json` under `upperBound`.
+A count is an upper bound when the predicate admits sites the defect does not reach — because the AST cannot see a runtime type, a representation, or a compiler-internal proof. 12 records disclose their own upper bound: R-08, R-16, R-26, R-30, R-56 (not in the ranking), R-57, R-58, R-59 (not in the ranking), R-63 (not in the ranking), R-64 (not in the ranking), R-65 (not in the ranking), R-67 (not in the ranking). 4 more are upper bounds their records do **not** disclose, found by this measurement: R-07 (not in the ranking), R-13 (not in the ranking), R-14, R-60. Every note is in `counts.json` under `upperBound`.
 
 ### 3.4 A lane result is not an entry result
 

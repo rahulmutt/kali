@@ -150,3 +150,37 @@ fn object_allocation_calls_shared_alloc_helper() {
         "expected object allocation to call the shared __alloc helper (index {alloc_index}):\n{text}"
     );
 }
+
+#[test]
+fn every_lowered_function_reserves_five_trailing_i64_scratch_locals() {
+    // Two general-purpose slots as before, plus three owned by
+    // `emit_array_allocation_with_len` and `emit_array_fill`: the handle, the
+    // count and the fill value. The dedicated three exist so that an allocation
+    // nested inside any other emitter's scratch-holding window cannot overwrite
+    // it (spec section 3.3).
+    let program = parse_and_lower_lir("console.log(1);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let text = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    let index = exported_function_index(&text, "_start");
+    let decl_needle = format!("(func (;{index};) (type ");
+    let start_body = text
+        .lines()
+        .skip_while(|line| !line.trim_start().starts_with(&decl_needle))
+        .take(4)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        start_body.contains("(local i64 i64 i64 i64 i64)"),
+        "_start should declare five trailing i64 scratch locals, got:\n{start_body}"
+    );
+}
