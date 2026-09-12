@@ -5560,14 +5560,24 @@ impl<'a> FunctionEmitter<'a> {
     /// two-argument controls all refused with `E5506`. The one casualty is
     /// `globalThis.globalThis.Uint8Array(n)`, which names the real builtin
     /// and is DECLINED by this guard rather than routed through it --
-    /// measured, not merely predicted: the declined arm falls into the
-    /// aggregate placeholder and answers `0` silently at exit 0 (node prints
-    /// the array's length, e.g. `5` for `Uint8Array(5)`), which equals the
-    /// pre-Task-8 baseline for that spelling and is covered by the R-64
-    /// placeholder filing rather than newly introduced here -- accepted
-    /// deliberately: this spec is "a real array, OR a refusal", and this
-    /// pathological spelling was already the placeholder half of that pair
-    /// before this guard existed.
+    /// measured, not merely predicted, on the exact spelling: `function f(x)
+    /// { return x; } console.log(f(globalThis.globalThis.Uint8Array(5)));`
+    /// (a bare call, no `new`) gives kali `0` at exit 0 -- the declined arm
+    /// falls into the aggregate placeholder and answers silently -- where
+    /// node THROWS `TypeError: Constructor Uint8Array requires 'new'` at a
+    /// nonzero exit and prints nothing at all; the two sides disagree on
+    /// more than the value. The `new` + `.length` sibling
+    /// (`function f(x) { return x.length; } console.log(f(new
+    /// globalThis.globalThis.Uint8Array(5)));`) is the pair that actually
+    /// matches the pre-Task-8 baseline shape: kali still answers `0`, and
+    /// node prints `5`. Both are the same placeholder mechanism this file's
+    /// (now-closed, FIXED) R-64 filing already described for a bare
+    /// allocation reaching a non-materializing lane -- named here for that
+    /// mechanism, not because R-64 itself is still open -- and neither is
+    /// newly introduced by this guard: accepted deliberately, since this
+    /// spec is "a real array, OR a refusal", and this pathological spelling
+    /// was already the placeholder half of that pair before this guard
+    /// existed.
     ///
     /// (`"Array"` has no qualified form at all in
     /// `is_array_like_constructor`, so the split is a no-op for it.)

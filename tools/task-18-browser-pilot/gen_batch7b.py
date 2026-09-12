@@ -554,7 +554,7 @@ RULE11_HEADER_INTRO = [
 ]
 
 
-def rule11_block(*, disjunction, cite_text, per_mode, needle, also_true, needles):
+def rule11_block(*, disjunction, cite_text, per_mode, needle, also_true, needles, superseded=False):
     lines = list(RULE11_HEADER_INTRO)
     lines.append(f"  {disjunction}")
     lines.append(f"  -- whose cited construct is {cite_text}.")
@@ -578,24 +578,47 @@ def rule11_block(*, disjunction, cite_text, per_mode, needle, also_true, needles
               "FIRST disjunct the source spells that holds on EVERY cell -- "
               + Q + needle + Q + " -- and "
               "raises if no disjunct is universal.", 86)
-    lines += [
-        "This is a PRESENCE claim, so narrowing it is a verified strengthening (every run",
-        "satisfying the new assertion satisfies the old); rule 2's asymmetry forbids the same",
-        "narrowing for an ABSENCE claim, and none is made here. The source's full disjunction",
-        "sentence is carried into every affected rationale, so the narrowing is recorded rather",
-        "than silent.",
-    ]
+    if superseded:
+        lines += wrap(
+            "TASK 9 CHANGED WHICH CLAIM THIS IS: the pinned needle "
+            + Q + needle + Q
+            + " is NOT one of the source's own disjuncts above, so this is a SUPERSESSION, not"
+              " a narrowing -- a run satisfying the pinned `*_contains` claim does NOT thereby"
+              " satisfy the source's original OR (the source's disjuncts no longer hold on"
+              " either stream at all; the widened argument guard changed the underlying"
+              " construct's behaviour, not merely which already-true disjunct gets asserted)."
+              " The source's full disjunction sentence above is carried for provenance -- what"
+              " the pre-migration test asserted, and why the harness OR machinery below this"
+              " file's construct once needed -- and each affected rationale's own Task 9 note"
+              " names what replaced it.", 86)
+    else:
+        lines += [
+            "This is a PRESENCE claim, so narrowing it is a verified strengthening (every run",
+            "satisfying the new assertion satisfies the old); rule 2's asymmetry forbids the same",
+            "narrowing for an ABSENCE claim, and none is made here. The source's full disjunction",
+            "sentence is carried into every affected rationale, so the narrowing is recorded rather",
+            "than silent.",
+        ]
     return lines
 
 
-def rule11_rationale(disjunction, cite_text, stream, needle, also_true):
+def rule11_rationale(disjunction, cite_text, stream, needle, also_true, superseded=False):
     out = (f" The source's full disjunction sentence, carried verbatim per rule 11: "
            f"{disjunction}; its cited construct is {cite_text}. The case format has no "
            f"disjunction, so that OR was resolved against the real binary rather than "
            f"reproduced: in this output mode the diagnostic text lands on {stream}, so the "
-           f"claim is carried as `{stream}_contains`. Narrowing a PRESENCE claim to the stream "
-           "that actually carries it is a verified strengthening -- every run satisfying it "
-           "satisfies the original OR.")
+           f"claim is carried as `{stream}_contains`.")
+    if superseded:
+        out += (
+            f" `{needle}` is NOT one of the source's own disjuncts, so this SUPERSEDES the"
+            " source's original OR rather than narrowing it -- a run satisfying"
+            f" `{stream}_contains` does not thereby satisfy the original claim, because neither"
+            " disjunct holds on either stream any more. What actually replaced it is described"
+            " next."
+        )
+    else:
+        out += (" Narrowing a PRESENCE claim to the stream that actually carries it is a "
+                 "verified strengthening -- every run satisfying it satisfies the original OR.")
     if also_true:
         out += (" More than one disjunct is in fact true on that stream ("
                 + ", ".join(Q + n + Q for n in also_true)
@@ -1275,8 +1298,9 @@ def gen_object_keys_entries_spread_bundle():
         "  * ASSERTION SHAPE, verified directly against the real binary rather than",
         "    reproducing the OLD harness-stream OR (which no longer applies -- the harness",
         "    is never reached): `exit = \"failure\"` on the build, with `E5506` on stderr in",
-        "    text mode and inside the JSON envelope's `errors[0].code` on stdout in",
-        "    `--output json` mode (the other stream is empty in both modes).",
+        "    text mode and inside the JSON envelope's success/exitCode (false/1) and",
+        "    `errors[0].code` on stdout in `--output json` mode (the other stream is",
+        "    empty in both modes).",
         "",
     )
 
@@ -1309,14 +1333,15 @@ def gen_object_keys_entries_spread_bundle():
                   "metadata write or the harness ever runs -- verified directly against the "
                   "real binary, across all four extensions and both output modes: `E5506` "
                   "lands on stderr only in text mode, and only inside the JSON envelope's "
-                  "`errors[0].code` on stdout in `--output json` mode."
+                  "success/exitCode (false/1) and `errors[0].code` on stdout in "
+                  "`--output json` mode."
                 + prose),
             "steps": [
                 build_step(
                     "app.${ext}", json_output,
                     asserts=({"exit": "failure", "stderr_contains": ["E5506"]} if not json_output
                               else {"exit": "failure"}),
-                    json_claims=({"errors": {"0": {"code": "E5506"}}} if json_output else None),
+                    json_claims=({"success": False, "exitCode": 1, "errors": {"0": {"code": "E5506"}}} if json_output else None),
                 ),
             ],
         })
@@ -1585,7 +1610,8 @@ def gen_object_keys_entries_spread_harness():
         rule11_block(disjunction=disjunction, cite_text=c_or,
                      per_mode=[("text mode", streams[False]),
                                ("`--output json`", streams[True])],
-                     needle=needles[0], also_true=also, needles=needles),
+                     needle=needles[0], also_true=also, needles=needles,
+                     superseded=True),
     )
 
     prose = prose_of(distinct_texts(blocks), stem)
@@ -1622,7 +1648,8 @@ def gen_object_keys_entries_spread_harness():
                        if variant == "frozen" else "")
                     + f". kali fails closed on it: the source asserts the process fails {c_fail} "
                       "and that a runtime diagnostic appears."
-                    + rule11_rationale(disjunction, c_or, stream, needles[0], also)
+                    + rule11_rationale(disjunction, c_or, stream, needles[0], also,
+                                        superseded=True)
                     + TASK9_REPIN_SENTENCE
                     + " Task 9 (spec 3.4) widens the fold-lane-array-argument guard to refuse "
                       "the fold-lane spread-result arguments this program's own "
@@ -3073,8 +3100,8 @@ def gen_object_values_spread_bundle():
         "    the harness ever runs.",
         "  * ASSERTION SHAPE, verified directly against the real binary: `exit = \"failure\"`",
         "    on the build, with `E5506` on stderr in text mode and inside the JSON",
-        "    envelope's `errors[0].code` on stdout in `--output json` mode (the other",
-        "    stream is empty in both modes).",
+        "    envelope's success/exitCode (false/1) and `errors[0].code` on stdout in",
+        "    `--output json` mode (the other stream is empty in both modes).",
         "",
     )
 
@@ -3105,14 +3132,15 @@ def gen_object_values_spread_bundle():
                   "metadata write or the harness ever runs -- verified directly against the "
                   "real binary, across all four extensions and both output modes: `E5506` "
                   "lands on stderr only in text mode, and only inside the JSON envelope's "
-                  "`errors[0].code` on stdout in `--output json` mode."
+                  "success/exitCode (false/1) and `errors[0].code` on stdout in "
+                  "`--output json` mode."
                 + prose),
             "steps": [
                 build_step(
                     "app.${ext}", json_output,
                     asserts=({"exit": "failure", "stderr_contains": ["E5506"]} if not json_output
                               else {"exit": "failure"}),
-                    json_claims=({"errors": {"0": {"code": "E5506"}}} if json_output else None),
+                    json_claims=({"success": False, "exitCode": 1, "errors": {"0": {"code": "E5506"}}} if json_output else None),
                 ),
             ],
         })
@@ -3204,7 +3232,8 @@ def gen_object_values_spread_harness():
         rule11_block(disjunction=disjunction, cite_text=c_or,
                      per_mode=[("text mode", streams[False]),
                                ("`--output json`", streams[True])],
-                     needle=needles[0], also_true=also, needles=needles),
+                     needle=needles[0], also_true=also, needles=needles,
+                     superseded=True),
     )
 
     prose = prose_of(distinct_texts(blocks), stem)
@@ -3232,7 +3261,8 @@ def gen_object_values_spread_harness():
                       "results through thirteen root spellings and checks every collected array. "
                       f"kali fails closed on it: the source asserts the process fails {c_fail} "
                       "and that a runtime diagnostic appears."
-                    + rule11_rationale(disjunction, c_or, stream, needles[0], also)
+                    + rule11_rationale(disjunction, c_or, stream, needles[0], also,
+                                        superseded=True)
                     + TASK9_REPIN_SENTENCE
                     + " Task 9 (spec 3.4) widens the fold-lane-array-argument guard to refuse "
                       "the fold-lane spread-result arguments this program's own assert-helper "

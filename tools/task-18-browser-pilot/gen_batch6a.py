@@ -2208,8 +2208,9 @@ def gen_object_entries_iteration():
             "Task 9's widened guard now refuses at BUILD TIME (E5506). Verified directly",
             "against the real binary, across all four extensions and both output modes:",
             "`E5506` lands on stderr only in text mode, and only inside the JSON envelope's",
-            "`errors[0].code` on stdout in `--output json` mode (the other stream is empty",
-            "in both modes). `alias_program` is UNCHANGED -- it already failed to build",
+            "success/exitCode (false/1) and `errors[0].code` on stdout in `--output json`",
+            "mode (the other stream is empty in both modes).",
+            "`alias_program` is UNCHANGED -- it already failed to build",
             "before Task 9, for an unrelated growable-array `.push` shape reason, so its",
             "single `exit = \"failure\"` claim (no stdout/stderr needle at all) still holds",
             "and is not re-pinned.",
@@ -2253,7 +2254,7 @@ def gen_object_entries_iteration():
                  "exit": "failure"},
             ]
             if jo:
-                steps[0]["json"] = {"errors": {"0": {"code": "E5506"}}}
+                steps[0]["json"] = {"success": False, "exitCode": 1, "errors": {"0": {"code": "E5506"}}}
             else:
                 steps[0]["stderr_contains"] = ["E5506"]
             cases.append({
@@ -2284,7 +2285,8 @@ def gen_object_entries_iteration():
                       "the metadata write or the harness ever runs -- verified directly "
                       "against the real binary, across all four extensions and both output "
                       "modes: `E5506` lands on stderr only in text mode, and only inside the "
-                      "JSON envelope's `errors[0].code` on stdout in `--output json` mode.",
+                      "JSON envelope's success/exitCode (false/1) and `errors[0].code` "
+                      "on stdout in `--output json` mode.",
                     ("On the json branch this used to additionally read the build envelope's "
                      "schemaVersion/command/success/exitCode and assert the `errors` array "
                      "was empty -- and asserted NO payload field, which was preserved rather "
