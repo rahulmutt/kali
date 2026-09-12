@@ -5569,12 +5569,11 @@ impl<'a> FunctionEmitter<'a> {
         function: &mut Function,
         len: ArrayLen,
     ) -> EmittedValue {
-        let scratch = self.locals.len() as u32;
-        // Second scratch slot (see the `+ 2` extra-locals count in `lower.rs`): holds the
-        // evaluated size argument so its AST node is emitted exactly once, then reused for
-        // both the length-header store and the `(n+1)*8` byte-count math. Evaluating it
-        // once also avoids a double-evaluation of any side effect in the size expression
-        // and avoids re-emitting into the `scratch` slot in between the two uses below.
+        // Dedicated slots (see `lower.rs`'s reservation comment): never the two
+        // general-purpose scratch slots, so an allocation nested inside another
+        // emitter's scratch-holding window cannot overwrite it. Both are written
+        // only AFTER the size argument has been emitted.
+        let scratch = self.locals.len() as u32 + 2;
         let size_scratch = scratch + 1;
 
         // size = evaluated size argument (emitted exactly once) or a constant.
@@ -5995,12 +5994,17 @@ impl<'a> FunctionEmitter<'a> {
         value: LirNodeId,
         binding_name: &str,
     ) -> EmittedValue {
-        let base_local = self.locals.len() as u32;
+        // Dedicated slots (see `lower.rs`'s reservation comment). Both the
+        // receiver and the value are emitted BEFORE any of them is written, so a
+        // nested allocation or fill in either one completes first and cannot
+        // clobber this call's handle, counter or value.
+        let base_local = self.locals.len() as u32 + 2;
         let counter_local = base_local + 1;
+        let value_local = base_local + 2;
 
-        // Materialize the array base handle (i64) into `base_local`. A fresh
-        // `new Array(n)` receiver allocates (writing its length header); an existing
-        // binding just loads its handle.
+        // Receiver first, then value: JavaScript's evaluation order. A fresh
+        // `new Array(n)` receiver allocates (writing its length header); an
+        // existing binding just loads its handle. Both leave an i64 on the stack.
         if let Some(size_arg) = self.resolve_array_alloc_call(receiver) {
             let allocated = self.emit_array_allocation(function, size_arg);
             if !allocated.produced {
@@ -6012,14 +6016,33 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(0));
             }
         }
+
+        // `.fill(v)` evaluates `v` ONCE in JavaScript. Emitting it inside the loop
+        // ran its side effects once per element (register entry R-67:
+        // `new Array(3).fill(g())` called `g` three times where node calls it
+        // once), so it is evaluated here and held in a slot. An f64 element repr
+        // stores the promoted float's BITS, restored at each store below, because
+        // the reserved slots are i64.
+        let elem_is_float = self.array_elem_repr(binding_name) == kali_common::Repr::F64;
+        let value_is_float = self.is_float_valued(value);
+        let produced = self.emit_node(function, value, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        if elem_is_float {
+            if !produced.produced || !value_is_float {
+                function.instruction(&Instruction::F64ConvertI64S);
+            }
+            function.instruction(&Instruction::I64ReinterpretF64);
+        }
+
+        // The stack holds [handle, value]; pop in that order.
+        function.instruction(&Instruction::LocalSet(value_local));
         function.instruction(&Instruction::LocalSet(base_local));
 
         // i = 0
         function.instruction(&Instruction::I64Const(0));
         function.instruction(&Instruction::LocalSet(counter_local));
-
-        let elem_is_float = self.array_elem_repr(binding_name) == kali_common::Repr::F64;
-        let value_is_float = self.is_float_valued(value);
 
         function.instruction(&Instruction::Block(BlockType::Empty));
         function.instruction(&Instruction::Loop(BlockType::Empty));
@@ -6047,16 +6070,10 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::I32Mul);
         function.instruction(&Instruction::I32Add);
 
-        // Push `value` at the array's element width. An integer literal/expr stored
-        // into an f64 array is promoted to f64 first.
-        let produced = self.emit_node(function, value, true);
-        if !produced.produced {
-            function.instruction(&Instruction::I64Const(0));
-        }
+        // Push the once-evaluated `value` at the array's element width.
+        function.instruction(&Instruction::LocalGet(value_local));
         if elem_is_float {
-            if !produced.produced || !value_is_float {
-                function.instruction(&Instruction::F64ConvertI64S);
-            }
+            function.instruction(&Instruction::F64ReinterpretI64);
             function.instruction(&Instruction::F64Store(MemArg {
                 offset: 8,
                 align: 3,

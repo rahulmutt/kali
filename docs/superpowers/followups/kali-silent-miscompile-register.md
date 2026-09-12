@@ -309,7 +309,7 @@ a defect.
 | R-64 an allocation outside the materializing lanes → 0 | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x.length; } console.log(f(new Array(6)));` prints `0` in kali at exit 0 with empty stderr where node prints `6` at exit 0. Lane `r64a`. §2's entry carries ten more lanes from the spec's own table plus one measured correction. |
 | R-65 a fold-lane array argument → zeros in the callee | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x[0]; } const k = 3; console.log(f([k]));` prints `0` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r65a`. §2's entry carries eight more lanes from the spec's own table. |
 | R-66 a one-element literal of an allocation IS that allocation | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-11 by the inline-allocation-value-position project (Task 6) — its one lane moved.** Re-derived from the two `r66a` cases, which now assert `fail_closed`: kali exits 1 with empty stdout and `error[E5506]` naming the collision ("lowers to the same node as the allocation itself"); node prints `1`. FAIL_CLOSED, not FIXED: the literal and the allocation remain indistinguishable at the LIR level, so kali refuses the collision rather than routing a value through it. Originally **added 2026-09-11 by the same project**, off `733cd26125`, in the same commit as R-67; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `const xs = [new Array(3)]; console.log(xs.length);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r66a`. §2's entry carries three more lanes from the spec's own table. |
-| R-67 `.fill(v)` evaluates `v` once per element | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`, in the same commit as R-66; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `let n = 0; function g() { n = n + 1; return 1; } const a = new Array(3).fill(g()); console.log(n);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r67a`. §2's entry carries two more lanes from the spec's own table. |
+| R-67 `.fill(v)` evaluates `v` once per element | **FIXED** (both scopes) | **RETIRED 2026-09-11 by the inline-allocation-value-position project (Task 7) — its one lane moved.** Re-derived from the two `r67a` cases, which now assert `fixed`: kali prints `1` at exit 0 with empty stderr, matching node's `1`. FIXED: `emit_array_fill` now evaluates its value argument once, into a dedicated scratch slot, and loads it on every loop iteration instead of re-emitting the AST node. Originally **added 2026-09-11 by the same project**, off `733cd26125`, in the same commit as R-66; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `let n = 0; function g() { n = n + 1; return 1; } const a = new Array(3).fill(g()); console.log(n);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r67a`. §2's entry carries two more lanes from the spec's own table. |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
 neither has an oracle case, and a row with no case behind it is what this
@@ -924,6 +924,17 @@ with no change to the 48/49 tier-ranked figures those paragraphs record). What
 changed is the two `r66a` cases (`fail_closed`, not `silent`) and §0.2's row.
 R-64, R-65 and R-67 are untouched by this commit and remain filed SILENT,
 their own retirements left for Task 8, Task 9 and Task 7 respectively.
+
+**Updated 2026-09-11 a sixth time (inline-allocation-value-position, Task 7).**
+**R-67** retires FIXED, in the commit that fixes it. This movement does
+**not** move either right-hand-column count: the Tier-2 cell stays **37** and
+the register still holds **67** numbered entries in total (R-01..R-67) — a
+retirement keeps the entry (marked `### R-67 ... — CLOSED 2026-09-11
+(FIXED)`) rather than removing it, the same no-op-on-the-count shape R-66's
+own retirement took immediately above. What changed is the two `r67a` cases
+(`fixed`, not `silent`) and §0.2's row. R-64 and R-65 are untouched by this
+commit and remain filed SILENT, their own retirements left for Task 8 and
+Task 9 respectively.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -4759,7 +4770,7 @@ tier, ordering is by blast radius.
 
 ---
 
-### R-67: `.fill(v)` evaluates `v` once per element
+### R-67: `.fill(v)` evaluates `v` once per element — **CLOSED 2026-09-11 (FIXED)**
 
 - **Added**: 2026-09-11, by the **inline-allocation-value-position** project
   (`docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`),
@@ -4825,12 +4836,31 @@ tier, ordering is by blast radius.
   `.fill(v)` on a user class or plain object with its own `fill` method is
   syntactically identical to acorn but does not exhibit this defect at all,
   and is counted here without ever reaching that loop.
-- **Pinned by**: two oracle cases (`r67a`, both scopes, `tier2.toml`) asserting
-  the SILENT class.
+- **Pinned by**: two oracle cases (`r67a`, both scopes, `tier2.toml`) ~~asserting
+  the SILENT class~~ — **updated 2026-09-11 by the inline-allocation-value-position
+  fix (Task 7): the two cases now assert `fixed`.**
 - **Confidence**: high on behaviour (all three lanes independently re-measured
   at this baseline via Task 2's own case files); high on mechanism (the exact
   emission-order sites named above, spec §2.6, `emit/call.rs:5991` and
   `:6052`).
+- **RETIRED 2026-09-11, by the inline-allocation-value-position project (Task
+  7), in the commit that fixes it.**
+  - `emit_array_allocation_with_len` and `emit_array_fill`
+    (`crates/kali_codegen/src/emit/call.rs`) now own three dedicated i64
+    scratch locals — `self.locals.len() + 2` (handle/base), `+ 3`
+    (size/counter), `+ 4` (fill value) — reserved by growing `lower.rs`'s
+    trailing scratch count from 2 to 5. `emit_array_fill` emits the receiver
+    and then the value BEFORE writing any of its three slots, so a nested
+    allocation or fill inside either one runs to completion first and cannot
+    clobber this call's own state. The value is evaluated exactly once, held
+    in `value_local`, and loaded (not re-emitted) at every loop iteration —
+    the fix for the defect itself.
+  - All three lanes measured in the table above now read `1,1` / `1,1` / `1,2`
+    in kali, byte-identical to node, and both `r67a` cases now read FIXED:
+    kali prints `1` at exit 0 with empty stderr, matching node's `1`.
+  - **What this does NOT close**: R-64 and R-65 are unrelated matchers and
+    unrelated fixes, filed in the same project and left for later tasks
+    (R-64 → Task 8, R-65 → Task 9).
 
 ---
 
