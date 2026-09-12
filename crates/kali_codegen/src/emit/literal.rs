@@ -671,7 +671,7 @@ impl<'a> FunctionEmitter<'a> {
                             match self.array_elem_repr(&base_name) {
                                 kali_common::Repr::F64 => {
                                     // Stack: [address:i32]. `scratch` is always i64-typed
-                                    // (see `lower.rs`'s two trailing i64 scratch locals), so
+                                    // (see `lower.rs`'s five trailing i64 scratch locals), so
                                     // it cannot tee the i32 address or an f64 RHS directly.
                                     // Extend the address to i64 to tee it, then wrap back to
                                     // i32 to use it as a memory address; after the store,

@@ -1466,7 +1466,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // The four synthetic page-pool functions are hand-emitted (not
         // lowered from LIR, have no `function.locals` names, and are not
         // repr-directed), and each needs its own fixed set of i32 scratch
-        // locals instead of the two i64 scratch locals every other function
+        // locals instead of the five i64 scratch locals every other function
         // gets:
         //   `__alloc`/`__alloc_global` (`emit_bump_body`): 2 — `cur`, `p`
         //     (locals 1, 2; local/param 0 is `size`).

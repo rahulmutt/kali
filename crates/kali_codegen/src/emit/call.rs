@@ -5979,10 +5979,14 @@ impl<'a> FunctionEmitter<'a> {
     /// the stack as the expression result (so the call is bindable/chainable).
     ///
     /// Mirrors the `block { loop { <test ⇒ br out>; body; br loop } }` idiom used by
-    /// [`Self::emit_loop`]. Uses the two trailing i64 scratch locals reserved in
-    /// `lower.rs`: `base_local` holds the array base handle (also the result) and
-    /// `counter_local` the loop counter `i`. The length bound is re-read each pass
-    /// from the i64 header at `offset: 0`, so no third local is needed.
+    /// [`Self::emit_loop`]. Uses three of the five trailing i64 scratch locals
+    /// reserved in `lower.rs`, dedicated to this function and
+    /// `emit_array_allocation_with_len` alone: `base_local` (`+2`) holds the array
+    /// base handle (also the result), `counter_local` (`+3`) the loop counter `i`,
+    /// and `value_local` (`+4`) the fill value, evaluated exactly once before the
+    /// loop and reused on every pass (JavaScript's `.fill(v)` evaluates `v` once,
+    /// not once per element). The length bound is re-read each pass from the i64
+    /// header at `offset: 0`, so no further local is needed.
     ///
     /// `binding_name` selects the element repr (F64 vs I64) and hence the store
     /// width: an f64 array filled with an integer literal stores it as `1.0` via a
